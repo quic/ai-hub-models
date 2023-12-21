@@ -1,0 +1,101 @@
+{
+  "name": "QA_App",
+  "author": "",
+  "homepage": "./",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "build": {
+    "appId": "com.electron.QA_App",
+    "productName": "QA_App",
+    "files": [
+      "**/*",
+      "dist/**/*"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "dist"
+    },
+    "asar": true,
+    "dmg": {
+      "contents": [
+        {
+          "x": 110,
+          "y": 150
+        },
+        {
+          "x": 240,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": ""
+    },
+    "win": {
+      "target": "nsis",
+      "icon": ""
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "installerIcon": "",
+      "uninstallerIcon": "",
+      "createDesktopShortcut": "always"
+    },
+    "afterPack": "./removeLocales.js"
+  },
+  "postinstall": "electron-builder install-app-deps",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve --proxy-config proxy.conf.json",
+    "dist": "electron-builder",
+    "electron": "electron .",
+    "build": "ng build --prod"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/animations": "~13.2.0",
+    "@angular/common": "~13.2.0",
+    "@angular/compiler": "~13.2.0",
+    "@angular/core": "~13.2.0",
+    "@angular/forms": "~13.2.0",
+    "@angular/platform-browser": "~13.2.0",
+    "@angular/platform-browser-dynamic": "~13.2.0",
+    "@angular/router": "~13.2.0",
+    "body-parser": "^1.19.0",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "@angular/material": "^12.2.8",
+    "@angular/cdk": "^12.2.7",
+    "path": "^0.12.7",
+    "request": "^2.88.2",
+    "rxjs": "~7.5.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.11.4"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "~13.2.4",
+    "@angular/cli": "~13.2.4",
+    "@angular/compiler-cli": "~13.2.0",
+    "@types/jasmine": "~3.10.0",
+    "@types/node": "^12.11.1",
+    "jasmine-core": "~4.0.0",
+    "karma": "~6.3.0",
+    "karma-chrome-launcher": "~3.1.0",
+    "karma-coverage": "~2.1.0",
+    "karma-jasmine": "~4.0.0",
+    "karma-jasmine-html-reporter": "~1.7.0",
+    "typescript": "~4.5.2",
+    "electron": "^17.0.1",
+    "electron-builder": "^22.11.7",
+    "electron-packager": "^15.4.0",
+    "nodemon": "^2.0.13"
+  }
+}

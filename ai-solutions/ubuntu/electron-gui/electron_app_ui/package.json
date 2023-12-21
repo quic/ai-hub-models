@@ -1,0 +1,69 @@
+{
+  "name": "AI-SOLUTIONS",
+  "version": "1.0.0",
+  "description": "Application to showcase various AI Models",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron . --no-sandbox",
+    "package": "node package_snpe_cpp.js && node package_python.js && npm run -s package-electron",
+    "package-electron": "electron-builder --publish=never --linux deb"
+  },
+  "build": {
+    "appId": "com.ai-solutions.ai-demos",
+    "productName": "AI-SOLUTIONS",
+    "asar": false,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "files": [
+      "assets",
+      "main.js",
+      "index_sr.html",
+      "index_ie.html",
+      "icon.png",
+      "preload.js",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-python/",
+        "to": "app/dist-python",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../SNPE_CPP_Code/build/Release/",
+        "to": "app/Release",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  },
+  "keywords": [
+    "Solutions",
+	"Electron",
+	"Qualcomm",
+    "AI",
+    "ai-demos",
+    "AI-SOLUTIONS",
+    "demo"
+  ],
+  "author": "Qualcomm < >",
+  "license": "BSD",
+  "devDependencies": {
+    "electron": "^25.5.0",
+    "electron-builder": "^24.6.3"
+  },
+
+  "homepage": "https://github.qualcomm.com/qualcomm-model-zoo-public-mirror/ai-solutions/tree/main/windows#readme",
+  "dependencies": {
+    "node-cmd": "^5.0.0",
+    "ps-tree": "^1.2.0"
+  }
+}
