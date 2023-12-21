@@ -1,0 +1,160 @@
+diff --git a/codes/models/SRGAN_model.py b/codes/models/SRGAN_model.py
+index 051f507..594b724 100644
+--- a/codes/models/SRGAN_model.py
++++ b/codes/models/SRGAN_model.py
+@@ -3,10 +3,10 @@ from collections import OrderedDict
+ import torch
+ import torch.nn as nn
+ from torch.nn.parallel import DataParallel, DistributedDataParallel
+-import models.networks as networks
+-import models.lr_scheduler as lr_scheduler
++import codes.models.networks as networks
++import codes.models.lr_scheduler as lr_scheduler
+ from .base_model import BaseModel
+-from models.loss import GANLoss
++from codes.models.loss import GANLoss
+ 
+ logger = logging.getLogger('base')
+ 
+diff --git a/codes/models/SR_model.py b/codes/models/SR_model.py
+index 6782762..29a43ac 100644
+--- a/codes/models/SR_model.py
++++ b/codes/models/SR_model.py
+@@ -4,10 +4,10 @@ from collections import OrderedDict
+ import torch
+ import torch.nn as nn
+ from torch.nn.parallel import DataParallel, DistributedDataParallel
+-import models.networks as networks
+-import models.lr_scheduler as lr_scheduler
++import codes.models.networks as networks
++import codes.models.lr_scheduler as lr_scheduler
+ from .base_model import BaseModel
+-from models.loss import CharbonnierLoss
++from codes.models.loss import CharbonnierLoss
+ 
+ logger = logging.getLogger('base')
+ 
+@@ -23,7 +23,7 @@ class SRModel(BaseModel):
+         train_opt = opt['train']
+ 
+         # define network and load pretrained models
+-        self.netG = networks.define_G(opt).to(self.device)
++        self.netG = networks.define_G(opt).to(torch.device('cpu'))
+         if opt['dist']:
+             self.netG = DistributedDataParallel(self.netG, device_ids=[torch.cuda.current_device()])
+         else:
+diff --git a/codes/models/archs/EDVR_arch.py b/codes/models/archs/EDVR_arch.py
+index df9c032..fa79ef1 100644
+--- a/codes/models/archs/EDVR_arch.py
++++ b/codes/models/archs/EDVR_arch.py
+@@ -3,11 +3,12 @@ import functools
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+-import models.archs.arch_util as arch_util
++import codes.models.archs.arch_util as arch_util
+ try:
+     from models.archs.dcn.deform_conv import ModulatedDeformConvPack as DCN
+ except ImportError:
+-    raise ImportError('Failed to import DCNv2 module.')
++    #raise ImportError('Failed to import DCNv2 module.')
++    pass 
+ 
+ 
+ class Predeblur_ResNet_Pyramid(nn.Module):
+diff --git a/codes/models/archs/RRDBNet_arch.py b/codes/models/archs/RRDBNet_arch.py
+index 9d61256..9dbc413 100644
+--- a/codes/models/archs/RRDBNet_arch.py
++++ b/codes/models/archs/RRDBNet_arch.py
+@@ -2,7 +2,7 @@ import functools
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+-import models.archs.arch_util as arch_util
++import codes.models.archs.arch_util as arch_util
+ 
+ 
+ class ResidualDenseBlock_5C(nn.Module):
+diff --git a/codes/models/archs/SRResNet_arch.py b/codes/models/archs/SRResNet_arch.py
+index 6e622ac..cbe3049 100644
+--- a/codes/models/archs/SRResNet_arch.py
++++ b/codes/models/archs/SRResNet_arch.py
+@@ -1,7 +1,7 @@
+ import functools
+ import torch.nn as nn
+ import torch.nn.functional as F
+-import models.archs.arch_util as arch_util
++import codes.models.archs.arch_util as arch_util
+ 
+ 
+ class MSRResNet(nn.Module):
+diff --git a/codes/models/archs/TOF_arch.py b/codes/models/archs/TOF_arch.py
+old mode 100755
+new mode 100644
+diff --git a/codes/models/archs/arch_util.py b/codes/models/archs/arch_util.py
+index ca5d7fa..e920c23 100644
+--- a/codes/models/archs/arch_util.py
++++ b/codes/models/archs/arch_util.py
+@@ -41,13 +41,15 @@ class ResidualBlock_noBN(nn.Module):
+         super(ResidualBlock_noBN, self).__init__()
+         self.conv1 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
+         self.conv2 = nn.Conv2d(nf, nf, 3, 1, 1, bias=True)
++        self.relu = nn.ReLU()
+ 
+         # initialization
+         initialize_weights([self.conv1, self.conv2], 0.1)
+ 
+     def forward(self, x):
+         identity = x
+-        out = F.relu(self.conv1(x), inplace=True)
++        # out = F.relu(self.conv1(x), inplace=True)
++        out = self.relu(self.conv1(x))
+         out = self.conv2(out)
+         return identity + out
+ 
+diff --git a/codes/models/base_model.py b/codes/models/base_model.py
+index 8a5d222..b01ed77 100644
+--- a/codes/models/base_model.py
++++ b/codes/models/base_model.py
+@@ -84,7 +84,7 @@ class BaseModel():
+     def load_network(self, load_path, network, strict=True):
+         if isinstance(network, nn.DataParallel) or isinstance(network, DistributedDataParallel):
+             network = network.module
+-        load_net = torch.load(load_path)
++        load_net = torch.load('MSRGANx4.pth')
+         load_net_clean = OrderedDict()  # remove unnecessary 'module.'
+         for k, v in load_net.items():
+             if k.startswith('module.'):
+diff --git a/codes/models/networks.py b/codes/models/networks.py
+index 2a67913..3b2c1d6 100644
+--- a/codes/models/networks.py
++++ b/codes/models/networks.py
+@@ -1,8 +1,8 @@
+ import torch
+-import models.archs.SRResNet_arch as SRResNet_arch
+-import models.archs.discriminator_vgg_arch as SRGAN_arch
+-import models.archs.RRDBNet_arch as RRDBNet_arch
+-import models.archs.EDVR_arch as EDVR_arch
++import codes.models.archs.SRResNet_arch as SRResNet_arch
++import codes.models.archs.discriminator_vgg_arch as SRGAN_arch
++import codes.models.archs.RRDBNet_arch as RRDBNet_arch
++import codes.models.archs.EDVR_arch as EDVR_arch
+ 
+ 
+ # Generator
+diff --git a/codes/options/options.py b/codes/options/options.py
+index 99181b3..3929cf8 100644
+--- a/codes/options/options.py
++++ b/codes/options/options.py
+@@ -2,7 +2,7 @@ import os
+ import os.path as osp
+ import logging
+ import yaml
+-from utils.util import OrderedYaml
++from codes.utils.util import OrderedYaml
+ Loader, Dumper = OrderedYaml()
+ 
+ 
+diff --git a/experiments/pretrained_models/Put pretrained models here. b/experiments/pretrained_models/Put pretrained models here.
+deleted file mode 100644
+index e69de29..0000000

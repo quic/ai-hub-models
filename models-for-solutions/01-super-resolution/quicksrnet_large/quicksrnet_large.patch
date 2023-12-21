@@ -1,0 +1,61 @@
+diff --git a/aimet_zoo_torch/quicksrnet/model/model_definition.py b/aimet_zoo_torch/quicksrnet/model/model_definition.py
+index 172a493..f514056 100644
+--- a/aimet_zoo_torch/quicksrnet/model/model_definition.py
++++ b/aimet_zoo_torch/quicksrnet/model/model_definition.py
+@@ -15,9 +15,8 @@
+ import json
+ import os
+ import torch
+-from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
+-from aimet_zoo_torch.common.downloader import Downloader
+-from aimet_zoo_torch.quicksrnet.model.models import QuickSRNetBase
++from utils.super_resolution.downloader import Downloader
++from utils.super_resolution.models import QuickSRNetBase
+ 
+ 
+ class QuickSRNet(QuickSRNetBase, Downloader):
+@@ -95,42 +94,8 @@ class QuickSRNet(QuickSRNetBase, Downloader):
+             self.load_state_dict(state_dict)
+             self.cuda()
+         else:
+-            state_dict = torch.load(self.path_pre_opt_weights)["state_dict"]
++            state_dict = torch.load(self.path_pre_opt_weights, map_location = torch.device('cpu'))["state_dict"]
+             self.load_state_dict(state_dict)
+-            self.cuda()
++            #self.cuda()
+         self.eval()
+ 
+-    def get_quantsim(self, quantized=False):
+-        """get quantsim object with pre-loaded encodings"""
+-        if not self.cfg:
+-            raise NotImplementedError(
+-                "There is no Quantization Simulation available for the model_config passed"
+-            )
+-        if quantized:
+-            self.from_pretrained(quantized=True)
+-        else:
+-            self.from_pretrained(quantized=False)
+-        device = torch.device("cuda")
+-        dummy_input = torch.rand(self.input_shape, device=device)
+-        kwargs = {
+-            "quant_scheme": self.cfg["optimization_config"][
+-                "quantization_configuration"
+-            ]["quant_scheme"],
+-            "default_param_bw": self.cfg["optimization_config"][
+-                "quantization_configuration"
+-            ]["param_bw"],
+-            "default_output_bw": self.cfg["optimization_config"][
+-                "quantization_configuration"
+-            ]["output_bw"],
+-            "config_file": self.path_aimet_config,
+-            "dummy_input": dummy_input,
+-        }
+-        sim = QuantizationSimModel(self, **kwargs)
+-        if self.path_aimet_encodings and quantized:
+-            load_encodings_to_sim(sim, self.path_aimet_encodings)
+-            print("load_encodings_to_sim finished!")
+-        if self.path_adaround_encodings and quantized:
+-            sim.set_and_freeze_param_encodings(self.path_adaround_encodings)
+-            print("set_and_freeze_param_encodings finished!")
+-        sim.model.eval()
+-        return sim

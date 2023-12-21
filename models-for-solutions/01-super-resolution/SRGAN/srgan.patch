@@ -1,0 +1,114 @@
+diff --git a/aimet_zoo_torch/srgan/evaluators/srgan_quanteval.py b/aimet_zoo_torch/srgan/evaluators/srgan_quanteval.py
+index 002d160..fcab794 100644
+--- a/aimet_zoo_torch/srgan/evaluators/srgan_quanteval.py
++++ b/aimet_zoo_torch/srgan/evaluators/srgan_quanteval.py
+@@ -28,7 +28,7 @@ import shutil
+ import numpy as np
+ import torch
+ 
+-from aimet_torch import quantsim
++# from aimet_torch import quantsim
+ 
+ import codes.options.options as option
+ #pylint:disable = consider-using-from-import
+@@ -38,7 +38,7 @@ from codes.data import create_dataset, create_dataloader
+ from codes.models import create_model
+ 
+ # import common util in AIMET examples folder
+-from aimet_zoo_torch.common.utils import utils
++# from aimet_zoo_torch.common.utils import utils
+ 
+ 
+ def evaluate_generator(
+@@ -311,84 +311,35 @@ class ModelConfig:
+     """Adding hardcoded values into args from parseargs() and return config object"""
+ 
+     def __init__(self, args):
+-        self.yml = "./test_SRGAN.yml"
++        self.yml = "./codes/options/test/test_SRGAN.yml"
+         self.quant_scheme = "tf_enhanced"
+         for arg in vars(args):
+             setattr(self, arg, getattr(args, arg))
+-
+-
++            
+ def main(args):
+     """Evaluation main script"""
+ 
+     # Adding hardcoded values to config on top of args
+     config = ModelConfig(args)
+ 
+-    # Download pretrained weights from github repo
+     download_weights()
+     print("download complete!")
+ 
+-    # Make options file from args
+-    setup_mmsr_configuration(config)
+     print("configuration complete!")
+ 
+-    # parse the options file
+     print(f"Parsing file {config.yml}...")
+     opt = option.parse(config.yml, is_train=False)
+     opt = option.dict_to_nonedict(opt)
+ 
+-    print("Loading test images...")
+-    test_loaders = []
+-    for _, dataset_opt in sorted(opt["datasets"].items()):
+-        test_set = create_dataset(dataset_opt)
+-        test_loader = create_dataloader(test_set, dataset_opt)
+-        test_loaders.append(test_loader)
++    print("Loading test images...") # comment
+ 
+-    device = utils.get_device(args)
+-    # device = torch.device('cuda' if torch.cuda.is_available() and config.use_cuda else 'cpu')
++    device = torch.device('cuda' if torch.cuda.is_available() and config.use_cuda else 'cpu')
+ 
+     model = create_model(opt)
+     generator = model.netG.module
+-
+-    for test_loader in test_loaders:
+-        test_set_name = test_loader.dataset.opt["name"]
+-        print(f"Testing on dataset {test_set_name}")
+-        psnr_vals, ssim_vals = evaluate_generator(
+-            generator, test_loader, opt, device=device
+-        )
+-        psnr_val = np.mean(psnr_vals)
+-        ssim_val = np.mean(ssim_vals)
+-        print(
+-            f"Mean PSNR and SSIM for {test_set_name} on original model are: [{psnr_val}, {ssim_val}]"
+-        )
+-
+-    # The input shape is chosen arbitrarily to generate dummy input for
+-    # creating quantsim object
+-    input_shapes = (1, 3, 24, 24)
+-    # Initialize Quantized model
+-    dummy_input = torch.rand(input_shapes, device=device)
+-    kwargs = {
+-        "quant_scheme": config.quant_scheme,
+-        "default_param_bw": config.default_param_bw,
+-        "default_output_bw": config.default_output_bw,
+-        "dummy_input": dummy_input,
+-        "config_file": "./default_config.json",
+-    }
+-    sim = quantsim.QuantizationSimModel(generator, **kwargs)
+-
+-    evaluate_func = partial(evaluate_generator, options=opt, device=device)
+-    sim.compute_encodings(evaluate_func, test_loaders[0])
+-
+-    for test_loader in test_loaders:
+-        test_set_name = test_loader.dataset.opt["name"]
+-        print(f"Testing on dataset {test_set_name}")
+-        psnr_vals, ssim_vals = evaluate_generator(
+-            sim.model, test_loader, opt, device=device, output_dir=config.output_dir
+-        )
+-        psnr_val = np.mean(psnr_vals)
+-        ssim_val = np.mean(ssim_vals)
+-        print(
+-            f"Mean PSNR and SSIM for {test_set_name} on quantized model are: [{psnr_val}, {ssim_val}]"
+-        )
++    generator.eval()
++    dummy_input = torch.randn(1,3, 128, 128).type(torch.FloatTensor).to('cpu')
++    torch.onnx.export(generator, dummy_input, "srgan.onnx",opset_version=11)
+ 
+ 
+ if __name__ == "__main__":
