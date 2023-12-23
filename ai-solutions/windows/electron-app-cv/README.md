@@ -10,8 +10,6 @@
 
 ## Environment Setup
 
-<TODO_INTERNAL>Please copy all zips(Assests_ZIP.zip) from @\\\upagrah\hyderabad_qidk\shubgoya\WoS_super_res\CPP_SNPE_EXE_multiple_SR_Model\V7
-
 Prepare required assets to build the application 
 
 * DLC: Paste it in "C:\Qualcomm\AIStack\AI_Solutions" directory  
@@ -25,7 +23,7 @@ Prepare required assets to build the application
 * Python 3.8 is installed.
 * Visual Studio 2022 is installed based on instructions given at https://docs.qualcomm.com/bundle/publicresource/topics/80-62010-1/Install-Visual-Studio-2022.html?product=Windows%20on%20Snapdragon
 * Download and install latest Visual C++ Redistributable.
-* Models used in this solution need to be generated, using steps mentioned at <TODO_INTERNAL> https://github.qualcomm.com/qualcomm-model-zoo-public-mirror/models-for-solutions 
+* Models used in this solution need to be generated, using steps mentioned at https://github.com/quic/ai-stack-models/tree/main/models-for-solutions
 
 
 ## Directory Structure
@@ -131,10 +129,9 @@ Note: Make sure that you have resolved all dependencies mentioned in [Prepare st
 
 This solution is verified on following compute platforms
 
-- SC8280XP
-- SC8380XP
+- Snapdragon X Elite
+- Althorugh not verified, this application, and procedure is applicable to : SC8280XP as well. 
 
 ## Demo
 
-
-
+https://github.com/quic/ai-stack-models/assets/121066912/b5ebc51b-083b-4abc-86a7-b1f3a6554d24
