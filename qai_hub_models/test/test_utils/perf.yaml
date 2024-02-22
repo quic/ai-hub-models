@@ -1,0 +1,59 @@
+models:
+- name: AOTGAN
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-01-26T00:36:03.230526Z'
+    torchscript_onnx_tflite:
+      inference_time: 171647.0
+      throughput: 5.8259101528136235
+      estimated_peak_memory_range:
+        min: 3248128
+        max: 6077152
+      layer_info:
+        layers_on_npu: 243
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 243
+      precision: fp16
+      primary_compute_unit: NPU
+      job_id: jegnojxm5
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 159404.0
+      throughput: 6.273368296905975
+      estimated_peak_memory_range:
+        min: 311296
+        max: 41386272
+      layer_info:
+        layers_on_npu: 283
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 283
+      precision: fp16
+      primary_compute_unit: NPU
+      job_id: jo5mojldg
+      job_status: Passed
+aggregated:
+  supported_devices:
+  - Samsung Galaxy S21
+  - Samsung Galaxy S21 Ultra
+  - Samsung Galaxy S21+
+  - Samsung Galaxy S22 5G
+  - Samsung Galaxy S22 Ultra 5G
+  - Samsung Galaxy S22+ 5G
+  - Samsung Galaxy S23
+  - Samsung Galaxy S23 Ultra
+  - Samsung Galaxy S23+
+  - Samsung Galaxy Tab S8
+  supported_oses:
+  - Android
+  supported_chipsets:
+  - Snapdragon® 8 Gen 1
+  - Snapdragon® 8 Gen 2
+  - Snapdragon® 888

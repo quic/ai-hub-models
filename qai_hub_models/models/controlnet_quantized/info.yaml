@@ -1,0 +1,37 @@
+name: ControlNet
+id: controlnet_quantized
+status: public
+headline: Generating visual arts from text prompt and input guiding image.
+domain: Generative AI
+description: On-device, high-resolution image synthesis from text and image prompts.
+  ControlNet guides Stable-diffusion with provided input image to generate accurate
+  images from given input prompt.
+use_case: Image Generation
+tags:
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2302.05543
+research_paper_title: Adding Conditional Control to Text-to-Image Diffusion Models
+license: https://github.com/lllyasviel/ControlNet/blob/main/LICENSE
+source_repo: https://github.com/lllyasviel/ControlNet
+technical_details:
+  Input: Text prompt and input image as a reference
+  QNN-SDK: '2.19'
+  Text Encoder Number of parameters: 340M
+  UNet Number of parameters: 865M
+  VAE Decoder Number of parameters: 83M
+  ControlNet Number of parameters: 361M
+  Model size: 1.4GB
+applicable_scenarios:
+  - Image Generation
+  - Image Editing
+  - Content Creation
+related_models:
+  - stable_diffusion_quantized
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: yes
+has_animated_banner: no
+dataset: []
+license_type: apache-2.0

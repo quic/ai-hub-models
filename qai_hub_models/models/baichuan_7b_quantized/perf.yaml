@@ -1,0 +1,77 @@
+models:
+- name: Baichuan-TokenGenerator-KVCache-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S24 Ultra
+      os: '14'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-02-16T22:23:17.643089Z'
+    torchscript_onnx_qnn:
+      inference_time: 108059
+      throughput: 9.25
+      estimated_peak_memory_range:
+        min: 561152
+        max: 112366992
+      layer_info:
+        layers_on_npu: 33820
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 33820
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
+- name: Baichuan-PromptProcessor-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S24 Ultra
+      os: '14'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-02-16T22:23:17.643089Z'
+    torchscript_onnx_qnn:
+      inference_time: 2599326
+      throughput: 0.38
+      estimated_peak_memory_range:
+        min: 53248
+        max: 40255040
+      layer_info:
+        layers_on_npu: 31772
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 31772
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
+aggregated:
+  supported_devices:
+  - Samsung Galaxy S24 Ultra
+  supported_oses:
+  - Android
+  supported_chipsets:
+  - Snapdragon® 8 Gen 3
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S24 Ultra
+      os: '14'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-02-16T22:23:17.643089Z'
+    torchscript_onnx_qnn:
+      inference_time: 108059
+      throughput: 9.25
+      estimated_peak_memory_range:
+        min: 561152
+        max: 112366992
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: ""
+      job_status: Passed

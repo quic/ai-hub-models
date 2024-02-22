@@ -1,0 +1,36 @@
+name: DETR-ResNet101
+# id must match with the model dir name in qai_hub_models
+id: detr_resnet101
+status: public
+tags: []
+headline: Transformer based object detector with ResNet101 backbone.
+domain: Computer Vision
+description: DETR is a machine learning model that can detect objects (trained on
+  COCO dataset).
+use_case: Object Detection
+research_paper: https://arxiv.org/abs/2005.12872
+research_paper_title: End-to-End Object Detection with Transformers
+license: https://github.com/facebookresearch/detr/blob/main/LICENSE
+source_repo: https://github.com/facebookresearch/detr
+technical_details:
+  Model checkpoint: ResNet101
+  Input resolution: 480x480
+  Number of parameters: 60.3M
+  Model size: 230 MB
+applicable_scenarios:
+  - Factory Automation
+  - Robotic Navigation
+  - Camera
+related_models:
+  - detr_resnet50
+  - detr_resnet50_dc5
+  - detr_resnet101_dc5
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: yes
+has_animated_banner: yes
+license_type: apache-2.0
+dataset:
+  - detection-datasets/coco

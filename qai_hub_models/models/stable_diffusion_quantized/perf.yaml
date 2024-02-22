@@ -1,0 +1,102 @@
+models:
+- name: Text-Encoder-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-14T05:29:28.928297Z'
+    torchscript_onnx_qnn:
+      inference_time: 11362
+      throughput: 88.01
+      estimated_peak_memory_range:
+        min: 53248
+        max: 44039432
+      layer_info:
+        layers_on_npu: 570
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 570
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: jo5m87owp
+      job_status: Passed
+- name: VAE-Decoder-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-14T05:29:28.928297Z'
+    torchscript_onnx_qnn:
+      inference_time: 393878
+      throughput: 2.53
+      estimated_peak_memory_range:
+        min: 225280
+        max: 11689680
+      layer_info:
+        layers_on_npu: 409
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 409
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: joprwro95
+      job_status: Passed
+- name: UNet-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-14T05:29:28.928297Z'
+    torchscript_onnx_qnn:
+      inference_time: 256698
+      throughput: 3.89
+      estimated_peak_memory_range:
+        min: 143360
+        max: 12844792
+      layer_info:
+        layers_on_npu: 5421
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 5421
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: jegnk4org
+      job_status: Passed
+aggregated:
+  supported_devices:
+  - Samsung Galaxy S23 Ultra
+  supported_oses:
+  - Android
+  supported_chipsets:
+  - Snapdragon® 8 Gen 2
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-14T05:29:28.928297Z'
+    torchscript_onnx_qnn:
+      inference_time: 661938
+      throughput: 1.51
+      estimated_peak_memory_range:
+        min: 225280
+        max: 44039432
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: ""
+      job_status: Passed

@@ -1,0 +1,182 @@
+commit 893641b40d95d14bc1da70e404b43754b6784ab8
+Author: Gustav Larsson <gustlars@qti.qualcomm.com>
+Date:   Wed Feb 14 09:26:52 2024 -0800
+
+    datasets -> ffnet_datasets
+
+    This prevents collision with popular HF package.
+
+diff --git a/datasets/.DS_Store b/ffnet_datasets/.DS_Store
+similarity index 100%
+rename from datasets/.DS_Store
+rename to ffnet_datasets/.DS_Store
+diff --git a/datasets/cityscapes/.DS_Store b/ffnet_datasets/cityscapes/.DS_Store
+similarity index 100%
+rename from datasets/cityscapes/.DS_Store
+rename to ffnet_datasets/cityscapes/.DS_Store
+diff --git a/datasets/cityscapes/attribution.txt b/ffnet_datasets/cityscapes/attribution.txt
+similarity index 100%
+rename from datasets/cityscapes/attribution.txt
+rename to ffnet_datasets/cityscapes/attribution.txt
+diff --git a/datasets/cityscapes/cityscapes.py b/ffnet_datasets/cityscapes/cityscapes.py
+similarity index 86%
+rename from datasets/cityscapes/cityscapes.py
+rename to ffnet_datasets/cityscapes/cityscapes.py
+index a441c91..f43c98c 100644
+--- a/datasets/cityscapes/cityscapes.py
++++ b/ffnet_datasets/cityscapes/cityscapes.py
+@@ -1,6 +1,6 @@
+ import os
+ import os.path as path
+-import datasets.cityscapes.cityscapes_labels as cityscapes_labels
++import ffnet_datasets.cityscapes.cityscapes_labels as cityscapes_labels
+ 
+ 
+ def find_directories(root):
+diff --git a/datasets/cityscapes/cityscapes_labels.py b/ffnet_datasets/cityscapes/cityscapes_labels.py
+similarity index 100%
+rename from datasets/cityscapes/cityscapes_labels.py
+rename to ffnet_datasets/cityscapes/cityscapes_labels.py
+diff --git a/datasets/cityscapes/dataloader/__init__.py b/ffnet_datasets/cityscapes/dataloader/__init__.py
+similarity index 100%
+rename from datasets/cityscapes/dataloader/__init__.py
+rename to ffnet_datasets/cityscapes/dataloader/__init__.py
+diff --git a/datasets/cityscapes/dataloader/base_loader.py b/ffnet_datasets/cityscapes/dataloader/base_loader.py
+similarity index 98%
+rename from datasets/cityscapes/dataloader/base_loader.py
+rename to ffnet_datasets/cityscapes/dataloader/base_loader.py
+index b503b8a..f1a1b37 100644
+--- a/datasets/cityscapes/dataloader/base_loader.py
++++ b/ffnet_datasets/cityscapes/dataloader/base_loader.py
+@@ -32,9 +32,9 @@ import torch
+ from PIL import Image
+ from torch.utils import data
+ from config import CITYSCAPES_IGNORE_LABEL, CITYSCAPES_NUM_CLASSES, cityscapes_base_path
+-from datasets.cityscapes.utils.misc import tensor_to_pil
+-from datasets.cityscapes.cityscapes import find_directories
+-import datasets.cityscapes.cityscapes_labels as cityscapes_labels
++from ffnet_datasets.cityscapes.utils.misc import tensor_to_pil
++from ffnet_datasets.cityscapes.cityscapes import find_directories
++import ffnet_datasets.cityscapes.cityscapes_labels as cityscapes_labels
+ from scipy.ndimage.morphology import distance_transform_edt
+ 
+ 
+diff --git a/datasets/cityscapes/dataloader/get_dataloaders.py b/ffnet_datasets/cityscapes/dataloader/get_dataloaders.py
+similarity index 84%
+rename from datasets/cityscapes/dataloader/get_dataloaders.py
+rename to ffnet_datasets/cityscapes/dataloader/get_dataloaders.py
+index 347f7db..5596f5a 100644
+--- a/datasets/cityscapes/dataloader/get_dataloaders.py
++++ b/ffnet_datasets/cityscapes/dataloader/get_dataloaders.py
+@@ -1,11 +1,11 @@
+-# import datasets.cityscapes.dataloader.joint_transforms as joint_transforms
+-import datasets.cityscapes.dataloader.transforms as extended_transforms
++# import ffnet_datasets.cityscapes.dataloader.joint_transforms as joint_transforms
++import ffnet_datasets.cityscapes.dataloader.transforms as extended_transforms
+ from torch.utils.data import DataLoader
+
+ import importlib
+ import torchvision.transforms as standard_transforms
+ from config import CITYSCAPES_MEAN, CITYSCAPES_STD
+-from datasets.cityscapes.dataloader.base_loader import Cityscapes
++from ffnet_datasets.cityscapes.dataloader.base_loader import Cityscapes
+
+
+ def return_dataloader(num_workers, batch_size):
+diff --git a/datasets/cityscapes/dataloader/sampler.py b/ffnet_datasets/cityscapes/dataloader/sampler.py
+similarity index 100%
+rename from datasets/cityscapes/dataloader/sampler.py
+rename to ffnet_datasets/cityscapes/dataloader/sampler.py
+diff --git a/datasets/cityscapes/dataloader/transforms.py b/ffnet_datasets/cityscapes/dataloader/transforms.py
+similarity index 100%
+rename from datasets/cityscapes/dataloader/transforms.py
+rename to ffnet_datasets/cityscapes/dataloader/transforms.py
+diff --git a/datasets/cityscapes/utils/__init__.py b/ffnet_datasets/cityscapes/utils/__init__.py
+similarity index 100%
+rename from datasets/cityscapes/utils/__init__.py
+rename to ffnet_datasets/cityscapes/utils/__init__.py
+diff --git a/datasets/cityscapes/utils/attr_dict.py b/ffnet_datasets/cityscapes/utils/attr_dict.py
+similarity index 100%
+rename from datasets/cityscapes/utils/attr_dict.py
+rename to ffnet_datasets/cityscapes/utils/attr_dict.py
+diff --git a/datasets/cityscapes/utils/misc.py b/ffnet_datasets/cityscapes/utils/misc.py
+similarity index 99%
+rename from datasets/cityscapes/utils/misc.py
+rename to ffnet_datasets/cityscapes/utils/misc.py
+index 26a4f59..df84db8 100644
+--- a/datasets/cityscapes/utils/misc.py
++++ b/ffnet_datasets/cityscapes/utils/misc.py
+@@ -9,7 +9,7 @@ import numpy as np
+
+ import torchvision.transforms as standard_transforms
+ import torchvision.utils as vutils
+-from datasets.cityscapes import cityscapes_labels
++from ffnet_datasets.cityscapes import cityscapes_labels
+ 
+ # from tabulate import tabulate
+ from PIL import Image
+diff --git a/datasets/cityscapes/utils/my_data_parallel.py b/ffnet_datasets/cityscapes/utils/my_data_parallel.py
+similarity index 100%
+rename from datasets/cityscapes/utils/my_data_parallel.py
+rename to ffnet_datasets/cityscapes/utils/my_data_parallel.py
+diff --git a/datasets/cityscapes/utils/progress_bar.py b/ffnet_datasets/cityscapes/utils/progress_bar.py
+similarity index 100%
+rename from datasets/cityscapes/utils/progress_bar.py
+rename to ffnet_datasets/cityscapes/utils/progress_bar.py
+diff --git a/datasets/cityscapes/utils/trnval_utils.py b/ffnet_datasets/cityscapes/utils/trnval_utils.py
+similarity index 96%
+rename from datasets/cityscapes/utils/trnval_utils.py
+rename to ffnet_datasets/cityscapes/utils/trnval_utils.py
+index 7bff368..5da25e3 100644
+--- a/datasets/cityscapes/utils/trnval_utils.py
++++ b/ffnet_datasets/cityscapes/utils/trnval_utils.py
+@@ -31,10 +31,10 @@ import os
+ import torch
+ 
+ from config import CITYSCAPES_IGNORE_LABEL, CITYSCAPES_NUM_CLASSES
+-from datasets.cityscapes.utils.misc import fast_hist, fmt_scale
++from ffnet_datasets.cityscapes.utils.misc import fast_hist, fmt_scale
+ 
+-# from datasets.cityscapes.utils.misc import AverageMeter, eval_metrics
+-# from datasets.cityscapes.utils.misc import metrics_per_image
++# from ffnet_datasets.cityscapes.utils.misc import AverageMeter, eval_metrics
++# from ffnet_datasets.cityscapes.utils.misc import metrics_per_image
+ import numpy as np
+ 
+ 
+diff --git a/datasets/imagenet/imagenet_data_loader.py b/ffnet_datasets/imagenet/imagenet_data_loader.py
+similarity index 100%
+rename from datasets/imagenet/imagenet_data_loader.py
+rename to ffnet_datasets/imagenet/imagenet_data_loader.py
+diff --git a/scripts/evaluate_cityscapes.py b/scripts/evaluate_cityscapes.py
+index 158daa6..afcfd11 100644
+--- a/scripts/evaluate_cityscapes.py
++++ b/scripts/evaluate_cityscapes.py
+@@ -11,10 +11,10 @@ import numpy as np
+ import torch
+ import os
+ import sys
+-from datasets.cityscapes.utils.misc import AverageMeter, eval_metrics
+-from datasets.cityscapes.utils.trnval_utils import eval_minibatch
+-from datasets.cityscapes.utils.progress_bar import printProgressBar
+-from datasets.cityscapes.dataloader.get_dataloaders import return_dataloader
++from ffnet_datasets.cityscapes.utils.misc import AverageMeter, eval_metrics
++from ffnet_datasets.cityscapes.utils.trnval_utils import eval_minibatch
++from ffnet_datasets.cityscapes.utils.progress_bar import printProgressBar
++from ffnet_datasets.cityscapes.dataloader.get_dataloaders import return_dataloader
+ import warnings
+ 
+ # from config import cityscapes_base_path
+diff --git a/scripts/evaluate_imagenet.py b/scripts/evaluate_imagenet.py
+index 4de201f..a7fae7f 100644
+--- a/scripts/evaluate_imagenet.py
++++ b/scripts/evaluate_imagenet.py
+@@ -27,7 +27,7 @@ import torch.nn.functional as F
+ 
+ torch.backends.cudnn.benchmark = True
+ from config import imagenet_base_path
+-from datasets.imagenet.imagenet_data_loader import get_data_loader
++from ffnet_datasets.imagenet.imagenet_data_loader import get_data_loader
+ from models.model_registry import model_entrypoint
+ 
+ 

@@ -1,0 +1,41 @@
+name: ResNet101Quantized
+# id must match with the model dir name in qai_hub_models
+id: resnet101_quantized
+status: public
+headline: Imagenet classifier and general purpose backbone.
+domain: Computer Vision
+use_case: Image Classification
+description: ResNet101 is a machine learning model that can classify images from the
+  Imagenet dataset. It can also be used as a backbone in building more complex models
+  for specific use cases.
+tags:
+  - backbone
+  - quantized
+research_paper: https://arxiv.org/abs/1512.03385
+research_paper_title: Deep Residual Learning for Image Recognition
+license: https://github.com/pytorch/vision/blob/main/LICENSE
+source_repo: https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py
+technical_details:
+  Model checkpoint: Imagenet
+  Input resolution: 224x224
+  Number of parameters: 44.5M
+  Model size: 43.9 MB
+applicable_scenarios:
+  - Medical Imaging
+  - Anomaly Detection
+  - Inventory Management
+related_models:
+  - mobilenet_v2
+  - densenet121
+  - googlenet
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+  - XR
+has_static_banner: yes
+has_animated_banner: yes
+license_type: bsd-3-clause
+dataset:
+  - imagenet-1k
+  - imagenet-22k

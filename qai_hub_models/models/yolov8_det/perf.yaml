@@ -1,0 +1,67 @@
+aggregated:
+  supported_oses:
+  - Android
+  supported_devices:
+  - Google Pixel 3
+  - Google Pixel 3a
+  - Google Pixel 3a XL
+  - Google Pixel 4
+  - Google Pixel 4a
+  - Google Pixel 5a 5G
+  - Samsung Galaxy S21
+  - Samsung Galaxy S21 Ultra
+  - Samsung Galaxy S21+
+  - Samsung Galaxy S22 5G
+  - Samsung Galaxy S22 Ultra 5G
+  - Samsung Galaxy S22+ 5G
+  - Samsung Galaxy S23
+  - Samsung Galaxy S23 Ultra
+  - Samsung Galaxy S23+
+  - Samsung Galaxy Tab S8
+  - Xiaomi 12
+  - Xiaomi 12 Pro
+  supported_chipsets:
+  - Snapdragon® 8 Gen 1
+  - Snapdragon® 8 Gen 2
+  - Snapdragon® 888
+models:
+- name: Yolo-v8-Detection
+  performance_metrics:
+  - torchscript_onnx_tflite:
+      inference_time: 9251.0
+      throughput: 108.09642200843152
+      estimated_peak_memory_range:
+        min: 233472
+        max: 2649168
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 300
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 300
+      job_id: j7gjr2q8p
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 7043.0
+      throughput: 141.9849495953429
+      estimated_peak_memory_range:
+        min: 4939776
+        max: 19565584
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 294
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 294
+      job_id: jlpe7wy05
+      job_status: Passed
+    reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-21T16:08:50.678067Z'

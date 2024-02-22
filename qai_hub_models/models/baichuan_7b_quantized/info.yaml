@@ -1,0 +1,45 @@
+name: Baichuan-7B
+id: baichuan_7b_quantized
+status: public
+headline: Large language model achieving state-of-the-art performance on Chinese and English language benchmarks.
+domain: Generative AI
+description: Baichuan-7B is a family of LLMs. It achieves the state-of-the-art performance of
+  its size on standard Chinese and English authoritative benchmarks (C-EVAL/MMLU).
+  4-bit weights and 16-bit activations making it suitable for on-device
+  The model is quantized to deployment. For Prompt and output length specified below,
+  the time to first token is Llama-PromptProcessor-Quantized's latency and average
+  time per addition token is Llama-TokenGenerator-KVCache-Quantized's latency.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2309.10305
+research_paper_title: "Baichuan 2: Open Large-scale Language Models"
+license: https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE
+source_repo: https://github.com/baichuan-inc/Baichuan-7B/
+technical_details:
+  Number of parameters: 7B
+  Model size: 3.9GB
+  Model-1 (Prompt Processor): Baichuan-PromptProcessor-Quantized
+  Max context length: 1024
+  Prompt processor input: 1024 tokens
+  Prompt processor output: 1 output token + KVCache for token generator
+  Model-2 (Token Generator): Baichuan-TokenGenerator-KVCache-Quantized
+  Token generator input: 1 input token + past KVCache
+  Token generator output: 1 output token + KVCache for next iteration
+  Decoding length: 1024 (1 output token + 1023 from KVCache)
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  QNN-SDK: "2.19"
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: yes
+has_animated_banner: yes
+license_type: apache-2.0
+dataset: []

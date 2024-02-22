@@ -1,0 +1,38 @@
+name: Whisper-Base
+# id must match with the model dir name in qai_hub_models
+id: whisper_asr
+status: public
+headline: Automatic speech recognition (ASR) model for multilingual transcription
+  as well as translation.
+domain: Audio
+description: State-of-art model encoder-decoder transformer. The encoder takes an
+  audio chunk (around 30 second) converted to a log-Mel spectrogram.  The decoder
+  predicts the corresponding text caption intermixed with special tokens that can
+  be used to direct the single model to perform various speech tasks.
+use_case: Speech Recognition
+tags:
+  - foundation
+research_paper: https://cdn.openai.com/papers/whisper.pdf
+research_paper_title: Robust Speech Recognition via Large-Scale Weak Supervision
+license: https://github.com/openai/whisper/blob/main/LICENSE
+source_repo: https://github.com/openai/whisper/tree/main
+technical_details:
+  Model checkpoint: Tiny En
+  Input resolution: 80x3000
+  Number of parameters (WhisperEncoder): 9.39M
+  Model size (WhisperEncoder): 35.9 MB
+  Number of parameters (WhisperDecoder): 28.2M
+  Model size (WhisperDecoder): 108 MB
+applicable_scenarios:
+  - Smart Home
+  - Accessibility
+related_models:
+  - huggingface_wavlm_base_plus
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: yes
+has_animated_banner: yes
+license_type: mit
+dataset: []

@@ -1,0 +1,50 @@
+[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
+
+
+# [XLSR-Quantized: Upscale images in real time](https://aihub.qualcomm.com/models/xlsr_quantized)
+
+XLSR is designed for lightweight real-time upscaling of images.
+
+This is based on the implementation of XLSR-Quantized found
+[here](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/xlsr). This repository contains scripts for optimized on-device
+export suitable to run on Qualcomm® devices. More details on model performance
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/xlsr_quantized).
+
+[Sign up](https://aihub.qualcomm.com/) for early access to run these models on
+a hosted Qualcomm® device.
+
+
+## Example & Usage
+
+
+Once installed, run the following simple CLI demo:
+
+```bash
+python -m qai_hub_models.models.xlsr_quantized.demo
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../#qai-hub-models) for more usage instructions.
+
+## Export for on-device deployment
+
+This repository contains export scripts that produce a model optimized for
+on-device deployment. This can be run as follows:
+
+```bash
+python -m qai_hub_models.models.xlsr_quantized.export
+```
+Additional options are documented with the `--help` option. Note that the above
+script requires access to Deployment instructions for Qualcomm® AI Hub.
+
+## License
+- Code in the Qualcomm® AI Hub Models repository is covered by the LICENSE
+  file at the repository root.
+- The license for the original implementation of XLSR-Quantized can be found
+  [here](https://github.com/quic/aimet-model-zoo/blob/develop/LICENSE.pdf).
+
+
+## References
+* [Extremely Lightweight Quantization Robust Real-Time Single-Image Super Resolution for Mobile Devices](https://arxiv.org/abs/2105.10288)
+* [Source Model Implementation](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/xlsr)

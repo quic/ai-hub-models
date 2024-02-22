@@ -1,0 +1,67 @@
+aggregated:
+  supported_oses:
+  - Android
+  supported_devices:
+  - Google Pixel 3
+  - Google Pixel 3a
+  - Google Pixel 3a XL
+  - Google Pixel 4
+  - Google Pixel 4a
+  - Google Pixel 5a 5G
+  - Samsung Galaxy S21
+  - Samsung Galaxy S21 Ultra
+  - Samsung Galaxy S21+
+  - Samsung Galaxy S22 5G
+  - Samsung Galaxy S22 Ultra 5G
+  - Samsung Galaxy S22+ 5G
+  - Samsung Galaxy S23
+  - Samsung Galaxy S23 Ultra
+  - Samsung Galaxy S23+
+  - Samsung Galaxy Tab S8
+  - Xiaomi 12
+  - Xiaomi 12 Pro
+  supported_chipsets:
+  - Snapdragon® 8 Gen 1
+  - Snapdragon® 8 Gen 2
+  - Snapdragon® 888
+models:
+- name: Inception-v3
+  performance_metrics:
+  - torchscript_onnx_tflite:
+      inference_time: 1944.0
+      throughput: 514.40329218107
+      estimated_peak_memory_range:
+        min: 24576
+        max: 2564456
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 141
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 141
+      job_id: j1p8em8zp
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 2266.0
+      throughput: 441.306266548985
+      estimated_peak_memory_range:
+        min: 360448
+        max: 133509928
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 232
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 232
+      job_id: jogk2qdyg
+      job_status: Passed
+    reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-02-21T16:21:24.010787Z'
