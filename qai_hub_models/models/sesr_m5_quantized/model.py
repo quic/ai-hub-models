@@ -4,6 +4,14 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+# isort: off
+# This verifies aimet is installed, and this must be included first.
+from qai_hub_models.utils.quantization_aimet import (
+    AIMETQuantizableMixin,
+)
+
+# isort: on
+
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
@@ -16,12 +24,6 @@ from qai_hub_models.models.sesr_m5.model import (
     SESR_M5,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-
-# This verifies aimet is installed, and this must be included first.
-from qai_hub_models.utils.quantization_aimet import (  # isort: skip
-    AIMETQuantizableMixin,
-)
-
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2

@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
@@ -25,7 +26,9 @@ MODEL_ASSET_VERSION = 1
 DEFAULT_ENCODINGS = "shufflenet_v2_quantized_encodings.json"
 
 
-class ShufflenetV2Quantizable(AIMETQuantizableMixin, ShufflenetV2):
+class ShufflenetV2Quantizable(
+    HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, ShufflenetV2
+):
     """ShufflenetV2 with post train quantization support.
 
     Supports only 8 bit weights and activations, and only loads pre-quantized checkpoints.

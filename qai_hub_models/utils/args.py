@@ -11,6 +11,7 @@ import argparse
 import inspect
 import os
 import sys
+from functools import partial
 from importlib import import_module
 from pydoc import locate
 from typing import Any, List, Mapping, Optional, Type
@@ -31,8 +32,13 @@ from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, can_access_qualcom
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23"
 
 
-def parse_target_runtime(path: TargetRuntime | str) -> TargetRuntime:
-    return TargetRuntime[path.upper()] if isinstance(path, str) else path
+class ParseEnumAction(argparse.Action):
+    def __init__(self, option_strings, dest, enum_type, **kwargs):
+        super().__init__(option_strings, dest, **kwargs)
+        self.enum_type = enum_type
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, self.enum_type[values.upper()])
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -48,6 +54,22 @@ def add_output_dir_arg(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
         type=str,
         default=None,
         help="If specified, saves demo output (e.g. image) to this directory instead of displaying.",
+    )
+    return parser
+
+
+def add_target_runtime_arg(
+    parser: argparse.ArgumentParser,
+    help: str,
+    default: TargetRuntime = TargetRuntime.TFLITE,
+) -> argparse.ArgumentParser:
+    parser.add_argument(
+        "--target-runtime",
+        type=str,
+        action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore
+        default=default,
+        choices=[name.lower() for name in TargetRuntime._member_names_],
+        help=help,
     )
     return parser
 
@@ -98,11 +120,10 @@ def get_on_device_demo_parser(
         if TargetRuntime.TFLITE in available_target_runtimes
         else available_target_runtimes[0]
     )
-    parser.add_argument(
-        "--target-runtime",
-        default=default_runtime.name,
-        help="The runtime to demo (if --on-device is specified). Default is TFLITE.",
-        choices=[x.name for x in available_target_runtimes],
+    add_target_runtime_arg(
+        parser,
+        help="The runtime to demo (if --on-device is specified).",
+        default=default_runtime,
     )
 
     return parser
@@ -202,7 +223,6 @@ def demo_model_from_cli_args(
         model_cls, cli_args
     )  # TODO(9494): This should be replaced by static input spec
     is_on_device = "on_device" in cli_args and cli_args.on_device
-    target_runtime = TargetRuntime[cli_args.target_runtime]
     inference_model: FromPretrainedTypeVar | HubModel
     if is_on_device and isinstance(model, BaseModel):
         device = hub.Device(cli_args.device, cli_args.device_os)
@@ -221,7 +241,7 @@ def demo_model_from_cli_args(
             compile_job: hub.CompileJob
             print(f"Compiling on-device model asset for {model.get_model_id()}.")
             print(
-                f"Running python -m {export_file} --device {device.name} --target-runtime {target_runtime.name}\n"
+                f"Running python -m {export_file} --device {device.name} --target-runtime {cli_args.target_runtime.name.lower()}\n"
             )
             export_output = export_module.export_model(
                 device=device.name,
@@ -229,7 +249,7 @@ def demo_model_from_cli_args(
                 skip_inferencing=True,
                 skip_downloading=True,
                 skip_summary=True,
-                dst_runtime=target_runtime.name,
+                target_runtime=cli_args.target_runtime,
             )
 
             if len(export_output) == 0 or isinstance(export_output[0], str):
@@ -375,14 +395,7 @@ def export_parser(
     )
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
-        parser.add_argument(
-            "--dst-runtime",
-            default="TFLITE",
-            help="The runtime to export for. Default is TF Lite.",
-            choices=TargetRuntime._member_names_
-            if supports_qnn
-            else [TargetRuntime.TFLITE.name],
-        )
+        add_target_runtime_arg(parser, help="The runtime for which to export.")
         # No compilation for compiled models
         parser.add_argument(
             "--compile-options",

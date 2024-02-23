@@ -4,6 +4,14 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+# isort: off
+# This verifies aimet is installed, and this must be included first.
+from qai_hub_models.utils.quantization_aimet import (
+    AIMETQuantizableMixin,
+)
+
+# isort: on
+
 import os
 
 import torch
@@ -15,7 +23,6 @@ from qai_hub.client import DatasetEntries
 from qai_hub_models.models._shared.ffnet.model import FFNet
 from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 FFNET_AIMET_CONFIG = os.path.abspath(

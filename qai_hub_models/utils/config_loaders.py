@@ -755,6 +755,7 @@ class QAIHMModelInfo:
                 OptionalSchema("is_precompiled", default=False): bool,
                 OptionalSchema("no_assets", default=False): bool,
                 OptionalSchema("torchscript_opt", default=[]): list,
+                OptionalSchema("inference_metrics", default="psnr"): str,
             }
         )
     )

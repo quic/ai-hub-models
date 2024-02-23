@@ -44,12 +44,16 @@ Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
-- Code in the Qualcomm® AI Hub Models repository is covered by the LICENSE
-  file at the repository root.
 - The license for the original implementation of MediaPipe-Selfie-Segmentation can be found
   [here](https://github.com/google/mediapipe/blob/master/LICENSE).
-
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf).
 
 ## References
 * [Image segmentation guide](https://developers.google.com/mediapipe/solutions/vision/image_segmenter/)
 * [Source Model Implementation](https://github.com/google/mediapipe/tree/master/mediapipe/modules/selfie_segmentation)
+
+## Community
+* Join [our AI Hub Slack community](https://join.slack.com/t/qualcommaihub-nac3926/shared_invite/zt-2d5zsmas3-Sj0Q9TzslueCjS31eXG2UA) to collaborate, post questions and learn more about on-device AI.
+* For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
+
+{usage_and_limitation}

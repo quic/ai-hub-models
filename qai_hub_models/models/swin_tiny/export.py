@@ -20,8 +20,8 @@ from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
-    parse_target_runtime,
 )
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.printing import (
@@ -43,7 +43,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    dst_runtime: str = "TFLITE",
+    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -73,7 +73,7 @@ def export_model(
             from profiling and inference.
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
-        dst_runtime: Which on-device runtime to target. Default is TensorFlowLite.
+        target_runtime: Which on-device runtime to target. Default is TFLite.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
         **additional_model_kwargs: Additional optional kwargs used to customize
@@ -87,7 +87,6 @@ def export_model(
     """
     model_name = "swin_tiny"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    target_runtime = parse_target_runtime(dst_runtime)
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "swin_tiny",

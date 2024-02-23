@@ -46,7 +46,7 @@ def main(is_test: bool = False):
     # load image
     (_, _, height, width) = FCN_ResNet50.get_input_spec()["image"][0]
     orig_image = load_image(args.image)
-    image, _, padding = pil_resize_pad(orig_image, (height, width))
+    image, scale, padding = pil_resize_pad(orig_image, (height, width))
     input_image = image.convert("RGB")
 
     app = FCN_ResNet50App(model)
@@ -54,7 +54,7 @@ def main(is_test: bool = False):
 
     if not is_test:
         # Resize / unpad annotated image
-        image_annotated = pil_undo_resize_pad(output, orig_image.size, padding)
+        image_annotated = pil_undo_resize_pad(output, orig_image.size, scale, padding)
         display_or_save_image(image_annotated, args.output_dir, "fcn_demo_output.png")
 
 

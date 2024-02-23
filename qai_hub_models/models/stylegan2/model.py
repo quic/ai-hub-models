@@ -106,7 +106,7 @@ class StyleGAN2(BaseModel):
             ]
         }
         if "classes" in input_spec:
-            classes = np.zeros(input_spec["classes"][0]).astype(np.float32)
+            classes = np.zeros(input_spec["classes"][0], dtype=np.float32)
             if input_spec["classes"][0][1] != 0:
                 classes[:, 0] = 1  # Select first class as default
             inputs["classes"] = [classes]

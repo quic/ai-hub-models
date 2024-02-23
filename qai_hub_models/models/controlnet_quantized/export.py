@@ -14,15 +14,26 @@ from typing import List, Mapping, Optional, Tuple
 import qai_hub as hub
 
 from qai_hub_models.models.controlnet_quantized import Model
-from qai_hub_models.utils.args import TargetRuntime, export_parser
+from qai_hub_models.utils.args import export_parser
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["text_encoder", "unet", "vae_decoder", "controlnet"]
-DEFAULT_COMPONENTS = ["text_encoder", "vae_decoder", "unet", "controlnet"]
+ALL_COMPONENTS = [
+    "Text-Encoder-Quantized",
+    "UNet-Quantized",
+    "VAE-Decoder-Quantized",
+    "ControlNet-Quantized",
+]
+DEFAULT_COMPONENTS = [
+    "Text-Encoder-Quantized",
+    "VAE-Decoder-Quantized",
+    "UNet-Quantized",
+    "ControlNet-Quantized",
+]
 
 
 def export_model(
@@ -97,14 +108,14 @@ def export_model(
     print("Initializing model class")
     model = Model.from_precompiled()
     components_dict = {}
-    if "text_encoder" in components:
-        components_dict["text_encoder"] = model.text_encoder
-    if "unet" in components:
-        components_dict["unet"] = model.unet
-    if "vae_decoder" in components:
-        components_dict["vae_decoder"] = model.vae_decoder
-    if "controlnet" in components:
-        components_dict["controlnet"] = model.controlnet
+    if "Text-Encoder-Quantized" in components:
+        components_dict["Text-Encoder-Quantized"] = model.text_encoder
+    if "UNet-Quantized" in components:
+        components_dict["UNet-Quantized"] = model.unet
+    if "VAE-Decoder-Quantized" in components:
+        components_dict["VAE-Decoder-Quantized"] = model.vae_decoder
+    if "ControlNet-Quantized" in components:
+        components_dict["ControlNet-Quantized"] = model.controlnet
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")

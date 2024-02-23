@@ -32,7 +32,9 @@ class StyleGAN2App:
                 self.model.sample_inputs(input_spec, seed=seed)["image_noise"][0]
             )
         return torch.from_numpy(
-            np.random.RandomState(seed).randn(batch_size, self.output_dims)
+            np.random.RandomState(seed)
+            .randn(batch_size, self.output_dims)
+            .astype(np.float32)
         )
 
     def predict(self, *args, **kwargs):

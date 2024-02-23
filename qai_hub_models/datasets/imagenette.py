@@ -8,7 +8,6 @@ import stat
 from torchvision.datasets import ImageNet
 
 from qai_hub_models.datasets.common import BaseDataset
-from qai_hub_models.models._shared.imagenet_classifier.app import IMAGENET_TRANSFORM
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 IMAGENETTE_FOLDER_NAME = "imagenette2-320"
@@ -53,6 +52,11 @@ class ImagenetteDataset(BaseDataset, ImageNet):
     def __init__(self):
         self._download_data()
         BaseDataset.__init__(self, str(IMAGENETTE_ASSET.path(extracted=True)))
+        # Avoid circular import
+        from qai_hub_models.models._shared.imagenet_classifier.app import (
+            IMAGENET_TRANSFORM,
+        )
+
         ImageNet.__init__(
             self,
             root=IMAGENETTE_ASSET.path(),
@@ -94,7 +98,6 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         devkit_path = DEVKIT_ASSET.fetch()
         devkit_st = os.stat(devkit_path)
         os.chmod(devkit_path, devkit_st.st_mode | stat.S_IEXEC)
-        os.symlink(
-            DEVKIT_ASSET.path(),
-            IMAGENETTE_ASSET.path() / os.path.basename(DEVKIT_ASSET.path()),
-        )
+        target_path = IMAGENETTE_ASSET.path() / os.path.basename(DEVKIT_ASSET.path())
+        if not os.path.exists(target_path):
+            os.symlink(DEVKIT_ASSET.path(), target_path)

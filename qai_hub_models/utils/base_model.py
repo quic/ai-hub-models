@@ -24,6 +24,9 @@ class TargetRuntime(Enum):
     TFLITE = 0
     QNN = 1
 
+    def __str__(self):
+        return self.name.lower()
+
 
 class SourceModelFormat(Enum):
     ONNX = 0

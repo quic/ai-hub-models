@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
@@ -25,7 +26,9 @@ MODEL_ASSET_VERSION = 3
 DEFAULT_ENCODINGS = "inception_v3_quantized_encodings.json"
 
 
-class InceptionNetV3Quantizable(AIMETQuantizableMixin, InceptionNetV3):
+class InceptionNetV3Quantizable(
+    HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, InceptionNetV3
+):
     """InceptionNetV3 with post train quantization support.
 
     Supports only 8 bit weights and activations, and only loads pre-quantized checkpoints.

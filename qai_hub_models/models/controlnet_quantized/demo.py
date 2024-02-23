@@ -23,7 +23,7 @@ from qai_hub_models.utils.args import DEFAULT_EXPORT_DEVICE, add_output_dir_arg
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BasePrecompiledModel
 from qai_hub_models.utils.display import display_or_save_image
-from qai_hub_models.utils.inference import HubModel
+from qai_hub_models.utils.inference import HubModel, get_uploaded_precompiled_model
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 INPUT_IMAGE = CachedWebModelAsset.from_asset_store(
@@ -31,9 +31,15 @@ INPUT_IMAGE = CachedWebModelAsset.from_asset_store(
 ).fetch()
 
 DEFAULT_DEMO_PROMPT = "a white bird on a colorful window"
+DEFAULT_DEVICE_NAME = "Samsung Galaxy S23 Ultra"
 
 
-def _get_hub_model(input_model: BasePrecompiledModel, device=DEFAULT_EXPORT_DEVICE):
+def _get_hub_model(
+    input_model: BasePrecompiledModel,
+    model_name: str,
+    ignore_cached_model: bool = False,
+    device_name=DEFAULT_DEVICE_NAME,
+):
     if not can_access_qualcomm_ai_hub():
         raise RuntimeError(
             "ControlNet on-device demo requires access to QAI-Hub.\n"
@@ -41,9 +47,15 @@ def _get_hub_model(input_model: BasePrecompiledModel, device=DEFAULT_EXPORT_DEVI
         )
 
     # Upload model
-    uploaded_model = hub.upload_model(input_model.get_target_model_path())
+    uploaded_model = get_uploaded_precompiled_model(
+        input_model.get_target_model_path(),
+        MODEL_ID,
+        MODEL_ASSET_VERSION,
+        model_name,
+        ignore_cached_model=ignore_cached_model,
+    )
     inputs = list(input_model.get_input_spec().keys())
-    return HubModel(uploaded_model, inputs, hub.Device(name=device))
+    return HubModel(uploaded_model, inputs, hub.Device(name=device_name))
 
 
 # Run ControlNet end-to-end on a given prompt and input image.
@@ -82,7 +94,12 @@ def main(is_test: bool = False):
         help="Strength of guidance (higher means more influence from prompt).",
     )
     parser.add_argument(
-        "--device",
+        "--ignore-cached-model",
+        action="store_true",
+        help="Uploads model ignoring previously uploaded and cached model.",
+    )
+    parser.add_argument(
+        "--device-name",
         type=str,
         default=DEFAULT_EXPORT_DEVICE,
         help="Device to run stable-diffusion demo on.",
@@ -92,7 +109,7 @@ def main(is_test: bool = False):
     if not is_test:
         print(f"\n{'-' * 100}")
         print(
-            f"** Performing image generation on-device({args.device}) with ControlNet - Stable Diffusion **"
+            f"** Performing image generation on-device({args.device_name}) with ControlNet - Stable Diffusion **"
         )
         print()
         print("Prompt:", args.prompt)
@@ -102,7 +119,7 @@ def main(is_test: bool = False):
         print("Seed:", args.seed)
         print()
         print(
-            "Note: This reference demo uses significant amounts of memory and may take 5-10 minutes to run per step."
+            "Note: This reference demo uses significant amounts of memory and may take 5-10 minutes to run ** per step **."
         )
         print(f"{'-' * 100}\n")
 
@@ -118,10 +135,16 @@ def main(is_test: bool = False):
     # Instead of forward, we later submit inference_jobs on QAI-Hub for
     # on-device evaluation.
     print(f"Uploading model assets on QAI-Hub\n{'-' * 35}")
-    text_encoder = _get_hub_model(text_encoder, args.device)
-    unet = _get_hub_model(unet, args.device)
-    vae_decoder = _get_hub_model(vae_decoder, args.device)
-    controlnet = _get_hub_model(controlnet, args.device)
+    text_encoder = _get_hub_model(
+        text_encoder, "text_encoder", args.ignore_cached_model, args.device_name
+    )
+    unet = _get_hub_model(unet, "unet", args.ignore_cached_model, args.device_name)
+    vae_decoder = _get_hub_model(
+        vae_decoder, "vae_decoder", args.ignore_cached_model, args.device_name
+    )
+    controlnet = _get_hub_model(
+        controlnet, "controlnet", args.ignore_cached_model, args.device_name
+    )
 
     # Create tokenizer, scheduler and time_embedding required
     # for control-net pipeline.

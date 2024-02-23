@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
@@ -32,7 +33,9 @@ QUANTIZED_WEIGHTS = "torch_mobilenetv2_w8a8_state_dict.pth"
 DEFAULT_ENCODINGS = "encodings.json"
 
 
-class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
+class MobileNetV2Quantizable(
+    HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, MobileNetV2
+):
     """MobileNetV2 with post train quantization support."""
 
     def __init__(
@@ -102,13 +105,3 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
 
         sim.model.eval()
         return cls(sim)
-
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        other_compile_options: str = "",
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --quantize_full_type int8 --quantize_io"

@@ -42,7 +42,7 @@ def main(is_test: bool = False):
     # Load image
     (_, _, height, width) = DDRNet.get_input_spec()["image"][0]
     orig_image = load_image(args.image)
-    image, _, padding = pil_resize_pad(orig_image, (height, width))
+    image, scale, padding = pil_resize_pad(orig_image, (height, width))
     print("Model Loaded")
 
     app = DDRNetApp(model)
@@ -50,7 +50,7 @@ def main(is_test: bool = False):
 
     if not is_test:
         # Resize / unpad annotated image
-        image_annotated = pil_undo_resize_pad(output, orig_image.size, padding)
+        image_annotated = pil_undo_resize_pad(output, orig_image.size, scale, padding)
         display_or_save_image(
             image_annotated, args.output_dir, "ddrnet_demo_output.png"
         )

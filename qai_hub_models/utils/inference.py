@@ -13,6 +13,7 @@ import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 
+from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import (
@@ -287,3 +288,40 @@ class HubModel:
         if len(output_torch) == 1:
             return output_torch[0]
         return tuple(output_torch)
+
+
+def get_uploaded_precompiled_model(
+    model_path: str,
+    model_name: str,
+    model_version: str,
+    model_component: str,
+    ignore_cached_model: bool = False,
+):
+    """
+    Caches pre-compiled model in default asset path to be used in sub-sequence demos.
+    """
+    asset_config = ModelZooAssetConfig.from_cfg()
+    model_id_path = asset_config.get_local_store_model_path(
+        model_name, model_version, f"{model_component}_model_id.cached"
+    )
+
+    use_cached_model = not ignore_cached_model or os.path.exists(model_id_path)
+    uploaded_model = None
+    if use_cached_model:
+        try:
+            with open(model_id_path, "r") as model_id_file:
+                model_id = model_id_file.readline().strip()
+            print(f"Using previously uploaded model({model_id}) for {model_component}")
+            uploaded_model = hub.get_model(model_id=model_id)
+            if uploaded_model is not None:
+                return uploaded_model
+
+        except Exception:
+            # Try uploading model instead
+            use_cached_model = False
+
+    # Upload model on hub
+    uploaded_model = hub.upload_model(model_path)
+    with open(model_id_path, "w") as model_id_file:
+        model_id_file.writelines([f"{uploaded_model.model_id}"])
+    return uploaded_model

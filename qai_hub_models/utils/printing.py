@@ -10,9 +10,10 @@ import numpy as np
 import qai_hub as hub
 from prettytable import PrettyTable
 from qai_hub.client import SourceModelType
+from tabulate import tabulate
 
 from qai_hub_models.utils.base_model import TargetRuntime
-from qai_hub_models.utils.compare import generate_comparison_metrics
+from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
 from qai_hub_models.utils.config_loaders import QAIHMModelPerf
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
@@ -24,30 +25,35 @@ def print_inference_metrics(
     inference_result: Dict[str, List[np.ndarray]],
     torch_out: List[np.ndarray],
     outputs_to_skip: Optional[List[int]] = None,
+    metrics: str = "psnr",
 ) -> None:
     inference_data = [
         np.concatenate(outputs, axis=0) for outputs in inference_result.values()
     ]
     output_names = list(inference_result.keys())
-    metrics = generate_comparison_metrics(torch_out, inference_data)
+    df_eval = generate_comparison_metrics(
+        torch_out, inference_data, names=output_names, metrics=metrics
+    )
+
+    def custom_float_format(x):
+        if isinstance(x, float):
+            return f"{x:.4g}"
+        return x
+
+    formatted_df = df_eval.applymap(custom_float_format)
+
     print(
         f"\nComparing on-device vs. local-cpu inference for {inference_job.name.title()}."
     )
+    print(tabulate(formatted_df, headers="keys", tablefmt="grid"))  # type: ignore
+    print()
 
-    table = PrettyTable(align="l")
-    table.field_names = ["Name", "Shape", "Peak Signal-to-Noise Ratio (PSNR)"]
-    outputs_to_skip = outputs_to_skip or []
-    i = 0
-    while i in metrics or i in outputs_to_skip:
-        if i in outputs_to_skip or np.prod(np.array(metrics[i].shape)) < 5:
-            table.add_row([output_names[i], metrics[i].shape, "Skipped"])
-            i += 1
-            continue
-        table.add_row([output_names[i], metrics[i].shape, f"{metrics[i].psnr:.4g} dB"])
-        i += 1
+    # Print explainers for each eval metric
+    for m in df_eval.columns.drop("shape"):  # type: ignore
+        print(f"- {m}:", METRICS_FUNCTIONS[m][1])
 
-    print(table.get_string())
     last_line = f"More details: {inference_job.url}"
+    print()
     print(last_line)
 
 
@@ -92,7 +98,7 @@ def print_profile_metrics(
     details: QAIHMModelPerf.ModelRuntimePerformanceDetails,
 ):
     inf_time = details.inference_time_ms
-    peak_memory_bytes = f"[{round(details.peak_memory_bytes[0] / 1e6)}, {round(details.peak_memory_bytes[1] / 1e6)}]"
+    peak_memory_mb = f"[{round(details.peak_memory_bytes[0] / 1e6)}, {round(details.peak_memory_bytes[1] / 1e6)}]"
     num_ops = sum(details.compute_unit_counts.values())
     compute_units = [
         f"{unit} ({num_ops} ops)"
@@ -103,10 +109,10 @@ def print_profile_metrics(
         ["Device", f"{details.device_name} ({details.device_os})"],
         ["Runtime", f"{details.runtime.name}"],
         [
-            "Estimated inference time",
-            "less than 0.1ms" if inf_time < 0.1 else f"{inf_time}",
+            "Estimated inference time (ms)",
+            "<0.1" if inf_time < 0.1 else f"{inf_time:.1f}",
         ],
-        ["Estimated peak memory usage", f"{peak_memory_bytes}"],
+        ["Estimated peak memory usage (MB)", f"{peak_memory_mb}"],
         ["Total # Ops", f"{num_ops}"],
         ["Compute Unit(s)", " ".join(compute_units)],
     ]

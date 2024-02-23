@@ -11,6 +11,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     raise NotImplementedError(
         "AIMET must be installed to load quantized models. "
+        "AIMET is only supported on Linux. "
         "Install AIMET via the instructions here: "
         "https://quic.github.io/aimet-pages/releases/latest/install/index.html"
     )
@@ -277,3 +278,15 @@ class AIMETQuantizableMixin:
         """Type safe version of get_input_spec."""
         assert isinstance(self, BaseModel)
         return self.get_input_spec(*args, **kwargs)
+
+
+class HubCompileOptionsInt8Mixin:
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+    ) -> str:
+        compile_options = super().get_hub_compile_options(  # type: ignore
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --quantize_full_type int8 --quantize_io"

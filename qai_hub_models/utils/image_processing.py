@@ -187,20 +187,28 @@ def resize_pad(image: torch.Tensor, dst_size: Tuple[int, int]):
 
 
 def undo_resize_pad(
-    image: torch.Tensor, orig_size_wh: Tuple[int, int], padding: Tuple[int, int]
+    image: torch.Tensor,
+    orig_size_wh: Tuple[int, int],
+    scale: float,
+    padding: Tuple[int, int],
 ):
     """
     Undos the efffect of resize_pad. Instead of scale, the original size
     (in order width, height) is provided to prevent an off-by-one size.
     """
     width, height = orig_size_wh
-    cropped_image = image[
-        ..., padding[1] : padding[1] + height, padding[0] : padding[0] + width
+
+    rescaled_image = interpolate(image, scale_factor=1 / scale, mode="bilinear")
+
+    scaled_padding = [int(round(padding[0] / scale)), int(round(padding[1] / scale))]
+
+    cropped_image = rescaled_image[
+        ...,
+        scaled_padding[1] : scaled_padding[1] + height,
+        scaled_padding[0] : scaled_padding[0] + width,
     ]
 
-    rescaled_image = interpolate(cropped_image, size=[height, width], mode="bilinear")
-
-    return rescaled_image
+    return cropped_image
 
 
 def pil_resize_pad(
@@ -216,10 +224,10 @@ def pil_resize_pad(
 
 
 def pil_undo_resize_pad(
-    image: Image, orig_size_wh: Tuple[int, int], padding: Tuple[int, int]
+    image: Image, orig_size_wh: Tuple[int, int], scale: float, padding: Tuple[int, int]
 ) -> Image:
     torch_image = preprocess_PIL_image(image)
-    torch_out_image = undo_resize_pad(torch_image, orig_size_wh, padding)
+    torch_out_image = undo_resize_pad(torch_image, orig_size_wh, scale, padding)
     pil_out_image = torch_tensor_to_PIL_image(torch_out_image[0])
     return pil_out_image
 

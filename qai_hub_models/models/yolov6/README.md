@@ -39,12 +39,16 @@ Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
-- Code in the Qualcomm® AI Hub Models repository is covered by the LICENSE
-  file at the repository root.
 - The license for the original implementation of Yolo-v6 can be found
   [here](https://github.com/meituan/YOLOv6/blob/47625514e7480706a46ff3c0cd0252907ac12f22/LICENSE).
-
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf).
 
 ## References
 * [YOLOv6: A Single-Stage Object Detection Framework for Industrial Applications](https://arxiv.org/abs/2209.02976)
 * [Source Model Implementation](https://github.com/meituan/YOLOv6/)
+
+## Community
+* Join [our AI Hub Slack community](https://join.slack.com/t/qualcommaihub-nac3926/shared_invite/zt-2d5zsmas3-Sj0Q9TzslueCjS31eXG2UA) to collaborate, post questions and learn more about on-device AI.
+* For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
+
+{usage_and_limitation}

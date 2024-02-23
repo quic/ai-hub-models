@@ -50,8 +50,8 @@ class DeepLabV3_ResNet50(BaseModel):
         """
         return self.model(image)["out"]
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 224,

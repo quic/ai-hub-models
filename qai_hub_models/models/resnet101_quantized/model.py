@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
@@ -28,7 +29,9 @@ MODEL_ASSET_VERSION = 3
 DEFAULT_ENCODINGS = "resnet101_quantized_encodings.json"
 
 
-class ResNet101Quantizable(AIMETQuantizableMixin, ResNet101):
+class ResNet101Quantizable(
+    HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, ResNet101
+):
     """ResNet101 with post train quantization support.
 
     Supports only 8 bit weights and activations, and only loads pre-quantized checkpoints.

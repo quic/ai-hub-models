@@ -4,15 +4,11 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Dict, List, NamedTuple, Tuple, Union
+from typing import Dict, List, Union
 
 import numpy as np
+import pandas as pd
 import torch
-
-
-class InfenceMetrics(NamedTuple):
-    psnr: float
-    shape: Tuple[int, ...]
 
 
 def torch_inference(
@@ -89,9 +85,42 @@ def compare_psnr(
     assert psnr > psnr_threshold
 
 
+def compute_top_k_accuracy(expected, actual, k):
+    """
+    expected, actual: logit / softmax prediction of the same 1D shape.
+    """
+    top_k_expected = np.argpartition(expected.flatten(), -k)[-k:]
+    top_k_actual = np.argpartition(actual.flatten(), -k)[-k:]
+
+    top_k_accuracy = np.mean(np.isin(top_k_expected, top_k_actual))
+
+    return top_k_accuracy
+
+
+TOP_K_EXPLAINER = "Match rate between the top {k} classification predictions. 1 indicates perfect match"
+PSNR_EXPLAINER = (
+    "Peak Signal-to-Noise Ratio (PSNR). >30 dB is typically considered good."
+)
+
+METRICS_FUNCTIONS = dict(
+    psnr=(compute_psnr, PSNR_EXPLAINER),
+    top1=(
+        lambda expected, actual: compute_top_k_accuracy(expected, actual, 1),
+        TOP_K_EXPLAINER.format(k=1),
+    ),
+    top5=(
+        lambda expected, actual: compute_top_k_accuracy(expected, actual, 5),
+        TOP_K_EXPLAINER.format(k=5),
+    ),
+)
+
+
 def generate_comparison_metrics(
-    expected: List[np.ndarray], actual: List[np.ndarray]
-) -> Dict[int, InfenceMetrics]:
+    expected: List[np.ndarray],
+    actual: List[np.ndarray],
+    names: List[str] | None = None,
+    metrics: str = "psnr",
+) -> pd.DataFrame:
     """
     Compares the outputs of a model run in two different ways.
     For example, expected might be run on local cpu and actual run on device.
@@ -99,13 +128,28 @@ def generate_comparison_metrics(
     Parameters:
         expected: List of numpy array outputs computed from a ground truth model.
         actual: List of numpy array outputs computed from an experimental model.
+        metrics: comma-separated metrics names, e.g., "psnr,top1,top5"
 
     Returns:
-        A set of metrics representing how close the two sets of outputs are.
+        DataFrame with range index (0, 1, 2...) and shape,  metrics as columns
+        (e.g., shape | psnr | top1 | top5.
     """
-    metrics = {}
+    metrics_ls = metrics.split(",")
+    for m in metrics_ls:
+        supported_metrics = ", ".join(METRICS_FUNCTIONS.keys())
+        if m not in METRICS_FUNCTIONS.keys():
+            raise ValueError(
+                f"Metrics {m} not supported. Supported metrics: {supported_metrics}"
+            )
+    idx = (
+        pd.Index(names, name="output_name")
+        if names
+        else pd.RangeIndex(stop=len(expected))
+    )
+    df_res = pd.DataFrame(None, columns=["shape"] + metrics_ls, index=idx)  # type: ignore
     for i, (expected_arr, actual_arr) in enumerate(zip(expected, actual)):
-        metrics[i] = InfenceMetrics(
-            compute_psnr(expected_arr, actual_arr), expected_arr.shape
-        )
-    return metrics
+        loc = i if not names else names[i]
+        df_res.loc[loc, "shape"] = expected_arr.shape
+        for m in metrics_ls:
+            df_res.loc[loc, m] = METRICS_FUNCTIONS[m][0](expected_arr, actual_arr)  # type: ignore
+    return df_res

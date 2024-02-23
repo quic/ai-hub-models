@@ -14,13 +14,13 @@ from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     CityscapesSegmentor,
 )
 from qai_hub_models.utils.args import (
-    TargetRuntime,
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
@@ -65,13 +65,15 @@ def cityscapes_segmentation_demo(
 
     (_, _, height, width) = input_spec["image"][0]
     orig_image = load_image(image)
-    image, _, padding = pil_resize_pad(orig_image, (height, width))
+    image, scale, padding = pil_resize_pad(orig_image, (height, width))
 
     # Run app
     image_annotated = app.predict(image)
 
     # Resize / unpad annotated image
-    image_annotated = pil_undo_resize_pad(image_annotated, orig_image.size, padding)
+    image_annotated = pil_undo_resize_pad(
+        image_annotated, orig_image.size, scale, padding
+    )
 
     if not is_test:
         display_or_save_image(

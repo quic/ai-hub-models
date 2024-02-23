@@ -9,10 +9,16 @@ from typing import Optional
 import torch
 from torch.utils.data import DataLoader
 
-from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_torch
+from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
 
-IMAGE_QUANTIZATION_SAMPLES_URL = CachedWebAsset.from_asset_store(
-    "/quantization/image_quantization_samples.pt"
+DATA_ID = "image_quantziation_samples"
+DATA_VERSION = 1
+
+IMAGE_QUANTIZATION_SAMPLES = CachedWebDatasetAsset(
+    "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/datasets/image_quantization_samples.pt",
+    DATA_ID,
+    DATA_VERSION,
+    "image_quantization_samples.pt",
 )
 
 
@@ -58,4 +64,5 @@ def get_image_quantization_samples(
     torch.save(final_tensor, "imagenet_quantization_samples.pt")
     ```
     """
-    return load_torch(quantization_samples_path or IMAGE_QUANTIZATION_SAMPLES_URL)
+    path = IMAGE_QUANTIZATION_SAMPLES.fetch(extract=False)
+    return load_torch(quantization_samples_path or path)

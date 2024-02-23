@@ -7,15 +7,20 @@ import torch
 from qai_hub_models.models.stylegan2.app import StyleGAN2App
 from qai_hub_models.models.stylegan2.model import StyleGAN2
 from qai_hub_models.utils.args import (
-    add_output_dir_arg,
+    demo_model_from_cli_args,
     get_model_cli_parser,
+    get_on_device_demo_parser,
     model_from_cli_args,
 )
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
 
 
 def main(is_test: bool = False):
     parser = get_model_cli_parser(StyleGAN2)
+    parser = get_on_device_demo_parser(
+        parser, available_target_runtimes=[TargetRuntime.TFLITE], add_output_dir=True
+    )
     parser.add_argument(
         "--seed",
         type=int,
@@ -26,9 +31,8 @@ def main(is_test: bool = False):
         "--num-images",
         type=int,
         default=1,
-        help="Number of images to generate (all computed in 1 inference call).",
+        help="Number of images to generate (all computed in one inference call).",
     )
-    add_output_dir_arg(parser)
     parser.add_argument(
         "--classes",
         type=int,
@@ -37,11 +41,13 @@ def main(is_test: bool = False):
         help="Class[es] to use for image generation (if applicable).",
     )
     args = parser.parse_args([] if is_test else None)
+    if not args.inference_options:
+        args.inference_options = "--compute_unit gpu"
 
     # Create model and app
     model = model_from_cli_args(StyleGAN2, args)
-    assert isinstance(model, StyleGAN2)
-    app = StyleGAN2App(model, model.output_size, model.num_classes)
+    inference_model = demo_model_from_cli_args(StyleGAN2, args)
+    app = StyleGAN2App(inference_model, model.output_size, model.num_classes)
 
     # Verify model input args
     if model.num_classes == 0 and args.classes:

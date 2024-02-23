@@ -4,10 +4,12 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, List, Optional
 
+import numpy as np
 import torch
 
+from qai_hub_models.datasets.imagenette import ImagenetteDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
 from qai_hub_models.utils.base_model import BaseModel
@@ -73,3 +75,9 @@ class ImagenetClassifier(BaseModel):
     ) -> "ImagenetClassifier":
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)
+
+    def sample_inputs(
+        self, input_spec: InputSpec | None = None
+    ) -> Dict[str, List[np.ndarray]]:
+        dataset = ImagenetteDataset()
+        return dict(image_tensor=[dataset[42][0].numpy()[None, :, :, :]])

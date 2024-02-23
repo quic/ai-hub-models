@@ -16,12 +16,16 @@ a hosted Qualcomm® device.
 
 
 ## License
-- Code in the Qualcomm® AI Hub Models repository is covered by the LICENSE
-  file at the repository root.
 - The license for the original implementation of Baichuan-7B can be found
   [here](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE).
-
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf).
 
 ## References
 * [Baichuan 2: Open Large-scale Language Models](https://arxiv.org/abs/2309.10305)
 * [Source Model Implementation](https://github.com/baichuan-inc/Baichuan-7B/)
+
+## Community
+* Join [our AI Hub Slack community](https://join.slack.com/t/qualcommaihub-nac3926/shared_invite/zt-2d5zsmas3-Sj0Q9TzslueCjS31eXG2UA) to collaborate, post questions and learn more about on-device AI.
+* For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
+
+{usage_and_limitation}

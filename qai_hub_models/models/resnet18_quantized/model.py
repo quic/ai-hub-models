@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
@@ -17,15 +18,16 @@ from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
 from qai_hub_models.models.resnet18.model import ResNet18
-from qai_hub_models.utils.aimet.config_loader import get_per_channel_aimet_config
+from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 5
+MODEL_ASSET_VERSION = 6
 DEFAULT_ENCODINGS = "resnet18_quantized_encodings.json"
+AIMET_CONFIG = "default_config_per_channel_qnn"
 
 
-class ResNet18Quantizable(AIMETQuantizableMixin, ResNet18):
+class ResNet18Quantizable(HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, ResNet18):
     """ResNet with post train quantization support.
 
     Supports only 8 bit weights and activations, and only loads pre-quantized checkpoints.
@@ -61,7 +63,7 @@ class ResNet18Quantizable(AIMETQuantizableMixin, ResNet18):
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=get_per_channel_aimet_config(),
+            config_file=get_aimet_config_path(AIMET_CONFIG),
             dummy_input=torch.rand(input_shape),
         )
 

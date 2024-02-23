@@ -16,11 +16,8 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models.whisper_asr import Model
-from qai_hub_models.utils.args import (
-    export_parser,
-    get_model_kwargs,
-    parse_target_runtime,
-)
+from qai_hub_models.utils.args import export_parser, get_model_kwargs
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.printing import (
@@ -30,7 +27,6 @@ from qai_hub_models.utils.printing import (
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
-    transpose_channel_first_to_last,
 )
 
 ALL_COMPONENTS = ["WhisperEncoder", "WhisperDecoder"]
@@ -44,7 +40,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    dst_runtime: str = "TFLITE",
+    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -77,7 +73,7 @@ def export_model(
             from profiling and inference.
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
-        dst_runtime: Which on-device runtime to target. Default is TensorFlowLite.
+        target_runtime: Which on-device runtime to target. Default is TFLite.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
         **additional_model_kwargs: Additional optional kwargs used to customize
@@ -91,7 +87,6 @@ def export_model(
     """
     model_name = "whisper_asr"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    target_runtime = parse_target_runtime(dst_runtime)
     component_arg = components
     components = components or ALL_COMPONENTS
     for component in components:
@@ -129,7 +124,7 @@ def export_model(
 
         # 2. Compile the models to an on-device asset
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options + " --force_channel_last_input audio"
+            target_runtime, compile_options
         )
         print(f"Optimizing model {component_name} to run on-device.")
         compile_jobs[component_name] = hub.submit_compile_job(
@@ -160,13 +155,9 @@ def export_model(
                 f"Running inference for {component_name} on a hosted device with example inputs."
             )
             sample_inputs = components_dict[component_name].sample_inputs()
-            # Convert inputs from channel first to channel last
-            hub_inputs = transpose_channel_first_to_last(
-                "audio", sample_inputs, target_runtime
-            )
             inference_jobs[component_name] = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
-                inputs=hub_inputs,
+                inputs=sample_inputs,
                 device=hub.Device(device),
                 name=f"{component_name}",
                 options=profile_options,

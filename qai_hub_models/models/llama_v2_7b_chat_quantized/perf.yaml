@@ -1,0 +1,77 @@
+models:
+- name: Llama-TokenGenerator-KVCache-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-01-26T00:34:02.549319Z'
+    torchscript_onnx_qnn:
+      inference_time: 117812
+      throughput: 8.48
+      estimated_peak_memory_range:
+        min: 69697536
+        max: 249894184
+      layer_info:
+        layers_on_npu: 34841
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 34841
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
+- name: Llama-PromptProcessor-Quantized
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-01-26T00:34:02.549319Z'
+    torchscript_onnx_qnn:
+      inference_time: 2578521
+      throughput: 0.38
+      estimated_peak_memory_range:
+        min: 12124160
+        max: 17599768
+      layer_info:
+        layers_on_npu: 31769
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 31769
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
+aggregated:
+  supported_devices:
+  - Samsung Galaxy S23 Ultra
+  supported_oses:
+  - Android
+  supported_chipsets:
+  - Snapdragon® 8 Gen 2
+  performance_metrics:
+  - reference_device_info:
+      name: Samsung Galaxy S23 Ultra
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-01-26T00:34:02.549319Z'
+    torchscript_onnx_qnn:
+      inference_time: 117423.0
+      throughput: 8.5
+      estimated_peak_memory_range:
+        min: 68579328
+        max: 73044264
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: ""
+      job_status: Passed
