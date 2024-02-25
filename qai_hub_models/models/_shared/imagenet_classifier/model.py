@@ -9,11 +9,11 @@ from typing import Dict, List, Optional
 import numpy as np
 import torch
 
-from qai_hub_models.datasets.imagenette import ImagenetteDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.quantization import get_image_quantization_samples
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -79,5 +79,5 @@ class ImagenetClassifier(BaseModel):
     def sample_inputs(
         self, input_spec: InputSpec | None = None
     ) -> Dict[str, List[np.ndarray]]:
-        dataset = ImagenetteDataset()
-        return dict(image_tensor=[dataset[42][0].numpy()[None, :, :, :]])
+        samples = get_image_quantization_samples()
+        return dict(image_tensor=[samples[:1].numpy()])

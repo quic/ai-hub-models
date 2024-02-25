@@ -53,7 +53,29 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 * [Source Model Implementation](https://github.com/CompVis/stable-diffusion/tree/main)
 
 ## Community
-* Join [our AI Hub Slack community](https://join.slack.com/t/qualcommaihub-nac3926/shared_invite/zt-2d5zsmas3-Sj0Q9TzslueCjS31eXG2UA) to collaborate, post questions and learn more about on-device AI.
+* Join [our AI Hub Slack community](https://join.slack.com/t/qualcomm-ai-hub/shared_invite/zt-2dgf95loi-CXHTDRR1rvPgQWPO~ZZZJg) to collaborate, post questions and learn more about on-device AI.
 * For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
 
-{usage_and_limitation}
+
+## Usage and Limitations
+
+This model may not be used for or in connection with any of the following applications:
+
+- Accessing essential private and public services and benefits;
+- Administration of justice and democratic processes;
+- Assessing or recognizing the emotional state of a person;
+- Biometric and biometrics-based systems, including categorization of persons based on sensitive characteristics;
+- Education and vocational training;
+- Employment and workers management;
+- Exploitation of the vulnerabilities of persons resulting in harmful behavior;
+- General purpose social scoring;
+- Law enforcement;
+- Management and operation of critical infrastructure;
+- Migration, asylum and border control management;
+- Predictive policing;
+- Real-time remote biometric identification in public spaces;
+- Recommender systems of social media platforms;
+- Scraping of facial images (from the internet or otherwise); and/or
+- Subliminal manipulation
+
+
