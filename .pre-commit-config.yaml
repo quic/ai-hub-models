@@ -1,0 +1,79 @@
+# exclude:
+# * third_party folders
+# * CloudFormation templates don't pass the yaml-check hook (a known issue)
+
+exclude: |
+    (?x)(
+        /build/
+    )
+
+repos:
+-   repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.5.5
+    hooks:
+     -  id: insert-license
+        files: \.py|\.sh$
+        args:
+            - --license-filepath
+            - .pre-commit-license-header.txt
+            - --use-current-year
+            - --allow-past-years
+            - --no-extra-eol
+     -  id: insert-license
+        files: \.java$
+        args:
+            - --license-filepath
+            - .pre-commit-license-header.txt
+            - --comment-style
+            - //
+            - --use-current-year
+            - --allow-past-years
+            - --no-extra-eol
+
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+    -   id: check-yaml
+        args: [--allow-multiple-documents]
+    -   id: trailing-whitespace
+        exclude: '\.diff$'
+    -   id: check-added-large-files
+        args: ['--maxkb=1024']
+    -   id: check-merge-conflict
+    -   id: detect-aws-credentials
+        args: [--allow-missing-credentials]
+    -   id: end-of-file-fixer
+        exclude: |
+            (?x)(
+                \.diff$
+            )
+    -   id: fix-byte-order-marker
+-   repo: https://github.com/rhysd/actionlint
+    rev: v1.6.26
+    hooks:
+    - id: actionlint
+-   repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+    -   id: shellcheck
+-   repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+    -   id: isort
+        args: ["--filter-files"]
+-   repo: https://github.com/psf/black
+    rev: 22.1.0
+    hooks:
+    -   id: black
+        additional_dependencies: ['click==8.0.4']
+-   repo: https://github.com/pycqa/flake8
+    rev: 6.1.0
+    hooks:
+    -   id: flake8
+-   repo: local
+    hooks:
+        - id: mypy
+          name: mypy
+          files: \.(py|pyi|ipynb|proto|fbs)$
+          entry: scripts/util/run_mypy.sh
+          language: system

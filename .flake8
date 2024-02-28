@@ -1,0 +1,9 @@
+[flake8]
+ignore = E501,W503,E203,E266,E265,F811
+# E501 line too long
+# W503 clang-formatter can produce line break before binary operator
+# E203 False positive "whitespaces before :" especially when slicing list, arrays etc.
+# E266 Too many leading '#' for block comment
+# E265 Block comment should start with '# '
+# F811 A module has been imported twice, but seen when importing functions for fixtures in pytest files.
+exclude = **/*_pb2.py

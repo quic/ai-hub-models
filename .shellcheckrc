@@ -1,0 +1,33 @@
+## How to update these rules
+##
+## From repo root, `pre-commit run -a shellcheck` to run shellcheck across all files in the repo. By default, the commit hook
+## will only run on your patch. However, CI runs it across all files, so if you're going to touch this file, I
+## recommend forcing it to run.
+##
+## To run on and fix a specific file, run:
+##     shellcheck -x -f diff {filename} | apply
+##
+
+external-sources=true
+
+## Issue 7533: [shellcheck] Explore miscellaneous checks
+disable=SC2003  # expr is antiquated. Consider rewriting this using `$((..))`, `${}` or `[[  ]]`.
+disable=SC2005  # Useless `echo`? Instead of `echo $(cmd)`, just use `cmd`
+disable=SC2012  # Use `find` instead of `ls` to better handle non-alphanumeric filenames.
+disable=SC2116  # Useless echo? Instead of `cmd $(echo foo)`, just use `cmd foo`.
+disable=SC2155  # Declare and assign separately to avoid masking return values.
+disable=SC2166  # Prefer `[ p ] && [ q ]` as `[ p -a q ]` is not well defined.
+
+
+## things we probably don't care about ever fixing.
+
+disable=SC1083  # This `{`/`}` is literal. Check if `;` is missing or quote the expression.
+
+disable=SC2001  # See if you can use `${variable//search/replace}` instead.
+disable=SC2064  # Use single quotes, otherwise this expands now rather than when signalled.
+disable=SC2129  # Consider using `{ cmd1; cmd2; } >> file` instead of individual redirects.
+disable=SC2143  # Use `grep -q` instead of comparing output with `[ -n .. ]`.
+disable=SC2148  # Tips depend on target shell and yours is unknown. Add a shebang.
+disable=SC2162  # `read` without `-r` will mangle backslashes.
+disable=SC2164  # Use `cd ... || exit` in case `cd` fails.
+disable=SC2181  # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
