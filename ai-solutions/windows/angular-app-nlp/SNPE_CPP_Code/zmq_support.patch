@@ -1,0 +1,1422 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c9be8f0..81b1636 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,73 +1,111 @@
+-#==============================================================================
+-#
+-#  Copyright (c) 2020-2023 Qualcomm Technologies, Inc.
+-#  All Rights Reserved.
+-#  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-#
+-#==============================================================================
+-
+-cmake_minimum_required (VERSION 3.14)
+-project (snpe-sample)
+-set (APP "snpe-sample")
+-
+-# CMake option to control whether to build with VCRuntime libraries
+-option(BUILD_WITH_VCRUNTIME "Build the snpe-sample with static vcruntime libraries." OFF)
+-message("Build snpe-sample with vcruntime: ${BUILD_WITH_VCRUNTIME}")
+-
+-set( APP_SOURCES
+-    "main.cpp"
+-    "Util.cpp"
+-    "SetBuilderOptions.cpp"
+-    "SetBuilderOptions.hpp"
+-    "SaveOutputTensor.cpp"
+-    "GetOpt.cpp"
+-    "GetOpt.hpp"
+-    "SaveOutputTensor.hpp"
+-    "Util.hpp"
+-    "NV21Load.cpp"
+-    "NV21Load.hpp"
+-    "LoadInputTensor.cpp"
+-    "LoadInputTensor.hpp"
+-    "CheckRuntime.cpp"
+-    "CheckRuntime.hpp"
+-    "LoadContainer.cpp"
+-    "LoadContainer.hpp"
+-    "PreprocessInput.cpp"
+-    "PreprocessInput.hpp"
+-    "CreateUserBuffer.cpp"
+-    "CreateUserBuffer.hpp"
+-)
+-
+-set (SNPE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../include/SNPE)
+-set (SNPE_LIB_PREFIX ../../../../lib)
+-set (_dtuple_POSTFIX windows-msvc)
+-
+-if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+-    message("Linking with x64 SNPE")
+-    get_filename_component(SNPE_DLL_PATH "${SNPE_LIB_PREFIX}/x86_64-${_dtuple_POSTFIX}/SNPE.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+-    get_filename_component(SNPE_IMPLIB_PATH "${SNPE_LIB_PREFIX}/x86_64-${_dtuple_POSTFIX}/SNPE.lib" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+-elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
+-    message("Linking with ARM64 SNPE")
+-    get_filename_component(SNPE_DLL_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SNPE.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+-    get_filename_component(SNPE_IMPLIB_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SNPE.lib" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+-else()
+-    message(FATAL "Not Supported Platform")
+-endif()
+-
+-add_library( SNPE SHARED IMPORTED )
+-set_target_properties(SNPE PROPERTIES
+-    IMPORTED_LOCATION ${SNPE_DLL_PATH}
+-    IMPORTED_IMPLIB ${SNPE_IMPLIB_PATH}
+-    INTERFACE_INCLUDE_DIRECTORIES ${SNPE_INCLUDE_DIR}
+-)
+-
+-add_executable(${APP} ${APP_SOURCES})
+-target_compile_definitions(${APP} PUBLIC -D_CRT_SECURE_NO_WARNINGS)
+-if(${BUILD_WITH_VCRUNTIME})
+-    target_compile_options(${APP} PUBLIC /MT)
+-endif()
+-target_link_libraries (${APP} SNPE)
+-add_custom_command(TARGET ${APP} POST_BUILD
+-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+-    ${SNPE_DLL_PATH}
+-    $<TARGET_FILE_DIR:${APP}>)
++#==============================================================================
++#
++#  Copyright (c) 2020-2023 Qualcomm Technologies, Inc.
++#  All Rights Reserved.
++#  Confidential and Proprietary - Qualcomm Technologies, Inc.
++#
++#==============================================================================
++
++cmake_minimum_required (VERSION 3.14)
++project (snpe-sample)
++set (APP "snpe-sample")
++
++# CMake option to control whether to build with VCRuntime libraries
++option(BUILD_WITH_VCRUNTIME "Build the snpe-sample with static vcruntime libraries." OFF)
++message("Build snpe-sample with vcruntime: ${BUILD_WITH_VCRUNTIME}")
++
++set( APP_SOURCES
++    "main.cpp"
++    "Util.cpp"
++    "SetBuilderOptions.cpp"
++    "SetBuilderOptions.hpp"
++    "SaveOutputTensor.cpp"
++    "GetOpt.cpp"
++    "GetOpt.hpp"
++    "SaveOutputTensor.hpp"
++    "Util.hpp"
++    "NV21Load.cpp"
++    "NV21Load.hpp"
++    "LoadInputTensor.cpp"
++    "LoadInputTensor.hpp"
++    "CheckRuntime.cpp"
++    "CheckRuntime.hpp"
++    "LoadContainer.cpp"
++    "LoadContainer.hpp"
++    "PreprocessInput.cpp"
++    "PreprocessInput.hpp"
++    "CreateUserBuffer.cpp"
++    "CreateUserBuffer.hpp"
++)
++
++set (SNPE_INCLUDE_DIR "C:/Users/HCKTest/Desktop/sahinhos/QIDK_AI_Suite_Artifacts/Assets_ZIP/SNPE_include/SNPE")
++set (SNPE_LIB_PREFIX "C:/Users/HCKTest/Desktop/sahinhos/QIDK_AI_Suite_Artifacts/Assets_ZIP/SNPE_lib/SNPE_lib/lib")
++set (ZERO_MQ_PATH "C:/Program Files (x86)/ZeroMQ")
++set (_dtuple_POSTFIX windows-msvc)
++
++if(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
++    message("Linking with x64 SNPE")
++    get_filename_component(SNPE_DLL_PATH "${SNPE_LIB_PREFIX}/x86_64-${_dtuple_POSTFIX}/SNPE.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++    get_filename_component(SNPE_IMPLIB_PATH "${SNPE_LIB_PREFIX}/x86_64-${_dtuple_POSTFIX}/SNPE.lib" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64")
++    message("Linking with ARM64 SNPE")
++    get_filename_component(SNPE_DLL_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SNPE.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++    get_filename_component(SNPE_IMPLIB_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SNPE.lib" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++   	get_filename_component(SNPE_STUB66_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SnpeDspV66Stub.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++	get_filename_component(SNPE_STUB68_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SnpeHtpV68Stub.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++	get_filename_component(SNPE_HTP_PATH "${SNPE_LIB_PREFIX}/aarch64-${_dtuple_POSTFIX}/SnpeHtpPrepare.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++	
++	get_filename_component(ZMQ_DLL_PATH "${ZERO_MQ_PATH}/bin/libzmq-v143-mt-4_3_5.dll" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++	get_filename_component(SNPE_SKEL66_PATH "${SNPE_LIB_PREFIX}/hexagon-v66/unsigned/libSnpeDspV66Skel.so" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++	get_filename_component(SNPE_SKEL68_PATH "${SNPE_LIB_PREFIX}/hexagon-v68/unsigned/libSnpeHtpV68Skel.so" REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
++
++else()
++    message(FATAL "Not Supported Platform")
++endif()
++
++add_library( SNPE SHARED IMPORTED )
++set_target_properties(SNPE PROPERTIES
++    IMPORTED_LOCATION ${SNPE_DLL_PATH}
++    IMPORTED_IMPLIB ${SNPE_IMPLIB_PATH}
++    INTERFACE_INCLUDE_DIRECTORIES ${SNPE_INCLUDE_DIR}
++)
++
++find_package(cppzmq)
++add_executable(${APP} ${APP_SOURCES})
++target_compile_definitions(${APP} PUBLIC -D_CRT_SECURE_NO_WARNINGS)
++if(${BUILD_WITH_VCRUNTIME})
++    target_compile_options(${APP} PUBLIC /MT)
++endif()
++target_link_libraries (${APP} SNPE cppzmq)
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_DLL_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_STUB66_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_STUB68_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_HTP_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_SKEL66_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${SNPE_SKEL68_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
++add_custom_command(TARGET ${APP} POST_BUILD
++    COMMAND ${CMAKE_COMMAND} -E copy_if_different
++    ${ZMQ_DLL_PATH}
++    $<TARGET_FILE_DIR:${APP}>)
+\ No newline at end of file
+diff --git a/CreateUserBuffer.cpp b/CreateUserBuffer.cpp
+index fa500e5..d2a5bbe 100644
+--- a/CreateUserBuffer.cpp
++++ b/CreateUserBuffer.cpp
+@@ -199,3 +199,131 @@ void createInputBufferMap(zdl::DlSystem::UserBufferMap& inputMap,
+       createUserBuffer(inputMap, applicationBuffers, snpeUserBackedBuffers, snpe, name);
+    }
+ }
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++void createUserBuffer(zdl::DlSystem::UserBufferMap& userBufferMap,
++                      std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                      std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                      std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                      const char * name,
++                      const bool isTfNBuffer,
++                      bool staticQuantization,
++                      int bitWidth)
++{
++   // get attributes of buffer by name
++   auto bufferAttributesOpt = snpe->getInputOutputBufferAttributes(name);
++   if (!bufferAttributesOpt) throw std::runtime_error(std::string("Error obtaining attributes for input tensor ") + name);
++
++   // calculate the size of buffer required by the input tensor
++   const zdl::DlSystem::TensorShape& bufferShape = (*bufferAttributesOpt)->getDims();
++
++    size_t bufferElementSize = 0;
++    if (isTfNBuffer) {
++        bufferElementSize = bitWidth / 8;
++    }
++    else {
++        bufferElementSize = sizeof(float);
++    }
++
++   // Calculate the stride based on buffer strides.
++   // Note: Strides = Number of bytes to advance to the next element in each dimension.
++   // For example, if a float tensor of dimension 2x4x3 is tightly packed in a buffer of 96 bytes, then the strides would be (48,12,4)
++   // Note: Buffer stride is usually known and does not need to be calculated.
++   std::vector<size_t> strides(bufferShape.rank());
++   strides[strides.size() - 1] = bufferElementSize;
++   size_t stride = strides[strides.size() - 1];
++   for (size_t i = bufferShape.rank() - 1; i > 0; i--)
++   {
++      (bufferShape[i] == 0) ? stride *= getResizableDim() : stride *= bufferShape[i];
++      strides[i-1] = stride;
++   }
++
++   size_t bufSize = calcSizeFromDims(bufferShape.getDimensions(), bufferShape.rank(), bufferElementSize);
++
++   // set the buffer encoding type
++   std::unique_ptr<zdl::DlSystem::UserBufferEncoding> userBufferEncoding;
++   if (isTfNBuffer)
++   {
++      if((*bufferAttributesOpt)->getEncodingType() == zdl::DlSystem::UserBufferEncoding::ElementType_t::FLOAT && staticQuantization){
++         std::cerr << "ERROR: Quantization parameters not present in model" << std::endl;
++         std::exit(EXIT_FAILURE);
++      }
++
++      const zdl::DlSystem::UserBufferEncodingTfN* ubeTfN = dynamic_cast<const zdl::DlSystem::UserBufferEncodingTfN*>((*bufferAttributesOpt)->getEncoding());
++      uint64_t stepEquivalentTo0 = ubeTfN->getStepExactly0();
++      float quantizedStepSize = ubeTfN->getQuantizedStepSize();
++      userBufferEncoding = std::unique_ptr<zdl::DlSystem::UserBufferEncodingTfN>(new zdl::DlSystem::UserBufferEncodingTfN(stepEquivalentTo0,quantizedStepSize, bitWidth));
++   }
++   else
++   {
++      userBufferEncoding = std::unique_ptr<zdl::DlSystem::UserBufferEncodingFloat>(new zdl::DlSystem::UserBufferEncodingFloat());
++   }
++
++   // create user-backed storage to load input data onto it
++   applicationBuffers.emplace(name, std::vector<float>(bufSize));
++
++   // create SNPE user buffer from the user-backed buffer
++   zdl::DlSystem::IUserBufferFactory& ubFactory = zdl::SNPE::SNPEFactory::getUserBufferFactory();
++   snpeUserBackedBuffers.push_back(ubFactory.createUserBuffer(applicationBuffers.at(name).data(),
++                                                              bufSize,
++                                                              strides,
++                                                              userBufferEncoding.get()));
++   if (snpeUserBackedBuffers.back() == nullptr)
++   {
++      std::cerr << "Error while creating user buffer." << std::endl;
++   }
++   // add the user-backed buffer to the inputMap, which is later on fed to the network for execution
++   userBufferMap.add(name, snpeUserBackedBuffers.back().get());
++}
++
++void createInputBufferMap(zdl::DlSystem::UserBufferMap& inputMap,
++                          std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                          std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                          std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                          bool isTfNBuffer,
++                          bool staticQuantization,
++                          int bitWidth)
++{
++   // get input tensor names of the network that need to be populated
++   const auto& inputNamesOpt = snpe->getInputTensorNames();
++   if (!inputNamesOpt) throw std::runtime_error("Error obtaining input tensor names");
++   const zdl::DlSystem::StringList& inputNames = *inputNamesOpt;
++   assert(inputNames.size() > 0);
++
++   // create SNPE user buffers for each application storage buffer
++   for (const char *name : inputNames) {
++      createUserBuffer(inputMap, applicationBuffers, snpeUserBackedBuffers, snpe, name, isTfNBuffer, staticQuantization, bitWidth);
++   }
++}
++
++void createOutputBufferMap(zdl::DlSystem::UserBufferMap& outputMap,
++                           std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                           std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                           std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                           bool isTfNBuffer,
++                           int bitWidth)
++{
++   // get input tensor names of the network that need to be populated
++   const auto& outputNamesOpt = snpe->getOutputTensorNames();
++   if (!outputNamesOpt) throw std::runtime_error("Error obtaining output tensor names");
++   const zdl::DlSystem::StringList& outputNames = *outputNamesOpt;
++
++   // create SNPE user buffers for each application storage buffer
++   for (const char *name : outputNames) {
++      createUserBuffer(outputMap, applicationBuffers, snpeUserBackedBuffers, snpe, name, isTfNBuffer, false, bitWidth);
++   }
++}
+\ No newline at end of file
+diff --git a/CreateUserBuffer.hpp b/CreateUserBuffer.hpp
+index 138a7c4..4a6cf60 100644
+--- a/CreateUserBuffer.hpp
++++ b/CreateUserBuffer.hpp
+@@ -53,3 +53,33 @@ void createInputBufferMap(zdl::DlSystem::UserBufferMap& inputMap,
+                           std::unordered_map<std::string, GLuint>& applicationBuffers,
+                           std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
+                           std::unique_ptr<zdl::SNPE::SNPE>& snpe);
++
++
++
++
++
++void createUserBuffer(zdl::DlSystem::UserBufferMap& userBufferMap,
++                      std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                      std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                      std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                      const char * name,
++                      const bool isTfNBuffer,
++                      bool staticQuantization,
++                      int bitWidth);
++
++// Create a UserBufferMap of the SNPE network inputs
++void createInputBufferMap(zdl::DlSystem::UserBufferMap& inputMap,
++                          std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                          std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                          std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                          const bool isTfNBuffer,
++                          bool staticQuantization,
++                          int bitWidth);
++
++// Create a UserBufferMap of the SNPE network outputs
++void createOutputBufferMap(zdl::DlSystem::UserBufferMap& outputMap,
++                           std::unordered_map<std::string, std::vector<float>>& applicationBuffers,
++                           std::vector<std::unique_ptr<zdl::DlSystem::IUserBuffer>>& snpeUserBackedBuffers,
++                           std::unique_ptr<zdl::SNPE::SNPE>& snpe,
++                           const bool isTfNBuffer,
++                           int bitWidth);
+diff --git a/SetBuilderOptions.cpp b/SetBuilderOptions.cpp
+index 20bbeca..3ee29a6 100644
+--- a/SetBuilderOptions.cpp
++++ b/SetBuilderOptions.cpp
+@@ -1,41 +1,42 @@
+-//==============================================================================
+-//
+-//  Copyright (c) 2020 Qualcomm Technologies, Inc.
+-//  All Rights Reserved.
+-//  Confidential and Proprietary - Qualcomm Technologies, Inc.
+-//
+-//==============================================================================
+-
+-#include "SetBuilderOptions.hpp"
+-
+-#include "SNPE/SNPE.hpp"
+-#include "DlContainer/IDlContainer.hpp"
+-#include "SNPE/SNPEBuilder.hpp"
+-
+-/* Windows Modification
+-* Remove UDL code
+-*/
+-
+-std::unique_ptr<zdl::SNPE::SNPE> setBuilderOptions(std::unique_ptr<zdl::DlContainer::IDlContainer> & container,
+-                                                   zdl::DlSystem::Runtime_t runtime,
+-                                                   zdl::DlSystem::RuntimeList runtimeList,
+-                                                   bool useUserSuppliedBuffers,
+-                                                   zdl::DlSystem::PlatformConfig platformConfig,
+-                                                   bool useCaching)
+-{
+-    std::unique_ptr<zdl::SNPE::SNPE> snpe;
+-    zdl::SNPE::SNPEBuilder snpeBuilder(container.get());
+-
+-    if(runtimeList.empty())
+-    {
+-        runtimeList.add(runtime);
+-    }
+-
+-    snpe = snpeBuilder.setOutputLayers({})
+-       .setRuntimeProcessorOrder(runtimeList)
+-       .setUseUserSuppliedBuffers(useUserSuppliedBuffers)
+-       .setPlatformConfig(platformConfig)
+-       .setInitCacheMode(useCaching)
+-       .build();
+-    return snpe;
+-}
++//==============================================================================
++//
++//  Copyright (c) 2020 Qualcomm Technologies, Inc.
++//  All Rights Reserved.
++//  Confidential and Proprietary - Qualcomm Technologies, Inc.
++//
++//==============================================================================
++
++#include "SetBuilderOptions.hpp"
++
++#include "SNPE/SNPE.hpp"
++#include "DlContainer/IDlContainer.hpp"
++#include "SNPE/SNPEBuilder.hpp"
++
++/* Windows Modification
++* Remove UDL code
++*/
++
++std::unique_ptr<zdl::SNPE::SNPE> setBuilderOptions(std::unique_ptr<zdl::DlContainer::IDlContainer> & container,
++                                                   zdl::DlSystem::Runtime_t runtime,
++                                                   zdl::DlSystem::RuntimeList runtimeList,
++                                                   bool useUserSuppliedBuffers,
++                                                   zdl::DlSystem::PlatformConfig platformConfig,
++                                                   bool useCaching)
++{
++    std::unique_ptr<zdl::SNPE::SNPE> snpe;
++    zdl::SNPE::SNPEBuilder snpeBuilder(container.get());
++
++    if(runtimeList.empty())
++    {
++        runtimeList.add(runtime);
++    }
++
++    snpe = snpeBuilder.setOutputLayers({})
++       .setRuntimeProcessorOrder(runtimeList)
++       .setUseUserSuppliedBuffers(useUserSuppliedBuffers)
++       .setPlatformConfig(platformConfig)
++       .setInitCacheMode(useCaching)
++       .setUnconsumedTensorsAsOutputs(true)
++       .build();
++    return snpe;
++}
+diff --git a/main.cpp b/main.cpp
+index 729e03b..05ed9a8 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -9,7 +9,7 @@
+ // This file contains an example application that loads and executes a neural
+ // network using the SNPE C++ API and saves the layer output to a file.
+ // Inputs to and outputs from the network are conveyed in binary form as single
+-// precision floating point values.
++// precision uint8_ting point values.
+ //
+ 
+ #include <iostream>
+@@ -20,6 +20,9 @@
+ #include <iterator>
+ #include <unordered_map>
+ #include <algorithm>
++#include <zmq.hpp>
++#include <chrono>
++#include <windows.h>
+ 
+ #include "GetOpt.hpp"
+ #include "CheckRuntime.hpp"
+@@ -36,232 +39,79 @@
+ #include "DlSystem/IUserBuffer.hpp"
+ #include "DlContainer/IDlContainer.hpp"
+ #include "SNPE/SNPE.hpp"
+-
++using namespace std;
+ /* Windows Modification
+ * Replace <getopt.h> to <GetOpt.hpp> and refactor the "Process command line arguments" part
+ */
+-
+ const int FAILURE = 1;
+ const int SUCCESS = 0;
+ 
+-int main(int argc, char** argv)
++enum { UNKNOWN, USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR, USERBUFFER_TF16 };
++enum { CPUBUFFER, GLBUFFER };
++bool useUserSuppliedBuffers = false;
++int bufferType;
++int bitWidth = 0;
++
++std::string getCurrentDir() {
++	char buff[MAX_PATH];
++	GetModuleFileName(NULL, buff, MAX_PATH);
++	std::string::size_type position = std::string(buff).find_last_of("\\/");
++	return std::string(buff).substr(0, position);
++}
++
++std::unique_ptr<zdl::SNPE::SNPE> build_network(std::string dlc, static zdl::DlSystem::Runtime_t runtime, bool runtimeSpecified, bool usingInitCaching, std::string bufferTypeStr, std::string userBufferSourceStr, std::string staticQuantizationStr)
+ {
+-    enum {UNKNOWN, USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR, USERBUFFER_TF16};
+-    enum {CPUBUFFER, GLBUFFER};
+ 
+-    // Command line arguments
+-    static std::string dlc = "";
+-    static std::string OutputDir = "./output/";
+-    const char* inputFile = "";
+-    std::string bufferTypeStr = "ITENSOR";
+-    std::string userBufferSourceStr = "CPUBUFFER";
+-    std::string staticQuantizationStr = "false";
+-    static zdl::DlSystem::Runtime_t runtime = zdl::DlSystem::Runtime_t::CPU;
+     static zdl::DlSystem::RuntimeList runtimeList;
+-    bool runtimeSpecified = false;
+-    bool execStatus = false;
+-    bool usingInitCaching = false;
+-    bool staticQuantization = false;
+-
+-    // Process command line arguments
+-     int opt = 0;
+-    enum OPTIONS
++    bool staticQuantization;
++
++    if (staticQuantizationStr == "true")
+     {
+-        OPT_HELP = 0,
+-        OPT_CONTAINER = 1,
+-        OPT_INPUT_LIST = 2,
+-        OPT_OUTPUT_DIR = 3,
+-        OPT_USERBUFFER = 4,
+-        OPT_RUNTIME = 5,
+-        OPT_RESIZABLE_DIM = 6,
+-        OPT_INITBLOBSCACHE = 7,
+-        OPT_RUNTIME_ORDER = 8,
+-        OPT_STATIC_QUANTIZATION = 9,
+-    };
+-    static struct WinOpt::option long_options[] = {
+-      {"help",                    WinOpt::no_argument,          NULL,  OPT_HELP},
+-      {"container",               WinOpt::required_argument,    NULL,  OPT_CONTAINER},
+-      {"input_list",              WinOpt::required_argument,    NULL,  OPT_INPUT_LIST},
+-      {"output_dir",              WinOpt::required_argument,    NULL,  OPT_OUTPUT_DIR},
+-      {"userbuffer",              WinOpt::required_argument,    NULL,  OPT_USERBUFFER},
+-      {"runtime",                 WinOpt::required_argument,    NULL,  OPT_RUNTIME},
+-      {"resizable_dim",           WinOpt::required_argument,    NULL,  OPT_RESIZABLE_DIM},
+-      {"enable_init_cache",       WinOpt::no_argument,          NULL,  OPT_INITBLOBSCACHE},
+-      {"runtime_order",           WinOpt::required_argument,    NULL,  OPT_RUNTIME_ORDER},
+-      {"static_quantization",     WinOpt::required_argument,    NULL,  OPT_STATIC_QUANTIZATION},
+-      {NULL,                      0,                  NULL,  0 }
+-    };
+-    int long_index = 0;
+-    while ((opt = WinOpt::GetOptLongOnly(argc, argv, "", long_options, &long_index)) != -1)
++        staticQuantization = true;
++    }
++    else if (staticQuantizationStr == "false")
+     {
+-        switch (opt)
+-        {
+-            case OPT_HELP:
+-                std::cout
+-                        << "\nDESCRIPTION:\n"
+-                        << "------------\n"
+-                        << "Example application demonstrating how to load and execute a neural network\n"
+-                        << "using the SNPE C++ API.\n"
+-                        << "\n\n"
+-                        << "REQUIRED ARGUMENTS:\n"
+-                        << "-------------------\n"
+-                        << "  --container  <FILE>   Path to the DL container containing the network.\n"
+-                        << "  --input_list  <FILE>   Path to a file listing the inputs for the network.\n"
+-                        << "  --output_dir  <PATH>   Path to directory to store output results.\n"
+-                        << "\n"
+-                        << "OPTIONAL ARGUMENTS:\n"
+-                        << "-------------------\n"
+-                        << "  --userbuffer  <TYPE>   Type of buffers to use [USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR, USERBUFFER_TF16] (" << bufferTypeStr << " is default).\n"
+-                        << "  --static_quantization  <BOOL>    Specifies to use static quantization parameters from the model instead of input specific quantization [true, false]. Used in conjunction with USERBUFFER_TF8. \n"
+-                        << "  --runtime  <RUNTIME> The runtime to be used [gpu, dsp, aip, cpu] (cpu is default). \n"
+-                        << "  --resizable_dim  <NUMBER>  The maximum number that resizable dimensions can grow into. \n"
+-                        << "                Used as a hint to create UserBuffers for models with dynamic sized outputs. Should be a positive integer and is not applicable when using ITensor. \n"
+-                        << "  --enable_init_cache           Enable init caching to accelerate the initialization process of SNPE. Defaults to disable.\n"
+-                        << "  --runtime_order  <VAL,VAL,VAL> Specifies the order of precedence for runtime e.g  cpu_float32, dsp_fixed8_tf etc. Valid values are:- \n"
+-                        << "                    cpu_float32 (Snapdragon CPU)       = Data & Math: float 32bit \n"
+-                        << "                    gpu_float32_16_hybrid (Adreno GPU) = Data: float 16bit Math: float 32bit \n"
+-                        << "                    dsp_fixed8_tf (Hexagon DSP)        = Data & Math: 8bit fixed point Tensorflow style format \n"
+-                        << "                    gpu_float16 (Adreno GPU)           = Data: float 16bit Math: float 16bit \n"
+-                        << "                    cpu (Snapdragon CPU)               = Same as cpu_float32 \n"
+-                        << "                    gpu (Adreno GPU)                   = Same as gpu_float32_16_hybrid \n"
+-                        << "                    dsp (Hexagon DSP)                  = Same as dsp_fixed8_tf \n"
+-                        << std::endl;
+-
+-                std::exit(SUCCESS);
+-            case OPT_CONTAINER:
+-                dlc = WinOpt::optarg;
+-                break;
+-            case OPT_INPUT_LIST:
+-                inputFile = WinOpt::optarg;
+-                break;
+-            case OPT_OUTPUT_DIR:
+-                OutputDir = WinOpt::optarg;
+-                break;
+-            case OPT_USERBUFFER:
+-                bufferTypeStr = WinOpt::optarg;
+-                break;
+-            case OPT_RESIZABLE_DIM:
+-                setResizableDim(atoi(WinOpt::optarg));
+-                break;
+-            case OPT_RUNTIME:
+-                runtimeSpecified = true;
+-                if (strcmp(WinOpt::optarg, "gpu") == 0)
+-                {
+-                    runtime = zdl::DlSystem::Runtime_t::GPU;
+-                }
+-                else if (strcmp(WinOpt::optarg, "aip") == 0)
+-                {
+-                    runtime = zdl::DlSystem::Runtime_t::AIP_FIXED8_TF;
+-                }
+-                else if (strcmp(WinOpt::optarg, "dsp") == 0)
+-                {
+-                    runtime = zdl::DlSystem::Runtime_t::DSP;
+-                }
+-                else if (strcmp(WinOpt::optarg, "cpu") == 0)
+-                {
+-                   runtime = zdl::DlSystem::Runtime_t::CPU;
+-                }
+-                else
+-                {
+-                   std::cerr << "The runtime option provide is not valid. Defaulting to the CPU runtime." << std::endl;
+-
+-                }
+-                break;
+-
+-            case OPT_RUNTIME_ORDER:
+-                {
+-                   std::string inputString = WinOpt::optarg;
+-                   //std::cout<<"Input String: "<<inputString<<std::endl;
+-                   std::vector<std::string> runtimeStrVector;
+-                   split(runtimeStrVector, inputString, ',');
+-
+-                   //Check for dups
+-                   for(auto it = runtimeStrVector.begin(); it != runtimeStrVector.end()-1; it++)
+-                   {
+-                      auto found = std::find(it+1, runtimeStrVector.end(), *it);
+-                      if(found != runtimeStrVector.end())
+-                      {
+-                         std::cerr << "Error: Invalid values passed to the argument "<< argv[WinOpt::optind-2] << ". Duplicate entries in runtime order" << std::endl;
+-                         std::exit(FAILURE);
+-                      }
+-                   }
+-
+-                   runtimeList.clear();
+-                   for(auto& runtimeStr : runtimeStrVector)
+-                   {
+-                      //std::cout<<runtimeStr<<std::endl;
+-                      zdl::DlSystem::Runtime_t runtime = zdl::DlSystem::RuntimeList::stringToRuntime(runtimeStr.c_str());
+-                      if(runtime != zdl::DlSystem::Runtime_t::UNSET)
+-                      {
+-                         bool ret = runtimeList.add(runtime);
+-                         if(ret == false)
+-                         {
+-                            std::cerr <<zdl::DlSystem::getLastErrorString()<<std::endl;
+-                            std::cerr << "Error: Invalid values passed to the argument "<< argv[WinOpt::optind-2] << ". Please provide comma seperated runtime order of precedence" << std::endl;
+-                            std::exit(FAILURE);
+-                         }
+-                      }
+-                      else
+-                      {
+-                         std::cerr << "Error: Invalid values passed to the argument "<< argv[WinOpt::optind-2] << ". Please provide comma seperated runtime order of precedence" << std::endl;
+-                         std::exit(FAILURE);
+-                      }
+-                   }
+-                }
+-                break;
+-
+-            case OPT_INITBLOBSCACHE:
+-               usingInitCaching = true;
+-               break;
+-
+-            case OPT_STATIC_QUANTIZATION:
+-               staticQuantizationStr = WinOpt::optarg;
+-               break;
+-
+-            default:
+-                std::cout << "Invalid parameter specified. Please run snpe-sample with the -h flag to see required arguments" << std::endl;
+-                std::exit(FAILURE);
+-        }
++        staticQuantization = false;
+     }
+-
++    else
++    {
++        std::cout << "\nStatic quantization value is not valid. Please run snpe-sample with the -h flag for more details"
++            << std::endl;
++        return nullptr;
++    }
++	
++	if(runtimeList.empty()==false)
++	{
++		std::cout<<"runtimelist not empty"<<std::endl;
++	}
++	
++	if(runtimeSpecified)
++	{
++		std::cout<<"runtime is specificed"<<std::endl;
++	}
++    
+     // Check if given arguments represent valid files
+     std::ifstream dlcFile(dlc);
+-    std::ifstream inputList(inputFile);
+-    if (!dlcFile || !inputList) {
+-        std::cout << "Input list or dlc file not valid. Please ensure that you have provided a valid input list and dlc for processing. Run snpe-sample with the -h flag for more details" << std::endl;
+-        return EXIT_FAILURE;
++	if (!dlcFile) {
++        std::cout << "\nInput list or dlc file not valid. Please ensure that you have provided a valid input list and dlc for processing. Run snpe-sample with the -h flag for more details" << std::endl;
++        return nullptr;
+     }
+-
++    
+     // Check if given buffer type is valid
+-    int bufferType;
+-    int bitWidth = 0;
+     if (bufferTypeStr == "USERBUFFER_FLOAT")
+     {
+         bufferType = USERBUFFER_FLOAT;
+     }
+-    else if (bufferTypeStr == "USERBUFFER_TF8")
+-    {
+-        bufferType = USERBUFFER_TF8;
+-        bitWidth = 8;
+-    }
+-    else if (bufferTypeStr == "USERBUFFER_TF16")
+-    {
+-        bufferType = USERBUFFER_TF16;
+-        bitWidth = 16;
+-    }
+-    else if (bufferTypeStr == "ITENSOR")
+-    {
+-        bufferType = ITENSOR;
+-    }
+     else
+     {
+-        std::cout << "Buffer type is not valid. Please run snpe-sample with the -h flag for more details" << std::endl;
+-        return EXIT_FAILURE;
++        std::cout << "\nBuffer type is not valid. Please run snpe-sample with the -h flag for more details" << std::endl;
++        return nullptr;
+     }
+ 
+     //Check if given user buffer source type is valid
+     int userBufferSourceType;
+-    // CPUBUFFER / GLBUFFER supported only for USERBUFFER_FLOAT
++    
++	// CPUBUFFER / GLBUFFER supported only for USERBUFFER_FLOAT
+     if (bufferType == USERBUFFER_FLOAT)
+     {
+         if( userBufferSourceStr == "CPUBUFFER" )
+@@ -270,16 +120,16 @@ int main(int argc, char** argv)
+         }
+         else if( userBufferSourceStr == "GLBUFFER" )
+         {
+-            std::cout << "GLBUFFER mode is only supported on Android OS" << std::endl;
+-            return EXIT_FAILURE;
++            std::cout << "\nGLBUFFER mode is only supported on Android OS" << std::endl;
++            return nullptr;
+             userBufferSourceType = GLBUFFER;
+         }
+         else
+         {
+             std::cout
+-                  << "Source of user buffer type is not valid. Please run snpe-sample with the -h flag for more details"
++                  << "\nSource of user buffer type is not valid. Please run snpe-sample with the -h flag for more details"
+                   << std::endl;
+-            return EXIT_FAILURE;
++            return nullptr;
+         }
+     }
+ 
+@@ -293,201 +143,476 @@ int main(int argc, char** argv)
+    }
+    else
+    {
+-      std::cout << "Static quantization value is not valid. Please run snpe-sample with the -h flag for more details"
++      std::cout << "\nStatic quantization value is not valid. Please run snpe-sample with the -h flag for more details"
+                 << std::endl;
+-      return EXIT_FAILURE;
++      return nullptr;
+    }
+ 
+     //Check if both runtimelist and runtime are passed in
+-    if(runtimeSpecified && runtimeList.empty() == false)
++    if(runtimeSpecified && (runtimeList.empty() == false))
+     {
+-        std::cout << "Invalid option cannot mix runtime order -l with runtime -r " << std::endl;
++        std::cout << "\nInvalid option cannot mix runtime order -l with runtime -r " << std::endl;
+         std::exit(FAILURE);
+     }
+ 
+     if(runtimeSpecified)
+     {
+         runtime = checkRuntime(runtime, staticQuantization);
++		std::cout<<"runtime is checked "<<std::endl;
+     }
+ 
+     std::unique_ptr<zdl::DlContainer::IDlContainer> container = loadContainerFromFile(dlc);
+     if (container == nullptr)
+     {
+        std::cerr << "Error while opening the container file." << std::endl;
+-       return EXIT_FAILURE;
++       return nullptr;
+     }
+ 
+-    bool useUserSuppliedBuffers = (bufferType == USERBUFFER_FLOAT ||
++    useUserSuppliedBuffers = (bufferType == USERBUFFER_FLOAT ||
+                                    bufferType == USERBUFFER_TF8 ||
+                                    bufferType == USERBUFFER_TF16);
+ 
+     std::unique_ptr<zdl::SNPE::SNPE> snpe;
+     zdl::DlSystem::PlatformConfig platformConfig;
+ 
++	std::cout << "\nbuilding..................\n";
+     snpe = setBuilderOptions(container, runtime, runtimeList, useUserSuppliedBuffers, platformConfig, usingInitCaching);
+-    if (snpe == nullptr)
+-    {
+-       std::cerr << "Error while building SNPE object." << std::endl;
+-       return EXIT_FAILURE;
+-    }
+-    if (usingInitCaching)
+-    {
+-       if (container->save(dlc))
+-       {
+-          std::cout << "Saved container into archive successfully" << std::endl;
+-       }
+-       else
+-       {
+-          std::cout << "Failed to save container into archive" << std::endl;
+-       }
+-    }
++	return snpe;
++
++}
++int main()
++{
++    // Initialize a ZeroMQ context
++    zmq::context_t context(1);
++
++    // Create a REP (reply) socket
++    zmq::socket_t socket(context, ZMQ_REP);
++    // zmq::socket_t socket(context, ZMQ_PULL);
++
++    // Bind the socket to a TCP address
++    std::string serverAddress = "tcp://*:5555";  // Replace with your desired address
++    socket.bind(serverAddress.c_str());
++	
++
++    enum {UNKNOWN, USERBUFFER_FLOAT, USERBUFFER_TF8, ITENSOR, USERBUFFER_TF16};
++    enum {CPUBUFFER, GLBUFFER};
++
++    std::unique_ptr<zdl::SNPE::SNPE> snpe;
++
++	zmq::message_t first_msg;  //TODO: 5 is hardcoded
++	zmq::message_t infer_time_reply;
++	//struct timeval start_time, end_time;
++	//float seconds, useconds, milli_time;
++	
++	
++	while(true)
++	{	
++		//Waiting for first msg from client;
++		std::cout << "Waiting for first msg from socket:"<<std::endl;
++		//Getting the first messsage
++		socket.recv(&first_msg);
++
++		//Converting this message to string and printing it
++		std::string receivedData_function = first_msg.to_string();
++		std::cout<<receivedData_function<<std::endl;
++
++		if(strcmp(receivedData_function.c_str(), "networkbuild") == 0)
++		{
++			//build network
++			std::cout<<"\nBUILDING NETWORK"<<std::endl;
++			//Read other required parameters;
++			zmq::message_t msg1;
++			zmq::message_t msg2;
++			
++			socket.recv(&msg1);
++			std::string dlc = msg1.to_string();  //dlc_name_socket;
++			std::cout<<"received dlc name is: "<<dlc<<std::endl;
++			
++			// std::cout<<"\nCurrent Working directory: "<<getCurrentDir()<<std::endl;
++			
++			socket.recv(&msg2);
++			std::string runtime_socket = msg2.to_string();
++			zdl::DlSystem::RuntimeList::stringToRuntime(runtime_socket.c_str());
++			std::cout<<"received runtime: "<<runtime_socket<<std::endl;
++			
++			
++			std::string bufferTypeStr = "USERBUFFER_FLOAT"; //"ITENSOR"; shubham change
++			std::string userBufferSourceStr = "CPUBUFFER";
++			std::string staticQuantizationStr = "false";
++			static zdl::DlSystem::Runtime_t runtime; // = zdl::DlSystem::Runtime_t::CPU; //Shubham change cpu->DSP
++			
++			bool runtimeSpecified = true;  //shubham change false -> true
++			bool usingInitCaching = false;
++			
++			if (runtime_socket.compare("GPU") == 0)
++			{
++				runtime = zdl::DlSystem::Runtime_t::GPU;
++			}
++			else if (runtime_socket.compare("DSP") == 0)
++			{
++				runtime = zdl::DlSystem::Runtime_t::DSP;
++			}
++			else if (runtime_socket.compare("CPU") == 0)
++			{
++				runtime = zdl::DlSystem::Runtime_t::CPU;
++			}
++			else
++			{
++				std::cerr<<"\nCorrect Runtime not specified, choosing default(CPU)"<<std::endl;
++				runtime = zdl::DlSystem::Runtime_t::CPU;
++			}
++			// std::cout<<"\nmsg2.size(): "<<msg2.size()<<std::endl;
++			
++
++
++			snpe = build_network(dlc, runtime, runtimeSpecified, usingInitCaching, bufferTypeStr, userBufferSourceStr, staticQuantizationStr);
++			if (snpe == nullptr)
++			{
++			   std::cerr << "Error while building SNPE object." << std::endl;
++			   return EXIT_FAILURE;
++			}
++			else
++			{
++				std::string build_success_str = "build is successful";
++				zmq::message_t message(build_success_str.size());
++				memcpy(message.data(), build_success_str.c_str(), build_success_str.size());
++				
++				socket.send(message);
++				// goto startwaiting;
++			}
++			
++		}
++		else if(strcmp(receivedData_function.c_str(), "infer") == 0)
++		{
++			//make inference
++			bool execStatus = false;
++			std::cout << "\nMAKING INFERENCE"<<std::endl;
++			if (snpe == nullptr)
++			{
++				std::cerr << "Error while building SNPE object." << std::endl;
++				return EXIT_FAILURE;
++			}
++			//this will check the number of message we're getting
++			//For DistillBert Number of message is 2 (Attention Mask, Input Ids)
++			//For Other Models Number of message is 3(Attention Mask,Input Ids,Token Type Ids)
++
++			zmq::message_t no_of_message;
++			socket.recv(&no_of_message);
++			std::string number_of_inputs = no_of_message.to_string();
++			if (strcmp(number_of_inputs.c_str(), "2") == 0) {
++				useUserSuppliedBuffers = true; //TODO: hardcoded but take it from builder functions
++
++
++				// Check the batch size for the container
++				// SNPE 1.16.0 (and newer) assumes the first dimension of the tensor shape
++				// is the batch size.
++				zdl::DlSystem::TensorShape tensorShape;
++				tensorShape = snpe->getInputDimensions();
++				size_t batchSize = tensorShape.getDimensions()[0];
++				std::cout << "Batch size for the container is " << batchSize << std::endl;
++
++				// Open the input file listing and group input files into batches
++				// std::vector<std::vector<std::string>> inputs = preprocessInput(inputFile, batchSize);
++
++				try {
++					std::cout << "Waiting for socket:" << std::endl;
++					zmq::message_t messages1;
++					zmq::message_t messages2;
++
++					//Receiving 2 messages
++					//first message is input_ids
++					//second message is attention_mask
++					socket.recv(&messages1);
++					socket.recv(&messages2);
++					std::cout << "Message received:" << std::endl;
++
++					//Creating vector for the 2 messages
++					std::vector<float> receivedData1(static_cast<int*>(messages1.data()), static_cast<int*>(messages1.data()) + messages1.size() / sizeof(int));
++					std::vector<float> receivedData2(static_cast<int*>(messages2.data()), static_cast<int*>(messages2.data()) + messages2.size() / sizeof(int));
++					std::cout << "\n Inputs ids size:" << messages1.size() << std::endl;
++					std::cout << "\n Attention Masks size:" << messages2.size() << std::endl;
++
++
++
++
++					if (useUserSuppliedBuffers)
++					{
++						// SNPE allows its input and output buffers that are fed to the network
++						// to come from user-backed buffers. First, SNPE buffers are created from
++						// user-backed storage. These SNPE buffers are then supplied to the network
++						// and the results are stored in user-backed output buffers. This allows for
++						// reusing the same buffers for multiple inputs and outputs.
++
++						zdl::DlSystem::UserBufferMap inputMap, outputMap;
++						std::vector <std::unique_ptr<zdl::DlSystem::IUserBuffer>> snpeUserBackedInputBuffers, snpeUserBackedOutputBuffers;
++						// std::unordered_map <std::string, std::vector<uint8_t>> applicationOutputBuffers;
++						std::unordered_map <std::string, std::vector<float>> applicationOutputBuffersFloat;
++
++						if (bufferType == USERBUFFER_FLOAT)
++						{
++							std::cout << "userbuffer float" << std::endl;
++							// createOutputBufferMap(outputMap, applicationOutputBuffers, snpeUserBackedOutputBuffers, snpe, false, bitWidth);
++							createOutputBufferMap(outputMap, applicationOutputBuffersFloat, snpeUserBackedOutputBuffers, snpe, false, bitWidth);
++							std::cout << "createOutputBufferMap done" << std::endl;
++
++							// std::unordered_map <std::string, std::vector<uint8_t>> applicationInputBuffers;
++							std::unordered_map <std::string, std::vector<float>> applicationInputBuffersFloat;
++							std::cout << "creating Inputbuffermap" << std::endl;
++							// createInputBufferMap(inputMap, applicationInputBuffers, snpeUserBackedInputBuffers, snpe, false, false, bitWidth);
++							createInputBufferMap(inputMap, applicationInputBuffersFloat, snpeUserBackedInputBuffers, snpe, false, false, bitWidth);
++							std::cout << "createInputBufferMap done" << std::endl;
++
++
++
++							const auto& outputNamesOpt = snpe->getOutputTensorNames();
++							const zdl::DlSystem::StringList& outputNames = *outputNamesOpt;
++							const char* out_name1 = outputNames.at(0);
++							const char* out_name2 = outputNames.at(1);
++
++							std::cout << "Out Name 1 " << outputNames.at(0) << std::endl;
++							std::cout << "Out Name 2 " << outputNames.at(1) << std::endl;
++							const auto& inputNamesOpt = snpe->getInputTensorNames();
++							const zdl::DlSystem::StringList& inputNames = *inputNamesOpt;
++							const char* in_name1 = inputNames.at(0);
++							const char* in_name2 = inputNames.at(1);
++
++							std::cout << "IN Name 1 " << inputNames.at(0) << std::endl;
++							std::cout << "IN Name 2 " << inputNames.at(1) << std::endl;
++
++							applicationInputBuffersFloat.at(in_name1) = receivedData1;   //shubham change
++							applicationInputBuffersFloat.at(in_name2) = receivedData2;
++							std::cout << "wrote data" << std::endl;
++							std::cout << "Received input" << std::endl;
++							for (size_t i = 0; i < batchSize; i++)
++							{
++								// Load input user buffer(s) with values from file(s)
++								if (batchSize > 1)
++									std::cout << "Batch " << i << ":" << std::endl;
++
++								uint64_t start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++
++								// Execute the input buffer map on the model with SNPE
++								execStatus = snpe->execute(inputMap, outputMap);
++								std::cout << "\nExecStatius: " << execStatus << std::endl;
++
++								uint64_t end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++
++								int infer_time = end_ms - start_ms;
++
++								std::string mill_str = std::to_string(infer_time);
++								std::cout << "Inference time:" << mill_str << std::endl;
++								infer_time_reply.rebuild(mill_str.size());
++								memcpy((void*)infer_time_reply.data(), (mill_str.c_str()), mill_str.size());
++
++								// Prepare the vectors(execution result) to be sent
++								std::vector<float> vector1 = applicationOutputBuffersFloat.at(out_name1);
++								std::vector<float> vector2 = applicationOutputBuffersFloat.at(out_name2);
++								//for (int i = vector1.size(); i < vector1.size()+5; i++) {
++								//	std::cout << vector1[i] << std::endl;
++								//}
++
++								// Send the result
++								if (execStatus == true)
++								{
++									std::cout << "execStatus is true" << std::endl;
++
++
++									zmq::message_t message1(vector1.size());
++									zmq::message_t message2(vector2.size());
++									std::cout << "Copying msg" << std::endl;
++
++									std::cout << "vector1 size: " << vector1.size() << std::endl;
++									std::cout << "vector2 size: " << vector2.size() << std::endl;
++									std::memcpy(message1.data(), vector1.data(), vector1.size());
++									std::memcpy(message2.data(), vector2.data(), vector2.size());
++									//socket.send(message1);
++									socket.send(message1, zmq::send_flags::sndmore);
++									socket.send(message2);
++									//socket.send_multipart([b"infer", input_ids, attention_mask])
++									//std::cout << "image sent"<<std::endl;
++								}
++								else
++								{
++									std::cerr << "Error while executing the network." << std::endl;
++									//TODO: add bad msg here
++								}
++							}
++						}
++					}
++				}
++				catch (std::exception& e) {
++					std::cout << "ERROR: e: " << e.what() << std::endl;
++				}
++
++			}
++			else {
++				useUserSuppliedBuffers = true; //TODO: hardcoded but take it from builder functions
++
++
++				// Check the batch size for the container
++				// SNPE 1.16.0 (and newer) assumes the first dimension of the tensor shape
++				// is the batch size.
++				zdl::DlSystem::TensorShape tensorShape;
++				tensorShape = snpe->getInputDimensions();
++				size_t batchSize = tensorShape.getDimensions()[0];
++				std::cout << "Batch size for the container is " << batchSize << std::endl;
++
++				// Open the input file listing and group input files into batches
++				// std::vector<std::vector<std::string>> inputs = preprocessInput(inputFile, batchSize);
++
++				try {
++					std::cout << "Waiting for socket:" << std::endl;
++					zmq::message_t messages1;
++					zmq::message_t messages2;
++					zmq::message_t messages3;
++
++					//Receiving 2 messages
++					//first message is input_ids
++					//second message is attention_mask
++					socket.recv(&messages1);
++					socket.recv(&messages2);
++					socket.recv(&messages3);
++					std::cout << "Message received:" << std::endl;
++
++					//Creating vector for the 2 messages
++					std::vector<float> receivedData1(static_cast<int*>(messages1.data()), static_cast<int*>(messages1.data()) + messages1.size() / sizeof(int));
++					std::vector<float> receivedData2(static_cast<int*>(messages2.data()), static_cast<int*>(messages2.data()) + messages2.size() / sizeof(int));
++					std::vector<float> receivedData3(static_cast<int*>(messages3.data()), static_cast<int*>(messages3.data()) + messages3.size() / sizeof(int));
++					std::cout << "\n Inputs ids size:" << messages1.size() << std::endl;
++					std::cout << "\n Attention Masks size:" << messages2.size() << std::endl;
++					std::cout << "\n Token Type Ids size:" << messages3.size() << std::endl;
++
++
++
++
++					if (useUserSuppliedBuffers)
++					{
++						// SNPE allows its input and output buffers that are fed to the network
++						// to come from user-backed buffers. First, SNPE buffers are created from
++						// user-backed storage. These SNPE buffers are then supplied to the network
++						// and the results are stored in user-backed output buffers. This allows for
++						// reusing the same buffers for multiple inputs and outputs.
++
++						zdl::DlSystem::UserBufferMap inputMap, outputMap;
++						std::vector <std::unique_ptr<zdl::DlSystem::IUserBuffer>> snpeUserBackedInputBuffers, snpeUserBackedOutputBuffers;
++						// std::unordered_map <std::string, std::vector<uint8_t>> applicationOutputBuffers;
++						std::unordered_map <std::string, std::vector<float>> applicationOutputBuffersFloat;
++
++						if (bufferType == USERBUFFER_FLOAT)
++						{
++							std::cout << "userbuffer float" << std::endl;
++							// createOutputBufferMap(outputMap, applicationOutputBuffers, snpeUserBackedOutputBuffers, snpe, false, bitWidth);
++							createOutputBufferMap(outputMap, applicationOutputBuffersFloat, snpeUserBackedOutputBuffers, snpe, false, bitWidth);
++							std::cout << "createOutputBufferMap done" << std::endl;
++
++							// std::unordered_map <std::string, std::vector<uint8_t>> applicationInputBuffers;
++							std::unordered_map <std::string, std::vector<float>> applicationInputBuffersFloat;
++							std::cout << "creating Inputbuffermap" << std::endl;
++							// createInputBufferMap(inputMap, applicationInputBuffers, snpeUserBackedInputBuffers, snpe, false, false, bitWidth);
++							createInputBufferMap(inputMap, applicationInputBuffersFloat, snpeUserBackedInputBuffers, snpe, false, false, bitWidth);
++							std::cout << "createInputBufferMap done" << std::endl;
++
++
++
++							const auto& outputNamesOpt = snpe->getOutputTensorNames();
++							const zdl::DlSystem::StringList& outputNames = *outputNamesOpt;
++							const char* out_name1 = outputNames.at(0);
++							const char* out_name2 = outputNames.at(1);
++
++							std::cout << "Out Name 1 " << outputNames.at(0) << std::endl;
++							std::cout << "Out Name 2 " << outputNames.at(1) << std::endl;
++							const auto& inputNamesOpt = snpe->getInputTensorNames();
++							const zdl::DlSystem::StringList& inputNames = *inputNamesOpt;
++							const char* in_name1 = inputNames.at(0);
++							const char* in_name2 = inputNames.at(1);
++							const char* in_name3 = inputNames.at(2);
++
++							std::cout << "IN Name 1 " << inputNames.at(0) << std::endl;
++							std::cout << "IN Name 2 " << inputNames.at(1) << std::endl;
++							std::cout << "IN Name 3 " << inputNames.at(2) << std::endl;
++							applicationInputBuffersFloat.at(in_name1) = receivedData1; 
++							applicationInputBuffersFloat.at(in_name2) = receivedData2;
++							applicationInputBuffersFloat.at(in_name3) = receivedData3;
++							std::cout << "wrote data" << std::endl;
++							std::cout << "Received input" << std::endl;
++							for (size_t i = 0; i < batchSize; i++)
++							{
++								// Load input user buffer(s) with values from file(s)
++								if (batchSize > 1)
++									std::cout << "Batch " << i << ":" << std::endl;
++
++								uint64_t start_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++
++								// Execute the input buffer map on the model with SNPE
++								execStatus = snpe->execute(inputMap, outputMap);
++								std::cout << "\nExecStatius: " << execStatus << std::endl;
++
++								uint64_t end_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
++
++								int infer_time = end_ms - start_ms;
++
++								std::string mill_str = std::to_string(infer_time);
++								std::cout << "Inference time:" << mill_str << std::endl;
++								infer_time_reply.rebuild(mill_str.size());
++								memcpy((void*)infer_time_reply.data(), (mill_str.c_str()), mill_str.size());
++
++								// Prepare the vectors(execution result) to be sent
++								std::vector<float> vector1 = applicationOutputBuffersFloat.at(out_name1);
++								std::vector<float> vector2 = applicationOutputBuffersFloat.at(out_name2);
++								//for (int i = vector1.size(); i < vector1.size()+5; i++) {
++								//	std::cout << vector1[i] << std::endl;
++								//}
++
++								// Send the result
++								if (execStatus == true)
++								{
++									std::cout << "execStatus is true" << std::endl;
++
++
++									zmq::message_t message1(vector1.size());
++									zmq::message_t message2(vector2.size());
++									std::cout << "Copying msg" << std::endl;
++
++									std::cout << "vector1 size: " << vector1.size() << std::endl;
++									std::cout << "vector2 size: " << vector2.size() << std::endl;
++									std::memcpy(message1.data(), vector1.data(), vector1.size());
++									std::memcpy(message2.data(), vector2.data(), vector2.size());
++									//socket.send(message1);
++									socket.send(message1, zmq::send_flags::sndmore);
++									socket.send(message2);
++									//socket.send_multipart([b"infer", input_ids, attention_mask])
++									//std::cout << "image sent"<<std::endl;
++								}
++								else
++								{
++									std::cerr << "Error while executing the network." << std::endl;
++									//TODO: add bad msg here
++								}
++							}
++						}
++					}
++				}
++				catch (std::exception& e) {
++					std::cout << "ERROR: e: " << e.what() << std::endl;
++				}
++			}
++			
++			
++			// goto startwaiting;
++		}
++		else if (strcmp(receivedData_function.c_str(),"get_infer_time")==0)
++		{
++			std::cout<<"sending infertime:"<<std::endl;
++			socket.send(infer_time_reply);
++			std::cout << "message sent out" << std::endl;
++		}
++		else
++		{
++			std::cerr << "Fist msg do not match"<<std::endl;
++			// goto startwaiting;
++		}
++	}
+ 
+-    // Check the batch size for the container
+-    // SNPE 1.16.0 (and newer) assumes the first dimension of the tensor shape
+-    // is the batch size.
+-    zdl::DlSystem::TensorShape tensorShape;
+-    tensorShape = snpe->getInputDimensions();
+-    size_t batchSize = tensorShape.getDimensions()[0];
+-    std::cout << "Batch size for the container is " << batchSize << std::endl;
+-
+-    // Open the input file listing and group input files into batches
+-    std::vector<std::vector<std::string>> inputs = preprocessInput(inputFile, batchSize);
+-
+-    // Load contents of input file batches ino a SNPE tensor or user buffer,
+-    // user buffer include cpu buffer and OpenGL buffer,
+-    // execute the network with the input and save each of the returned output to a file.
+-    if(useUserSuppliedBuffers)
+-    {
+-       // SNPE allows its input and output buffers that are fed to the network
+-       // to come from user-backed buffers. First, SNPE buffers are created from
+-       // user-backed storage. These SNPE buffers are then supplied to the network
+-       // and the results are stored in user-backed output buffers. This allows for
+-       // reusing the same buffers for multiple inputs and outputs.
+-       zdl::DlSystem::UserBufferMap inputMap, outputMap;
+-       std::vector <std::unique_ptr<zdl::DlSystem::IUserBuffer>> snpeUserBackedInputBuffers, snpeUserBackedOutputBuffers;
+-       std::unordered_map <std::string, std::vector<uint8_t>> applicationOutputBuffers;
+-
+-       if( bufferType == USERBUFFER_TF8 || bufferType == USERBUFFER_TF16 )
+-       {
+-          createOutputBufferMap(outputMap, applicationOutputBuffers, snpeUserBackedOutputBuffers, snpe, true, bitWidth);
+-
+-          std::unordered_map <std::string, std::vector<uint8_t>> applicationInputBuffers;
+-          createInputBufferMap(inputMap, applicationInputBuffers, snpeUserBackedInputBuffers, snpe, true, staticQuantization, bitWidth);
+-
+-          for( size_t i = 0; i < inputs.size(); i++ )
+-          {
+-             // Load input user buffer(s) with values from file(s)
+-             if( batchSize > 1 )
+-                std::cout << "Batch " << i << ":" << std::endl;
+-             if(!loadInputUserBufferTfN(applicationInputBuffers, snpe, inputs[i], inputMap, staticQuantization, bitWidth))
+-             {
+-                 return EXIT_FAILURE;
+-             }
+-             // Execute the input buffer map on the model with SNPE
+-             execStatus = snpe->execute(inputMap, outputMap);
+-             // Save the execution results only if successful
+-             if (execStatus == true)
+-             {
+-                if(!saveOutput(outputMap, applicationOutputBuffers, OutputDir, i * batchSize, batchSize, true, bitWidth))
+-                {
+-                    return EXIT_FAILURE;
+-                }
+-
+-             }
+-             else
+-             {
+-                std::cerr << "Error while executing the network." << std::endl;
+-             }
+-          }
+-       }
+-       else if( bufferType == USERBUFFER_FLOAT )
+-       {
+-          createOutputBufferMap(outputMap, applicationOutputBuffers, snpeUserBackedOutputBuffers, snpe, false, bitWidth);
+-
+-          if( userBufferSourceType == CPUBUFFER )
+-          {
+-             std::unordered_map <std::string, std::vector<uint8_t>> applicationInputBuffers;
+-             createInputBufferMap(inputMap, applicationInputBuffers, snpeUserBackedInputBuffers, snpe, false, false, bitWidth);
+-
+-             for( size_t i = 0; i < inputs.size(); i++ )
+-             {
+-                // Load input user buffer(s) with values from file(s)
+-                if( batchSize > 1 )
+-                   std::cout << "Batch " << i << ":" << std::endl;
+-                if(!loadInputUserBufferFloat(applicationInputBuffers, snpe, inputs[i]))
+-                {
+-                    return EXIT_FAILURE;
+-                }
+-                // Execute the input buffer map on the model with SNPE
+-                execStatus = snpe->execute(inputMap, outputMap);
+-                // Save the execution results only if successful
+-                if (execStatus == true)
+-                {
+-                   if(!saveOutput(outputMap, applicationOutputBuffers, OutputDir, i * batchSize, batchSize, false, bitWidth))
+-                   {
+-                       return EXIT_FAILURE;
+-                   }
+-                }
+-                else
+-                {
+-                   std::cerr << "Error while executing the network." << std::endl;
+-                }
+-             }
+-          }
+-       }
+-    }
+-    else if(bufferType == ITENSOR)
+-    {
+-        // A tensor map for SNPE execution outputs
+-        zdl::DlSystem::TensorMap outputTensorMap;
+-        //Get input names and number
+-        const auto& inputTensorNamesRef = snpe->getInputTensorNames();
+-        if (!inputTensorNamesRef) throw std::runtime_error("Error obtaining Input tensor names");
+-        const auto &inputTensorNames = *inputTensorNamesRef;
+-
+-        for (size_t i = 0; i < inputs.size(); i++) {
+-            // Load input/output buffers with ITensor
+-            if(batchSize > 1)
+-                std::cout << "Batch " << i << ":" << std::endl;
+-            if (inputTensorNames.size() == 1)
+-            {
+-                // Load input/output buffers with ITensor
+-                std::unique_ptr<zdl::DlSystem::ITensor> inputTensor = loadInputTensor(snpe, inputs[i], inputTensorNames);
+-                if(!inputTensor)
+-                {
+-                    return EXIT_FAILURE;
+-                }
+-                // Execute the input tensor on the model with SNPE
+-                execStatus = snpe->execute(inputTensor.get(), outputTensorMap);
+-            }
+-            else
+-            {
+-                std::vector<std::unique_ptr<zdl::DlSystem::ITensor>> inputTensors(inputTensorNames.size());
+-                zdl::DlSystem::TensorMap inputTensorMap;
+-                bool inputLoadStatus = false;
+-                // Load input/output buffers with TensorMap
+-                std::tie(inputTensorMap, inputLoadStatus) = loadMultipleInput(snpe, inputs[i], inputTensorNames, inputTensors);
+-                if(!inputLoadStatus)
+-                {
+-                    return EXIT_FAILURE;
+-                }
+-                // Execute the multiple input tensorMap on the model with SNPE
+-                execStatus = snpe->execute(inputTensorMap, outputTensorMap);
+-            }
+-            // Save the execution results if execution successful
+-            if (execStatus == true)
+-            {
+-               if(!saveOutput(outputTensorMap, OutputDir, i * batchSize, batchSize))
+-               {
+-                   return EXIT_FAILURE;
+-               }
+-            }
+-            else
+-            {
+-               std::cerr << "Error while executing the network." << std::endl;
+-            }
+-        }
+-    }
+     // Freeing of snpe object
+     snpe.reset();
+     return SUCCESS;

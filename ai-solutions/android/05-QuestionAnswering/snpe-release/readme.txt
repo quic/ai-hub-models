@@ -1,0 +1,1 @@
+snpe-release.aar from Qualcomm Neural Processing SDK needs to be placed here

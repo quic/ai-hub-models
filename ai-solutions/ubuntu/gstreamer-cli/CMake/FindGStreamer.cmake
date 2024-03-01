@@ -1,0 +1,5 @@
+find_package(PkgConfig) 
+pkg_search_module(GLIB REQUIRED glib-2.0) 
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+pkg_check_modules(GST_APP REQUIRED gstreamer-app-1.0)
+pkg_check_modules(GST_VIDEO REQUIRED gstreamer-video-1.0)
