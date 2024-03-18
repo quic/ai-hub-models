@@ -10,7 +10,7 @@ This is based on the implementation of Llama-v2-7B-Chat found
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v2_7b_chat_quantized).
 
-[Sign up](https://aihub.qualcomm.com/) for early access to run these models on
+[Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
 
 
@@ -18,7 +18,7 @@ a hosted Qualcomm® device.
 ## License
 - The license for the original implementation of Llama-v2-7B-Chat can be found
   [here](https://github.com/facebookresearch/llama/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf).
+- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
 
 ## References
 * [LLaMA: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971)

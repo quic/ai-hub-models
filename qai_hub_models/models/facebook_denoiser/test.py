@@ -2,8 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import numpy as np
 import pytest
-import torch
 import torchaudio
 
 from qai_hub_models.models.facebook_denoiser.app import FacebookDenoiserApp
@@ -16,6 +16,7 @@ from qai_hub_models.models.facebook_denoiser.model import (
     FacebookDenoiser,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.testing import skip_clone_repo_check
 
 ENHANCED_EXAMPLE_RECORDING = CachedWebModelAsset.from_asset_store(
     MODEL_ID, ASSET_VERSION, "icsi_meeting_recording_enhanced.wav"
@@ -30,18 +31,21 @@ def _handle_runtime_error(e: RuntimeError):
     )
 
 
+@skip_clone_repo_check
 def test_task():
     app = FacebookDenoiserApp(FacebookDenoiser.from_pretrained())
     try:
-        out = app.predict([EXAMPLE_RECORDING.fetch()])[0][:, 0]
+        out = app.predict([EXAMPLE_RECORDING.fetch()])[0]
     except RuntimeError as e:
         _handle_runtime_error(e)
         return
     expected, _ = torchaudio.load(ENHANCED_EXAMPLE_RECORDING.fetch())
-    torch.testing.assert_allclose(out, expected)
+    np.testing.assert_allclose(out, expected, atol=1e-07)
 
 
 @pytest.mark.skip(reason="Fails with a mysterious error in DefaultCPUAllocator.")
+@pytest.mark.trace
+@skip_clone_repo_check
 def test_trace():
     try:
         input_data, sample_rate = torchaudio.load(EXAMPLE_RECORDING.fetch())
@@ -58,8 +62,9 @@ def test_trace():
         return
 
     expected, _ = torchaudio.load(ENHANCED_EXAMPLE_RECORDING.fetch())
-    torch.testing.assert_allclose(out, expected)
+    np.testing.assert_allclose(out, expected, atol=1e-07)
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

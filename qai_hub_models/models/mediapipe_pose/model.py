@@ -138,7 +138,8 @@ class PoseDetector(BaseModel):
             pose_detector.load_anchors(detector_anchors)
             return cls(pose_detector, pose_detector.anchors)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the pose detector.
         This can be used to submit profiling job on Qualcomm AI Hub.
@@ -166,7 +167,8 @@ class PoseLandmarkDetector(BaseModel):
             pose_regressor.load_weights(landmark_detector_weights)
             cls(pose_regressor)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the pose landmark detector.
         This can be used to submit profiling job on Qualcomm AI Hub.

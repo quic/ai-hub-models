@@ -8,26 +8,26 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
-    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
 
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
+from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
 from qai_hub_models.models.resnet18.model import ResNet18
-from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
+from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 6
+MODEL_ASSET_VERSION = 7
 DEFAULT_ENCODINGS = "resnet18_quantized_encodings.json"
-AIMET_CONFIG = "default_config_per_channel_qnn"
 
 
-class ResNet18Quantizable(HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, ResNet18):
+class ResNet18Quantizable(AIMETQuantizableMixin, ResNet18):
     """ResNet with post train quantization support.
 
     Supports only 8 bit weights and activations, and only loads pre-quantized checkpoints.
@@ -39,8 +39,14 @@ class ResNet18Quantizable(HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, Res
     ) -> None:
         ResNet18.__init__(self, resnet18_model.model)
         AIMETQuantizableMixin.__init__(
-            self, resnet18_model, needs_onnx_direct_aimet_export=False
+            self,
+            resnet18_model,
         )
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -54,16 +60,17 @@ class ResNet18Quantizable(HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, Res
             elif None: Doesn't load any encodings. Used when computing encodings.
             else: Interprets as a filepath and loads the encodings stored there.
         """
-        resnet18 = ResNet18.from_pretrained()
-        input_shape = resnet18.get_input_spec()["image_tensor"][0]
+        model = ResNet18.from_pretrained()
+        input_shape = cls.get_input_spec()["image_tensor"][0]
 
-        equalize_model(resnet18, input_shape)
+        model = prepare_model(model)
+        equalize_model(model, input_shape)
         sim = QuantizationSimModel(
-            resnet18.net,
+            model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=get_aimet_config_path(AIMET_CONFIG),
+            config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )
 
@@ -76,3 +83,11 @@ class ResNet18Quantizable(HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, Res
 
         sim.model.eval()
         return cls(sim)
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --quantize_full_type int8 --quantize_io"

@@ -311,8 +311,19 @@ class TaskLibrary:
             # but no model definitions actually changed. That means this was a mass-change
             # to the export scripts.
             #
-            # Just use 1 model as a sample to test the export. This makes CI significantly faster.
-            export_models = set([next(iter(export_changed_models))])
+            # Test a representative set of models.
+            # One regular model, one aimet, one components, and one non-image input.
+            # These are among the smallest instances of each of these.
+            # If none of these models were changed, test one model.
+            representative_set = [
+                "sinet",
+                "quicksrnetsmall_quantized",
+                "mediapipe_face",
+                "facebook_denoiser",
+            ]
+            export_models = export_changed_models & set(representative_set)
+            if len(export_models) == 0:
+                export_models = set([next(iter(export_changed_models))])
         else:
             export_models = set()
 
@@ -333,6 +344,7 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
+                test_trace=False,
             ),
         )
 
@@ -370,6 +382,18 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
+            ),
+        )
+
+    @public_task("Generate perf.yamls.")
+    @depends(["install_deps"])
+    def create_perfs(self, plan: Plan, step_id: str = "generate_perfs") -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=["python qai_hub_models/scripts/generate_perf_yaml.py --all"],
             ),
         )
 
@@ -477,6 +501,21 @@ class TaskLibrary:
                 push_repository=True,
                 build_wheel=True,
                 publish_wheel=True,
+            ),
+        )
+
+    @public_task("Push QAIHM Code (build repo & wheel, push repo)")
+    @depends(["install_deps"])
+    def release_code(self, plan: Plan, step_id: str = "release_code") -> str:
+        return plan.add_step(
+            step_id,
+            ReleaseTask(
+                self.venv_path,
+                self.python_executable,
+                build_repository=True,
+                push_repository=True,
+                build_wheel=False,
+                publish_wheel=False,
             ),
         )
 

@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import pytest
+
 from qai_hub_models.models._shared.detr.app import DETRApp
 from qai_hub_models.models.detr_resnet50.demo import main as demo_main
 from qai_hub_models.models.detr_resnet50.model import (
@@ -32,6 +34,7 @@ def test_cli_from_pretrained():
     assert model_from_cli_args(DETRResNet50, args) is not None
 
 
+@pytest.mark.trace
 def test_trace():
     net = DETRResNet50.from_pretrained()
     input_spec = net.get_input_spec()

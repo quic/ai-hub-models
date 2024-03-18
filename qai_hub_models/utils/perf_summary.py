@@ -70,91 +70,100 @@ class PerformanceSummary:
         new_perf_metrics = {}
 
         # Create chipset to perf metric
-        for i in range(len(previous_report["models"])):
-            for j in range(len(new_report["models"])):
-                if (
-                    previous_report["models"][i]["name"]
-                    == new_report["models"][j]["name"]
-                ):
-                    for prev_metric in previous_report["models"][i][
-                        "performance_metrics"
-                    ]:
-                        if "chipset" in prev_metric["reference_device_info"]:
-                            ref_device = prev_metric["reference_device_info"]["chipset"]
-                            prev_perf_metrics[ref_device] = prev_metric
+        if previous_report is not None and new_report is not None:
+            for i in range(len(previous_report["models"])):
+                for j in range(len(new_report["models"])):
+                    if (
+                        previous_report["models"][i]["name"]
+                        == new_report["models"][j]["name"]
+                    ):
+                        for prev_metric in previous_report["models"][i][
+                            "performance_metrics"
+                        ]:
+                            if "chipset" in prev_metric["reference_device_info"]:
+                                ref_device = prev_metric["reference_device_info"][
+                                    "chipset"
+                                ]
+                                prev_perf_metrics[ref_device] = prev_metric
 
-                    for new_metric in new_report["models"][j]["performance_metrics"]:
-                        if "chipset" in new_metric["reference_device_info"]:
-                            ref_device = new_metric["reference_device_info"]["chipset"]
-                            new_perf_metrics[ref_device] = new_metric
+                        for new_metric in new_report["models"][j][
+                            "performance_metrics"
+                        ]:
+                            if "chipset" in new_metric["reference_device_info"]:
+                                ref_device = new_metric["reference_device_info"][
+                                    "chipset"
+                                ]
+                                new_perf_metrics[ref_device] = new_metric
 
-        if len(prev_perf_metrics) == 0 or len(new_perf_metrics) == 0:
-            self.empty_perf_report.append((model_id,))
+            if len(prev_perf_metrics) == 0 or len(new_perf_metrics) == 0:
+                self.empty_perf_report.append((model_id,))
 
-        for device in prev_perf_metrics.keys():
-            device_info = prev_perf_metrics[device]["reference_device_info"]
-            if device_info["os_name"] not in self.tracked_oses:
-                continue
-
-            # Case 3: Chipset is missing in new data
-            if device not in new_perf_metrics:
-                self.missing_devices.append((model_id, device))
-                continue
-
-            for runtime_type in RUNTIMES_TO_COMPARE:
-                prev_inference_time = prev_perf_metrics[device][runtime_type][
-                    "inference_time"
-                ]
-                new_inference_time = new_perf_metrics[device][runtime_type][
-                    "inference_time"
-                ]
-                if new_inference_time == prev_inference_time:
+            for device in prev_perf_metrics.keys():
+                device_info = prev_perf_metrics[device]["reference_device_info"]
+                if device_info["os_name"] not in self.tracked_oses:
                     continue
 
-                if new_inference_time == "null" or prev_inference_time == "null":
-                    # Case 1: Model either failed to infer or had a successful run
-                    summary_entry = (
-                        model_id,
-                        runtime_type,
-                        "inf",
-                        self._format_speedup(new_inference_time),
-                        self._format_speedup(prev_inference_time),
-                        device_info["chipset"],
-                        device_info["os"],
-                    )
-
-                    if new_inference_time == "null":
-                        self.regressions["inf"].append(summary_entry)
-                    else:
-                        self.progressions["inf"].append(summary_entry)
+                # Case 3: Chipset is missing in new data
+                if device not in new_perf_metrics:
+                    self.missing_devices.append((model_id, device))
                     continue
 
-                # Case 2: Bucketize speedup difference
-                progression_speedup = float(prev_inference_time) / float(
-                    new_inference_time
-                )
-                regression_speedup = float(new_inference_time) / float(
-                    prev_inference_time
-                )
-                is_progression = progression_speedup >= 1
-                speedup = progression_speedup if is_progression else regression_speedup
+                for runtime_type in RUNTIMES_TO_COMPARE:
+                    prev_inference_time = prev_perf_metrics[device][runtime_type][
+                        "inference_time"
+                    ]
+                    new_inference_time = new_perf_metrics[device][runtime_type][
+                        "inference_time"
+                    ]
+                    if new_inference_time == prev_inference_time:
+                        continue
 
-                for bucket in self.perf_buckets[1:]:
-                    if bucket <= speedup:
-                        summary = (
+                    if new_inference_time == "null" or prev_inference_time == "null":
+                        # Case 1: Model either failed to infer or had a successful run
+                        summary_entry = (
                             model_id,
                             runtime_type,
-                            self._format_speedup(speedup),
+                            "inf",
                             self._format_speedup(new_inference_time),
                             self._format_speedup(prev_inference_time),
                             device_info["chipset"],
                             device_info["os"],
                         )
-                        if is_progression:
-                            self.progressions[bucket].append(summary)
+
+                        if new_inference_time == "null":
+                            self.regressions["inf"].append(summary_entry)
                         else:
-                            self.regressions[bucket].append(summary)
-                        break
+                            self.progressions["inf"].append(summary_entry)
+                        continue
+
+                    # Case 2: Bucketize speedup difference
+                    progression_speedup = float(prev_inference_time) / float(
+                        new_inference_time
+                    )
+                    regression_speedup = float(new_inference_time) / float(
+                        prev_inference_time
+                    )
+                    is_progression = progression_speedup >= 1
+                    speedup = (
+                        progression_speedup if is_progression else regression_speedup
+                    )
+
+                    for bucket in self.perf_buckets[1:]:
+                        if bucket <= speedup:
+                            summary = (
+                                model_id,
+                                runtime_type,
+                                self._format_speedup(speedup),
+                                self._format_speedup(new_inference_time),
+                                self._format_speedup(prev_inference_time),
+                                device_info["chipset"],
+                                device_info["os"],
+                            )
+                            if is_progression:
+                                self.progressions[bucket].append(summary)
+                            else:
+                                self.regressions[bucket].append(summary)
+                            break
 
     def _get_summary_table(self, bucket_id, get_progressions=True):
         """

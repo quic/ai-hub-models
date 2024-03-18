@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 import yaml
@@ -482,6 +482,7 @@ class QAIHMModelInfo:
         name: str,
         id: str,
         status: MODEL_STATUS,
+        status_reason: str | None,
         headline: str,
         domain: MODEL_DOMAIN,
         description: str,
@@ -490,6 +491,7 @@ class QAIHMModelInfo:
         research_paper: str,
         research_paper_title: str,
         license: str,
+        deploy_license: str,
         source_repo: str,
         applicable_scenarios: List[str],
         related_models: List[str],
@@ -498,12 +500,14 @@ class QAIHMModelInfo:
         has_animated_banner: bool,
         code_gen_config: Dict[str, str | bool],
         license_type: str,
+        deploy_license_type: str,
         dataset: List[str],
         technical_details: Dict[str, str],
     ) -> None:
         self.name = name
         self.id = id
         self.status = status
+        self.status_reason = status_reason
         self.headline = headline
         self.domain = domain
         self.description = description
@@ -512,7 +516,9 @@ class QAIHMModelInfo:
         self.research_paper = research_paper
         self.research_paper_title = research_paper_title
         self.license = license
+        self.deploy_license = deploy_license
         self.license_type = license_type
+        self.deploy_license_type = deploy_license_type
         self.dataset = dataset
         self.source_repo = source_repo
         self.applicable_scenarios = applicable_scenarios
@@ -569,9 +575,22 @@ class QAIHMModelInfo:
         if self.license_type not in HF_AVAILABLE_LICENSES:
             return False, f"license can be one of these: {HF_AVAILABLE_LICENSES}"
 
-        # Web assets exist
-        if self.status == MODEL_STATUS.PUBLIC and not self.has_static_banner:
-            return False, "All public models must have a static banner."
+        if not self.deploy_license:
+            return False, "deploy_license cannot be empty"
+        if not self.deploy_license_type:
+            return False, "deploy_license_type cannot be empty"
+
+        # Status Reason
+        if self.status == MODEL_STATUS.PRIVATE and not self.status_reason:
+            return (
+                False,
+                "Private models must set `status_reason` in info.yaml with a link to the related issue.",
+            )
+        if self.status == MODEL_STATUS.PUBLIC and self.status_reason:
+            return (
+                False,
+                "`status_reason` in info.yaml should not be set for public models.",
+            )
 
         # Required assets exist
         if self.status == MODEL_STATUS.PUBLIC:
@@ -686,6 +705,7 @@ class QAIHMModelInfo:
             info_yaml["name"],
             info_yaml["id"],
             MODEL_STATUS.from_string(info_yaml["status"]),
+            info_yaml.get("status_reason", None),
             info_yaml["headline"],
             MODEL_DOMAIN.from_string(info_yaml["domain"]),
             info_yaml["description"],
@@ -694,6 +714,7 @@ class QAIHMModelInfo:
             info_yaml["research_paper"],
             info_yaml["research_paper_title"],
             info_yaml["license"],
+            info_yaml["deploy_license"],
             info_yaml["source_repo"],
             info_yaml["applicable_scenarios"],
             info_yaml["related_models"],
@@ -702,34 +723,40 @@ class QAIHMModelInfo:
             info_yaml["has_animated_banner"],
             code_gen_config,
             info_yaml["license_type"],
+            info_yaml["deploy_license_type"],
             info_yaml["dataset"],
             info_yaml["technical_details"],
         )
 
     # Schema for info.yaml
     INFO_YAML_SCHEMA = Schema(
-        {
-            "name": And(str),
-            "id": And(str),
-            "status": And(str),
-            "headline": And(str),
-            "domain": And(str),
-            "description": And(str),
-            "use_case": And(str),
-            "tags": And(lambda s: len(s) >= 0),
-            "research_paper": And(str),
-            "research_paper_title": And(str),
-            "license": And(str),
-            "source_repo": And(str),
-            "technical_details": And(dict),
-            "applicable_scenarios": And(lambda s: len(s) >= 0),
-            "related_models": And(lambda s: len(s) >= 0),
-            "form_factors": And(lambda s: len(s) >= 0),
-            "has_static_banner": And(bool),
-            "has_animated_banner": And(bool),
-            "license_type": And(str),
-            "dataset": And(list),
-        }
+        And(
+            {
+                "name": str,
+                "id": str,
+                "status": str,
+                OptionalSchema("status_reason", default=None): str,
+                "headline": str,
+                "domain": str,
+                "description": str,
+                "use_case": str,
+                "tags": lambda s: len(s) >= 0,
+                "research_paper": str,
+                "research_paper_title": str,
+                "license": str,
+                "deploy_license": str,
+                "source_repo": str,
+                "technical_details": dict,
+                "applicable_scenarios": lambda s: len(s) >= 0,
+                "related_models": lambda s: len(s) >= 0,
+                "form_factors": lambda s: len(s) >= 0,
+                "has_static_banner": bool,
+                "has_animated_banner": bool,
+                "license_type": str,
+                "deploy_license_type": str,
+                "dataset": list,
+            }
+        )
     )
 
     # Schema for code-gen.yaml
@@ -743,8 +770,6 @@ class QAIHMModelInfo:
                 OptionalSchema("tflite_export_failure_reason", default=""): str,
                 OptionalSchema("has_demo", default=True): bool,
                 OptionalSchema("check_trace", default=True): bool,
-                OptionalSchema("default_profile_options", default=""): str,
-                OptionalSchema("default_compile_options", default=""): str,
                 OptionalSchema("channel_last_input", default=""): str,
                 OptionalSchema("channel_last_output", default=""): str,
                 OptionalSchema("outputs_to_skip_validation", default=[]): list,
@@ -754,6 +779,7 @@ class QAIHMModelInfo:
                 OptionalSchema("skip_tests", default=False): bool,
                 OptionalSchema("is_precompiled", default=False): bool,
                 OptionalSchema("no_assets", default=False): bool,
+                OptionalSchema("global_requirements_incompatible", default=False): bool,
                 OptionalSchema("torchscript_opt", default=[]): list,
                 OptionalSchema("inference_metrics", default="psnr"): str,
             }
@@ -761,7 +787,7 @@ class QAIHMModelInfo:
     )
 
     @staticmethod
-    def load_info_yaml(path: str | Path):
+    def load_info_yaml(path: str | Path) -> Dict[str, Any]:
         with open(path) as f:
             data = yaml.safe_load(f)
             try:

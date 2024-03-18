@@ -8,6 +8,13 @@ import pytest
 
 from qai_hub_models.models.stable_diffusion_quantized.demo import main as demo_main
 from qai_hub_models.models.stable_diffusion_quantized.export import export_model
+from qai_hub_models.models.stable_diffusion_quantized.model import (
+    StableDiffusionQuantized,
+)
+
+
+def test_from_precompiled():
+    StableDiffusionQuantized.from_precompiled()
 
 
 @pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")

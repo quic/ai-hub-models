@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 import torch
 from ultralytics import YOLO as ultralytics_YOLO
 
@@ -40,6 +41,7 @@ def test_task():
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 
+@pytest.mark.trace
 def test_trace():
     net = YoloV8Segmentor.from_pretrained(WEIGHTS)
     input_spec = net.get_input_spec()

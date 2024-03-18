@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 
 from qai_hub_models.models._shared.deeplab.app import DeepLabV3App
 from qai_hub_models.models.deeplabv3_resnet50.demo import INPUT_IMAGE_ADDRESS
@@ -37,6 +38,7 @@ def test_task():
     )
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     image = load_image(INPUT_IMAGE_ADDRESS)

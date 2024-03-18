@@ -8,7 +8,8 @@ import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.superres_evaluator import SuperResolutionOutputEvaluator
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.aimet.repo import aimet_zoo_as_root
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -81,12 +82,7 @@ class XLSR(BaseModel):
 def _load_xlsr_source_model() -> torch.nn.Module:
     # Load XLSR model from the source repository using the given weights.
     # Returns <source repository>.utils.super_resolution.models.XLSRRelease
-    with SourceAsRoot(
-        XLSR_SOURCE_REPOSITORY,
-        XLSR_SOURCE_REPO_COMMIT,
-        MODEL_ID,
-        MODEL_ASSET_VERSION,
-    ):
+    with aimet_zoo_as_root():
         # necessary import. `modeling.deeplab` comes from the XLSR repo.
         from aimet_zoo_torch.common.super_resolution.models import XLSRRelease
 

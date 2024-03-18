@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import qai_hub as hub
 
-from qai_hub_models.models.mobilenet_v2_quantized.model import MobileNetV2Quantizable
+from qai_hub_models.models.squeezenet1_1_quantized.model import SqueezeNetQuantizable
 from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.inference import compile_zoo_model_to_hub
 from qai_hub_models.utils.measurement import get_model_size_mb
@@ -16,16 +16,15 @@ from qai_hub_models.utils.testing import skip_clone_repo_check_fixture  # noqa: 
 @pytest.mark.parametrize(
     "source_model_format,target_runtime,expected_size_mb",
     [
-        (SourceModelFormat.ONNX, TargetRuntime.TFLITE, 3.4),
-        (SourceModelFormat.TORCHSCRIPT, TargetRuntime.TFLITE, 3.4),
-        (SourceModelFormat.ONNX, TargetRuntime.QNN, 3.8),
-        (SourceModelFormat.TORCHSCRIPT, TargetRuntime.QNN, 3.8),
+        (SourceModelFormat.ONNX, TargetRuntime.TFLITE, 1.3),
+        (SourceModelFormat.TORCHSCRIPT, TargetRuntime.TFLITE, 1.3),
+        (SourceModelFormat.ONNX, TargetRuntime.QNN, 1.6),
     ],
 )
 def test_compile_aimet(
     source_model_format, target_runtime, expected_size_mb, skip_clone_repo_check_fixture
 ):
-    model = MobileNetV2Quantizable.from_pretrained()
+    model = SqueezeNetQuantizable.from_pretrained()
 
     calibration_data = model.get_calibration_data(target_runtime)
 

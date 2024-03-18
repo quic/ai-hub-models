@@ -36,8 +36,8 @@ def main(is_test: bool = False):
         help="image file path or URL",
     )
     args = parser.parse_args([] if is_test else None)
-    model = demo_model_from_cli_args(DDRNet, args)
-    validate_on_device_demo_args(args, DDRNet.get_model_id())
+    model = demo_model_from_cli_args(DDRNet, MODEL_ID, args)
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image
     (_, _, height, width) = DDRNet.get_input_spec()["image"][0]

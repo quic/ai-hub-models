@@ -17,22 +17,25 @@ aggregated:
   - Samsung Galaxy S23
   - Samsung Galaxy S23 Ultra
   - Samsung Galaxy S23+
+  - Samsung Galaxy S24
+  - Samsung Galaxy S24 Ultra
   - Samsung Galaxy Tab S8
   - Xiaomi 12
   - Xiaomi 12 Pro
   supported_chipsets:
   - Snapdragon® 8 Gen 1
   - Snapdragon® 8 Gen 2
+  - Snapdragon® 8 Gen 3
   - Snapdragon® 888
 models:
 - name: MediaPipe-Selfie-Segmentation
   performance_metrics:
   - torchscript_onnx_tflite:
-      inference_time: 817.0
-      throughput: 1223.9902080783354
+      inference_time: 821.0
+      throughput: 1218.026796589525
       estimated_peak_memory_range:
         min: 12288
-        max: 1802840
+        max: 2051880
       primary_compute_unit: NPU
       precision: fp16
       layer_info:
@@ -40,14 +43,22 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 118
-      job_id: jygzljvz5
+      job_id: j1p3kox52
       job_status: Passed
+    reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-03-15T00:06:02.750038Z'
     torchscript_onnx_qnn:
-      inference_time: 801.0
-      throughput: 1248.4394506866417
+      inference_time: 805.0
+      throughput: 1242.2360248447205
       estimated_peak_memory_range:
-        min: 811008
-        max: 91168416
+        min: 815104
+        max: 4449664
       primary_compute_unit: NPU
       precision: fp16
       layer_info:
@@ -55,13 +66,43 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 139
-      job_id: jz5wl3mzp
+      job_id: j1pv3275x
+      job_status: Passed
+  - torchscript_onnx_tflite:
+      inference_time: 555.0
+      throughput: 1801.8018018018017
+      estimated_peak_memory_range:
+        min: 12288
+        max: 22552848
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 118
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 118
+      job_id: jwgoyd458
       job_status: Passed
     reference_device_info:
-      name: Samsung Galaxy S23 Ultra
-      os: '13'
+      name: Samsung Galaxy S24
+      os: '14'
       form_factor: Phone
       os_name: Android
       manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-02-21T16:39:49.005922Z'
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-03-15T00:09:04.960914Z'
+    torchscript_onnx_qnn:
+      inference_time: 550.0
+      throughput: 1818.1818181818182
+      estimated_peak_memory_range:
+        min: 176128
+        max: 42597216
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 139
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 139
+      job_id: jlpe967gr
+      job_status: Passed

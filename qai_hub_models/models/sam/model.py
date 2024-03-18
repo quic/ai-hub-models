@@ -117,20 +117,41 @@ class SegmentAnythingEncoder(BaseModel):
         """
         return self.sam.image_encoder(image)
 
-    def get_input_spec(
+    def _get_input_spec_for_model_instance(
         self,
-        height: int = 720,
-        width: int = 1280,
+        batch_size: int = 1,
+        num_channels: int = 3,
+    ) -> InputSpec:
+        """
+        Override for model.get_input_spec() when called on instances of this class.
+
+        The initializer for BaseModel will automatically override get_input_spec
+        with this function when the class is instantiated.
+        """
+        return self.__class__.get_input_spec(
+            batch_size,
+            num_channels,
+            self.sam.image_encoder.img_size,
+            self.sam.image_encoder.img_size,
+        )
+
+    @staticmethod
+    def get_input_spec(
+        batch_size: int = 1,
+        num_channels: int = 3,
+        encoder_img_height: int = 1024,  # self.sam.image_encoder.img_size[0]
+        encoder_img_width: int = 1024,  # self.sam.image_encoder.img_size[1]
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-
-        preprocessed_image = self.preprocess_input_image(
-            np.ones((height, width, 3), dtype=np.uint8)
-        )
-        return {"image": (preprocessed_image.shape, "float32")}
+        return {
+            "image": (
+                (batch_size, num_channels, encoder_img_height, encoder_img_width),
+                "float32",
+            )
+        }
 
     def preprocess_input_image(self, input_image: np.ndarray):
         """Transform input image to work with SAM encoder"""
@@ -206,16 +227,35 @@ class SegmentAnythingONNXDecoder(BaseModel):
             image_embeddings, point_coords, point_labels, mask_input, has_mask_input
         )
 
-    def get_input_spec(
+    def _get_input_spec_for_model_instance(
         self,
-        num_of_points=1,
+        num_of_points: int = 1,
+    ) -> InputSpec:
+        """
+        Override for model.get_input_spec() when called on instances of this class.
+
+        The initializer for BaseModel will automatically override get_input_spec
+        with this function when the class is instantiated.
+        """
+        return self.__class__.get_input_spec(
+            num_of_points,
+            self.sam.prompt_encoder.embed_dim,
+            self.sam.prompt_encoder.image_embedding_size[0],
+            self.sam.prompt_encoder.image_embedding_size[1],
+        )
+
+    @staticmethod
+    def get_input_spec(
+        num_of_points: int = 1,
+        embed_dim: int = 256,
+        image_embedding_height: int = 64,
+        image_embedding_width: int = 64,
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-        embed_dim = self.sam.prompt_encoder.embed_dim
-        embed_size = self.sam.prompt_encoder.image_embedding_size
+        embed_size = (image_embedding_height, image_embedding_width)
         mask_input_size = [4 * x for x in embed_size]
 
         input_spec = {

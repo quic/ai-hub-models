@@ -14,6 +14,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class MobileNetV3Small(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> MobileNetV3Small:
         net = tv_models.mobilenet_v3_small(weights=weights)
         return cls(net)

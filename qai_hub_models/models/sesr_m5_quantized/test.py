@@ -7,6 +7,7 @@ import tempfile
 import zipfile
 
 import numpy as np
+import pytest
 import torch
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
@@ -45,12 +46,13 @@ def test_task():
     )
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     app = SuperResolutionApp(
-        SESR_M5Quantizable.from_pretrained().convert_to_quantized_torchscript()
+        SESR_M5Quantizable.from_pretrained().convert_to_torchscript()
     )
     app_output_image = app.predict(image)[0]
 

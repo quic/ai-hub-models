@@ -97,8 +97,8 @@ class ClipApp:
         """
         return self.tokenizer(text)
 
+    @staticmethod
     def get_input_spec(
-        self,
         image_size: Tuple[int, int] = (224, 224),
         text_size: Tuple[int, int] = (3, 77),
     ) -> InputSpec:

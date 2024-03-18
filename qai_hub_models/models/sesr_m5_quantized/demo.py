@@ -19,6 +19,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 def main(is_test: bool = False):
     super_resolution_demo(
         SESR_M5Quantizable,
+        MODEL_ID,
         default_image=IMAGE_ADDRESS,
         is_test=is_test,
         available_target_runtimes=[TargetRuntime.TFLITE],

@@ -37,8 +37,6 @@ class SESR_M5(BaseModel):
     @classmethod
     def from_pretrained(cls) -> SESR_M5:
         model = _load_sesr_source_model(
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
             SCALING_FACTOR,
             NUM_CHANNELS,
             NUM_LBLOCKS,

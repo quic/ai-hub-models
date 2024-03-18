@@ -8,6 +8,11 @@ import pytest
 
 from qai_hub_models.models.controlnet_quantized.demo import main as demo_main
 from qai_hub_models.models.controlnet_quantized.export import export_model
+from qai_hub_models.models.controlnet_quantized.model import ControlNetQuantized
+
+
+def test_from_precompiled():
+    ControlNetQuantized.from_precompiled()
 
 
 @pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")

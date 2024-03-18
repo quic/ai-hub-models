@@ -19,7 +19,7 @@ MASK_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def main(is_test: bool = False):
-    repaint_demo(LamaDilated, IMAGE_ADDRESS, MASK_ADDRESS, is_test)
+    repaint_demo(LamaDilated, MODEL_ID, IMAGE_ADDRESS, MASK_ADDRESS, is_test)
 
 
 if __name__ == "__main__":

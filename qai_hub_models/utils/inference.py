@@ -6,13 +6,15 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Mapping, Tuple
 
 import numpy as np
 import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
@@ -32,7 +34,7 @@ def prepare_compile_zoo_model_to_hub(
     model: BaseModel,
     source_model_format: SourceModelFormat,
     target_runtime: TargetRuntime,
-    output_path: str = "",
+    output_path: str | Path = "",
     input_spec: InputSpec | None = None,
     check_trace: bool = True,
     prepare_compile_options_only: bool = False,
@@ -98,7 +100,7 @@ def prepare_compile_zoo_model_to_hub(
         ):
 
             def export_model_func():
-                traced_model = model.convert_to_quantized_torchscript(
+                traced_model = model.convert_to_torchscript(
                     input_spec=input_spec, check_trace=check_trace
                 )
                 model_path = os.path.join(output_path, model_name + ".pt")
@@ -193,7 +195,7 @@ def compile_zoo_model_to_hub(
     )
 
 
-class HubModel:
+class HubModel(ExecutableModelProtocol):
     """
     Class that behaves like a pytorch model except when called, it runs an
         inference job on hub and returns a torch output.
@@ -224,26 +226,27 @@ class HubModel:
 
     def __call__(
         self,
-        *input_tensors: torch.Tensor
-        | List[torch.Tensor]
+        *args: torch.Tensor
+        | np.ndarray
+        | List[torch.Tensor | np.ndarray]
         | hub.Dataset
         | DatasetEntries,
     ) -> torch.Tensor | Tuple[torch.Tensor, ...]:
-        inputs: hub.Dataset | DatasetEntries
-        if len(input_tensors) == 1 and isinstance(input_tensors[0], hub.Dataset):
-            inputs = input_tensors[0]
-        else:
-            # Upload dataset
-            inputs = {}
-            for name, tensor in zip(self.input_names, input_tensors):
-                if isinstance(tensor, (list, tuple)):
-                    inputs[name] = [t.detach().numpy() for t in tensor]  # type: ignore
-                else:
-                    inputs[name] = [tensor.detach().numpy()]  # type: ignore
+        return self.forward(*args)
+
+    def forward(
+        self,
+        *args: torch.Tensor
+        | np.ndarray
+        | List[torch.Tensor | np.ndarray]
+        | hub.Dataset
+        | DatasetEntries,
+    ) -> torch.Tensor | Tuple[torch.Tensor, ...]:
         target_runtime = (
             TargetRuntime.QNN if is_qnn_hub_model(self.model) else TargetRuntime.TFLITE
         )
 
+        # Determine whether I/O is channel last
         channel_last_input, channel_last_output = "", ""
         if self.model.producer is not None:
             model_options = self.model.producer.options.strip().split()
@@ -252,14 +255,40 @@ class HubModel:
                     channel_last_input = model_options[option_num + 1]
                 if model_options[option_num] == "--force_channel_last_output":
                     channel_last_output = model_options[option_num + 1]
-        if channel_last_input != "":
-            inputs = transpose_channel_first_to_last(
-                channel_last_input, inputs, target_runtime
-            )
+
+        assert len(args) > 0, "At least 1 input should be provided for inference."
+
+        dataset: hub.Dataset | DatasetEntries
+        if isinstance(args[0], hub.Dataset) or isinstance(args[0], Mapping):
+            # Use the existing provided dataset
+            assert len(args) == 1, "Only 1 dataset can be provided for inference."
+            dataset = args[0]
+        else:
+            # Create dataset from input tensors
+            dataset = {}
+            for name, inputs in zip(self.input_names, args):
+                if not isinstance(inputs, (list, tuple)):
+                    inputs = [inputs]  # type: ignore
+
+                converted_inputs = []
+                for input in inputs:
+                    if isinstance(input, np.ndarray):
+                        converted_inputs.append(input)
+                    elif isinstance(input, torch.Tensor):
+                        converted_inputs.append(input.detach().numpy())
+                    else:
+                        raise NotImplementedError(f"Unknown input type: {str(inputs)}")
+                dataset[name] = converted_inputs
+
+            # Transpose dataset I/O if necessary to fit with the on-device model format
+            if channel_last_input:
+                dataset = transpose_channel_first_to_last(
+                    channel_last_input, dataset, target_runtime
+                )
 
         inference_job = hub.submit_inference_job(
             model=self.model,
-            inputs=inputs,
+            inputs=dataset,
             device=self.device,
             name=f"{self.model.name}_demo_inference",
             options=self.inference_options,
@@ -273,7 +302,7 @@ class HubModel:
         assert output_ds_handle is not None
         output_dataset = output_ds_handle.download()
 
-        if channel_last_output != "":
+        if channel_last_output:
             output_dataset = transpose_channel_last_to_first(
                 channel_last_output,
                 output_dataset,  # type: ignore

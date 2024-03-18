@@ -24,6 +24,7 @@ from qai_hub_models.utils.display import display_or_save_image
 # The demo will display a image with the predicted bounding boxes.
 def yolo_detection_demo(
     model_type: Type[BaseModel],
+    model_id: str,
     app_type: Callable[..., YoloObjectDetectionApp],
     default_image: str | CachedWebAsset,
     stride_multiple: int | None = None,
@@ -49,9 +50,9 @@ def yolo_detection_demo(
         help="Intersection over Union (IoU) threshold for NonMaximumSuppression",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_type.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
-    model = demo_model_from_cli_args(model_type, args)
+    model = demo_model_from_cli_args(model_type, model_id, args)
 
     app = app_type(model, args.score_threshold, args.iou_threshold)
     print("Model Loaded")

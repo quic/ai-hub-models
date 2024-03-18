@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import fileinput
 import json
+import logging
 import os
 import shutil
 import sys
@@ -53,6 +54,17 @@ def always_answer_prompts(answer):
         yield
     finally:
         _always_answer = old_value
+
+
+@contextmanager
+def set_log_level(log_level: int):
+    logger = logging.getLogger()
+    old_level = logger.level
+    try:
+        logger.setLevel(log_level)
+        yield
+    finally:
+        logger.setLevel(old_level)
 
 
 class QAIHM_WEB_ASSET(Enum):
@@ -412,12 +424,20 @@ def load_torch(pt: PathType) -> Any:
     return _load_file(pt, partial(torch.load, map_location="cpu"))
 
 
-def load_json(json_file: PathType) -> Dict:
+def load_json(json_filepath: PathType) -> Dict:
     def _load_json_helper(file_path) -> Any:
         with open(file_path, "r") as json_file:
             return json.load(json_file)
 
-    return _load_file(json_file, _load_json_helper)
+    return _load_file(json_filepath, _load_json_helper)
+
+
+def load_yaml(yaml_filepath: PathType) -> Dict:
+    def _load_yaml_helper(file_path) -> Any:
+        with open(file_path, "r") as yaml_file:
+            return yaml.safe_load(yaml_file)
+
+    return _load_file(yaml_filepath, _load_yaml_helper)
 
 
 def load_path(file: PathType, tmpdir: tempfile.TemporaryDirectory | str) -> str | Path:
@@ -439,7 +459,7 @@ def SourceAsRoot(
     source_repo_name: str,
     source_repo_version: int | str,
     source_repo_patches: List[str] = [],
-    keep_sys_path: bool = False,
+    keep_sys_modules: bool = False,
 ):
     """
     Context manager that runs code with:
@@ -457,21 +477,36 @@ def SourceAsRoot(
         patches=source_repo_patches,
     )
     SOURCE_AS_ROOT_LOCK.acquire()
-    cwd = os.getcwd()
     original_path = list(sys.path)
+    original_modules = dict(sys.modules)
+    cwd = os.getcwd()
     try:
+        # If repo path already in sys.path from previous load,
+        # delete it and put it first
+        if repository_path in sys.path:
+            sys.path.remove(repository_path)
         # Patch path for this load only, since the model source
         # code references modules via a global scope.
         # Insert with highest priority (see #7666)
         sys.path.insert(0, repository_path)
         os.chdir(repository_path)
-
         yield repository_path
     finally:
         # Be careful editing these lines (failure means partial clean-up)
         os.chdir(cwd)
-        if not keep_sys_path:
-            sys.path = original_path
+        sys.path = original_path
+        if not keep_sys_modules:
+            # When you call something like `import models`, it loads the `models` module
+            # into sys.modules so all future `import models` point to that module.
+            #
+            # We want all imports done within the sub-repo to be either deleted from
+            # sys.modules or restored to the previous module if one was overwritten.
+            for name, module in list(sys.modules.items()):
+                if (getattr(module, "__file__", "") or "").startswith(repository_path):
+                    if name in original_modules:
+                        sys.modules[name] = original_modules[name]
+                    else:
+                        del sys.modules[name]
         SOURCE_AS_ROOT_LOCK.release()
 
 

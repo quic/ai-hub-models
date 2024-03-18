@@ -13,5 +13,7 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 
 class InceptionNetV3(ImagenetClassifier):
-    model_builder = tv_models.inception_v3
-    DEFAULT_WEIGHTS = DEFAULT_WEIGHTS
+    @classmethod
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> InceptionNetV3:
+        net = tv_models.inception_v3(weights=weights, transform_input=False)
+        return cls(net, transform_input=True)

@@ -6,8 +6,9 @@ from __future__ import annotations
 
 import os
 
+from qai_hub_models.models.protocols import FromPrecompiledProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BasePrecompiledModel
+from qai_hub_models.utils.base_model import BasePrecompiledModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -19,7 +20,7 @@ VAE_DECODER = os.path.join(QNN_SDK_PREFIX, "vae_decoder.serialized.bin")
 CONTROL_NET = os.path.join(QNN_SDK_PREFIX, "controlnet.serialized.bin")
 
 
-class ControlNetQuantized:
+class ControlNetQuantized(FromPrecompiledProtocol, CollectionModel):
     """
     ControlNet class consists of
         - Text Encoder
@@ -55,9 +56,6 @@ class ClipVITTextEncoder(BasePrecompiledModel):
     and compiled into serialized binary for Qualcomm Snapdragon Gen2+.
     """
 
-    def __init__(self, target_model_path) -> None:
-        self.target_model_path = target_model_path
-
     @classmethod
     def from_precompiled(cls) -> "ClipVITTextEncoder":
         text_encoder_path = CachedWebModelAsset.from_asset_store(
@@ -65,10 +63,8 @@ class ClipVITTextEncoder(BasePrecompiledModel):
         ).fetch()
         return ClipVITTextEncoder(text_encoder_path)
 
-    def get_target_model_path(self) -> str:
-        return self.target_model_path
-
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         return {"input_1": ((1, 77), "int32")}
 
 
@@ -80,9 +76,6 @@ class Unet(BasePrecompiledModel):
     and compiled into serialized binary for Qualcomm Snapdragon Gen2+.
     """
 
-    def __init__(self, target_model_path) -> None:
-        self.target_model_path = target_model_path
-
     @classmethod
     def from_precompiled(cls) -> "Unet":
         model_path = CachedWebModelAsset.from_asset_store(
@@ -90,10 +83,8 @@ class Unet(BasePrecompiledModel):
         ).fetch()
         return Unet(model_path)
 
-    def get_target_model_path(self) -> str:
-        return self.target_model_path
-
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         return {
             "input_1": ((1, 64, 64, 4), "float32"),
             "input_2": ((1, 1280), "float32"),
@@ -122,9 +113,6 @@ class VAEDecoder(BasePrecompiledModel):
     and compiled into serialized binary for Qualcomm Snapdragon Gen2+.
     """
 
-    def __init__(self, target_model_path) -> None:
-        self.target_model_path = target_model_path
-
     @classmethod
     def from_precompiled(cls) -> "VAEDecoder":
         model_path = CachedWebModelAsset.from_asset_store(
@@ -132,10 +120,8 @@ class VAEDecoder(BasePrecompiledModel):
         ).fetch()
         return VAEDecoder(model_path)
 
-    def get_target_model_path(self) -> str:
-        return self.target_model_path
-
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         return {"input_1": ((1, 64, 64, 4), "float32")}
 
 
@@ -147,9 +133,6 @@ class ControlNet(BasePrecompiledModel):
     and compiled into serialized binary for Qualcomm Snapdragon Gen2+.
     """
 
-    def __init__(self, target_model_path) -> None:
-        self.target_model_path = target_model_path
-
     @classmethod
     def from_precompiled(cls) -> "ControlNet":
         model_path = CachedWebModelAsset.from_asset_store(
@@ -157,10 +140,8 @@ class ControlNet(BasePrecompiledModel):
         ).fetch()
         return ControlNet(model_path)
 
-    def get_target_model_path(self) -> str:
-        return self.target_model_path
-
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         return {
             "input_1": ((1, 64, 64, 4), "float32"),
             "input_2": ((1, 1280), "float32"),

@@ -13,8 +13,9 @@ from qai_hub_models.models._shared.yolo.utils import (
     detect_postprocess,
     yolo_sample_inputs,
 )
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
-from qai_hub_models.utils.base_model import BaseModel, InputsType
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 YOLOV7_SOURCE_REPOSITORY = "https://github.com/WongKinYiu/yolov7"
@@ -102,7 +103,7 @@ class YoloV7(BaseModel):
         """
         return {"image": ((batch_size, num_channels, height, width), "float32")}
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> InputsType:
+    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         if input_spec is not None and input_spec != YoloV7.get_input_spec():
             raise ValueError("Sample input has a fixed size that cannot be changed")
 

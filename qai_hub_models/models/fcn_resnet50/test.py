@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 
 from qai_hub_models.models.fcn_resnet50.app import FCN_ResNet50App
 from qai_hub_models.models.fcn_resnet50.demo import INPUT_IMAGE_ADDRESS
@@ -39,10 +40,12 @@ def test_task():
     _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained()))
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained().convert_to_torchscript()))
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

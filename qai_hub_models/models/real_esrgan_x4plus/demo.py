@@ -21,6 +21,7 @@ WEIGHTS_HELP_MSG = "RealESRGAN checkpoint `.pth` name from the Real-ESRGAN repo.
 def main(is_test: bool = False):
     super_resolution_demo(
         model_cls=Real_ESRGAN_x4plus,
+        model_id=MODEL_ID,
         default_image=IMAGE_ADDRESS,
         is_test=is_test,
     )

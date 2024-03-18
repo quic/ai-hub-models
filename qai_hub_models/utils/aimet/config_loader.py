@@ -5,13 +5,19 @@
 from pathlib import Path
 
 
-def get_default_aimet_config() -> str:
-    path = Path(__file__).parent / "default_config.json"
+def get_default_aimet_config_legacy_v1() -> str:
+    path = Path(__file__).parent / "default_config_legacy_v1.json"
     return str(path.resolve())
 
 
-def get_per_channel_aimet_config() -> str:
-    path = Path(__file__).parent / "default_config_per_channel.json"
+def get_default_aimet_config_legacy_v2() -> str:
+    # Introduced per-channel weights
+    path = Path(__file__).parent / "default_config_legacy_v2.json"
+    return str(path.resolve())
+
+
+def get_default_aimet_config() -> str:
+    path = Path(__file__).parent / "default_config.json"
     return str(path.resolve())
 
 

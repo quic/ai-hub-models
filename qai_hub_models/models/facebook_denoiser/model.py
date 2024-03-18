@@ -4,16 +4,19 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import torch
-from denoiser import pretrained
-from denoiser.pretrained import DNS_48_URL
+from typing import Optional
 
+import torch
+
+from qai_hub_models.utils.asset_loaders import SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
+SOURCE_REPOSITORY = "https://github.com/facebookresearch/denoiser"
+SOURCE_REPO_COMMIT = "8afd7c166699bb3c8b2d95b6dd706f71e1075df0"
 SAMPLE_RATE = 16000
 HIDDEN_LAYER_COUNT = 48
-DEFAULT_SEQUENCE_LENGTH = 917
+DEFAULT_SEQUENCE_LENGTH = 100000  # This corresponds to about 6 seconds of audio
 MODEL_ID = "facebook_denoiser"
 ASSET_VERSION = 1
 
@@ -39,8 +42,8 @@ class FacebookDenoiser(BaseModel):
         """
         return self.net(audio)
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
     ) -> InputSpec:
@@ -52,9 +55,14 @@ class FacebookDenoiser(BaseModel):
 
     @classmethod
     def from_pretrained(
-        cls, state_dict_url: str = DNS_48_URL, hidden_layer_count=HIDDEN_LAYER_COUNT
+        cls, state_dict_url: Optional[str] = None, hidden_layer_count=HIDDEN_LAYER_COUNT
     ) -> FacebookDenoiser:
-        net = pretrained._demucs(
-            state_dict_url is not None, state_dict_url, hidden=hidden_layer_count
-        )
-        return cls(net)
+        with SourceAsRoot(
+            SOURCE_REPOSITORY, SOURCE_REPO_COMMIT, MODEL_ID, ASSET_VERSION
+        ):
+            from denoiser.pretrained import DNS_48_URL, _demucs
+
+            if state_dict_url is None:
+                state_dict_url = DNS_48_URL
+            net = _demucs(True, state_dict_url, hidden=hidden_layer_count)
+            return cls(net)

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from typing import Iterable, Set
+from typing import Iterable
 
 from .constants import (
     PY_PACKAGE_MODELS_ROOT,
@@ -34,7 +34,7 @@ def get_python_import_expression(filepath: str) -> str:
 
 
 def resolve_affected_models(
-    changed_files,
+    changed_files: Iterable[str],
     include_model: bool = True,
     include_demo: bool = True,
     include_export: bool = True,
@@ -55,11 +55,11 @@ def resolve_affected_models(
     changed_files: List of filepaths to files that changed. Paths are
         relative to the root of this repository.
     """
-    seen: Set[str] = set()
+    changed_files = list(changed_files)
+    seen = set(changed_files)
     while len(changed_files) > 0:
         # Pop off stack
         curr_file = changed_files.pop()
-        seen.add(curr_file)
 
         file_import = get_python_import_expression(curr_file)
         grep_out = run_and_get_output(
@@ -80,23 +80,30 @@ def resolve_affected_models(
         # Add new nodes to stack
         for dependent_file in dependent_files:
             if dependent_file not in seen:
+                seen.add(dependent_file)
                 changed_files.append(dependent_file)
 
     changed_models = set()
     for f in seen:
         if f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):
-            if not include_model and os.path.basename(f) == "model.py":
+            basename = os.path.basename(f)
+            if basename not in [
+                "model.py",
+                "export.py",
+                "test.py",
+                "test_generated.py",
+                "demo.py",
+            ]:
                 continue
-            if not include_export and os.path.basename(f) == "export.py":
+            if not include_model and basename == "model.py":
                 continue
-            if not include_tests and os.path.basename(f) == "test.py":
+            if not include_export and basename == "export.py":
                 continue
-            if (
-                not include_generated_tests
-                and os.path.basename(f) == "test_generated.py"
-            ):
+            if not include_tests and basename == "test.py":
                 continue
-            if not include_demo and os.path.basename(f) == "demo.py":
+            if not include_generated_tests and basename == "test_generated.py":
+                continue
+            if not include_demo and basename == "demo.py":
                 continue
 
             model_name = f[len(PY_PACKAGE_RELATIVE_MODELS_ROOT) :].split("/")[1]
@@ -115,17 +122,17 @@ def get_changed_files_in_package() -> Iterable[str]:
         os.makedirs("build/model-zoo/", exist_ok=True)
         changed_files_path = "build/changed-qaihm-files.txt"
         if not on_github():
-            run(
-                f"git diff $(git merge-base --fork-point origin/main) --name-only > {changed_files_path}"
-            )
+            run(f"git diff origin/main --name-only > {changed_files_path}")
         if os.path.exists(changed_files_path):
             with open(changed_files_path, "r") as f:
-                return [
+                changed_files = [
                     file
                     for file in f.read().split("\n")
                     if file.startswith(PY_PACKAGE_RELATIVE_SRC_ROOT)
                     and file.endswith(".py")
                 ]
+                # Weed out duplicates
+                return list(set(changed_files))
         return []
 
 

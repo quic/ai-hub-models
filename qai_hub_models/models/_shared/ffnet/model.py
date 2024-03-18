@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from importlib import reload
 
 import torch
 
@@ -105,6 +106,16 @@ def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
         import config
 
         config.model_weights_base_path = root_weights_path
+
+        # This repository has a top-level "models", which is common. We
+        # explicitly reload it in case it has been loaded and cached by another
+        # package (or our models when executing from qai_hub_models/).
+        # This reload must happen after the config fix, and before trying to
+        # load model_entrypoint.
+        import models
+
+        reload(models)
+
         from models.model_registry import model_entrypoint
 
         model = model_entrypoint(variant_name)().eval()

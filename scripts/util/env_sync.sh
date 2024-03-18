@@ -1,3 +1,7 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
 # This should be sourced and hence does not specify an interpreter.
 
 REPO_ROOT=$(git rev-parse --show-toplevel)

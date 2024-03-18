@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
-import torch
 from qai_hub.client import Job, Model, SourceModelType
+
+from qai_hub_models.models.common import SampleInputsType
 
 
 def onnx_elem_type_to_str(elem_type: int) -> str:
@@ -33,7 +34,7 @@ def load_encodings(output_path: Path, model_name: str) -> Dict:
     return encodings["activation_encodings"]
 
 
-def get_qnn_inputs(compile_job: Job, sample_inputs: Dict[str, List[torch.Tensor]]):
+def get_qnn_inputs(compile_job: Job, sample_inputs: SampleInputsType):
     compile_job.target_shapes
     return dict(zip(compile_job.target_shapes.keys(), sample_inputs.values()))
 

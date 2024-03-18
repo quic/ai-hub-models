@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import qai_hub as hub
 import torch
@@ -90,7 +90,7 @@ def export_model(
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "yolov8_det",
-            "Yolo-v8-Detection",
+            "YOLOv8-Detection",
             device,
             skip_profiling,
             skip_inferencing,
@@ -110,36 +110,44 @@ def export_model(
 
     # Trace the model
     source_model = torch.jit.trace(
-        model, make_torch_inputs(input_spec), check_trace=False
+        model.to("cpu"), make_torch_inputs(input_spec), check_trace=False
     )
 
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
         target_runtime, compile_options + " --force_channel_last_input image"
     )
-    print(f"Optimizing model {model_name} to run on-device.")
-    compile_job = hub.submit_compile_job(
+    print(f"Optimizing model {model_name} to run on-device")
+    submitted_compile_job = hub.submit_compile_job(
         model=source_model,
         input_specs=input_spec,
         device=hub.Device(device),
         name=model_name,
         options=model_compile_options,
     )
+    compile_job = cast(hub.client.CompileJob, submitted_compile_job)
 
     # 3. Profile the model asset on real devices
-    profile_job = None
+    profile_job: Optional[hub.client.ProfileJob] = None
     if not skip_profiling:
+        profile_options_all = model.get_hub_profile_options(
+            target_runtime, profile_options
+        )
         print(f"Profiling model {model_name} on a hosted device.")
-        profile_job = hub.submit_profile_job(
+        submitted_profile_job = hub.submit_profile_job(
             model=compile_job.get_target_model(),
             device=hub.Device(device),
             name=model_name,
-            options=profile_options,
+            options=profile_options_all,
         )
+        profile_job = cast(hub.client.ProfileJob, submitted_profile_job)
 
     # 4. Run inference on-device with sample inputs
-    inference_job = None
+    inference_job: Optional[hub.client.InferenceJob] = None
     if not skip_inferencing:
+        profile_options_all = model.get_hub_profile_options(
+            target_runtime, profile_options
+        )
         print(
             f"Running inference for {model_name} on a hosted device with example inputs."
         )
@@ -148,35 +156,37 @@ def export_model(
         hub_inputs = transpose_channel_first_to_last(
             "image", sample_inputs, target_runtime
         )
-        inference_job = hub.submit_inference_job(
+        submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
             inputs=hub_inputs,
             device=hub.Device(device),
             name=model_name,
-            options=profile_options,
+            options=profile_options_all,
         )
+        inference_job = cast(hub.client.InferenceJob, submitted_inference_job)
 
     # 5. Download the model asset to a local file
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
-        target_model = compile_job.get_target_model()
+        target_model: hub.Model = compile_job.get_target_model()  # type: ignore
         target_model.download(str(output_path / f"{model_name}.tflite"))
 
     # 6. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:
-        assert profile_job.wait().success
-        profile_data = profile_job.download_profile()
+        assert profile_job is not None and profile_job.wait().success
+        profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
         print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
         torch_out = torch_inference(model, sample_inputs)
-        assert inference_job.wait().success
-        inference_result = inference_job.download_output_data()
+        assert inference_job is not None and inference_job.wait().success
+        inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
         print_inference_metrics(
             inference_job, inference_result, torch_out, outputs_to_skip=[2]
         )
 
-    print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)
+    if not skip_summary:
+        print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)
 
     return (compile_job, profile_job, inference_job)
 

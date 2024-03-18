@@ -17,13 +17,16 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_path
+from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
 
 def fastsam_demo(
-    model_type: Type[BaseModel], image_path: str | CachedWebAsset, is_test: bool
+    model_type: Type[BaseModel],
+    model_id: str,
+    image_path: str | CachedWebAsset,
+    is_test: bool,
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_type)
@@ -36,21 +39,27 @@ def fastsam_demo(
     )
 
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_type.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
-    model = demo_model_from_cli_args(model_type, args)
+    model = demo_model_from_cli_args(model_type, model_id, args)
     app = FastSAMApp(model)
 
+    image = load_image(args.image)
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        image_path = load_path(args.image, tmpdir)
+        image_path = os.path.join(tmpdir, "inp_image.jpg")
+        image.save(image_path)
         pred, prompt_process = app.segment_image(image_path)
 
-    # Store the output image
-    output_dirname, _ = os.path.split(image_path)
-    output_path = os.path.join(output_dirname, "output.jpg")
-    prompt_process.plot(annotations=pred, output=output_path)
+        # Store the output image
+        output_path = os.path.join(args.output_dir or tmpdir, "output.jpg")
 
-    # Display the output
-    output_image = Image.open(output_path)
-    if not is_test:
-        display_or_save_image(output_image, args.output_dir)
+        # Save the output
+        prompt_process.plot(annotations=pred, output=output_path)
+
+        if is_test:
+            assert pred is not None
+        else:
+            display_or_save_image(
+                Image.open(output_path), args.output_dir, "output.jpg"
+            )

@@ -14,7 +14,7 @@ from qai_hub_models.models.swin_tiny.demo import main as demo_main
 from qai_hub_models.models.swin_tiny.model import MODEL_ID, SwinTiny
 
 
-def test_task(imagenet_sample_torch):
+def test_numerical(imagenet_sample_torch):
     # Ensure that the optimized SwinTiny matches the original one numerically
     x = imagenet_sample_torch
     model_opt = SwinTiny.from_pretrained().eval()

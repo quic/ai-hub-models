@@ -23,6 +23,7 @@ from qai_hub_models.utils.display import display_or_save_image
 # The demo will display both the input image and the higher resolution output.
 def super_resolution_demo(
     model_cls: Type[BaseModel],
+    model_id: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
     available_target_runtimes: List[TargetRuntime] = list(
@@ -44,7 +45,7 @@ def super_resolution_demo(
     )
 
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_cls.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
     # Load image & model
     image = load_image(args.image)
@@ -64,6 +65,7 @@ def super_resolution_demo(
 
     inference_model = demo_model_from_cli_args(
         model_cls,
+        model_id,
         args,
     )
     app = SuperResolutionApp(inference_model)

@@ -14,6 +14,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class GoogLeNet(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
-        net = tv_models.googlenet(weights=weights)
-        return cls(net)
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> GoogLeNet:
+        net = tv_models.googlenet(weights=weights, transform_input=False)
+        return cls(net, transform_input=True)

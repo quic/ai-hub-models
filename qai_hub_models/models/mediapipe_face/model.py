@@ -246,7 +246,8 @@ class FaceDetector(BaseModel):
             face_detector.load_anchors(detector_anchors)
             return cls(face_detector, face_detector.anchors)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the face detector.
         This can be used to submit profiling job on Qualcomm AI Hub.
@@ -274,7 +275,8 @@ class FaceLandmarkDetector(BaseModel):
             face_regressor.load_weights(landmark_detector_weights)
             return cls(face_regressor)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the face landmark detector.
         This can be used to submit profiling job on Qualcomm AI Hub.

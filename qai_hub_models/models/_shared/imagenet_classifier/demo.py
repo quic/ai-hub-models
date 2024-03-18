@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Type
+from typing import List, Type
 
 import torch
 
@@ -26,6 +26,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_json,
 )
+from qai_hub_models.utils.base_model import TargetRuntime
 
 IMAGENET_LABELS_ASSET = CachedWebModelAsset(
     "https://raw.githubusercontent.com/anishathalye/imagenet-simple-labels/master/imagenet-simple-labels.json",
@@ -37,10 +38,20 @@ IMAGENET_LABELS_ASSET = CachedWebModelAsset(
 
 # Run Imagenet Classifier end-to-end on a sample image.
 # The demo will print the predicted class to terminal.
-def imagenet_demo(model_cls: Type[ImagenetClassifier], is_test: bool = False):
+def imagenet_demo(
+    model_cls: Type[ImagenetClassifier],
+    model_id: str,
+    is_test: bool = False,
+    available_target_runtimes: List[TargetRuntime] = list(
+        TargetRuntime.__members__.values()
+    ),
+):
+
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
-    parser = get_on_device_demo_parser(parser)
+    parser = get_on_device_demo_parser(
+        parser, available_target_runtimes=available_target_runtimes
+    )
     parser.add_argument(
         "--image",
         type=str,
@@ -48,9 +59,9 @@ def imagenet_demo(model_cls: Type[ImagenetClassifier], is_test: bool = False):
         help="test image file path or URL",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_cls.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
-    model = demo_model_from_cli_args(model_cls, args)
+    model = demo_model_from_cli_args(model_cls, model_id, args)
     app = ImagenetClassifierApp(model)
     print("Model Loaded")
 

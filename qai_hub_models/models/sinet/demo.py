@@ -30,8 +30,8 @@ def main(is_test: bool = False):
         help="image file path or URL.",
     )
     args = parser.parse_args([] if is_test else None)
-    model = demo_model_from_cli_args(SINet, args)
-    validate_on_device_demo_args(args, SINet.get_model_id())
+    model = demo_model_from_cli_args(SINet, MODEL_ID, args)
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # load image and model
     image = load_image(args.image)

@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 import os
+from importlib import reload
 
 import torch
 
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
+    find_replace_in_repo,
     load_torch,
 )
 from qai_hub_models.utils.base_model import BaseModel
@@ -54,8 +56,8 @@ class SINet(BaseModel):
         """
         return self.model(image)
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 224,
@@ -86,7 +88,14 @@ def _load_sinet_source_model_from_weights(
 ) -> torch.nn.Module:
     with SourceAsRoot(
         SINET_SOURCE_REPOSITORY, SINET_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
-    ):
+    ) as repo_root:
+        # This repository has a top-level "models", which is common. We
+        # explicitly reload it in case it has been loaded and cached by another
+        # package (or our models when executing from qai_hub_models/)
+        import models
+
+        reload(models)
+
         if os.path.exists(os.path.expanduser(weights_name_or_path)):
             weights_path = os.path.expanduser(weights_name_or_path)
         else:
@@ -99,11 +108,7 @@ def _load_sinet_source_model_from_weights(
 
         # Perform a find and replace for .data.size() in SINet's shuffle implementation
         # as tracing treats this as a constant, but does not treat .shape as a constant
-        with open("models/SINet.py", "r") as file:
-            file_content = file.read()
-        new_content = file_content.replace(".data.size()", ".shape")
-        with open("models/SINet.py", "w") as file:
-            file.write(new_content)
+        find_replace_in_repo(repo_root, "models/SINet.py", ".data.size()", ".shape")
 
         # import the model arch
         from models.SINet import SINet

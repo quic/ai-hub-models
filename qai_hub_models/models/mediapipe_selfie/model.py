@@ -197,8 +197,9 @@ class SelfieSegmentation(BaseModel):
         front_net.load_state_dict(front_state_dict, strict=True)
         return front_net
 
-    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
-        if self.image_type == "square":
+    @staticmethod
+    def get_input_spec(batch_size: int = 1, image_type: str = "square") -> InputSpec:
+        if image_type == "square":
             height, width = 256, 256
         else:
             height, width = 144, 256

@@ -35,5 +35,6 @@ def test_task():
     )
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

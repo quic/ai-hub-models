@@ -14,14 +14,17 @@ from qai_hub_models.utils.quantization_aimet import (
 
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
+from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
 from qai_hub_models.models.googlenet.model import GoogLeNet
-from qai_hub_models.utils.aimet.config_loader import get_per_channel_aimet_config
+from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
+from qai_hub_models.utils.quantization_aimet import tie_aimet_observer_groups
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 DEFAULT_ENCODINGS = "googlenet_quantized_encodings.json"
 
 
@@ -37,14 +40,20 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
     ) -> None:
         GoogLeNet.__init__(self, sim_model.model)
         AIMETQuantizableMixin.__init__(
-            self, sim_model, needs_onnx_direct_aimet_export=True
+            self,
+            sim_model,
         )
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "GoogLeNet":
+    ) -> "GoogLeNetQuantizable":
         """
         Parameters:
           aimet_encodings:
@@ -53,17 +62,19 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
             else: Interprets as a filepath and loads the encodings stored there.
         """
         model = GoogLeNet.from_pretrained()
-        input_shape = model.get_input_spec()["image_tensor"][0]
+        input_shape = cls.get_input_spec()["image_tensor"][0]
 
+        model = prepare_model(model)
         equalize_model(model, input_shape)
         sim = QuantizationSimModel(
-            model.net,
+            model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=get_per_channel_aimet_config(),
+            config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )
+        cls._tie_pre_concat_quantizers(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
@@ -74,3 +85,36 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
 
         sim.model.eval()
         return cls(sim)
+
+    @classmethod
+    def _tie_pre_concat_quantizers(cls, sim: QuantizationSimModel):
+        """
+        This ties together the output quantizers prior to concatenations. This
+        prevents unnecessary re-quantization during the concatenation.
+        """
+        blocks = [
+            sim.model.net.inception3a,
+            sim.model.net.inception3b,
+            sim.model.net.inception4a,
+            sim.model.net.inception4b,
+            sim.model.net.inception4c,
+            sim.model.net.inception4d,
+            sim.model.net.inception4e,
+            sim.model.net.inception5a,
+            sim.model.net.inception5b,
+        ]
+
+        idx = 3
+        groups = []
+        for block in blocks:
+            groups.append(
+                [
+                    getattr(block.branch1, f"module_relu_{idx}"),
+                    getattr(getattr(block.branch2, "1"), f"module_relu_{idx+2}"),
+                    getattr(getattr(block.branch3, "1"), f"module_relu_{idx+4}"),
+                    getattr(getattr(block.branch4, "1"), f"module_relu_{idx+5}"),
+                ]
+            )
+            idx += 6
+
+        tie_aimet_observer_groups(groups)

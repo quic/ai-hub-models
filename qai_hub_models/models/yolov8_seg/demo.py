@@ -68,7 +68,7 @@ def yolov8_seg_demo(
         help="Intersection over Union (IoU) threshold for NonMaximumSuppression",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_type.get_model_id())
+    validate_on_device_demo_args(args, MODEL_ID)
 
     if args.image is None:
         image_path = default_image.fetch()
@@ -76,7 +76,7 @@ def yolov8_seg_demo(
         image_path = args.image
 
     # Load image & model
-    model = demo_model_from_cli_args(model_type, args, check_trace=False)
+    model = demo_model_from_cli_args(model_type, MODEL_ID, args)
     app = YoloV8SegmentationApp(model, args.score_threshold, args.iou_threshold)
 
     print("Model Loaded")

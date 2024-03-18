@@ -9,25 +9,21 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import qai_hub as hub
 
 from qai_hub_models.models.stable_diffusion_quantized import Model
 from qai_hub_models.utils.args import export_parser
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import BasePrecompiledModel, TargetRuntime
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["Text-Encoder-Quantized", "UNet-Quantized", "VAE-Decoder-Quantized"]
-DEFAULT_COMPONENTS = [
-    "Text-Encoder-Quantized",
-    "VAE-Decoder-Quantized",
-    "UNet-Quantized",
-]
+ALL_COMPONENTS = ["TextEncoder_Quantized", "UNet_Quantized", "VAEDecoder_Quantized"]
+DEFAULT_COMPONENTS = ["TextEncoder_Quantized", "VAEDecoder_Quantized", "UNet_Quantized"]
 
 
 def export_model(
@@ -79,9 +75,9 @@ def export_model(
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     component_arg = components
     components = components or DEFAULT_COMPONENTS
-    for component in components:
-        if component not in ALL_COMPONENTS:
-            raise ValueError(f"Invalid component {component}.")
+    for component_name in components:
+        if component_name not in ALL_COMPONENTS:
+            raise ValueError(f"Invalid component {component_name}.")
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "stable_diffusion_quantized",
@@ -98,16 +94,17 @@ def export_model(
             component_arg,
         )
 
+    target_runtime = TargetRuntime.TFLITE
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
-    components_dict = {}
-    if "Text-Encoder-Quantized" in components:
-        components_dict["Text-Encoder-Quantized"] = model.text_encoder
-    if "UNet-Quantized" in components:
-        components_dict["UNet-Quantized"] = model.unet
-    if "VAE-Decoder-Quantized" in components:
-        components_dict["VAE-Decoder-Quantized"] = model.vae_decoder
+    components_dict: Dict[str, BasePrecompiledModel] = {}
+    if "TextEncoder_Quantized" in components:
+        components_dict["TextEncoder_Quantized"] = model.text_encoder  # type: ignore
+    if "UNet_Quantized" in components:
+        components_dict["UNet_Quantized"] = model.unet  # type: ignore
+    if "VAEDecoder_Quantized" in components:
+        components_dict["VAEDecoder_Quantized"] = model.vae_decoder  # type: ignore
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -118,39 +115,51 @@ def export_model(
         )
 
     # 3. Profile the model assets on real devices
-    profile_jobs = {}
+    profile_jobs: Dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
+            profile_options_all = components_dict[
+                component_name
+            ].get_hub_profile_options(target_runtime, profile_options)
             print(f"Profiling model {component_name} on a hosted device.")
-            profile_jobs[component_name] = hub.submit_profile_job(
+            submitted_profile_job = hub.submit_profile_job(
                 model=uploaded_models[component_name],
                 device=hub.Device(device),
-                name=f"{component_name}",
-                options=profile_options,
+                name=f"{model_name}_{component_name}",
+                options=profile_options_all,
+            )
+            profile_jobs[component_name] = cast(
+                hub.client.ProfileJob, submitted_profile_job
             )
 
     # 4. Run inference on-device with sample inputs
-    inference_jobs = {}
+    inference_jobs: Dict[str, hub.client.InferenceJob] = {}
     if not skip_inferencing:
         for component_name in components:
             print(
                 f"Running inference for {component_name} on a hosted device with example inputs."
             )
+            profile_options_all = components_dict[
+                component_name
+            ].get_hub_profile_options(target_runtime, profile_options)
             sample_inputs = components_dict[component_name].sample_inputs()
-            inference_jobs[component_name] = hub.submit_inference_job(
+            submitted_inference_job = hub.submit_inference_job(
                 model=uploaded_models[component_name],
                 inputs=sample_inputs,
                 device=hub.Device(device),
-                name=f"{component_name}",
-                options=profile_options,
+                name=f"{model_name}_{component_name}",
+                options=profile_options_all,
+            )
+            inference_jobs[component_name] = cast(
+                hub.client.InferenceJob, submitted_inference_job
             )
 
     # 5. Summarize the results from profiling
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
-            assert profile_job.wait().success
-            profile_data = profile_job.download_profile()
+            assert profile_job is not None and profile_job.wait().success
+            profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
             print_profile_metrics_from_job(profile_job, profile_data)
 
     return {

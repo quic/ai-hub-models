@@ -32,6 +32,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # The demo will display the predicted mask in a window.
 def unet_demo(
     model: Callable[..., Callable[[torch.Tensor, torch.Tensor], torch.Tensor]],
+    MODEL_ID,
     default_image: PathType,
     is_test: bool = False,
 ):
@@ -45,10 +46,10 @@ def unet_demo(
         help="File path or URL to an input image to use for the demo.",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model.get_model_id())
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image & model
-    model = demo_model_from_cli_args(UNet, args)
+    model = demo_model_from_cli_args(UNet, MODEL_ID, args)
     print("Model loaded from pre-trained weights.")
     (_, _, height, width) = UNet.get_input_spec()["image"][0]
     orig_image = load_image(
@@ -67,6 +68,7 @@ def unet_demo(
 def main(is_test: bool = False):
     unet_demo(
         UNet,
+        MODEL_ID,
         IMAGE_ADDRESS,
         is_test,
     )

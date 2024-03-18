@@ -11,14 +11,15 @@
       "is_symmetric": "True"
     },
     "strict_symmetric": "False",
-  "per_channel_quantization": "False"
+    "unsigned_symmetric": "False",
+    "per_channel_quantization": "True"
   },
 
   "params":
   {
     "bias":
     {
-      "is_quantized": "True"
+      "is_quantized": "False"
     }
   },
 
@@ -26,19 +27,19 @@
   {
     "Squeeze":
     {
-      "is_output_quantized": "False"
+      "is_output_quantized": "True"
     },
     "Pad":
     {
-      "is_output_quantized": "False"
+      "is_output_quantized": "True"
     },
     "Mean":
     {
       "is_output_quantized": "False"
     },
-    "Gather":
+    "Gemm":
     {
-      "is_output_quantized": "False"
+      "per_channel_quantization": "False"
     }
   },
 
@@ -47,11 +48,11 @@
     {
       "op_list": ["Conv", "Relu"]
     },
-    {
-      "op_list": ["ConvTranspose", "Relu"]
-    },
-    {
+  {
       "op_list": ["Conv", "Clip"]
+  },
+    {
+      "op_list": ["Conv", "BatchNormalization", "Relu"]
     },
     {
       "op_list": ["Add", "Relu"]

@@ -11,6 +11,7 @@ from typing import List, Union
 
 import numpy as np
 import qai_hub as hub
+from tflite import Model as TFModel  # type: ignore
 
 
 def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
@@ -74,23 +75,22 @@ def get_tflite_unique_parameters(
     tensors that point to the same buffers. So, we keep track of all buffers
     we have counted through tensors.
     """
-    from tensorflow.lite.python import schema_py_generated as schema_fb
-
     with open(model_path, "rb") as f:
         tflite_model = f.read()
-    model_obj = schema_fb.Model.GetRootAsModel(tflite_model, 0)
-    model = schema_fb.ModelT.InitFromObj(model_obj)
+    model = TFModel.GetRootAs(tflite_model, 0)
 
     parameter_cnt = 0
     buffers_counted = set()
-    for graph in model.subgraphs:
-        for tensor in graph.tensors:
-            buf_index = tensor.buffer
+    for i in range(model.SubgraphsLength()):
+        graph = model.Subgraphs(i)
+        for j in range(graph.TensorsLength()):
+            tensor = graph.Tensors(j)
+            buf_index = tensor.Buffer()
 
-            buffer = model.buffers[buf_index]
-            if buffer.data is not None:
+            buffer = model.Buffers(buf_index)
+            if not buffer.DataIsNone():
                 if buf_index not in buffers_counted:
-                    parameter_cnt += np.prod(tensor.shape)
+                    parameter_cnt += np.prod(tensor.ShapeAsNumpy())
                     buffers_counted.add(buf_index)
 
     if not as_str:

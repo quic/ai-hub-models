@@ -40,8 +40,6 @@ class QuickSRNetLarge(BaseModel):
     @classmethod
     def from_pretrained(cls) -> QuickSRNetLarge:
         model = _load_quicksrnet_source_model(
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
             SCALING_FACTOR,
             NUM_CHANNELS,
             NUM_INTERMEDIATE_LAYERS,

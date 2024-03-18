@@ -20,7 +20,9 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def main(is_test: bool = False):
-    deeplabv3_demo(DeepLabV3_ResNet50, INPUT_IMAGE_ADDRESS, NUM_CLASSES, is_test)
+    deeplabv3_demo(
+        DeepLabV3_ResNet50, MODEL_ID, INPUT_IMAGE_ADDRESS, NUM_CLASSES, is_test
+    )
 
 
 if __name__ == "__main__":

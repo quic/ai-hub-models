@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 import torch
 from datasets import load_dataset
 
@@ -65,6 +66,7 @@ def test_task():
     _test_impl(HuggingFaceWavLMBasePlusApp(HuggingFaceWavLMBasePlus.from_pretrained()))
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     _test_impl(

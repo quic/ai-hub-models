@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
 from qai_hub_models.models.esrgan.demo import IMAGE_ADDRESS
@@ -30,6 +31,7 @@ def test_task():
     )
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     image = load_image(IMAGE_ADDRESS)

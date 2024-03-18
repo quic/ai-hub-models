@@ -14,6 +14,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class DenseNet(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> DenseNet:
         net = tv_models.densenet121(weights=weights)
         return cls(net)

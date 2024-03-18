@@ -48,6 +48,7 @@ class ModelRun:
     model_id: str
     profile_job_id: str
     runtime: MODEL_CARD_RUNTIMES
+    device_type: str
 
     def chipset(self) -> Optional[str]:
         """Chipset the job was run on."""
@@ -62,7 +63,9 @@ class ModelRun:
     def profile_job(self):
         """Get the hub.ProfileJob object."""
         if len(self.profile_job_id) > 0:
-            return hub.get_job(self.profile_job_id)
+            job = hub.get_job(self.profile_job_id)
+            job.wait()
+            return job
         return None
 
     def job_status(self) -> str:
@@ -77,7 +80,12 @@ class ModelRun:
     @property
     def quantized(self) -> str:
         """Quantized models are marked so precision can be correctly recorded."""
-        return "Yes" if self.model_id.endswith("_quantized") else "No"
+        return (
+            "Yes"
+            if self.model_id.endswith("Quantized")
+            or self.model_id.endswith("Quantizable")
+            else "No"
+        )
 
     @property
     def profile_results(self):
@@ -163,18 +171,82 @@ class ModelRun:
             return "fp16"
         return "null"
 
+    def performance_metrics(self) -> Dict[str, Any]:
+        return dict(
+            inference_time=self.get_inference_time(),
+            throughput=self.get_throughput(),
+            estimated_peak_memory_range=self.get_peak_memory_range(),
+            primary_compute_unit=self.primary_compute_unit(),
+            precision=self.precision(),
+            layer_info=dict(
+                layers_on_npu=self.npu(),
+                layers_on_gpu=self.gpu(),
+                layers_on_cpu=self.cpu(),
+                total_layers=self.total(),
+            ),
+            job_id=self.profile_job_id,
+            job_status=self.job_status(),
+        )
+
+    def reference_device_info(self) -> Dict[str, str]:
+        """Return a reference ID."""
+        REF_DEVICE_MAP = {
+            "s23": ("qualcomm-snapdragon-8gen2", "Samsung Galaxy S23"),
+            "s24": ("qualcomm-snapdragon-8gen3", "Samsung Galaxy S24"),
+        }
+        chipset = REF_DEVICE_MAP[self.device_type][0]
+        hub_device = hub.get_devices(REF_DEVICE_MAP[self.device_type][1])[0]
+        device_name = hub_device.name
+        os_version = hub_device.os
+        os_name, form_factor, manufacturer = "", "", ""
+        for attr in hub_device.attributes:
+            if attr.startswith("vendor"):
+                manufacturer = attr.split(":")[-1]
+            if attr.startswith("format"):
+                form_factor = attr.split(":")[-1]
+            if attr.startswith("os"):
+                os_name = attr.split(":")[-1].capitalize()
+        chipset = chipset_marketting_name(chipset)
+        device_info = dict(
+            name=device_name,
+            os=os_version,
+            form_factor=form_factor.capitalize(),
+            os_name=os_name,
+            manufacturer=manufacturer.capitalize(),
+            chipset=chipset,
+        )
+        return device_info
+
 
 @dataclass
 class ModelPerf:
     model_runs: List[ModelRun]
 
-    def supported_chipsets(self, chips) -> List[str]:
+    def supported_chipsets(self, chips: List[str]) -> List[str]:
         """Return all the supported chipsets given the chipset it works on."""
-        supported_chips = chips
+
+        # Don't assign "chips" directly to supported_chips.
+        # The lists will share the same pointer, and hence the for
+        # loop below will break.
+        supported_chips = []
+        supported_chips.extend(chips)
+
         for chip in chips:
+            if chip == "qualcomm-snapdragon-8gen3":
+                supported_chips.extend(
+                    [
+                        "qualcomm-snapdragon-8gen2",
+                        "qualcomm-snapdragon-8gen1",
+                        "qualcomm-snapdragon-888",
+                    ]
+                )
             if chip == "qualcomm-snapdragon-8gen2":
                 supported_chips.extend(
-                    ["qualcomm-snapdragon-8gen1", "qualcomm-snapdragon-888"]
+                    [
+                        "qualcomm-snapdragon-8gen3",
+                        "qualcomm-snapdragon-8gen1",
+                        "qualcomm-snapdragon-888",
+                    ]
                 )
             if chip == "qualcomm-snapdragon-855":
                 supported_chips.extend(
@@ -222,31 +294,6 @@ class ModelPerf:
         """Return all the supported operating systems."""
         return ["Android"]
 
-    def reference_device_info(self) -> Dict[str, str]:
-        """Return a reference ID."""
-        chipset = "qualcomm-snapdragon-8gen2"
-        hub_device = hub.get_devices("Samsung Galaxy S23 Ultra")[0]
-        device_name = hub_device.name
-        os_version = hub_device.os
-        os_name, form_factor, manufacturer = "", "", ""
-        for attr in hub_device.attributes:
-            if attr.startswith("vendor"):
-                manufacturer = attr.split(":")[-1]
-            if attr.startswith("format"):
-                form_factor = attr.split(":")[-1]
-            if attr.startswith("os"):
-                os_name = attr.split(":")[-1].capitalize()
-        chipset = chipset_marketting_name(chipset)
-        device_info = dict(
-            name=device_name,
-            os=os_version,
-            form_factor=form_factor.capitalize(),
-            os_name=os_name,
-            manufacturer=manufacturer.capitalize(),
-            chipset=chipset,
-        )
-        return device_info
-
     def performance_metrics(self):
         """Performance metrics as per model card."""
         perf_card = dict()
@@ -254,11 +301,14 @@ class ModelPerf:
         # Figure out unique models in various baselines
         unique_model_ids = []
         chips = []
+        devices = []
         for run in self.model_runs:
             if run.model_id not in unique_model_ids:
                 unique_model_ids.append(run.model_id)
             if run.chipset not in chips:
                 chips.append(run.chipset())
+            if run.device_type not in devices:
+                devices.append(run.device_type)
 
         perf_card["aggregated"] = dict(
             supported_oses=self.supported_oses(),
@@ -269,36 +319,32 @@ class ModelPerf:
         perf_per_model = []
 
         for mid in unique_model_ids:
-            perf_per_device = []
             # Calculate per data per runtime
-            perf_per_runtime = dict()
+            perf_per_device = dict()
             for run in self.model_runs:
                 if run.model_id == mid:
-                    runtime_name = run.runtime.name.lower()
-                    perf_per_runtime[runtime_name] = dict(
-                        inference_time=run.get_inference_time(),
-                        throughput=run.get_throughput(),
-                        estimated_peak_memory_range=run.get_peak_memory_range(),
-                        primary_compute_unit=run.primary_compute_unit(),
-                        precision=run.precision(),
-                        layer_info=dict(
-                            layers_on_npu=run.npu(),
-                            layers_on_gpu=run.gpu(),
-                            layers_on_cpu=run.cpu(),
-                            total_layers=run.total(),
-                        ),
-                        job_id=run.profile_job_id,
-                        job_status=run.job_status(),
-                    )
+                    for dev in devices:
+                        if run.device_type == dev:
+                            # perf_per_runtime = dict()
+                            if dev not in perf_per_device:
+                                perf_per_device[dev] = dict()
+                            runtime_name = run.runtime.name.lower()
+                            perf_per_device[dev][
+                                runtime_name
+                            ] = run.performance_metrics()
+                            # Per model, the device used and timestamp for model card
+                            if "reference_device_info" not in perf_per_device[dev]:
+                                perf_per_device[dev][
+                                    "reference_device_info"
+                                ] = run.reference_device_info()
 
-            # Per model, the device used and timestamp for model card
-            perf_per_runtime["reference_device_info"] = self.reference_device_info()
-            perf_per_runtime["timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
+                            perf_per_device[dev]["timestamp"] = (
+                                datetime.datetime.utcnow().isoformat() + "Z"
+                            )
 
-            perf_per_device.append(perf_per_runtime)
-
-            perf_model = dict(name=mid, performance_metrics=perf_per_device)
-            perf_model["name"] = mid
+                perf_model = dict(
+                    name=mid, performance_metrics=list(perf_per_device.values())
+                )
             perf_per_model.append(perf_model)
 
         # Perf card with multiple models

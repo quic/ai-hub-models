@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import qai_hub as hub
 from prettytable import PrettyTable
-from qai_hub.client import SourceModelType
+from qai_hub.client import DatasetEntries, SourceModelType
 from tabulate import tabulate
 
 from qai_hub_models.utils.base_model import TargetRuntime
@@ -22,7 +22,7 @@ _INFO_DASH = "-" * 60
 
 def print_inference_metrics(
     inference_job: hub.InferenceJob,
-    inference_result: Dict[str, List[np.ndarray]],
+    inference_result: DatasetEntries,
     torch_out: List[np.ndarray],
     outputs_to_skip: Optional[List[int]] = None,
     metrics: str = "psnr",

@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from PIL.Image import fromarray
 
 from qai_hub_models.models.mediapipe_selfie.app import SelfieSegmentationApp
@@ -15,13 +13,15 @@ from qai_hub_models.models.mediapipe_selfie.model import (
     SelfieSegmentation,
 )
 from qai_hub_models.utils.args import (
-    add_output_dir_arg,
+    demo_model_from_cli_args,
     get_model_cli_parser,
-    model_from_cli_args,
+    get_on_device_demo_parser,
+    validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
+from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "selfie.jpg"
@@ -30,35 +30,38 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run selfie segmentation app end-to-end on a sample image.
 # The demo will display the predicted mask in a window.
-def mediapipe_selfie_demo(
-    model_cls: Type[BaseModel],
-    default_image: str | CachedWebModelAsset,
+def main(
     is_test: bool = False,
 ):
     # Demo parameters
-    parser = get_model_cli_parser(model_cls)
+    parser = get_model_cli_parser(SelfieSegmentation)
+    parser = get_on_device_demo_parser(
+        parser, available_target_runtimes=[TargetRuntime.TFLITE], add_output_dir=True
+    )
     parser.add_argument(
         "--image",
         type=str,
-        default=default_image,
+        default=IMAGE_ADDRESS,
         help="File path or URL to an input image to use for the demo.",
     )
-    add_output_dir_arg(parser)
     args = parser.parse_args([] if is_test else None)
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image & model
-    model = model_from_cli_args(model_cls, args)
-    print("Model loaded from pre-trained weights.")
-    image = load_image(args.image, verbose=True, desc="sample input image")
+    orig_image = load_image(args.image)
+    model = demo_model_from_cli_args(SelfieSegmentation, MODEL_ID, args)
 
     # Run app
     app = SelfieSegmentationApp(model)
+    (_, _, height, width) = SelfieSegmentation.get_input_spec()["image"][0]
+
+    image, scale, padding = pil_resize_pad(orig_image, (height, width))
     mask = app.predict(image) * 255.0
     mask = fromarray(mask).convert("L")
     if not is_test:
         # Make sure the input image and mask are resized so the demo can visually
         # show the images in the same resolution.
-        image = image.resize(mask.size)
+        image = pil_undo_resize_pad(image, orig_image.size, scale, padding)
         display_or_save_image(
             image, args.output_dir, "mediapipe_selfie_image.png", "sample input image"
         )
@@ -67,13 +70,5 @@ def mediapipe_selfie_demo(
         )
 
 
-def main(is_test: bool = False):
-    mediapipe_selfie_demo(
-        SelfieSegmentation,
-        IMAGE_ADDRESS,
-        is_test,
-    )
-
-
 if __name__ == "__main__":
-    main()
+    main(is_test=False)

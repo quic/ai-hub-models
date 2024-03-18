@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
-from qai_hub_models.models.vit.model import VIT
+from qai_hub_models.models.vit.model import MODEL_ID, VIT
 
 
 def main(is_test: bool = False):
-    imagenet_demo(VIT, is_test)
+    imagenet_demo(VIT, MODEL_ID, is_test)
 
 
 if __name__ == "__main__":

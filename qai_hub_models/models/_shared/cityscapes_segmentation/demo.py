@@ -49,7 +49,7 @@ def cityscapes_segmentation_demo(
         help="File path or URL to an input image to use for the demo.",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_type.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
     if args.image is None:
         image = TEST_CITYSCAPES_LIKE_IMAGE_ASSET.fetch()
@@ -60,7 +60,7 @@ def cityscapes_segmentation_demo(
 
     input_spec = model_type.get_input_spec()
 
-    inference_model = demo_model_from_cli_args(model_type, args)
+    inference_model = demo_model_from_cli_args(model_type, model_id, args)
     app = CityscapesSegmentationApp(inference_model)
 
     (_, _, height, width) = input_spec["image"][0]

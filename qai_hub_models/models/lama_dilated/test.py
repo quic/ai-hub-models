@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 
 from qai_hub_models.models._shared.repaint.app import RepaintMaskApp
 from qai_hub_models.models.lama_dilated.demo import IMAGE_ADDRESS, MASK_ADDRESS
@@ -38,6 +39,7 @@ def test_task():
     )
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     net = LamaDilated.from_pretrained()

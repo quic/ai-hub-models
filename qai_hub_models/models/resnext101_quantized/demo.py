@@ -3,11 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.imagenet_classifier.demo import imagenet_demo
-from qai_hub_models.models.resnext101_quantized.model import ResNeXt101Quantizable
+from qai_hub_models.models.resnext101_quantized.model import (
+    MODEL_ID,
+    ResNeXt101Quantizable,
+)
 
 
 def main(is_test: bool = False):
-    imagenet_demo(ResNeXt101Quantizable, is_test)
+    imagenet_demo(ResNeXt101Quantizable, MODEL_ID, is_test)
 
 
 if __name__ == "__main__":

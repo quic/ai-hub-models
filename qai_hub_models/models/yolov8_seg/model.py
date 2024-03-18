@@ -72,8 +72,8 @@ class YoloV8Segmentor(BaseModel):
         boxes, scores, masks, classes = yolov8_segment_postprocess(predictions[0])
         return boxes, scores, masks, classes, predictions[1][-1]
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 640,

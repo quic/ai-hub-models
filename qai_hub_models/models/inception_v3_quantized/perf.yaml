@@ -17,31 +17,42 @@ aggregated:
   - Samsung Galaxy S23
   - Samsung Galaxy S23 Ultra
   - Samsung Galaxy S23+
+  - Samsung Galaxy S24
+  - Samsung Galaxy S24 Ultra
   - Samsung Galaxy Tab S8
   - Xiaomi 12
   - Xiaomi 12 Pro
   supported_chipsets:
   - Snapdragon® 8 Gen 1
   - Snapdragon® 8 Gen 2
+  - Snapdragon® 8 Gen 3
   - Snapdragon® 888
 models:
-- name: Inception-v3Quantized
+- name: Inception-v3-Quantized
   performance_metrics:
   - torchscript_onnx_tflite:
-      inference_time: 755.0
-      throughput: 1324.5033112582782
+      inference_time: 615.0
+      throughput: 1626.0162601626016
       estimated_peak_memory_range:
-        min: 12288
-        max: 1825256
+        min: 36864
+        max: 2508048
       primary_compute_unit: NPU
-      precision: fp16
+      precision: int8
       layer_info:
-        layers_on_npu: 150
+        layers_on_npu: 144
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 150
-      job_id: jygzlmjo5
+        total_layers: 144
+      job_id: jz57zj9p3
       job_status: Passed
+    reference_device_info:
+      name: Samsung Galaxy S23
+      os: '13'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Samsung
+      chipset: Snapdragon® 8 Gen 2
+    timestamp: '2024-03-14T23:41:04.203939Z'
     torchscript_onnx_qnn:
       inference_time: 'null'
       throughput: 'null'
@@ -57,11 +68,41 @@ models:
         total_layers: 0
       job_id: ''
       job_status: Skipped
+  - torchscript_onnx_tflite:
+      inference_time: 487.0
+      throughput: 2053.388090349076
+      estimated_peak_memory_range:
+        min: 0
+        max: 63551712
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 144
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 144
+      job_id: j0pxv7lg7
+      job_status: Passed
     reference_device_info:
-      name: Samsung Galaxy S23 Ultra
-      os: '13'
+      name: Samsung Galaxy S24
+      os: '14'
       form_factor: Phone
       os_name: Android
       manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-02-23T04:42:57.781769Z'
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-03-14T23:41:04.203947Z'
+    torchscript_onnx_qnn:
+      inference_time: 'null'
+      throughput: 'null'
+      estimated_peak_memory_range:
+        min: 0
+        max: 0
+      primary_compute_unit: 'null'
+      precision: 'null'
+      layer_info:
+        layers_on_npu: 0
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 0
+      job_id: ''
+      job_status: Skipped

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable, Optional
 
@@ -18,6 +19,7 @@ from .task import CompositeTask, PyTestTask, RunCommandsTask
 from .util import can_support_aimet, model_needs_aimet
 from .venv import (
     CreateVenvTask,
+    RunCommandsWithVenvTask,
     SyncLocalQAIHMVenvTask,
     SyncModelRequirementsVenvTask,
     SyncModelVenvTask,
@@ -189,7 +191,10 @@ class PyTestModelsTask(CompositeTask):
         use_shared_cache: bool = False,  # Use the global QAIHM cache rather than a temporary one for tests.
         export_func: str = "compile",
         skip_standard_unit_test: bool = False,
+        test_trace: bool = True,
     ):
+        if len(models_for_testing) == 0 and len(models_to_test_export) == 0:
+            return super().__init__("All Per-Model Tests (Skipped)", [])
         tasks = []
 
         # Whether or not export tests will be run asynchronously
@@ -214,7 +219,52 @@ class PyTestModelsTask(CompositeTask):
                 SyncLocalQAIHMVenvTask(base_test_venv, ["dev"], include_aimet=False)
             )
 
-        print(f"Tests to be run for directories: {models_for_testing}")
+        print(f"Tests to be run for models: {models_for_testing}")
+        if not venv_for_each_model:
+            non_global_models = []
+            global_models = []
+            for model_name in models_for_testing:
+                yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
+                global_incompatible = False
+                if yaml_path.exists():
+                    with open(yaml_path, "r") as f:
+                        if "global_requirements_incompatible" in f.read():
+                            global_incompatible = True
+                if global_incompatible:
+                    non_global_models.append(model_name)
+                else:
+                    global_models.append(model_name)
+
+            if len(global_models) > 0:
+                globals_path = Path(PY_PACKAGE_SRC_ROOT) / "global_requirements.txt"
+                tasks.append(
+                    RunCommandsWithVenvTask(
+                        group_name="Install Global Requirements",
+                        venv=base_test_venv,
+                        commands=[f'pip install -r "{globals_path}"'],
+                    )
+                )
+
+            trace_tag = " or trace" if test_trace else ""
+            for model_name in sorted(global_models):
+                files_to_test = []
+                model_dir = Path(PY_PACKAGE_MODELS_ROOT) / model_name
+                files_to_test.append(str(model_dir / "test.py"))
+                if model_name in models_to_test_export:
+                    generated_test_path = str(model_dir / "test_generated.py")
+                    if os.path.exists(generated_test_path):
+                        files_to_test.append(generated_test_path)
+                tasks.append(
+                    PyTestTask(
+                        group_name=f"Test model: {model_name}",
+                        venv=base_test_venv,
+                        report_name=f"changed-models-{model_name}",
+                        files_or_dirs=" ".join(files_to_test),
+                        parallel=False,
+                        extra_args=f'-s -m "unmarked or {export_func}{trace_tag}"',
+                    )
+                )
+            models_for_testing = non_global_models
         for model_name in models_for_testing:
             # Run standard test suite for this model.
             tasks.append(
@@ -222,7 +272,7 @@ class PyTestModelsTask(CompositeTask):
                     model_name,
                     python_executable,
                     model_name in models_to_test_export,
-                    venv=None if venv_for_each_model else base_test_venv,
+                    venv=None,
                     use_shared_cache=use_shared_cache,
                     export_func=export_func,
                     skip_standard_unit_test=skip_standard_unit_test,

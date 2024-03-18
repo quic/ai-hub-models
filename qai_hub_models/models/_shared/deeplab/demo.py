@@ -21,6 +21,7 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 
 def deeplabv3_demo(
     model_type: Type[BaseModel],
+    model_id: str,
     default_image: str | CachedWebAsset,
     num_classes: int,
     is_test: bool,
@@ -35,7 +36,7 @@ def deeplabv3_demo(
         help="image file path or URL.",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model_type.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
     input_spec = model_type.get_input_spec()
 
@@ -47,7 +48,7 @@ def deeplabv3_demo(
     # This DeepLabV3 ResNet 50 demo comes from
     # https://pytorch.org/hub/pytorch_vision_deeplabv3_resnet101/
     input_image = image.convert("RGB")
-    inference_model = demo_model_from_cli_args(model_type, args)
+    inference_model = demo_model_from_cli_args(model_type, model_id, args)
     app = DeepLabV3App(inference_model, num_classes=num_classes)
 
     # Run app

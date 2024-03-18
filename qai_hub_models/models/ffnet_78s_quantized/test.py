@@ -17,5 +17,6 @@ def test_off_target_numerical():
     )
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

@@ -35,10 +35,10 @@ def main(is_test: bool = False):
     )
 
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, HRNetPoseQuantizable.get_model_id())
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image & model
-    model = demo_model_from_cli_args(HRNetPoseQuantizable, args)
+    model = demo_model_from_cli_args(HRNetPoseQuantizable, MODEL_ID, args)
     image = load_image(args.image)
     print("Model Loaded")
 

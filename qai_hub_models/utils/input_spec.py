@@ -24,7 +24,7 @@ def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> List[torch.T
     torch_input = []
     generator = None
     if seed is not None:
-        generator = torch.Generator()
+        generator = torch.Generator(device="cpu")
         generator.manual_seed(seed)
     for sp in spec.values():
         torch_dtype = str_to_torch_dtype(sp[1])

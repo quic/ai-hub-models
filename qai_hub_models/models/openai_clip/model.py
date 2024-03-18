@@ -90,8 +90,8 @@ class ClipTextEncoder(BaseModel):
         text_features = text_features / text_features.norm(dim=1, keepdim=True)
         return text_features
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         text_length: int = 77,
     ) -> InputSpec:
@@ -135,8 +135,8 @@ class ClipImageEncoder(BaseModel):
         image_features = image_features / image_features.norm(dim=1, keepdim=True)
         return self.net.logit_scale.exp() * image_features
 
+    @staticmethod
     def get_input_spec(
-        self,
         height: int = 224,
         width: int = 224,
     ) -> InputSpec:

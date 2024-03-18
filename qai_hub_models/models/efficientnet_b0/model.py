@@ -14,6 +14,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class EfficientNetB0(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> EfficientNetB0:
         net = tv_models.efficientnet_b0(weights=weights)
         return cls(net)

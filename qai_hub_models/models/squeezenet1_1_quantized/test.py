@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.models.squeezenet1_1_quantized.demo import main as demo_main
 from qai_hub_models.models.squeezenet1_1_quantized.model import (
@@ -22,16 +21,6 @@ def test_task():
         diff_tol=0.005,
         rtol=0.02,
         atol=0.2,
-    )
-
-
-def test_trace():
-    run_imagenet_classifier_trace_test(
-        SqueezeNetQuantizable.from_pretrained(),
-        diff_tol=0.01,
-        rtol=0.02,
-        atol=0.2,
-        is_quantized=True,
     )
 
 

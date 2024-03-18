@@ -116,7 +116,8 @@ class TrOCREncoder(BaseModel):
 
         return (*kv_cache,)  # convert list to tuple for export
 
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
         # This can be used with the qai_hub python API to declared
@@ -216,7 +217,10 @@ class TrOCRDecoder(BaseModel):
             *out_kv_cache,
         )
 
-    def get_input_spec(self) -> InputSpec:
+    @staticmethod
+    def get_input_spec(
+        decoder_attention_heads: int, embeddings_per_head: int, num_decoder_layers: int
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
@@ -226,9 +230,9 @@ class TrOCRDecoder(BaseModel):
         attn_cache_spec = (
             (
                 TROCR_BATCH_SIZE,
-                self.decoder_attention_heads,
+                decoder_attention_heads,
                 TROCR_EXPORT_SEQ_LEN,
-                self.embeddings_per_head,
+                embeddings_per_head,
             ),
             "float32",
         )
@@ -236,21 +240,28 @@ class TrOCRDecoder(BaseModel):
         cross_attn_cache_spec = (
             (
                 TROCR_BATCH_SIZE,
-                self.decoder_attention_heads,
+                decoder_attention_heads,
                 578,  # TODO: Can we get this programatically?
-                self.embeddings_per_head,
+                embeddings_per_head,
             ),
             "float32",
         )
 
         decoder_input_specs: InputSpec = {"input_ids": input_ids_spec}
-        for i in range(0, self.num_decoder_layers):
+        for i in range(0, num_decoder_layers):
             decoder_input_specs[f"kv_{i}_attn_key"] = attn_cache_spec
             decoder_input_specs[f"kv_{i}_attn_val"] = attn_cache_spec
             decoder_input_specs[f"kv_{i}_cross_attn_key"] = cross_attn_cache_spec
             decoder_input_specs[f"kv_{i}_cross_attn_val"] = cross_attn_cache_spec
 
         return decoder_input_specs
+
+    def _get_input_spec_for_model_instance(self) -> InputSpec:
+        return self.__class__.get_input_spec(
+            self.decoder_attention_heads,
+            self.embeddings_per_head,
+            self.num_decoder_layers,
+        )
 
     @classmethod
     def from_pretrained(cls):

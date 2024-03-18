@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# ---------------------------------------------------------------------
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # Load helpers

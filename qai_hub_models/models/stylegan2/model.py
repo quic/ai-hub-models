@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 STYLEGAN2_SOURCE_REPOSITORY = "https://github.com/NVlabs/stylegan3"
@@ -82,21 +82,29 @@ class StyleGAN2(BaseModel):
             force_fp32=True,
         )
 
-    def get_input_spec(self, batch_size: int = 1) -> InputSpec:
+    @staticmethod
+    def get_input_spec(
+        output_size: int, num_classes: int, batch_size: int = 1
+    ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit a profiling job on Qualcomm AI Hub.
         """
-        inputs = {"image_noise": ((batch_size, self.output_size), "float32")}
-        if self.num_classes != 0:
-            inputs["classes"] = ((batch_size, self.num_classes), "float32")
-        return inputs  # type: ignore
+        inputs = {"image_noise": ((batch_size, output_size), "float32")}
+        if num_classes != 0:
+            inputs["classes"] = ((batch_size, num_classes), "float32")
+        return inputs
+
+    def _get_input_spec_for_model_instance(self, batch_size: int = 1) -> InputSpec:
+        return self.__class__.get_input_spec(
+            self.output_size, self.num_classes, batch_size
+        )
 
     def sample_inputs(
         self, input_spec: InputSpec | None = None, seed=None
     ) -> Dict[str, List[np.ndarray]]:
         if not input_spec:
-            input_spec = self.get_input_spec()
+            input_spec = self._get_input_spec_for_model_instance()
 
         inputs = {
             "image_noise": [
@@ -112,6 +120,22 @@ class StyleGAN2(BaseModel):
             inputs["classes"] = [classes]
 
         return inputs
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --compute_unit gpu"
+
+    def get_hub_profile_options(
+        self, target_runtime: TargetRuntime, other_profile_options: str = ""
+    ) -> str:
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        return profile_options + " --compute_unit gpu"
 
 
 def _get_qaihm_upfirdn2d_ref(misc: Any, conv2d_gradfix: Callable, upfirdn2d: Any):

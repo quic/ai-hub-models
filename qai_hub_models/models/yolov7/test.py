@@ -45,6 +45,7 @@ def test_task():
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 
+@skip_clone_repo_check
 def test_yolov7_app():
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS).convert("RGB")
@@ -52,5 +53,6 @@ def test_yolov7_app():
     assert np.allclose(app.predict_boxes_from_image(image)[0], np.asarray(output_image))
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

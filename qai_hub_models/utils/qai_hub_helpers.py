@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Union
+from pathlib import Path
+from typing import Dict, List
 
 import numpy as np
 import qai_hub as hub
@@ -20,8 +21,8 @@ from qai_hub_models.utils.printing import print_profile_metrics
 
 def transpose_channel(
     io_names: str,
-    inputs: Union[hub.Dataset, Dict[str, Any]],
-    target_runtime: "TargetRuntime",
+    inputs: hub.client.DatasetEntries,
+    target_runtime: TargetRuntime,
     first_to_last: bool,
 ):
 
@@ -29,7 +30,6 @@ def transpose_channel(
     io_names_list = io_names.strip().split(",")
     target = dict()
 
-    assert isinstance(inputs, dict)
     for name, array in inputs.items():
         if len(array[0].shape) < min_dim or len(array[0].shape) > 5:
             target[name] = array
@@ -47,16 +47,16 @@ def transpose_channel(
 
 def transpose_channel_first_to_last(
     io_names: str,
-    sample_inputs: Union[hub.Dataset, Dict[str, Any]],
-    target_runtime: "TargetRuntime",
+    sample_inputs: hub.client.DatasetEntries,
+    target_runtime: TargetRuntime,
 ) -> Dict[str, List[np.ndarray]]:
     return transpose_channel(io_names, sample_inputs, target_runtime, True)
 
 
 def transpose_channel_last_to_first(
     io_names: str,
-    job_outputs: Union[hub.Dataset, Dict[str, Any]],
-    target_runtime: "TargetRuntime",
+    job_outputs: hub.client.DatasetEntries,
+    target_runtime: TargetRuntime,
 ) -> Dict[str, List[np.ndarray]]:
     return transpose_channel(io_names, job_outputs, target_runtime, False)
 
@@ -85,12 +85,12 @@ def export_without_hub_access(
     skip_inferencing: bool,
     skip_downloading: bool,
     skip_summary: bool,
-    output_path: str,
+    output_path: str | Path,
     target_runtime: TargetRuntime,
     compile_options: str,
     profile_options: str,
     components: List[str] | None = None,
-) -> List[str] | None:
+) -> List[str]:
     print(_WARNING_DASH)
     print(
         f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"

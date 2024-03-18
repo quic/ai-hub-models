@@ -156,6 +156,7 @@ class PushRepositoryTask(CompositeTask):
             "git reset origin/main",  # this checks out main "symbolically" (no on-disk source tree changes)
             "git add -u",  # Remove any deleted files from the index
             "git add -f *",
+            "git add -f .", # https://stackoverflow.com/questions/26042390/
             """git commit -m "$QAIHM_TAG
 
 Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,

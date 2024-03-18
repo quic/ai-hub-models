@@ -1,3 +1,7 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
 # Common utilities
 
 # shellcheck disable=SC2034 # various definitions appear unused in this included source.

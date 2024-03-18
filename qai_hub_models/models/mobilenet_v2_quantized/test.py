@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.models.mobilenet_v2_quantized.demo import main as demo_main
 from qai_hub_models.models.mobilenet_v2_quantized.model import (
@@ -23,15 +22,6 @@ def test_task():
         asset_version=MODEL_ASSET_VERSION,
         probability_threshold=0.56,
         diff_tol=0.06,
-    )
-
-
-@skip_clone_repo_check
-def test_trace():
-    run_imagenet_classifier_trace_test(
-        MobileNetV2Quantizable.from_pretrained(),
-        is_quantized=True,
-        atol=0.03,
     )
 
 

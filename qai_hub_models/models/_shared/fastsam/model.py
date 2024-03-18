@@ -48,8 +48,8 @@ class Fast_SAM(BaseModel):
             predictions[1][2],
         )
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 640,

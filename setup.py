@@ -68,5 +68,5 @@ setup(
     include_package_data=True,
     install_requires=[line.strip() for line in open(requirements_path).readlines()],
     extras_require=extras_require,
-    license="MIT",
+    license="BSD-3",
 )

@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import pytest
+
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
     run_imagenet_classifier_trace_test,
@@ -25,6 +27,7 @@ def test_task():
     )
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
     run_imagenet_classifier_trace_test(MobileNetV2.from_pretrained())

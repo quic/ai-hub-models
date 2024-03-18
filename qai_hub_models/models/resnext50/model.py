@@ -14,6 +14,6 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V2"
 
 class ResNeXt50(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ResNeXt50:
         net = tv_models.resnext50_32x4d(weights=weights)
         return cls(net)

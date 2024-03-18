@@ -80,8 +80,8 @@ class LiteHRNet(BaseModel):
 
         return keypoints, scores, heatmaps
 
+    @staticmethod
     def get_input_spec(
-        self,
         num_channels: int = 3,
         height: int = 256,
         width: int = 192,

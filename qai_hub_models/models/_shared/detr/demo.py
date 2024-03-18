@@ -24,6 +24,7 @@ from qai_hub_models.utils.display import display_or_save_image
 # The demo will display the predicted mask in a window.
 def detr_demo(
     model: Type[BaseModel],
+    model_id: str,
     default_weights: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
@@ -38,10 +39,10 @@ def detr_demo(
         help="test image file path or URL",
     )
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, model.get_model_id())
+    validate_on_device_demo_args(args, model_id)
 
     # Load image & model
-    detr = demo_model_from_cli_args(model, args)
+    detr = demo_model_from_cli_args(model, model_id, args)
 
     # Run app to scores, labels and boxes
     img = load_image(args.image)

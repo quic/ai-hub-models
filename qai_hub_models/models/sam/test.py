@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from qai_hub_models.models.sam import App
+from qai_hub_models.models.sam.app import SAMApp
 from qai_hub_models.models.sam.demo import IMAGE_ADDRESS
 from qai_hub_models.models.sam.demo import main as demo_main
 from qai_hub_models.models.sam.model import SMALL_MODEL_TYPE, SAMQAIHMWrapper
@@ -36,7 +36,7 @@ def test_e2e_numerical(
 
     sam_predictor.set_image(input_image_data)
     # QAIHM SAMApp for segmentation
-    sam_app = App(sam_wrapper)
+    sam_app = SAMApp(sam_wrapper)
     # Prepare image for segmentation
     sam_app.prepare(input_image_data)
 

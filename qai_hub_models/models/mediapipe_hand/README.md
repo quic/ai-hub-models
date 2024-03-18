@@ -10,16 +10,11 @@ This is based on the implementation of MediaPipe-Hand-Detection found
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/mediapipe_hand).
 
-[Sign up](https://aihub.qualcomm.com/) for early access to run these models on
+[Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
 
 
 ## Example & Usage
-
-Install the package via pip:
-```bash
-pip install "qai_hub_models[mediapipe_hand]"
-```
 
 
 Once installed, run the following simple CLI demo:
@@ -30,7 +25,7 @@ python -m qai_hub_models.models.mediapipe_hand.demo
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
 scripts. Please refer to our [general instructions on using
-models](../../#qai-hub-models) for more usage instructions.
+models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
@@ -46,7 +41,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of MediaPipe-Hand-Detection can be found
   [here](https://github.com/zmurez/MediaPipePyTorch/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf).
+- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
 
 ## References
 * [MediaPipe Hands: On-device Real-time Hand Tracking](https://arxiv.org/abs/2006.10214)

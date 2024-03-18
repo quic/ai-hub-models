@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import sys
+from importlib import reload
 
 import torch
 import torch.nn as nn
@@ -40,9 +41,20 @@ class HRNetPose(BaseModel):
         ).fetch()
         weights = torch.load(weights_file, map_location="cpu")
         with SourceAsRoot(
-            SOURCE_REPOSITORY, COMMIT_HASH, MODEL_ID, MODEL_ASSET_VERSION
+            SOURCE_REPOSITORY,
+            COMMIT_HASH,
+            MODEL_ID,
+            MODEL_ASSET_VERSION,
+            keep_sys_modules=True,
         ):
             sys.path.append("./lib")
+
+            # This repository has a top-level "models", which is common. We
+            # explicitly reload it in case it has been loaded and cached by another
+            # package (or our models when executing from qai_hub_models/)
+            import models
+
+            reload(models)
             from lib.config import cfg
             from models.pose_hrnet import PoseHighResolutionNet
 

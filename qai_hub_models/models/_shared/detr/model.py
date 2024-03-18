@@ -49,8 +49,8 @@ class DETR(BaseModel):
         predictions = self.model(image, mask, return_dict=False)
         return predictions
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 480,

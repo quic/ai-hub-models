@@ -9,7 +9,7 @@ import torchvision.models as tv_models
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models._shared.deeplab.evaluator import DeepLabV3Evaluator
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -62,3 +62,19 @@ class DeepLabV3_ResNet50(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {"image": ((batch_size, num_channels, height, width), "float32")}
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --compute_unit gpu"
+
+    def get_hub_profile_options(
+        self, target_runtime: TargetRuntime, other_profile_options: str = ""
+    ) -> str:
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        return profile_options + " --compute_unit gpu"

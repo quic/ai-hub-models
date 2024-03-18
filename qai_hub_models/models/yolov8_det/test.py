@@ -17,7 +17,6 @@ from qai_hub_models.models.yolov8_det.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
-from qai_hub_models.utils.testing import skip_clone_repo_check
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "test_images/output_image.png"
@@ -25,7 +24,6 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 WEIGHTS = "yolov8n.pt"
 
 
-@skip_clone_repo_check
 def test_task():
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))

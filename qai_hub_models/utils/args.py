@@ -18,14 +18,12 @@ from typing import Any, List, Mapping, Optional, Type
 
 import qai_hub as hub
 
-from qai_hub_models.utils.base_model import (
-    BaseModel,
+from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
-    FromPretrainedMixin,
+    FromPretrainedProtocol,
     FromPretrainedTypeVar,
-    InputSpec,
-    TargetRuntime,
 )
+from qai_hub_models.utils.base_model import BaseModel, InputSpec, TargetRuntime
 from qai_hub_models.utils.inference import HubModel
 from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, can_access_qualcomm_ai_hub
 
@@ -61,6 +59,9 @@ def add_output_dir_arg(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
 def add_target_runtime_arg(
     parser: argparse.ArgumentParser,
     help: str,
+    available_target_runtimes: List[TargetRuntime] = list(
+        TargetRuntime.__members__.values()
+    ),
     default: TargetRuntime = TargetRuntime.TFLITE,
 ) -> argparse.ArgumentParser:
     parser.add_argument(
@@ -68,7 +69,7 @@ def add_target_runtime_arg(
         type=str,
         action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore
         default=default,
-        choices=[name.lower() for name in TargetRuntime._member_names_],
+        choices=[rt.name.lower() for rt in available_target_runtimes],
         help=help,
     )
     return parser
@@ -124,6 +125,7 @@ def get_on_device_demo_parser(
         parser,
         help="The runtime to demo (if --on-device is specified).",
         default=default_runtime,
+        available_target_runtimes=available_target_runtimes,
     )
 
     return parser
@@ -139,7 +141,7 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
     if args.on_device and not can_access_qualcomm_ai_hub():
         print(
             "On-device demos are not available without Qualcomm® AI Hub access.",
-            "Please sign up for Qualcomm® AI Hub at https://aihub.qualcomm.com/.",
+            "Please sign up for Qualcomm® AI Hub at https://myaccount.qualcomm.com/signup .",
             sep=os.linesep,
         )
         sys.exit(1)
@@ -210,8 +212,8 @@ def model_from_cli_args(
 
 def demo_model_from_cli_args(
     model_cls: Type[FromPretrainedTypeVar],
+    model_id: str,
     cli_args: argparse.Namespace,
-    check_trace: bool = True,
 ) -> FromPretrainedTypeVar | HubModel:
     """
     Create this model from an argparse namespace.
@@ -219,27 +221,23 @@ def demo_model_from_cli_args(
 
     If the model is a BaseModel and an on-device demo is requested, the BaseModel will be wrapped in a HubModel.
     """
-    model = model_from_cli_args(
-        model_cls, cli_args
-    )  # TODO(9494): This should be replaced by static input spec
     is_on_device = "on_device" in cli_args and cli_args.on_device
     inference_model: FromPretrainedTypeVar | HubModel
-    if is_on_device and isinstance(model, BaseModel):
+    if is_on_device and issubclass(model_cls, BaseModel):
         device = hub.Device(cli_args.device, cli_args.device_os)
         if cli_args.hub_model_id:
             model_from_hub = hub.get_model(cli_args.hub_model_id)
             inference_model = HubModel(
                 model_from_hub,
-                list(model.get_input_spec().keys()),
+                list(model_cls.get_input_spec().keys()),
                 device,
                 cli_args.inference_options,
             )
         else:
-            model_cls = model_cls
-            export_file = f"qai_hub_models.models.{model.get_model_id()}.export"
+            export_file = f"qai_hub_models.models.{model_id}.export"
             export_module = import_module(export_file)
             compile_job: hub.CompileJob
-            print(f"Compiling on-device model asset for {model.get_model_id()}.")
+            print(f"Compiling on-device model asset for {model_id}.")
             print(
                 f"Running python -m {export_file} --device {device.name} --target-runtime {cli_args.target_runtime.name.lower()}\n"
             )
@@ -262,7 +260,7 @@ def demo_model_from_cli_args(
             target_model = compile_job.get_target_model()
             assert target_model is not None
 
-            input_names = list(model.get_input_spec().keys())
+            input_names = list(model_cls.get_input_spec().keys())
             inference_model = HubModel(
                 target_model,
                 input_names,
@@ -271,7 +269,7 @@ def demo_model_from_cli_args(
             )
             print(f"Exported asset: {inference_model.model.name}\n")
     else:
-        inference_model = model
+        inference_model = model_from_cli_args(model_cls, cli_args)
     return inference_model
 
 
@@ -419,7 +417,7 @@ def export_parser(
             help="Which components of the model to be exported.",
         )
 
-    if issubclass(model_cls, FromPretrainedMixin):
+    if issubclass(model_cls, FromPretrainedProtocol):
         # Skip adding CLI from model for compiled model
         # TODO: #9408 Refactor BaseModel, BasePrecompiledModel to fetch
         # parameters from compiled model

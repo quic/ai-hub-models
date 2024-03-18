@@ -29,10 +29,10 @@ class MobileNetV2(ImagenetClassifier):
         super().__init__(mobilenet_v2_model)
 
     @classmethod
-    def from_pretrained(cls) -> MobileNetV2:
+    def from_pretrained(cls, weights: str = MOBILENETV2_WEIGHTS) -> MobileNetV2:
         model = _load_mobilenet_v2_source_model()
         checkpoint_path = CachedWebModelAsset.from_asset_store(
-            MODEL_ID, MODEL_ASSET_VERSION, MOBILENETV2_WEIGHTS
+            MODEL_ID, MODEL_ASSET_VERSION, weights
         ).fetch()
         checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
         # rename classifier.1.weight -> classifier.weight, and bias similarly
@@ -45,9 +45,7 @@ class MobileNetV2(ImagenetClassifier):
         return cls(model)
 
 
-def _load_mobilenet_v2_source_model(
-    keep_sys_path=False,
-) -> torch.nn.Module:
+def _load_mobilenet_v2_source_model() -> torch.nn.Module:
     cfg_path = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, MOBILENETV2_CFG
     ).fetch()
@@ -58,7 +56,6 @@ def _load_mobilenet_v2_source_model(
         MOBILENETV2_SOURCE_REPO_COMMIT,
         MODEL_ID,
         MODEL_ASSET_VERSION,
-        keep_sys_path=keep_sys_path,
     ):
         # necessary import. `modeling.deeplab` comes from the DeepLabV3 repo.
         from MobileNetV2 import MobileNetV2 as _MobileNetV2

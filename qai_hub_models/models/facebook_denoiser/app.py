@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Callable, List, Sequence
 
@@ -40,7 +39,6 @@ class FacebookDenoiserApp:
     def denoise_audio(
         self,
         input_audio: Sequence[Path | str | torch.Tensor | np.ndarray],
-        out_dir: Path | str | None = None,
     ) -> List[Path | torch.Tensor]:
         """
         Denoise and isolate the speech in the provided audio clip(s).
@@ -80,19 +78,9 @@ class FacebookDenoiserApp:
             for noisy in noisy_audios:
                 out = self.denoiser(noisy)
                 out = out / max(out.abs().max().item(), 1)  # Normalize
-                if all_inputs_are_paths and out_dir:
+                if all_inputs_are_paths:
                     # We don't run files in batches, take the first batch output
                     out = out[:, 0]
                 estimates.append(out)
 
-            if out_dir and all_inputs_are_paths:
-                output_files = []
-                for path, estimate in zip(input_audio, estimates):
-                    filename = os.path.join(
-                        out_dir, os.path.basename(path).rsplit(".", 1)[0]
-                    )
-                    filename = Path(f"{filename}_enhanced.wav")
-                    torchaudio.save(filename, estimate, self.sample_rate)
-                    output_files.append(filename)
-                return output_files
             return estimates

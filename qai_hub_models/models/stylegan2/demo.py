@@ -5,7 +5,7 @@
 import torch
 
 from qai_hub_models.models.stylegan2.app import StyleGAN2App
-from qai_hub_models.models.stylegan2.model import StyleGAN2
+from qai_hub_models.models.stylegan2.model import MODEL_ID, StyleGAN2
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -46,7 +46,7 @@ def main(is_test: bool = False):
 
     # Create model and app
     model = model_from_cli_args(StyleGAN2, args)
-    inference_model = demo_model_from_cli_args(StyleGAN2, args)
+    inference_model = demo_model_from_cli_args(StyleGAN2, MODEL_ID, args)
     app = StyleGAN2App(inference_model, model.output_size, model.num_classes)
 
     # Verify model input args

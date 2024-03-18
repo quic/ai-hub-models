@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List
+from typing import Callable, Dict, List
 
 import numpy as np
 import torch
@@ -36,6 +36,26 @@ class RepaintMaskApp:
         # See paint_mask_on_image.
         return self.paint_mask_on_image(*args, **kwargs)
 
+    @staticmethod
+    def preprocess_inputs(
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        mask_pixel_values_or_image: torch.Tensor | np.ndarray | Image,
+    ) -> Dict[str, torch.Tensor]:
+        NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)[1]
+        NCHW_fp32_torch_masks = app_to_net_image_inputs(mask_pixel_values_or_image)[1]
+
+        # The number of input images should equal the number of input masks.
+        if NCHW_fp32_torch_masks.shape[0] != 1:
+            NCHW_fp32_torch_masks = NCHW_fp32_torch_masks.tile(
+                (NCHW_fp32_torch_frames.shape[0], 1, 1, 1)
+            )
+
+        # Mask input image
+        image_masked = (
+            NCHW_fp32_torch_frames * (1 - NCHW_fp32_torch_masks) + NCHW_fp32_torch_masks
+        )
+        return {"image": image_masked, "mask": NCHW_fp32_torch_masks}
+
     def paint_mask_on_image(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
@@ -65,19 +85,9 @@ class RepaintMaskApp:
             images: List[PIL.Image]
                 A list of predicted images (one list element per batch).
         """
-        NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)[1]
-        NCHW_fp32_torch_masks = app_to_net_image_inputs(mask_pixel_values_or_image)[1]
-
-        # The number of input images should equal the number of input masks.
-        if NCHW_fp32_torch_masks.shape[0] != 1:
-            NCHW_fp32_torch_masks = NCHW_fp32_torch_masks.tile(
-                (NCHW_fp32_torch_frames.shape[0], 1, 1, 1)
-            )
-
-        # Mask input image
-        image_masked = (
-            NCHW_fp32_torch_frames * (1 - NCHW_fp32_torch_masks) + NCHW_fp32_torch_masks
+        inputs = self.preprocess_inputs(
+            pixel_values_or_image, mask_pixel_values_or_image
         )
-        out = self.model(image_masked, NCHW_fp32_torch_masks)
+        out = self.model(inputs["image"], inputs["mask"])
 
         return [torch_tensor_to_PIL_image(img) for img in out]

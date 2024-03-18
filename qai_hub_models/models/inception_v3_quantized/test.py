@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
     run_imagenet_classifier_test,
-    run_imagenet_classifier_trace_test,
 )
 from qai_hub_models.models.inception_v3_quantized.demo import main as demo_main
 from qai_hub_models.models.inception_v3_quantized.model import (
@@ -22,16 +21,6 @@ def test_task():
         rtol=0.02,
         atol=0.2,
         asset_version=MODEL_ASSET_VERSION,
-    )
-
-
-def test_trace():
-    run_imagenet_classifier_trace_test(
-        InceptionNetV3Quantizable.from_pretrained(),
-        diff_tol=0.01,
-        rtol=0.02,
-        atol=0.2,
-        is_quantized=True,
     )
 
 

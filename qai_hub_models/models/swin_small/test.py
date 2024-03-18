@@ -13,7 +13,7 @@ from qai_hub_models.models.swin_small.demo import main as demo_main
 from qai_hub_models.models.swin_small.model import MODEL_ID, SwinSmall
 
 
-def test_task(imagenet_sample_torch):
+def test_numerical(imagenet_sample_torch):
     # Ensure that the optimized SwinSmall matches the original one numerically
     x = imagenet_sample_torch
     model_opt = SwinSmall.from_pretrained().eval()

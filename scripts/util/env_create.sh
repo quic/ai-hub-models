@@ -1,3 +1,7 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
 # shellcheck source=/dev/null # we are statically sourcing a script.
 # This can be sourced and hence does not specify an interpreter.
 

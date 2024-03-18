@@ -46,5 +46,6 @@ def test_task():
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

@@ -8,26 +8,35 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
-    HubCompileOptionsInt8Mixin,
 )
 
 # isort: on
 
 import torch
-from aimet_torch.cross_layer_equalization import equalize_model
+from aimet_torch.cross_layer_equalization import (
+    equalize_bn_folded_model,
+    fold_all_batch_norms,
+)
+from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
 from qai_hub_models.models.shufflenet_v2.model import ShufflenetV2
-from qai_hub_models.utils.aimet.config_loader import get_per_channel_aimet_config
+from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
+from qai_hub_models.utils.quantization_aimet import (
+    convert_all_depthwise_to_per_tensor,
+    tie_aimet_observer_groups,
+)
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 DEFAULT_ENCODINGS = "shufflenet_v2_quantized_encodings.json"
 
 
 class ShufflenetV2Quantizable(
-    HubCompileOptionsInt8Mixin, AIMETQuantizableMixin, ShufflenetV2
+    AIMETQuantizableMixin,
+    ShufflenetV2,
 ):
     """ShufflenetV2 with post train quantization support.
 
@@ -40,8 +49,14 @@ class ShufflenetV2Quantizable(
     ) -> None:
         ShufflenetV2.__init__(self, sim_model.model)
         AIMETQuantizableMixin.__init__(
-            self, sim_model, needs_onnx_direct_aimet_export=True
+            self,
+            sim_model,
         )
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -56,17 +71,22 @@ class ShufflenetV2Quantizable(
             else: Interprets as a filepath and loads the encodings stored there.
         """
         model = ShufflenetV2.from_pretrained()
-        input_shape = model.get_input_spec()["image_tensor"][0]
+        input_shape = cls.get_input_spec()["image_tensor"][0]
+        model = prepare_model(model)
+        dummy_input = torch.rand(input_shape)
 
-        equalize_model(model, input_shape)
+        pairs = fold_all_batch_norms(model, input_shape, dummy_input)
+        equalize_bn_folded_model(model, input_shape, pairs, dummy_input)
         sim = QuantizationSimModel(
-            model.net,
+            model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=get_per_channel_aimet_config(),
-            dummy_input=torch.rand(input_shape),
+            config_file=get_default_aimet_config(),
+            dummy_input=dummy_input,
         )
+        convert_all_depthwise_to_per_tensor(sim.model)
+        cls._tie_pre_concat_quantizers(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
@@ -77,3 +97,65 @@ class ShufflenetV2Quantizable(
 
         sim.model.eval()
         return cls(sim)
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --quantize_full_type int8 --quantize_io"
+
+    @classmethod
+    def _tie_pre_concat_quantizers(cls, sim: QuantizationSimModel):
+        """
+        This ties together the output quantizers prior to concatenations. This
+        prevents unnecessary re-quantization during the concatenation.
+        """
+        n = sim.model.net
+        # Because of skip connections, the groups are large
+        groups = [
+            [
+                getattr(getattr(n.stage2, "0").branch1, "4"),
+                getattr(getattr(n.stage2, "0").branch2, "7"),
+                getattr(n.stage2, "0").module_cat,
+                getattr(getattr(n.stage2, "1").branch2, "7"),
+                getattr(n.stage2, "1").module_cat_1,
+                getattr(getattr(n.stage2, "2").branch2, "7"),
+                getattr(n.stage2, "2").module_cat_2,
+                getattr(getattr(n.stage2, "3").branch2, "7"),
+                getattr(n.stage2, "3").module_cat_3,
+            ],
+            [
+                getattr(getattr(n.stage3, "0").branch1, "4"),
+                getattr(getattr(n.stage3, "0").branch2, "7"),
+                getattr(n.stage3, "0").module_cat_4,
+                getattr(getattr(n.stage3, "1").branch2, "7"),
+                getattr(n.stage3, "1").module_cat_5,
+                getattr(getattr(n.stage3, "2").branch2, "7"),
+                getattr(n.stage3, "2").module_cat_6,
+                getattr(getattr(n.stage3, "3").branch2, "7"),
+                getattr(n.stage3, "3").module_cat_7,
+                getattr(getattr(n.stage3, "4").branch2, "7"),
+                getattr(n.stage3, "4").module_cat_8,
+                getattr(getattr(n.stage3, "5").branch2, "7"),
+                getattr(n.stage3, "5").module_cat_9,
+                getattr(getattr(n.stage3, "6").branch2, "7"),
+                getattr(n.stage3, "6").module_cat_10,
+                getattr(getattr(n.stage3, "7").branch2, "7"),
+                getattr(n.stage3, "7").module_cat_11,
+            ],
+            [
+                getattr(getattr(n.stage4, "0").branch1, "4"),
+                getattr(getattr(n.stage4, "0").branch2, "7"),
+                getattr(n.stage4, "0").module_cat_12,
+                getattr(getattr(n.stage4, "1").branch2, "7"),
+                getattr(n.stage4, "1").module_cat_13,
+                getattr(getattr(n.stage4, "2").branch2, "7"),
+                getattr(n.stage4, "2").module_cat_14,
+                getattr(getattr(n.stage4, "3").branch2, "7"),
+                getattr(n.stage4, "3").module_cat_15,
+            ],
+        ]
+
+        tie_aimet_observer_groups(groups)

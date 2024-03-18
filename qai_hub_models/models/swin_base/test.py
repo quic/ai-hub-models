@@ -13,7 +13,7 @@ from qai_hub_models.models.swin_base.demo import main as demo_main
 from qai_hub_models.models.swin_base.model import MODEL_ID, SwinBase
 
 
-def test_task(imagenet_sample_torch):
+def test_numerical(imagenet_sample_torch):
     # Ensure that the optimized SwinBase matches the original one numerically
     x = imagenet_sample_torch
     model_opt = SwinBase.from_pretrained().eval()

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 
 from qai_hub_models.models.litehrnet.app import LiteHRNetApp
 from qai_hub_models.models.litehrnet.demo import IMAGE_ADDRESS
@@ -52,6 +53,7 @@ def test_task():
     _test_impl(LiteHRNetApp(litehrnet, litehrnet.inferencer))
 
 
+@pytest.mark.trace
 def test_trace():
     litehrnet = LiteHRNet.from_pretrained()
     _test_impl(LiteHRNetApp(litehrnet.convert_to_torchscript(), litehrnet.inferencer))

@@ -60,9 +60,7 @@ class SESR_M5Quantizable(AIMETQuantizableMixin, SESR_M5):
         aimet_encodings: str | None = "DEFAULT",
     ) -> SESR_M5Quantizable:
         # Load Model
-        sesr = _load_sesr_source_model(
-            MODEL_ID, MODEL_ASSET_VERSION, SCALING_FACTOR, NUM_CHANNELS, NUM_LBLOCKS
-        )
+        sesr = _load_sesr_source_model(SCALING_FACTOR, NUM_CHANNELS, NUM_LBLOCKS)
         input_shape = SESR_M5.get_input_spec()["image"][0]
         equalize_model(sesr, input_shape)
 

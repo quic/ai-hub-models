@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import pytest
 import torch
 
 from qai_hub_models.models.stylegan2.app import StyleGAN2App
@@ -52,6 +53,7 @@ def test_stylegan2_app():
     assert len(output_images) == 2
 
 
+@pytest.mark.trace
 @skip_clone_repo_check
 def test_stylegan2_trace():
     app = StyleGAN2App(StyleGAN2.from_pretrained().convert_to_torchscript())

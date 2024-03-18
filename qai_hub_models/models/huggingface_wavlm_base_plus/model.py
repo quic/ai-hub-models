@@ -11,7 +11,7 @@ import torch
 from transformers import WavLMModel
 from transformers.models.wavlm.modeling_wavlm import WavLMGroupNormConvLayer
 
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 OPENPOSE_SOURCE_REPOSITORY = (
@@ -67,8 +67,8 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         """
         return self.model(input)
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         sample_length: int = 80000,
     ) -> InputSpec:
@@ -168,6 +168,22 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
         x = self.orig_module.activation(x)
         x = torch.concat(torch.unbind(x, axis=2), axis=-1)
         return x[:, :, :-1]
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --compute_unit gpu"
+
+    def get_hub_profile_options(
+        self, target_runtime: TargetRuntime, other_profile_options: str = ""
+    ) -> str:
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        return profile_options + " --compute_unit gpu"
 
 
 def convert_to_wavlm_npu(model: WavLMModel):

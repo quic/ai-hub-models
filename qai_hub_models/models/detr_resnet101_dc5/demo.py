@@ -19,7 +19,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Run DETR app end-to-end on a sample image.
 # The demo will display the predicted mask in a window.
 def main(is_test: bool = False):
-    detr_demo(DETRResNet101DC5, DEFAULT_WEIGHTS, IMAGE_ADDRESS, is_test)
+    detr_demo(DETRResNet101DC5, MODEL_ID, DEFAULT_WEIGHTS, IMAGE_ADDRESS, is_test)
 
 
 if __name__ == "__main__":

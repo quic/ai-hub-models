@@ -29,7 +29,9 @@ def torch_inference(
     for i in range(len(list(sample_inputs.values())[0])):
         inputs = {}
         for input_name in input_names:
-            inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i])
+            inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i]).to(
+                "cpu"
+            )
         with torch.no_grad():
             out = model(**inputs)
         out_tuple = (out,) if isinstance(out, torch.Tensor) else out

@@ -142,7 +142,8 @@ class HandDetector(BaseModel):
             hand_detector.load_anchors(detector_anchors)
             return cls(hand_detector, hand_detector.anchors)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the hand detector.
         This can be used to submit profiling job on Qualcomm AI Hub.
@@ -170,7 +171,8 @@ class HandLandmarkDetector(BaseModel):
             hand_regressor.load_weights(landmark_detector_weights)
             cls(hand_regressor)
 
-    def get_input_spec(self, batch_size: int = BATCH_SIZE) -> InputSpec:
+    @staticmethod
+    def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the hand landmark detector.
         This can be used to submit profiling job on Qualcomm AI Hub.

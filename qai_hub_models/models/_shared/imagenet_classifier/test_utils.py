@@ -100,7 +100,7 @@ def run_imagenet_classifier_trace_test(
             model.convert_to_torchscript(check_trace=check_trace)
         )
     else:
-        trace_app = ImagenetClassifierApp(model.convert_to_quantized_torchscript())
+        trace_app = ImagenetClassifierApp(model.convert_to_torchscript())
     probabilities = app.predict(img)
     trace_probs = trace_app.predict(img)
     assert_most_close(probabilities.numpy(), trace_probs.numpy(), diff_tol, rtol, atol)

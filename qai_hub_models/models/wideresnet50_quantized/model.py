@@ -13,15 +13,20 @@ from qai_hub_models.utils.quantization_aimet import (
 # isort: on
 
 import torch
-from aimet_torch.cross_layer_equalization import equalize_model
+from aimet_torch.cross_layer_equalization import (
+    equalize_bn_folded_model,
+    fold_all_batch_norms,
+)
+from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
 from qai_hub_models.models.wideresnet50.model import WideResNet50
-from qai_hub_models.utils.aimet.config_loader import get_per_channel_aimet_config
+from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 DEFAULT_ENCODINGS = "wideresnet50_quantized_encodings.json"
 
 
@@ -37,8 +42,14 @@ class WideResNet50Quantizable(AIMETQuantizableMixin, WideResNet50):
     ) -> None:
         WideResNet50.__init__(self, sim_model.model)
         AIMETQuantizableMixin.__init__(
-            self, sim_model, needs_onnx_direct_aimet_export=True
+            self,
+            sim_model,
         )
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -53,16 +64,19 @@ class WideResNet50Quantizable(AIMETQuantizableMixin, WideResNet50):
             else: Interprets as a filepath and loads the encodings stored there.
         """
         model = WideResNet50.from_pretrained()
-        input_shape = model.get_input_spec()["image_tensor"][0]
+        input_shape = cls.get_input_spec()["image_tensor"][0]
+        model = prepare_model(model)
+        dummy_input = torch.rand(input_shape)
 
-        equalize_model(model, input_shape)
+        pairs = fold_all_batch_norms(model, input_shape, dummy_input)
+        equalize_bn_folded_model(model, input_shape, pairs, dummy_input)
         sim = QuantizationSimModel(
-            model.net,
+            model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=get_per_channel_aimet_config(),
-            dummy_input=torch.rand(input_shape),
+            config_file=get_default_aimet_config(),
+            dummy_input=dummy_input,
         )
 
         if aimet_encodings:
@@ -74,3 +88,11 @@ class WideResNet50Quantizable(AIMETQuantizableMixin, WideResNet50):
 
         sim.model.eval()
         return cls(sim)
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --quantize_full_type int8 --quantize_io"

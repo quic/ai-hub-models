@@ -28,16 +28,19 @@ class ImagenetClassifier(BaseModel):
     def __init__(
         self,
         net: torch.nn.Module,
+        transform_input: bool = False,
     ):
         """
         Basic initializer which takes in a pretrained classifier network.
         Subclasses can choose to implement their own __init__ and forward methods.
         """
         super().__init__()
+        self.transform_input = transform_input
         self.net = net
         self.eval()
 
-    def forward(self, image_tensor: torch.Tensor):
+    # Type annotation on image_tensor causes aimet onnx export failure
+    def forward(self, image_tensor):
         """
         Predict class probabilities for an input `image`.
 
@@ -54,14 +57,22 @@ class ImagenetClassifier(BaseModel):
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
+        if self.transform_input:
+            # This is equivalent but converts better than the built-in.
+            # transform_input should be turned off in torchvision model.
+            shape = (1, 3, 1, 1)
+            scale = torch.tensor([0.229 / 0.5, 0.224 / 0.5, 0.225 / 0.5]).reshape(shape)
+            bias = torch.tensor(
+                [(0.485 - 0.5) / 0.5, (0.456 - 0.5) / 0.5, (0.406 - 0.5) / 0.5]
+            ).reshape(shape)
+            image_tensor = image_tensor * scale + bias
         return self.net(image_tensor)
 
     def get_evaluator(self) -> BaseEvaluator:
         return ClassificationEvaluator()
 
-    def get_input_spec(
-        self,
-    ) -> InputSpec:
+    @staticmethod
+    def get_input_spec() -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm® AI Hub.

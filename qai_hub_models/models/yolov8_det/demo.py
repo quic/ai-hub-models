@@ -19,6 +19,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 def main(is_test: bool = False):
     yolo_detection_demo(
         YoloV8Detector,
+        MODEL_ID,
         YoloV8DetectionApp,
         IMAGE_ADDRESS,
         is_test=is_test,

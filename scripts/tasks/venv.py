@@ -12,7 +12,6 @@ from .constants import (
     PY_PACKAGE_INSTALL_ROOT,
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_SRC_ROOT,
-    QAI_HUB_LATEST_PATH,
     REPO_ROOT,
 )
 from .task import CompositeTask, RunCommandsTask, RunCommandsWithVenvTask
@@ -29,6 +28,8 @@ class CreateVenvTask(RunCommandsTask):
 
 def is_package_installed(package_name: str, venv_path: str | None = None) -> bool:
     if venv_path is not None:
+        if not os.path.exists(venv_path):
+            return False
         command = f'. {venv_path}/bin/activate && python -c "import {package_name}"'
     else:
         command = f'python -c "import {package_name}"'
@@ -51,7 +52,17 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
     ) -> None:
         tasks = []
 
-        # Install AIMET first to avoid installing two versions of torch (one from AIMET, one from QAIHM).
+        extras_str = f"[{','.join(extras)}]" if extras else ""
+        tasks.append(
+            RunCommandsWithVenvTask(
+                group_name=f"Install QAIHM{extras_str}",
+                venv=venv_path,
+                commands=[
+                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html',
+                ],
+            )
+        )
+
         if include_aimet:
             if can_support_aimet():
                 if is_package_installed("aimet_torch", venv_path):
@@ -83,33 +94,6 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
                         ],
                     )
                 )
-
-        qai_hub_wheel_url = os.environ.get("QAI_HUB_WHEEL_URL", None)
-        if not is_package_installed("qai_hub", venv_path):
-            if qai_hub_wheel_url is None:
-                if os.path.exists(QAI_HUB_LATEST_PATH):
-                    qai_hub_wheel_url = QAI_HUB_LATEST_PATH
-
-            if qai_hub_wheel_url:
-                # Install local QAI Hub wheel if it exists, instead of pulling it from PyPi.
-                tasks.append(
-                    RunCommandsWithVenvTask(
-                        group_name="Install QAI Hub (Pre-Release)",
-                        venv=venv_path,
-                        commands=[f'pip install "{qai_hub_wheel_url}"'],
-                    )
-                )
-
-        extras_str = f"[{','.join(extras)}]" if extras else ""
-        tasks.append(
-            RunCommandsWithVenvTask(
-                group_name=f"Install QAIHM{extras_str}",
-                venv=venv_path,
-                commands=[
-                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html'
-                ],
-            )
-        )
 
         super().__init__(
             f"Create Local QAIHM{extras_str} Virtual Environment at {venv_path}",

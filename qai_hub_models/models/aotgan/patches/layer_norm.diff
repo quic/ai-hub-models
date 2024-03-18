@@ -1,0 +1,14 @@
+diff --git a/src/model/aotgan.py b/src/model/aotgan.py
+index 518b76c..75d96c3 100644
+--- a/src/model/aotgan.py
++++ b/src/model/aotgan.py
+@@ -80,7 +80,8 @@ class AOTBlock(nn.Module):
+ 
+ def my_layer_norm(feat):
+     mean = feat.mean((2, 3), keepdim=True)
+-    std = feat.std((2, 3), keepdim=True) + 1e-9
++    num_samples = feat.shape[2] * feat.shape[3]
++    std = torch.sqrt(torch.sum((feat - mean) ** 2 / (num_samples - 1), (2, 3), keepdim=True)) + 1e-9
+     feat = 2 * (feat - mean) / std - 1
+     feat = 5 * feat
+     return feat

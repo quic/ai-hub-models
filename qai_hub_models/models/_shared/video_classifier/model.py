@@ -43,8 +43,8 @@ class KineticsClassifier(BaseModel):
         """
         return self.net(video)
 
+    @staticmethod
     def get_input_spec(
-        self,
         num_frames: int = 16,
     ) -> InputSpec:
         """

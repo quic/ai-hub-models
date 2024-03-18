@@ -38,8 +38,8 @@ def main(is_test: bool = False):
     )
 
     args = parser.parse_args([] if is_test else None)
-    validate_on_device_demo_args(args, FCN_ResNet50.get_model_id())
-    model = demo_model_from_cli_args(FCN_ResNet50, args)
+    validate_on_device_demo_args(args, MODEL_ID)
+    model = demo_model_from_cli_args(FCN_ResNet50, MODEL_ID, args)
 
     # This FCN ResNet 50 demo comes from
     # https://pytorch.org/hub/pytorch_vision_fcn_resnet101/

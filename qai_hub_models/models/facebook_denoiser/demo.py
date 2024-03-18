@@ -4,16 +4,25 @@
 # ---------------------------------------------------------------------
 import os
 import tempfile
+from pathlib import Path
 from typing import List
+
+import torchaudio
 
 from qai_hub_models.models.facebook_denoiser.app import FacebookDenoiserApp
 from qai_hub_models.models.facebook_denoiser.model import (
     ASSET_VERSION,
+    DEFAULT_SEQUENCE_LENGTH,
     MODEL_ID,
     SAMPLE_RATE,
     FacebookDenoiser,
 )
-from qai_hub_models.utils.args import get_model_cli_parser, model_from_cli_args
+from qai_hub_models.utils.args import (
+    demo_model_from_cli_args,
+    get_model_cli_parser,
+    get_on_device_demo_parser,
+    validate_on_device_demo_args,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_path
 
 EXAMPLE_RECORDING = CachedWebModelAsset.from_asset_store(
@@ -26,6 +35,7 @@ def main(is_test: bool = False):
     Run facebook denoiser on a sample audio (`.wav`) file.
     """
     parser = get_model_cli_parser(FacebookDenoiser)
+    parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(
         "--audio",
         nargs="+",
@@ -38,26 +48,41 @@ def main(is_test: bool = False):
         default=SAMPLE_RATE,
         help="Audio sample rate the model was trained on",
     )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=os.getcwd(),
-        help="output directory (where output WAV should be written)",
-    )
     args = parser.parse_args([] if is_test else None)
+    model = demo_model_from_cli_args(FacebookDenoiser, MODEL_ID, args)
+    validate_on_device_demo_args(args, MODEL_ID)
 
-    # Load Model
-    source_model = model_from_cli_args(FacebookDenoiser, args)
-    app = FacebookDenoiserApp(source_model, args.sample_rate)
+    app = FacebookDenoiserApp(model, args.sample_rate)
 
     # Download data
-    audio: List[str] = args.audio
+    audio_files: List[str] = args.audio
+    audio_tensors = []
     with tempfile.TemporaryDirectory() as tmpdir:
-        for idx, file in enumerate(audio):
-            audio[idx] = load_path(file, tmpdir)
+        for idx, file in enumerate(audio_files):
+            audio_file = load_path(file, tmpdir)
+            audio, sample_rate = torchaudio.load(audio_file)
+            # By default, cut audio to the default sequence length
+            # since by default, model is compiled with this input size
+            audio_tensor = audio[0, :DEFAULT_SEQUENCE_LENGTH].unsqueeze(0).unsqueeze(0)
+            assert sample_rate == SAMPLE_RATE
+            audio_tensors.append(audio_tensor)
 
         # Dump output from app
-        output = app.denoise_audio(audio, args.output_dir)
+        output = app.denoise_audio(audio_tensors)
+
+        if args.output_dir:
+            output_files = []
+            for file, estimate in zip(audio_files, output):
+                local_path = load_path(file, tmpdir)
+                filename = os.path.join(
+                    args.output_dir, os.path.basename(local_path).rsplit(".", 1)[0]
+                )
+                filename = Path(f"{filename}_enhanced.wav")
+                # make input 2D:
+                estimate = estimate.squeeze().unsqueeze(0)
+                torchaudio.save(filename, estimate, SAMPLE_RATE)
+                output_files.append(filename)
+            return output_files
 
     if not is_test:
         print("Wrote files:")

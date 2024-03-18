@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import logging
+from importlib import reload
+
 import torch
 from omegaconf import OmegaConf
 
@@ -12,6 +15,7 @@ from qai_hub_models.utils.asset_loaders import (
     SourceAsRoot,
     load_json,
     load_torch,
+    set_log_level,
 )
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -71,8 +75,8 @@ class LamaDilated(BaseModel):
         inpainted = mask * predicted_image + (1 - mask) * image
         return inpainted
 
+    @staticmethod
     def get_input_spec(
-        self,
         batch_size: int = 1,
         num_channels: int = 3,
         height: int = 512,
@@ -110,6 +114,13 @@ def _load_lama_dilated_source_model_from_weights(weights_name: str) -> torch.nn.
     with SourceAsRoot(
         LAMA_SOURCE_REPOSITORY, LAMA_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
     ):
+        # This repository has a top-level "models", which is common. We
+        # explicitly reload it in case it has been loaded and cached by another
+        # package (or our models when executing from qai_hub_models/)
+        import models
+
+        reload(models)
+
         # Import module
         from saicinpainting.training.trainers.default import (
             DefaultInpaintingTrainingModule,
@@ -122,7 +133,8 @@ def _load_lama_dilated_source_model_from_weights(weights_name: str) -> torch.nn.
         kwargs.pop("kind")
         kwargs["use_ddp"] = True
         state = load_torch(weights_url)
-        lama_dilated_model = DefaultInpaintingTrainingModule(config, **kwargs)
+        with set_log_level(logging.WARN):
+            lama_dilated_model = DefaultInpaintingTrainingModule(config, **kwargs)
         lama_dilated_model.load_state_dict(state["state_dict"], strict=False)
         lama_dilated_model.on_load_checkpoint(state)
         lama_dilated_model.freeze()

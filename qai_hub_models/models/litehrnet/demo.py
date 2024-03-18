@@ -39,8 +39,8 @@ def main(is_test: bool = False):
     )
     args = parser.parse_args([] if is_test else None)
     litehrnet_model = model_from_cli_args(LiteHRNet, args)
-    hub_model = demo_model_from_cli_args(LiteHRNet, args)
-    validate_on_device_demo_args(args, LiteHRNet.get_model_id())
+    hub_model = demo_model_from_cli_args(LiteHRNet, MODEL_ID, args)
+    validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image & model
     image = load_image(args.image)
