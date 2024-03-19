@@ -133,7 +133,12 @@ class PushRepositoryTask(CompositeTask):
             )
 
         env = os.environ.copy()
-        env["QAIHM_TAG"] = f"v{__version__}"
+        release_tag = f"v{__version__}"
+        release_tag_suffix = env.get("QAIHM_TAG_SUFFIX", None)
+        if release_tag_suffix:
+            release_tag = f"{release_tag}{release_tag_suffix}"
+        env["QAIHM_TAG"] = release_tag
+    
         commands = [
             "git init",
         ]
@@ -151,10 +156,12 @@ class PushRepositoryTask(CompositeTask):
         commands += [
             # Fetch origin
             f"git remote add origin {remote_url}",
+            f"git-lfs install",
             "git fetch origin",
             # Checkout and commit main
             "git reset origin/main",  # this checks out main "symbolically" (no on-disk source tree changes)
             "git add -u",  # Remove any deleted files from the index
+            "git add .gitignore",
             "git add -f *",
             "git add -f .", # https://stackoverflow.com/questions/26042390/
             """git commit -m "$QAIHM_TAG
@@ -167,6 +174,7 @@ Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             "fi",
             # Push to remote
             "git push -u origin HEAD:main",
+            "git lfs push origin HEAD:main",
             "git tag $QAIHM_TAG",
             "git push --tags",
         ]
