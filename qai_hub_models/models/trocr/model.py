@@ -256,7 +256,7 @@ class TrOCRDecoder(BaseModel):
 
         return decoder_input_specs
 
-    def _get_input_spec_for_model_instance(self) -> InputSpec:
+    def _get_input_spec_for_instance(self) -> InputSpec:
         return self.__class__.get_input_spec(
             self.decoder_attention_heads,
             self.embeddings_per_head,

@@ -13,6 +13,7 @@ from qai_hub_models.utils.quantization_aimet import (
 # isort: on
 
 import os
+from typing import Type, TypeVar
 
 import torch
 from aimet_torch.batch_norm_fold import fold_all_batch_norms
@@ -28,6 +29,8 @@ MODEL_ID = __name__.split(".")[-2]
 FFNET_AIMET_CONFIG = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "aimet_config.json")
 )
+
+FFNetQuantizableType = TypeVar("FFNetQuantizableType", bound="FFNetQuantizable")
 
 
 class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
@@ -58,10 +61,10 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
 
     @classmethod
     def from_pretrained(
-        cls,
+        cls: Type[FFNetQuantizableType],
         variant_name: str,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "FFNetQuantizable":
+    ) -> FFNetQuantizableType:
         ffnet = FFNet.from_pretrained(variant_name).model
 
         input_shape = FFNetQuantizable.get_input_spec()["image"][0]

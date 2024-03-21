@@ -38,15 +38,15 @@ class HubModel(HubModelProtocol):
     """
 
     def __init__(self):
-        # Change self.get_input_spec() to call _get_input_spec_for_model_instance() instead.
+        # Change self.get_input_spec() to call _get_input_spec_for_instance() instead.
         #
-        # _get_input_spec_for_model_instance() is an override that allows get_input_spec()
+        # _get_input_spec_for_instance() is an override that allows get_input_spec()
         # to access instance variables. This may be used in case input shape is "hard-coded"
         # based on parameters passed to the model upon initialization.
         #
-        self.get_input_spec = self._get_input_spec_for_model_instance
+        self.get_input_spec = self._get_input_spec_for_instance
 
-    def _get_input_spec_for_model_instance(self, *args, **kwargs) -> InputSpec:
+    def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
         """
         Get the input specifications for an instance of this model.
 

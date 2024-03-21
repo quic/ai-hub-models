@@ -67,247 +67,6 @@ def set_log_level(log_level: int):
         logger.setLevel(old_level)
 
 
-class QAIHM_WEB_ASSET(Enum):
-    STATIC_IMG = 0
-    ANIMATED_MOV = 1
-
-
-class ModelZooAssetConfig:
-    def __init__(
-        self,
-        asset_url: str,
-        web_asset_folder: str,
-        static_web_banner_filename: str,
-        animated_web_banner_filename: str,
-        model_asset_folder: str,
-        dataset_asset_folder: str,
-        local_store_path: str,
-        qaihm_repo: str,
-        example_use: str,
-        huggingface_path: str,
-        repo_url: str,
-        models_website_url: str,
-        models_website_relative_path: str,
-    ) -> None:
-        self.local_store_path = local_store_path
-        self.asset_url = asset_url
-        self.web_asset_folder = web_asset_folder
-        self.static_web_banner_filename = static_web_banner_filename
-        self.animated_web_banner_filename = animated_web_banner_filename
-        self.model_asset_folder = model_asset_folder
-        self.dataset_asset_folder = dataset_asset_folder
-        self.qaihm_repo = qaihm_repo
-        self.example_use = example_use
-        self.huggingface_path = huggingface_path
-        self.repo_url = repo_url
-        self.models_website_url = models_website_url
-        self.models_website_relative_path = models_website_relative_path
-
-        # Validation
-        for name in [
-            self.asset_url,
-            self.web_asset_folder,
-            self.model_asset_folder,
-            self.static_web_banner_filename,
-            self.animated_web_banner_filename,
-            self.local_store_path,
-            self.qaihm_repo,
-            self.example_use,
-            self.huggingface_path,
-            self.models_website_relative_path,
-        ]:
-            assert not name.endswith("/") and not name.endswith("\\")
-        for name in [
-            self.static_web_banner_filename,
-            self.animated_web_banner_filename,
-        ]:
-            assert not name.startswith("/") and not name.startswith("\\")
-
-        for name in [self.repo_url, self.models_website_url]:
-            assert not name.endswith("/"), "URLs should not end with a slash"
-
-    def get_hugging_face_url(self, model_name: str) -> str:
-        return f"https://huggingface.co/{self.get_huggingface_path(model_name)}"
-
-    def get_huggingface_path(self, model_name: str) -> str:
-        return self.huggingface_path.replace("{model_name}", str(model_name))
-
-    def get_web_asset_url(self, model_id: str, type: QAIHM_WEB_ASSET):
-        if type == QAIHM_WEB_ASSET.STATIC_IMG:
-            file = self.static_web_banner_filename
-        elif type == QAIHM_WEB_ASSET.ANIMATED_MOV:
-            file = self.animated_web_banner_filename
-        else:
-            raise NotImplementedError("unsupported web asset type")
-        return f"{self.asset_url}/{ModelZooAssetConfig._replace_path_keywords(self.web_asset_folder, model_id=model_id)}/{file}"
-
-    def get_local_store_model_path(
-        self, model_name: str, version: VersionType, filename: str
-    ) -> str:
-        model_dir = os.path.join(
-            self.local_store_path,
-            self.get_relative_model_asset_path(model_name, version, filename),
-        )
-        return model_dir
-
-    def get_local_store_dataset_path(
-        self, dataset_name: str, version: VersionType, filename: str
-    ) -> str:
-        model_dir = os.path.join(
-            self.local_store_path,
-            self.get_relative_dataset_asset_path(dataset_name, version, filename),
-        )
-        return model_dir
-
-    def get_relative_model_asset_path(
-        self, model_id: str, version: Union[int, str], file_name: str
-    ):
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.model_asset_folder, model_id=model_id, version=version)}/{file_name}"
-
-    def get_relative_dataset_asset_path(
-        self, dataset_id: str, version: Union[int, str], file_name: str
-    ):
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.dataset_asset_folder, dataset_id=dataset_id, version=version)}/{file_name}"
-
-    def get_model_asset_url(
-        self, model_id: str, version: Union[int, str], file_name: str
-    ):
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_model_asset_path(model_id, version, file_name)}"
-
-    def get_dataset_asset_url(
-        self, dataset_id: str, version: Union[int, str], file_name: str
-    ):
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_dataset_asset_path(dataset_id, version, file_name)}"
-
-    def get_qaihm_repo(self, model_id: str, relative=True):
-        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.qaihm_repo, model_id=model_id)}"
-        if not relative:
-            return self.repo_url + "/" + relative_path
-
-        return relative_path
-
-    def get_website_url(self, model_id: str, relative=False):
-        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.models_website_relative_path, model_id=model_id)}"
-        if not relative:
-            return self.models_website_url + "/" + relative_path
-        return relative_path
-
-    def get_example_use(self, model_id: str):
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.example_use, model_id=model_id)}"
-
-    ###
-    # Helpers
-    ###
-    @staticmethod
-    def _replace_path_keywords(
-        path: str,
-        model_id: Optional[str] = None,
-        dataset_id: Optional[str] = None,
-        version: Optional[Union[int, str]] = None,
-    ):
-        if model_id:
-            path = path.replace("{model_id}", model_id)
-        if dataset_id:
-            path = path.replace("{dataset_id}", dataset_id)
-        if version:
-            path = path.replace("{version}", str(version))
-        return path
-
-    ###
-    # Load from CFG
-    ###
-    @staticmethod
-    def from_cfg(
-        asset_cfg_path: str = ASSET_BASES_DEFAULT_PATH,
-        local_store_path: str = LOCAL_STORE_DEFAULT_PATH,
-        verify_env_has_all_variables: bool = False,
-    ):
-        # Load CFG and params
-        asset_cfg = ModelZooAssetConfig.load_asset_cfg(
-            asset_cfg_path, verify_env_has_all_variables
-        )
-
-        return ModelZooAssetConfig(
-            asset_cfg["store_url"],
-            asset_cfg["web_asset_folder"],
-            asset_cfg["static_web_banner_filename"],
-            asset_cfg["animated_web_banner_filename"],
-            asset_cfg["model_asset_folder"],
-            asset_cfg["dataset_asset_folder"],
-            local_store_path,
-            asset_cfg["qaihm_repo"],
-            asset_cfg["example_use"],
-            asset_cfg["huggingface_path"],
-            asset_cfg["repo_url"],
-            asset_cfg["models_website_url"],
-            asset_cfg["models_website_relative_path"],
-        )
-
-    ASSET_CFG_SCHEMA = Schema(
-        And(
-            {
-                "store_url": str,
-                "web_asset_folder": str,
-                "dataset_asset_folder": str,
-                "static_web_banner_filename": str,
-                "animated_web_banner_filename": str,
-                "model_asset_folder": str,
-                "qaihm_repo": str,
-                "example_use": str,
-                "huggingface_path": str,
-                "repo_url": str,
-                "models_website_url": str,
-                "models_website_relative_path": str,
-            }
-        )
-    )
-
-    @staticmethod
-    def load_asset_cfg(path, verify_env_has_all_variables: bool = False):
-        with open(path) as f:
-            data = yaml.safe_load(f)
-            try:
-                # Validate high level-schema
-                ModelZooAssetConfig.ASSET_CFG_SCHEMA.validate(data)
-            except SchemaError as e:
-                assert 0, f"{e.code} in {path}"
-
-            for key, value in data.items():
-                # Environment variable replacement
-                if isinstance(value, str) and value.startswith("env::"):
-                    values = value.split("::")
-                    if len(values) == 2:
-                        _, env_var_name = values
-                        default = value
-                    elif len(values) == 3:
-                        _, env_var_name, default = values
-                    else:
-                        raise NotImplementedError(
-                            "Environment vars should be specified in asset_bases "
-                            "using format env::<var_name>::<default>"
-                        )
-
-                    data[key] = os.environ.get(env_var_name, default)
-                    if (
-                        verify_env_has_all_variables
-                        and default == value
-                        and env_var_name not in os.environ
-                    ):
-                        raise ValueError(
-                            f"Environment variable '{env_var_name}' was specified in "
-                            f"asset_bases.yaml for key '{key}', but is not defined."
-                        )
-
-            return data
-
-
-ASSET_CONFIG = ModelZooAssetConfig.from_cfg()
-
-
 def _query_yes_no(question, default="yes"):
     """
     Ask a yes/no question and return their answer.
@@ -535,6 +294,246 @@ def find_replace_in_repo(
         ) as file:
             for line in file:
                 print(line.replace(find_str, replace_str), end="")
+
+
+class QAIHM_WEB_ASSET(Enum):
+    STATIC_IMG = 0
+    ANIMATED_MOV = 1
+
+
+class ModelZooAssetConfig:
+    def __init__(
+        self,
+        asset_url: str,
+        web_asset_folder: str,
+        static_web_banner_filename: str,
+        animated_web_banner_filename: str,
+        model_asset_folder: str,
+        dataset_asset_folder: str,
+        local_store_path: str,
+        qaihm_repo: str,
+        example_use: str,
+        huggingface_path: str,
+        repo_url: str,
+        models_website_url: str,
+        models_website_relative_path: str,
+    ) -> None:
+        self.local_store_path = local_store_path
+        self.asset_url = asset_url
+        self.web_asset_folder = web_asset_folder
+        self.static_web_banner_filename = static_web_banner_filename
+        self.animated_web_banner_filename = animated_web_banner_filename
+        self.model_asset_folder = model_asset_folder
+        self.dataset_asset_folder = dataset_asset_folder
+        self.qaihm_repo = qaihm_repo
+        self.example_use = example_use
+        self.huggingface_path = huggingface_path
+        self.repo_url = repo_url
+        self.models_website_url = models_website_url
+        self.models_website_relative_path = models_website_relative_path
+
+        # Validation
+        for name in [
+            self.asset_url,
+            self.web_asset_folder,
+            self.model_asset_folder,
+            self.static_web_banner_filename,
+            self.animated_web_banner_filename,
+            self.local_store_path,
+            self.qaihm_repo,
+            self.example_use,
+            self.huggingface_path,
+            self.models_website_relative_path,
+        ]:
+            assert not name.endswith("/") and not name.endswith("\\")
+        for name in [
+            self.static_web_banner_filename,
+            self.animated_web_banner_filename,
+        ]:
+            assert not name.startswith("/") and not name.startswith("\\")
+
+        for name in [self.repo_url, self.models_website_url]:
+            assert not name.endswith("/"), "URLs should not end with a slash"
+
+    def get_hugging_face_url(self, model_name: str) -> str:
+        return f"https://huggingface.co/{self.get_huggingface_path(model_name)}"
+
+    def get_huggingface_path(self, model_name: str) -> str:
+        return self.huggingface_path.replace("{model_name}", str(model_name))
+
+    def get_web_asset_url(self, model_id: str, type: QAIHM_WEB_ASSET):
+        if type == QAIHM_WEB_ASSET.STATIC_IMG:
+            file = self.static_web_banner_filename
+        elif type == QAIHM_WEB_ASSET.ANIMATED_MOV:
+            file = self.animated_web_banner_filename
+        else:
+            raise NotImplementedError("unsupported web asset type")
+        return f"{self.asset_url}/{ModelZooAssetConfig._replace_path_keywords(self.web_asset_folder, model_id=model_id)}/{file}"
+
+    def get_local_store_model_path(
+        self, model_name: str, version: VersionType, filename: str
+    ) -> str:
+        model_dir = os.path.join(
+            self.local_store_path,
+            self.get_relative_model_asset_path(model_name, version, filename),
+        )
+        return model_dir
+
+    def get_local_store_dataset_path(
+        self, dataset_name: str, version: VersionType, filename: str
+    ) -> str:
+        model_dir = os.path.join(
+            self.local_store_path,
+            self.get_relative_dataset_asset_path(dataset_name, version, filename),
+        )
+        return model_dir
+
+    def get_relative_model_asset_path(
+        self, model_id: str, version: Union[int, str], file_name: str
+    ):
+        assert not file_name.startswith("/") and not file_name.startswith("\\")
+        return f"{ModelZooAssetConfig._replace_path_keywords(self.model_asset_folder, model_id=model_id, version=version)}/{file_name}"
+
+    def get_relative_dataset_asset_path(
+        self, dataset_id: str, version: Union[int, str], file_name: str
+    ):
+        assert not file_name.startswith("/") and not file_name.startswith("\\")
+        return f"{ModelZooAssetConfig._replace_path_keywords(self.dataset_asset_folder, dataset_id=dataset_id, version=version)}/{file_name}"
+
+    def get_model_asset_url(
+        self, model_id: str, version: Union[int, str], file_name: str
+    ):
+        assert not file_name.startswith("/") and not file_name.startswith("\\")
+        return f"{self.asset_url}/{self.get_relative_model_asset_path(model_id, version, file_name)}"
+
+    def get_dataset_asset_url(
+        self, dataset_id: str, version: Union[int, str], file_name: str
+    ):
+        assert not file_name.startswith("/") and not file_name.startswith("\\")
+        return f"{self.asset_url}/{self.get_relative_dataset_asset_path(dataset_id, version, file_name)}"
+
+    def get_qaihm_repo(self, model_id: str, relative=True):
+        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.qaihm_repo, model_id=model_id)}"
+        if not relative:
+            return self.repo_url + "/" + relative_path
+
+        return relative_path
+
+    def get_website_url(self, model_id: str, relative=False):
+        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.models_website_relative_path, model_id=model_id)}"
+        if not relative:
+            return self.models_website_url + "/" + relative_path
+        return relative_path
+
+    def get_example_use(self, model_id: str):
+        return f"{ModelZooAssetConfig._replace_path_keywords(self.example_use, model_id=model_id)}"
+
+    ###
+    # Helpers
+    ###
+    @staticmethod
+    def _replace_path_keywords(
+        path: str,
+        model_id: Optional[str] = None,
+        dataset_id: Optional[str] = None,
+        version: Optional[Union[int, str]] = None,
+    ):
+        if model_id:
+            path = path.replace("{model_id}", model_id)
+        if dataset_id:
+            path = path.replace("{dataset_id}", dataset_id)
+        if version:
+            path = path.replace("{version}", str(version))
+        return path
+
+    ###
+    # Load from CFG
+    ###
+    @staticmethod
+    def from_cfg(
+        asset_cfg_path: str = ASSET_BASES_DEFAULT_PATH,
+        local_store_path: str = LOCAL_STORE_DEFAULT_PATH,
+        verify_env_has_all_variables: bool = False,
+    ):
+        # Load CFG and params
+        asset_cfg = ModelZooAssetConfig.load_asset_cfg(
+            asset_cfg_path, verify_env_has_all_variables
+        )
+
+        return ModelZooAssetConfig(
+            asset_cfg["store_url"],
+            asset_cfg["web_asset_folder"],
+            asset_cfg["static_web_banner_filename"],
+            asset_cfg["animated_web_banner_filename"],
+            asset_cfg["model_asset_folder"],
+            asset_cfg["dataset_asset_folder"],
+            local_store_path,
+            asset_cfg["qaihm_repo"],
+            asset_cfg["example_use"],
+            asset_cfg["huggingface_path"],
+            asset_cfg["repo_url"],
+            asset_cfg["models_website_url"],
+            asset_cfg["models_website_relative_path"],
+        )
+
+    ASSET_CFG_SCHEMA = Schema(
+        And(
+            {
+                "store_url": str,
+                "web_asset_folder": str,
+                "dataset_asset_folder": str,
+                "static_web_banner_filename": str,
+                "animated_web_banner_filename": str,
+                "model_asset_folder": str,
+                "qaihm_repo": str,
+                "example_use": str,
+                "huggingface_path": str,
+                "repo_url": str,
+                "models_website_url": str,
+                "models_website_relative_path": str,
+            }
+        )
+    )
+
+    @staticmethod
+    def load_asset_cfg(path, verify_env_has_all_variables: bool = False):
+        data = load_yaml(path)
+        try:
+            # Validate high level-schema
+            ModelZooAssetConfig.ASSET_CFG_SCHEMA.validate(data)
+        except SchemaError as e:
+            assert 0, f"{e.code} in {path}"
+
+        for key, value in data.items():
+            # Environment variable replacement
+            if isinstance(value, str) and value.startswith("env::"):
+                values = value.split("::")
+                if len(values) == 2:
+                    _, env_var_name = values
+                    default = value
+                elif len(values) == 3:
+                    _, env_var_name, default = values
+                else:
+                    raise NotImplementedError(
+                        "Environment vars should be specified in asset_bases "
+                        "using format env::<var_name>::<default>"
+                    )
+
+                data[key] = os.environ.get(env_var_name, default)
+                if (
+                    verify_env_has_all_variables
+                    and default == value
+                    and env_var_name not in os.environ
+                ):
+                    raise ValueError(
+                        f"Environment variable '{env_var_name}' was specified in "
+                        f"asset_bases.yaml for key '{key}', but is not defined."
+                    )
+
+        return data
+
+
+ASSET_CONFIG = ModelZooAssetConfig.from_cfg()
 
 
 class CachedWebAsset:

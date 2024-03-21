@@ -5,7 +5,8 @@
 import os
 
 import qai_hub as hub
-import yaml
+
+from qai_hub_models.utils.asset_loaders import load_yaml
 
 
 def test_compile_jobs_success():
@@ -16,8 +17,7 @@ def test_compile_jobs_success():
     """
     if os.stat(os.environ["COMPILE_JOBS_FILE"]).st_size == 0:
         return
-    with open(os.environ["COMPILE_JOBS_FILE"], "r") as f:
-        job_ids = yaml.safe_load(f.read())
+    job_ids = load_yaml(os.environ["COMPILE_JOBS_FILE"])
     failed_jobs = {}
     for name, job_id in job_ids.items():
         result = hub.get_job(job_id).wait()

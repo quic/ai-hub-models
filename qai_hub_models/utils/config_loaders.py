@@ -11,13 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
-import yaml
 from qai_hub.util.session import create_session
 from schema import And
 from schema import Optional as OptionalSchema
 from schema import Schema, SchemaError
 
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.path_helpers import (
     MODELS_PACKAGE_NAME,
@@ -248,38 +247,35 @@ class QAIHMModelPerf:
         self.qnn_row = "| Samsung Galaxy S23 Ultra (Android 13) | Snapdragon® 8 Gen 2 |"
 
         if os.path.exists(self.perf_yaml_path):
-            with open(self.perf_yaml_path, "r") as perf_file:
-                self.perf_details = yaml.safe_load(perf_file)
-                num_models = len(self.perf_details["models"])
+            self.perf_details = load_yaml(self.perf_yaml_path)
+            num_models = len(self.perf_details["models"])
 
-                # Get TFLite summary from perf.yaml
-                try:
-                    self.tflite_summary = []
-                    for model in self.perf_details["models"]:
-                        self.tflite_summary.append(
-                            model["performance_metrics"][0][TFLITE_PATH]
-                        )
-                except Exception:
-                    self.skip_tflite = True
+            # Get TFLite summary from perf.yaml
+            try:
+                self.tflite_summary = []
+                for model in self.perf_details["models"]:
+                    self.tflite_summary.append(
+                        model["performance_metrics"][0][TFLITE_PATH]
+                    )
+            except Exception:
+                self.skip_tflite = True
 
-                if not self.skip_overall and not self.skip_tflite:
-                    for num in range(num_models):
-                        if isinstance(self.tflite_summary[num]["inference_time"], str):
-                            self.skip_tflite = True
+            if not self.skip_overall and not self.skip_tflite:
+                for num in range(num_models):
+                    if isinstance(self.tflite_summary[num]["inference_time"], str):
+                        self.skip_tflite = True
 
-                # Get QNN summary from perf.yaml
-                try:
-                    self.qnn_summary = []
-                    for model in self.perf_details["models"]:
-                        self.qnn_summary.append(
-                            model["performance_metrics"][0][QNN_PATH]
-                        )
-                except Exception:
-                    self.skip_qnn = True
-                if not self.skip_overall and not self.skip_qnn:
-                    for num in range(num_models):
-                        if isinstance(self.qnn_summary[num]["inference_time"], str):
-                            self.skip_qnn = True
+            # Get QNN summary from perf.yaml
+            try:
+                self.qnn_summary = []
+                for model in self.perf_details["models"]:
+                    self.qnn_summary.append(model["performance_metrics"][0][QNN_PATH])
+            except Exception:
+                self.skip_qnn = True
+            if not self.skip_overall and not self.skip_qnn:
+                for num in range(num_models):
+                    if isinstance(self.qnn_summary[num]["inference_time"], str):
+                        self.skip_qnn = True
         else:
             self.skip_overall = True
 
@@ -788,24 +784,22 @@ class QAIHMModelInfo:
 
     @staticmethod
     def load_info_yaml(path: str | Path) -> Dict[str, Any]:
-        with open(path) as f:
-            data = yaml.safe_load(f)
-            try:
-                # Validate high level-schema
-                data = QAIHMModelInfo.INFO_YAML_SCHEMA.validate(data)
-            except SchemaError as e:
-                assert 0, f"{e.code} in {path}"
-            return data
+        data = load_yaml(path)
+        try:
+            # Validate high level-schema
+            data = QAIHMModelInfo.INFO_YAML_SCHEMA.validate(data)
+        except SchemaError as e:
+            assert 0, f"{e.code} in {path}"
+        return data
 
     @staticmethod
     def load_code_gen_yaml(path: str | Path | None):
         if not path or not os.path.exists(path):
             return QAIHMModelInfo.CODE_GEN_YAML_SCHEMA.validate({})  # Default Schema
-        with open(path) as f:
-            data = yaml.safe_load(f)
-            try:
-                # Validate high level-schema
-                data = QAIHMModelInfo.CODE_GEN_YAML_SCHEMA.validate(data)
-            except SchemaError as e:
-                assert 0, f"{e.code} in {path}"
-            return data
+        data = load_yaml(path)
+        try:
+            # Validate high level-schema
+            data = QAIHMModelInfo.CODE_GEN_YAML_SCHEMA.validate(data)
+        except SchemaError as e:
+            assert 0, f"{e.code} in {path}"
+        return data

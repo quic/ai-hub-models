@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from importlib import reload
+from typing import Type, TypeVar
 
 import torch
 
@@ -58,12 +59,14 @@ FFNET_SUBPATH_NAME_LOOKUP = {
     ),
 }
 
+FFNetType = TypeVar("FFNetType", bound="FFNet")
+
 
 class FFNet(CityscapesSegmentor):
     """Exportable FFNet fuss-free Cityscapes segmentation model."""
 
     @classmethod
-    def from_pretrained(cls, variant_name: str) -> FFNet:
+    def from_pretrained(cls: Type[FFNetType], variant_name: str) -> FFNetType:
         model = _load_ffnet_source_model(variant_name)
         model.eval()
 

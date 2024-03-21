@@ -117,7 +117,7 @@ class SegmentAnythingEncoder(BaseModel):
         """
         return self.sam.image_encoder(image)
 
-    def _get_input_spec_for_model_instance(
+    def _get_input_spec_for_instance(
         self,
         batch_size: int = 1,
         num_channels: int = 3,
@@ -227,7 +227,7 @@ class SegmentAnythingONNXDecoder(BaseModel):
             image_embeddings, point_coords, point_labels, mask_input, has_mask_input
         )
 
-    def _get_input_spec_for_model_instance(
+    def _get_input_spec_for_instance(
         self,
         num_of_points: int = 1,
     ) -> InputSpec:

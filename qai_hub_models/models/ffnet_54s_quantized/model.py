@@ -15,12 +15,12 @@ DEFAULT_ENCODINGS = "encodings.json"
 
 class FFNet54SQuantizable(FFNetQuantizable, FFNet54S):
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # type: ignore
         cls,
         aimet_encodings: str | None = "DEFAULT",
     ) -> FFNet54SQuantizable:
-        return FFNetQuantizable.from_pretrained.__func__(
-            cls, "segmentation_ffnet54S_dBBB_mobile", aimet_encodings=aimet_encodings
+        return super(FFNet54SQuantizable, cls).from_pretrained(
+            "segmentation_ffnet54S_dBBB_mobile", aimet_encodings=aimet_encodings
         )
 
     @classmethod

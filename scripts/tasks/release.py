@@ -28,6 +28,9 @@ DEFAULT_RELEASE_DIRECTORY = "./build/release"
 RELEASE_DIRECTORY_VARNAME = "QAIHM_RELEASE_DIR"
 REMOTE_REPOSITORY_URL_VARNAME = "QAIHM_REMOTE_URL"
 PYPI_VARNAME = "QAIHM_PYPI_URL"
+TAG_VARNAME = "QAIHM_TAG"
+TAG_SUFFIX_VARNAME = "QAIHM_TAG_SUFFIX"
+COMMIT_MSG_VARNAME = "QAIHM_COMMIT_MESSAGE"
 
 
 def _get_release_dir():
@@ -132,13 +135,20 @@ class PushRepositoryTask(CompositeTask):
                 f"Specify a remote by setting envrionment variable '${REMOTE_REPOSITORY_URL_VARNAME}'"
             )
 
+        # Changelog
+        commit_msg = os.environ.get(COMMIT_MSG_VARNAME, None)
+        if not commit_msg:
+            raise ValueError(
+                f"Specify a release commit message by setting envrionment variable '${COMMIT_MSG_VARNAME}'"
+            )
+
         env = os.environ.copy()
         release_tag = f"v{__version__}"
-        release_tag_suffix = env.get("QAIHM_TAG_SUFFIX", None)
+        release_tag_suffix = env.get(TAG_SUFFIX_VARNAME, None)
         if release_tag_suffix:
             release_tag = f"{release_tag}{release_tag_suffix}"
-        env["QAIHM_TAG"] = release_tag
-    
+        env[TAG_VARNAME] = release_tag
+
         commands = [
             "git init",
         ]
@@ -156,15 +166,17 @@ class PushRepositoryTask(CompositeTask):
         commands += [
             # Fetch origin
             f"git remote add origin {remote_url}",
-            f"git-lfs install",
+            "git-lfs install",
             "git fetch origin",
             # Checkout and commit main
             "git reset origin/main",  # this checks out main "symbolically" (no on-disk source tree changes)
             "git add -u",  # Remove any deleted files from the index
             "git add .gitignore",
             "git add -f *",
-            "git add -f .", # https://stackoverflow.com/questions/26042390/
-            """git commit -m "$QAIHM_TAG
+            "git add -f .",  # https://stackoverflow.com/questions/26042390/
+            f"""git commit -m "$QAIHM_TAG
+
+{commit_msg}
 
 Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             # Verify Tag does not exist
@@ -174,7 +186,6 @@ Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             "fi",
             # Push to remote
             "git push -u origin HEAD:main",
-            "git lfs push origin HEAD:main",
             "git tag $QAIHM_TAG",
             "git push --tags",
         ]

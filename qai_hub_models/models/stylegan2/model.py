@@ -95,7 +95,7 @@ class StyleGAN2(BaseModel):
             inputs["classes"] = ((batch_size, num_classes), "float32")
         return inputs
 
-    def _get_input_spec_for_model_instance(self, batch_size: int = 1) -> InputSpec:
+    def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
         return self.__class__.get_input_spec(
             self.output_size, self.num_classes, batch_size
         )
@@ -104,7 +104,7 @@ class StyleGAN2(BaseModel):
         self, input_spec: InputSpec | None = None, seed=None
     ) -> Dict[str, List[np.ndarray]]:
         if not input_spec:
-            input_spec = self._get_input_spec_for_model_instance()
+            input_spec = self._get_input_spec_for_instance()
 
         inputs = {
             "image_noise": [
