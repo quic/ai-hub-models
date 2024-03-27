@@ -19,11 +19,8 @@ import torch
 from aimet_torch.batch_norm_fold import fold_all_batch_norms
 from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
-from qai_hub.client import DatasetEntries
 
 from qai_hub_models.models._shared.ffnet.model import FFNet
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
-from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 FFNET_AIMET_CONFIG = os.path.abspath(
@@ -46,14 +43,6 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
     ) -> None:
         FFNet.__init__(self, ffnet_model.model)
         AIMETQuantizableMixin.__init__(self, ffnet_model)
-
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --quantize_full_type int8 --quantize_io"
 
     @classmethod
     def default_aimet_encodings(cls) -> str:
@@ -88,14 +77,3 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
 
         sim.model.eval()
         return cls(sim)
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
-
-    def get_calibration_data(
-        self, target_runtime: TargetRuntime, input_spec: InputSpec | None = None
-    ) -> DatasetEntries | None:
-        # Do not provide calibration data
-        return None

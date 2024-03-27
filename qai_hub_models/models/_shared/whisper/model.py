@@ -82,14 +82,6 @@ class WhisperEncoderInf(BaseModel):
     def from_pretrained(cls):
         return Whisper.from_pretrained().encoder
 
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --compute_unit gpu"
-
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
     ) -> str:

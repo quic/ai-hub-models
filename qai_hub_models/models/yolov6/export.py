@@ -191,7 +191,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model)
+    parser = export_parser(model_cls=Model, supports_ort=False)
     args = parser.parse_args()
     export_model(**vars(args))
 

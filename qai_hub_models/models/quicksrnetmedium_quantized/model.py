@@ -16,6 +16,7 @@ import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
+from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
 from qai_hub_models.models.quicksrnetmedium.model import QuickSRNetMedium
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config_legacy_v2
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -96,3 +97,11 @@ class QuickSRNetMediumQuantizable(AIMETQuantizableMixin, QuickSRNetMedium):
         sim.model.eval()
 
         return cls(sim)
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        if target_runtime == TargetRuntime.QNN:
+            return SourceModelFormat.ONNX
+        else:
+            return SourceModelFormat.TORCHSCRIPT

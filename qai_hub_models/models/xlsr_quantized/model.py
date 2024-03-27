@@ -15,6 +15,7 @@ from qai_hub_models.utils.quantization_aimet import (
 import torch
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
+from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
 from qai_hub_models.models.xlsr.model import XLSR, _load_xlsr_source_model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
@@ -88,3 +89,11 @@ class XLSRQuantizable(AIMETQuantizableMixin, XLSR):
             load_encodings_to_sim(sim, aimet_encodings)
 
         return cls(sim)
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        if target_runtime == TargetRuntime.QNN:
+            return SourceModelFormat.ONNX
+        else:
+            return SourceModelFormat.TORCHSCRIPT

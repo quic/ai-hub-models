@@ -18,8 +18,8 @@ from qai_hub_models.models.common import (
 from qai_hub_models.models.protocols import (
     ExecutableModelProtocol,
     FromPrecompiledProtocol,
-    FromPretrainedProtocol,
     HubModelProtocol,
+    PretrainedHubModelProtocol,
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 
@@ -93,7 +93,7 @@ class HubModel(HubModelProtocol):
 class BaseModel(
     torch.nn.Module,
     HubModel,
-    FromPretrainedProtocol,
+    PretrainedHubModelProtocol,
     ExecutableModelProtocol,
 ):
     """
@@ -154,6 +154,8 @@ class BaseModel(
         compile_options = ""
         if target_runtime == TargetRuntime.QNN:
             compile_options = "--target_runtime qnn_lib_aarch64_android"
+        if target_runtime == TargetRuntime.ORT:
+            compile_options = "--target_runtime onnx"
         if other_compile_options != "":
             return compile_options + " " + other_compile_options
         return compile_options

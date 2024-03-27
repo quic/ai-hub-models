@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import requests
 from qai_hub.util.session import create_session
@@ -472,6 +472,129 @@ class QAIHMModelPerf:
         return perf_details
 
 
+class QAIHMModelCodeGen:
+    def __init__(
+        self,
+        is_aimet: bool,
+        has_on_target_demo: bool,
+        qnn_export_failure_reason: str,
+        tflite_export_failure_reason: str,
+        has_demo: bool,
+        check_trace: bool,
+        channel_last_input: List[str],
+        channel_last_output: List[str],
+        outputs_to_skip_validation: List[str],
+        export_test_model_kwargs: Dict[str, str],
+        components: Dict[str, Any],
+        default_components: List[str],
+        skip_tests: bool,
+        is_precompiled: bool,
+        no_assets: bool,
+        global_requirements_incompatible: bool,
+        torchscript_opt: List[str],
+        inference_metrics: str,
+        supports_ort: bool,
+    ) -> None:
+        self.is_aimet = is_aimet
+        self.has_on_target_demo = has_on_target_demo
+        self.qnn_export_failure_reason = qnn_export_failure_reason
+        self.tflite_export_failure_reason = tflite_export_failure_reason
+        self.has_demo = has_demo
+        self.check_trace = check_trace
+        self.channel_last_input = channel_last_input
+        self.channel_last_output = channel_last_output
+        self.outputs_to_skip_validation = outputs_to_skip_validation
+        self.export_test_model_kwargs = export_test_model_kwargs
+        self.components = components
+        self.default_components = default_components
+        self.skip_tests = skip_tests
+        self.is_precompiled = is_precompiled
+        self.no_assets = no_assets
+        self.global_requirements_incompatible = global_requirements_incompatible
+        self.torchscript_opt = torchscript_opt
+        self.inference_metrics = inference_metrics
+        self.supports_ort = supports_ort
+
+    def validate(self) -> Tuple[bool, Optional[str]]:
+        """Returns false with a reason if the info spec for this model is not valid."""
+        return True, None
+
+    @classmethod
+    def from_model(cls: Type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
+        code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
+        if not os.path.exists(code_gen_path):
+            raise ValueError(f"{model_id} does not exist")
+        return cls.from_yaml(code_gen_path)
+
+    @classmethod
+    def from_yaml(
+        cls: Type[QAIHMModelCodeGen], code_gen_path: str | Path | None = None
+    ) -> QAIHMModelCodeGen:
+        # Load CFG and params
+        code_gen_config = QAIHMModelCodeGen.load_code_gen_yaml(code_gen_path)
+        return cls(
+            code_gen_config["is_aimet"],
+            code_gen_config["has_on_target_demo"],
+            code_gen_config["qnn_export_failure_reason"],
+            code_gen_config["tflite_export_failure_reason"],
+            code_gen_config["has_demo"],
+            code_gen_config["check_trace"],
+            code_gen_config["channel_last_input"],
+            code_gen_config["channel_last_output"],
+            code_gen_config["outputs_to_skip_validation"],
+            code_gen_config["export_test_model_kwargs"],
+            code_gen_config["components"],
+            code_gen_config["default_components"],
+            code_gen_config["skip_tests"],
+            code_gen_config["is_precompiled"],
+            code_gen_config["no_assets"],
+            code_gen_config["global_requirements_incompatible"],
+            code_gen_config["torchscript_opt"],
+            code_gen_config["inference_metrics"],
+            code_gen_config["supports_ort"],
+        )
+
+    # Schema for code-gen.yaml
+    CODE_GEN_YAML_SCHEMA = Schema(
+        And(
+            {
+                OptionalSchema("has_components", default=""): str,
+                OptionalSchema("is_aimet", default=False): bool,
+                OptionalSchema("has_on_target_demo", default=False): bool,
+                OptionalSchema("qnn_export_failure_reason", default=""): str,
+                OptionalSchema("tflite_export_failure_reason", default=""): str,
+                OptionalSchema("has_demo", default=True): bool,
+                OptionalSchema("check_trace", default=True): bool,
+                OptionalSchema("channel_last_input", default=[]): list,
+                OptionalSchema("channel_last_output", default=[]): list,
+                OptionalSchema("outputs_to_skip_validation", default=[]): list,
+                OptionalSchema("export_test_model_kwargs", default={}): dict,
+                OptionalSchema("components", default={}): dict,
+                OptionalSchema("default_components", default=[]): list,
+                OptionalSchema("skip_tests", default=False): bool,
+                OptionalSchema("is_precompiled", default=False): bool,
+                OptionalSchema("no_assets", default=False): bool,
+                OptionalSchema("global_requirements_incompatible", default=False): bool,
+                OptionalSchema("torchscript_opt", default=[]): list,
+                OptionalSchema("inference_metrics", default="psnr"): str,
+                OptionalSchema("supports_ort", default=False): bool,
+            }
+        )
+    )
+
+    @staticmethod
+    def load_code_gen_yaml(path: str | Path | None = None):
+        if not path or not os.path.exists(path):
+            return QAIHMModelCodeGen.CODE_GEN_YAML_SCHEMA.validate({})  # Default Schema
+        data = load_yaml(path)
+        try:
+            # Validate high level-schema
+            data = QAIHMModelCodeGen.CODE_GEN_YAML_SCHEMA.validate(data)
+        except SchemaError as e:
+            assert 0, f"{e.code} in {path}"
+        return data
+
+
 class QAIHMModelInfo:
     def __init__(
         self,
@@ -494,7 +617,7 @@ class QAIHMModelInfo:
         form_factors: List[FORM_FACTOR],
         has_static_banner: bool,
         has_animated_banner: bool,
-        code_gen_config: Dict[str, str | bool],
+        code_gen_config: QAIHMModelCodeGen,
         license_type: str,
         deploy_license_type: str,
         dataset: List[str],
@@ -593,9 +716,10 @@ class QAIHMModelInfo:
             if not os.path.exists(self.get_package_path() / "info.yaml"):
                 return False, "All public models must have an info.yaml"
 
-            if self.code_gen_config.get(
-                "tflite_export_failure_reason", False
-            ) and self.code_gen_config.get("qnn_export_failure_reason", False):
+            if (
+                self.code_gen_config.tflite_export_failure_reason
+                and self.code_gen_config.qnn_export_failure_reason
+            ):
                 return False, "Public models must support at least one export path"
 
         session = create_session()
@@ -684,20 +808,23 @@ class QAIHMModelInfo:
     def has_model_requirements(self, root: Path = QAIHM_PACKAGE_ROOT):
         return os.path.exists(self.get_requirements_path(root))
 
-    @staticmethod
-    def from_model(model_id: str):
+    @classmethod
+    def from_model(cls: Type[QAIHMModelInfo], model_id: str) -> QAIHMModelInfo:
         schema_path = QAIHM_MODELS_ROOT / model_id / "info.yaml"
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         if not os.path.exists(schema_path):
             raise ValueError(f"{model_id} does not exist")
-        return QAIHMModelInfo.from_yaml(schema_path, code_gen_path)
+        return cls.from_yaml(schema_path, code_gen_path)
 
-    @staticmethod
-    def from_yaml(info_path: str | Path, code_gen_path: str | Path | None = None):
+    @classmethod
+    def from_yaml(
+        cls: Type[QAIHMModelInfo],
+        info_path: str | Path,
+        code_gen_path: str | Path | None = None,
+    ) -> QAIHMModelInfo:
         # Load CFG and params
         info_yaml = QAIHMModelInfo.load_info_yaml(info_path)
-        code_gen_config = QAIHMModelInfo.load_code_gen_yaml(code_gen_path)
-        return QAIHMModelInfo(
+        return cls(
             info_yaml["name"],
             info_yaml["id"],
             MODEL_STATUS.from_string(info_yaml["status"]),
@@ -717,7 +844,7 @@ class QAIHMModelInfo:
             [FORM_FACTOR.from_string(ff) for ff in info_yaml["form_factors"]],
             info_yaml["has_static_banner"],
             info_yaml["has_animated_banner"],
-            code_gen_config,
+            QAIHMModelCodeGen.from_yaml(code_gen_path),
             info_yaml["license_type"],
             info_yaml["deploy_license_type"],
             info_yaml["dataset"],
@@ -755,51 +882,12 @@ class QAIHMModelInfo:
         )
     )
 
-    # Schema for code-gen.yaml
-    CODE_GEN_YAML_SCHEMA = Schema(
-        And(
-            {
-                OptionalSchema("has_components", default=""): str,
-                OptionalSchema("is_aimet", default=False): bool,
-                OptionalSchema("has_on_target_demo", default=False): bool,
-                OptionalSchema("qnn_export_failure_reason", default=""): str,
-                OptionalSchema("tflite_export_failure_reason", default=""): str,
-                OptionalSchema("has_demo", default=True): bool,
-                OptionalSchema("check_trace", default=True): bool,
-                OptionalSchema("channel_last_input", default=""): str,
-                OptionalSchema("channel_last_output", default=""): str,
-                OptionalSchema("outputs_to_skip_validation", default=[]): list,
-                OptionalSchema("export_test_model_kwargs", default={}): dict,
-                OptionalSchema("components", default={}): dict,
-                OptionalSchema("default_components", default=[]): list,
-                OptionalSchema("skip_tests", default=False): bool,
-                OptionalSchema("is_precompiled", default=False): bool,
-                OptionalSchema("no_assets", default=False): bool,
-                OptionalSchema("global_requirements_incompatible", default=False): bool,
-                OptionalSchema("torchscript_opt", default=[]): list,
-                OptionalSchema("inference_metrics", default="psnr"): str,
-            }
-        )
-    )
-
     @staticmethod
     def load_info_yaml(path: str | Path) -> Dict[str, Any]:
         data = load_yaml(path)
         try:
             # Validate high level-schema
             data = QAIHMModelInfo.INFO_YAML_SCHEMA.validate(data)
-        except SchemaError as e:
-            assert 0, f"{e.code} in {path}"
-        return data
-
-    @staticmethod
-    def load_code_gen_yaml(path: str | Path | None):
-        if not path or not os.path.exists(path):
-            return QAIHMModelInfo.CODE_GEN_YAML_SCHEMA.validate({})  # Default Schema
-        data = load_yaml(path)
-        try:
-            # Validate high level-schema
-            data = QAIHMModelInfo.CODE_GEN_YAML_SCHEMA.validate(data)
         except SchemaError as e:
             assert 0, f"{e.code} in {path}"
         return data

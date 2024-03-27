@@ -121,7 +121,7 @@ def export_model(
     model_compile_options = model.get_hub_compile_options(
         target_runtime,
         compile_options
-        + " --force_channel_last_input image_tensor"
+        + " --force_channel_last_input image"
         + " --force_channel_last_output output_0",
     )
     print(f"Optimizing model {model_name} to run on-device")
@@ -165,7 +165,7 @@ def export_model(
             hub_inputs = get_qnn_inputs(compile_job, sample_inputs)
         # Convert inputs from channel first to channel last
         hub_inputs = transpose_channel_first_to_last(
-            "image_tensor", sample_inputs, target_runtime
+            "image", sample_inputs, target_runtime
         )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
@@ -206,7 +206,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_qnn=False)
+    parser = export_parser(model_cls=Model, supports_qnn=False, supports_ort=False)
     args = parser.parse_args()
     export_model(**vars(args))
 

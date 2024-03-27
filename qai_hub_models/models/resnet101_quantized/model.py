@@ -23,7 +23,6 @@ from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 from qai_hub_models.models.resnet101.model import ResNet101
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 4
@@ -48,11 +47,6 @@ class ResNet101Quantizable(
             self,
             sim_model,
         )
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -91,11 +85,3 @@ class ResNet101Quantizable(
 
         sim.model.eval()
         return cls(sim)
-
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --quantize_full_type int8 --quantize_io"

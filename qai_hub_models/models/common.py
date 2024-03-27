@@ -11,6 +11,7 @@ import numpy as np
 class TargetRuntime(Enum):
     TFLITE = 0
     QNN = 1
+    ORT = 2
 
     def __str__(self):
         return self.name.lower()

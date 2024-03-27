@@ -20,7 +20,6 @@ from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 from qai_hub_models.models.mobilenet_v3_large.model import MobileNetV3Large
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -42,11 +41,6 @@ class MobileNetV3LargeQuantizable(AIMETQuantizableMixin, MobileNetV3Large):
             self,
             sim_model,
         )
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(

@@ -334,6 +334,7 @@ def export_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
     components: Optional[List[str]] = None,
     supports_qnn=True,
+    supports_ort=True,
     exporting_compiled_model=False,
 ) -> argparse.ArgumentParser:
     """
@@ -347,6 +348,9 @@ def export_parser(
             select which components they want to compile.
         supports_qnn:
             Whether QNN export is supported.
+            Default=True.
+        supports_ort:
+            Whether ORT export is supported.
             Default=True.
         exporting_compiled_model:
             True when exporting compiled model.

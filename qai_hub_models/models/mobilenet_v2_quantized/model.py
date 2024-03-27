@@ -23,7 +23,6 @@ from qai_hub_models.models.mobilenet_v2.model import (
 )
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.quantization_aimet import convert_all_depthwise_to_per_tensor
 
 MODEL_ID = __name__.split(".")[-2]
@@ -46,11 +45,6 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
             self,
             quant_sim_model,
         )
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -104,11 +98,3 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
 
         sim.model.eval()
         return cls(sim)
-
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --quantize_full_type int8 --quantize_io"

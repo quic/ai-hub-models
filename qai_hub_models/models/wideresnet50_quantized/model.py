@@ -23,7 +23,6 @@ from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 from qai_hub_models.models.wideresnet50.model import WideResNet50
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
@@ -45,11 +44,6 @@ class WideResNet50Quantizable(AIMETQuantizableMixin, WideResNet50):
             self,
             sim_model,
         )
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
@@ -88,11 +82,3 @@ class WideResNet50Quantizable(AIMETQuantizableMixin, WideResNet50):
 
         sim.model.eval()
         return cls(sim)
-
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --quantize_full_type int8 --quantize_io"

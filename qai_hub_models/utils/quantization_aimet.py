@@ -46,7 +46,7 @@ from qai_hub_models.models._shared.common import apply_module_function_recursive
 from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
 from qai_hub_models.models.protocols import (
     EvalModelProtocol,
-    HubModelProtocol,
+    PretrainedHubModelProtocol,
     QuantizableModelProtocol,
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
@@ -103,7 +103,7 @@ def convert_all_depthwise_to_per_tensor(module):
     )
 
 
-class AIMETQuantizableMixin(HubModelProtocol, QuantizableModelProtocol):
+class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol):
     """
     Mixin that allows a model to be quantized & exported to disk using AIMET.
 
@@ -117,14 +117,6 @@ class AIMETQuantizableMixin(HubModelProtocol, QuantizableModelProtocol):
     ):
         self.quant_sim = quant_sim
         self.needs_onnx_direct_aimet_export = needs_onnx_direct_aimet_export
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        if target_runtime == TargetRuntime.QNN:
-            return SourceModelFormat.ONNX
-        else:
-            return SourceModelFormat.TORCHSCRIPT
 
     def quantize(
         self,
@@ -320,3 +312,16 @@ class AIMETQuantizableMixin(HubModelProtocol, QuantizableModelProtocol):
             input_spec = self.get_input_spec()
         inputs = make_torch_inputs(input_spec)
         return {k: v.numpy() for k, v in zip(input_spec.keys(), inputs)}
+
+    def get_hub_compile_options(
+        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options
+        )
+        return compile_options + " --quantize_full_type int8 --quantize_io"
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        return SourceModelFormat.ONNX

@@ -19,12 +19,17 @@ These are type checked at compile time.
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Protocol, Type, TypeVar, runtime_checkable
+from pathlib import Path
+from typing import Any, Protocol, Type, TypeVar, runtime_checkable
 
-from qai_hub.client import DatasetEntries
+from qai_hub.client import DatasetEntries, SourceModel
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
-from qai_hub_models.models.common import SampleInputsType, TargetRuntime
+from qai_hub_models.models.common import (
+    SampleInputsType,
+    SourceModelFormat,
+    TargetRuntime,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 FromPretrainedTypeVar = TypeVar("FromPretrainedTypeVar", bound="FromPretrainedProtocol")
@@ -171,6 +176,51 @@ class FromPretrainedProtocol(Protocol):
         pretrained model. While this function may take arguments, all arguments
         should have default values specified, so that all classes can be invoked
         with `cls.from_pretrained()` and always have it return something reasonable.
+        """
+        ...
+
+
+class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol):
+    """
+    All pretrained AI Hub Models must, at minimum, implement this interface.
+    """
+
+    @abstractmethod
+    def convert_to_torchscript(
+        self, input_spec: InputSpec | None = None, check_trace: bool = True
+    ) -> Any:
+        """
+        Converts the torch module to a torchscript trace, which
+        is the format expected by qai hub.
+
+        This is a default implementation that may be overriden by a subclass.
+        """
+        ...
+
+    def convert_to_hub_source_model(
+        self,
+        target_runtime: TargetRuntime,
+        output_path: str | Path,
+        input_spec: InputSpec | None = None,
+        check_trace: bool = True,
+    ) -> SourceModel:
+        ...
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+    ) -> str:
+        """
+        AI Hub compile options recommended for the model.
+        """
+        ...
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        """
+        Source model format preferred for conversion on AI Hub.
         """
         ...
 

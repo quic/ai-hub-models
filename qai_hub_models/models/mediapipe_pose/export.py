@@ -27,7 +27,6 @@ from qai_hub_models.utils.printing import (
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
-    transpose_channel_first_to_last,
 )
 
 ALL_COMPONENTS = ["MediaPipePoseDetector", "MediaPipePoseLandmarkDetector"]
@@ -127,7 +126,7 @@ def export_model(
 
         # 2. Compile the models to an on-device asset
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options + " --force_channel_last_input image"
+            target_runtime, compile_options
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
@@ -170,13 +169,9 @@ def export_model(
                 component_name
             ].get_hub_profile_options(target_runtime, profile_options)
             sample_inputs = components_dict[component_name].sample_inputs()
-            # Convert inputs from channel first to channel last
-            hub_inputs = transpose_channel_first_to_last(
-                "image", sample_inputs, target_runtime
-            )
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
-                inputs=hub_inputs,
+                inputs=sample_inputs,
                 device=hub.Device(device),
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
@@ -223,7 +218,9 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
+    parser = export_parser(
+        model_cls=Model, components=ALL_COMPONENTS, supports_ort=False
+    )
     args = parser.parse_args()
     export_model(**vars(args))
 

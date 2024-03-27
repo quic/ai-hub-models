@@ -20,7 +20,6 @@ from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 from qai_hub_models.models.googlenet.model import GoogLeNet
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.quantization_aimet import tie_aimet_observer_groups
 
 MODEL_ID = __name__.split(".")[-2]
@@ -43,11 +42,6 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
             self,
             sim_model,
         )
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        return SourceModelFormat.ONNX
 
     @classmethod
     def from_pretrained(
