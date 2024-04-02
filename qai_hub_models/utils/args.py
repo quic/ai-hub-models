@@ -167,20 +167,53 @@ def get_model_cli_parser(
     for name, param in from_pretrained_sig.parameters.items():
         if name == "cls":
             continue
+
+        help = (
+            f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
+        )
+
         # Determining type from param.annotation is non-trivial (it can be a
         # strings like "Optional[str]" or "bool | None").
+        bool_action = None
+        arg_name = f"--{name.replace('_', '-')}"
         if param.default is not None:
             type_ = type(param.default)
+
+            if type_ == bool:
+                if param.default:
+                    bool_action = "store_false"
+                    # If the default is true, and the arg name does not start with no_,
+                    # then add the no- to the argument (as it should be passed as --no-enable-flag, not --enable-flag)
+                    if name.startswith("no_"):
+                        arg_name = f"--{name[3:].replace('_', '-')}"
+                    else:
+                        arg_name = f"--no-{name.replace('_', '-')}"
+                    help = (
+                        f"{help} Setting this flag will set parameter {name} to False."
+                    )
+                else:
+                    bool_action = "store_true"
+                    # If the default is false, and the arg name starts with no_,
+                    # then remove the no- from the argument (as it should be passed as --enable-flag, not --no-enable-flag)
+                    arg_name = f"--{name.replace('_', '-')}"
+                    help = (
+                        f"{help} Setting this flag will set parameter {name} to True."
+                    )
         elif param.annotation == "bool":
             type_ = bool
         else:
             type_ = str
-        parser.add_argument(
-            f"--{name.replace('_', '-')}",
-            type=type_,
-            default=param.default,
-            help=f"For documentation, see {cls.__name__}::from_pretrained.",
-        )
+
+        if bool_action:
+            parser.add_argument(arg_name, dest=name, action=bool_action, help=help)
+        else:
+            parser.add_argument(
+                arg_name,
+                dest=name,
+                type=type_,
+                default=param.default,
+                help=help,
+            )
     return parser
 
 
@@ -248,6 +281,7 @@ def demo_model_from_cli_args(
                 skip_downloading=True,
                 skip_summary=True,
                 target_runtime=cli_args.target_runtime,
+                **get_model_kwargs(model_cls, vars(cli_args)),
             )
 
             if len(export_output) == 0 or isinstance(export_output[0], str):

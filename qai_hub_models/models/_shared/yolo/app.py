@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from PIL.Image import Image
 
+from qai_hub_models.models._shared.yolo.utils import detect_postprocess
 from qai_hub_models.utils.bounding_box_processing import batched_nms
 from qai_hub_models.utils.draw import draw_box_from_xyxy
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
@@ -38,6 +39,7 @@ class YoloObjectDetectionApp:
         ],
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
+        model_includes_postprocessing: bool = True,
     ):
         """
         Initialize a YoloObjectDetectionApp application.
@@ -63,10 +65,14 @@ class YoloObjectDetectionApp:
 
             nms_iou_threshold
                 Intersection over Union threshold for non maximum suppression.
+
+            model_includes_postprocessing
+                Whether the model includes postprocessing steps beyond the detector.
         """
         self.model = model
         self.nms_score_threshold = nms_score_threshold
         self.nms_iou_threshold = nms_iou_threshold
+        self.model_includes_postprocessing = model_includes_postprocessing
 
     def check_image_size(self, pixel_values: torch.Tensor) -> None:
         """
@@ -120,7 +126,12 @@ class YoloObjectDetectionApp:
         self.check_image_size(NCHW_fp32_torch_frames)
 
         # Run prediction
-        pred_boxes, pred_scores, pred_class_idx = self.model(NCHW_fp32_torch_frames)
+        if self.model_includes_postprocessing:
+            pred_boxes, pred_scores, pred_class_idx = self.model(NCHW_fp32_torch_frames)
+        else:
+            pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
+                self.model(NCHW_fp32_torch_frames)
+            )
 
         # Non Maximum Suppression on each batch
         pred_boxes, pred_scores, pred_class_idx = batched_nms(
@@ -148,3 +159,23 @@ class YoloObjectDetectionApp:
                 )
 
         return NHWC_int_numpy_frames
+
+    def pre_nms_postprocess(
+        self, prediction: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Process the output of the YOLO detector for input to NMS.
+
+        Parameters:
+            detector_output: torch.Tensor
+                The output of Yolo detection model. Tensor shape varies by model implementation.
+
+        Returns:
+            boxes: torch.Tensor
+                Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
+            scores: torch.Tensor
+                class scores multiplied by confidence: Shape is [batch, num_preds]
+            class_idx: torch.tensor
+                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        """
+        return detect_postprocess(prediction)

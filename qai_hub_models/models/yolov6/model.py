@@ -31,19 +31,22 @@ DEFAULT_WEIGHTS = "yolov6n.pt"
 class YoloV6(BaseModel):
     """Exportable YoloV6 bounding box detector, end-to-end."""
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
         super().__init__()
         self.model = model
+        self.include_postprocessing = include_postprocessing
 
     # All image input spatial dimensions should be a multiple of this stride.
     STRIDE_MULTIPLE = 32
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(
+        cls, ckpt_name: str = DEFAULT_WEIGHTS, include_postprocessing: bool = True
+    ):
         model_url = f"{WEIGHTS_PATH}{ckpt_name}"
         asset = CachedWebModelAsset(model_url, MODEL_ID, MODEL_ASSET_VERSION, ckpt_name)
         model = _load_yolov6_source_model_from_weights(asset)
-        return cls(model)
+        return cls(model, include_postprocessing)
 
     def forward(self, image: torch.Tensor):
         """
@@ -55,11 +58,23 @@ class YoloV6(BaseModel):
                    3-channel Color Space: RGB
 
         Returns:
-            boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
-            class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+            If self.include_postprocessing:
+                boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
+                classes: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+
+            Otherwise:
+                detector_output: torch.Tensor
+                    Shape is [batch, num_preds, k]
+                        where, k = # of classes + 5
+                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
+                        and box_coordinates are [x_center, y_center, w, h]
         """
         predictions = self.model(image)
-        return detect_postprocess(predictions)
+        return (
+            detect_postprocess(predictions)
+            if self.include_postprocessing
+            else predictions
+        )
 
     @staticmethod
     def get_input_spec(

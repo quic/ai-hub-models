@@ -37,15 +37,10 @@ from zipfile import ZipFile
 import torch
 from qai_hub.client import DatasetEntries
 
-from qai_hub_models.evaluators.base_evaluators import (
-    BaseEvaluator,
-    _DataLoader,
-    _for_each_batch,
-)
+from qai_hub_models.evaluators.base_evaluators import _DataLoader, _for_each_batch
 from qai_hub_models.models._shared.common import apply_module_function_recursively
 from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
 from qai_hub_models.models.protocols import (
-    EvalModelProtocol,
     PretrainedHubModelProtocol,
     QuantizableModelProtocol,
 )
@@ -122,10 +117,10 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         self,
         data: _DataLoader,
         num_samples: int | None = None,
-        evaluator: BaseEvaluator | None = None,
         device: str = "cpu",
         requantize_model_weights=False,
-    ) -> float | None:
+        data_has_gt=False,
+    ) -> None:
         """
         Compute quantization encodings for this model with the given dataset and model evaluator.
 
@@ -148,21 +143,16 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
                 Number of samples to use for evaluation. One sample is one iteration from iter(data).
                 If none, defaults to the number of samples in the dataset.
 
-            evaluator: BaseModelEvaluator | None
-                Evaluator to populate while quantizing the data.
-                If not provided, an evaluator is not used.
-
             device: str
                 Name of device on which inference should be run.
 
             requantize_model_weights: bool
                 If a weight is quantized, recompute its quantization parameters.
 
-        Returns:
-            If an evaluator is provided, returns its accuracy score. No return value otherwise.
+            data_has_gt: bool
+                Set to true if the data loader passed in also provides ground truth data.
+                The ground truth data will be discarded for quantization.
         """
-        if not evaluator and isinstance(self, EvalModelProtocol):
-            evaluator = self.get_evaluator()
 
         # Enable or disable quantization for model parameters (model weights).
         # Activations are always re-quantized.
@@ -179,25 +169,15 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
                         # Un-freeze the quantizer.
                         param_quantizer._is_encoding_frozen = False
 
-        # Reset evaluator if applicable
-        if evaluator:
-            evaluator.reset()
-
         # Define evaluator function for this model.
-        def evaluator_func(model: torch.nn.Module, args):
+        def batched_forward(model: torch.nn.Module, args):
             # This function is defined because AIMET does not unwrap
             # the arguments you pass to `compute_encodings`.
-            return (
-                evaluator.add_from_dataset(model, *args)
-                if evaluator
-                else _for_each_batch(model, *args)
-            )
+            data, num_samples, device = args
+            _for_each_batch(model, data, num_samples, device, data_has_gt=data_has_gt)
 
         # Compute the new encodings.
-        self.quant_sim.compute_encodings(evaluator_func, [data, num_samples, device])
-
-        # Return accuracy score if applicable
-        return evaluator.get_accuracy_score() if evaluator else None
+        self.quant_sim.compute_encodings(batched_forward, [data, num_samples, device])
 
     def convert_to_torchscript_and_aimet_encodings(
         self,
@@ -316,7 +296,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
     def get_hub_compile_options(
         self, target_runtime: TargetRuntime, other_compile_options: str = ""
     ) -> str:
-        compile_options = super().get_hub_compile_options(
+        compile_options = super().get_hub_compile_options(  # type: ignore
             target_runtime, other_compile_options
         )
         return compile_options + " --quantize_full_type int8 --quantize_io"

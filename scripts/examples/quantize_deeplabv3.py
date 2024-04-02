@@ -48,7 +48,7 @@ if __name__ == "__main__":
     m.quant_sim.set_and_freeze_param_encodings(weight_encodings.fetch())
 
     # Quantize activations
-    m.quantize(train_loader, args.num_iter, m.get_evaluator())
+    m.quantize(train_loader, args.num_iter)
 
     # Export encodings
     m.convert_to_torchscript_and_aimet_encodings(os.getcwd(), model_name=MODEL_ID)

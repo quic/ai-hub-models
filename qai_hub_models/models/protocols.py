@@ -80,10 +80,10 @@ class QuantizableModelProtocol(Protocol):
         self,
         data: _DataLoader,
         num_samples: int | None = None,
-        evaluator: BaseEvaluator | None = None,
         device: str = "cpu",
         requantize_model_weights=False,
-    ) -> float | None:
+        data_has_gt=False,
+    ) -> None:
         """
         Compute quantization encodings for this model with the given dataset and model evaluator.
 
@@ -106,18 +106,15 @@ class QuantizableModelProtocol(Protocol):
                 Number of samples to use for evaluation. One sample is one iteration from iter(data).
                 If none, defaults to the number of samples in the dataset.
 
-            evaluator: BaseModelEvaluator | None
-                Evaluator to populate while quantizing the data.
-                If not provided, an evaluator is not used.
-
             device: str
                 Name of device on which inference should be run.
 
             requantize_model_weights: bool
                 If a weight is quantized, recompute its quantization parameters.
 
-        Returns:
-            If an evaluator is provided, returns its accuracy score. No return value otherwise.
+            data_has_gt: bool
+                Set to true if the data loader passed in also provides ground truth data.
+                The ground truth data will be discarded for quantization.
         """
         ...
 
@@ -180,7 +177,7 @@ class FromPretrainedProtocol(Protocol):
         ...
 
 
-class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol):
+class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Protocol):
     """
     All pretrained AI Hub Models must, at minimum, implement this interface.
     """

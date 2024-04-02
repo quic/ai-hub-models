@@ -91,8 +91,20 @@ if __name__ == "__main__":
 
     model = ImageNetClassifier_cls.from_pretrained(aimet_encodings=None)
 
-    accuracy = model.quantize(dataloader, args.num_iter, model.get_evaluator())
-    print(f"Accuracy: {accuracy * 100:.3g}%")
+    evaluator = model.get_evaluator()
+
+    evaluator.reset()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_fp32 = evaluator.get_accuracy_score()
+
+    model.quantize(dataloader, args.num_iter, data_has_gt=True)
+
+    evaluator.reset()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_int8 = evaluator.get_accuracy_score()
+
+    print(f"FP32 Accuracy: {accuracy_fp32 * 100:.3g}%")
+    print(f"INT8 Accuracy: {accuracy_int8 * 100:.3g}%")
 
     output_path = args.output_dir or str(Path() / "build")
     output_name = args.output_name or f"{args.model}_quantized_encodings"

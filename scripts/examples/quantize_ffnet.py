@@ -74,7 +74,12 @@ if __name__ == "__main__":
     model = FFNetQuantizable_cls.from_pretrained(aimet_encodings=None)
 
     # Quantize weights and activations
-    model.quantize(loader, num_samples=args.num_iter, requantize_model_weights=True)
+    model.quantize(
+        loader,
+        num_samples=args.num_iter,
+        requantize_model_weights=True,
+        data_has_gt=True,
+    )
 
     output_path = args.output_dir or str(Path() / "build")
     output_name = args.output_name or f"{args.variant}_quantized_encodings"

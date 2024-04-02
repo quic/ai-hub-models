@@ -34,7 +34,9 @@ class WhisperApp:
         decoder = whisper.decoder.to("cpu")
         encoder = whisper.encoder.to("cpu")
         self.num_decoder_blocks = whisper.num_decoder_blocks
+        self.num_decoder_heads = whisper.num_decoder_heads
         self.attention_dim = whisper.attention_dim
+        self.max_decode_len = whisper.max_decode_len
 
         # Wraps torch Module so it takes np ndarray as input and outputs
         if isinstance(encoder, torch.nn.Module):
@@ -42,7 +44,7 @@ class WhisperApp:
         else:
             self.encoder = encoder
         if isinstance(decoder, torch.nn.Module):
-            self.decoder = TorchNumpyAdapter(decoder)
+            self.decoder = TorchNumpyAdapter(decoder.eval())
         else:
             self.decoder = decoder
 
@@ -67,18 +69,27 @@ class WhisperApp:
         # coreml only takes float tensors
         x = np.array([[TOKEN_SOT]])
         decoded_tokens = [TOKEN_SOT]
-        cache_tensor = np.array([], dtype=np.float32).reshape(
-            (1, 0, self.attention_dim)
-        )
+        sample_len = self.max_decode_len  # max # of tokens to sample
+        cache_tensor = np.zeros((1, sample_len, self.attention_dim)).astype(np.float32)
         self_attn_cache = [cache_tensor] * 2 * self.num_decoder_blocks
 
-        sample_len = 224  # max # of tokens to sample
         sum_logprobs = 0
         for i in range(sample_len):
-            decoder_out = self.decoder(x, *cross_attn_cache, *self_attn_cache)
+            # Using i to index inside the decoder model hurts the
+            # the model performance.
+            # index - used to get positional embedding correctly.
+            index = torch.zeros([1, 1], dtype=torch.int32)
+            index[0, 0] = i
+            # Use mask to get the k_cache updated with new key
+            mask = torch.zeros(1, sample_len, self.attention_dim, dtype=torch.bool)
+            mask[:, i, :] = 1
+            decoder_out = self.decoder(
+                x, index, mask, *cross_attn_cache, *self_attn_cache
+            )
             # logit has shape (1, decoded_len, 51864)
             logits = decoder_out[0]
             self_attn_cache = decoder_out[1:]  # type: ignore
+
             # logit has shape (51864,)
             logits = logits[0, -1]  # consider only the last token
 

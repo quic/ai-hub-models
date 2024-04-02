@@ -31,15 +31,18 @@ DEFAULT_WEIGHTS = "yolov8n.pt"
 class YoloV8Detector(BaseModel):
     """Exportable YoloV8 bounding box detector, end-to-end."""
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
         super().__init__()
         self.model = model
+        self.include_postprocessing = include_postprocessing
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(
+        cls, ckpt_name: str = DEFAULT_WEIGHTS, include_postprocessing: bool = True
+    ):
         model = ultralytics_YOLO(ckpt_name).model
         model.eval()
-        return cls(model)
+        return cls(model, include_postprocessing)
 
     def forward(self, image: torch.Tensor):
         """
@@ -51,10 +54,26 @@ class YoloV8Detector(BaseModel):
                     3-channel Color Space: RGB
 
         Returns:
-            boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
-            class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+            If self.include_postprocessing:
+                boxes: torch.Tensor
+                    Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
+                scores: torch.Tensor
+                    class scores multiplied by confidence: Shape is [batch, num_preds]
+                class_idx: torch.tensor
+                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+
+            Otherwise:
+                predictions: torch.Tensor
+                    Shape is [batch, k, num_preds]
+                        Where, k = # of classes + 4
+                        The array dimension k is structured as follows:
+                            [box coordintes, # of classes]
+                        where box coordinates are [x_center, y_center, w, h]
         """
         predictions, *_ = self.model(image)
+        if not self.include_postprocessing:
+            return predictions
+
         boxes, scores, classes = yolov8_detect_postprocess(predictions)
         return boxes, scores, classes
 
@@ -81,9 +100,10 @@ def yolov8_detect_postprocess(detector_output: torch.Tensor):
         detector_output: torch.Tensor
             The output of Yolo Detection model
             Shape is [batch, k, num_preds]
-                where, k = # of classes + 4
-                k is structured as follows [boxes (4) : # of classes]
-                and boxes are co-ordinates [x_center, y_center, w, h]
+                Where, k = # of classes + 4
+                The array dimension k is structured as follows:
+                    [box coordintes, # of classes]
+                where box coordinates are [x_center, y_center, w, h]
 
     Returns:
         boxes: torch.Tensor

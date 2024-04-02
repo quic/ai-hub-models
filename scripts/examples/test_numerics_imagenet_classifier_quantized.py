@@ -91,18 +91,18 @@ def test_dataloader_is_deterministic(data_loaders):
 @pytest.fixture(
     scope="module",
     params=[
-        # Class, Calibration accuracy, AIMET accuracy
-        (MobileNetV2Quantizable, 0.8021, 0.8100),
-        (MobileNetV3LargeQuantizable, 0.8438, 0.8550),
-        (ResNet18Quantizable, 0.8021, 0.8010),
-        (ResNet50Quantizable, 0.8229, 0.8520),
-        (ResNet101Quantizable, 0.8125, 0.8530),
-        (ResNeXt50Quantizable, 0.8333, 0.8880),
-        (ResNeXt101Quantizable, 0.8542, 0.9250),
-        (SqueezeNetQuantizable, 0.6042, 0.6410),
-        (RegNetQuantizable, 0.8229, 0.8750),
-        (WideResNet50Quantizable, 0.8958, 0.9190),
-        (ShufflenetV2Quantizable, 0.7083, 0.6740),
+        # Class, AIMET accuracy
+        (MobileNetV2Quantizable, 0.8100),
+        (MobileNetV3LargeQuantizable, 0.8550),
+        (ResNet18Quantizable, 0.8010),
+        (ResNet50Quantizable, 0.8520),
+        (ResNet101Quantizable, 0.8530),
+        (ResNeXt50Quantizable, 0.8880),
+        (ResNeXt101Quantizable, 0.9250),
+        (SqueezeNetQuantizable, 0.6410),
+        (RegNetQuantizable, 0.8750),
+        (WideResNet50Quantizable, 0.9190),
+        (ShufflenetV2Quantizable, 0.6740),
     ],
 )
 def quantized_model(request, data_loaders, test_data):
@@ -112,16 +112,12 @@ def quantized_model(request, data_loaders, test_data):
     """
     img_test, label_test, hub_dataset = test_data
     calib_loader, test_loader = data_loaders
-    model_cls, target_calib_acc, target_sim_acc = request.param
+    model_cls, target_sim_acc = request.param
     model = model_cls.from_pretrained(aimet_encodings=None)
 
     # Calibration in quantization
     num_calib_batches = 3
-    calib_accuracy = model.quantize(
-        calib_loader, num_calib_batches, evaluator=model.get_evaluator()
-    )
-    print(f"{model_cls=}, {calib_accuracy=}")
-    np.testing.assert_allclose(target_calib_acc, calib_accuracy, atol=0.01)
+    model.quantize(calib_loader, num_calib_batches, data_has_gt=True)
 
     # QuantSim evaluation on eval set
     evaluator = model.get_evaluator()
@@ -167,11 +163,11 @@ def test_make_encoding_w8a8_accuracy(
     expected_size_mb_and_acc = {
         (SourceModelFormat.ONNX, TargetRuntime.TFLITE, MobileNetV2Quantizable): (
             3.64,
-            0.784,
+            0.801,
         ),
         (SourceModelFormat.ONNX, TargetRuntime.QNN, MobileNetV2Quantizable): (
             4.02,
-            0.790,
+            0.801,
         ),
         (SourceModelFormat.ONNX, TargetRuntime.TFLITE, MobileNetV3LargeQuantizable): (
             5.79,

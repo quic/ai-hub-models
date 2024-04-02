@@ -31,7 +31,13 @@ class TorchNumpyAdapter:
         self.base_model = base_model
 
     def __call__(self, *args) -> Tuple[np.ndarray, ...]:
-        input_data = tuple(torch.from_numpy(t) for t in args)
+        inp = []
+        for t in args:
+            if not isinstance(t, np.ndarray):
+                inp.append(t)
+            else:
+                inp.append(torch.from_numpy(t))
+        input_data = tuple(inp)
         res = self.base_model(*input_data)
         if isinstance(res, torch.Tensor):
             output = res.detach().numpy()

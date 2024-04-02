@@ -49,8 +49,8 @@ def detect_postprocess(detector_output: torch.Tensor):
             The output of Yolo Detection model
             Shape is [batch, num_preds, k]
                 where, k = # of classes + 5
-                k is structured as follows [boxes (4) : conf (1) : # of classes]
-                and boxes are co-ordinates [x_center, y_center, w, h]
+                k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
+                and box_coordinates are [x_center, y_center, w, h]
 
     Returns:
         boxes: torch.Tensor

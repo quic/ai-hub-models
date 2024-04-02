@@ -60,9 +60,21 @@ if __name__ == "__main__":
     model = module.Model.from_pretrained(aimet_encodings=None)
     assert isinstance(model, AIMETQuantizableMixin)
 
-    # Quantize activations
-    accuracy = model.quantize(dataloader, args.num_iter, model.get_evaluator())
-    print(f"PSNR: {accuracy}")
+    evaluator = model.get_evaluator()
+
+    evaluator.reset()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_fp32 = evaluator.get_accuracy_score()
+
+    # Quantize
+    model.quantize(dataloader, args.num_iter, data_has_gt=True)
+
+    evaluator.reset()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_int8 = evaluator.get_accuracy_score()
+
+    print(f"FP32 PSNR: {accuracy_fp32} dB")
+    print(f"INT8 PSNR: {accuracy_int8} dB")
 
     # Export encodings
     model.quant_sim.save_encodings_to_json(Path() / "build", module.MODEL_ID)

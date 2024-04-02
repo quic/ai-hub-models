@@ -32,10 +32,12 @@ class YoloV7(BaseModel):
         self,
         yolov7_feature_extractor: torch.nn.Module,
         yolov7_detector: torch.nn.Module,
+        include_postprocessing: bool = True,
     ) -> None:
         super().__init__()
         self.yolov7_feature_extractor = yolov7_feature_extractor
         self.yolov7_detector = yolov7_detector
+        self.include_postprocessing = include_postprocessing
 
     # All image input spatial dimensions should be a multiple of this stride.
     STRIDE_MULTIPLE = 32
@@ -44,6 +46,7 @@ class YoloV7(BaseModel):
     def from_pretrained(
         cls,
         weights_name: Optional[str] = DEFAULT_WEIGHTS,
+        include_postprocessing: bool = True,
     ):
         """Load YoloV7 from a weightfile created by the source YoloV7 repository."""
         # Load PyTorch model from disk
@@ -66,10 +69,7 @@ class YoloV7(BaseModel):
         ].i  # Index in sequential model
         yolov7_detect = _YoloV7Detector.from_yolov7_state_dict(detector_head_state_dict)
 
-        return cls(
-            yolov7_model,
-            yolov7_detect,
-        )
+        return cls(yolov7_model, yolov7_detect, include_postprocessing)
 
     def forward(self, image: torch.Tensor):
         """
@@ -81,14 +81,26 @@ class YoloV7(BaseModel):
                    3-channel Color Space: BGR
 
         Returns:
-            boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
-            class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+            If self.include_postprocessing:
+                boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
+                classes: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+
+            Otherwise:
+                detector_output: torch.Tensor
+                    Shape is [batch, num_preds, k]
+                        where, k = # of classes + 5
+                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
+                        and box_coordinates are [x_center, y_center, w, h]
         """
         feature_extraction_output = (
             *self.yolov7_feature_extractor(image),
         )  # Convert output list to Tuple, for exportability
         prediction = self.yolov7_detector(feature_extraction_output)
-        return detect_postprocess(prediction)
+        return (
+            detect_postprocess(prediction)
+            if self.include_postprocessing
+            else prediction
+        )
 
     @staticmethod
     def get_input_spec(

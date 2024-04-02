@@ -76,6 +76,14 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         # the model input specification upon submitting a profile job.
         return {"input": ((batch_size, sample_length), "float32")}
 
+    def get_hub_profile_options(
+        self, target_runtime: TargetRuntime, other_profile_options: str = ""
+    ) -> str:
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        return profile_options + " --compute_unit cpu"
+
 
 # Modules used to override Huggingface WavLM to be NPU friendly
 class SliceConv1d(torch.nn.Module):
@@ -168,22 +176,6 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
         x = self.orig_module.activation(x)
         x = torch.concat(torch.unbind(x, axis=2), axis=-1)
         return x[:, :, :-1]
-
-    def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
-        )
-        return compile_options + " --compute_unit gpu"
-
-    def get_hub_profile_options(
-        self, target_runtime: TargetRuntime, other_profile_options: str = ""
-    ) -> str:
-        profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
-        )
-        return profile_options + " --compute_unit gpu"
 
 
 def convert_to_wavlm_npu(model: WavLMModel):
