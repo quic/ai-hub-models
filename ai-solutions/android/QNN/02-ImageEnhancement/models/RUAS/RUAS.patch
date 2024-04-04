@@ -1,0 +1,13 @@
+diff --git a/model.py b/model.py
+index 4f10d37..1a778be 100644
+--- a/model.py
++++ b/model.py
+@@ -184,7 +184,7 @@ class Network(nn.Module):
+         self._init_weights()
+ 
+     def _init_weights(self):
+-        model_dict = torch.load('./model/denoise.pt')
++        model_dict = torch.load('./ckpt/denoise.pt',map_location=torch.device('cpu'))
+         self.denoise_net.load_state_dict(model_dict)
+ 
+     def forward(self, input):
