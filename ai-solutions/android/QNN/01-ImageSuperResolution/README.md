@@ -34,16 +34,13 @@
 
 ### Model Overview
 
-Please refer to [Models](https://github.qualcomm.com/qualcomm-model-zoo-public-mirror/models-for-solutions/tree/main/01-super-resolution) repository for model overview.
+Please refer to Models repository for model overview
+<TODO> Add public link
 
 ### Model Conversion
 
-For the required model `<model_name>` implemented in the `models` folder
-
-- Execute the corresponding `.ipynb` file to obtain the model library and serialized binary files. In case of error in execution, execute the model generation/conversions commands in the notebook on terminal.
-- After execution, the model's .so file can be obtained from `models\<model_name>\models\model_libs2\aarch64-android` and serialized binary file can be obtained from `models\<model_name>\output` folder.
-- Copy both the model files to `superresolution\src\main\assets` and `superresolution\src\main\jniLibs\arm64-v8a` folders, for utilizing in application.
-
+Please refer to Models repository for model overview
+<TODO> Add public link
 
 # Source Overview
 
