@@ -31,22 +31,17 @@ app\src\main\cpp : native source code
   
 sdk: Contains openCV sdk
 
-## Models
+## Model Selection
 
 ### Model Overview
 
-Please refer to [Models](https://github.qualcomm.com/qualcomm-model-zoo-public-mirror/models-for-solutions/tree/main/03-object-detection) repository for model overview.
+Please refer to Models repository for model overview
+<TODO> Add public link
 
 ### Model Conversion
 
-YoloNAS model is trained on COCO dataset for 80 classes of everyday objects.
-List of the classes can be found in dataset at : https://cocodataset.org/#explore 
-
-For the required model `<model_name>` implemented in the `models` folder
-
-- Execute the corresponding `.ipynb` file to obtain the model library and serialized binary files. In case of error in execution, execute the model generation/conversions commands in the notebook on terminal.
-- After execution, the model's .so file can be obtained from `models\<model_name>\models\model_libs2\aarch64-android` and serialized binary file can be obtained from `models\<model_name>\output` folder.
-- Copy both the model files to `app\src\main\assets` and `app\src\main\jniLibs\arm64-v8a` folders, for utilizing in application.
+Please refer to Models repository for model overview
+<TODO> Add public link
 	
 ## Code Implementation
 
