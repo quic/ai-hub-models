@@ -42,8 +42,8 @@ Summary of AI Solutions across platforms is given in below table
     <td>Low-Light Image Enhancement</a></td>
     <td><a href="android-SNPE/02-ImageEnhancement">Notebooks</a></td>
     <td><a href="android-SNPE/02-ImageEnhancement">APK</a></td>
-    <td> Not Applicable </td>
-    <td> Not Applicable </td>
+    <td><a href="android-QNN/02-ImageEnhancement">Notebooks</a></td>
+    <td><a href="android-QNN/02-ImageEnhancement">APK</a></td>
     <td><a href="windows/electron-app-cv">WoS App</a></td>
     <td><a href="ubuntu/electron-gui">RB5 APP</a></td>
     <td><a href="QRB5165-embedded-linux">CLI</a></td>
@@ -53,8 +53,8 @@ Summary of AI Solutions across platforms is given in below table
     <td>Object Detection</a></td>
     <td><a href="android-SNPE/03-ObjectDetection">Notebooks</a></td>
     <td><a href="android-SNPE/03-ObjectDetection">APK</a></td>
-    <td> Not Applicable </td>
-    <td> Not Applicable </td>
+    <td><a href="android-QNN/03-ObjectDetection">Notebooks</a></td>
+    <td><a href="android-QNN/03-ObjectDetection">APK</a></td>
     <td><a href="windows/electron-app-cv">WoS App</a></td>
     <td><a href="ubuntu/gstreamer-cli">RB5 APP</a></td>
     <td><a href="QRB5165-embedded-linux">CLI</a></td>
@@ -64,8 +64,8 @@ Summary of AI Solutions across platforms is given in below table
     <td>Image Segmentation</a></td>
     <td><a href="android-SNPE/04-ImageSegmentation">Notebooks</a></td>
     <td><a href="android-SNPE/04-ImageSegmentation">APK</a></td>
-    <td> Not Applicable </td>
-    <td> Not Applicable </td>
+    <td><a href="android-QNN/04-ImageSegmentation">Notebooks</a></td>
+    <td><a href="android-QNN/04-ImageSegmentation">APK</a></td>
     <td><a href="windows/electron-app-cv">WoS App</a></td>
     <td><a href="ubuntu/gstreamer-cli">RB5 APP</a></td>
     <td><a href="QRB5165-embedded-linux">CLI</a></td>

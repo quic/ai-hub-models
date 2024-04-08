@@ -1,0 +1,169 @@
+diff --git a/demo.py b/demo.py
+index aa72dcb..3b869f0 100644
+--- a/demo.py
++++ b/demo.py
+@@ -15,6 +15,8 @@ from ssd.data.transforms import build_transforms
+ from ssd.modeling.detector import build_detection_model
+ from ssd.utils import mkdir
+ from ssd.utils.checkpoint import CheckPointer
++import cv2
++import os
+ 
+ 
+ @torch.no_grad()
+@@ -40,7 +42,7 @@ def run_demo(cfg, ckpt, score_threshold, images_dir, output_dir, dataset_type):
+     cpu_device = torch.device("cpu")
+     transforms = build_transforms(cfg, is_train=False)
+     model.eval()
+-    for i, image_path in enumerate(image_paths):
++    for j, image_path in enumerate(image_paths):
+         start = time.time()
+         image_name = os.path.basename(image_path)
+ 
+@@ -48,30 +50,53 @@ def run_demo(cfg, ckpt, score_threshold, images_dir, output_dir, dataset_type):
+         height, width = image.shape[:2]
+         images = transforms(image)[0].unsqueeze(0)
+         load_time = time.time() - start
+-
++        img_arr = images.detach().cpu().numpy()
++        img_arr.tofile("./input.raw")
+         start = time.time()
+-        result = model(images.to(device))[0]
+-        inference_time = time.time() - start
+-
+-        result = result.resize((width, height)).to(cpu_device).numpy()
+-        boxes, labels, scores = result['boxes'], result['labels'], result['scores']
+-
+-        indices = scores > score_threshold
+-        boxes = boxes[indices]
+-        labels = labels[indices]
+-        scores = scores[indices]
+-        meters = ' | '.join(
+-            [
+-                'objects {:02d}'.format(len(boxes)),
+-                'load {:03d}ms'.format(round(load_time * 1000)),
+-                'inference {:03d}ms'.format(round(inference_time * 1000)),
+-                'FPS {}'.format(round(1.0 / inference_time))
+-            ]
+-        )
+-        print('({:04d}/{:04d}) {}: {}'.format(i + 1, len(image_paths), image_name, meters))
+-
+-        drawn_image = draw_boxes(image, boxes, labels, scores, class_names).astype(np.uint8)
+-        Image.fromarray(drawn_image).save(os.path.join(output_dir, image_name))
++        #result = model(images.to(device))[0]
++        boxes,scores = model(images.to(device))
++        torch.onnx.export(model, (images), "ssd_mobilenetV2_without_ABP-NMS.onnx", verbose=True,do_constant_folding=True,opset_version=11,export_params=True)
++        with torch.no_grad():
++            with torch.jit.optimized_execution(True):
++                traced = torch.jit.trace(model, (images))
++                traced.save("ssd_mobilenetV2_without_ABP-NMS.pt")
++                print("Torch Trace file generated")
++        # image_bgr = cv2.imread(image_path, cv2.IMREAD_COLOR)
++        # for i in range(boxes.shape[0]):
++        #     # print(scores[i][0], 0.0, scores[i][0] == 0.0)
++        #     if scores[i] != 0.0:
++        #         # print(i)
++        #         label = str(int(labels[i]))
++        #         cv2.rectangle(image_bgr, (boxes[i, 0], boxes[i, 1]), (boxes[i, 2], boxes[i, 3]), (255, 255, 0), 4)
++        #         cv2.putText(image_bgr, label,
++        #                     (int(boxes[i, 0])+20, int(boxes[i, 1])+40),
++        #                     cv2.FONT_HERSHEY_SIMPLEX,
++        #                     1,  # font scale
++        #                     (255, 0, 255),
++        #                     2)  # line type
++        # img_file = os.path.join('ssd_mobilenetv2_'+str(j)+'.jpg')
++        # cv2.imwrite(img_file, image_bgr)
++        # inference_time = time.time() - start
++
++        # result = result.resize((width, height)).to(cpu_device).numpy()
++        # boxes, labels, scores = result['boxes'], result['labels'], result['scores']
++
++        # indices = scores > score_threshold
++        # boxes = boxes[indices]
++        # labels = labels[indices]
++        # scores = scores[indices]
++        # meters = ' | '.join(
++        #     [
++        #         'objects {:02d}'.format(len(boxes)),
++        #         'load {:03d}ms'.format(round(load_time * 1000)),
++        #         'inference {:03d}ms'.format(round(inference_time * 1000)),
++        #         'FPS {}'.format(round(1.0 / inference_time))
++        #     ]
++        # )
++        # print('({:04d}/{:04d}) {}: {}'.format(i + 1, len(image_paths), image_name, meters))
++
++        # drawn_image = draw_boxes(image, boxes, labels, scores, class_names).astype(np.uint8)
++        # Image.fromarray(drawn_image).save(os.path.join(output_dir, image_name))
+ 
+ 
+ def main():
+diff --git a/ssd/config/defaults.py b/ssd/config/defaults.py
+index 9b99438..6ef7398 100644
+--- a/ssd/config/defaults.py
++++ b/ssd/config/defaults.py
+@@ -4,7 +4,7 @@ _C = CN()
+ 
+ _C.MODEL = CN()
+ _C.MODEL.META_ARCHITECTURE = 'SSDDetector'
+-_C.MODEL.DEVICE = "cuda"
++_C.MODEL.DEVICE = "cpu"
+ # match default boxes to any ground truth with jaccard overlap higher than a threshold (0.5)
+ _C.MODEL.THRESHOLD = 0.5
+ _C.MODEL.NUM_CLASSES = 21
+diff --git a/ssd/modeling/box_head/box_head.py b/ssd/modeling/box_head/box_head.py
+index 582a570..55db632 100644
+--- a/ssd/modeling/box_head/box_head.py
++++ b/ssd/modeling/box_head/box_head.py
+@@ -7,6 +7,7 @@ from ssd.modeling.box_head.box_predictor import make_box_predictor
+ from ssd.utils import box_utils
+ from .inference import PostProcessor
+ from .loss import MultiBoxLoss
++import torch
+ 
+ 
+ @registry.BOX_HEADS.register('SSDBoxHead')
+@@ -43,7 +44,25 @@ class SSDBoxHead(nn.Module):
+         boxes = box_utils.convert_locations_to_boxes(
+             bbox_pred, self.priors, self.cfg.MODEL.CENTER_VARIANCE, self.cfg.MODEL.SIZE_VARIANCE
+         )
++        device = torch.device("cpu")
+         boxes = box_utils.center_form_to_corner_form(boxes)
+-        detections = (scores, boxes)
+-        detections = self.post_processor(detections)
+-        return detections, {}
++        #detections = (scores, boxes)
++        # print("------SCORES------",scores.shape)
++        # num_boxes = scores.shape[1]
++        # num_classes = scores.shape[2]
++
++        # boxes = boxes.view(num_boxes, 1, 4).expand(num_boxes, num_classes, 4)
++        # labels = torch.arange(num_classes, device=device)
++        # labels = labels.view(1, num_classes).expand_as(scores)
++
++        # # remove predictions with the background label
++        # boxes = boxes[:, 1:]
++        # scores = scores[:, 1:]
++        # labels = labels[:, 1:]
++
++        # # batch everything, by making every class prediction be a separate instance
++        # boxes = boxes.reshape(-1, 4)
++        # scores = scores.reshape(-1)
++        # labels = labels.reshape(-1)
++        #detections = self.post_processor(detections)
++        return boxes,scores#,labels
+diff --git a/ssd/modeling/detector/ssd_detector.py b/ssd/modeling/detector/ssd_detector.py
+index c43a4a6..6ae35e8 100644
+--- a/ssd/modeling/detector/ssd_detector.py
++++ b/ssd/modeling/detector/ssd_detector.py
+@@ -13,7 +13,7 @@ class SSDDetector(nn.Module):
+ 
+     def forward(self, images, targets=None):
+         features = self.backbone(images)
+-        detections, detector_losses = self.box_head(features, targets)
+-        if self.training:
+-            return detector_losses
+-        return detections
++        boxes,scores = self.box_head(features, targets)
++        # if self.training:
++        #     return detector_losses
++        return boxes,scores#,labels
