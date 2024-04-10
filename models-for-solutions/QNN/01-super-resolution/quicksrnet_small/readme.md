@@ -20,7 +20,7 @@
 
 - Follow the insturctions given in SDK to setup the SDK 
 
--  Please follow the instructions for setting up  Qualcomm® AI Engine Direct using the [link] (https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/setup.html) provided. 
+-  Please follow the instructions for setting up  Qualcomm® AI Engine Direct using the [link](https://docs.qualcomm.com/bundle/publicresource/topics/80-63442-50/setup.html) provided. 
 
 - Install onnx v1.6.0 ```pip install onnx==1.6.0```.
 
