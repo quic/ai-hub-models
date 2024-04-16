@@ -32,7 +32,9 @@ class BaseDataset(Dataset, ABC):
             else:
                 os.remove(self.dataset_path)
 
+        print("Downloading data")
         self._download_data()
+        print("Done downloading")
         if not self._validate_data():
             raise ValueError("Something went wrong during download.")
 

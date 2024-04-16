@@ -90,12 +90,15 @@ class PyTestModelTask(CompositeTask):
         self,
         model_name: str,
         python_executable: str,
-        test_export: bool,
         venv: str
         | None = None,  # If None, creates a fresh venv for each model instead of using 1 venv for all models.
         use_shared_cache=False,  # If True, uses a shared cache rather than the global QAIHM cache.
-        export_func: str = "compile",
-        skip_standard_unit_test: bool = False,
+        run_general: bool = True,
+        run_compile: bool = True,
+        run_profile: bool = False,
+        run_trace: bool = True,
+        install_deps: bool = True,
+        raise_on_failure: bool = False,
     ):
         tasks = []
 
@@ -117,12 +120,29 @@ class PyTestModelTask(CompositeTask):
                 )
             else:
                 model_venv = venv
-                # Only install requirements.txt into existing venv
-                tasks.append(
-                    SyncModelRequirementsVenvTask(
-                        model_name, model_venv, pip_force_install=False
+                if install_deps:
+                    # Only install requirements.txt into existing venv
+                    tasks.append(
+                        SyncModelRequirementsVenvTask(
+                            model_name, model_venv, pip_force_install=False
+                        )
                     )
-                )
+
+            # Extras arguments
+            extras_args = ["-s"]
+
+            # Generate flags
+            test_flags = []
+            if run_general:
+                test_flags.append("unmarked")
+            if run_compile:
+                test_flags.append("compile")
+            if run_profile:
+                test_flags.append("profile")
+            if run_trace:
+                test_flags.append("trace")
+            if test_flags:
+                extras_args += ["-m", f'"{" or ".join(test_flags)}"']
 
             # Create temporary directory for storing cloned & downloaded test artifacts.
             with TemporaryDirectory() as tmpdir:
@@ -132,36 +152,21 @@ class PyTestModelTask(CompositeTask):
 
                 # Standard Test Suite
                 model_dir = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name)
-                model_test_without_export = os.path.join(model_dir, "test.py")
-                if (
-                    os.path.exists(model_test_without_export)
-                    and not skip_standard_unit_test
-                ):
+                model_test = os.path.join(model_dir, "test.py")
+                generated_model_test = os.path.join(model_dir, "test_generated.py")
+
+                if os.path.exists(model_test) or os.path.exists(generated_model_test):
                     tasks.append(
                         PyTestTask(
                             group_name=f"Model: {model_name}",
                             venv=model_venv,
                             report_name=f"model-{model_name}-tests",
-                            files_or_dirs=model_test_without_export,
-                            parallel=False,
-                            extra_args="-s",
-                            env=env,
-                        )
-                    )
-
-                # Export Test Suite
-                if test_export and os.path.isfile(
-                    os.path.join(model_dir, "test_generated.py")
-                ):
-                    tasks.append(
-                        PyTestTask(
-                            group_name=f"Model Export: ({model_name})",
-                            venv=model_venv,
-                            report_name=f"model-export-{model_name}-tests",
                             files_or_dirs=model_dir,
                             parallel=False,
-                            extra_args=f"-s -m {export_func}",
+                            extra_args=" ".join(extras_args),
                             env=env,
+                            raise_on_failure=venv,  # Do not raise on failure if a venv was created, to make sure the venv is removed when the test finishes
+                            ignore_no_tests_return_code=True,
                         )
                     )
 
@@ -173,7 +178,13 @@ class PyTestModelTask(CompositeTask):
                     )
                 )
 
-        super().__init__(f"Model Tests: {model_name}", [task for task in tasks])
+        super().__init__(
+            f"Model Tests: {model_name}",
+            [task for task in tasks],
+            continue_after_single_task_failure=True,
+            raise_on_failure=raise_on_failure,
+            show_subtasks_in_failure_message=False,
+        )
 
 
 class PyTestModelsTask(CompositeTask):
@@ -189,10 +200,15 @@ class PyTestModelsTask(CompositeTask):
         base_test_venv: str | None = None,  # Env with QAIHM installed
         venv_for_each_model: bool = True,  # Create a fresh venv for each model instead of using the base test venv instead.
         use_shared_cache: bool = False,  # Use the global QAIHM cache rather than a temporary one for tests.
-        export_func: str = "compile",
         skip_standard_unit_test: bool = False,
         test_trace: bool = True,
+        run_export_compile: bool = True,
+        run_export_profile: bool = False,
+        exit_after_single_model_failure=False,
+        raise_on_failure=True,
     ):
+        self.exit_after_single_model_failure = exit_after_single_model_failure
+
         if len(models_for_testing) == 0 and len(models_to_test_export) == 0:
             return super().__init__("All Per-Model Tests (Skipped)", [])
         tasks = []
@@ -201,7 +217,7 @@ class PyTestModelsTask(CompositeTask):
         # (submit all jobs for all models at once, rather than one model at a time).
         test_hub_async: bool = os.environ.get("TEST_HUB_ASYNC", 0)
 
-        if test_hub_async and export_func == "compile":
+        if test_hub_async and run_export_compile:
             # Clean previous (cached) compile test jobs.
             tasks.append(
                 RunCommandsTask(
@@ -220,20 +236,14 @@ class PyTestModelsTask(CompositeTask):
             )
 
         print(f"Tests to be run for models: {models_for_testing}")
+        global_models = []
         if not venv_for_each_model:
-            non_global_models = []
-            global_models = []
             for model_name in models_for_testing:
                 yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
-                global_incompatible = False
                 if yaml_path.exists():
                     with open(yaml_path, "r") as f:
-                        if "global_requirements_incompatible" in f.read():
-                            global_incompatible = True
-                if global_incompatible:
-                    non_global_models.append(model_name)
-                else:
-                    global_models.append(model_name)
+                        if "global_requirements_incompatible" not in f.read():
+                            global_models.append(model_name)
 
             if len(global_models) > 0:
                 globals_path = Path(PY_PACKAGE_SRC_ROOT) / "global_requirements.txt"
@@ -247,41 +257,27 @@ class PyTestModelsTask(CompositeTask):
                     )
                 )
 
-            trace_tag = " or trace" if test_trace else ""
-            for model_name in sorted(global_models):
-                files_to_test = []
-                model_dir = Path(PY_PACKAGE_MODELS_ROOT) / model_name
-                files_to_test.append(str(model_dir / "test.py"))
-                if model_name in models_to_test_export:
-                    generated_test_path = str(model_dir / "test_generated.py")
-                    if os.path.exists(generated_test_path):
-                        files_to_test.append(generated_test_path)
-                tasks.append(
-                    PyTestTask(
-                        group_name=f"Test model: {model_name}",
-                        venv=base_test_venv,
-                        report_name=f"changed-models-{model_name}",
-                        files_or_dirs=" ".join(files_to_test),
-                        parallel=False,
-                        extra_args=f'-s -m "unmarked or {export_func}{trace_tag}"',
-                    )
-                )
-            models_for_testing = non_global_models
-        for model_name in models_for_testing:
+        for model_name in sorted(models_for_testing):
             # Run standard test suite for this model.
+            is_global_model = model_name in global_models
             tasks.append(
                 PyTestModelTask(
                     model_name,
                     python_executable,
-                    model_name in models_to_test_export,
-                    venv=None,
+                    venv=base_test_venv if is_global_model else None,
                     use_shared_cache=use_shared_cache,
-                    export_func=export_func,
-                    skip_standard_unit_test=skip_standard_unit_test,
+                    install_deps=not is_global_model,
+                    run_trace=test_trace,
+                    run_general=not skip_standard_unit_test,
+                    run_compile=run_export_compile
+                    and model_name in models_to_test_export,
+                    run_profile=run_export_profile
+                    and model_name in models_to_test_export,
+                    raise_on_failure=False,  # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                 )
             )
 
-        if test_hub_async and export_func == "compile":
+        if test_hub_async and run_export_compile:
             # Wait for compile test jobs to finish; verify success
             tasks.append(
                 PyTestTask(
@@ -293,6 +289,7 @@ class PyTestModelsTask(CompositeTask):
                     ),
                     parallel=False,
                     extra_args="-s",
+                    raise_on_failure=has_venv,  # Do not raise on failure if a venv was created, to make sure the venv is removed when the test finishes
                 )
             )
 
@@ -302,4 +299,28 @@ class PyTestModelsTask(CompositeTask):
                     RunCommandsTask(base_test_venv, f"rm -rf {base_test_venv}")
                 )
 
-        super().__init__("All Per-Model Tests", [task for task in tasks])
+        super().__init__(
+            "All Per-Model Tests",
+            [task for task in tasks],
+            continue_after_single_task_failure=True,
+            raise_on_failure=raise_on_failure,
+        )
+
+    def run_task(self) -> bool:
+        result: bool = True
+        for task in self.tasks:
+            try:
+                task_result = task.run()
+            except Exception:
+                task_result = False
+            if not task_result:
+                if (
+                    isinstance(task, PyTestModelTask)
+                    and self.exit_after_single_model_failure
+                ):
+                    self.tasks[-1].run()  # cleanup venv
+                    break
+                elif not self.continue_after_single_task_failure:
+                    break
+            result = result and task_result
+        return result

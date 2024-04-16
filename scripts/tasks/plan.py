@@ -143,9 +143,10 @@ class Plan:
 
                 caught: Optional[Exception] = None
                 try:
-                    task.run()
+                    result = task.run()
                 except Exception as ex:
                     caught = ex
+                    result = False
                 step_end_time = time.monotonic()
                 if task.does_work():
                     self._step_durations.append(
@@ -154,8 +155,13 @@ class Plan:
                             datetime.timedelta(seconds=step_end_time - step_start_time),
                         )
                     )
-                if caught is not None:
-                    raise caught
+
+                if not result:
+                    raise caught or ValueError(
+                        f"Task {task.group_name} failed (returned {result})"
+                    )
+
+            return result
 
         try:
             self.for_each(run_task)

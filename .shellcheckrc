@@ -31,3 +31,4 @@ disable=SC2148  # Tips depend on target shell and yours is unknown. Add a sheban
 disable=SC2162  # `read` without `-r` will mangle backslashes.
 disable=SC2164  # Use `cd ... || exit` in case `cd` fails.
 disable=SC2181  # Check exit code directly with e.g. `if mycmd;`, not indirectly with `$?`.
+disable=SC2086  # Shellcheck has trouble with this rule on GitHub actions files.

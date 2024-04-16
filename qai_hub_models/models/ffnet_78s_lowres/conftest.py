@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 # THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY.
 
+import inspect
 from unittest.mock import patch
 
 import pytest
@@ -19,8 +20,10 @@ def mock_from_pretrained():
     Model.from_pretrained() can be slow. Invoke it once and cache it so all invocations
     across all tests return the cached instance of the model.
     """
+    sig = inspect.signature(Model.from_pretrained)
     mock = patch(
         "qai_hub_models.models.ffnet_78s_lowres.Model.from_pretrained",
         return_value=Model.from_pretrained(),
     )
-    mock.start()
+    mock_obj = mock.start()
+    mock_obj.__signature__ = sig

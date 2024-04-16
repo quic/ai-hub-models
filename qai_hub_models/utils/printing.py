@@ -34,6 +34,9 @@ def print_inference_metrics(
     df_eval = generate_comparison_metrics(
         torch_out, inference_data, names=output_names, metrics=metrics
     )
+    for output_idx in outputs_to_skip or []:
+        if output_idx < len(output_names):
+            df_eval = df_eval.drop(output_names[output_idx])
 
     def custom_float_format(x):
         if isinstance(x, float):

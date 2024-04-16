@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    constrain_quantized_inputs_to_image_range,
 )
 
 # isort: on
@@ -70,6 +71,8 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
             config_file=FFNET_AIMET_CONFIG,
             dummy_input=torch.rand(input_shape),
         )
+        constrain_quantized_inputs_to_image_range(sim)
+
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = cls.default_aimet_encodings()

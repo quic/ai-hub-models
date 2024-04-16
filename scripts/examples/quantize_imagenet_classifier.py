@@ -29,6 +29,7 @@ from qai_hub_models.models.resnext101_quantized.model import ResNeXt101Quantizab
 from qai_hub_models.models.shufflenet_v2_quantized.model import ShufflenetV2Quantizable
 from qai_hub_models.models.squeezenet1_1_quantized.model import SqueezeNetQuantizable
 from qai_hub_models.models.wideresnet50_quantized.model import WideResNet50Quantizable
+from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 
 CLASSIFIERS = {
     "googlenet": GoogLeNetQuantizable,
@@ -49,7 +50,7 @@ CLASSIFIERS = {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--num-iter", type=int, default=1, help="Number of batches to use."
+        "--num-iter", type=int, default=5, help="Number of batches to use."
     )
     parser.add_argument(
         "--batch-size",
@@ -71,10 +72,18 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--model",
+        "-m",
         type=str,
-        choices=CLASSIFIERS.keys(),
-        required=True,
+        choices=list(CLASSIFIERS.keys()),
+        required=False,
         help="Name of the model to quantize.",
+    )
+    parser.add_argument(
+        "--all",
+        "-a",
+        action="store_true",
+        default=False,
+        help="Quantize all models",
     )
     parser.add_argument(
         "--seed",
@@ -83,29 +92,43 @@ if __name__ == "__main__":
         help="Manual seed to ensure reproducibility for quantization.",
     )
     args = parser.parse_args()
-    ImageNetClassifier_cls = CLASSIFIERS[args.model]
+    if args.all:
+        ImageNetClassifier_classes = CLASSIFIERS.values()
+    else:
+        if not hasattr(args, "model"):
+            raise ValueError(
+                "Specify a model via --model <model> or all models via --all"
+            )
+        ImageNetClassifier_classes = [CLASSIFIERS[args.model]]
 
     dataset = ImagenetteDataset()
     torch.manual_seed(args.seed)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    model = ImageNetClassifier_cls.from_pretrained(aimet_encodings=None)
+    for ImageNetClassifier_cls in ImageNetClassifier_classes:
+        model: AIMETQuantizableMixin = ImageNetClassifier_cls.from_pretrained(
+            aimet_encodings=None
+        )
+        print(f"\nQuantizing {ImageNetClassifier_cls.__name__}")
 
-    evaluator = model.get_evaluator()
+        evaluator = model.get_evaluator()
 
-    evaluator.reset()
-    evaluator.add_from_dataset(model, dataloader, args.num_iter)
-    accuracy_fp32 = evaluator.get_accuracy_score()
+        evaluator.reset()
+        evaluator.add_from_dataset(model, dataloader, args.num_iter)
+        accuracy_fp32 = evaluator.get_accuracy_score()
 
-    model.quantize(dataloader, args.num_iter, data_has_gt=True)
+        model.quantize(dataloader, args.num_iter, data_has_gt=True)
 
-    evaluator.reset()
-    evaluator.add_from_dataset(model, dataloader, args.num_iter)
-    accuracy_int8 = evaluator.get_accuracy_score()
+        evaluator.reset()
+        evaluator.add_from_dataset(model, dataloader, args.num_iter)
+        accuracy_int8 = evaluator.get_accuracy_score()
 
-    print(f"FP32 Accuracy: {accuracy_fp32 * 100:.3g}%")
-    print(f"INT8 Accuracy: {accuracy_int8 * 100:.3g}%")
+        print(f"FP32 Accuracy: {accuracy_fp32 * 100:.3g}%")
+        print(f"INT8 Accuracy: {accuracy_int8 * 100:.3g}%")
 
-    output_path = args.output_dir or str(Path() / "build")
-    output_name = args.output_name or f"{args.model}_quantized_encodings"
-    model.quant_sim.save_encodings_to_json(output_path, output_name)
+        output_path = args.output_dir or str(Path() / "build")
+        output_name = (
+            args.output_name or f"{ImageNetClassifier_cls.__name__}_quantized_encodings"
+        )
+        model.quant_sim.save_encodings_to_json(output_path, output_name)
+        print(f"Wrote {output_path}/{output_name}\n")

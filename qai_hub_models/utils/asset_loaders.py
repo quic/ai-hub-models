@@ -18,6 +18,7 @@ from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Union
 from zipfile import ZipFile
 
@@ -142,6 +143,19 @@ def maybe_clone_git_repo(
             )
 
     return local_path
+
+
+def wipe_sys_modules(module: ModuleType) -> None:
+    """
+    Wipe all modules from sys.modules whose names start with the given module name.
+
+    An alternative to `importlib.reload`, which only reloads the top-level module
+        but may still reference the old package for submodules.
+    """
+    module_name = module.__name__
+    dep_modules = [name for name in sys.modules.keys() if name.startswith(module_name)]
+    for submodule_name in dep_modules:
+        sys.modules.pop(submodule_name)
 
 
 def _load_file(

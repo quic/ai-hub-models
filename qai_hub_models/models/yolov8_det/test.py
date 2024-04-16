@@ -17,6 +17,7 @@ from qai_hub_models.models.yolov8_det.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.testing import skip_clone_repo_check
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "test_images/output_image.png"
@@ -24,7 +25,8 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 WEIGHTS = "yolov8n.pt"
 
 
-def test_task():
+@skip_clone_repo_check
+def test_numerical():
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
     source_model = ultralytics_YOLO(WEIGHTS).model
@@ -33,7 +35,8 @@ def test_task():
     with torch.no_grad():
         # original model output
         source_detect_out, *_ = source_model(processed_sample_image)
-        source_out_postprocessed = yolov8_detect_postprocess(source_detect_out)
+        boxes, scores = torch.split(source_detect_out, [4, 80], 1)
+        source_out_postprocessed = yolov8_detect_postprocess(boxes, scores)
 
         # Qualcomm AI Hub Model output
         qaihm_out_postprocessed = qaihm_model(processed_sample_image)
@@ -41,12 +44,14 @@ def test_task():
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 
-def test_yolov8_det_app():
+@skip_clone_repo_check
+def test_task():
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     app = YoloV8DetectionApp(YoloV8Detector.from_pretrained(WEIGHTS))
     assert np.allclose(app.predict_boxes_from_image(image)[0], np.asarray(output_image))
 
 
+@skip_clone_repo_check
 def test_demo():
     demo_main(is_test=True)

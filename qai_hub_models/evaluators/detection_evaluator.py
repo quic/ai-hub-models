@@ -38,6 +38,15 @@ class DetectionEvaluator(BaseEvaluator):
         image_id, _, _, bboxes, classes = gt
         pred_boxes, pred_scores, pred_class_idx = output
 
+        if bboxes.numel() == 0:
+            return
+
+        # The number of boxes can be variable, so dataloader doesn't like shapes
+        # mismatching across samples in the batch.
+        assert bboxes.shape[0] == 1, "Detection evaluator only supports batch size 1."
+        bboxes = bboxes.squeeze(0)
+        classes = classes.squeeze(0)
+
         # Seeing memory issues, initentionally deleting these variables to free memory.
         del gt
         del output

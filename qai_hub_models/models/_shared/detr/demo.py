@@ -23,14 +23,14 @@ from qai_hub_models.utils.display import display_or_save_image
 # Run DETR app end-to-end on a sample image.
 # The demo will display the predicted mask in a window.
 def detr_demo(
-    model: Type[BaseModel],
+    model_cls: Type[BaseModel],
     model_id: str,
     default_weights: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
 ):
     # Demo parameters
-    parser = get_model_cli_parser(model)
+    parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(
         "--image",
@@ -42,11 +42,16 @@ def detr_demo(
     validate_on_device_demo_args(args, model_id)
 
     # Load image & model
-    detr = demo_model_from_cli_args(model, model_id, args)
+    detr = demo_model_from_cli_args(model_cls, model_id, args)
+    if isinstance(detr, model_cls):
+        input_spec = detr.get_input_spec()
+    else:
+        input_spec = model_cls.get_input_spec()
+    (h, w) = input_spec["image"][0][2:]
 
     # Run app to scores, labels and boxes
     img = load_image(args.image)
-    app = DETRApp(detr, model_image_input_size=[img.height, img.width])
+    app = DETRApp(detr, h, w)
     pred_images, _, _, _ = app.predict(img, default_weights)
     pred_image = Image.fromarray(pred_images[0])
 

@@ -14,6 +14,31 @@ from .constants import (
 from .github import on_github
 from .util import new_cd, run, run_and_get_output
 
+REPRESENTATIVE_EXPORT_MODELS = [
+    "sinet",
+    "quicksrnetsmall_quantized",
+    "mediapipe_face",
+    "facebook_denoiser",
+]
+REPRESENTATIVE_EXPORT_FILES = [
+    f"qai_hub_models/models/{model}/export.py" for model in REPRESENTATIVE_EXPORT_MODELS
+]
+
+
+# For certain files that are imported by many models, manually override
+# which files to test. For example, quantization_aimet is imported by all
+# aimet models. Testing a representative set of aimet models is probably
+# good enough rather than testing all of them.
+MANUAL_EDGES = {
+    "qai_hub_models/utils/quantization_aimet.py": [
+        "qai_hub_models/models/yolov7_quantized/model.py",
+        "qai_hub_models/models/ffnet_40s_quantized/model.py",
+        "qai_hub_models/models/xlsr_quantized/model.py",
+        "qai_hub_models/models/resnet18_quantized/model.py",
+    ],
+    "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
+}
+
 
 def get_python_import_expression(filepath: str) -> str:
     """
@@ -31,6 +56,28 @@ def get_python_import_expression(filepath: str) -> str:
     else:
         rel_path = rel_path[: -len(".py")]
     return rel_path.replace("/", ".")
+
+
+def _get_file_edges(filename):
+    """
+    Resolve which files directly import from `filename`.
+    """
+    file_import = get_python_import_expression(filename)
+    grep_out = run_and_get_output(
+        f"grep -r --include='*.py' '{file_import}' {PY_PACKAGE_RELATIVE_SRC_ROOT}",
+        check=False,
+    )
+    if grep_out.strip() == "":
+        return set()
+
+    # Determine which files depend on the current file, and thus
+    # also may be affected by the current change
+    # i.e. resolve the edges of the current node for DFS
+    dependent_files = set()
+    for grep_result in grep_out.strip().split("\n"):
+        dependent_file = grep_result.split(":")[0]
+        dependent_files.add(dependent_file)
+    return dependent_files
 
 
 def resolve_affected_models(
@@ -60,29 +107,15 @@ def resolve_affected_models(
     while len(changed_files) > 0:
         # Pop off stack
         curr_file = changed_files.pop()
-
-        file_import = get_python_import_expression(curr_file)
-        grep_out = run_and_get_output(
-            f"grep -r --include='*.py' '{file_import}' {PY_PACKAGE_RELATIVE_SRC_ROOT}",
-            check=False,
-        )
-        if grep_out.strip() == "":
-            continue
-
-        # Determine which files depend on the current file, and thus
-        # also may be affected by the current change
-        # i.e. resolve the edges of the current node for DFS
-        dependent_files = set()
-        for grep_result in grep_out.strip().split("\n"):
-            dependent_file = grep_result.split(":")[0]
-            dependent_files.add(dependent_file)
-
+        if curr_file in MANUAL_EDGES:
+            dependent_files = set(MANUAL_EDGES[curr_file])
+        else:
+            dependent_files = _get_file_edges(curr_file)
         # Add new nodes to stack
         for dependent_file in dependent_files:
             if dependent_file not in seen:
                 seen.add(dependent_file)
                 changed_files.append(dependent_file)
-
     changed_models = set()
     for f in seen:
         if f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):

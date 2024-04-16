@@ -16,6 +16,10 @@ class TargetRuntime(Enum):
     def __str__(self):
         return self.name.lower()
 
+    @property
+    def long_name(self):
+        return f"torchscript_onnx_{self.name.lower()}"
+
 
 class SourceModelFormat(Enum):
     ONNX = 0

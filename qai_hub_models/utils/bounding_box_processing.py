@@ -263,3 +263,20 @@ def apply_directional_box_offset(
 
     xc += offset * (xlen / vec_len)
     yc += offset * (ylen / vec_len)
+
+
+def get_iou(boxA: np.ndarray, boxB: np.ndarray) -> float:
+    """
+    Given two tensors of shape (4,) in xyxy format,
+    compute the iou between the two boxes.
+    """
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    inter_area = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+    boxA_area = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxB_area = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+
+    return inter_area / float(boxA_area + boxB_area - inter_area)

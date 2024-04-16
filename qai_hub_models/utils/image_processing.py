@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import functools
 from typing import Callable, List, Tuple
 
 import cv2
@@ -106,18 +107,34 @@ def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:
     return ImageFromArray(np_out)
 
 
-def normalize_image_transform() -> Callable:
+def normalize_image_torchvision(
+    image_tensor: torch.Tensor, image_tensor_has_batch=True
+) -> torch.Tensor:
+    """
+    Normalizes according to standard torchvision constants.
+
+    Due to issues with FX Graph tracing in AIMET, image_tensor_has_batch is a constant passed in,
+    rather than determining the image rank using len(image_tensor.shape).
+
+    There are many PyTorch models that expect input images normalized with
+    these specific constants, so this utility can be re-used across many models.
+    """
+    shape = [-1, 1, 1]
+    if image_tensor_has_batch:
+        shape.insert(0, 1)
+    mean = torch.Tensor([0.485, 0.456, 0.406]).reshape(*shape)
+    std = torch.Tensor([[0.229, 0.224, 0.225]]).reshape(*shape)
+    return (image_tensor - mean) / std
+
+
+def normalize_image_transform() -> Callable[[torch.Tensor], torch.Tensor]:
     """
     Returns a torchvision transform that returns a torch tensor normalized according to some constants.
 
     There are many PyTorch models that expect input images normalized with
     these specific constants, so this utility can be re-used across many models.
     """
-    return transforms.Compose(
-        [
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
+    return functools.partial(normalize_image_torchvision, image_tensor_has_batch=False)
 
 
 def pad_to_square(frame: np.ndarray) -> np.ndarray:

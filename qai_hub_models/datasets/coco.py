@@ -82,8 +82,6 @@ class CocoDataset(BaseDataset, CocoDetection):
         width, height = image.size
         boxes = []
         labels = []
-        if len(target) == 0:
-            return None, (None, None)
         for annotation in target:
             bbox = annotation.get("bbox")
             boxes.append(
@@ -98,12 +96,18 @@ class CocoDataset(BaseDataset, CocoDetection):
         boxes = torch.tensor(boxes)
         labels = torch.tensor(labels)
         image = image.resize(self.target_image_size)
-        image = app_to_net_image_inputs(image)[1]
-        return image, (target[0]["image_id"], height, width, boxes, labels)
+        image = app_to_net_image_inputs(image)[1].squeeze(0)
+        return image, (
+            target[0]["image_id"] if len(target) > 0 else 0,
+            height,
+            width,
+            boxes,
+            labels,
+        )
 
     def _validate_data(self) -> bool:
         # Check validation data exists
-        if not COCO_DATASET.path().exists():
+        if not (COCO_DATASET.path() / "val2017").exists():
             return False
 
         # Check annotations exist

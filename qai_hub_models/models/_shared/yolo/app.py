@@ -126,12 +126,18 @@ class YoloObjectDetectionApp:
         self.check_image_size(NCHW_fp32_torch_frames)
 
         # Run prediction
-        if self.model_includes_postprocessing:
-            pred_boxes, pred_scores, pred_class_idx = self.model(NCHW_fp32_torch_frames)
-        else:
-            pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
-                self.model(NCHW_fp32_torch_frames)
-            )
+        with torch.no_grad():
+            if self.model_includes_postprocessing:
+                pred_boxes, pred_scores, pred_class_idx = self.model(
+                    NCHW_fp32_torch_frames
+                )
+            else:
+                model_output = self.model(NCHW_fp32_torch_frames)
+                if isinstance(model_output, torch.Tensor):
+                    model_output = (model_output,)
+                pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
+                    *model_output
+                )
 
         # Non Maximum Suppression on each batch
         pred_boxes, pred_scores, pred_class_idx = batched_nms(
@@ -161,21 +167,22 @@ class YoloObjectDetectionApp:
         return NHWC_int_numpy_frames
 
     def pre_nms_postprocess(
-        self, prediction: torch.Tensor
+        self, *predictions: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Process the output of the YOLO detector for input to NMS.
 
         Parameters:
-            detector_output: torch.Tensor
-                The output of Yolo detection model. Tensor shape varies by model implementation.
+            predictions: torch.Tensor
+                A tuple of tensor outputs from the Yolo detection model.
+                Tensor shapes vary by model implementation.
 
         Returns:
             boxes: torch.Tensor
                 Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
             scores: torch.Tensor
                 class scores multiplied by confidence: Shape is [batch, num_preds]
-            class_idx: torch.tensor
+            class_idx: torch.Tensor
                 Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
         """
-        return detect_postprocess(prediction)
+        return detect_postprocess(predictions[0])

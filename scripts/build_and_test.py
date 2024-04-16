@@ -13,6 +13,7 @@ import textwrap
 from typing import Callable, List, Optional
 
 from tasks.changes import (
+    REPRESENTATIVE_EXPORT_MODELS,
     get_all_models,
     get_changed_models,
     get_models_to_run_general_tests,
@@ -263,13 +264,14 @@ class TaskLibrary:
             def does_work(self) -> bool:
                 return True
 
-            def run_task(self) -> None:
+            def run_task(self) -> bool:
                 if self.venv_path is not None:
                     # Some sanity checking to make sure we don't accidentally "rm -rf /"
                     if not self.venv_path.startswith(os.environ["HOME"]):
                         run(f"rm -rI {self.venv_path}")
                     else:
                         run(f"rm -rf {self.venv_path}")
+                return True
 
         return plan.add_step("clean_pip", CleanPipTask(self.venv_path))
 
@@ -315,13 +317,7 @@ class TaskLibrary:
             # One regular model, one aimet, one components, and one non-image input.
             # These are among the smallest instances of each of these.
             # If none of these models were changed, test one model.
-            representative_set = [
-                "sinet",
-                "quicksrnetsmall_quantized",
-                "mediapipe_face",
-                "facebook_denoiser",
-            ]
-            export_models = export_changed_models & set(representative_set)
+            export_models = export_changed_models & set(REPRESENTATIVE_EXPORT_MODELS)
             if len(export_models) == 0:
                 export_models = set([next(iter(export_changed_models))])
         else:
@@ -393,7 +389,33 @@ class TaskLibrary:
             RunCommandsWithVenvTask(
                 group_name=None,
                 venv=self.venv_path,
-                commands=["python qai_hub_models/scripts/generate_perf_yaml.py --all"],
+                commands=[
+                    "python qai_hub_models/scripts/generate_perf_yaml.py --gen-csv --gen-perf-summary"
+                ],
+            ),
+        )
+
+    @public_task("Run Compile jobs for all models in Model Zoo.")
+    @depends(["install_deps"])
+    def test_compile_all_models(
+        self, plan: Plan, step_id: str = "test_compile_all_models"
+    ) -> str:
+        all_models = get_all_models()
+        return plan.add_step(
+            step_id,
+            PyTestModelsTask(
+                self.python_executable,
+                all_models,
+                all_models,
+                self.venv_path,
+                venv_for_each_model=False,
+                use_shared_cache=True,
+                run_export_compile=True,
+                run_export_profile=False,
+                # If one model fails to export, we should still try the others.
+                exit_after_single_model_failure=False,
+                skip_standard_unit_test=True,
+                test_trace=False,
             ),
         )
 
@@ -412,8 +434,12 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
-                export_func="profile",
+                run_export_compile=False,
+                run_export_profile=True,
                 skip_standard_unit_test=True,
+                # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
+                exit_after_single_model_failure=False,
+                test_trace=False,
             ),
         )
 
@@ -431,8 +457,10 @@ class TaskLibrary:
                 all_models,
                 all_models,
                 self.venv_path,
-                venv_for_each_model=True,
-                use_shared_cache=False,
+                venv_for_each_model=False,
+                skip_standard_unit_test=True,
+                use_shared_cache=True,
+                test_trace=False,
             ),
         )
 
@@ -456,10 +484,10 @@ class TaskLibrary:
             def does_work(self) -> bool:
                 return True
 
-            def run_task(self) -> None:
+            def run_task(self) -> bool:
                 coverage_reports = get_coverage_reports()
                 all_reports = '"' + '" "'.join(coverage_reports) + '"'
-                RunCommandsWithVenvTask(
+                result = RunCommandsWithVenvTask(
                     group_name=None,
                     venv=self.venv_path,
                     commands=[
@@ -473,6 +501,7 @@ class TaskLibrary:
                     "coverage report | tail -1 | sed 's/[[:blank:]]*$//;s/.*[[:blank:]]//'",
                 )
                 set_github_output("coverage", coverage)
+                return result
 
         class ReportCoverageTask(ConditionalTask):
             def __init__(self, venv_path: Optional[str]) -> None:

@@ -30,9 +30,7 @@ class DETR(BaseModel):
         model.eval()
         return cls(model)
 
-    def forward(
-        self, image: torch.Tensor, mask: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Run DETR on `image` and `mask`, and produce high quality detection results.
 
@@ -46,7 +44,7 @@ class DETR(BaseModel):
                Shape of coordinates: [1, 100, 4]
 
         """
-        predictions = self.model(image, mask, return_dict=False)
+        predictions = self.model(image, return_dict=False)
         return predictions
 
     @staticmethod
@@ -62,5 +60,4 @@ class DETR(BaseModel):
         """
         return {
             "image": ((batch_size, num_channels, height, width), "float32"),
-            "mask": ((batch_size, height, width), "float32"),
         }

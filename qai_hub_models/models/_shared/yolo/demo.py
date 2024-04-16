@@ -49,8 +49,7 @@ def yolo_detection_demo(
         default=0.7,
         help="Intersection over Union (IoU) threshold for NonMaximumSuppression",
     )
-    pargs = parser.parse_args([] if is_test else None)
-    args = pargs
+    args = parser.parse_args([] if is_test else None)
 
     validate_on_device_demo_args(args, model_id)
 
@@ -60,7 +59,7 @@ def yolo_detection_demo(
         model,
         args.score_threshold,
         args.iou_threshold,
-        args.include_postprocessing if not is_test else True,
+        args.include_postprocessing,
     )
 
     print("Model Loaded")

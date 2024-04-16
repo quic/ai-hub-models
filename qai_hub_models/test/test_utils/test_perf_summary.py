@@ -6,7 +6,7 @@ import os
 
 import ruamel.yaml
 
-from qai_hub_models.utils.perf_summary import PerformanceSummary
+from qai_hub_models.utils.scorecard.perf_summary import PerformanceSummary
 
 CHIPSET = "GEN2"
 OS = "13"

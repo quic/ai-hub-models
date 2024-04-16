@@ -45,11 +45,15 @@ def main(is_test: bool = False):
     clip_model = Clip.from_pretrained()
     app = ClipApp(clip_model=clip_model)
 
-    image_names = args.image_names.split(",")
-    text = app.process_text(args.text)
-    images = []
+    # Determine device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Preprocess text
+    text = app.process_text(args.text).to(device)
 
     # Iterate through images and text provided by user
+    images = []
+    image_names = args.image_names.split(",")
     for filename in image_names:
         # Make sure the file is an image
         if os.path.splitext(filename)[1].lower() in [".jpg", ".jpeg", ".png"]:
@@ -60,7 +64,7 @@ def main(is_test: bool = False):
             else:
                 image = os.path.join(args.image_dir, filename)
             # Preprocess image and text pair
-            image = app.process_image(load_image(image))
+            image = app.process_image(load_image(image)).to(device)
             images.append(image)
 
         else:

@@ -26,7 +26,7 @@ WEIGHTS = "yolov7-tiny.pt"
 
 
 @skip_clone_repo_check
-def test_task():
+def test_numerical():
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
     source_model = _load_yolov7_source_model_from_weights(WEIGHTS)
@@ -46,7 +46,7 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_yolov7_app():
+def test_task():
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS).convert("RGB")
     app = YoloV7DetectionApp(YoloV7.from_pretrained(WEIGHTS))

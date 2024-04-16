@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    constrain_quantized_inputs_to_image_range,
 )
 
 # isort: on
@@ -29,7 +30,7 @@ from qai_hub_models.utils.quantization_aimet import (
 )
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 DEFAULT_ENCODINGS = "shufflenet_v2_quantized_encodings.json"
 
 
@@ -46,7 +47,8 @@ class ShufflenetV2Quantizable(
         self,
         sim_model: QuantizationSimModel,
     ) -> None:
-        ShufflenetV2.__init__(self, sim_model.model)
+        # Input is already normalized by sim_model. Disable it in the wrapper model.
+        ShufflenetV2.__init__(self, sim_model.model, normalize_input=False)
         AIMETQuantizableMixin.__init__(
             self,
             sim_model,
@@ -81,6 +83,7 @@ class ShufflenetV2Quantizable(
         )
         convert_all_depthwise_to_per_tensor(sim.model)
         cls._tie_pre_concat_quantizers(sim)
+        constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":

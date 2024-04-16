@@ -8,6 +8,7 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    constrain_quantized_inputs_to_image_range,
 )
 
 # isort: on
@@ -22,7 +23,7 @@ from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 7
+MODEL_ASSET_VERSION = 8
 DEFAULT_ENCODINGS = "resnet18_quantized_encodings.json"
 
 
@@ -36,7 +37,8 @@ class ResNet18Quantizable(AIMETQuantizableMixin, ResNet18):
         self,
         resnet18_model: QuantizationSimModel,
     ) -> None:
-        ResNet18.__init__(self, resnet18_model.model)
+        # Input is already normalized by sim_model. Disable it in the wrapper model.
+        ResNet18.__init__(self, resnet18_model.model, normalize_input=False)
         AIMETQuantizableMixin.__init__(
             self,
             resnet18_model,
@@ -67,6 +69,7 @@ class ResNet18Quantizable(AIMETQuantizableMixin, ResNet18):
             config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )
+        constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":

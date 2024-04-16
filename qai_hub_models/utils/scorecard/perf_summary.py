@@ -2,8 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import datetime
-import os
 from typing import Dict, List, Tuple
 
 from prettytable import PrettyTable
@@ -31,12 +29,15 @@ class PerformanceSummary:
         5. Empty perf reports (models with no passing jobs)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # List of new reports being added
         self.new_perf_report: List[Tuple[str]] = []
 
         # Device present in previous run, but missing in new
         self.missing_devices: List = []
+
+        # Device + runtime present in previous run, but missing in new
+        self.missing_runtimes: List = []
 
         # Perf report with no passing job
         self.empty_perf_report: List[Tuple[str]] = []
@@ -109,12 +110,16 @@ class PerformanceSummary:
                     continue
 
                 for runtime_type in RUNTIMES_TO_COMPARE:
-                    prev_inference_time = prev_perf_metrics[device][runtime_type][
-                        "inference_time"
-                    ]
-                    new_inference_time = new_perf_metrics[device][runtime_type][
-                        "inference_time"
-                    ]
+                    prev_inference_time = prev_perf_metrics[device].get(
+                        runtime_type, {}
+                    )
+                    prev_inference_time = prev_inference_time.get(
+                        "inference_time", "null"
+                    )
+                    new_inference_time = new_perf_metrics[device].get(runtime_type, {})
+                    new_inference_time = new_inference_time.get(
+                        "inference_time", "null"
+                    )
                     if new_inference_time == prev_inference_time:
                         continue
 
@@ -149,7 +154,7 @@ class PerformanceSummary:
                     )
 
                     for bucket in self.perf_buckets[1:]:
-                        if bucket <= speedup:
+                        if bucket <= speedup:  # type: ignore
                             summary = (
                                 model_id,
                                 runtime_type,
@@ -198,18 +203,10 @@ class PerformanceSummary:
                 return True
         return False
 
-    def print_summary(self):
+    def dump_summary(self, summary_file_path: str):
         """
-        Prints Perf change summary captured so far.
+        Dumps Perf change summary captured so far to the provided path.
         """
-
-        file_unique_name = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        test_results_path = os.path.join("build", "test-results")
-        os.makedirs(test_results_path, exist_ok=True)
-        summary_file_path = os.path.join(
-            test_results_path, f"perf-summary-{file_unique_name}.txt"
-        )
-
         with open(summary_file_path, "w") as sf:
             sf.write("================= Perf Change Summary =================")
             if self._has_perf_changes():

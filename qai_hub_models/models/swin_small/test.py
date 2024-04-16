@@ -11,6 +11,7 @@ from qai_hub_models.models._shared.imagenet_classifier.test_utils import (  # no
 )
 from qai_hub_models.models.swin_small.demo import main as demo_main
 from qai_hub_models.models.swin_small.model import MODEL_ID, SwinSmall
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 
 def test_numerical(imagenet_sample_torch):
@@ -20,7 +21,7 @@ def test_numerical(imagenet_sample_torch):
     model_orig = tv_models.swin_s(weights="IMAGENET1K_V1").eval()
     np.testing.assert_allclose(
         model_opt(x).detach().numpy(),
-        model_orig(x).detach().numpy(),
+        model_orig(normalize_image_torchvision(x)).detach().numpy(),
         atol=1e-5,
         rtol=1e-3,
     )

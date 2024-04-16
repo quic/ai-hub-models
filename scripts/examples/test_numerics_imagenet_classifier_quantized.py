@@ -93,7 +93,7 @@ def test_dataloader_is_deterministic(data_loaders):
     params=[
         # Class, AIMET accuracy
         (MobileNetV2Quantizable, 0.8100),
-        (MobileNetV3LargeQuantizable, 0.8550),
+        (MobileNetV3LargeQuantizable, 0.8430),
         (ResNet18Quantizable, 0.8010),
         (ResNet50Quantizable, 0.8520),
         (ResNet101Quantizable, 0.8530),

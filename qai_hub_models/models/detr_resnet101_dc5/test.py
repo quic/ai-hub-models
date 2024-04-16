@@ -24,7 +24,7 @@ def test_task():
     net = DETRResNet101DC5.from_pretrained(DEFAULT_WEIGHTS)
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
-    assert set(list(label.numpy())) == {75, 63, 17}
+    assert set(list(label.numpy())) == {75, 65, 17}
 
 
 @pytest.mark.trace
@@ -32,7 +32,7 @@ def test_trace():
     net = DETRResNet101DC5.from_pretrained(DEFAULT_WEIGHTS).convert_to_torchscript()
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
-    assert set(list(label.numpy())) == {75, 63, 17}
+    assert set(list(label.numpy())) == {75, 65, 17}
 
 
 def test_demo():

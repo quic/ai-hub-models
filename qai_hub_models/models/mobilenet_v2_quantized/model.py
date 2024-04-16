@@ -17,16 +17,16 @@ from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
-from qai_hub_models.models.mobilenet_v2.model import (
-    MobileNetV2,
-    _load_mobilenet_v2_source_model,
-)
+from qai_hub_models.models.mobilenet_v2.model import MobileNetV2
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.quantization_aimet import convert_all_depthwise_to_per_tensor
+from qai_hub_models.utils.quantization_aimet import (
+    constrain_quantized_inputs_to_image_range,
+    convert_all_depthwise_to_per_tensor,
+)
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 3
+MODEL_ASSET_VERSION = 5
 
 # Weights downloaded from https://github.com/quic/aimet-model-zoo/releases/download/phase_2_january_artifacts/torch_mobilenetv2_w8a8_state_dict.pth
 QUANTIZED_WEIGHTS = "torch_mobilenetv2_w8a8_state_dict.pth"
@@ -40,7 +40,8 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
         self,
         quant_sim_model: QuantizationSimModel,
     ) -> None:
-        MobileNetV2.__init__(self, quant_sim_model.model)
+        # Input is already normalized by sim_model. Disable it in the wrapper model.
+        MobileNetV2.__init__(self, quant_sim_model.model, normalize_input=False)
         AIMETQuantizableMixin.__init__(
             self,
             quant_sim_model,
@@ -59,26 +60,14 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
             else: Interprets as a filepath and loads the encodings stored there.
         """
         # Load Model
-        model = _load_mobilenet_v2_source_model()
+        model = MobileNetV2.from_pretrained()
         input_shape = cls.get_input_spec()["image_tensor"][0]
         # Following
         # https://github.com/quic/aimet-model-zoo/blob/develop/aimet_zoo_torch/mobilenetv2/model/model_definition.py#L64
         model = prepare_model(model)
         equalize_model(model, input_shape)
 
-        # Download weights and quantization parameters
-        weights = CachedWebModelAsset.from_asset_store(
-            MODEL_ID, MODEL_ASSET_VERSION, QUANTIZED_WEIGHTS
-        ).fetch()
         aimet_config = get_default_aimet_config()
-
-        # Load the QAT/PTQ tuned model weights
-        checkpoint = torch.load(weights, map_location=torch.device("cpu"))
-        state_dict = {
-            k.replace("classifier.1", "classifier"): v
-            for k, v in checkpoint["state_dict"].items()
-        }
-        model.load_state_dict(state_dict)
         sim = QuantizationSimModel(
             model,
             quant_scheme="tf_enhanced",
@@ -88,6 +77,7 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
             dummy_input=torch.rand(input_shape),
         )
         convert_all_depthwise_to_per_tensor(sim.model)
+        constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":

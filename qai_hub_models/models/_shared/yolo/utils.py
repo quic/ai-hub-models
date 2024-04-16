@@ -11,6 +11,30 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
 
+def box_transform_xywh2xyxy_split_input(xy: torch.Tensor, wh: torch.Tensor):
+    """
+    Convert boxes with (xy, wh) layout to (xyxy)
+
+    Parameters:
+        boxes (torch.Tensor): Input boxes with layout (xywh)
+
+    Returns:
+        torch.Tensor: Output box with layout (xyxy)
+            i.e. [top_left_x | top_left_y | bot_right_x | bot_right_y]
+    """
+    cx = xy[..., 0]
+    cy = xy[..., 1]
+    w_2 = wh[..., 0] / 2
+    h_2 = wh[..., 1] / 2
+    # TODO(10344) torch.stack doesn't play nicely with torch.fx.Graph
+    # For now replace with unsqueeze + cat, but long-term would be nice to support it
+    top_left_x = (cx - w_2).unsqueeze(-1)
+    top_left_y = (cy - h_2).unsqueeze(-1)
+    bot_right_x = (cx + w_2).unsqueeze(-1)
+    bot_right_y = (cy + h_2).unsqueeze(-1)
+    return torch.cat((top_left_x, top_left_y, bot_right_x, bot_right_y), -1)
+
+
 def transform_box_layout_xywh2xyxy(boxes: torch.Tensor) -> torch.Tensor:
     """
     Convert boxes with (xywh) layout to (xyxy)
@@ -73,6 +97,26 @@ def detect_postprocess(detector_output: torch.Tensor):
 
     # Get class ID of most likely score.
     scores, class_idx = get_most_likely_score(scores)
+
+    return boxes, scores, class_idx
+
+
+def detect_postprocess_split_input(
+    xy: torch.Tensor, wh: torch.Tensor, scores: torch.Tensor
+):
+    """
+    Same as `detect_postprocess` with inputs split into separate tensors.
+    """
+    boxes = box_transform_xywh2xyxy_split_input(xy, wh)
+    conf = scores[:, :, 0:1]
+    scores = scores[:, :, 1:]
+
+    # Combine confidence and scores.
+    scores *= conf
+
+    # Get class ID of most likely score.
+    # (#10357) QNN has a bug where passing a result of Mul into ReduceMax returns all 0s
+    scores, class_idx = torch.max(scores + 1e-10, -1, keepdim=False)
 
     return boxes, scores, class_idx
 

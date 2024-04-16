@@ -20,10 +20,13 @@ from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 from qai_hub_models.models.googlenet.model import GoogLeNet
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.quantization_aimet import tie_aimet_observer_groups
+from qai_hub_models.utils.quantization_aimet import (
+    constrain_quantized_inputs_to_image_range,
+    tie_aimet_observer_groups,
+)
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 4
 DEFAULT_ENCODINGS = "googlenet_quantized_encodings.json"
 
 
@@ -37,7 +40,8 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
         self,
         sim_model: QuantizationSimModel,
     ) -> None:
-        GoogLeNet.__init__(self, sim_model.model)
+        # Input is already normalized by sim_model. Disable it in the wrapper model.
+        GoogLeNet.__init__(self, sim_model.model, normalize_input=False)
         AIMETQuantizableMixin.__init__(
             self,
             sim_model,
@@ -69,6 +73,7 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
             dummy_input=torch.rand(input_shape),
         )
         cls._tie_pre_concat_quantizers(sim)
+        constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":

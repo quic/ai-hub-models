@@ -8,6 +8,9 @@ aggregated:
   - Google Pixel 4
   - Google Pixel 4a
   - Google Pixel 5a 5G
+  - QCS6490 (Proxy)
+  - QCS8550 (Proxy)
+  - RB3 Gen 2 (Proxy)
   - Samsung Galaxy S21
   - Samsung Galaxy S21 Ultra
   - Samsung Galaxy S21+
@@ -24,6 +27,8 @@ aggregated:
   - Xiaomi 12
   - Xiaomi 12 Pro
   supported_chipsets:
+  - Qcs6490
+  - Qcs8550
   - Snapdragon® 8 Gen 1
   - Snapdragon® 8 Gen 2
   - Snapdragon® 8 Gen 3
@@ -32,19 +37,34 @@ models:
 - name: Yolo-v7
   performance_metrics:
   - torchscript_onnx_tflite:
-      inference_time: 25218.0
-      throughput: 39.65421524308034
+      inference_time: 20875.0
+      throughput: 47.90419161676647
       estimated_peak_memory_range:
-        min: 9555968
-        max: 43269368
+        min: 9580544
+        max: 45193728
       primary_compute_unit: NPU
       precision: fp16
       layer_info:
-        layers_on_npu: 286
+        layers_on_npu: 292
         layers_on_gpu: 0
         layers_on_cpu: 21
-        total_layers: 307
-      job_id: jopr6wd0p
+        total_layers: 313
+      job_id: jep20ezqg
+      job_status: Passed
+    torchscript_onnx_ort:
+      inference_time: 22899.0
+      throughput: 43.670029258919605
+      estimated_peak_memory_range:
+        min: 9625600
+        max: 55617832
+      primary_compute_unit: CPU
+      precision: fp32
+      layer_info:
+        layers_on_npu: 2
+        layers_on_gpu: 0
+        layers_on_cpu: 21
+        total_layers: 23
+      job_id: j2p036xnp
       job_status: Passed
     reference_device_info:
       name: Samsung Galaxy S23
@@ -53,36 +73,36 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-04-02T15:35:57.654637Z'
-    torchscript_onnx_qnn:
-      inference_time: 'null'
-      throughput: 'null'
-      estimated_peak_memory_range:
-        min: 0
-        max: 0
-      primary_compute_unit: 'null'
-      precision: 'null'
-      layer_info:
-        layers_on_npu: 0
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 0
-      job_id: ''
-      job_status: Skipped
+    timestamp: '2024-04-16T20:17:34.400111Z'
   - torchscript_onnx_tflite:
-      inference_time: 19396.0
-      throughput: 51.557022066405445
+      inference_time: 16244.0
+      throughput: 61.56119182467373
       estimated_peak_memory_range:
-        min: 12288
-        max: 131497776
+        min: 40960
+        max: 202538080
       primary_compute_unit: NPU
       precision: fp16
       layer_info:
-        layers_on_npu: 286
+        layers_on_npu: 292
         layers_on_gpu: 0
         layers_on_cpu: 21
-        total_layers: 307
-      job_id: jep2xedrg
+        total_layers: 313
+      job_id: jqpyrmyl5
+      job_status: Passed
+    torchscript_onnx_ort:
+      inference_time: 18014.0
+      throughput: 55.51237926057511
+      estimated_peak_memory_range:
+        min: 17952768
+        max: 200617376
+      primary_compute_unit: CPU
+      precision: fp32
+      layer_info:
+        layers_on_npu: 2
+        layers_on_gpu: 0
+        layers_on_cpu: 21
+        total_layers: 23
+      job_id: j1p801kog
       job_status: Passed
     reference_device_info:
       name: Samsung Galaxy S24
@@ -91,19 +111,35 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-04-02T15:35:57.654650Z'
-    torchscript_onnx_qnn:
-      inference_time: 'null'
-      throughput: 'null'
+    timestamp: '2024-04-16T20:17:34.400202Z'
+  - torchscript_onnx_ort:
+      inference_time: 157265.0
+      throughput: 6.358693924267955
       estimated_peak_memory_range:
-        min: 0
-        max: 0
-      primary_compute_unit: 'null'
-      precision: 'null'
+        min: 33193984
+        max: 124688816
+      primary_compute_unit: CPU
+      precision: fp32
       layer_info:
         layers_on_npu: 0
         layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 0
-      job_id: ''
-      job_status: Skipped
+        layers_on_cpu: 212
+        total_layers: 212
+      job_id: jogk78knp
+      job_status: Passed
+    reference_device_info:
+      name: RB3 Gen 2 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: ''
+      chipset: Qcs6490
+    timestamp: '2024-04-16T20:17:34.400247Z'
+  - reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: ''
+      chipset: Qcs8550
+    timestamp: '2024-04-16T20:17:34.400256Z'

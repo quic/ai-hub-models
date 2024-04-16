@@ -30,8 +30,9 @@ def load_clip_and_tokenizer():
     ):
         import clip
 
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer_func = clip.tokenize
-        net, preprocess = clip.load(PRETRAINED_WEIGHTS)
+        net, preprocess = clip.load(PRETRAINED_WEIGHTS, device=device)
         return net, preprocess, tokenizer_func
 
 

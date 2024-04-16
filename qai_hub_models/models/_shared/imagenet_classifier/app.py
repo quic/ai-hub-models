@@ -8,10 +8,8 @@ import torch
 from PIL.Image import Image
 from torchvision import transforms
 
-from qai_hub_models.models._shared.imagenet_classifier.model import (
-    IMAGENET_DIM,
-    ImagenetClassifier,
-)
+from qai_hub_models.models._shared.imagenet_classifier.model import IMAGENET_DIM
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.image_processing import normalize_image_transform
 
 IMAGENET_TRANSFORM = transforms.Compose(
@@ -19,22 +17,27 @@ IMAGENET_TRANSFORM = transforms.Compose(
         transforms.Resize(256),
         transforms.CenterCrop(IMAGENET_DIM),
         transforms.ToTensor(),
-        normalize_image_transform(),
     ]
 )
 
 
-def preprocess_image(image: Image) -> torch.Tensor:
+def preprocess_image(image: Image, normalize: bool = False) -> torch.Tensor:
     """
     Preprocesses images to be run through torch imagenet classifiers
     as prescribed here:
     https://pytorch.org/hub/pytorch_vision_resnet/
     Parameters:
         image: Input image to be run through the classifier model.
+
+        normalize: bool
+            Perform normalization to the standard imagenet mean and standard deviation.
     Returns:
         torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = IMAGENET_TRANSFORM(image)  # type: ignore
+    if normalize:
+        out_tensor = normalize_image_transform()(out_tensor)
+
     return out_tensor.unsqueeze(0)
 
 
@@ -49,8 +52,22 @@ class ImagenetClassifierApp:
         * Convert the raw output into probabilities using softmax
     """
 
-    def __init__(self, model: ImagenetClassifier):
+    def __init__(
+        self,
+        model: ExecutableModelProtocol,
+        normalization_in_network: bool = True,
+    ):
+        """
+        Parameters:
+            model: ExecutableModelProtocol
+                The imagenet classifier.
+
+            normalization_in_network: bool
+                Whether the classifier normalizes the input using the standard imagenet mean and standard deviation.
+                If false, the app will preform the normalization in a preprocessing step.
+        """
         self.model = model
+        self.normalization_in_network = normalization_in_network
 
     def predict(self, image: Image) -> torch.Tensor:
         """
@@ -64,8 +81,7 @@ class ImagenetClassifierApp:
             A (1000,) size torch tensor of probabilities, each one corresponding
             to a different Imagenet1K class.
         """
-
-        input_tensor = preprocess_image(image)
+        input_tensor = preprocess_image(image, not self.normalization_in_network)
         with torch.no_grad():
             output = self.model(input_tensor)
         return torch.softmax(output[0], dim=0)

@@ -4,17 +4,20 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Callable, Optional
 
 import numpy as np
 import torch
-from PIL import Image
-from transformers import DetrImageProcessor
+from PIL.Image import Image, Resampling
 
 from qai_hub_models.models._shared.detr.coco_label_map import LABEL_MAP
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
 from qai_hub_models.utils.draw import draw_box_from_xyxy
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+    preprocess_PIL_image,
+)
 
 
 class DETRApp:
@@ -31,14 +34,16 @@ class DETRApp:
     def __init__(
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
-        model_image_input_size: Tuple[int, int] | None = None,
+        model_image_height: Optional[int] = None,
+        model_image_width: Optional[int] = None,
     ):
         self.model = model
-        self.model_image_input_size = model_image_input_size
+        self.model_image_height = model_image_height
+        self.model_image_width = model_image_width
 
     def predict(
         self,
-        image: Image.Image,
+        image: Image,
         default_weights: str,
         threshold: float = 0.9,
     ) -> np.ndarray:
@@ -65,18 +70,19 @@ class DETRApp:
                  Shape is [Number of predictions above threshold x top_left_x, top_left_y, bottom_right_x, bottom_right_y]
 
         """
-        size = (
-            {
-                "width": self.model_image_input_size[1],
-                "height": self.model_image_input_size[0],
-            }
-            if self.model_image_input_size
-            else None
-        )
+        # The official detr demo uses resize instead of padding. There is an option
+        # to do padding instead and pass a pixel mask to the model, but we opted for
+        # the simpler route.
+        # https://colab.research.google.com/github/facebookresearch/detr/blob/colab/notebooks/detr_attention.ipynb#scrollTo=ZRluxbQYYTEe
+        if self.model_image_height is not None and self.model_image_width is not None:
+            image = image.resize(
+                (self.model_image_width, self.model_image_height),
+                resample=Resampling.BILINEAR,
+            )
+        image_array = normalize_image_torchvision(preprocess_PIL_image(image))
 
-        image_processor = DetrImageProcessor.from_pretrained(default_weights, size=size)
-        encoding = image_processor(image, return_tensors="pt")
-        outputs = self.model(encoding["pixel_values"], encoding["pixel_mask"].float())
+        with torch.no_grad():
+            outputs = self.model(image_array)
         target_sizes = torch.tensor(image.size[::-1]).unsqueeze(0)
 
         out_logits, out_bbox = outputs[0], outputs[1]
@@ -97,7 +103,7 @@ class DETRApp:
             label = l[s > threshold]
             box = b[s > threshold]
 
-        NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(image)
+        NHWC_int_numpy_frames, _ = app_to_net_image_inputs(image)
         for p, (xmin, ymin, xmax, ymax), l in zip(score, box.tolist(), label):
             draw_box_from_xyxy(
                 NHWC_int_numpy_frames[0],

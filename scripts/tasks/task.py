@@ -17,8 +17,13 @@ COVERAGE_DIR = os.path.join(REPO_ROOT, "build", "test-coverage")
 
 
 class Task(ABC):
-    def __init__(self, group_name: Optional[str]) -> None:
+    def __init__(
+        self, group_name: Optional[str], raise_on_failure: bool = True
+    ) -> None:
         self.group_name = group_name
+        self.raise_on_failure = raise_on_failure
+        self.last_result: Optional[bool] = None
+        self.last_result_exception: Optional[Exception] = None
 
     @abstractmethod
     def does_work(self) -> bool:
@@ -27,34 +32,41 @@ class Task(ABC):
         """
 
     @abstractmethod
-    def run_task(self) -> None:
+    def run_task(self) -> bool:
         """
         Entry point for implementations: perform the task's action.
         """
 
-    def run(self) -> None:
+    def run(self) -> bool:
         """
         Entry point for callers: perform any startup/teardown tasks and call run_task.
         """
+        self.last_result_exception = None
+
         if self.group_name:
             start_group(self.group_name)
-        self.run_task()
+
+        try:
+            result = self.run_task()
+        except Exception as err:
+            self.last_result_exception = err
+            result = False
+
+        self.last_result = result
+        if not result and self.raise_on_failure:
+            raise self.last_result_exception or Exception(self.get_status_message())
+
         if self.group_name:
             end_group()
 
+        return result
 
-class FailTask(Task):
-    """A Task that unconditionally fails."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(group_name=None)
-        self._message = message
-
-    def does_work(self) -> bool:
-        return True
-
-    def run_task(self) -> None:
-        raise RuntimeError(self._message)
+    def get_status_message(self) -> str:
+        if self.last_result is not None:
+            if self.last_result:
+                return f"{self.group_name} succeeded."
+            return f"{self.group_name} failed{': ' + str(self.last_result_exception) if self.last_result_exception else ''}."
+        return f"{self.group_name} has not run."
 
 
 class ListTasksTask(Task):
@@ -65,7 +77,7 @@ class ListTasksTask(Task):
     def does_work(self) -> bool:
         return False
 
-    def run_task(self) -> None:
+    def run_task(self) -> bool:
         from . import plan
 
         for task_name in sorted(self.tasks):
@@ -73,6 +85,8 @@ class ListTasksTask(Task):
             description = plan.TASK_DESCRIPTIONS.get(task_name, None)
             if description:
                 print(f"    {description}")
+
+        return True
 
 
 class NoOpTask(Task):
@@ -84,8 +98,8 @@ class NoOpTask(Task):
     def does_work(self) -> bool:
         return False
 
-    def run_task(self) -> None:
-        pass
+    def run_task(self) -> bool:
+        return True
 
 
 class RunCommandsTask(Task):
@@ -100,8 +114,10 @@ class RunCommandsTask(Task):
         as_root: bool = False,
         env: Optional[Dict[str, str]] = None,
         cwd: Optional[str] = None,
+        raise_on_failure: bool = True,
+        ignore_return_codes: List[int] = [],
     ) -> None:
-        super().__init__(group_name)
+        super().__init__(group_name, raise_on_failure)
         if isinstance(commands, str):
             self.commands = [commands]
         else:
@@ -112,24 +128,37 @@ class RunCommandsTask(Task):
 
         self.cwd = cwd
         self.env = env
+        self.ignore_return_codes = ignore_return_codes
 
     def does_work(self) -> bool:
         return True
 
-    def run_task(self) -> None:
+    def run_task(self) -> bool:
+        result: bool = True
         for command in self.commands:
-            self._run_command(command)
+            result = result and self._run_command(command)
+            if not result:
+                break
+        return result
 
-    def _run_command(self, command: str) -> None:
+    def _run_command(self, command: str) -> bool:
         echo(f"bnt $ {command}")
-        subprocess.run(
-            command,
-            shell=True,
-            check=True,
-            cwd=self.cwd,
-            env=self.env,
-            executable=BASH_EXECUTABLE,
-        )
+        try:
+            subprocess.run(
+                command,
+                shell=True,
+                check=True,
+                cwd=self.cwd,
+                env=self.env,
+                executable=BASH_EXECUTABLE,
+            )
+        except subprocess.CalledProcessError as e:
+            if e.returncode in self.ignore_return_codes:
+                return True
+            if self.raise_on_failure:
+                raise
+            return False
+        return True
 
 
 class RunCommandsWithVenvTask(RunCommandsTask):
@@ -144,24 +173,22 @@ class RunCommandsWithVenvTask(RunCommandsTask):
         venv: Optional[str],
         commands: Union[List[str], str],
         env: Optional[Dict[str, str]] = None,
+        raise_on_failure: bool = True,
+        ignore_return_codes: List[int] = [],
     ) -> None:
-        super().__init__(group_name, commands, env=env)
+        super().__init__(
+            group_name,
+            commands,
+            env=env,
+            raise_on_failure=raise_on_failure,
+            ignore_return_codes=ignore_return_codes,
+        )
         self.venv = venv
-
-    def run_task(self) -> None:
-        for command in self.commands:
-            if self.venv is not None:
-                venv_command = f"source {self.venv}/bin/activate && {command}"
-                echo(f"bnt $ {venv_command}")
-                subprocess.run(
-                    venv_command,
-                    shell=True,
-                    check=True,
-                    executable=BASH_EXECUTABLE,
-                    env=self.env,
-                )
-            else:
-                self._run_command(command)
+        if self.venv is not None:
+            self.commands = [
+                f"source {self.venv}/bin/activate && {command}"
+                for command in self.commands
+            ]
 
 
 class PyTestTask(RunCommandsWithVenvTask):
@@ -179,6 +206,10 @@ class PyTestTask(RunCommandsWithVenvTask):
         extra_args: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
         skip_coverage: bool = False,
+        raise_on_failure: bool = True,
+        # Pytest returns code 5 if no tests were run. Set this to true
+        # to ignore that return code (count it as "passed")
+        ignore_no_tests_return_code: bool = False,
     ) -> None:
         pytest_options = f"--name={report_name}"
 
@@ -210,7 +241,14 @@ class PyTestTask(RunCommandsWithVenvTask):
 
         command = f"{REPO_ROOT}/scripts/util/pytest_with_coverage.sh {pytest_options} "
 
-        super().__init__(group_name, venv, command, env)
+        super().__init__(
+            group_name,
+            venv,
+            command,
+            env,
+            raise_on_failure,
+            ignore_return_codes=[5] if ignore_no_tests_return_code else [],
+        )
 
 
 class CompositeTask(Task):
@@ -218,16 +256,50 @@ class CompositeTask(Task):
     A Task composed of a list of other Tasks.
     """
 
-    def __init__(self, group_name: Optional[str], tasks: List[Task]) -> None:
-        super().__init__(group_name)
+    def __init__(
+        self,
+        group_name: Optional[str],
+        tasks: List[Task],
+        continue_after_single_task_failure: bool = False,
+        raise_on_failure: bool = True,
+        show_subtasks_in_failure_message: bool = True,
+    ) -> None:
+        super().__init__(group_name, raise_on_failure)
         self.tasks = tasks
+        self.continue_after_single_task_failure = continue_after_single_task_failure
+        self.show_subtasks_in_failure_message = show_subtasks_in_failure_message
 
     def does_work(self) -> bool:
         return any([t.does_work() for t in self.tasks])
 
-    def run_task(self) -> None:
+    def run_task(self) -> bool:
+        self.prev_run_status = {}
+        result: bool = True
         for task in self.tasks:
-            task.run()
+            try:
+                task_result = task.run()
+            except Exception:
+                task_result = False
+            result = result and task_result
+            if not result and not self.continue_after_single_task_failure:
+                break
+        return result
+
+    def get_status_message(self) -> str:
+        if self.last_result is not None:
+            if self.last_result:
+                return f"{self.group_name} succeeded."
+            else:
+                res = f"{self.group_name} failed."
+                if self.show_subtasks_in_failure_message:
+                    res += " Composite failure summary:"
+                    for task in self.tasks:
+                        if not task.last_result:
+                            res += "\n    " + task.get_status_message().replace(
+                                "\n", "\n    "
+                            )
+                return res
+        return f"{self.group_name} has not run."
 
 
 class ConditionalTask(Task):
@@ -242,8 +314,9 @@ class ConditionalTask(Task):
         condition: Callable[[], bool],
         true_task: Task,
         false_task: Task,
+        raise_on_failure: bool = True,
     ) -> None:
-        super().__init__(group_name)
+        super().__init__(group_name, raise_on_failure)
         self.condition = condition
         self.true_task = true_task
         self.false_task = false_task
@@ -254,8 +327,8 @@ class ConditionalTask(Task):
         else:
             return self.false_task.does_work()
 
-    def run_task(self) -> None:
+    def run_task(self) -> bool:
         if self.condition():
-            self.true_task.run()
+            return self.true_task.run()
         else:
-            self.false_task.run()
+            return self.false_task.run()

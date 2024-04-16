@@ -22,12 +22,6 @@ MOBILENETV2_SOURCE_REPO_COMMIT = "99f213657e97de463c11c9e0eaca3bda598e8b3f"
 
 
 class MobileNetV2(ImagenetClassifier):
-    def __init__(
-        self,
-        mobilenet_v2_model: torch.nn.Module,
-    ) -> None:
-        super().__init__(mobilenet_v2_model)
-
     @classmethod
     def from_pretrained(cls, weights: str = MOBILENETV2_WEIGHTS) -> MobileNetV2:
         model = _load_mobilenet_v2_source_model()

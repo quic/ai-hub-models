@@ -11,6 +11,8 @@ import logging
 import os
 
 try:
+    from aimet_common.connected_graph.operation import Op as AimetOp
+    from aimet_common.connected_graph.product import Product as AimetProduct
     from aimet_common.utils import AimetLogger  # type: ignore
     from aimet_torch import onnx_utils
     from aimet_torch.qc_quantize_op import QcQuantizeWrapper
@@ -31,10 +33,12 @@ except (ImportError, ModuleNotFoundError):
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Dict, List, Optional, Tuple
 from zipfile import ZipFile
 
+import aimet_torch.elementwise_ops as aimet_ops
 import torch
+import torch.nn.modules as nn
 from qai_hub.client import DatasetEntries
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader, _for_each_batch
@@ -47,27 +51,101 @@ from qai_hub_models.models.protocols import (
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 
 
-def tie_aimet_observer_groups(groups: List[List[Any]]):
+def _should_tie_observers(op: torch.nn.Module) -> bool:
     """
-    This defines groups of ops that all should use the same output
-    quantizer observer. The input groups is a list of lists, where the
-    inner lists contain op references that should all use the same output
-    quantizer. Each op should have an `output_quantizers` member.
-
-    Example:
-
-        groups = [
-            [
-                sim.model.net.maxpool2,
-                sim.model.net.Mixed_5b.module_avg_pool2d,
-            ],
-        ]
-        _tie_aimet_observer_groups(groups)
+    Determine whether the input and output observers of this op should be tied.
     """
-    for group in groups:
-        output_quantizer = group[0].output_quantizers[0]
-        for op in group[1:]:
-            op.output_quantizers[0] = output_quantizer
+    if not hasattr(op, "_module_to_wrap"):
+        return False
+    wrapped_op = op._module_to_wrap
+    op_types_to_tie = [nn.MaxPool2d, nn.AvgPool2d, nn.Upsample, aimet_ops.Concat]
+    for op_type in op_types_to_tie:
+        if isinstance(wrapped_op, op_type):
+            return True
+    return False
+
+
+def _get_observer_module_name(modules: Dict[str, Any], name: str) -> Optional[str]:
+    module = modules.get(name)
+    if isinstance(module, QcQuantizeWrapper):
+        return name
+    elif isinstance(module, aimet_ops.CustomSiLU):
+        return name + ".mul"
+    return None
+
+
+def _tie_quantizer_deps(
+    quantizer_deps: Dict[str, List[str]], modules: Dict[str, torch.nn.Module]
+) -> None:
+    """
+    Given a dependency graph of nodes, tie output quantizers of nodes that share an edge.
+    All edges should be bidirectional.
+    """
+    seen = set([])
+    for input_module_name in quantizer_deps.keys():
+        if input_module_name in seen:
+            continue
+        seen.add(input_module_name)
+        stack = [input_module_name]
+        module = modules[input_module_name]
+        assert isinstance(module, QcQuantizeWrapper)
+        quantizer = module.output_quantizers[0]
+        while len(stack) > 0:
+            curr_node = stack.pop()
+            for edge in quantizer_deps[curr_node]:
+                if edge in seen:
+                    continue
+                seen.add(edge)
+                stack.append(edge)
+                edge_module = modules[edge]
+                assert isinstance(edge_module, QcQuantizeWrapper)
+                edge_module.output_quantizers[0] = quantizer
+
+
+def tie_observers(quant_sim: QuantizationSimModel) -> None:
+    """
+    For certain ops, the input and output observers need to be the same.
+
+    For example, in a concat op, all the inputs need to have the same scale.
+    Otherwise, there will need to be an additional explicit quantize which is lossy.
+
+    Other ops like MaxPool and AvgPool are constraints in tflite.
+
+    This assumes all modules have exactly one output.
+    All modules (i.e. instances of `StaticGridQuantWrapper`) have both an
+        `output_quantizers` and `input_quantizers` field.
+    We only update output_quantizers since empircally that's all that seems to matter.
+    """
+    fx_graph = quant_sim.model
+    nodes = [node for node in fx_graph.graph.nodes]
+    modules = dict(fx_graph.named_modules())
+
+    # quant_sim.model is a torch fx graph. This graph stores nodes and modules.
+    # nodes store the graph structure (which ops input into other ops).
+    # modules store the op objects themselves.
+    # Create a dependency graph of modules that need to share output quantizers.
+    quantizer_deps: Dict[str, List[str]] = {}
+    for node in nodes:
+        module = modules.get(node.target)
+        if module is None or not _should_tie_observers(module):
+            continue
+        if node.target not in quantizer_deps:
+            quantizer_deps[node.target] = []
+        for input_node in node.all_input_nodes:
+            # If the node is something like a reshape with no observers,
+            # Keep going up the tree until you find something with an observer.
+            # If one of these nodes has multiple inputs, this may behave incorrectly.
+            while (
+                observer_module_name := _get_observer_module_name(
+                    modules, input_node.target
+                )
+            ) is None:
+                input_node = input_node.all_input_nodes[0]
+            if observer_module_name not in quantizer_deps:
+                quantizer_deps[observer_module_name] = []
+            quantizer_deps[observer_module_name].append(node.target)
+            quantizer_deps[node.target].append(observer_module_name)
+    _tie_quantizer_deps(quantizer_deps, modules)
 
 
 def convert_all_depthwise_to_per_tensor(module):
@@ -96,6 +174,49 @@ def convert_all_depthwise_to_per_tensor(module):
     apply_module_function_recursively(
         module, torch.nn.Conv2d, convert_depthwise_to_per_tensor
     )
+
+
+def constrain_quantized_inputs_to_range(
+    qsim: QuantizationSimModel, range: Tuple[float, float]
+):
+    """
+    For all model inputs, set the quantizer to have the provided input range.
+    """
+
+    # Map: <nn.Module, List of Quantized Inputs>
+    module_to_inputs_idx: Dict[torch.nn.Module, List[int]] = {}
+    op: AimetOp
+    for op in qsim.connected_graph.get_all_ops().values():
+        if op.get_module():
+            module = op.get_module()
+            idx: int
+            input_product: AimetProduct
+            for idx, input_product in enumerate(op.get_input_products()):
+                if input_product.is_model_input:
+                    if module in module_to_inputs_idx:
+                        module_to_inputs_idx[module].append(idx)
+                    else:
+                        module_to_inputs_idx[module] = [idx]
+
+    for _, quant_wrapper in qsim.quant_wrappers():
+        if indices := module_to_inputs_idx.get(quant_wrapper._module_to_wrap):
+            for index in indices:
+                if index < len(quant_wrapper.input_quantizers):
+                    quant_wrapper.input_quantizers[
+                        index
+                    ].encoding_min_max_fixed_vals = range
+
+
+def constrain_quantized_inputs_to_image_range(qsim: QuantizationSimModel):
+    """
+    For all model inputs, set the quantizer to have a range of (0, 1).
+
+    The range translates to the full image range for int8/uint8/int16/uint16.
+
+    This is typically useful for use in pipelines where the input is already int8/uint8 and
+    we know the quantization range beforehand (eg. a RGB camera feed).
+    """
+    return constrain_quantized_inputs_to_range(qsim, (0.0, 1.0))
 
 
 class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol):
@@ -305,3 +426,29 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
         return SourceModelFormat.ONNX
+
+
+def tie_aimet_observer_groups(groups: List[List[Any]]):
+    """
+    Unless you're doing something very customized, you likely want to use
+    the `tie_observers` method instead.
+
+    This defines groups of ops that all should use the same output
+    quantizer observer. The input groups is a list of lists, where the
+    inner lists contain op references that should all use the same output
+    quantizer. Each op should have an `output_quantizers` member.
+
+    Example:
+
+        groups = [
+            [
+                sim.model.net.maxpool2,
+                sim.model.net.Mixed_5b.module_avg_pool2d,
+            ],
+        ]
+        _tie_aimet_observer_groups(groups)
+    """
+    for group in groups:
+        output_quantizer = group[0].output_quantizers[0]
+        for op in group[1:]:
+            op.output_quantizers[0] = output_quantizer

@@ -33,21 +33,33 @@ def get_max_preds(batch_heatmaps):
     batch_size = batch_heatmaps.shape[0]
     num_joints = batch_heatmaps.shape[1]
     width = batch_heatmaps.shape[3]
+
+    # shape [batch, num joints, image h * w]
     heatmaps_reshaped = batch_heatmaps.reshape((batch_size, num_joints, -1))
+
+    # index of max pixel per joint
     idx = np.argmax(heatmaps_reshaped, 2)
+
+    # value of max pixel per joint
     maxvals = np.amax(heatmaps_reshaped, 2)
 
+    # Reshape to prep for tiling
     maxvals = maxvals.reshape((batch_size, num_joints, 1))
     idx = idx.reshape((batch_size, num_joints, 1))
 
+    # Tile indices to make room for (x, y)
     preds = np.tile(idx, (1, 1, 2)).astype(np.float32)
 
+    # Convert index [..., 0] to x
     preds[:, :, 0] = (preds[:, :, 0]) % width
+    # Convert [..., 1] to y
     preds[:, :, 1] = np.floor((preds[:, :, 1]) / width)
 
+    # Tile mask back to (x, y) plane to ignore negatives
     pred_mask = np.tile(np.greater(maxvals, 0.0), (1, 1, 2))
     pred_mask = pred_mask.astype(np.float32)
 
+    # apply mask
     preds *= pred_mask
     return preds, maxvals
 
@@ -110,14 +122,27 @@ class HRNetPoseApp:
                 predicted_images: List[PIL.Image]
                     Images with keypoints drawn.
         """
-        # Preprocess image to get data required for post processing
+        # Convert from PIL / torch/ etc. to NHWC, RGB numpy frames, which is the required input type.
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
+
+        # MMPose does a lot of heavy lifting here. The preprocessor does the following:
+        # * runs a detetor model to find people in each frame
+        # * for each bounding box...
+        # *     crop to the bounding box. resize bounding box to fit model input size using scaling factor
+        # *     Save bounding box coordinates and box scaling factor for use later
         inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
+
+        # We only get the first (highest probability) box and ignore the others.
+        # Other implementations may choose to run pose estimation on all boxes
+        # if they want to support multiple people in the same frame.
         proc_inputs, _ = list(inputs)[0]
         proc_inputs_ = proc_inputs["inputs"][0]
 
+        # RGB -> BGR
         x = proc_inputs_[[2, 1, 0], ...]
+        # Convert to expected model input distrubtion
         x = (x - self.pre_processor.mean) / self.pre_processor.std
+        # Add batch dimension
         x = torch.unsqueeze(x, 0)
 
         # run inference
@@ -127,22 +152,39 @@ class HRNetPoseApp:
         # create predictions from heatmap
         pred_kps, scores = get_max_preds(heatmaps)
 
-        # get the bounding box center from the preprocessing
-        # In older versions of the MM modules the center is directly a member
-        # of gt_instances and does not need to be computed.
+        # Coordinates are relative to the cropped bbox, not the original image.
+        # We need to grab the box center and scale to transform the coordinates
+        # back to the original image.
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]
         center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-
         scale = proc_inputs["data_samples"][0].gt_instances.bbox_scales[0]
 
-        # perform refinement
+        # Refine keypoints.
+        # Move 1px towards the "second maximum".
+        #
+        # A key insight here is because this is a heatmap, the second maximum should be adjacent to the maximum.
+        # It's accounting for if the "real" pixel is in-between the first and second maxima in a heatmap "hot spot",
+        # considering the heatmap is lower resolution than the input image to the model (this is the cropped bbox image,
+        # not the entire image provided by the user).
+        #
+        # There could theoretically be a second maximum somewhere completely different in the frame.
+        # That said, moving your keypoint in that direction would not assist the keypoint prediction,
+        # since the "second maximum" refers to a different prediction area entirely.
         keypoints = refine_keypoints(pred_kps, np.squeeze(heatmaps))
+
+        # Multiply by the downscaling factor of model output. In other words, the predicted heatmap is
+        # 1/16 the size of the network input image (or 1/4 in each dimension). Therefore, for this model,
+        # the scaling factor is 4x. Multiplying by 4 will place the predicted keypoints in the coordinate
+        # space of the cropped input network image.
         scale_factor = np.array([4.0, 4.0])
         keypoints = keypoints * scale_factor
+
+        # The keypoints predicted by the network are relative to the cropped image for each bounding box, not
+        # the original image. Use the predicted bounding box center and scale to map the predicted coordinates
+        # back to the original input image provided by the user.
         input_size = proc_inputs["data_samples"][0].metainfo["input_size"]
         keypoints = keypoints / input_size * scale + center - 0.5 * scale
         keypoints = np.round(keypoints).astype(np.int32)
-
         if raw_output:
             return keypoints
 
