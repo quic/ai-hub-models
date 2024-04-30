@@ -27,7 +27,7 @@ GT_BOXES = CachedWebModelAsset.from_asset_store(
 def test_task():
     image = load_image(IMAGE_ADDRESS)
     app = YoloV7DetectionApp(
-        YoloV7Quantizable.from_pretrained(), nms_score_threshold=0.4
+        YoloV7Quantizable.from_pretrained(), nms_score_threshold=0.5
     )
     boxes = app.predict_boxes_from_image(image, raw_output=True)[0][0].numpy()
     boxes_gt = load_numpy(GT_BOXES)

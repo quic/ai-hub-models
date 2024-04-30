@@ -8,9 +8,7 @@ aggregated:
   - Google Pixel 4
   - Google Pixel 4a
   - Google Pixel 5a 5G
-  - QCS6490 (Proxy)
   - QCS8550 (Proxy)
-  - RB3 Gen 2 (Proxy)
   - Samsung Galaxy S21
   - Samsung Galaxy S21 Ultra
   - Samsung Galaxy S21+
@@ -27,7 +25,6 @@ aggregated:
   - Xiaomi 12
   - Xiaomi 12 Pro
   supported_chipsets:
-  - Qcs6490
   - Qcs8550
   - Snapdragon® 8 Gen 1
   - Snapdragon® 8 Gen 2
@@ -88,7 +85,7 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-04-16T20:17:32.692034Z'
+    timestamp: '2024-04-23T18:42:32.499757Z'
   - torchscript_onnx_tflite:
       inference_time: 679.0
       throughput: 1472.7540500736377
@@ -141,38 +138,45 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-04-16T20:17:32.692119Z'
-  - torchscript_onnx_ort:
-      inference_time: 41236.0
-      throughput: 24.25065476767873
+    timestamp: '2024-04-23T18:42:32.499831Z'
+  - torchscript_onnx_tflite:
+      inference_time: 959.0
+      throughput: 1042.752867570386
       estimated_peak_memory_range:
-        min: 348160
-        max: 56481568
-      primary_compute_unit: CPU
-      precision: fp32
+        min: 24576
+        max: 3871952
+      primary_compute_unit: NPU
+      precision: fp16
       layer_info:
-        layers_on_npu: 0
+        layers_on_npu: 152
         layers_on_gpu: 0
-        layers_on_cpu: 116
-        total_layers: 116
-      job_id: jep20exxg
+        layers_on_cpu: 0
+        total_layers: 152
+      job_id: j1p3vr8xg
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 1020.0
+      throughput: 980.3921568627451
+      estimated_peak_memory_range:
+        min: 806912
+        max: 7974248
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 197
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 197
+      job_id: jnp1ym3kp
       job_status: Passed
     reference_device_info:
-      name: RB3 Gen 2 (Proxy)
-      os: '12'
-      form_factor: Iot
-      os_name: Android
-      manufacturer: ''
-      chipset: Qcs6490
-    timestamp: '2024-04-16T20:17:32.692149Z'
-  - reference_device_info:
       name: QCS8550 (Proxy)
       os: '12'
       form_factor: Iot
       os_name: Android
-      manufacturer: ''
+      manufacturer: Qualcomm
       chipset: Qcs8550
-    timestamp: '2024-04-16T20:17:32.692154Z'
+    timestamp: '2024-04-23T18:42:32.499901Z'
 - name: MediaPipeHandLandmarkDetector
   performance_metrics:
   - torchscript_onnx_tflite:
@@ -227,7 +231,7 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-04-16T20:17:32.692237Z'
+    timestamp: '2024-04-23T18:42:32.499968Z'
   - torchscript_onnx_tflite:
       inference_time: 901.0
       throughput: 1109.8779134295228
@@ -280,35 +284,42 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-04-16T20:17:32.692320Z'
-  - torchscript_onnx_ort:
-      inference_time: 38223.0
-      throughput: 26.162258326138712
+    timestamp: '2024-04-23T18:42:32.500029Z'
+  - torchscript_onnx_tflite:
+      inference_time: 1206.0
+      throughput: 829.1873963515754
       estimated_peak_memory_range:
-        min: 425984
-        max: 56359008
-      primary_compute_unit: CPU
-      precision: fp32
+        min: 40960
+        max: 2078488
+      primary_compute_unit: NPU
+      precision: fp16
       layer_info:
-        layers_on_npu: 0
+        layers_on_npu: 159
         layers_on_gpu: 0
-        layers_on_cpu: 116
-        total_layers: 116
-      job_id: jqpyrmzr5
+        layers_on_cpu: 0
+        total_layers: 159
+      job_id: jwgok9m4p
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 1308.0
+      throughput: 764.525993883792
+      estimated_peak_memory_range:
+        min: 811008
+        max: 8238832
+      primary_compute_unit: NPU
+      precision: fp16
+      layer_info:
+        layers_on_npu: 210
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 210
+      job_id: jvgdem0k5
       job_status: Passed
     reference_device_info:
-      name: RB3 Gen 2 (Proxy)
-      os: '12'
-      form_factor: Iot
-      os_name: Android
-      manufacturer: ''
-      chipset: Qcs6490
-    timestamp: '2024-04-16T20:17:32.692348Z'
-  - reference_device_info:
       name: QCS8550 (Proxy)
       os: '12'
       form_factor: Iot
       os_name: Android
-      manufacturer: ''
+      manufacturer: Qualcomm
       chipset: Qcs8550
-    timestamp: '2024-04-16T20:17:32.692352Z'
+    timestamp: '2024-04-23T18:42:32.500084Z'

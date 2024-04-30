@@ -14,7 +14,7 @@ import sys
 from functools import partial
 from importlib import import_module
 from pydoc import locate
-from typing import Any, List, Mapping, Optional, Type
+from typing import Any, List, Mapping, Optional, Set, Type
 
 import qai_hub as hub
 
@@ -364,6 +364,17 @@ def input_spec_from_cli_args(
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))
 
 
+def get_qcom_chipsets() -> Set[str]:
+    return set(
+        [
+            attr[len("chipset:") :]
+            for dev in hub.get_devices()
+            for attr in dev.attributes
+            if attr.startswith("chipset:qualcomm")
+        ]
+    )
+
+
 def export_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
     components: Optional[List[str]] = None,
@@ -402,6 +413,14 @@ def export_parser(
         help="Device for which to export.",
     )
     parser.add_argument(
+        "--chipset",
+        type=str,
+        default=None,
+        choices=sorted(get_qcom_chipsets(), reverse=True),
+        help="If set, will choose a random device with this chipset. "
+        "Overrides whatever is set in --device.",
+    )
+    parser.add_argument(
         "--skip-profiling",
         action="store_true",
         help="If set, writes compiled model to local directory without profiling.",
@@ -431,7 +450,16 @@ def export_parser(
     )
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
-        add_target_runtime_arg(parser, help="The runtime for which to export.")
+        available_runtimes = [TargetRuntime.TFLITE]
+        if supports_qnn:
+            available_runtimes.append(TargetRuntime.QNN)
+        if supports_ort:
+            available_runtimes.append(TargetRuntime.ORT)
+        add_target_runtime_arg(
+            parser,
+            available_target_runtimes=available_runtimes,
+            help="The runtime for which to export.",
+        )
         # No compilation for compiled models
         parser.add_argument(
             "--compile-options",

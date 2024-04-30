@@ -36,12 +36,14 @@ class YoloV7(BaseModel):
         yolov7_detector: torch.nn.Module,
         include_postprocessing: bool = True,
         split_output: bool = False,
+        class_dtype: torch.dtype = torch.float32,
     ) -> None:
         super().__init__()
         self.yolov7_feature_extractor = yolov7_feature_extractor
         self.yolov7_detector = yolov7_detector
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
+        self.class_dtype = class_dtype
 
     # All image input spatial dimensions should be a multiple of this stride.
     STRIDE_MULTIPLE = 32
@@ -131,7 +133,9 @@ class YoloV7(BaseModel):
                 return detector_output
             return torch.cat(detector_output, -1)
 
-        return detect_postprocess_split_input(*detector_output)
+        return detect_postprocess_split_input(
+            *detector_output, class_dtype=self.class_dtype
+        )
 
     @staticmethod
     def get_input_spec(

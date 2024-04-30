@@ -50,7 +50,6 @@ class ImagenetteDataset(BaseDataset, ImageNet):
     """
 
     def __init__(self):
-        self._download_data()
         BaseDataset.__init__(self, str(IMAGENETTE_ASSET.path(extracted=True)))
         # Avoid circular import
         from qai_hub_models.models._shared.imagenet_classifier.app import (

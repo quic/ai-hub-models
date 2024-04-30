@@ -38,6 +38,7 @@ DEFAULT_COMPONENTS = [
 
 def export_model(
     device: str = "Samsung Galaxy S23",
+    chipset: Optional[str] = None,
     components: Optional[List[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -63,6 +64,8 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: If set, will choose a random device with this chipset.
+            Overrides the `device` argument.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
@@ -83,6 +86,10 @@ def export_model(
     """
     model_name = "controlnet_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+    if chipset:
+        hub_device = hub.Device(attributes=f"chipset:{chipset}")
+    else:
+        hub_device = hub.Device(name=device)
     component_arg = components
     components = components or DEFAULT_COMPONENTS
     for component_name in components:
@@ -136,7 +143,7 @@ def export_model(
             print(f"Profiling model {component_name} on a hosted device.")
             submitted_profile_job = hub.submit_profile_job(
                 model=uploaded_models[component_name],
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -158,7 +165,7 @@ def export_model(
             submitted_inference_job = hub.submit_inference_job(
                 model=uploaded_models[component_name],
                 inputs=sample_inputs,
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )

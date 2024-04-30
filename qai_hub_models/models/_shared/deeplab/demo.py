@@ -61,5 +61,5 @@ def deeplabv3_demo(
 
     if not is_test:
         display_or_save_image(
-            image_annotated, args.output_dir, "annotated_image", "predicted image"
+            image_annotated, args.output_dir, "annotated_image.png", "predicted image"
         )

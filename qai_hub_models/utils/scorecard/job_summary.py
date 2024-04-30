@@ -192,22 +192,28 @@ class ProfileJobSummary(JobSummary):
             for device, chipset in SCORECARD_DEVICE_NAME_TO_CHIPSET_NAME.items():
                 run_dev = f"{runtime.name}-{device}"
                 if not components:
+                    if (job_id := job_ids.get(f"{model_id}_{run_dev}", None)) is None:
+                        continue
                     model_runs.append(
                         cls(
                             model_id=model_info.name,
-                            job_id=job_ids.get(f"{model_id}_{run_dev}", None),
+                            job_id=job_id,
                             runtime=runtime,
                             _chipset=chipset,
                         )
                     )
                 else:
                     for component in components:
+                        if (
+                            job_id := job_ids.get(
+                                f"{model_id}_{run_dev}_{component}", None
+                            )
+                        ) is None:
+                            continue
                         model_runs.append(
                             cls(
                                 model_id=component,
-                                job_id=job_ids.get(
-                                    f"{model_id}_{run_dev}_{component}", None
-                                ),
+                                job_id=job_id,
                                 runtime=runtime,
                                 _chipset=chipset,
                             )

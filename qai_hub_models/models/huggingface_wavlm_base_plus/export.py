@@ -36,6 +36,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
 
 def export_model(
     device: str = "Samsung Galaxy S23",
+    chipset: Optional[str] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -64,6 +65,8 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: If set, will choose a random device with this chipset.
+            Overrides the `device` argument.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -85,6 +88,10 @@ def export_model(
     """
     model_name = "huggingface_wavlm_base_plus"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+    if chipset:
+        hub_device = hub.Device(attributes=f"chipset:{chipset}")
+    else:
+        hub_device = hub.Device(name=device)
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "huggingface_wavlm_base_plus",
@@ -107,6 +114,7 @@ def export_model(
     )
 
     # Trace the model
+    model.eval()
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
     # 2. Compile the model to an on-device asset
@@ -117,7 +125,7 @@ def export_model(
     submitted_compile_job = hub.submit_compile_job(
         model=source_model,
         input_specs=input_spec,
-        device=hub.Device(device),
+        device=hub_device,
         name=model_name,
         options=model_compile_options,
     )
@@ -132,7 +140,7 @@ def export_model(
         print(f"Profiling model {model_name} on a hosted device.")
         submitted_profile_job = hub.submit_profile_job(
             model=compile_job.get_target_model(),
-            device=hub.Device(device),
+            device=hub_device,
             name=model_name,
             options=profile_options_all,
         )
@@ -151,7 +159,7 @@ def export_model(
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
             inputs=sample_inputs,
-            device=hub.Device(device),
+            device=hub_device,
             name=model_name,
             options=profile_options_all,
         )

@@ -10,8 +10,14 @@ from importlib import reload
 import torch
 import torch.nn as nn
 
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    SourceAsRoot,
+    load_numpy,
+)
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -26,6 +32,9 @@ DEFAULT_WEIGHTS = "hrnet_posenet_FP32_state_dict.pth"
 SOURCE_REPOSITORY = "https://github.com/leoxiaobin/deep-high-resolution-net.pytorch"
 COMMIT_HASH = "6f69e4676ad8d43d0d61b64b1b9726f0c369e7b1"
 CONFIG_FILE = "experiments/coco/hrnet/w32_256x192_adam_lr1e-3.yaml"
+SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "sample_hrnet_inputs.npy"
+)
 
 
 class HRNetPose(BaseModel):
@@ -64,8 +73,15 @@ class HRNetPose(BaseModel):
             net.load_state_dict(weights)
             return cls(net).eval()
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image):
+        """
+        Image inputs are expected to be in RGB format in the range [0, 1].
+        """
+        image = normalize_image_torchvision(image)
         return self.model(image)
+
+    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+        return {"image": [load_numpy(SAMPLE_INPUTS)]}
 
     @staticmethod
     def get_input_spec(

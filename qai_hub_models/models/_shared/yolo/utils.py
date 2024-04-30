@@ -102,23 +102,31 @@ def detect_postprocess(detector_output: torch.Tensor):
 
 
 def detect_postprocess_split_input(
-    xy: torch.Tensor, wh: torch.Tensor, scores: torch.Tensor
+    xy: torch.Tensor,
+    wh: torch.Tensor,
+    scores: torch.Tensor,
+    class_dtype: torch.dtype = torch.float32,
 ):
     """
     Same as `detect_postprocess` with inputs split into separate tensors.
     """
     boxes = box_transform_xywh2xyxy_split_input(xy, wh)
-    conf = scores[:, :, 0:1]
+    conf = scores[:, :, 0]
     scores = scores[:, :, 1:]
-
-    # Combine confidence and scores.
-    scores *= conf
 
     # Get class ID of most likely score.
     # (#10357) QNN has a bug where passing a result of Mul into ReduceMax returns all 0s
     scores, class_idx = torch.max(scores + 1e-10, -1, keepdim=False)
 
-    return boxes, scores, class_idx
+    # Combine confidence and scores.
+    # Original repo does this before the max operation, but that is more
+    # expensive by a factor of NUM_CLASSES and mathematically equivalent to this.
+    scores *= conf
+
+    # Quantized model runtime doesn't like int32 outputs, so cast class idx to int8.
+    # This is a no-op for coco models, but for datasets with >128 classes, this
+    # should be int32 for the unquantized model.
+    return boxes, scores, class_idx.to(class_dtype)
 
 
 def get_most_likely_score(scores: torch.Tensor):

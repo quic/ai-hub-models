@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
 
 import qai_hub as hub
 import torch
-from torch.utils.mobile_optimizer import MobileOptimizerType, optimize_for_mobile
+from torch.utils import mobile_optimizer
 
 from qai_hub_models.models.sam import Model
 from qai_hub_models.utils.args import export_parser, get_model_kwargs
@@ -36,6 +36,7 @@ DEFAULT_COMPONENTS = ["SAMDecoder"]
 
 def export_model(
     device: str = "Samsung Galaxy S23",
+    chipset: Optional[str] = None,
     components: Optional[List[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -65,6 +66,8 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: If set, will choose a random device with this chipset.
+            Overrides the `device` argument.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
@@ -89,6 +92,10 @@ def export_model(
     """
     model_name = "sam"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+    if chipset:
+        hub_device = hub.Device(attributes=f"chipset:{chipset}")
+    else:
+        hub_device = hub.Device(name=device)
     component_arg = components
     components = components or DEFAULT_COMPONENTS
     for component_name in components:
@@ -122,16 +129,17 @@ def export_model(
     for component_name, component in components_dict.items():
         # Trace the model
         input_spec = component.get_input_spec()
+        component.eval()
         source_model = torch.jit.trace(
             component.to("cpu"), make_torch_inputs(input_spec)
         )
 
-        source_model = optimize_for_mobile(
+        source_model = mobile_optimizer.optimize_for_mobile(
             source_model,
             optimization_blocklist={
-                MobileOptimizerType.HOIST_CONV_PACKED_PARAMS,  # type: ignore
-                MobileOptimizerType.INSERT_FOLD_PREPACK_OPS,  # type: ignore
-                MobileOptimizerType.CONV_BN_FUSION,  # type: ignore
+                mobile_optimizer.MobileOptimizerType.HOIST_CONV_PACKED_PARAMS,  # type: ignore
+                mobile_optimizer.MobileOptimizerType.INSERT_FOLD_PREPACK_OPS,  # type: ignore
+                mobile_optimizer.MobileOptimizerType.CONV_BN_FUSION,  # type: ignore
             },
         )
 
@@ -143,7 +151,7 @@ def export_model(
         submitted_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub.Device(device),
+            device=hub_device,
             name=f"{model_name}_{component_name}",
             options=model_compile_options,
         )
@@ -161,7 +169,7 @@ def export_model(
             print(f"Profiling model {component_name} on a hosted device.")
             submitted_profile_job = hub.submit_profile_job(
                 model=compile_jobs[component_name].get_target_model(),
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -183,7 +191,7 @@ def export_model(
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
                 inputs=sample_inputs,
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )

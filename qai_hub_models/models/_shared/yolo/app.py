@@ -150,6 +150,7 @@ class YoloObjectDetectionApp:
 
         # Return raw output if requested
         if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
+            print(pred_boxes, pred_scores, pred_class_idx)
             return (pred_boxes, pred_scores, pred_class_idx)
 
         # Add boxes to each batch

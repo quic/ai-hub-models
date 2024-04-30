@@ -26,7 +26,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.quantization_aimet import tie_observers
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 4
+MODEL_ASSET_VERSION = 6
 DEFAULT_ENCODINGS = "yolov7_quantized_encodings.json"
 
 
@@ -55,6 +55,7 @@ class YoloV7Quantizable(AIMETQuantizableMixin, YoloV7):
             include_postprocessing=include_postprocessing,
             split_output=True,
         )
+        fp16_model.class_dtype = torch.int8
 
         input_shape = cls.get_input_spec()["image"][0]
 
@@ -88,40 +89,6 @@ class YoloV7Quantizable(AIMETQuantizableMixin, YoloV7):
         Run YoloV7Quantizable on `image`, and produce a
             predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: BGR
-
-        Returns:
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
-                scores: torch.Tensor
-                    class scores multiplied by confidence: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
-
-
-            else if self.split_output:
-                output_xy: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [x_center, y_center] (box_coordinates)
-
-                output_wh: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [width, height] (box_size)
-
-                output_scores: torch.Tensor
-                    Shape is [batch, num_preds, j]
-                        where j is [confidence (1 element) , # of classes elements]
-
-
-            else:
-                detector_output: torch.Tensor
-                    Shape is [batch, num_preds, k]
-                        where, k = # of classes + 5
-                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
-                        and box_coordinates are [x_center, y_center, w, h]
+        See YoloV7 model for details.
         """
         return self.model(image)

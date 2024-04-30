@@ -9,46 +9,75 @@ pre-computed activations, and compute those activations using QAIHM.
 This script assumes the model is added to QAIHM, but is missing quantization parameters.
 """
 import argparse
-import os
+from pathlib import Path
 
-from aimet_zoo_torch.deeplabv3.dataloader import get_dataloaders_and_eval_func
+import torch
+from torch.utils.data import DataLoader
 
+from qai_hub_models.datasets.pascal_voc import VOCSegmentationDataset
 from qai_hub_models.models.deeplabv3_plus_mobilenet_quantized.model import (
-    MODEL_ID,
-    DeepLabV3PlusMobileNetQuantizable,
+    DeepLabV3PlusMobilenetQuantizable,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+
+MODELS = {
+    "deeplabv3_plus_mobilenet": DeepLabV3PlusMobilenetQuantizable,
+}
 
 if __name__ == "__main__":
     # Args
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--voc-path",
-        required=True,
-        help="Local path to VOCdevkit/VOC2012. VOC Devkit can be found here http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit",
+        "--num-iter", type=int, default=8, help="Number of batches to use."
     )
     parser.add_argument(
-        "--num-iter", type=int, default=None, help="Number of dataset iterations to use"
+        "--batch-size", type=int, default=1, help="Number of images to use in a batch."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory where encodings should be stored. Defaults to ./build.",
+    )
+    parser.add_argument(
+        "--output-name",
+        type=str,
+        default=None,
+        help="Encodings filename. Defaults to <model_name>_encodings.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=MODELS.keys(),
+        required=True,
+        help="Name of the model to quantize.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Manual seed to ensure reproducibility for quantization.",
     )
     args = parser.parse_args()
+    torch.manual_seed(args.seed)
 
-    # Load model.
-    train_loader, _, _ = get_dataloaders_and_eval_func(args.voc_path)
+    model = MODELS[args.model].from_pretrained(aimet_encodings=None)
 
-    # You can skip loading parameters in from_pretrained() if you haven't generated them yet.
-    m = DeepLabV3PlusMobileNetQuantizable.from_pretrained()
+    image_size = model.get_input_spec()["image"][0][-2:]
+    dataset = VOCSegmentationDataset(image_size=image_size)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    # Load adaround (weight-only) encodings from the AIMET zoo
-    weight_encodings = CachedWebModelAsset(
-        "https://github.com/quic/aimet-model-zoo/releases/download/torch_dlv3_w8a8_pc/deeplabv3+w8a8_tfe_perchannel_param.encodings",
-        "example_scripts",
-        "1",
-        "deeplabv3+w8a8_tfe_perchannel_param.encodings",
-    )
-    m.quant_sim.set_and_freeze_param_encodings(weight_encodings.fetch())
+    evaluator = model.get_evaluator()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_fp32 = evaluator.get_accuracy_score()
 
-    # Quantize activations
-    m.quantize(train_loader, args.num_iter)
+    model.quantize(dataloader, args.num_iter, data_has_gt=True)
+    evaluator.reset()
+    evaluator.add_from_dataset(model, dataloader, args.num_iter)
+    accuracy_int8 = evaluator.get_accuracy_score()
 
-    # Export encodings
-    m.convert_to_torchscript_and_aimet_encodings(os.getcwd(), model_name=MODEL_ID)
+    print(f"FP32 mIoU: {accuracy_fp32:.3g}")
+    print(f"INT8 mIoU: {accuracy_int8:.3g}")
+
+    output_path = args.output_dir or str(Path() / "build")
+    output_name = args.output_name or f"{args.model}_quantized_encodings"
+    model.quant_sim.save_encodings_to_json(output_path, output_name)

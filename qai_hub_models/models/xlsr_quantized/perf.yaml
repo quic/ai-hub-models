@@ -9,8 +9,10 @@ aggregated:
   - Google Pixel 4a
   - Google Pixel 5a 5G
   - QCS6490 (Proxy)
+  - QCS8250 (Proxy)
   - QCS8550 (Proxy)
   - RB3 Gen 2 (Proxy)
+  - RB5 (Proxy)
   - Samsung Galaxy S21
   - Samsung Galaxy S21 Ultra
   - Samsung Galaxy S21+
@@ -28,6 +30,7 @@ aggregated:
   - Xiaomi 12 Pro
   supported_chipsets:
   - Qcs6490
+  - Qcs8250
   - Qcs8550
   - Snapdragon® 8 Gen 1
   - Snapdragon® 8 Gen 2
@@ -58,7 +61,7 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-04-16T20:17:34.357060Z'
+    timestamp: '2024-04-23T18:42:33.910002Z'
   - torchscript_onnx_tflite:
       inference_time: 1209.0
       throughput: 827.129859387924
@@ -81,20 +84,73 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-04-16T20:17:34.357086Z'
-  - reference_device_info:
+    timestamp: '2024-04-23T18:42:33.910020Z'
+  - torchscript_onnx_tflite:
+      inference_time: 3053.0
+      throughput: 327.54667540124467
+      estimated_peak_memory_range:
+        min: 57344
+        max: 15609680
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 16
+        layers_on_gpu: 0
+        layers_on_cpu: 3
+        total_layers: 19
+      job_id: jopr8r375
+      job_status: Passed
+    reference_device_info:
       name: RB3 Gen 2 (Proxy)
       os: '12'
       form_factor: Iot
       os_name: Android
-      manufacturer: ''
+      manufacturer: Qualcomm
       chipset: Qcs6490
-    timestamp: '2024-04-16T20:17:34.357093Z'
-  - reference_device_info:
+    timestamp: '2024-04-23T18:42:33.910035Z'
+  - torchscript_onnx_tflite:
+      inference_time: 15998.0
+      throughput: 62.50781347668458
+      estimated_peak_memory_range:
+        min: 45056
+        max: 17827664
+      primary_compute_unit: GPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 5
+        layers_on_gpu: 9
+        layers_on_cpu: 5
+        total_layers: 19
+      job_id: jvgdq6vl5
+      job_status: Passed
+    reference_device_info:
+      name: RB5 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8250
+    timestamp: '2024-04-23T18:42:33.910050Z'
+  - torchscript_onnx_tflite:
+      inference_time: 1313.0
+      throughput: 761.6146230007616
+      estimated_peak_memory_range:
+        min: 28672
+        max: 5004672
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 16
+        layers_on_gpu: 0
+        layers_on_cpu: 3
+        total_layers: 19
+      job_id: j2p03w0np
+      job_status: Passed
+    reference_device_info:
       name: QCS8550 (Proxy)
       os: '12'
       form_factor: Iot
       os_name: Android
-      manufacturer: ''
+      manufacturer: Qualcomm
       chipset: Qcs8550
-    timestamp: '2024-04-16T20:17:34.357098Z'
+    timestamp: '2024-04-23T18:42:33.910063Z'

@@ -52,13 +52,13 @@ def compute_psnr(
     Computes the PSNR between two tensors.
     """
     if not isinstance(output_a, np.ndarray):
-        a = output_a.detach().numpy().flatten()
+        a = output_a.detach().float().numpy().flatten()
     else:
-        a = output_a.flatten()
+        a = output_a.flatten().astype(np.float32)
     if not isinstance(output_b, np.ndarray):
-        b = output_b.detach().numpy().flatten()
+        b = output_b.detach().float().numpy().flatten()
     else:
-        b = output_b.flatten()
+        b = output_b.flatten().astype(np.float32)
     max_b = np.abs(b).max()
     sumdeltasq = 0.0
     sumdeltasq = ((a - b) * (a - b)).sum()

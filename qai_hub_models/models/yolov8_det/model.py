@@ -207,4 +207,8 @@ def yolov8_detect_postprocess(
     # Get class ID of most likely score.
     scores, class_idx = torch.max(scores, -1, keepdim=False)
 
-    return boxes, scores, class_idx
+    # Quantized model runtime doesn't like int32 outputs, so cast class idx to int8.
+    # This is a no-op for coco models, but for datasets with >128 classes, this
+    # should be int32 for the unquantized model.
+    class_dtype = torch.int8 if use_quantized_postprocessing else torch.float32
+    return boxes, scores, class_idx.to(class_dtype)

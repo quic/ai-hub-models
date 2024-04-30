@@ -34,6 +34,7 @@ ALL_COMPONENTS = ["MediaPipeFaceDetector", "MediaPipeFaceLandmarkDetector"]
 
 def export_model(
     device: str = "Samsung Galaxy S23",
+    chipset: Optional[str] = None,
     components: Optional[List[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -63,6 +64,8 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: If set, will choose a random device with this chipset.
+            Overrides the `device` argument.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
@@ -87,6 +90,10 @@ def export_model(
     """
     model_name = "mediapipe_face"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+    if chipset:
+        hub_device = hub.Device(attributes=f"chipset:{chipset}")
+    else:
+        hub_device = hub.Device(name=device)
     component_arg = components
     components = components or ALL_COMPONENTS
     for component_name in components:
@@ -120,6 +127,7 @@ def export_model(
     for component_name, component in components_dict.items():
         # Trace the model
         input_spec = component.get_input_spec()
+        component.eval()
         source_model = torch.jit.trace(
             component.to("cpu"), make_torch_inputs(input_spec)
         )
@@ -132,7 +140,7 @@ def export_model(
         submitted_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub.Device(device),
+            device=hub_device,
             name=f"{model_name}_{component_name}",
             options=model_compile_options,
         )
@@ -150,7 +158,7 @@ def export_model(
             print(f"Profiling model {component_name} on a hosted device.")
             submitted_profile_job = hub.submit_profile_job(
                 model=compile_jobs[component_name].get_target_model(),
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -172,7 +180,7 @@ def export_model(
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
                 inputs=sample_inputs,
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -219,7 +227,10 @@ def export_model(
 def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
-        model_cls=Model, components=ALL_COMPONENTS, supports_ort=False
+        model_cls=Model,
+        components=ALL_COMPONENTS,
+        supports_qnn=False,
+        supports_ort=False,
     )
     args = parser.parse_args()
     export_model(**vars(args))

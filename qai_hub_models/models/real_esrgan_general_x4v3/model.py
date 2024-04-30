@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import sys
 
 import torch
 
@@ -120,9 +121,13 @@ def _load_realesrgan_source_model_from_weights(
                 print(f"Weights file downloaded as {weights_path}")
 
         # necessary import. `archs` comes from the realesrgan repo.
-        from realesrgan.archs.srvgg_arch import SRVGGNetCompact
+        # This can be imported only once per session
+        if "basicsr.archs.srvgg_arch" not in sys.modules:
+            import realesrgan.archs.srvgg_arch as srvgg_arch
+        else:
+            srvgg_arch = sys.modules["basicsr.archs.srvgg_arch"]
 
-        realesrgan_model = SRVGGNetCompact(
+        realesrgan_model = srvgg_arch.SRVGGNetCompact(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=64,

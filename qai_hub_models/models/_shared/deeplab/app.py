@@ -13,7 +13,6 @@ from PIL.Image import Image
 from torchvision import transforms
 
 from qai_hub_models.utils.draw import create_color_map
-from qai_hub_models.utils.image_processing import normalize_image_transform
 
 
 def preprocess_image(image: Image) -> torch.Tensor:
@@ -28,13 +27,7 @@ def preprocess_image(image: Image) -> torch.Tensor:
     Returns:
         torch tensor to be directly passed to the model.
     """
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            normalize_image_transform(),
-        ]
-    )
-    out_tensor: torch.Tensor = transform(image)  # type: ignore
+    out_tensor: torch.Tensor = transforms.ToTensor()(image)  # type: ignore
     return out_tensor.unsqueeze(0)
 
 

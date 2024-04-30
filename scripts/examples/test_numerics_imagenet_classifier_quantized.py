@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from qai_hub_models.datasets.imagenette import ImagenetteDataset
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models.inception_v3_quantized.model import InceptionNetV3Quantizable
 from qai_hub_models.models.mobilenet_v2_quantized.model import MobileNetV2Quantizable
 from qai_hub_models.models.mobilenet_v3_large_quantized.model import (
     MobileNetV3LargeQuantizable,
@@ -103,6 +104,7 @@ def test_dataloader_is_deterministic(data_loaders):
         (RegNetQuantizable, 0.8750),
         (WideResNet50Quantizable, 0.9190),
         (ShufflenetV2Quantizable, 0.6740),
+        (InceptionNetV3Quantizable, 0.8430),
     ],
 )
 def quantized_model(request, data_loaders, test_data):
@@ -248,6 +250,14 @@ def test_make_encoding_w8a8_accuracy(
         (SourceModelFormat.ONNX, TargetRuntime.QNN, ShufflenetV2Quantizable): (
             1.90,
             0.661,
+        ),
+        (SourceModelFormat.ONNX, TargetRuntime.TFLITE, InceptionNetV3Quantizable): (
+            23.33,
+            0.843,
+        ),
+        (SourceModelFormat.ONNX, TargetRuntime.QNN, InceptionNetV3Quantizable): (
+            23.81,
+            0.844,
         ),
     }
     expected_size_mb, expected_acc = expected_size_mb_and_acc[

@@ -49,7 +49,7 @@ def get_python_import_expression(filepath: str) -> str:
         qiasm_model_zoo.models.trocr.model
     """
 
-    rel_path = os.path.relpath(filepath, PY_PACKAGE_RELATIVE_SRC_ROOT)
+    rel_path = os.path.relpath(filepath, REPO_ROOT)
     init_suffix = "/__init__.py"
     if rel_path.endswith(init_suffix):
         rel_path = rel_path[: -len(init_suffix)]

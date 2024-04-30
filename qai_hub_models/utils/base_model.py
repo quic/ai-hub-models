@@ -38,13 +38,10 @@ class HubModel(HubModelProtocol):
     """
 
     def __init__(self):
-        # Change self.get_input_spec() to call _get_input_spec_for_instance() instead.
-        #
-        # _get_input_spec_for_instance() is an override that allows get_input_spec()
-        # to access instance variables. This may be used in case input shape is "hard-coded"
-        # based on parameters passed to the model upon initialization.
-        #
-        self.get_input_spec = self._get_input_spec_for_instance
+        # If a child class implements _get_input_spec_for_instance(),
+        # then calling `get_input_spec` on the instance will redirect to it.
+        if self._get_input_spec_for_instance.__module__ != __name__:
+            self.get_input_spec = self._get_input_spec_for_instance
 
     def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
         """
@@ -53,10 +50,11 @@ class HubModel(HubModelProtocol):
         Typically this will pre-fill inputs of get_input_spec
         with values determined by instance members of the model class.
 
-        The initializer for BaseModel will automatically override get_input_spec
-        with this function when the class is instantiated.
+        If this function is implemented by a child class, the initializer for BaseModel
+        will automatically override get_input_spec with this function
+        when the class is instantiated.
         """
-        return self.__class__.get_input_spec(*args, **kwargs)
+        raise NotImplementedError
 
     def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         """

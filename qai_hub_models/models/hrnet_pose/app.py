@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -94,6 +94,35 @@ class HRNetPoseApp:
         # See predict_pose_keypoints.
         return self.predict_pose_keypoints(*args, **kwargs)
 
+    def preprocess_input(
+        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image]
+    ) -> Tuple[List[np.ndarray], Dict[str, torch.Tensor], torch.Tensor]:
+        # Convert from PIL / torch/ etc. to NHWC, RGB numpy frames, which is the required input type.
+        NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
+
+        # MMPose does a lot of heavy lifting here. The preprocessor does the following:
+        # * runs a detector model to find people in each frame
+        # * for each bounding box...
+        # *     crop to the bounding box. resize bounding box to fit model input size using scaling factor
+        # *     Save bounding box coordinates and box scaling factor for use later
+        inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
+
+        # We only get the first (highest probability) box and ignore the others.
+        # Other implementations may choose to run pose estimation on all boxes
+        # if they want to support multiple people in the same frame.
+        proc_inputs, _ = list(inputs)[0]
+        proc_inputs_ = proc_inputs["inputs"][0]
+
+        # RGB -> BGR
+        x = proc_inputs_[[2, 1, 0]]
+        # Convert to expected model input distrubtion
+        x = x.float() / 255.0
+
+        # Add batch dimension
+        x = torch.unsqueeze(x, 0)
+
+        return (NHWC_int_numpy_frames, proc_inputs, x)
+
     def predict_pose_keypoints(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
@@ -122,28 +151,9 @@ class HRNetPoseApp:
                 predicted_images: List[PIL.Image]
                     Images with keypoints drawn.
         """
-        # Convert from PIL / torch/ etc. to NHWC, RGB numpy frames, which is the required input type.
-        NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
-
-        # MMPose does a lot of heavy lifting here. The preprocessor does the following:
-        # * runs a detetor model to find people in each frame
-        # * for each bounding box...
-        # *     crop to the bounding box. resize bounding box to fit model input size using scaling factor
-        # *     Save bounding box coordinates and box scaling factor for use later
-        inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
-
-        # We only get the first (highest probability) box and ignore the others.
-        # Other implementations may choose to run pose estimation on all boxes
-        # if they want to support multiple people in the same frame.
-        proc_inputs, _ = list(inputs)[0]
-        proc_inputs_ = proc_inputs["inputs"][0]
-
-        # RGB -> BGR
-        x = proc_inputs_[[2, 1, 0], ...]
-        # Convert to expected model input distrubtion
-        x = (x - self.pre_processor.mean) / self.pre_processor.std
-        # Add batch dimension
-        x = torch.unsqueeze(x, 0)
+        (NHWC_int_numpy_frames, proc_inputs, x) = self.preprocess_input(
+            pixel_values_or_image
+        )
 
         # run inference
         heatmaps = self.model(x)
