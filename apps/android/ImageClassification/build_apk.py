@@ -42,7 +42,7 @@ args = parser.parse_args()
 
 
 ##based on this pre-post can be decided
-if not args.model_name:
+if not args.model_name and not args.model_path:
     printmenu()
     inp_model_name = int(input("Please select one: "))
     args.model_name = MODELNAME(inp_model_name).name
