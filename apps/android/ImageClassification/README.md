@@ -2,7 +2,7 @@
 
 1. Java, android-sdk and sdkmanager is already set at user's end
 2. User should have Linux QNN SDK in local machine.
-3. If models need to be downloaded during the execution of build_apk.py, AI Hub Models must be installed first according to the[README.md in ai-hub-models](https://github.com/quic/ai-hub-models/blob/main/README.md).
+3. If models need to be downloaded during the execution of build_apk.py, AI Hub Models must be installed first according to the [README.md in ai-hub-models](https://github.com/quic/ai-hub-models/blob/main/README.md).
 
 4. When downloading [MobileNet_v3_Small](https://aihub.qualcomm.com/mobile/models/mobilenet_v3_small) via the web interface, AI Hub Models installation can be temporarily skipped.
 
