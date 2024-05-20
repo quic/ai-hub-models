@@ -2,6 +2,10 @@
 
 1. Java, android-sdk and sdkmanager is already set at user's end
 2. User should have Linux QNN SDK in local machine.
+3. If models need to be downloaded during the execution of build_apk.py, AI Hub Models must be installed first according to the [README.md in ai-hub-models](https://github.com/quic/ai-hub-models/blob/main/README.md).
+
+4. When downloading [MobileNet_v3_Small](https://aihub.qualcomm.com/mobile/models/mobilenet_v3_small) via the web interface, AI Hub Models installation can be temporarily skipped.
+
 
 
 ## Info
@@ -53,20 +57,33 @@ Right now we use mobilenet_v3_small.tflite model which takes 224x224 as input an
 
 You have to run build_apk.py for Image Classification. It will generate classification-debug.apk and install it in connected device.
 
+Please first use `python build_apk.py -h` to understand the parameters.
 
-    build_apk.py [-h] -q QNNSDK (-m MODEL_PATH | -e MODEL_NAME)
+
+```
+build_apk.py [-h] -q QNNSDK [-m MODEL_NAME] [-path MODEL_PATH]
+```
+
+The parameter "-q" must be entered. QNN SDK can be utilized by setting an environment variable or specifying the path directly.<br />There are three ways to input parameters:<br />1. Inputting only the parameter "-path"<br />2. Inputting only the parameter "-m"<br />3. Neither entering the parameter "-m" nor "-path"
 
 
 
 ### Example
 
-Here, with -m, give your tflite model path i.e. till `*.tflite file`, and it will copy model file to assets folder to build andoid app.
+Here, with -path, give your tflite model path i.e. till `*.tflite file`, and it will copy model file to assets folder to build andoid app.
 ```
-    python build_apk.py -q "<QNN_SDK_PATH>" -m "Path\to\TFLITE\Model"
+    python build_apk.py -q "<QNN_SDK_PATH>" -path "Path/to/TFLITE/Model"
 ```
+
 
 Also, you can use AI-HUB Model name as mentioned in models directory, to directly export the model from AI-Hub and copy it to app assets.
 
 ```
-    python build_apk.py -q "<QNN_SDK_PATH>" -e <Model Name>
+    python build_apk.py -q "<QNN_SDK_PATH>" -m <Model Name>
+```
+
+You can also select the model provided in the list menu during the execution of build_apk.py without specifying the model name and model path.
+
+```
+    python build_apk.py -q "<QNN_SDK_PATH>" 
 ```
