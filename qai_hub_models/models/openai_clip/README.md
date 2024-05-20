@@ -14,6 +14,8 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/o
 a hosted Qualcomm® device.
 
 
+
+
 ## Example & Usage
 
 Install the package via pip:

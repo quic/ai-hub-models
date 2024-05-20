@@ -3,9 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 """
-This is a sample script showing how to take a AIMET model zoo model without
-pre-computed activations, and compute those activations using QAIHM.
-
+This is a sample script showing how to compute AIMET encodings for an HRNet model
+    using the COCO dataset.
 This script assumes the model is added to QAIHM, but is missing quantization parameters.
 """
 import argparse

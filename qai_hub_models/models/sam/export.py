@@ -31,7 +31,6 @@ from qai_hub_models.utils.qai_hub_helpers import (
 )
 
 ALL_COMPONENTS = ["SAMDecoder", "SAMEncoder"]
-DEFAULT_COMPONENTS = ["SAMDecoder"]
 
 
 def export_model(
@@ -97,7 +96,7 @@ def export_model(
     else:
         hub_device = hub.Device(name=device)
     component_arg = components
-    components = components or DEFAULT_COMPONENTS
+    components = components or ALL_COMPONENTS
     for component_name in components:
         if component_name not in ALL_COMPONENTS:
             raise ValueError(f"Invalid component {component_name}.")
@@ -145,7 +144,7 @@ def export_model(
 
         # 2. Compile the models to an on-device asset
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options
+            target_runtime, compile_options, hub_device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(

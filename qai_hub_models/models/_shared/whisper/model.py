@@ -13,7 +13,14 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
-MAX_DECODE_LEN = 224
+# The official default max decoded length is 448. We use mean decoded length 224 for benchmarking purpose
+MEAN_DECODE_LEN = 224
+
+# The number of 20ms audio contexts in 30 seconds of audio
+AUDIO_EMB_LEN = 1500
+
+# The number of Mel features per audio context
+N_MELS = 80
 
 MODEL_ID = "whisper_asr_shared"
 MODEL_ASSET_VERSION = 1
@@ -36,7 +43,7 @@ class Whisper(CollectionModel):
         self.num_decoder_blocks = num_decoder_blocks
         self.attention_dim = attention_dim
         self.num_decoder_heads = num_heads
-        self.max_decode_len = MAX_DECODE_LEN
+        self.mean_decode_len = MEAN_DECODE_LEN
 
     @classmethod
     def from_pretrained(cls, model: str = "tiny.en"):
@@ -63,16 +70,40 @@ class WhisperEncoderInf(BaseModel):
 
     def __init__(self, model: whisper.model.Whisper):
         super().__init__()
-        self.model = model
+        self.encoder = model.encoder
+        dims = model.dims
+
+        states_per_head = dims.n_audio_state // dims.n_audio_head
+        scale = states_per_head**-0.25
+
+        self.cross_attn_key_list = torch.nn.ModuleList(
+            [
+                SplitLinear(block.cross_attn.key, dims.n_audio_head, scale)
+                for block in model.decoder.blocks
+            ]
+        )
+        self.cross_attn_value_list = torch.nn.ModuleList(
+            [
+                SplitLinear(block.cross_attn.value, dims.n_audio_head)
+                for block in model.decoder.blocks
+            ]
+        )
 
     def forward(self, audio: torch.Tensor) -> List[torch.Tensor]:
-        # Return 2 * self.num_blocks tensors (k, v for each block)
-        encoder_out = self.model.encoder(audio)
-        res = []
-        for residual_block in self.model.decoder.blocks:
-            res.append(residual_block.cross_attn.key(encoder_out))
-            res.append(residual_block.cross_attn.value(encoder_out))
-        return res
+        # Return cross attention key and value cache tensors
+        encoder_out = self.encoder(audio)
+        k_cache = torch.cat(
+            [
+                key(encoder_out, transpose=True).unsqueeze(0)
+                for key in self.cross_attn_key_list
+            ],
+            dim=0,
+        )
+        v_cache = torch.cat(
+            [value(encoder_out).unsqueeze(0) for value in self.cross_attn_value_list],
+            dim=0,
+        )
+        return k_cache, v_cache
 
     @staticmethod
     def get_input_spec() -> InputSpec:
@@ -80,7 +111,7 @@ class WhisperEncoderInf(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return dict(audio=((1, 80, 3000), "float32"))
+        return dict(audio=((1, N_MELS, AUDIO_EMB_LEN * 2), "float32"))
 
     @classmethod
     def from_pretrained(cls):
@@ -92,7 +123,12 @@ class WhisperEncoderInf(BaseModel):
         profile_options = super().get_hub_profile_options(
             target_runtime, other_profile_options
         )
-        return profile_options + " --max_profiler_iterations 10" + " --compute_unit gpu"
+        if (
+            target_runtime == TargetRuntime.TFLITE
+            and "--compute_unit" not in profile_options
+        ):
+            profile_options = profile_options + " --compute_unit gpu"
+        return profile_options + " --max_profiler_iterations 10"
 
 
 class WhisperDecoderInf(BaseModel):
@@ -105,20 +141,47 @@ class WhisperDecoderInf(BaseModel):
     2. kv cache inputs are required, not optional
     """
 
-    def __init__(self, model: whisper.model.TextDecoder):
+    def __init__(
+        self, model: whisper.model.TextDecoder, max_decode_len: int = MEAN_DECODE_LEN
+    ):
         super().__init__()
         assert isinstance(model, whisper.model.TextDecoder)
+
+        self.max_decode_len = max_decode_len
 
         # Wraps `ResidualAttentionBlock` in
         # `ResidualAttentionBlockWrapper`
         self.blocks = torch.nn.ModuleList(
             [ResidualAttentionBlockWrapper(b) for b in model.blocks]
         )
-        self.num_blocks = len(self.blocks)
+
         for m in ["token_embedding", "ln"]:
             self.add_module(m, getattr(model, m))
-        for p in ["positional_embedding"]:
-            self.register_parameter(p, getattr(model, p))
+
+        # Replace `whisper.model.TextDecoder.positional_embedding` (nn.Parameter) with nn.Embedding for easier lookup
+        self.positional_embedding = torch.nn.Embedding(
+            max_decode_len, self.token_embedding.weight.shape[1]
+        )
+        self.positional_embedding.weight = torch.nn.Parameter(
+            model.positional_embedding[:max_decode_len, :]
+        )
+
+        self.logits = torch.nn.Linear(
+            self.token_embedding.weight.shape[1],
+            self.token_embedding.weight.shape[0],
+            bias=False,
+        )
+        self.logits.weight = self.token_embedding.weight
+
+        # Since kv cache is a fixed size, mask out elements
+        # that correspond to not yet used entries.
+        # The kv cache for current token is inserted at the last
+        # index, with the previous cache shifted down by one element.
+        self.mask = torch.nn.Embedding(max_decode_len, max_decode_len)
+        mask = torch.zeros([max_decode_len, max_decode_len], dtype=torch.float32)
+        for c_idx in range(0, max_decode_len):
+            mask[c_idx, 0 : max_decode_len - c_idx - 1] = -100
+        self.mask.weight = torch.nn.Parameter(mask)
 
     @property
     def attention_dim(self):
@@ -128,13 +191,18 @@ class WhisperDecoderInf(BaseModel):
     def num_heads(self):
         return self.blocks[0].attn.n_head
 
+    @property
+    def num_blocks(self):
+        return len(self.blocks)
+
     def forward(
         self,
         x: torch.Tensor,
         index: torch.Tensor,
-        mask: torch.Tensor,
-        *kv_cache_args,
-        **kv_cache_kwargs,
+        k_cache_cross: torch.Tensor,
+        v_cache_cross: torch.Tensor,
+        k_cache_self: torch.Tensor,
+        v_cache_self: torch.Tensor,
     ):
         """
         Args:
@@ -145,56 +213,54 @@ class WhisperDecoderInf(BaseModel):
         - index: torch.tensor, shape = (1, 1)
             index to get the positional encoding for x.
 
-        - mask: torch.tensor, shape = (1, max_sample_length, attn_dim)
-            Mask helps create kv_cache while keeping the size consistent.
+        - k_cache_cross: key cache for cross attention:
+          [num_blocks, num_heads, attn_dim/num_heads, AUDIO_EMB_LEN]
 
-        - kv_cache_args: Tuple of length 4 * num_decoder_blocks. Elements are:
+        - v_cache_cross: value cache for cross attention:
+          [num_blocks, num_heads, AUDIO_EMB_LEN, attn_dim/num_heads]
 
-            b{i}_cross_attn_k: [1, 1500, attn_dim]
-            b{i}_cross_attn_v: [1, 1500, attn_dim]
+        - k_cache_self: key cache for self attention:
+          [num_blocks, num_heads, attn_dim/num_heads, self.max_decode_len]
+          pass zeros for first call (index 0), otherwise pass in
+          previous decoder output
 
-            for i = 0, ..., num_blocks
-
-            followed by
-
-            b{i}_self_attn_k: [1, max_sample_length, attn_dim]
-            b{i}_self_attn_v: [1, max_sample_length, attn_dim]
-
-            for i = 0, ..., num_blocks
+        - v_cache_self: value cache for self attention:
+          [num_blocks, num_heads, self.max_decode_len, attn_dim/num_heads]
+          pass zeros for first call (index 0), otherwise pass in
+          previous decoder output
 
         Returns:
 
         - logits: of shape [1, 1, 51864]
-        - b0_self_attn_k, b0_self_attn_v, b1_self_attn_k, ...: Updated self attn cache.
-          2*num_decoder_blocks
+        - k_cache_self_new: updated key cache for self attention
+        - v_cache_self_new: updated value cache for self attention
         """
-
-        if not kv_cache_args:
-            kv_cache_args = list(kv_cache_kwargs.values())
 
         assert isinstance(self.token_embedding, torch.nn.Module)  # for mypy
         assert isinstance(self.ln, torch.nn.Module)  # for mypy
-        assert isinstance(self.positional_embedding, torch.nn.Parameter)  # for mypy
+        assert isinstance(self.positional_embedding, torch.nn.Embedding)  # for mypy
         # Set up kv_cache
         kv_cache = {}  # torch.nn.Module -> torch.Tensor
         for i, block in enumerate(self.blocks):
             kv_cache.update(
                 {
-                    block.attn.key: kv_cache_args[2 * self.num_blocks + i * 2],
-                    block.attn.value: kv_cache_args[2 * self.num_blocks + i * 2 + 1],
-                    block.cross_attn.key: kv_cache_args[i * 2],
-                    block.cross_attn.value: kv_cache_args[i * 2 + 1],
+                    block.attn.key: k_cache_self[i : i + 1],
+                    block.attn.value: v_cache_self[i : i + 1],
+                    block.cross_attn.key: k_cache_cross[i : i + 1],
+                    block.cross_attn.value: v_cache_cross[i : i + 1],
                 }
             )
 
-        x = self.token_embedding(x) + self.positional_embedding[index.long()]
+        x = self.token_embedding(x) + self.positional_embedding(index)
+        mask = self.mask(index)
 
         # x shape: (1, 1, 384)
-        kv_cache_new = []
-        for block in self.blocks:
-            x, k_cache, v_cache = block(x, index, mask, kv_cache=kv_cache)
-            kv_cache_new.append(k_cache.float())
-            kv_cache_new.append(v_cache.float())
+        k_cache_new = []
+        v_cache_new = []
+        for block_idx in range(self.num_blocks):
+            x, k_cache, v_cache = self.blocks[block_idx](x, mask, kv_cache=kv_cache)
+            k_cache_new.append(k_cache.float())
+            v_cache_new.append(v_cache.float())
 
         x = self.ln(x)
         logits = (
@@ -203,9 +269,9 @@ class WhisperDecoderInf(BaseModel):
                 self.token_embedding.weight.to(x.dtype), 0, 1  # type: ignore
             )
         ).float()
+        logits = self.logits(x).float()
 
-        # shape: [1, 1, 51864]
-        return (logits,) + tuple(kv_cache_new)
+        return logits, torch.cat(k_cache_new), torch.cat(v_cache_new)
 
     @staticmethod
     def get_input_spec(
@@ -218,21 +284,23 @@ class WhisperDecoderInf(BaseModel):
         specs = dict(
             x=((1, 1), "int32"),
             index=((1, 1), "int32"),
-            mask=((1, MAX_DECODE_LEN, attention_dim), "int32"),
+            k_cache_cross=(
+                (num_blocks, num_heads, attention_dim // num_heads, AUDIO_EMB_LEN),
+                "float32",
+            ),
+            v_cache_cross=(
+                (num_blocks, num_heads, AUDIO_EMB_LEN, attention_dim // num_heads),
+                "float32",
+            ),
+            k_cache_self=(
+                (num_blocks, num_heads, attention_dim // num_heads, MEAN_DECODE_LEN),
+                "float32",
+            ),
+            v_cache_self=(
+                (num_blocks, num_heads, MEAN_DECODE_LEN, attention_dim // num_heads),
+                "float32",
+            ),
         )
-        for i in range(num_blocks):
-            specs[f"b{i}_cross_attn_k"] = ((1, 1500, attention_dim), "float32")
-            specs[f"b{i}_cross_attn_v"] = ((1, 1500, attention_dim), "float32")
-
-        for i in range(num_blocks):
-            specs[f"b{i}_self_attn_k"] = (
-                (1, MAX_DECODE_LEN, attention_dim),
-                "float32",
-            )
-            specs[f"b{i}_self_attn_v"] = (
-                (1, MAX_DECODE_LEN, attention_dim),
-                "float32",
-            )
 
         return specs
 
@@ -244,6 +312,50 @@ class WhisperDecoderInf(BaseModel):
     @classmethod
     def from_pretrained(cls):
         return Whisper.from_pretrained().decoder
+
+
+class SplitLinear(torch.nn.Module):
+    def __init__(self, linear: torch.nn.Module, num_splits: int, scale: float = 1.0):
+        """
+        Split Linear operation into multiple instances
+        Multi-head cross attention
+        Uses pre-computed cross kv cache passed as input to the
+        decoder model
+        """
+        super().__init__()
+        weight = linear.weight
+        has_bias = False if linear.bias is None else True
+        if has_bias:
+            bias = linear.bias.reshape(num_splits, -1) * scale
+        split_weight = weight.reshape(num_splits, -1, weight.shape[1]) * scale
+        self.split_linears = torch.nn.ModuleList(
+            [
+                torch.nn.Linear(
+                    split_weight.shape[1], split_weight.shape[2], bias=has_bias
+                )
+                for split_idx in range(num_splits)
+            ]
+        )
+        for split_idx in range(num_splits):
+            self.split_linears[split_idx].weight = torch.nn.Parameter(
+                split_weight[split_idx, :, :]
+            )
+            if has_bias:
+                self.split_linears[split_idx].bias = torch.nn.Parameter(bias[split_idx])
+
+    def forward(self, x: torch.Tensor, transpose: bool = False):
+        """
+        produces output with dimension
+        [num_splits, input rows, output_features / num_splits]
+        If transpose is True, will transpose last two indices
+        """
+        if transpose:
+            x = torch.cat(
+                [spl(x).transpose(-1, -2) for spl in self.split_linears], dim=-3
+            )
+        else:
+            x = torch.cat([spl(x) for spl in self.split_linears], dim=-3)
+        return x
 
 
 class MHAWrapper(torch.nn.Module):
@@ -275,7 +387,6 @@ class MHAWrapper(torch.nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-        index: torch.Tensor,
         mask: torch.Tensor,
         kv_cache: Dict[torch.nn.Module, torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -285,30 +396,36 @@ class MHAWrapper(torch.nn.Module):
         - x: shape [1, 1, attention_dim]. Input feature.
 
         - kv_cache: 4 * num_decoder_blocks entries representing self attention
-          and cross attention from all attention blocks. Each entry of shape
-          [1, decoded_len, attention_dim]. We'd only use cache relevant to this
-          particular attention layer and ignore other entries in the dict.
+          and cross attention from all attention blocks. Each k entry of shape
+          [1, num_heads, attention_dim // num_heads, context_len] and
+          each v entry of shape
+          [1, num_heads, context_len, attention_dim // num_heads].
+          We'd only use cache relevant to this particular attention layer
+          and ignore other entries in the dict.
 
         Returns:
 
         - x_out: attention output
 
-        - updated k, v cache: of shape [1, decoded_len+1, attention_dim]
+        - updated k, v cache: with same shape as input
         """
         assert isinstance(self.query, torch.nn.Module)  # for mypy
         assert isinstance(self.key, torch.nn.Module)  # for mypy
         assert isinstance(self.value, torch.nn.Module)  # for mypy
         assert isinstance(self.out, torch.nn.Module)  # for mypy
         q = self.query(x)
+        q = q.view(q.shape[0], self.n_head, 1, -1)
         if self.attn_type == "self_attention":
             k_cache = kv_cache[self.key]
             v_cache = kv_cache[self.value]
-            k = torch.zeros(k_cache.shape)
-            v = torch.zeros(v_cache.shape)
-            k = mask * self.key(x) + k_cache
-            v = mask * self.value(x) + v_cache
-            new_index = torch.tensor([index[0, 0] + 1]).long()
-            wv = qkv_attention(q, k[:, :new_index], v[:, :new_index], self.n_head)
+            k = self.key(x).unsqueeze(3)
+            k = k.view(k.shape[0], self.n_head, -1, 1)
+            v = self.value(x).unsqueeze(2)
+            v = v.view(k.shape[0], self.n_head, 1, -1)
+            # shift kv cache and insert new k and v entries
+            k = torch.cat((k_cache[:, :, :, 1:], k), dim=-1)
+            v = torch.cat((v_cache[:, :, 1:, :], v), dim=-2)
+            wv = qkv_attention(q, k, v, self.n_head, mask=mask)
         else:  # cross_attention
             k, v = kv_cache[self.key], kv_cache[self.value]
             wv = qkv_attention(q, k, v, self.n_head)
@@ -327,21 +444,17 @@ def qkv_attention(
     """
     Adapted from whisper.model.MultiHeadAttention.qkv_attention
     """
-    n_batch, n_ctx, n_state = q.shape
-
-    scale = (n_state // n_head) ** -0.25
-    q = q.view(*q.shape[:2], n_head, -1).permute(0, 2, 1, 3) * scale
-    k = k.view(*k.shape[:2], n_head, -1).permute(0, 2, 3, 1) * scale
-    v = v.view(*v.shape[:2], n_head, -1).permute(0, 2, 1, 3)
-
-    qk = q @ k
-    if mask is not None:
-        qk = qk + mask
-    # Use negative infinity to mask the zeros when doing the softmax.
-    qk = qk.float()
-
-    w = torch.nn.functional.softmax(qk, dim=-1).to(q.dtype)
-    return (w @ v).permute(0, 2, 1, 3).flatten(start_dim=2)
+    wv_list = []
+    # Split heads in qkv calculation
+    for h in range(n_head):
+        qk = q[:, h : h + 1, :, :] @ k[:, h : h + 1, :, :]
+        if mask is not None:
+            qk = qk + mask
+        w = torch.nn.functional.softmax(qk, dim=-1)
+        wv_list.append(w @ v[:, h : h + 1, :, :])
+    wv = torch.cat(wv_list, dim=1)
+    wv = wv.view(wv.shape[0], 1, -1)
+    return wv
 
 
 class ResidualAttentionBlockWrapper(torch.nn.Module):
@@ -357,14 +470,26 @@ class ResidualAttentionBlockWrapper(torch.nn.Module):
         assert isinstance(model, whisper.model.ResidualAttentionBlock)
         # Wraps `MultiheadAttention` to `MultiheadAttentionWrapper`
         self.attn = MHAWrapper(model.attn, "self_attention")
+
+        states_per_head = model.attn.query.weight.shape[0] // model.attn.n_head
+        scale = states_per_head**-0.25
         self.cross_attn = MHAWrapper(model.cross_attn, "cross_attention")
+
+        # Apply scale for qkv to parameters
+        with torch.no_grad():
+            self.attn.query.weight *= scale
+            self.attn.query.bias *= scale
+            self.attn.key.weight *= scale
+            self.cross_attn.query.weight *= scale
+            self.cross_attn.query.bias *= scale
+            self.cross_attn.key.weight *= scale
+
         for m in ["attn_ln", "cross_attn_ln", "mlp", "mlp_ln"]:
             self.add_module(m, getattr(model, m))
 
     def forward(
         self,
         x: torch.Tensor,
-        index: torch.Tensor,
         mask: torch.Tensor,
         kv_cache: Dict[torch.nn.Module, torch.Tensor],
     ):
@@ -380,14 +505,14 @@ class ResidualAttentionBlockWrapper(torch.nn.Module):
         assert isinstance(self.mlp, torch.nn.Module)  # for mypy
         assert isinstance(self.mlp_ln, torch.nn.Module)  # for mypy
         x_attn, k_cache, v_cache = self.attn(
-            self.attn_ln(x), index=index, mask=mask, kv_cache=kv_cache
+            self.attn_ln(x), mask=mask, kv_cache=kv_cache
         )
         x = x + x_attn
         if self.cross_attn:
             # Ignore cross attn kv cache which is constant (pre-computed in
             # `WhisperCrossAttnKVCacheTorch`)
             x_cross_attn, _, _ = self.cross_attn(
-                self.cross_attn_ln(x), index=index, mask=mask, kv_cache=kv_cache
+                self.cross_attn_ln(x), mask=mask, kv_cache=kv_cache
             )
             x = x + x_cross_attn
         x = x + self.mlp(self.mlp_ln(x))

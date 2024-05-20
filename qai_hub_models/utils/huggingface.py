@@ -8,7 +8,9 @@ import os
 from pathlib import Path
 from typing import List
 
-from huggingface_hub import HfFileSystem, hf_hub_download
+from huggingface_hub import HfApi, HfFileSystem, hf_hub_download
+from huggingface_hub.utils import GatedRepoError
+from packaging import version
 
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, ModelZooAssetConfig
 from qai_hub_models.utils.base_model import TargetRuntime
@@ -45,3 +47,37 @@ def fetch_huggingface_target_model(
         paths.append(path)
 
     return paths
+
+
+def has_model_access(repo_name: str, repo_url: str):
+    # Huggingface returns GatedRepoError if model is not accessible to current User.
+    # ref: https://github.com/huggingface/huggingface_hub/blob/5ff2d150d121d04799b78bc08f2343c21b8f07a9/src/huggingface_hub/utils/_errors.py#L135
+
+    try:
+        hf_api = HfApi()
+        hf_api.model_info(repo_name)
+    except GatedRepoError:
+        no_access_error = (
+            f"Seems like you don't have access to {repo_name} yet.\nPlease follow the following steps:"
+            f"\n 1. Apply for access at {repo_url}"
+            f"\n 2. Setup Huggingface API token as described in https://huggingface.co/docs/huggingface_hub/en/quick-start#login-command"
+            f"\nOnce access request is approved, you should be able to export/load {repo_name} via AI-Hub."
+        )
+        raise RuntimeError(no_access_error)
+
+    # Model is accesible for current User.
+    return True
+
+
+def ensure_has_required_transformer(least_expected_version):
+    # import transformer as part of this function
+    # to avoid leaking installation globally on file import.
+    # NOTE: #10761 this function should not be required once AIMET (https://pypi.org/project/aimet-torch/)
+    # remove tight dependency on transformers.
+    import transformers
+
+    if version.parse(transformers.__version__) < version.parse(least_expected_version):
+        raise RuntimeError(
+            f"Installed transformers version not supported. Expected >= {least_expected_version}, got {str(transformers.__version__)}\n"
+            f"Please run `pip install transformers=={least_expected_version}`"
+        )

@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 from typing import List, Union
 
 import numpy as np
 import qai_hub as hub
 from tflite import Model as TFModel  # type: ignore
+
+from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 
 
 def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
@@ -103,7 +104,7 @@ def get_model_size_mb(hub_model: hub.Model) -> float:
     """Return target model size in MB. This is a special case for ease of
     testing"""
     assert hub_model is not None
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with qaihm_temp_dir() as tmp_dir:
         download_path = Path(tmp_dir) / "model"
         # Download the model into the temporary directory
         hub_model.download(download_path)  # type: ignore

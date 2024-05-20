@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import shutil
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import final
 
 from torch.utils.data import Dataset
@@ -17,17 +18,17 @@ class BaseDataset(Dataset, ABC):
     Base class to be extended by Datasets used in this repo for quantizing models.
     """
 
-    def __init__(self, dataset_path: str):
-        self.dataset_path = dataset_path
+    def __init__(self, dataset_path: str | Path):
+        self.dataset_path = Path(dataset_path)
         self.download_data()
 
     @final
     def download_data(self) -> None:
         if self._validate_data():
             return
-        if os.path.exists(self.dataset_path):
+        if self.dataset_path.exists():
             # Data is corrupted, delete and re-download
-            if os.path.isdir(self.dataset_path):
+            if self.dataset_path.is_dir():
                 shutil.rmtree(self.dataset_path)
             else:
                 os.remove(self.dataset_path)
@@ -49,4 +50,4 @@ class BaseDataset(Dataset, ABC):
         """
         Validates data downloaded on disk. By default just checks that folder exists.
         """
-        return os.path.exists(self.dataset_path)
+        return self.dataset_path.exists()

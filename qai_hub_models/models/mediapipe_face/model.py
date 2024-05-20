@@ -13,7 +13,7 @@ from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 
 # Vertex indices can be found in
 # https://github.com/google/mediapipe/blob/0.8.1/mediapipe/modules/face_geometry/data/canonical_face_model_uv_visualization.png

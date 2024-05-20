@@ -120,7 +120,7 @@ def export_model(
 
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options
+        target_runtime, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -192,7 +192,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_qnn=False, supports_ort=False)
+    parser = export_parser(model_cls=Model, supports_qnn=False)
     args = parser.parse_args()
     export_model(**vars(args))
 

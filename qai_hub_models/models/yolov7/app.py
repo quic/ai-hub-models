@@ -16,7 +16,9 @@ from qai_hub_models.models.yolov7.model import YoloV7
 class YoloV7DetectionApp(YoloObjectDetectionApp):
     def check_image_size(self, pixel_values: torch.Tensor) -> None:
         """
-        Verify image size is valid model input.
+        Verify image size is a valid model input. Image size should be shape
+        [batch_size, num_channels, height, width], where height and width are multiples
+        of `YoloNAS.STRIDE_MULTIPLE`.
         """
         if len(pixel_values.shape) != 4:
             raise ValueError("Pixel Values must be rank 4: [batch, channels, x, y]")

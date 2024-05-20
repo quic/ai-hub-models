@@ -155,6 +155,10 @@ class MODEL_TAG(Enum):
         return self.__str__()
 
 
+def is_gen_ai_model(tags: List[MODEL_TAG]) -> bool:
+    return MODEL_TAG.LLM in tags or MODEL_TAG.GENERATIVE_AI in tags
+
+
 class MODEL_STATUS(Enum):
     PUBLIC = 0
     PRIVATE = 1
@@ -176,6 +180,7 @@ class MODEL_USE_CASE(Enum):
     IMAGE_GENERATION = 102
     SUPER_RESOLUTION = 103
     SEMANTIC_SEGMENTATION = 104
+    DEPTH_ESTIMATION = 105
     # Ex: OCR, image caption
     IMAGE_TO_TEXT = 105
     OBJECT_DETECTION = 106
@@ -479,6 +484,7 @@ class QAIHMModelCodeGen:
         has_on_target_demo: bool,
         qnn_export_failure_reason: str,
         tflite_export_failure_reason: str,
+        ort_export_failure_reason: str,
         has_demo: bool,
         check_trace: bool,
         channel_last_input: List[str],
@@ -490,15 +496,17 @@ class QAIHMModelCodeGen:
         skip_tests: bool,
         is_precompiled: bool,
         no_assets: bool,
+        skip_export: bool,
         global_requirements_incompatible: bool,
         torchscript_opt: List[str],
         inference_metrics: str,
-        supports_ort: bool,
+        additional_readme_section: str,
     ) -> None:
         self.is_aimet = is_aimet
         self.has_on_target_demo = has_on_target_demo
         self.qnn_export_failure_reason = qnn_export_failure_reason
         self.tflite_export_failure_reason = tflite_export_failure_reason
+        self.ort_export_failure_reason = ort_export_failure_reason
         self.has_demo = has_demo
         self.check_trace = check_trace
         self.channel_last_input = channel_last_input
@@ -513,7 +521,8 @@ class QAIHMModelCodeGen:
         self.global_requirements_incompatible = global_requirements_incompatible
         self.torchscript_opt = torchscript_opt
         self.inference_metrics = inference_metrics
-        self.supports_ort = supports_ort
+        self.additional_readme_section = additional_readme_section
+        self.skip_export = skip_export
 
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
@@ -537,6 +546,7 @@ class QAIHMModelCodeGen:
             code_gen_config["has_on_target_demo"],
             code_gen_config["qnn_export_failure_reason"],
             code_gen_config["tflite_export_failure_reason"],
+            code_gen_config["ort_export_failure_reason"],
             code_gen_config["has_demo"],
             code_gen_config["check_trace"],
             code_gen_config["channel_last_input"],
@@ -551,7 +561,8 @@ class QAIHMModelCodeGen:
             code_gen_config["global_requirements_incompatible"],
             code_gen_config["torchscript_opt"],
             code_gen_config["inference_metrics"],
-            code_gen_config["supports_ort"],
+            code_gen_config["additional_readme_section"],
+            code_gen_config["skip_export"],
         )
 
     # Schema for code-gen.yaml
@@ -563,6 +574,7 @@ class QAIHMModelCodeGen:
                 OptionalSchema("has_on_target_demo", default=False): bool,
                 OptionalSchema("qnn_export_failure_reason", default=""): str,
                 OptionalSchema("tflite_export_failure_reason", default=""): str,
+                OptionalSchema("ort_export_failure_reason", default=""): str,
                 OptionalSchema("has_demo", default=True): bool,
                 OptionalSchema("check_trace", default=True): bool,
                 OptionalSchema("channel_last_input", default=[]): list,
@@ -577,7 +589,8 @@ class QAIHMModelCodeGen:
                 OptionalSchema("global_requirements_incompatible", default=False): bool,
                 OptionalSchema("torchscript_opt", default=[]): list,
                 OptionalSchema("inference_metrics", default="psnr"): str,
-                OptionalSchema("supports_ort", default=False): bool,
+                OptionalSchema("additional_readme_section", default=""): str,
+                OptionalSchema("skip_export", default=False): bool,
             }
         )
     )
@@ -736,7 +749,7 @@ class QAIHMModelInfo:
             if session.head(animated_banner_url).status_code != requests.codes.ok:
                 return False, f"Animated banner is missing at {animated_banner_url}"
 
-        expected_qaihm_repo = f"qai_hub_models/models/{self.id}"
+        expected_qaihm_repo = Path("qai_hub_models") / "models" / self.id
         if expected_qaihm_repo != ASSET_CONFIG.get_qaihm_repo(self.id):
             return False, "QAIHM repo not pointing to expected relative path"
 

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from typing import Type
 
 from PIL import Image
@@ -17,7 +16,11 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_image
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebAsset,
+    load_image,
+    qaihm_temp_dir,
+)
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
@@ -46,7 +49,7 @@ def fastsam_demo(
 
     image = load_image(args.image)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         image_path = os.path.join(tmpdir, "inp_image.jpg")
         image.save(image_path)
         pred, prompt_process = app.segment_image(image_path)

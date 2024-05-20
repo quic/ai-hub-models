@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-import tempfile
 import zipfile
 
 import torch
@@ -23,6 +22,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
     load_numpy,
+    qaihm_temp_dir,
 )
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
@@ -48,7 +48,7 @@ def test_task():
 def test_aimet_export():
     model = DeepLabV3PlusMobilenetQuantizable.from_pretrained()
     name = model.__class__.__name__
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         output_zip = model.convert_to_onnx_and_aimet_encodings(
             tmpdir,
         )

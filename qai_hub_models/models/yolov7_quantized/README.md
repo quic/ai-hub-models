@@ -3,7 +3,7 @@
 
 # [Yolo-v7-Quantized: Quantized real-time object detection optimized for mobile and edge](https://aihub.qualcomm.com/models/yolov7_quantized)
 
-YoloV7 is a machine learning model that predicts bounding boxes and classes of objects in an image. This model is post-training quantized to int8 using samples from the [COCO dataset](https://cocodataset.org/#home).
+YoloV7 is a machine learning model that predicts bounding boxes and classes of objects in an image. This model is post-training quantized to int8 using samples from the COCO dataset.
 
 This is based on the implementation of Yolo-v7-Quantized found
 [here](https://github.com/WongKinYiu/yolov7/). This repository contains scripts for optimized on-device
@@ -12,6 +12,8 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
+
+
 
 
 ## Example & Usage

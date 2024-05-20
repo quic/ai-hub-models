@@ -52,17 +52,8 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
     ) -> None:
         tasks = []
 
-        extras_str = f"[{','.join(extras)}]" if extras else ""
-        tasks.append(
-            RunCommandsWithVenvTask(
-                group_name=f"Install QAIHM{extras_str}",
-                venv=venv_path,
-                commands=[
-                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html',
-                ],
-            )
-        )
-
+        # Install AIMET before model requirements to give preference over
+        # model specific versions.
         if include_aimet:
             if can_support_aimet():
                 if is_package_installed("aimet_torch", venv_path):
@@ -94,6 +85,17 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
                         ],
                     )
                 )
+
+        extras_str = f"[{','.join(extras)}]" if extras else ""
+        tasks.append(
+            RunCommandsWithVenvTask(
+                group_name=f"Install QAIHM{extras_str}",
+                venv=venv_path,
+                commands=[
+                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html',
+                ],
+            )
+        )
 
         super().__init__(
             f"Create Local QAIHM{extras_str} Virtual Environment at {venv_path}",

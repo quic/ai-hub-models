@@ -98,7 +98,7 @@ def export_model(
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "fcn_resnet50",
-            "FCN_ResNet50",
+            "FCN-ResNet50",
             device,
             skip_profiling,
             skip_inferencing,
@@ -120,12 +120,16 @@ def export_model(
     model.eval()
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
+    # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
+    channel_last_flags = (
+        " --force_channel_last_input image" + " --force_channel_last_output output_0"
+        if target_runtime != TargetRuntime.ORT
+        else ""
+    )
+
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
-        target_runtime,
-        compile_options
-        + " --force_channel_last_input image"
-        + " --force_channel_last_output output_0",
+        target_runtime, compile_options + channel_last_flags, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -163,8 +167,10 @@ def export_model(
         )
         sample_inputs = model.sample_inputs(input_spec)
         # Convert inputs from channel first to channel last
-        hub_inputs = transpose_channel_first_to_last(
-            "image", sample_inputs, target_runtime
+        hub_inputs = (
+            sample_inputs
+            if target_runtime == TargetRuntime.ORT
+            else transpose_channel_first_to_last("image", sample_inputs, target_runtime)
         )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
@@ -192,8 +198,12 @@ def export_model(
         assert inference_job is not None and inference_job.wait().success
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
         # Convert outputs from channel last to channel first
-        inference_result = transpose_channel_last_to_first(
-            "output_0", inference_result, target_runtime
+        inference_result = (
+            inference_result
+            if target_runtime == TargetRuntime.ORT
+            else transpose_channel_last_to_first(
+                "output_0", inference_result, target_runtime
+            )
         )
         print_inference_metrics(inference_job, inference_result, torch_out)
 
@@ -205,7 +215,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_ort=False)
+    parser = export_parser(model_cls=Model)
     args = parser.parse_args()
     export_model(**vars(args))
 

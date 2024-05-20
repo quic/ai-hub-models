@@ -31,15 +31,16 @@ except (ImportError, ModuleNotFoundError):
     )
 
 import shutil
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import aimet_torch.elementwise_ops as aimet_ops
 import torch
 import torch.nn.modules as nn
-from qai_hub.client import DatasetEntries
+from onnx import load_model as load_onnx_model
+from onnx import save_model as save_onnx_model
+from qai_hub.client import DatasetEntries, Device
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader, _for_each_batch
 from qai_hub_models.models._shared.common import apply_module_function_recursively
@@ -48,6 +49,7 @@ from qai_hub_models.models.protocols import (
     PretrainedHubModelProtocol,
     QuantizableModelProtocol,
 )
+from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 
 
@@ -58,19 +60,27 @@ def _should_tie_observers(op: torch.nn.Module) -> bool:
     if not hasattr(op, "_module_to_wrap"):
         return False
     wrapped_op = op._module_to_wrap
-    op_types_to_tie = [nn.MaxPool2d, nn.AvgPool2d, nn.Upsample, aimet_ops.Concat]
+    op_types_to_tie = [
+        nn.MaxPool2d,
+        nn.AvgPool2d,
+        nn.Upsample,
+        aimet_ops.Concat,
+        aimet_ops.Interpolate,
+    ]
     for op_type in op_types_to_tie:
         if isinstance(wrapped_op, op_type):
             return True
     return False
 
 
-def _get_observer_module_name(modules: Dict[str, Any], name: str) -> Optional[str]:
-    module = modules.get(name)
+def _get_observer_module_name(modules: Dict[str, Any], target: Any) -> Optional[str]:
+    if not isinstance(target, str):
+        return None
+    module = modules.get(target)
     if isinstance(module, QcQuantizeWrapper):
-        return name
+        return target
     elif isinstance(module, aimet_ops.CustomSiLU):
-        return name + ".mul"
+        return target + ".mul"
     return None
 
 
@@ -140,7 +150,13 @@ def tie_observers(quant_sim: QuantizationSimModel) -> None:
                     modules, input_node.target
                 )
             ) is None:
+                if input_node.target == getattr:
+                    # If the input node is getting a tensor attribute (e.g. shape)
+                    # No observers need to be tied
+                    break
                 input_node = input_node.all_input_nodes[0]
+            if input_node.target == getattr or observer_module_name is None:
+                continue
             if observer_module_name not in quantizer_deps:
                 quantizer_deps[observer_module_name] = []
             quantizer_deps[observer_module_name].append(node.target)
@@ -315,7 +331,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
         base_dir = Path(f"{model_name}.aimet")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with qaihm_temp_dir() as tmpdir:
             base_path = Path(tmpdir) / base_dir
             os.makedirs(base_path)
             self.quant_sim.export(
@@ -343,6 +359,8 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         output_dir: str | Path,
         input_spec: InputSpec | None = None,
         model_name: str | None = None,
+        external_weights: bool = False,
+        output_names: Optional[List[str]] = None,
     ) -> str:
         """
         Converts the torch module to a zip file containing an
@@ -357,27 +375,53 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
         base_dir = Path(f"{model_name}.aimet")
 
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with qaihm_temp_dir() as tmpdir:
             base_path = Path(tmpdir) / base_dir
             if base_path.exists():
                 shutil.rmtree(base_path)
             os.makedirs(base_path)
 
             onnx_utils.EXPORT_TO_ONNX_DIRECT = self.needs_onnx_direct_aimet_export
+
             self.quant_sim.export(
                 str(base_path),
                 model_name,
                 tuple(make_torch_inputs(input_spec)),
-                onnx_export_args=dict(input_names=[name for name in input_spec]),
+                onnx_export_args=dict(
+                    input_names=[name for name in input_spec], output_names=output_names
+                ),
             )
-
             onnx_file_name = f"{model_name}.onnx"
             encodings_file_name = f"{model_name}.encodings"
-            with ZipFile(zip_path, "w") as zip_object:
+            external_weights_file_name = f"{model_name}.data"
+
+            if external_weights:
+                # Torch exports to onnx with external weights scattered in a directory.
+                # Save ONNX model with weights to one file.
+                onnx_file_path = str(base_path / onnx_file_name)
+                onnx_model = load_onnx_model(onnx_file_path)
+                save_onnx_model(
+                    onnx_model,
+                    str(onnx_file_path),
+                    save_as_external_data=True,
+                    all_tensors_to_one_file=True,
+                    location=external_weights_file_name,
+                )
+
+            # compresslevel defines how fine compression should run
+            # higher the level, heavier algorithm is used leading to more time.
+            # For large models, higher compression takes longer time to compress.
+            with ZipFile(zip_path, "w", ZIP_DEFLATED, compresslevel=4) as zip_object:
                 zip_object.write(base_path, base_dir)
+
                 zip_object.write(
                     base_path / onnx_file_name, os.path.join(base_dir, onnx_file_name)
                 )
+                if external_weights:
+                    zip_object.write(
+                        base_path / external_weights_file_name,
+                        os.path.join(base_dir, external_weights_file_name),
+                    )
                 zip_object.write(
                     base_path / encodings_file_name,
                     os.path.join(base_dir, encodings_file_name),
@@ -391,7 +435,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         if not input_spec:
             input_spec = self.get_input_spec()
 
-        with tempfile.TemporaryDirectory() as tempdir:
+        with qaihm_temp_dir() as tempdir:
             self.quant_sim.export(
                 tempdir,
                 "model",
@@ -415,12 +459,19 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         return {k: v.numpy() for k, v in zip(input_spec.keys(), inputs)}
 
     def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[Device] = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(  # type: ignore
-            target_runtime, other_compile_options
+            target_runtime, other_compile_options, device
         )
-        return compile_options + " --quantize_full_type int8 --quantize_io"
+        compile_options = compile_options + " --quantize_full_type int8"
+        if target_runtime != TargetRuntime.ORT:
+            # TODO(#10896): Restore quantize_io flag when targeting ORT
+            compile_options = compile_options + " --quantize_io"
+        return compile_options
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime

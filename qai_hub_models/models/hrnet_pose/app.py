@@ -200,6 +200,6 @@ class HRNetPoseApp:
 
         predicted_images = []
         for i, img in enumerate(NHWC_int_numpy_frames):
-            draw_points(img, keypoints[i], color=(255, 0, 0), size=2)
+            draw_points(img, keypoints[i], color=(255, 0, 0), size=6)
             predicted_images.append(fromarray(img))
         return predicted_images

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import sys
-import tempfile
 from typing import Callable, Tuple
 
 import numpy as np
@@ -16,6 +15,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_path,
     maybe_clone_git_repo,
+    qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -290,7 +290,7 @@ def load_sam_model(
 ) -> torch.nn.Module:
     """Loads SAM model of given model type"""
     weights_url = _get_weights_url(model_type)
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         weights_path = load_path(weights_url, tmpdir)
         sam = sam_model_registry[model_type](weights_path)
     sam.eval()
@@ -311,8 +311,10 @@ def _patch_sam_with_qaihm_modules():
         SamPredictor: segment_anything.SamPredictor
             Python class wrapper to call image encoder - decoder
     """
-    sam_repo_path = maybe_clone_git_repo(
-        SAM_SOURCE_REPO, SAM_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
+    sam_repo_path = str(
+        maybe_clone_git_repo(
+            SAM_SOURCE_REPO, SAM_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
+        )
     )
     cwd = os.getcwd()
     try:

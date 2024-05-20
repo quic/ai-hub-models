@@ -4,27 +4,27 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import cv2
-import numpy
+import numpy as np
 import torch
 
 
 def draw_points(
-    frame: numpy.ndarray,
-    points: numpy.ndarray | torch.Tensor,
+    frame: np.ndarray,
+    points: np.ndarray | torch.Tensor,
     color: Tuple[int, int, int] = (0, 0, 0),
-    size: int = 3,
+    size: Union[int, List[int]] = 10,
 ):
     """
     Draw the given points on the frame.
 
     Parameters:
-        frame: numpy.ndarray
-            numpy array (H W C x uint8, BGR)
+        frame: np.ndarray
+            np array (H W C x uint8, BGR)
 
-        points: numpy.ndarray | torch.Tensor
+        points: np.ndarray | torch.Tensor
             array (N, 2) where layout is
                 [x1, y1] [x2, y2], ...
             or
@@ -40,38 +40,49 @@ def draw_points(
     Returns:
         None; modifies frame in place.
     """
-    n2 = len(points.shape) == 2
-    for i in range(0, len(points) if n2 else len(points) // 2):
-        x, y = points[i] if n2 else (points[i * 2], points[i * 2 + 1])
-        cv2.circle(frame, (int(x), int(y)), size, color, thickness=size)
+    if len(points.shape) == 1:
+        points = points.reshape(-1, 2)
+    assert isinstance(size, int) or len(size) == len(points)
+    cv_keypoints = []
+    for i, (x, y) in enumerate(points):
+        curr_size = size if isinstance(size, int) else size[i]
+        cv_keypoints.append(cv2.KeyPoint(int(x), int(y), curr_size))
+
+    cv2.drawKeypoints(
+        frame,
+        cv_keypoints,
+        outImage=frame,
+        color=color,
+        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+    )
 
 
 def draw_connections(
-    frame: numpy.ndarray,
-    points: numpy.ndarray | torch.Tensor,
+    frame: np.ndarray,
+    points: np.ndarray | torch.Tensor,
     connections: List[Tuple[int, int]],
     color: Tuple[int, int, int] = (0, 0, 0),
-    size: int = 3,
+    size: int = 1,
 ):
     """
     Draw connecting lines between the given points on the frame.
 
     Parameters:
-        frame: numpy.ndarray
-            numpy array (H W C x uint8, BGR)
+        frame:
+            np array (H W C x uint8, BGR)
 
-        points: numpy.ndarray | torch.Tensor
+        points:
             array (N, 2) where layout is
                 [x1, y1] [x2, y2], ...
             or
             array (N * 2,) where layout is
                 x1, y1, x2, y2, ...
 
-        connections: List[Tuple[int, int]]
+        connections:
             List of points that should be connected by a line.
             Format is [(src point index, dst point index), ...]
 
-        color: Tuple[int, int, int]
+        color:
             Color of drawn points (RGB)
 
         size: int
@@ -80,34 +91,28 @@ def draw_connections(
     Returns:
         None; modifies frame in place.
     """
-    n2 = len(points.shape) == 2
-    for connection in connections:
-        x0, y0 = (
-            points[connection[0]]
-            if n2
-            else (points[connection[0] * 2], points[connection[0] * 2 + 1])
-        )
-        x1, y1 = (
-            points[connection[1]]
-            if n2
-            else (points[connection[1] * 2], points[connection[1] * 2 + 1])
-        )
-        x0, y0 = int(x0), int(y0)
-        x1, y1 = int(x1), int(y1)
-        cv2.line(frame, (x0, y0), (x1, y1), color, size)
+    if len(points.shape) == 1:
+        points = points.reshape(-1, 2)
+    point_pairs = [
+        ((int(points[i][0]), int(points[i][1])), (int(points[j][0]), int(points[j][1])))
+        for (i, j) in connections
+    ]
+    cv2.polylines(
+        frame, np.array(point_pairs), isClosed=False, color=color, thickness=size  # type: ignore
+    )
 
 
 def draw_box_from_corners(
-    frame: numpy.ndarray, corners: numpy.ndarray | torch.Tensor, color=(0, 0, 0), size=3
+    frame: np.ndarray, corners: np.ndarray | torch.Tensor, color=(0, 0, 0), size=3
 ):
     """
     Draw a box using the 4 points provided as boundaries.
 
     Parameters:
-        frame: numpy.ndarray
-            numpy array (H W C x uint8, BGR)
+        frame: np.ndarray
+            np array (H W C x uint8, BGR)
 
-        corners: numpy.ndarray | torch.Tensor
+        corners: np.ndarray | torch.Tensor
             array (4, 2) where layout is
                 [x1, y1] [x2, y2], ...
             or
@@ -128,8 +133,8 @@ def draw_box_from_corners(
 
 
 def draw_box_from_xywh(
-    frame: numpy.ndarray,
-    box: numpy.ndarray | torch.Tensor,
+    frame: np.ndarray,
+    box: np.ndarray | torch.Tensor,
     color: Tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
 ):
@@ -137,10 +142,10 @@ def draw_box_from_xywh(
     Draw a box using the provided data (center / height / width) to compute the box.
 
     Parameters:
-        frame: numpy.ndarray
-            numpy array (H W C x uint8, BGR)
+        frame: np.ndarray
+            np array (H W C x uint8, BGR)
 
-        box: numpy.ndarray | torch.Tensor
+        box: np.ndarray | torch.Tensor
             array (4), where layout is
                 [xcenter, ycenter, h, w]
 
@@ -160,9 +165,9 @@ def draw_box_from_xywh(
 
 
 def draw_box_from_xyxy(
-    frame: numpy.ndarray,
-    top_left: numpy.ndarray | torch.Tensor | Tuple[int, int],
-    bottom_right: numpy.ndarray | torch.Tensor | Tuple[int, int],
+    frame: np.ndarray,
+    top_left: np.ndarray | torch.Tensor | Tuple[int, int],
+    bottom_right: np.ndarray | torch.Tensor | Tuple[int, int],
     color: Tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
     text: Optional[str] = None,
@@ -171,10 +176,10 @@ def draw_box_from_xyxy(
     Draw a box using the provided top left / bottom right points to compute the box.
 
     Parameters:
-        frame: numpy.ndarray
-            numpy array (H W C x uint8, BGR)
+        frame: np.ndarray
+            np array (H W C x uint8, BGR)
 
-        box: numpy.ndarray | torch.Tensor
+        box: np.ndarray | torch.Tensor
             array (4), where layout is
                 [xc, yc, h, w]
 
@@ -217,7 +222,7 @@ def create_color_map(num_classes):
     Returns:
         A list of `num_classes` colors in RGB format.
     """
-    numpy.random.seed(42)  # For reproducible results
-    color_map = numpy.random.randint(0, 256, size=(num_classes, 3), dtype=numpy.uint8)
+    np.random.seed(42)  # For reproducible results
+    color_map = np.random.randint(0, 256, size=(num_classes, 3), dtype=np.uint8)
     color_map[0] = [0, 0, 0]  # Background class, usually black
     return color_map

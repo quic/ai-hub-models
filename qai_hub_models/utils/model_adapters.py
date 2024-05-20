@@ -16,7 +16,7 @@ def flatten(obj):
     flattened_list = []
     for item in obj:
         if isinstance(item, tgt_type):
-            flattened_list.extend(flatten(item, tgt_type))
+            flattened_list.extend(flatten(item))
         else:
             flattened_list.append(item)
     return flattened_list

@@ -9,14 +9,16 @@ from torchvision.datasets import ImageNet
 
 from qai_hub_models.datasets.common import BaseDataset
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
 IMAGENETTE_FOLDER_NAME = "imagenette2-320"
 IMAGENETTE_VERSION = 1
+DEVKIT_NAME = "ILSVRC2012_devkit_t12.tar.gz"
 DEVKIT_ASSET = CachedWebDatasetAsset(
-    "https://image-net.org/data/ILSVRC/2012/ILSVRC2012_devkit_t12.tar.gz",
+    f"https://image-net.org/data/ILSVRC/2012/{DEVKIT_NAME}",
     IMAGENETTE_FOLDER_NAME,
     IMAGENETTE_VERSION,
-    "ILSVRC2012_devkit_t12.tar.gz",
+    DEVKIT_NAME,
 )
 IMAGENETTE_ASSET = CachedWebDatasetAsset(
     "https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-320.tgz",
@@ -51,11 +53,6 @@ class ImagenetteDataset(BaseDataset, ImageNet):
 
     def __init__(self):
         BaseDataset.__init__(self, str(IMAGENETTE_ASSET.path(extracted=True)))
-        # Avoid circular import
-        from qai_hub_models.models._shared.imagenet_classifier.app import (
-            IMAGENET_TRANSFORM,
-        )
-
         ImageNet.__init__(
             self,
             root=IMAGENETTE_ASSET.path(),
@@ -77,18 +74,18 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             return False
 
         # Check val data exists
-        val_data_path = os.path.join(self.dataset_path, "val")
-        if not os.path.exists(val_data_path):
+        val_data_path = self.dataset_path / "val"
+        if not val_data_path.exists():
             return False
 
         # Ensure 10 classes
-        subdirs = os.listdir(val_data_path)
+        subdirs = list(val_data_path.iterdir())
         if len(subdirs) != 10:
             return False
 
         # Ensure >= 300 samples per classes
         for subdir in subdirs:
-            if len(os.listdir(os.path.join(val_data_path, subdir))) < 300:
+            if len(list(subdir.iterdir())) < 300:
                 return False
         return True
 
@@ -97,6 +94,6 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         devkit_path = DEVKIT_ASSET.fetch()
         devkit_st = os.stat(devkit_path)
         os.chmod(devkit_path, devkit_st.st_mode | stat.S_IEXEC)
-        target_path = IMAGENETTE_ASSET.path() / os.path.basename(DEVKIT_ASSET.path())
-        if not os.path.exists(target_path):
+        target_path = IMAGENETTE_ASSET.path() / DEVKIT_NAME
+        if not target_path.exists():
             os.symlink(DEVKIT_ASSET.path(), target_path)

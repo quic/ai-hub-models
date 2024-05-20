@@ -566,7 +566,7 @@ class MediaPipeApp:
             # Draw detector bounding box
             draw_box_from_xyxy(NHWC_int_numpy_frame, box[0], box[1], (255, 0, 0), 1)
             # Draw detector keypoints
-            draw_points(NHWC_int_numpy_frame, kp)
+            draw_points(NHWC_int_numpy_frame, kp, size=30)
             # Draw region of interest box computed from the detector box & keypoints
             # (this is the input to the landmark detector)
             draw_box_from_corners(NHWC_int_numpy_frame, roi, (0, 255, 0))

@@ -374,7 +374,7 @@ class TaskLibrary:
             PyTestModelsTask(
                 self.python_executable,
                 all_models,
-                [],
+                REPRESENTATIVE_EXPORT_MODELS,
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,

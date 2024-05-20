@@ -56,6 +56,17 @@ def add_output_dir_arg(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
     return parser
 
 
+def _get_default_runtime(available_runtimes: List[TargetRuntime]):
+    if len(available_runtimes) == 0:
+        raise RuntimeError("available_runtimes empty, expecting at-least one runtime.")
+
+    return (
+        TargetRuntime.TFLITE
+        if TargetRuntime.TFLITE in available_runtimes
+        else available_runtimes[0]
+    )
+
+
 def add_target_runtime_arg(
     parser: argparse.ArgumentParser,
     help: str,
@@ -116,11 +127,7 @@ def get_on_device_demo_parser(
         default="",
         help="If running on-device, use these options when submitting the inference job.",
     )
-    default_runtime = (
-        TargetRuntime.TFLITE
-        if TargetRuntime.TFLITE in available_target_runtimes
-        else available_target_runtimes[0]
-    )
+    default_runtime = _get_default_runtime(available_runtimes=available_target_runtimes)
     add_target_runtime_arg(
         parser,
         help="The runtime to demo (if --on-device is specified).",
@@ -378,9 +385,12 @@ def get_qcom_chipsets() -> Set[str]:
 def export_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
     components: Optional[List[str]] = None,
-    supports_qnn=True,
-    supports_ort=True,
-    exporting_compiled_model=False,
+    supports_tflite: bool = True,
+    supports_qnn: bool = True,
+    supports_ort: bool = True,
+    default_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    exporting_compiled_model: bool = False,
+    default_export_device: str = DEFAULT_EXPORT_DEVICE,
 ) -> argparse.ArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -401,6 +411,8 @@ def export_parser(
             True when exporting compiled model.
             If set, removing skip_profiling flag from export arguments.
             Default = False.
+        default_export_device:
+            Default device to set for export.
 
     Returns:
         Arg parser object.
@@ -409,7 +421,7 @@ def export_parser(
     parser.add_argument(
         "--device",
         type=str,
-        default=DEFAULT_EXPORT_DEVICE,
+        default=default_export_device,
         help="Device for which to export.",
     )
     parser.add_argument(
@@ -450,14 +462,19 @@ def export_parser(
     )
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
-        available_runtimes = [TargetRuntime.TFLITE]
+        available_runtimes = []
+        if supports_tflite:
+            available_runtimes.append(TargetRuntime.TFLITE)
         if supports_qnn:
             available_runtimes.append(TargetRuntime.QNN)
         if supports_ort:
             available_runtimes.append(TargetRuntime.ORT)
+
+        default_runtime = _get_default_runtime(available_runtimes)
         add_target_runtime_arg(
             parser,
             available_target_runtimes=available_runtimes,
+            default=default_runtime,
             help="The runtime for which to export.",
         )
         # No compilation for compiled models

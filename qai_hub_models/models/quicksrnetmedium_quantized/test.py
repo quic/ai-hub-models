@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-import tempfile
 import zipfile
 
 import numpy as np
@@ -18,7 +17,11 @@ from qai_hub_models.models.quicksrnetmedium_quantized.model import (
     MODEL_ID,
     QuickSRNetMediumQuantizable,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_image,
+    qaihm_temp_dir,
+)
 from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -69,7 +72,7 @@ def test_trace():
 def test_aimet_export():
     model = QuickSRNetMediumQuantizable.from_pretrained()
     name = model.__class__.__name__
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         output_zip = model.convert_to_onnx_and_aimet_encodings(
             tmpdir,
         )

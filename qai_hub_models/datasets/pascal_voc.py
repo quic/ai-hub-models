@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from pathlib import Path
 from typing import Tuple
 
 import numpy as np
@@ -36,7 +35,7 @@ class VOCSegmentationDataset(BaseDataset):
         assert split in ["train", "val", "trainval"]
         self.split = split
 
-        base_path = Path(self.dataset_path) / "VOC2012"
+        base_path = self.dataset_path / "VOC2012"
         image_dir = base_path / "JPEGImages"
         category_dir = base_path / "SegmentationClass"
         splits_dir = base_path / "ImageSets" / "Segmentation"

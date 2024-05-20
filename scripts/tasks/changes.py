@@ -37,6 +37,7 @@ MANUAL_EDGES = {
         "qai_hub_models/models/resnet18_quantized/model.py",
     ],
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/config_loaders.py": REPRESENTATIVE_EXPORT_FILES,
 }
 
 

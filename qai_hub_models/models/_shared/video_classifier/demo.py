@@ -4,13 +4,12 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import tempfile
 from typing import Type
 
 from qai_hub_models.models._shared.video_classifier.app import KineticsClassifierApp
 from qai_hub_models.models._shared.video_classifier.model import KineticsClassifier
 from qai_hub_models.utils.args import get_model_cli_parser, model_from_cli_args
-from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_path
+from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_path, qaihm_temp_dir
 
 
 #
@@ -35,7 +34,7 @@ def kinetics_classifier_demo(
     model = model_from_cli_args(model_type, args)
     app = KineticsClassifierApp(model)
     print("Model Loaded")
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         dst_path = load_path(args.video, tmpdir)
         predictions = app.predict(path=str(dst_path))
     top5_classes = ", ".join(predictions)

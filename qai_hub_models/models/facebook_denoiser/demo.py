@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-import tempfile
 from pathlib import Path
 from typing import List
 
@@ -23,7 +22,11 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_path
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_path,
+    qaihm_temp_dir,
+)
 
 EXAMPLE_RECORDING = CachedWebModelAsset.from_asset_store(
     MODEL_ID, ASSET_VERSION, "icsi_meeting_recording.wav"
@@ -57,7 +60,7 @@ def main(is_test: bool = False):
     # Download data
     audio_files: List[str] = args.audio
     audio_tensors = []
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         for idx, file in enumerate(audio_files):
             audio_file = load_path(file, tmpdir)
             audio, sample_rate = torchaudio.load(audio_file)

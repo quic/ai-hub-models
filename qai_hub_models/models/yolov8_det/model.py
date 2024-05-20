@@ -160,7 +160,7 @@ class YoloV8Detector(BaseModel):
         return {"image": ((batch_size, num_channels, height, width), "float32")}
 
     def get_evaluator(self) -> BaseEvaluator:
-        return DetectionEvaluator(640, 640)
+        return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
 
 
 def yolov8_detect_postprocess(

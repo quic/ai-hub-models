@@ -123,9 +123,16 @@ def export_model(
     else:
         quant_calibration_data = model.get_calibration_data(target_runtime, input_spec)
 
+    # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
+    channel_last_flags = (
+        " --force_channel_last_input image_tensor"
+        if target_runtime != TargetRuntime.ORT
+        else ""
+    )
+
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options + " --force_channel_last_input image_tensor"
+        target_runtime, compile_options + channel_last_flags, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -167,8 +174,12 @@ def export_model(
         if target_runtime == TargetRuntime.QNN:
             hub_inputs = get_qnn_inputs(compile_job, sample_inputs)
         # Convert inputs from channel first to channel last
-        hub_inputs = transpose_channel_first_to_last(
-            "image_tensor", sample_inputs, target_runtime
+        hub_inputs = (
+            sample_inputs
+            if target_runtime == TargetRuntime.ORT
+            else transpose_channel_first_to_last(
+                "image_tensor", sample_inputs, target_runtime
+            )
         )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
@@ -205,7 +216,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_ort=False)
+    parser = export_parser(model_cls=Model)
     args = parser.parse_args()
     export_model(**vars(args))
 

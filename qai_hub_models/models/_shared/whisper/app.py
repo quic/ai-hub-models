@@ -36,7 +36,7 @@ class WhisperApp:
         self.num_decoder_blocks = whisper.num_decoder_blocks
         self.num_decoder_heads = whisper.num_decoder_heads
         self.attention_dim = whisper.attention_dim
-        self.max_decode_len = whisper.max_decode_len
+        self.mean_decode_len = whisper.mean_decode_len
 
         # Wraps torch Module so it takes np ndarray as input and outputs
         if isinstance(encoder, torch.nn.Module):
@@ -64,14 +64,28 @@ class WhisperApp:
 
         - transcribed texts
         """
-        cross_attn_cache = self.encoder(mel_input)
+        k_cache_cross, v_cache_cross = self.encoder(mel_input)
         # Start decoding
         # coreml only takes float tensors
         x = np.array([[TOKEN_SOT]])
         decoded_tokens = [TOKEN_SOT]
-        sample_len = self.max_decode_len  # max # of tokens to sample
-        cache_tensor = np.zeros((1, sample_len, self.attention_dim)).astype(np.float32)
-        self_attn_cache = [cache_tensor] * 2 * self.num_decoder_blocks
+        sample_len = self.mean_decode_len  # mean # of tokens to sample
+        k_cache_self = np.zeros(
+            (
+                self.num_decoder_blocks,
+                self.num_decoder_heads,
+                self.attention_dim // self.num_decoder_heads,
+                sample_len,
+            )
+        ).astype(np.float32)
+        v_cache_self = np.zeros(
+            (
+                self.num_decoder_blocks,
+                self.num_decoder_heads,
+                sample_len,
+                self.attention_dim // self.num_decoder_heads,
+            )
+        ).astype(np.float32)
 
         sum_logprobs = 0
         for i in range(sample_len):
@@ -80,15 +94,13 @@ class WhisperApp:
             # index - used to get positional embedding correctly.
             index = torch.zeros([1, 1], dtype=torch.int32)
             index[0, 0] = i
-            # Use mask to get the k_cache updated with new key
-            mask = torch.zeros(1, sample_len, self.attention_dim, dtype=torch.bool)
-            mask[:, i, :] = 1
             decoder_out = self.decoder(
-                x, index, mask, *cross_attn_cache, *self_attn_cache
+                x, index, k_cache_cross, v_cache_cross, k_cache_self, v_cache_self
             )
             # logit has shape (1, decoded_len, 51864)
             logits = decoder_out[0]
-            self_attn_cache = decoder_out[1:]  # type: ignore
+            k_cache_self = decoder_out[1]
+            v_cache_self = decoder_out[2]
 
             # logit has shape (51864,)
             logits = logits[0, -1]  # consider only the last token

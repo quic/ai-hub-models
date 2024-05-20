@@ -29,10 +29,12 @@ def get_data_files() -> List[str]:
     data_files = []
     for ext in data_file_extensions:
         data_files.extend(
-            glob.glob(f"{str(qaihm_path.absolute())}/**/*.{ext}", recursive=True)
+            glob.glob(
+                f"{str(qaihm_path.absolute() / '**' / f'*.{ext}')}", recursive=True
+            )
         )
     for i in range(0, len(data_files)):
-        data_files[i] = data_files[i].split("/qai_hub_models/")[1]
+        data_files[i] = data_files[i].split("qai_hub_models")[1][1:]
     return data_files
 
 

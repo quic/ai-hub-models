@@ -12,12 +12,21 @@ memory etc.) and ready to deploy on Qualcomm® devices.
 * Access the models through [Hugging Face](https://huggingface.co/qualcomm).
 * [Sign up](https://myaccount.qualcomm.com/signup) to run these models on hosted Qualcomm® devices.
 
+Supported **python package host machine** Operating Systems:
+- Linux (x86, ARM)
+- Windows (x86)
+- Windows (ARM-- ONLY via x86 Python, not ARM Python)
+- MacOS (x86, ARM)
+
 Supported runtimes
 * [TensorFlow Lite](https://www.tensorflow.org/lite)
 * [Qualcomm AI Engine Direct](https://www.qualcomm.com/developer/artificial-intelligence#overview)
+* [ONNX](https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html)
 
-Supported operating systems:
-* Android 11+
+Models can be deployed on:
+* Android
+* Windows
+* Linux
 
 Supported compute units
 * CPU, GPU, NPU (includes [Hexagon DSP](https://developer.qualcomm.com/software/hexagon-dsp-sdk/dsp-processor), [HTP](https://developer.qualcomm.com/hardware/qualcomm-innovators-development-kit/ai-resources-overview/ai-hardware-cores-accelerators))
@@ -28,12 +37,13 @@ Supported precision
 
 Supported chipsets
 * [Snapdragon 845](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-845-mobile-platform), [Snapdragon 855/855+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-855-mobile-platform), [Snapdragon 865/865+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-865-plus-5g-mobile-platform), [Snapdragon 888/888+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-888-5g-mobile-platform)
-* [Snapdragon 8 Gen 1](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-1-mobile-platform), [Snapdragon 8 Gen 2](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-2-mobile-platform), [Snapdragon 8 Gen 3](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-3-mobile-platform)
+* [Snapdragon 8 Gen 1](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-1-mobile-platform), [Snapdragon 8 Gen 2](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-2-mobile-platform), [Snapdragon 8 Gen 3](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-3-mobile-platform), [Snapdragon X Elite](https://www.qualcomm.com/products/mobile/snapdragon/pcs-and-tablets/snapdragon-x-elite)
 
 Select supported devices
 * Samsung Galaxy S21 Series, Galaxy S22 Series, Galaxy S23 Series, Galaxy S24 Series
 * Xiaomi 12, 13
 * Google Pixel 3, 4, 5
+* Snapdragon X Elite CRD (Compute Reference Device)
 
 and many more.
 
@@ -261,6 +271,8 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | | | | |
 | **Image Classification**
 | [ConvNext-Tiny](https://aihub.qualcomm.com/models/convnext_tiny) | [qai_hub_models.models.convnext_tiny](qai_hub_models/models/convnext_tiny/README.md) | ✔️ | ✔️ | ✔️
+| [ConvNext-Tiny-w8a16-Quantized](qai_hub_models/models/convnext_tiny_w8a16_quantized/README.md) | [qai_hub_models.models.convnext_tiny_w8a16_quantized](qai_hub_models/models/convnext_tiny_w8a16_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [ConvNext-Tiny-w8a8-Quantized](qai_hub_models/models/convnext_tiny_w8a8_quantized/README.md) | [qai_hub_models.models.convnext_tiny_w8a8_quantized](qai_hub_models/models/convnext_tiny_w8a8_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [DenseNet-121](https://aihub.qualcomm.com/models/densenet121) | [qai_hub_models.models.densenet121](qai_hub_models/models/densenet121/README.md) | ✔️ | ✔️ | ✔️
 | [EfficientNet-B0](https://aihub.qualcomm.com/models/efficientnet_b0) | [qai_hub_models.models.efficientnet_b0](qai_hub_models/models/efficientnet_b0/README.md) | ✔️ | ✔️ | ✔️
 | [GoogLeNet](https://aihub.qualcomm.com/models/googlenet) | [qai_hub_models.models.googlenet](qai_hub_models/models/googlenet/README.md) | ✔️ | ✔️ | ✔️
@@ -321,7 +333,8 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [DeepLabV3-Plus-MobileNet](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet) | [qai_hub_models.models.deeplabv3_plus_mobilenet](qai_hub_models/models/deeplabv3_plus_mobilenet/README.md) | ✔️ | ✔️ | ✔️
 | [DeepLabV3-Plus-MobileNet-Quantized](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet_quantized) | [qai_hub_models.models.deeplabv3_plus_mobilenet_quantized](qai_hub_models/models/deeplabv3_plus_mobilenet_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [DeepLabV3-ResNet50](https://aihub.qualcomm.com/models/deeplabv3_resnet50) | [qai_hub_models.models.deeplabv3_resnet50](qai_hub_models/models/deeplabv3_resnet50/README.md) | ✔️ | ✔️ | ✔️
-| [FCN_ResNet50](https://aihub.qualcomm.com/models/fcn_resnet50) | [qai_hub_models.models.fcn_resnet50](qai_hub_models/models/fcn_resnet50/README.md) | ✔️ | ✔️ | ✔️
+| [FCN-ResNet50](https://aihub.qualcomm.com/models/fcn_resnet50) | [qai_hub_models.models.fcn_resnet50](qai_hub_models/models/fcn_resnet50/README.md) | ✔️ | ✔️ | ✔️
+| [FCN-ResNet50-Quantized](https://aihub.qualcomm.com/models/fcn_resnet50_quantized) | [qai_hub_models.models.fcn_resnet50_quantized](qai_hub_models/models/fcn_resnet50_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [FFNet-122NS-LowRes](https://aihub.qualcomm.com/models/ffnet_122ns_lowres) | [qai_hub_models.models.ffnet_122ns_lowres](qai_hub_models/models/ffnet_122ns_lowres/README.md) | ✔️ | ✔️ | ✔️
 | [FFNet-40S](https://aihub.qualcomm.com/models/ffnet_40s) | [qai_hub_models.models.ffnet_40s](qai_hub_models/models/ffnet_40s/README.md) | ✔️ | ✔️ | ✔️
 | [FFNet-40S-Quantized](https://aihub.qualcomm.com/models/ffnet_40s_quantized) | [qai_hub_models.models.ffnet_40s_quantized](qai_hub_models/models/ffnet_40s_quantized/README.md) | ✔️ | ✔️ | ✔️
@@ -347,6 +360,8 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection-Quantized](https://aihub.qualcomm.com/models/yolov8_det_quantized) | [qai_hub_models.models.yolov8_det_quantized](qai_hub_models/models/yolov8_det_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Yolo-NAS](https://aihub.qualcomm.com/models/yolonas) | [qai_hub_models.models.yolonas](qai_hub_models/models/yolonas/README.md) | ✔️ | ✔️ | ✔️
+| [Yolo-NAS-Quantized](https://aihub.qualcomm.com/models/yolonas_quantized) | [qai_hub_models.models.yolonas_quantized](qai_hub_models/models/yolonas_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Yolo-v6](https://aihub.qualcomm.com/models/yolov6) | [qai_hub_models.models.yolov6](qai_hub_models/models/yolov6/README.md) | ✔️ | ✔️ | ✔️
 | [Yolo-v7](https://aihub.qualcomm.com/models/yolov7) | [qai_hub_models.models.yolov7](qai_hub_models/models/yolov7/README.md) | ✔️ | ✔️ | ✔️
 | [Yolo-v7-Quantized](https://aihub.qualcomm.com/models/yolov7_quantized) | [qai_hub_models.models.yolov7_quantized](qai_hub_models/models/yolov7_quantized/README.md) | ✔️ | ✔️ | ✔️
@@ -356,6 +371,10 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [LiteHRNet](https://aihub.qualcomm.com/models/litehrnet) | [qai_hub_models.models.litehrnet](qai_hub_models/models/litehrnet/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Pose-Estimation](https://aihub.qualcomm.com/models/mediapipe_pose) | [qai_hub_models.models.mediapipe_pose](qai_hub_models/models/mediapipe_pose/README.md) | ✔️ | ✔️ | ✔️
 | [OpenPose](https://aihub.qualcomm.com/models/openpose) | [qai_hub_models.models.openpose](qai_hub_models/models/openpose/README.md) | ✔️ | ✔️ | ✔️
+| [Posenet-Mobilenet](qai_hub_models/models/posenet_mobilenet/README.md) | [qai_hub_models.models.posenet_mobilenet](qai_hub_models/models/posenet_mobilenet/README.md) | ✔️ | ✔️ | ✔️
+| | | | |
+| **Depth Estimation**
+| [Midas-V2](qai_hub_models/models/midas/README.md) | [qai_hub_models.models.midas](qai_hub_models/models/midas/README.md) | ✔️ | ✔️ | ✔️
 
 ### Audio
 
@@ -386,7 +405,9 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | | | | |
 | **Image Generation**
 | [ControlNet](https://aihub.qualcomm.com/models/controlnet_quantized) | [qai_hub_models.models.controlnet_quantized](qai_hub_models/models/controlnet_quantized/README.md) | ✔️ | ✔️ | ✔️
-| [Stable-Diffusion](https://aihub.qualcomm.com/models/stable_diffusion_quantized) | [qai_hub_models.models.stable_diffusion_quantized](qai_hub_models/models/stable_diffusion_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Riffusion](qai_hub_models/models/riffusion_quantized/README.md) | [qai_hub_models.models.riffusion_quantized](qai_hub_models/models/riffusion_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Stable-Diffusion-v1.5](https://aihub.qualcomm.com/models/stable_diffusion_v1_5_quantized) | [qai_hub_models.models.stable_diffusion_v1_5_quantized](qai_hub_models/models/stable_diffusion_v1_5_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Stable-Diffusion-v2.1](qai_hub_models/models/stable_diffusion_v2_1_quantized/README.md) | [qai_hub_models.models.stable_diffusion_v2_1_quantized](qai_hub_models/models/stable_diffusion_v2_1_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
 | **Text Generation**
 | [Baichuan-7B](https://aihub.qualcomm.com/models/baichuan_7b_quantized) | [qai_hub_models.models.baichuan_7b_quantized](qai_hub_models/models/baichuan_7b_quantized/README.md) | ✔️ | ✔️ | ✔️

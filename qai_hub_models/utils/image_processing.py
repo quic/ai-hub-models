@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import functools
+import math
 from typing import Callable, List, Tuple
 
 import cv2
@@ -15,6 +16,15 @@ from PIL.Image import Image
 from PIL.Image import fromarray as ImageFromArray
 from torch.nn.functional import interpolate, pad
 from torchvision import transforms
+
+IMAGENET_DIM = 224
+IMAGENET_TRANSFORM = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(IMAGENET_DIM),
+        transforms.ToTensor(),
+    ]
+)
 
 
 def app_to_net_image_inputs(
@@ -175,12 +185,15 @@ def resize_pad(image: torch.Tensor, dst_size: Tuple[int, int]):
 
     h_ratio = dst_frame_height / height
     w_ratio = dst_frame_width / width
-    if width * h_ratio > dst_frame_height:
-        scale = w_ratio
-    else:
+    scale = min(h_ratio, w_ratio)
+    if h_ratio < w_ratio:
         scale = h_ratio
-
-    import math
+        new_height = dst_frame_height
+        new_width = math.floor(width * scale)
+    else:
+        scale = w_ratio
+        new_height = math.floor(height * scale)
+        new_width = dst_frame_width
 
     new_height = math.floor(height * scale)
     new_width = math.floor(width * scale)

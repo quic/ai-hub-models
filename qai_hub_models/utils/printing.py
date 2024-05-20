@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import qai_hub as hub
@@ -20,17 +20,36 @@ from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 _INFO_DASH = "-" * 60
 
 
+def print_with_box(data: List[str]) -> None:
+    """
+    Print input list with box around it as follows
+    +-----------------------------+
+    | list data 1                 |
+    | list data 2 that is longest |
+    | data                        |
+    +-----------------------------+
+    """
+    size = max(len(line) for line in data)
+    size += 2
+    print("+" + "-" * size + "+")
+    for line in data:
+        print("| {:<{}} |".format(line, size - 2))
+    print("+" + "-" * size + "+")
+
+
 def print_inference_metrics(
     inference_job: hub.InferenceJob,
     inference_result: DatasetEntries,
     torch_out: List[np.ndarray],
     outputs_to_skip: Optional[List[int]] = None,
+    output_names: Optional[List[str]] = None,
     metrics: str = "psnr",
 ) -> None:
+    if output_names is None:
+        output_names = list(inference_result.keys())
     inference_data = [
-        np.concatenate(outputs, axis=0) for outputs in inference_result.values()
+        np.concatenate(inference_result[out_name], axis=0) for out_name in output_names
     ]
-    output_names = list(inference_result.keys())
     df_eval = generate_comparison_metrics(
         torch_out, inference_data, names=output_names, metrics=metrics
     )
@@ -78,7 +97,7 @@ def print_profile_metrics_from_job(
         runtime = TargetRuntime.TFLITE
     elif is_qnn_hub_model(profile_job.model):
         runtime = TargetRuntime.QNN
-    elif profile_job.model.model_type == SourceModelType.ORT:
+    elif profile_job.model.model_type in [SourceModelType.ORT, SourceModelType.ONNX]:
         runtime = TargetRuntime.ORT
     else:
         raise NotImplementedError()
@@ -128,18 +147,30 @@ def print_profile_metrics(
 
 
 def print_on_target_demo_cmd(
-    compile_job: hub.CompileJob, model_folder: Path, device: str
+    compile_job: Union[hub.CompileJob, List[hub.CompileJob]],
+    model_folder: Path,
+    device: str,
 ) -> None:
     """
     Outputs a command that will run a model's demo script via inference job.
     """
-    assert compile_job.wait().success
-    print("\nRun this model on a hosted device on sample data using:")
-    target_model = compile_job.get_target_model()
-    assert target_model is not None
+    if isinstance(compile_job, hub.CompileJob):
+        compile_job = [compile_job]
+
+    target_model_id = []
+    for job in compile_job:
+        assert job.wait().success
+        target_model = job.get_target_model()
+        assert target_model is not None
+        target_model_id.append(target_model.model_id)
+
+    target_model_id_str = ",".join(target_model_id)
+    print(
+        f"\nRun compiled model{'s' if len(target_model_id) > 1 else ''} on a hosted device on sample data using:"
+    )
     print(
         f"python {model_folder / 'demo.py'} "
         "--on-device "
-        f"--hub-model-id {target_model.model_id} "
+        f"--hub-model-id {target_model_id_str} "
         f'--device "{device}"\n'
     )

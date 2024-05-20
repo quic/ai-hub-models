@@ -5,9 +5,8 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
-from typing import List, Mapping, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 import numpy as np
 import qai_hub as hub
@@ -15,7 +14,7 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
-from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
+from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, qaihm_temp_dir
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import (
@@ -38,6 +37,8 @@ def prepare_compile_zoo_model_to_hub(
     input_spec: InputSpec | None = None,
     check_trace: bool = True,
     prepare_compile_options_only: bool = False,
+    external_onnx_weights: bool = False,
+    output_names: Optional[List[str]] = None,
 ) -> Tuple[str | None, str]:
     """
     Args:
@@ -86,12 +87,19 @@ def prepare_compile_zoo_model_to_hub(
 
     compilation_options = model.get_hub_compile_options(target_runtime)
 
+    if output_names is None:
+        output_names = []
+
     if is_aimet:
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():
+                print("Exporting model to ONNX and generating AIMET encodings")
                 return model.convert_to_onnx_and_aimet_encodings(
-                    output_path, model_name=model_name
+                    output_path,
+                    model_name=model_name,
+                    external_weights=external_onnx_weights,
+                    output_names=output_names,
                 )
 
         elif (
@@ -100,6 +108,7 @@ def prepare_compile_zoo_model_to_hub(
         ):
 
             def export_model_func():
+                print("Converting model to Torchscript")
                 traced_model = model.convert_to_torchscript(
                     input_spec=input_spec, check_trace=check_trace
                 )
@@ -111,6 +120,7 @@ def prepare_compile_zoo_model_to_hub(
         else:  # Torchscript and QNN
 
             def export_model_func():
+                print("Converting model to Torchscript and generating AIMET encodings")
                 exported_model = model.convert_to_torchscript_and_aimet_encodings(  # type: ignore
                     output_path,
                     model_name=model_name,
@@ -161,7 +171,7 @@ def compile_zoo_model_to_hub(
 
     model_name = model.__class__.__name__
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
+    with qaihm_temp_dir() as tmp_dir:
         assert tmp_dir is not None
         source_model, compilation_options = prepare_compile_zoo_model_to_hub(
             model=model,
@@ -218,11 +228,13 @@ class HubModel(ExecutableModelProtocol):
         input_names: List[str],
         device: hub.Device,
         inference_options: str = "",
+        output_names: Optional[List[str]] = None,
     ):
         self.model = model
         self.input_names = input_names
         self.device = device
         self.inference_options = inference_options
+        self.output_names = [] if output_names is None else output_names
 
     def __call__(
         self,
@@ -309,9 +321,12 @@ class HubModel(ExecutableModelProtocol):
                 target_runtime,
             )  # type: ignore
 
+        outputs = output_dataset.values()  # type: ignore
+        if len(self.output_names) > 0:
+            outputs = [output_dataset[out_name] for out_name in self.output_names]  # type: ignore
+
         output_torch = [
-            torch.from_numpy(np.concatenate(outputs, axis=0))
-            for outputs in output_dataset.values()  # type: ignore
+            torch.from_numpy(np.concatenate(output, axis=0)) for output in outputs
         ]
 
         if len(output_torch) == 1:
@@ -334,9 +349,8 @@ def get_uploaded_precompiled_model(
         model_name, model_version, f"{model_component}_model_id.cached"
     )
 
-    use_cached_model = not ignore_cached_model or os.path.exists(model_id_path)
     uploaded_model = None
-    if use_cached_model:
+    if not ignore_cached_model:
         try:
             with open(model_id_path, "r") as model_id_file:
                 model_id = model_id_file.readline().strip()
@@ -346,8 +360,7 @@ def get_uploaded_precompiled_model(
                 return uploaded_model
 
         except Exception:
-            # Try uploading model instead
-            use_cached_model = False
+            pass
 
     # Upload model on hub
     uploaded_model = hub.upload_model(model_path)

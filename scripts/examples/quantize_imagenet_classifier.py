@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 """
-This is a sample script showing how to take a AIMET model zoo model without
-pre-computed activations, and compute those activations using QAIHM.
+This is a sample script showing how to compute AIMET encodings for an
+    Imagenet Classifier using the Imagenette dataset.
 This script assumes the model is added to QAIHM, but is missing quantization parameters.
 """
 import argparse
@@ -14,6 +14,12 @@ import torch
 from torch.utils.data import DataLoader
 
 from qai_hub_models.datasets.imagenette import ImagenetteDataset
+from qai_hub_models.models.convnext_tiny_w8a8_quantized.model import (
+    ConvNextTinyW8A8Quantizable,
+)
+from qai_hub_models.models.convnext_tiny_w8a16_quantized.model import (
+    ConvNextTinyW8A16Quantizable,
+)
 from qai_hub_models.models.googlenet_quantized.model import GoogLeNetQuantizable
 from qai_hub_models.models.inception_v3_quantized.model import InceptionNetV3Quantizable
 from qai_hub_models.models.mobilenet_v2_quantized.model import MobileNetV2Quantizable
@@ -45,6 +51,8 @@ CLASSIFIERS = {
     "shufflenet_v2": ShufflenetV2Quantizable,
     "squeezenet1_1": SqueezeNetQuantizable,
     "wideresnet50": WideResNet50Quantizable,
+    "convnext_tiny_w8a8": ConvNextTinyW8A8Quantizable,
+    "convnext_tiny_w8a16": ConvNextTinyW8A16Quantizable,
 }
 
 if __name__ == "__main__":

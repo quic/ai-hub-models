@@ -49,7 +49,7 @@ class YoloV7(BaseModel):
     STRIDE_MULTIPLE = 32
 
     def get_evaluator(self) -> BaseEvaluator:
-        return DetectionEvaluator(640, 640)
+        return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
 
     @classmethod
     def from_pretrained(
@@ -96,7 +96,7 @@ class YoloV7(BaseModel):
         Returns:
             If self.include_postprocessing:
                 boxes: torch.Tensor
-                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
+                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
                 scores: torch.Tensor
                     class scores multiplied by confidence: Shape is [batch, num_preds]
                 class_idx: torch.tensor

@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import tempfile
 from importlib import reload
 
 import torch
@@ -15,6 +14,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     load_path,
+    qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -93,7 +93,7 @@ class YoloV6(BaseModel):
 def _load_yolov6_source_model_from_weights(
     ckpt_path: str | CachedWebModelAsset,
 ) -> torch.nn.Module:
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         model_path = load_path(ckpt_path, tmpdir)
         with SourceAsRoot(
             YOLOV6_SOURCE_REPOSITORY,

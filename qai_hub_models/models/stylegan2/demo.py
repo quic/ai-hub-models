@@ -41,8 +41,6 @@ def main(is_test: bool = False):
         help="Class[es] to use for image generation (if applicable).",
     )
     args = parser.parse_args([] if is_test else None)
-    if not args.inference_options:
-        args.inference_options = "--compute_unit gpu"
 
     # Create model and app
     model = model_from_cli_args(StyleGAN2, args)

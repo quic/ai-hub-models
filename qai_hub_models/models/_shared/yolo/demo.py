@@ -29,6 +29,7 @@ def yolo_detection_demo(
     default_image: str | CachedWebAsset,
     stride_multiple: int | None = None,
     is_test: bool = False,
+    default_score_threshold: float = 0.45,
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_type)
@@ -40,7 +41,7 @@ def yolo_detection_demo(
     parser.add_argument(
         "--score-threshold",
         type=float,
-        default=0.45,
+        default=default_score_threshold,
         help="Score threshold for NonMaximumSuppression",
     )
     parser.add_argument(

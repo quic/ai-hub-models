@@ -2,6 +2,11 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+"""
+This is a sample script showing how to compute AIMET encodings for an FFNet model
+    using the Cityscapes dataset.
+This script assumes the model is added to QAISM, but is missing quantization parameters.
+"""
 import argparse
 from pathlib import Path
 
@@ -20,13 +25,6 @@ FFNET_VARIANTS = {
     "ffnet_78s": FFNet78SQuantizable,
 }
 
-
-"""
-This is a sample script showing how to take a AIMET model zoo model without
-pre-computed activations, and compute those activations using QAISM.
-
-This script assumes the model is added to QAISM, but is missing quantization parameters.
-"""
 if __name__ == "__main__":
     # Args
     parser = argparse.ArgumentParser()

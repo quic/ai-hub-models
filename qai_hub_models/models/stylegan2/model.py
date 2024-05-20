@@ -4,10 +4,11 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import torch
+from qai_hub.client import Device
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
@@ -122,12 +123,20 @@ class StyleGAN2(BaseModel):
         return inputs
 
     def get_hub_compile_options(
-        self, target_runtime: TargetRuntime, other_compile_options: str = ""
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[Device] = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options
+            target_runtime, other_compile_options, device
         )
-        return compile_options + " --compute_unit gpu"
+        if (
+            target_runtime == TargetRuntime.TFLITE
+            and "--compute_unit" not in compile_options
+        ):
+            compile_options = compile_options + " --compute_unit gpu"
+        return compile_options
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -135,7 +144,12 @@ class StyleGAN2(BaseModel):
         profile_options = super().get_hub_profile_options(
             target_runtime, other_profile_options
         )
-        return profile_options + " --compute_unit gpu"
+        if (
+            target_runtime == TargetRuntime.TFLITE
+            and "--compute_unit" not in profile_options
+        ):
+            profile_options = profile_options + " --compute_unit gpu"
+        return profile_options
 
 
 def _get_qaihm_upfirdn2d_ref(misc: Any, conv2d_gradfix: Callable, upfirdn2d: Any):

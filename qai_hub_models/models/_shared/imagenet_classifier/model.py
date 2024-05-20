@@ -12,13 +12,15 @@ import torch
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import normalize_image_torchvision
+from qai_hub_models.utils.image_processing import (
+    IMAGENET_DIM,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.quantization import get_image_quantization_samples
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
-IMAGENET_DIM = 224
 
 
 class ImagenetClassifier(BaseModel):

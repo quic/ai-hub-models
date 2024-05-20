@@ -2,13 +2,12 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import tempfile
-
 import pytest
 
 from qai_hub_models.models.controlnet_quantized.demo import main as demo_main
 from qai_hub_models.models.controlnet_quantized.export import export_model
 from qai_hub_models.models.controlnet_quantized.model import ControlNetQuantized
+from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 
 
 def test_from_precompiled():
@@ -18,7 +17,7 @@ def test_from_precompiled():
 @pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")
 @pytest.mark.slow_cloud
 def test_export():
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with qaihm_temp_dir() as tmpdir:
         exported_jobs = export_model(
             # Testing text_encoder as it's smallest model in
             # ControlNet pipeline

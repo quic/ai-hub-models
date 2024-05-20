@@ -6,18 +6,11 @@ from __future__ import annotations
 
 import torch
 from PIL.Image import Image
-from torchvision import transforms
 
-from qai_hub_models.models._shared.imagenet_classifier.model import IMAGENET_DIM
 from qai_hub_models.models.protocols import ExecutableModelProtocol
-from qai_hub_models.utils.image_processing import normalize_image_transform
-
-IMAGENET_TRANSFORM = transforms.Compose(
-    [
-        transforms.Resize(256),
-        transforms.CenterCrop(IMAGENET_DIM),
-        transforms.ToTensor(),
-    ]
+from qai_hub_models.utils.image_processing import (
+    IMAGENET_TRANSFORM,
+    normalize_image_transform,
 )
 
 

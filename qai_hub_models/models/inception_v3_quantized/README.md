@@ -3,7 +3,7 @@
 
 # [Inception-v3-Quantized: Quantized Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/inception_v3_quantized)
 
-InceptionNetV3 is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases. This model is post-training quantized to int8 using samples from [Google's open images dataset](https://storage.googleapis.com/openimages/web/index.html).
+InceptionNetV3 is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases. This model is post-training quantized to int8 using samples from Google's open images dataset.
 
 This is based on the implementation of Inception-v3-Quantized found
 [here](https://github.com/pytorch/vision/blob/main/torchvision/models/inception.py). This repository contains scripts for optimized on-device
@@ -12,6 +12,8 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/i
 
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
+
+
 
 
 ## Example & Usage

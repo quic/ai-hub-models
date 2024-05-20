@@ -4,11 +4,22 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import torch
+
+
+def _flatten_tuple(out_tuple):
+    if not isinstance(out_tuple, tuple):
+        return (out_tuple.detach(),)
+
+    flattened_tuple = []
+    for elem in out_tuple:
+        flattened_tuple.extend(_flatten_tuple(elem))
+
+    return tuple(flattened_tuple)
 
 
 def torch_inference(
@@ -33,8 +44,10 @@ def torch_inference(
                 "cpu"
             )
         with torch.no_grad():
-            out = model(**inputs)
+            out = model(*inputs.values())
         out_tuple = (out,) if isinstance(out, torch.Tensor) else out
+        out_tuple = _flatten_tuple(out_tuple)
+
         for i, out_val in enumerate(out_tuple):
             if i == len(torch_outs):
                 torch_outs.append([])
@@ -120,7 +133,7 @@ METRICS_FUNCTIONS = dict(
 def generate_comparison_metrics(
     expected: List[np.ndarray],
     actual: List[np.ndarray],
-    names: List[str] | None = None,
+    names: Optional[List[str]] = None,
     metrics: str = "psnr",
 ) -> pd.DataFrame:
     """

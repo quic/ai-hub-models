@@ -30,6 +30,7 @@ import yaml
 from git import Repo
 from PIL import Image
 from schema import And, Schema, SchemaError
+from tqdm import tqdm
 
 ASSET_BASES_DEFAULT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "asset_bases.yaml"
@@ -112,7 +113,7 @@ def maybe_clone_git_repo(
     model_name: str,
     model_version: VersionType,
     patches: List[str] = [],
-) -> str:
+) -> Path:
     """Clone (or pull) a repository, save it to disk in a standard location,
     and return the absolute path to the cloned location. Patches can be applied
     by providing a list of paths to diff files."""
@@ -242,12 +243,14 @@ def SourceAsRoot(
     Only one of this class should be active per Python session.
     """
 
-    repository_path = maybe_clone_git_repo(
-        source_repo_url,
-        source_repo_commit_hash,
-        source_repo_name,
-        source_repo_version,
-        patches=source_repo_patches,
+    repository_path = str(
+        maybe_clone_git_repo(
+            source_repo_url,
+            source_repo_commit_hash,
+            source_repo_name,
+            source_repo_version,
+            patches=source_repo_patches,
+        )
     )
     SOURCE_AS_ROOT_LOCK.acquire()
     original_path = list(sys.path)
@@ -384,63 +387,85 @@ class ModelZooAssetConfig:
             raise NotImplementedError("unsupported web asset type")
         return f"{self.asset_url}/{ModelZooAssetConfig._replace_path_keywords(self.web_asset_folder, model_id=model_id)}/{file}"
 
+    def get_local_store_path(self) -> Path:
+        return Path(self.local_store_path)
+
     def get_local_store_model_path(
         self, model_name: str, version: VersionType, filename: str
-    ) -> str:
-        model_dir = os.path.join(
-            self.local_store_path,
-            self.get_relative_model_asset_path(model_name, version, filename),
+    ) -> Path:
+        return self.local_store_path / self.get_relative_model_asset_path(
+            model_name, version, filename
         )
-        return model_dir
 
     def get_local_store_dataset_path(
         self, dataset_name: str, version: VersionType, filename: str
-    ) -> str:
-        model_dir = os.path.join(
-            self.local_store_path,
-            self.get_relative_dataset_asset_path(dataset_name, version, filename),
+    ) -> Path:
+        return self.local_store_path / self.get_relative_dataset_asset_path(
+            dataset_name, version, filename
         )
-        return model_dir
 
     def get_relative_model_asset_path(
         self, model_id: str, version: Union[int, str], file_name: str
-    ):
+    ) -> Path:
         assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.model_asset_folder, model_id=model_id, version=version)}/{file_name}"
+        return (
+            Path(
+                ModelZooAssetConfig._replace_path_keywords(
+                    self.model_asset_folder, model_id=model_id, version=version
+                )
+            )
+            / file_name
+        )
 
     def get_relative_dataset_asset_path(
         self, dataset_id: str, version: Union[int, str], file_name: str
-    ):
+    ) -> Path:
         assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.dataset_asset_folder, dataset_id=dataset_id, version=version)}/{file_name}"
+        return (
+            Path(
+                ModelZooAssetConfig._replace_path_keywords(
+                    self.dataset_asset_folder, dataset_id=dataset_id, version=version
+                )
+            )
+            / file_name
+        )
 
     def get_model_asset_url(
         self, model_id: str, version: Union[int, str], file_name: str
-    ):
+    ) -> str:
         assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_model_asset_path(model_id, version, file_name)}"
+        return f"{self.asset_url}/{self.get_relative_model_asset_path(model_id, version, file_name).as_posix()}"
 
     def get_dataset_asset_url(
         self, dataset_id: str, version: Union[int, str], file_name: str
-    ):
+    ) -> str:
         assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_dataset_asset_path(dataset_id, version, file_name)}"
+        return f"{self.asset_url}/{self.get_relative_dataset_asset_path(dataset_id, version, file_name).as_posix()}"
 
-    def get_qaihm_repo(self, model_id: str, relative=True):
-        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.qaihm_repo, model_id=model_id)}"
+    def get_qaihm_repo(self, model_id: str, relative=True) -> Path | str:
+        relative_path = Path(
+            ModelZooAssetConfig._replace_path_keywords(
+                self.qaihm_repo, model_id=model_id
+            )
+        )
         if not relative:
-            return self.repo_url + "/" + relative_path
-
+            return f"{self.repo_url}/{relative_path.as_posix()}"
         return relative_path
 
-    def get_website_url(self, model_id: str, relative=False):
-        relative_path = f"{ModelZooAssetConfig._replace_path_keywords(self.models_website_relative_path, model_id=model_id)}"
+    def get_website_url(self, model_id: str, relative=False) -> str:
+        relative_path = Path(
+            ModelZooAssetConfig._replace_path_keywords(
+                self.models_website_relative_path, model_id=model_id
+            )
+        ).as_posix()
         if not relative:
-            return self.models_website_url + "/" + relative_path
+            return f"{self.models_website_url}/{relative_path}"
         return relative_path
 
-    def get_example_use(self, model_id: str):
-        return f"{ModelZooAssetConfig._replace_path_keywords(self.example_use, model_id=model_id)}"
+    def get_example_use(self, model_id: str) -> str:
+        return ModelZooAssetConfig._replace_path_keywords(
+            self.example_use, model_id=model_id
+        )
 
     ###
     # Helpers
@@ -558,7 +583,7 @@ class CachedWebAsset:
     def __init__(
         self,
         url: str,
-        local_cache_path: str,
+        local_cache_path: Path,
         asset_config=ASSET_CONFIG,
         model_downloader: Callable[[str, str, int], str] | None = None,
         downloader_num_retries=4,
@@ -573,12 +598,12 @@ class CachedWebAsset:
         path, ext = os.path.splitext(self.local_cache_path)
         if not ext:
             file_name = self.url.rsplit("/", 1)[-1]
-            self.local_cache_path = os.path.join(path, file_name)
+            self.local_cache_path = Path(path) / file_name
 
         # Set is_extracted if already extracted on disk
         file, _ = os.path.splitext(self.local_cache_path)
         self.is_extracted = list(
-            filter(local_cache_path.endswith, [".zip", ".tar", ".tar.gz", ".tgz"])
+            filter(str(local_cache_path).endswith, [".zip", ".tar", ".tar.gz", ".tgz"])
         ) != [] and os.path.isdir(file)
 
     def __repr__(self):
@@ -602,7 +627,7 @@ class CachedWebAsset:
         web_store_path = f"{asset_config.asset_url}/{relative_store_file_path}"
         return CachedWebAsset(
             web_store_path,
-            relative_store_file_path,
+            Path(relative_store_file_path),
             asset_config,
             download_file,
             num_retries,
@@ -611,7 +636,7 @@ class CachedWebAsset:
     @staticmethod
     def from_google_drive(
         gdrive_file_id: str,
-        relative_store_file_path: str,
+        relative_store_file_path: str | Path,
         num_retries=4,
         asset_config=ASSET_CONFIG,
     ):
@@ -630,7 +655,7 @@ class CachedWebAsset:
         """
         return CachedWebAsset(
             f"https://drive.google.com/uc?id={gdrive_file_id}",
-            relative_store_file_path,
+            Path(relative_store_file_path),
             asset_config,
             download_and_cache_google_drive,
             num_retries,
@@ -647,12 +672,13 @@ class CachedWebAsset:
             extracted: If true, return the path of the extracted asset on disk.
                        If false, return the path of the archive path on disk.
         """
+        file: str | Path
         if (extracted is None and self.is_extracted) or extracted:
             file, _ = os.path.splitext(self.local_cache_path)
         else:
             file = self.local_cache_path
 
-        return Path(self.asset_config.local_store_path) / file
+        return self.asset_config.get_local_store_path() / file
 
     def fetch(self, force=False, extract=False) -> Path:
         """
@@ -930,11 +956,22 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
     """
     if not os.path.exists(dst_path):
         print(f"Downloading data at {web_url} to {dst_path}... ", end="")
-        file_data = requests.get(web_url)
-        if file_data.status_code != 200:
+
+        # Streaming, so we can iterate over the response.
+        response = requests.get(web_url, stream=True)
+
+        # Sizes in bytes.
+        total_size = int(response.headers.get("content-length", 0))
+        block_size = 1024
+
+        with tqdm(total=total_size, unit="B", unit_scale=True) as progress_bar:
+            with open(dst_path, "wb") as file:
+                for data in response.iter_content(block_size):
+                    progress_bar.update(len(data))
+                    file.write(data)
+
+        if response.status_code != 200:
             raise ValueError(f"Unable to download file at {web_url}")
-        with open(dst_path, "wb") as dst_file:
-            dst_file.write(file_data.content)
         print("Done")
     return dst_path
 
@@ -1018,6 +1055,18 @@ def callback_with_retry(
                 print(f"Status code: {error.status_code}")  # type: ignore
             time.sleep(10)
             return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
+
+
+@contextmanager
+def qaihm_temp_dir():
+    """
+    Keep temp file under LOCAL_STORE_DEFAULT_PATH instead of /tmp which has
+    limited space.
+    """
+    path = os.path.join(LOCAL_STORE_DEFAULT_PATH, "tmp")
+    os.makedirs(path, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=path) as tempdir:
+        yield tempdir
 
 
 PathType = Union[str, Path, CachedWebAsset]

@@ -5,7 +5,7 @@
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.models._shared.deeplab.evaluator import DeepLabV3Evaluator
+from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
@@ -24,7 +24,7 @@ class DeepLabV3Model(BaseModel):
         self.normalize_input = normalize_input
 
     def get_evaluator(self) -> BaseEvaluator:
-        return DeepLabV3Evaluator(NUM_CLASSES)
+        return SegmentationOutputEvaluator(NUM_CLASSES)
 
     def forward(self, image):
         """

@@ -57,7 +57,7 @@ class QuickSRNetLarge(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return SuperResolutionOutputEvaluator()
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+    def forward(self, image):
         """
         Run QuickSRNet-Large on `image`, and produce an upscaled image
 

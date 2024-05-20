@@ -32,20 +32,17 @@ class BSD300Dataset(BaseDataset):
 
     def __init__(self, scaling_factor=4):
         self.bsd_path = BSD300_ASSET.path(extracted=True)
-        self.images_path = os.path.join(self.bsd_path, "images/train")
+        self.images_path = self.bsd_path / "images" / "train"
         BaseDataset.__init__(self, self.bsd_path)
         self.scaling_factor = scaling_factor
 
     def _validate_data(self) -> bool:
-        images_path = os.path.join(self.dataset_path, "images/train")
-
         # Check image path exists
-        if not os.path.exists(images_path):
+        if not self.images_path.exists():
             return False
 
         # Ensure the correct number of images are there
-        files = os.listdir(images_path)
-        images = [f for f in files if ".jpg" in f]
+        images = [f for f in self.images_path.iterdir() if ".jpg" in f.name]
         if len(images) != DATASET_LENGTH:
             return False
 
@@ -53,18 +50,18 @@ class BSD300Dataset(BaseDataset):
 
     def _prepare_data(self):
         # Rename images to be more friendly to enumeration
-        directory = os.path.join(self.dataset_path, "images/train")
-        files = os.listdir(directory)
-        for i, filename in enumerate(files):
-            if filename.endswith(".jpg"):
+        # directory = os.path.join(self.dataset_path, "images/train")
+        # files = os.listdir(directory)
+        for i, filepath in enumerate(self.images_path.iterdir()):
+            if filepath.name.endswith(".jpg"):
                 # Open the image and convert it to png
                 try:
-                    with Image.open(os.path.join(directory, filename)) as img:
-                        img.save(os.path.join(directory, f"img_{i + 1:03d}_HR.jpg"))
+                    with Image.open(filepath) as img:
+                        img.save(self.images_path / f"img_{i + 1:03d}_HR.jpg")
                     # delete the old image
-                    os.remove(os.path.join(directory, filename))
+                    os.remove(filepath)
                 except ValueError:
-                    print(f"File {filename} does not exist!")
+                    print(f"File {filepath} does not exist!")
 
     def __len__(self):
         return DATASET_LENGTH

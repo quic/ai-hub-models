@@ -1,0 +1,39 @@
+name: Riffusion
+id: riffusion_quantized
+status: public
+headline: State-of-the-art generative AI model used to generate spectrogram images given
+  any text input. These spectrograms can be converted into audio clips.
+domain: Generative AI
+description: Generates high resolution spectrograms images from text prompts using a
+  latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based
+  latent denoising, and VAE based decoder to generate the final image.
+use_case: Image Generation
+tags:
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2112.10752
+research_paper_title: High-Resolution Image Synthesis with Latent Diffusion Models
+license: https://github.com/CompVis/stable-diffusion/blob/main/LICENSE
+deploy_license: https://github.com/CompVis/stable-diffusion/blob/main/LICENSE
+source_repo: https://github.com/CompVis/stable-diffusion/tree/main
+technical_details:
+  Input: Text prompt to generate spectrogram image
+  QNN-SDK: '2.20'
+  Text Encoder Number of parameters: 340M
+  UNet Number of parameters: 865M
+  VAE Decoder Number of parameters: 83M
+  Model size: 1GB
+applicable_scenarios:
+  - Music Generation
+  - Music Editing
+  - Content Creation
+related_models:
+  - stable_diffusion_v1_5_quantized
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: yes
+has_animated_banner: yes
+license_type: creativeml-openrail-m
+deploy_license_type: creativeml-openrail-m
+dataset: []

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import qai_hub as hub
@@ -89,7 +89,7 @@ def export_without_hub_access(
     target_runtime: TargetRuntime,
     compile_options: str,
     profile_options: str,
-    components: List[str] | None = None,
+    components: Optional[List[str]] = None,
 ) -> List[str]:
     print(_WARNING_DASH)
     print(

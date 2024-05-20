@@ -35,6 +35,7 @@ class QuickSRNetMedium(BaseModel):
         quicksrnet_model: torch.nn.Module,
     ) -> None:
         super().__init__()
+        self.relu = torch.nn.ReLU()
         self.model = quicksrnet_model
 
     @classmethod
@@ -57,7 +58,7 @@ class QuickSRNetMedium(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return SuperResolutionOutputEvaluator()
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+    def forward(self, image):
         """
         Run QuickSRNet-Medium on `image`, and produce an upscaled image
 
@@ -71,7 +72,7 @@ class QuickSRNetMedium(BaseModel):
                    Range: float[0, 1]
                    3-channel Color Space: RGB
         """
-
+        # image = self.relu(image)
         return self.model(image)
 
     @staticmethod

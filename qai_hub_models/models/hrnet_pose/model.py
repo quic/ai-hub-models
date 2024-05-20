@@ -21,7 +21,7 @@ from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 # This model originally comes from https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
 # but we'll use the weights from AIMET
 # Weights and config stored in S3 are sourced from

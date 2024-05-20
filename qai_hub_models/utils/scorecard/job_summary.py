@@ -8,11 +8,11 @@ from typing import Any, Dict, List, Optional, Type, Union, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.config_loaders import QAIHMModelCodeGen, QAIHMModelInfo
 from qai_hub_models.utils.scorecard.common import (
-    REFERENCE_DEVICE_PER_SUPPORTED_CHIPSETS,
-    SCORECARD_DEVICE_NAME_TO_CHIPSET_NAME,
+    ScorecardCompilePath,
+    ScorecardDevice,
+    ScorecardProfilePath,
 )
 
 
@@ -20,11 +20,10 @@ from qai_hub_models.utils.scorecard.common import (
 class JobSummary:
     model_id: str
     job_id: Optional[str]
-    runtime: TargetRuntime
+    _device: ScorecardDevice
 
     def __post_init__(self):
         assert self.model_id
-        assert self.runtime
         # Verify Job Exists
         if self.job_id:
             assert self.job
@@ -100,6 +99,8 @@ class JobSummary:
 
 @dataclass
 class CompileJobSummary(JobSummary):
+    path: ScorecardCompilePath
+
     @classmethod
     def from_model_id(
         cls: Type["CompileJobSummary"], model_id: str, job_ids: Dict[str, str]
@@ -123,25 +124,25 @@ class CompileJobSummary(JobSummary):
                 components = model_code_gen.default_components
             else:
                 components = list(model_code_gen.components.keys())
+        else:
+            components.append(None)  # type: ignore
 
-        for runtime in TargetRuntime:
-            if not components:
-                model_runs.append(
-                    cls(
-                        model_id=model_info.name,
-                        job_id=job_ids.get(f"{model_id}_{runtime.name}", None),
-                        runtime=runtime,
-                    )
-                )
-            else:
-                for component in components:
+        path: ScorecardCompilePath
+        for path in ScorecardCompilePath.all_enabled():
+            for component in components:
+                for device in path.get_test_devices(model_code_gen.is_aimet):
                     model_runs.append(
                         cls(
-                            model_id=component,
+                            model_id=component or model_info.name,
                             job_id=job_ids.get(
-                                f"{model_id}_{runtime.name}_{component}", None
+                                path.get_job_cache_name(
+                                    model=model_id,
+                                    device=device,
+                                    component=component,
+                                )
                             ),
-                            runtime=runtime,
+                            path=path,
+                            _device=device,
                         )
                     )
 
@@ -162,7 +163,7 @@ class CompileJobSummary(JobSummary):
 
 @dataclass
 class ProfileJobSummary(JobSummary):
-    _chipset: str
+    path: ScorecardProfilePath
 
     @classmethod
     def from_model_id(
@@ -187,43 +188,33 @@ class ProfileJobSummary(JobSummary):
                 components = model_code_gen.default_components
             else:
                 components = list(model_code_gen.components.keys())
+        else:
+            components.append(None)  # type: ignore
 
-        for runtime in TargetRuntime:
-            for device, chipset in SCORECARD_DEVICE_NAME_TO_CHIPSET_NAME.items():
-                run_dev = f"{runtime.name}-{device}"
-                if not components:
-                    if (job_id := job_ids.get(f"{model_id}_{run_dev}", None)) is None:
-                        continue
+        path: ScorecardProfilePath
+        for path in ScorecardProfilePath.all_enabled():
+            for component in components:
+                for device in path.get_test_devices(model_code_gen.is_aimet):
                     model_runs.append(
                         cls(
-                            model_id=model_info.name,
-                            job_id=job_id,
-                            runtime=runtime,
-                            _chipset=chipset,
+                            model_id=component or model_info.name,
+                            job_id=job_ids.get(
+                                path.get_job_cache_name(
+                                    model=model_id,
+                                    device=device,
+                                    component=component,
+                                ),
+                                None,
+                            ),
+                            _device=device,
+                            path=path,
                         )
                     )
-                else:
-                    for component in components:
-                        if (
-                            job_id := job_ids.get(
-                                f"{model_id}_{run_dev}_{component}", None
-                            )
-                        ) is None:
-                            continue
-                        model_runs.append(
-                            cls(
-                                model_id=component,
-                                job_id=job_id,
-                                runtime=runtime,
-                                _chipset=chipset,
-                            )
-                        )
 
         return model_runs
 
     def __post_init__(self):
         super().__post_init__()
-        assert self.chipset in REFERENCE_DEVICE_PER_SUPPORTED_CHIPSETS
         if not self.skipped:
             assert isinstance(self.job, hub.ProfileJob)
             if self._job_status.success:
@@ -233,7 +224,7 @@ class ProfileJobSummary(JobSummary):
     def chipset(self) -> str:
         """Chipset the job was run on."""
         if not self.job:
-            return self._chipset
+            return self._device.get_chipset()
 
         hub_device = self.job.device
         for attr in hub_device.attributes:
@@ -243,11 +234,7 @@ class ProfileJobSummary(JobSummary):
 
     @cached_property
     def device(self) -> hub.Device:
-        return (
-            self.job.device
-            if self.job
-            else REFERENCE_DEVICE_PER_SUPPORTED_CHIPSETS[self.chipset]
-        )
+        return self.job.device if self.job else self._device.get_reference_device()
 
     @cached_property
     def profile_job(self) -> Optional[hub.ProfileJob]:

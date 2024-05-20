@@ -82,7 +82,12 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         profile_options = super().get_hub_profile_options(
             target_runtime, other_profile_options
         )
-        return profile_options + " --compute_unit cpu"
+        if (
+            target_runtime == TargetRuntime.TFLITE
+            and "--compute_unit" not in profile_options
+        ):
+            profile_options = profile_options + " --compute_unit gpu"
+        return profile_options
 
 
 # Modules used to override Huggingface WavLM to be NPU friendly

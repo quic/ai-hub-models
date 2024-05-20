@@ -8,30 +8,24 @@ from __future__ import annotations
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet import (
     AIMETQuantizableMixin,
+    constrain_quantized_inputs_to_image_range,
 )
 
 # isort: on
 
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
+from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
-from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
 from qai_hub_models.models.quicksrnetsmall.model import QuickSRNetSmall
-from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config_legacy_v2
+from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 4
 
-# Weights and config stored in S3 are sourced from
-# https://github.com/quic/aimet-model-zoo/blob/develop/aimet_zoo_torch/quicksrnet/model/model_cards/quicksrnet_small_4x_w8a8.json:
-# https://github.com/quic/aimet-model-zoo/releases/download/phase_2_january_artifacts/quicksrnet_small_4x_checkpoint_int8.pth
-# and
-# https://raw.githubusercontent.com/quic/aimet/release-aimet-1.23/TrainingExtensions/common/src/python/aimet_common/quantsim_config/default_config_per_channel.js
-# Encodings were generated with AIMET QuantSim library
-QUANTIZED_WEIGHTS = "quicksrnet_small_4x_checkpoint_int8.pth"
-AIMET_ENCODINGS = "aimet_quantization_encodings.json"
+DEFAULT_ENCODINGS = "quicksrnetsmall_quantized_encodings.json"
 SCALING_FACTOR = 4
 
 
@@ -45,9 +39,7 @@ class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
         quicksrnet_model: QuantizationSimModel,
     ) -> None:
         QuickSRNetSmall.__init__(self, quicksrnet_model.model)
-        AIMETQuantizableMixin.__init__(
-            self, quicksrnet_model, needs_onnx_direct_aimet_export=True
-        )
+        AIMETQuantizableMixin.__init__(self, quicksrnet_model)
 
     @classmethod
     def from_pretrained(
@@ -61,46 +53,27 @@ class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
             else: Interprets as a filepath and loads the encodings stored there.
         """
         # Load Model
-        quicksrnet = QuickSRNetSmall.from_pretrained()
-        input_shape = quicksrnet.get_input_spec()["image"][0]
-        equalize_model(quicksrnet, input_shape)
-
-        # Download weights and quantization parameters
-        weights = CachedWebModelAsset.from_asset_store(
-            MODEL_ID, MODEL_ASSET_VERSION, QUANTIZED_WEIGHTS
-        ).fetch()
-        aimet_config = get_default_aimet_config_legacy_v2()
-
-        # Load the model weights and quantization parameters
-        # In this particular instance, the state_dict keys from the model are all named "model.<expected name>"
-        # where <expected name> is the name of each key in the weights file - without the word model.
-        # We rename all the keys to add the word model
-        state_dict = torch.load(weights, map_location=torch.device("cpu"))["state_dict"]
-        new_state_dict = {"model." + key: value for key, value in state_dict.items()}
-        quicksrnet.load_state_dict(new_state_dict)
+        fp16_model = QuickSRNetSmall.from_pretrained()
+        input_shape = cls.get_input_spec()["image"][0]
+        model = prepare_model(fp16_model)
+        equalize_model(model, input_shape)
         sim = QuantizationSimModel(
-            quicksrnet,
+            fp16_model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
             default_output_bw=8,
-            config_file=aimet_config,
+            config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )
+        constrain_quantized_inputs_to_image_range(sim)
+
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = CachedWebModelAsset.from_asset_store(
-                    MODEL_ID, MODEL_ASSET_VERSION, AIMET_ENCODINGS
+                    MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_ENCODINGS
                 ).fetch()
             load_encodings_to_sim(sim, aimet_encodings)
 
         sim.model.eval()
 
         return cls(sim)
-
-    def preferred_hub_source_model_format(
-        self, target_runtime: TargetRuntime
-    ) -> SourceModelFormat:
-        if target_runtime == TargetRuntime.QNN:
-            return SourceModelFormat.ONNX
-        else:
-            return SourceModelFormat.TORCHSCRIPT

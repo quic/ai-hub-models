@@ -85,5 +85,5 @@ Also, you can use AI-HUB Model name as mentioned in models directory, to directl
 You can also select the model provided in the list menu during the execution of build_apk.py without specifying the model name and model path.
 
 ```
-    python build_apk.py -q "<QNN_SDK_PATH>" 
+    python build_apk.py -q "<QNN_SDK_PATH>"
 ```

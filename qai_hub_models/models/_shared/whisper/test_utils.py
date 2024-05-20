@@ -13,7 +13,7 @@ from qai_hub_models.models._shared.whisper.app import (
 )
 from qai_hub_models.models._shared.whisper.demo import TEST_AUDIO_PATH
 from qai_hub_models.models._shared.whisper.model import (
-    MAX_DECODE_LEN,
+    MEAN_DECODE_LEN,
     MEL_FILTER_PATH,
     Whisper,
     WhisperDecoderInf,
@@ -49,19 +49,36 @@ def run_test_wrapper_numerics(whisper_version):
     encoder = WhisperEncoderInf(model)
     decoder = WhisperDecoderInf(model.decoder)
 
-    cross_attn_cache = encoder(mel_input)
-    sample_len = MAX_DECODE_LEN
-    cache_tensor = np.zeros([1, sample_len, decoder.attention_dim]).astype(np.float32)
+    k_cache_cross, v_cache_cross = encoder(mel_input)
+    sample_len = MEAN_DECODE_LEN
+
+    k_cache_self = torch.zeros(
+        (
+            decoder.num_blocks,
+            decoder.num_heads,
+            decoder.attention_dim // decoder.num_heads,
+            sample_len,
+        ),
+        dtype=torch.float32,
+    )
+    v_cache_self = torch.zeros(
+        (
+            decoder.num_blocks,
+            decoder.num_heads,
+            sample_len,
+            decoder.attention_dim // decoder.num_heads,
+        ),
+        dtype=torch.float32,
+    )
     index = torch.zeros([1, 1], dtype=torch.int32)
     index[0, 0] = 0
-    mask = torch.zeros(1, sample_len, decoder.attention_dim, dtype=torch.bool)
-    mask[:, 0, :] = 1
-    self_attn_cache = [cache_tensor] * 2 * decoder.num_blocks
     with torch.no_grad():
-        decoder_out = decoder(tokens, index, mask, *cross_attn_cache, *self_attn_cache)
+        decoder_out = decoder(
+            tokens, index, k_cache_cross, v_cache_cross, k_cache_self, v_cache_self
+        )
         logits = decoder_out[0].detach().numpy()
 
-    np.testing.assert_allclose(logits_orig, logits)
+    np.testing.assert_allclose(logits_orig, logits, rtol=5e-3)
 
 
 def run_test_transcribe(whisper_version):

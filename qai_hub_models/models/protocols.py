@@ -20,9 +20,9 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Protocol, Type, TypeVar, runtime_checkable
+from typing import Any, List, Optional, Protocol, Type, TypeVar, runtime_checkable
 
-from qai_hub.client import DatasetEntries, SourceModel
+from qai_hub.client import DatasetEntries, Device, SourceModel
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
 from qai_hub_models.models.common import (
@@ -200,6 +200,8 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         output_path: str | Path,
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
+        external_onnx_weights: bool = False,
+        output_names: Optional[List[str]] = None,
     ) -> SourceModel:
         ...
 
@@ -207,6 +209,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         self,
         target_runtime: TargetRuntime,
         other_compile_options: str = "",
+        device: Optional[Device] = None,
     ) -> str:
         """
         AI Hub compile options recommended for the model.

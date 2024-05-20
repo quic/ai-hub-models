@@ -7,7 +7,10 @@ from __future__ import annotations
 import torch
 import torchvision.models as tv_models
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -29,9 +32,13 @@ class FCN_ResNet50(BaseModel):
     @classmethod
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> FCN_ResNet50:
         model = tv_models.segmentation.fcn_resnet50(weights=weights).eval()
+        model.aux_classifier = None
         return cls(model)
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+    def get_evaluator(self) -> BaseEvaluator:
+        return SegmentationOutputEvaluator(NUM_CLASSES)
+
+    def forward(self, image):
         """
         Run FCN_ResNet50 on `image`, and produce a tensor of classes for segmentation
 
@@ -43,14 +50,14 @@ class FCN_ResNet50(BaseModel):
         Returns:
             tensor: 1x21xHxW tensor of class logits per pixel
         """
-        return self.model(image)["out"]
+        return self.model(normalize_image_torchvision(image))["out"]
 
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
         num_channels: int = 3,
-        height: int = 224,
-        width: int = 224,
+        height: int = 512,
+        width: int = 512,
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #

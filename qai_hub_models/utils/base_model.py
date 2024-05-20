@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional
 
+import qai_hub
 import torch
-from qai_hub.client import SourceModel
+from qai_hub.client import Device, SourceModel
 
 from qai_hub_models.models.common import (
     SampleInputsType,
@@ -124,6 +125,8 @@ class BaseModel(
         output_path: str | Path,
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
+        external_onnx_weights: bool = False,
+        output_names: Optional[List[str]] = None,
     ) -> SourceModel:
         """
         Convert to a AI Hub source model appropriate for the export method.
@@ -138,6 +141,8 @@ class BaseModel(
             output_path=output_path,
             input_spec=input_spec,
             check_trace=check_trace,
+            external_onnx_weights=external_onnx_weights,
+            output_names=output_names,
         )
         return source_model
 
@@ -145,17 +150,44 @@ class BaseModel(
         self,
         target_runtime: TargetRuntime,
         other_compile_options: str = "",
+        device: Optional[Device] = None,
     ) -> str:
         """
         AI Hub compile options recommended for the model.
         """
-        compile_options = ""
-        if target_runtime == TargetRuntime.QNN:
-            compile_options = "--target_runtime qnn_lib_aarch64_android"
-        if target_runtime == TargetRuntime.ORT:
-            compile_options = "--target_runtime onnx"
+        target_runtime_flag = None
+        if "--target_runtime" not in other_compile_options:
+            if target_runtime == TargetRuntime.QNN:
+                if device:
+                    if not device.attributes:
+                        # Only name / os specified
+                        devices = qai_hub.get_devices(device.name, device.os)
+                    elif not device.name:
+                        # Only attribute specified
+                        devices = qai_hub.get_devices(attributes=device.attributes)
+                    else:
+                        devices = [device]
+
+                    for device in devices:
+                        if "os:android" not in device.attributes:
+                            target_runtime_flag = "qnn_bin"
+                            break
+
+                target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
+            elif target_runtime == TargetRuntime.ORT:
+                target_runtime_flag = "onnx"
+            elif target_runtime == TargetRuntime.TFLITE:
+                target_runtime_flag = "tflite"
+            else:
+                raise NotImplementedError()
+
+        compile_options = (
+            f"--target_runtime {target_runtime_flag}" if target_runtime_flag else ""
+        )
+
         if other_compile_options != "":
             return compile_options + " " + other_compile_options
+
         return compile_options
 
     def preferred_hub_source_model_format(
