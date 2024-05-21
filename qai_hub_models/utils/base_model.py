@@ -170,7 +170,7 @@ class BaseModel(
 
                     for device in devices:
                         if "os:android" not in device.attributes:
-                            target_runtime_flag = "qnn_bin"
+                            target_runtime_flag = "qnn_context_binary"
                             break
 
                 target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"

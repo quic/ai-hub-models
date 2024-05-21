@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import qai_hub as hub
+import torch
 from qai_hub.client import APIException, UserError
 
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
@@ -158,3 +159,7 @@ def export_without_hub_access(
         print("")
 
     return paths
+
+
+def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
+    return tensor.cpu().detach().numpy()

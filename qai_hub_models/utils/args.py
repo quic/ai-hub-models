@@ -12,7 +12,6 @@ import inspect
 import os
 import sys
 from functools import partial
-from importlib import import_module
 from pydoc import locate
 from typing import Any, List, Mapping, Optional, Set, Type
 
@@ -24,8 +23,8 @@ from qai_hub_models.models.protocols import (
     FromPretrainedTypeVar,
 )
 from qai_hub_models.utils.base_model import BaseModel, InputSpec, TargetRuntime
-from qai_hub_models.utils.inference import HubModel
-from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, can_access_qualcomm_ai_hub
+from qai_hub_models.utils.inference import HubModel, compile_model_from_args
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23"
 
@@ -113,14 +112,22 @@ def get_on_device_demo_parser(
         default="Samsung Galaxy S23",
         help="If running on-device, use this device.",
     )
-    if add_output_dir:
-        add_output_dir_arg(parser)
+    parser.add_argument(
+        "--chipset",
+        type=str,
+        default=None,
+        choices=sorted(get_qcom_chipsets(), reverse=True),
+        help="If set, will choose a random device with this chipset. "
+        "Overrides whatever is set in --device.",
+    )
     parser.add_argument(
         "--device-os",
         type=str,
         default="",
         help="Optionally specified together with --device",
     )
+    if add_output_dir:
+        add_output_dir_arg(parser)
     parser.add_argument(
         "--inference-options",
         type=str,
@@ -250,6 +257,21 @@ def model_from_cli_args(
     return model_cls.from_pretrained(**get_model_kwargs(model_cls, vars(cli_args)))
 
 
+def get_hub_device(
+    device: Optional[str] = None, chipset: Optional[str] = None, device_os: str = ""
+) -> hub.Device:
+    """
+    Get a hub.Device given a device name or chipset name.
+    If chipset is specified, that takes precedence over the device name.
+    If neither is specified, the function throws an error.
+    """
+    if chipset:
+        return hub.Device(attributes=f"chipset:{chipset}", os=device_os)
+    if device:
+        return hub.Device(name=device, os=device_os)
+    raise ValueError("Must specify one of device or chipset")
+
+
 def demo_model_from_cli_args(
     model_cls: Type[FromPretrainedTypeVar],
     model_id: str,
@@ -264,7 +286,7 @@ def demo_model_from_cli_args(
     is_on_device = "on_device" in cli_args and cli_args.on_device
     inference_model: FromPretrainedTypeVar | HubModel
     if is_on_device and issubclass(model_cls, BaseModel):
-        device = hub.Device(cli_args.device, cli_args.device_os)
+        device = get_hub_device(cli_args.device, cli_args.chipset, cli_args.device_os)
         if cli_args.hub_model_id:
             model_from_hub = hub.get_model(cli_args.hub_model_id)
             inference_model = HubModel(
@@ -274,33 +296,9 @@ def demo_model_from_cli_args(
                 cli_args.inference_options,
             )
         else:
-            export_file = f"qai_hub_models.models.{model_id}.export"
-            export_module = import_module(export_file)
-            compile_job: hub.CompileJob
-            print(f"Compiling on-device model asset for {model_id}.")
-            print(
-                f"Running python -m {export_file} --device {device.name} --target-runtime {cli_args.target_runtime.name.lower()}\n"
+            target_model = compile_model_from_args(
+                model_id, cli_args, get_model_kwargs(model_cls, vars(cli_args))
             )
-            export_output = export_module.export_model(
-                device=device.name,
-                skip_profiling=True,
-                skip_inferencing=True,
-                skip_downloading=True,
-                skip_summary=True,
-                target_runtime=cli_args.target_runtime,
-                **get_model_kwargs(model_cls, vars(cli_args)),
-            )
-
-            if len(export_output) == 0 or isinstance(export_output[0], str):
-                # The export returned local file paths, which mean Hub credentials were not found.
-                raise NotImplementedError(
-                    f"Please sign-up for {_AIHUB_NAME} to continue the demo with on-device inference."
-                )
-
-            compile_job, _, _ = export_output
-            target_model = compile_job.get_target_model()
-            assert target_model is not None
-
             input_names = list(model_cls.get_input_spec().keys())
             inference_model = HubModel(
                 target_model,
@@ -308,7 +306,7 @@ def demo_model_from_cli_args(
                 device,
                 inference_options=cli_args.inference_options,
             )
-            print(f"Exported asset: {inference_model.model.name}\n")
+            print(f"Exported asset: {model_id}\n")
     else:
         inference_model = model_from_cli_args(model_cls, cli_args)
     return inference_model
@@ -382,6 +380,77 @@ def get_qcom_chipsets() -> Set[str]:
     )
 
 
+def _evaluate_export_common_parser(
+    model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
+    supports_tflite=True,
+    supports_qnn=True,
+    supports_ort=True,
+    default_runtime=TargetRuntime.TFLITE,
+    exporting_compiled_model=False,
+    default_export_device: str = DEFAULT_EXPORT_DEVICE,
+) -> argparse.ArgumentParser:
+    """
+    Common arguments between export and evaluate scripts.
+    """
+    parser = get_parser()
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=default_export_device,
+        help="Device for which to export.",
+    )
+    parser.add_argument(
+        "--chipset",
+        type=str,
+        default=None,
+        choices=sorted(get_qcom_chipsets(), reverse=True),
+        help="If set, will choose a random device with this chipset. "
+        "Overrides whatever is set in --device.",
+    )
+
+    if not exporting_compiled_model:
+        # Default runtime for compiled model is fixed for given model
+        available_runtimes = []
+        if supports_tflite:
+            available_runtimes.append(TargetRuntime.TFLITE)
+        if supports_qnn:
+            available_runtimes.append(TargetRuntime.QNN)
+        if supports_ort:
+            available_runtimes.append(TargetRuntime.ORT)
+
+        default_runtime = _get_default_runtime(available_runtimes)
+        add_target_runtime_arg(
+            parser,
+            available_target_runtimes=available_runtimes,
+            default=default_runtime,
+            help="The runtime for which to export.",
+        )
+        # No compilation for compiled models
+        parser.add_argument(
+            "--compile-options",
+            type=str,
+            default="",
+            help="Additional options to pass when submitting the compile job.",
+        )
+
+    parser.add_argument(
+        "--profile-options",
+        type=str,
+        default="",
+        help="Additional options to pass when submitting the profile job.",
+    )
+    if issubclass(model_cls, FromPretrainedProtocol):
+        # Skip adding CLI from model for compiled model
+        # TODO: #9408 Refactor BaseModel, BasePrecompiledModel to fetch
+        # parameters from compiled model
+        parser = get_model_cli_parser(model_cls, parser)
+
+        if issubclass(model_cls, BaseModel):
+            parser = get_model_input_spec_parser(model_cls, parser)
+
+    return parser
+
+
 def export_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
     components: Optional[List[str]] = None,
@@ -407,6 +476,7 @@ def export_parser(
         supports_ort:
             Whether ORT export is supported.
             Default=True.
+        default_runtime: Which runtime to use as default if not specified in cli args.
         exporting_compiled_model:
             True when exporting compiled model.
             If set, removing skip_profiling flag from export arguments.
@@ -417,20 +487,14 @@ def export_parser(
     Returns:
         Arg parser object.
     """
-    parser = get_parser()
-    parser.add_argument(
-        "--device",
-        type=str,
-        default=default_export_device,
-        help="Device for which to export.",
-    )
-    parser.add_argument(
-        "--chipset",
-        type=str,
-        default=None,
-        choices=sorted(get_qcom_chipsets(), reverse=True),
-        help="If set, will choose a random device with this chipset. "
-        "Overrides whatever is set in --device.",
+    parser = _evaluate_export_common_parser(
+        model_cls=model_cls,
+        supports_tflite=supports_tflite,
+        supports_qnn=supports_qnn,
+        supports_ort=supports_ort,
+        default_runtime=default_runtime,
+        exporting_compiled_model=exporting_compiled_model,
+        default_export_device=default_export_device,
     )
     parser.add_argument(
         "--skip-profiling",
@@ -460,36 +524,6 @@ def export_parser(
         help="Directory to store generated assets (e.g. compiled model). "
         "Defaults to `<cwd>/build/<model_name>`.",
     )
-    if not exporting_compiled_model:
-        # Default runtime for compiled model is fixed for given model
-        available_runtimes = []
-        if supports_tflite:
-            available_runtimes.append(TargetRuntime.TFLITE)
-        if supports_qnn:
-            available_runtimes.append(TargetRuntime.QNN)
-        if supports_ort:
-            available_runtimes.append(TargetRuntime.ORT)
-
-        default_runtime = _get_default_runtime(available_runtimes)
-        add_target_runtime_arg(
-            parser,
-            available_target_runtimes=available_runtimes,
-            default=default_runtime,
-            help="The runtime for which to export.",
-        )
-        # No compilation for compiled models
-        parser.add_argument(
-            "--compile-options",
-            type=str,
-            default="",
-            help="Additional options to pass when submitting the compile job.",
-        )
-    parser.add_argument(
-        "--profile-options",
-        type=str,
-        default="",
-        help="Additional options to pass when submitting the profile job.",
-    )
     if components is not None:
         parser.add_argument(
             "--components",
@@ -499,14 +533,84 @@ def export_parser(
             choices=components,
             help="Which components of the model to be exported.",
         )
+    return parser
 
-    if issubclass(model_cls, FromPretrainedProtocol):
-        # Skip adding CLI from model for compiled model
-        # TODO: #9408 Refactor BaseModel, BasePrecompiledModel to fetch
-        # parameters from compiled model
-        parser = get_model_cli_parser(model_cls, parser)
 
-        if issubclass(model_cls, BaseModel):
-            parser = get_model_input_spec_parser(model_cls, parser)
+def evaluate_parser(
+    model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
+    default_split_size: int,
+    supported_datasets: List[str],
+    supports_tflite=True,
+    supports_qnn=True,
+    supports_ort=True,
+    default_runtime=TargetRuntime.TFLITE,
+) -> argparse.ArgumentParser:
+    """
+    Arg parser to be used in evaluate scripts.
 
+    Parameters:
+        model_cls: Class of the model to be exported. Used to add additional
+            args for model instantiation.
+        supported_datasets: List of supported dataset names.
+        default_split_size: Default size for the most samples to be submitted
+            in a single inference job.
+        supports_qnn:
+            Whether QNN export is supported.
+            Default=True.
+        supports_ort:
+            Whether ORT export is supported.
+            Default=True.
+        exporting_compiled_model:
+            True when exporting compiled model.
+            If set, removing skip_profiling flag from export arguments.
+            Default = False.
+        default_runtime: Which runtime to use as default if not specified in cli args.
+
+    Returns:
+        Arg parser object.
+    """
+    parser = _evaluate_export_common_parser(
+        model_cls=model_cls,
+        supports_tflite=supports_tflite,
+        supports_qnn=supports_qnn,
+        supports_ort=supports_ort,
+        default_runtime=default_runtime,
+    )
+    parser.add_argument(
+        "--split-size",
+        type=int,
+        default=default_split_size,
+        help="Max size to be submitted in a single inference job.",
+    )
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default=supported_datasets[0],
+        choices=supported_datasets,
+        help="Name of the dataset to use for evaluation.",
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=100,
+        help="Number of samples to run. If set to -1, will run on full dataset.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed to use when shuffling the data.",
+    )
+    parser.add_argument(
+        "--hub-model-id",
+        type=str,
+        default=None,
+        help="A compiled hub model id.",
+    )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="If set, will store hub dataset ids in a local file and re-use "
+        "for subsequent evaluations on the same dataset.",
+    )
     return parser

@@ -51,3 +51,11 @@ class BaseDataset(Dataset, ABC):
         Validates data downloaded on disk. By default just checks that folder exists.
         """
         return self.dataset_path.exists()
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        """
+        Name for the dataset,
+            which by default is set to the filename where the class is defined.
+        """
+        return cls.__module__.split(".")[-1]

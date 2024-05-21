@@ -33,3 +33,6 @@ class ClassificationEvaluator(BaseEvaluator):
         if self.total_samples == 0:
             return 0
         return self.num_correct / self.total_samples
+
+    def formatted_accuracy(self) -> str:
+        return f"{self.get_accuracy_score() * 100:.1f}%"

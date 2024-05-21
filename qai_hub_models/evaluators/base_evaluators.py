@@ -58,6 +58,11 @@ class BaseEvaluator(ABC):
         """Single float value representing model accuracy. Higher is better."""
         pass
 
+    @abstractmethod
+    def formatted_accuracy(self) -> str:
+        """Formatted string containing the accuracy and any relevant units."""
+        pass
+
     def add_from_dataset(
         self,
         model: torch.nn.Module,

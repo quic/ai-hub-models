@@ -65,3 +65,6 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
 
     def get_accuracy_score(self) -> float:
         return self.compute_average_psnr()
+
+    def formatted_accuracy(self) -> str:
+        return f"{self.get_accuracy_score():.2f} dB PSNR"

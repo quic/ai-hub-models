@@ -66,3 +66,6 @@ class SegmentationOutputEvaluator(BaseEvaluator):
 
     def get_accuracy_score(self) -> float:
         return self.Mean_Intersection_over_Union()
+
+    def formatted_accuracy(self) -> str:
+        return f"{self.get_accuracy_score():.3f} mIOU"

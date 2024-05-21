@@ -23,12 +23,14 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from zipfile import ZipFile
 
 import gdown
+import h5py
 import numpy as np
 import requests
 import torch
 import yaml
 from git import Repo
 from PIL import Image
+from qai_hub.util.dataset_entries_converters import h5_to_dataset_entries
 from schema import And, Schema, SchemaError
 from tqdm import tqdm
 
@@ -214,6 +216,22 @@ def load_yaml(yaml_filepath: PathType) -> Dict:
     return _load_file(yaml_filepath, _load_yaml_helper)
 
 
+def load_h5(h5_filepath: PathType) -> Dict:
+    def _load_h5_helper(file_path) -> Any:
+        with h5py.File(file_path, "r") as h5f:
+            return h5_to_dataset_entries(h5f)
+
+    return _load_file(h5_filepath, _load_h5_helper)
+
+
+def load_raw_file(filepath: PathType) -> str:
+    def _load_raw_file_helper(file_path) -> Any:
+        with open(file_path, "r") as f:
+            return f.read()
+
+    return _load_file(filepath, _load_raw_file_helper)
+
+
 def load_path(file: PathType, tmpdir: tempfile.TemporaryDirectory | str) -> str | Path:
     """
     Get asset path on disk.
@@ -224,6 +242,11 @@ def load_path(file: PathType, tmpdir: tempfile.TemporaryDirectory | str) -> str 
         return path
 
     return _load_file(file, return_path, tmpdir)
+
+
+def get_hub_datasets_path() -> Path:
+    """Get the path where cached hub data for evaluation can be stored."""
+    return Path(LOCAL_STORE_DEFAULT_PATH) / "hub_datasets"
 
 
 @contextmanager

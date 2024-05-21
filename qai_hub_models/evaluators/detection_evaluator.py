@@ -118,3 +118,6 @@ class DetectionEvaluator(BaseEvaluator):
 
     def get_accuracy_score(self):
         return self.mAP
+
+    def formatted_accuracy(self) -> str:
+        return f"{self.get_accuracy_score()} mAP"

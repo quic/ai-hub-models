@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ * Copyright (c) 2016 Qualcomm Technologies, Inc.
+ * All Rights Reserved.
+ * Confidential and Proprietary - Qualcomm Technologies, Inc.
+-->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <FrameLayout
+        android:id="@+id/main_content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TextView
+            android:id="@+id/tvNew1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Select Runtime"
+            android:layout_marginLeft="30dp"
+            android:textSize="18dp" />
+
+        <RadioGroup
+            android:id="@+id/rg1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:layout_gravity="right"
+            android:layout_marginRight="40dp"
+            android:layout_toRightOf="@+id/tvNew1"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/CPU"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CPU"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/NPU"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NPU" />
+        </RadioGroup>
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="60dp"
+            android:text="Start Camera"
+            android:layout_gravity="center_horizontal"
+            android:clickable="true"
+            android:translationZ="2dp"
+            android:background="#8BC34A"
+            android:padding="10dp"
+            android:onClick="startManinCameraActivity"/>
+    </FrameLayout>
+</RelativeLayout>
