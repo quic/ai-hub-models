@@ -21,11 +21,16 @@ class JobSummary:
     model_id: str
     job_id: Optional[str]
     _device: ScorecardDevice
+    # Setting for how the JobSummary class should treat a job.
+    #  None | Wait an infinite amount of time the job to finish
+    #   < 0 | Ignore job if running (treat it as skipped)
+    #  >= 0 | Wait this many seconds for the job to finish
+    max_job_wait_secs: Optional[int]
 
     def __post_init__(self):
         assert self.model_id
         # Verify Job Exists
-        if self.job_id:
+        if self.job_id and (not self.max_job_wait_secs or self.max_job_wait_secs >= 0):
             assert self.job
 
     @classmethod
@@ -50,12 +55,16 @@ class JobSummary:
             return None
 
         job = hub.get_job(self.job_id)
-        job.wait()
+        if job.get_status().running:
+            if self.max_job_wait_secs and self.max_job_wait_secs < 0:
+                return None
+            else:
+                job.wait(self.max_job_wait_secs)
         return job
 
     @cached_property
     def skipped(self) -> bool:
-        return self.job_id is None
+        return self.job is None
 
     @cached_property
     def failed(self) -> bool:
@@ -103,7 +112,10 @@ class CompileJobSummary(JobSummary):
 
     @classmethod
     def from_model_id(
-        cls: Type["CompileJobSummary"], model_id: str, job_ids: Dict[str, str]
+        cls: Type["CompileJobSummary"],
+        model_id: str,
+        job_ids: Dict[str, str],
+        max_job_wait_secs=None,
     ) -> List["CompileJobSummary"]:
         """
         Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -143,6 +155,7 @@ class CompileJobSummary(JobSummary):
                             ),
                             path=path,
                             _device=device,
+                            max_job_wait_secs=max_job_wait_secs,
                         )
                     )
 
@@ -167,7 +180,10 @@ class ProfileJobSummary(JobSummary):
 
     @classmethod
     def from_model_id(
-        cls: Type["ProfileJobSummary"], model_id: str, job_ids: Dict[str, str]
+        cls: Type["ProfileJobSummary"],
+        model_id: str,
+        job_ids: Dict[str, str],
+        max_job_wait_secs=None,
     ) -> List["ProfileJobSummary"]:
         """
         Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -208,6 +224,7 @@ class ProfileJobSummary(JobSummary):
                             ),
                             _device=device,
                             path=path,
+                            max_job_wait_secs=max_job_wait_secs,
                         )
                     )
 

@@ -9,7 +9,7 @@ import functools
 import multiprocessing
 import pprint
 from dataclasses import dataclass
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Set, Tuple, Union
 
 import qai_hub as hub
 
@@ -169,10 +169,21 @@ class DevicePerfSummary:
 
         return DevicePerfSummary(device, run_per_path)
 
-    def get_perf_card(self) -> Dict[str, str | Dict[str, str]]:
+    def get_perf_card(
+        self,
+        include_failed_jobs: bool = True,
+        exclude_paths: Iterable[ScorecardProfilePath] = [],
+    ) -> Dict[str, str | Dict[str, str]]:
         perf_card: Dict[str, str | Dict[str, str]] = {}
         for path, run in self.run_per_path.items():
-            if not run.skipped:  # Skipped runs are not included
+            if (
+                not run.skipped  # Skipped runs are not included
+                and path
+                not in exclude_paths  # exclude paths that the user does not want included
+                and (
+                    include_failed_jobs or not run.failed
+                )  # exclude failed jobs if requested
+            ):
                 perf_card[path.long_name] = run.performance_metrics
         perf_card["reference_device_info"] = get_reference_device_info(self.device)
         perf_card["timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
@@ -207,10 +218,14 @@ class ModelPerfSummary:
             },
         )
 
-    def get_perf_card(self) -> List[Dict[str, Union[str, Dict[str, str]]]]:
+    def get_perf_card(
+        self,
+        include_failed_jobs: bool = True,
+        exclude_paths: Iterable[ScorecardProfilePath] = [],
+    ) -> List[Dict[str, Union[str, Dict[str, str]]]]:
         perf_card = []
         for summary in self.runs_per_device.values():
-            perf_card.append(summary.get_perf_card())
+            perf_card.append(summary.get_perf_card(include_failed_jobs, exclude_paths))
         return perf_card
 
     def __repr__(self):
@@ -223,7 +238,9 @@ class PerfSummary:
 
     @staticmethod
     def from_model_ids(
-        job_ids: Dict[str, str], model_ids=MODEL_IDS
+        job_ids: Dict[str, str],
+        model_ids=MODEL_IDS,
+        max_job_wait_secs: int | None = None,
     ) -> Dict[str, PerfSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -237,7 +254,12 @@ class PerfSummary:
         print("Generating Performance Summary for Models")
         pool = multiprocessing.Pool(processes=15)
         model_summaries = pool.map(
-            functools.partial(PerfSummary.from_model_id, job_ids=job_ids), model_ids
+            functools.partial(
+                PerfSummary.from_model_id,
+                job_ids=job_ids,
+                max_job_wait_secs=max_job_wait_secs,
+            ),
+            model_ids,
         )
         pool.close()
         print("Finished\n")
@@ -245,7 +267,9 @@ class PerfSummary:
 
     @staticmethod
     def from_model_id(
-        model_id: str, job_ids: Dict[str, str]
+        model_id: str,
+        job_ids: Dict[str, str],
+        max_job_wait_secs: int | None = None,
     ) -> Tuple[str, PerfSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -257,7 +281,7 @@ class PerfSummary:
             model_id: List[Summary]
         """
         print(f"    {model_id} ")
-        runs = ProfileJobSummary.from_model_id(model_id, job_ids)
+        runs = ProfileJobSummary.from_model_id(model_id, job_ids, max_job_wait_secs)
         return model_id, PerfSummary.from_runs(runs)
 
     @staticmethod
@@ -284,7 +308,11 @@ class PerfSummary:
             )
         return chips
 
-    def get_perf_card(self) -> Dict[str, str | List[Any] | Dict[str, Any]]:
+    def get_perf_card(
+        self,
+        include_failed_jobs: bool = True,
+        exclude_paths: Iterable[ScorecardProfilePath] = [],
+    ) -> Dict[str, str | List[Any] | Dict[str, Any]]:
         perf_card: Dict[str, str | List[Any] | Dict[str, Any]] = {}
 
         chips = self.get_chipsets()
@@ -297,7 +325,12 @@ class PerfSummary:
         models_list: List[Dict[str, Any]] = []
         for model_id, summary in self.runs_per_model.items():
             models_list.append(
-                {"name": model_id, "performance_metrics": summary.get_perf_card()}
+                {
+                    "name": model_id,
+                    "performance_metrics": summary.get_perf_card(
+                        include_failed_jobs, exclude_paths
+                    ),
+                }
             )
         perf_card["models"] = models_list
         return perf_card
@@ -352,7 +385,9 @@ class CompileSummary:
 
     @staticmethod
     def from_model_ids(
-        job_ids: Dict[str, str], model_ids=MODEL_IDS
+        job_ids: Dict[str, str],
+        model_ids=MODEL_IDS,
+        max_job_wait_secs: int | None = None,
     ) -> Dict[str, CompileSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -368,7 +403,12 @@ class CompileSummary:
         print("Generating Compilation Summary for Models")
         pool = multiprocessing.Pool(processes=15)
         model_summaries = pool.map(
-            functools.partial(CompileSummary.from_model_id, job_ids=job_ids), model_ids
+            functools.partial(
+                CompileSummary.from_model_id,
+                job_ids=job_ids,
+                max_job_wait_secs=max_job_wait_secs,
+            ),
+            model_ids,
         )
         pool.close()
         print("Finished\n")
@@ -376,7 +416,9 @@ class CompileSummary:
 
     @staticmethod
     def from_model_id(
-        model_id: str, job_ids: Dict[str, str]
+        model_id: str,
+        job_ids: Dict[str, str],
+        max_job_wait_secs: int | None = None,
     ) -> Tuple[str, CompileSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
@@ -390,7 +432,7 @@ class CompileSummary:
             model_id: List[Summary]
         """
         print(f"    {model_id} ")
-        runs = CompileJobSummary.from_model_id(model_id, job_ids)
+        runs = CompileJobSummary.from_model_id(model_id, job_ids, max_job_wait_secs)
         return model_id, CompileSummary.from_runs(runs)
 
     @staticmethod

@@ -181,6 +181,13 @@ class ScorecardProfilePath(Enum):
     def all_enabled() -> List["ScorecardProfilePath"]:
         return [x for x in ScorecardProfilePath if x.enabled()]
 
+    def include_in_perf_yaml(self) -> bool:
+        return self in [
+            ScorecardProfilePath.QNN,
+            ScorecardProfilePath.ORT,
+            ScorecardProfilePath.TFLITE,
+        ]
+
     @staticmethod
     def get_parameterized_test_config(
         aimet_model=False,

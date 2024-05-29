@@ -191,11 +191,11 @@ def export_model(
     # 5. Download the model assets to a local file
     if not skip_downloading:
         if target_runtime == TargetRuntime.QNN:
-            target_runtime_extension = ".so"
+            target_runtime_extension = "so"
         elif target_runtime == TargetRuntime.TFLITE:
-            target_runtime_extension = ".tflite"
+            target_runtime_extension = "tflite"
         elif target_runtime == TargetRuntime.ORT:
-            target_runtime_extension = ".onnx"
+            target_runtime_extension = "onnx"
 
         os.makedirs(output_path, exist_ok=True)
         for component_name, compile_job in compile_jobs.items():
