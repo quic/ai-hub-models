@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 from qai_hub_models.models.protocols import FromPrecompiledProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -14,9 +14,9 @@ from qai_hub_models.utils.input_spec import InputSpec
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
 QNN_SDK_PREFIX = "QNN220"
-TEXT_ENCODER = os.path.join(QNN_SDK_PREFIX, "text_encoder.serialized.bin")
-UNET_DIFFUSER = os.path.join(QNN_SDK_PREFIX, "unet.serialized.bin")
-VAE_DECODER = os.path.join(QNN_SDK_PREFIX, "vae_decoder.serialized.bin")
+TEXT_ENCODER = Path(QNN_SDK_PREFIX, "text_encoder.serialized.bin")
+UNET_DIFFUSER = Path(QNN_SDK_PREFIX, "unet.serialized.bin")
+VAE_DECODER = Path(QNN_SDK_PREFIX, "vae_decoder.serialized.bin")
 
 
 class StableDiffusionQuantized(FromPrecompiledProtocol, CollectionModel):

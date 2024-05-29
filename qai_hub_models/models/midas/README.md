@@ -1,14 +1,14 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Midas-V2: Deep Convolutional Neural Network model for depth estimation](#)
+# [Midas-V2: Deep Convolutional Neural Network model for depth estimation](https://aihub.qualcomm.com/models/midas)
 
 Midas is designed for estimating depth at each point in an image.
 
 This is based on the implementation of Midas-V2 found
 [here](https://github.com/isl-org/MiDaS). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](#).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/midas).
 
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.

@@ -18,6 +18,11 @@ a hosted Qualcomm® device.
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install "qai_hub_models[deeplabv3_plus_mobilenet_quantized]"
+```
+
 
 Once installed, run the following simple CLI demo:
 

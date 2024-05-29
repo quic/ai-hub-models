@@ -13,9 +13,59 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/l
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
 
+## Deploying Llama 2 on-device
+
+Large Language Model (LLM) such as [Llama 2](https://llama.meta.com/llama2/) has the following complexities to deploy on-device:
+1. Model size is too large to fit in device memory for inference
+2. Multi-Head Attention (MHA) has large activations leading to fallback from accelerators
+3. High model load and inference time
+
+We can tackle the above constraints with the following steps:
+1. Quantize weights to reduce on-disk model size, e.g., int8 or int4 weights
+2. Quantize activations to reduce inference time memory pressure
+3. Graph transformations to reduce inference time memory pressure, e.g., Multi-Head to Split-Head Attention (MHA -> SHA)
+4. Graph transformations to convert or decompose operations into more accelerator friendly operations e.g. Linear to Conv
+5. For LLM with 7B or more parameters, above steps are still not good enough on mobile,
+  hence we go one step further and split model into sub-parts.
+
+Here, we divide the model into 4 parts in order to
+1. Make model exportable with low memory usage
+2. Avoid inference time out-of-memory errors
+
+In order to export Llama 2, please ensure
+1. Host machine has >40GB memory (RAM+swap-space)
+2. If you don't have enough memory, export.py will dump instructions to increase swap space accordingly
 
 
 
+## Example & Usage
+
+Install the package via pip:
+```bash
+pip install "qai_hub_models[llama_v2_7b_chat_quantized]"
+```
+
+
+Once installed, run the following simple CLI demo:
+
+```bash
+python -m qai_hub_models.models.llama_v2_7b_chat_quantized.demo
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../../#getting-started) for more usage instructions.
+
+## Export for on-device deployment
+
+This repository contains export scripts that produce a model optimized for
+on-device deployment. This can be run as follows:
+
+```bash
+python -m qai_hub_models.models.llama_v2_7b_chat_quantized.export
+```
+Additional options are documented with the `--help` option. Note that the above
+script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
 - The license for the original implementation of Llama-v2-7B-Chat can be found

@@ -99,7 +99,7 @@ def _load_realesrgan_source_model_from_weights(
         # CWD should be the repository path now
         realesrgan_repo_path = os.getcwd()
         # The official repo omits this folder, which causes import issues
-        version_dir = os.path.join(realesrgan_repo_path, "realesrgan/version")
+        version_dir = os.path.join(realesrgan_repo_path, "realesrgan", "version")
         if not os.path.exists(version_dir):
             os.makedirs(version_dir)
 

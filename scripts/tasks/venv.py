@@ -8,12 +8,7 @@ import os
 import subprocess
 from typing import Iterable
 
-from .constants import (
-    PY_PACKAGE_INSTALL_ROOT,
-    PY_PACKAGE_MODELS_ROOT,
-    PY_PACKAGE_SRC_ROOT,
-    REPO_ROOT,
-)
+from .constants import PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_MODELS_ROOT, REPO_ROOT
 from .task import CompositeTask, RunCommandsTask, RunCommandsWithVenvTask
 from .util import can_support_aimet, model_needs_aimet
 
@@ -51,41 +46,6 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
         include_aimet: bool = can_support_aimet(),
     ) -> None:
         tasks = []
-
-        # Install AIMET before model requirements to give preference over
-        # model specific versions.
-        if include_aimet:
-            if can_support_aimet():
-                if is_package_installed("aimet_torch", venv_path):
-                    tasks.append(
-                        RunCommandsTask(
-                            group_name="AIMET Installation Warning",
-                            commands=[
-                                'echo "WARNING: Skipping AIMET Install because it is already installed."'
-                            ],
-                        )
-                    )
-                else:
-                    tasks.append(
-                        RunCommandsWithVenvTask(
-                            group_name="Install AIMET",
-                            venv=venv_path,
-                            commands=[
-                                f'"{PY_PACKAGE_SRC_ROOT}/scripts/install_aimet_cpu.sh"'
-                            ],
-                        )
-                    )
-
-            else:
-                tasks.append(
-                    RunCommandsTask(
-                        group_name="AIMET Installation Warning",
-                        commands=[
-                            'echo "WARNING: Skipping AIMET Install because it is not supported on this platform."'
-                        ],
-                    )
-                )
-
         extras_str = f"[{','.join(extras)}]" if extras else ""
         tasks.append(
             RunCommandsWithVenvTask(

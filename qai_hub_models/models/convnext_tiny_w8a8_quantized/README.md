@@ -1,14 +1,14 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [ConvNext-Tiny-w8a8-Quantized: Imagenet classifier and general purpose backbone](#)
+# [ConvNext-Tiny-w8a8-Quantized: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/convnext_tiny_w8a8_quantized)
 
 ConvNextTiny is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.
 
 This is based on the implementation of ConvNext-Tiny-w8a8-Quantized found
 [here](https://github.com/pytorch/vision/blob/main/torchvision/models/convnext.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](#).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/convnext_tiny_w8a8_quantized).
 
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.
@@ -17,6 +17,11 @@ a hosted Qualcomm® device.
 
 
 ## Example & Usage
+
+Install the package via pip:
+```bash
+pip install "qai_hub_models[convnext_tiny_w8a8_quantized]"
+```
 
 
 Once installed, run the following simple CLI demo:

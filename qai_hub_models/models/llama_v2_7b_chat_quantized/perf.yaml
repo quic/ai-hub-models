@@ -2,24 +2,24 @@ models:
 - name: Llama-TokenGenerator-KVCache-Quantized
   performance_metrics:
   - reference_device_info:
-      name: Samsung Galaxy S23 Ultra
-      os: '13'
+      name: Samsung Galaxy S24
+      os: '14'
       form_factor: Phone
       os_name: Android
       manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-01-26T00:34:02.549319Z'
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-05-23T00:34:02.549319Z'
     torchscript_onnx_qnn:
-      inference_time: 117812
-      throughput: 8.48
+      inference_time: 104953
+      throughput: 9.528
       estimated_peak_memory_range:
-        min: 69697536
-        max: 249894184
+        min: 331575296
+        max: 5017129568
       layer_info:
-        layers_on_npu: 34841
+        layers_on_npu: 34842
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 34841
+        total_layers: 34842
       precision: uint16
       primary_compute_unit: NPU
       job_id: "null"
@@ -27,24 +27,24 @@ models:
 - name: Llama-PromptProcessor-Quantized
   performance_metrics:
   - reference_device_info:
-      name: Samsung Galaxy S23 Ultra
-      os: '13'
+      name: Samsung Galaxy S24
+      os: '14'
       form_factor: Phone
       os_name: Android
       manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-01-26T00:34:02.549319Z'
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-05-23T00:34:02.549319Z'
     torchscript_onnx_qnn:
-      inference_time: 2578521
-      throughput: 397.13
+      inference_time: 1917811
+      throughput: 0.5214
       estimated_peak_memory_range:
-        min: 12124160
-        max: 17599768
+        min: 20480
+        max: 1078248176
       layer_info:
-        layers_on_npu: 31769
+        layers_on_npu: 31766
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 31769
+        total_layers: 31766
       precision: uint16
       primary_compute_unit: NPU
       job_id: "null"
@@ -52,10 +52,12 @@ models:
 aggregated:
   supported_devices:
   - Samsung Galaxy S23 Ultra
+  - Samsung Galaxy S24
   supported_oses:
   - Android
   supported_chipsets:
   - Snapdragon® 8 Gen 2
+  - Snapdragon® 8 Gen 3
   performance_metrics:
   - reference_device_info:
       name: Samsung Galaxy S23 Ultra

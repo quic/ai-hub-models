@@ -91,6 +91,7 @@ def get_on_device_demo_parser(
         TargetRuntime.__members__.values()
     ),
     add_output_dir: bool = False,
+    default_device: str = "Samsung Galaxy S23",
 ):
     if not parser:
         parser = get_parser()
@@ -104,12 +105,14 @@ def get_on_device_demo_parser(
         "--hub-model-id",
         type=str,
         default=None,
-        help="If running on-device, uses this model Hub model ID.",
+        help="If running on-device, uses this model Hub model ID."
+        " Provide comma separated model-ids if multiple models are required for demo."
+        " Run export.py to get on-device demo command with models exported for you.",
     )
     parser.add_argument(
         "--device",
         type=str,
-        default="Samsung Galaxy S23",
+        default=default_device,
         help="If running on-device, use this device.",
     )
     parser.add_argument(

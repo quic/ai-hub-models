@@ -8,6 +8,7 @@ import fileinput
 import json
 import logging
 import os
+import platform
 import shutil
 import sys
 import tarfile
@@ -137,8 +138,19 @@ def maybe_clone_git_repo(
             print(f"Cloning {git_file_path} to {local_path}...")
             repo = Repo.clone_from(git_file_path, local_path)
             repo.git.checkout(commit_hash)
-            for patch in patches:
-                repo.git.execute(["git", "apply", patch])
+            for patch_path in patches:
+                git_cmd = ["git", "apply"]
+                if platform.system() == "Windows":
+                    # We pass ignore-space-change,
+                    # which is used when finding patch content in files.
+                    # Windows has trouble understanding non-windows EOL markers.
+                    #
+                    # There are more specific flags available that only change how
+                    # git looks at line endings, but they are not available in all
+                    # versions of git on windows.
+                    git_cmd.append("--ignore-space-change")
+                git_cmd.append(patch_path)
+                repo.git.execute(git_cmd)
             print("Done")
         else:
             raise ValueError(
@@ -372,34 +384,13 @@ class ModelZooAssetConfig:
         self.models_website_url = models_website_url
         self.models_website_relative_path = models_website_relative_path
 
-        # Validation
-        for name in [
-            self.asset_url,
-            self.web_asset_folder,
-            self.model_asset_folder,
-            self.static_web_banner_filename,
-            self.animated_web_banner_filename,
-            self.local_store_path,
-            self.qaihm_repo,
-            self.example_use,
-            self.huggingface_path,
-            self.models_website_relative_path,
-        ]:
-            assert not name.endswith("/") and not name.endswith("\\")
-        for name in [
-            self.static_web_banner_filename,
-            self.animated_web_banner_filename,
-        ]:
-            assert not name.startswith("/") and not name.startswith("\\")
-
-        for name in [self.repo_url, self.models_website_url]:
-            assert not name.endswith("/"), "URLs should not end with a slash"
-
     def get_hugging_face_url(self, model_name: str) -> str:
         return f"https://huggingface.co/{self.get_huggingface_path(model_name)}"
 
     def get_huggingface_path(self, model_name: str) -> str:
-        return self.huggingface_path.replace("{model_name}", str(model_name))
+        return self.huggingface_path.lstrip("/").replace(
+            "{model_name}", str(model_name)
+        )
 
     def get_web_asset_url(self, model_id: str, type: QAIHM_WEB_ASSET):
         if type == QAIHM_WEB_ASSET.STATIC_IMG:
@@ -408,86 +399,95 @@ class ModelZooAssetConfig:
             file = self.animated_web_banner_filename
         else:
             raise NotImplementedError("unsupported web asset type")
-        return f"{self.asset_url}/{ModelZooAssetConfig._replace_path_keywords(self.web_asset_folder, model_id=model_id)}/{file}"
+        return (
+            f"{self.asset_url.rstrip('/')}/"
+            + (
+                Path(
+                    ModelZooAssetConfig._replace_path_keywords(
+                        self.web_asset_folder.lstrip("/"), model_id=model_id
+                    )
+                )
+                / file
+            ).as_posix()
+        )
 
     def get_local_store_path(self) -> Path:
         return Path(self.local_store_path)
 
     def get_local_store_model_path(
-        self, model_name: str, version: VersionType, filename: str
+        self, model_name: str, version: VersionType, filename: Path | str
     ) -> Path:
         return self.local_store_path / self.get_relative_model_asset_path(
             model_name, version, filename
         )
 
     def get_local_store_dataset_path(
-        self, dataset_name: str, version: VersionType, filename: str
+        self, dataset_name: str, version: VersionType, filename: Path | str
     ) -> Path:
         return self.local_store_path / self.get_relative_dataset_asset_path(
             dataset_name, version, filename
         )
 
     def get_relative_model_asset_path(
-        self, model_id: str, version: Union[int, str], file_name: str
+        self, model_id: str, version: Union[int, str], file_name: Path | str
     ) -> Path:
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return (
-            Path(
-                ModelZooAssetConfig._replace_path_keywords(
-                    self.model_asset_folder, model_id=model_id, version=version
-                )
+        return Path(
+            ModelZooAssetConfig._replace_path_keywords(
+                self.model_asset_folder.lstrip("/"), model_id=model_id, version=version
             )
-            / file_name
-        )
+        ) / Path(file_name)
 
     def get_relative_dataset_asset_path(
-        self, dataset_id: str, version: Union[int, str], file_name: str
+        self, dataset_id: str, version: Union[int, str], file_name: Path | str
     ) -> Path:
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return (
-            Path(
-                ModelZooAssetConfig._replace_path_keywords(
-                    self.dataset_asset_folder, dataset_id=dataset_id, version=version
-                )
+        return Path(
+            ModelZooAssetConfig._replace_path_keywords(
+                self.dataset_asset_folder.lstrip("/"),
+                dataset_id=dataset_id,
+                version=version,
             )
-            / file_name
-        )
+        ) / Path(file_name)
+
+    def get_asset_url(self, file: Path | str) -> str:
+        return f"{self.asset_url.rstrip('/')}/{(file.as_posix() if isinstance(file, Path) else file).lstrip('/')}"
 
     def get_model_asset_url(
-        self, model_id: str, version: Union[int, str], file_name: str
+        self, model_id: str, version: Union[int, str], file_name: Path | str
     ) -> str:
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_model_asset_path(model_id, version, file_name).as_posix()}"
+        return self.get_asset_url(
+            self.get_relative_model_asset_path(model_id, version, file_name)
+        )
 
     def get_dataset_asset_url(
-        self, dataset_id: str, version: Union[int, str], file_name: str
+        self, dataset_id: str, version: Union[int, str], file_name: Path | str
     ) -> str:
-        assert not file_name.startswith("/") and not file_name.startswith("\\")
-        return f"{self.asset_url}/{self.get_relative_dataset_asset_path(dataset_id, version, file_name).as_posix()}"
+        return self.get_asset_url(
+            self.get_relative_dataset_asset_path(dataset_id, version, file_name)
+        )
 
     def get_qaihm_repo(self, model_id: str, relative=True) -> Path | str:
         relative_path = Path(
             ModelZooAssetConfig._replace_path_keywords(
-                self.qaihm_repo, model_id=model_id
+                self.qaihm_repo.lstrip("/"), model_id=model_id
             )
         )
         if not relative:
-            return f"{self.repo_url}/{relative_path.as_posix()}"
+            return f"{self.repo_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
 
-    def get_website_url(self, model_id: str, relative=False) -> str:
+    def get_website_url(self, model_id: str, relative=False) -> Path | str:
         relative_path = Path(
             ModelZooAssetConfig._replace_path_keywords(
-                self.models_website_relative_path, model_id=model_id
+                self.models_website_relative_path.lstrip("/"), model_id=model_id
             )
-        ).as_posix()
+        )
         if not relative:
-            return f"{self.models_website_url}/{relative_path}"
+            return f"{self.models_website_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
 
     def get_example_use(self, model_id: str) -> str:
         return ModelZooAssetConfig._replace_path_keywords(
-            self.example_use, model_id=model_id
+            self.example_use.lstrip("/"), model_id=model_id
         )
 
     ###
@@ -647,9 +647,8 @@ class CachedWebAsset:
 
             asset_config: Asset config to use to save this file.
         """
-        web_store_path = f"{asset_config.asset_url}/{relative_store_file_path}"
         return CachedWebAsset(
-            web_store_path,
+            asset_config.get_asset_url(relative_store_file_path),
             Path(relative_store_file_path),
             asset_config,
             download_file,
@@ -780,7 +779,7 @@ class CachedWebModelAsset(CachedWebAsset):
         url: str,
         model_id: str,
         model_asset_version: int | str,
-        filename: str,
+        filename: Path | str,
         asset_config=ASSET_CONFIG,
         model_downloader: Callable[[str, str, int], str] | None = None,
         downloader_num_retries=4,
@@ -802,7 +801,7 @@ class CachedWebModelAsset(CachedWebAsset):
     def from_asset_store(
         model_id: str,
         model_asset_version: str | int,
-        filename: str,
+        filename: str | Path,
         num_retries=4,
         asset_config=ASSET_CONFIG,
     ):

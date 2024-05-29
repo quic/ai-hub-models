@@ -1,14 +1,14 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Posenet-Mobilenet: Perform accurate human pose estimation](#)
+# [Posenet-Mobilenet: Perform accurate human pose estimation](https://aihub.qualcomm.com/models/posenet_mobilenet)
 
 Posenet performs pose estimation on human images.
 
 This is based on the implementation of Posenet-Mobilenet found
 [here](https://github.com/rwightman/posenet-pytorch). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](#).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/posenet_mobilenet).
 
 [Sign up](https://myaccount.qualcomm.com/signup) for early access to run these models on
 a hosted Qualcomm® device.

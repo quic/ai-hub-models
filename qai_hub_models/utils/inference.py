@@ -32,6 +32,8 @@ try:
 except NotImplementedError:
     AIMETQuantizableMixin = None  # type: ignore
 
+from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
+
 
 def prepare_compile_zoo_model_to_hub(
     model: BaseModel,
@@ -83,9 +85,9 @@ def prepare_compile_zoo_model_to_hub(
     Path to source model that can be used directly with hub.upload_model or
     hub.submit_compile_job.
     """
-    is_aimet = AIMETQuantizableMixin is not None and isinstance(
-        model, AIMETQuantizableMixin
-    )
+    is_aimet = (
+        AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin)
+    ) or isinstance(model, AimetEncodingLoaderMixin)
 
     model_name = model.__class__.__name__
 
@@ -98,7 +100,7 @@ def prepare_compile_zoo_model_to_hub(
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():
-                print("Exporting model to ONNX and generating AIMET encodings")
+                print("Exporting model to ONNX with AIMET encodings")
                 return model.convert_to_onnx_and_aimet_encodings(
                     output_path,
                     model_name=model_name,
@@ -442,6 +444,7 @@ class HubModel(ExecutableModelProtocol):
             inference_options,
             output_names,
         )
+        self.model = model
 
     def __call__(
         self,

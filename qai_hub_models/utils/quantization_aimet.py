@@ -24,16 +24,14 @@ try:
         AimetLogger.set_level_for_all_areas(logging.WARN)
 except (ImportError, ModuleNotFoundError):
     raise NotImplementedError(
-        "AIMET must be installed to load quantized models. "
-        "AIMET is only supported on Linux. "
-        "Install AIMET via the instructions here: "
-        "https://quic.github.io/aimet-pages/releases/latest/install/index.html"
+        "Quantized models require the AIMET package, which is only supported on Linux. "
+        "Install qai-hub-models on a Linux machine to use quantized models."
     )
 
 import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZipFile
 
 import aimet_torch.elementwise_ops as aimet_ops
 import torch
@@ -49,6 +47,7 @@ from qai_hub_models.models.protocols import (
     PretrainedHubModelProtocol,
     QuantizableModelProtocol,
 )
+from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 
@@ -391,14 +390,16 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
                     input_names=[name for name in input_spec], output_names=output_names
                 ),
             )
-            onnx_file_name = f"{model_name}.onnx"
-            encodings_file_name = f"{model_name}.encodings"
-            external_weights_file_name = f"{model_name}.data"
+
+            onnx_file_path = str(base_path / f"{model_name}.onnx")
+            encoding_file_path = str(base_path / f"{model_name}.encodings")
+            external_weights_file_path = ""
 
             if external_weights:
                 # Torch exports to onnx with external weights scattered in a directory.
                 # Save ONNX model with weights to one file.
-                onnx_file_path = str(base_path / onnx_file_name)
+                external_weights_file_name = f"{model_name}.data"
+                external_weights_file_path = str(base_path / external_weights_file_name)
                 onnx_model = load_onnx_model(onnx_file_path)
                 save_onnx_model(
                     onnx_model,
@@ -408,24 +409,13 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
                     location=external_weights_file_name,
                 )
 
-            # compresslevel defines how fine compression should run
-            # higher the level, heavier algorithm is used leading to more time.
-            # For large models, higher compression takes longer time to compress.
-            with ZipFile(zip_path, "w", ZIP_DEFLATED, compresslevel=4) as zip_object:
-                zip_object.write(base_path, base_dir)
-
-                zip_object.write(
-                    base_path / onnx_file_name, os.path.join(base_dir, onnx_file_name)
-                )
-                if external_weights:
-                    zip_object.write(
-                        base_path / external_weights_file_name,
-                        os.path.join(base_dir, external_weights_file_name),
-                    )
-                zip_object.write(
-                    base_path / encodings_file_name,
-                    os.path.join(base_dir, encodings_file_name),
-                )
+            zip_aimet_model(
+                zip_path,
+                base_dir,
+                onnx_file_path,
+                encoding_file_path,
+                external_weights_file_path,
+            )
 
         return zip_path
 
@@ -453,6 +443,10 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         """
         Calibration dataset for this model and input spec.
         """
+        if target_runtime == TargetRuntime.ORT:
+            # TODO(#10896): Restore quantize_io flag when targeting ORT
+            return None
+
         if not input_spec:
             input_spec = self.get_input_spec()
         inputs = make_torch_inputs(input_spec)
@@ -467,10 +461,11 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         compile_options = super().get_hub_compile_options(  # type: ignore
             target_runtime, other_compile_options, device
         )
-        compile_options = compile_options + " --quantize_full_type int8"
         if target_runtime != TargetRuntime.ORT:
             # TODO(#10896): Restore quantize_io flag when targeting ORT
-            compile_options = compile_options + " --quantize_io"
+            compile_options = (
+                compile_options + " --quantize_full_type int8 --quantize_io"
+            )
         return compile_options
 
     def preferred_hub_source_model_format(

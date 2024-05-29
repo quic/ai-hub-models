@@ -485,7 +485,6 @@ class QAIHMModelCodeGen:
         qnn_export_failure_reason: str,
         tflite_export_failure_reason: str,
         ort_export_failure_reason: str,
-        has_demo: bool,
         check_trace: bool,
         channel_last_input: List[str],
         channel_last_output: List[str],
@@ -501,13 +500,13 @@ class QAIHMModelCodeGen:
         torchscript_opt: List[str],
         inference_metrics: str,
         additional_readme_section: str,
+        skip_example_usage: bool,
     ) -> None:
         self.is_aimet = is_aimet
         self.has_on_target_demo = has_on_target_demo
         self.qnn_export_failure_reason = qnn_export_failure_reason
         self.tflite_export_failure_reason = tflite_export_failure_reason
         self.ort_export_failure_reason = ort_export_failure_reason
-        self.has_demo = has_demo
         self.check_trace = check_trace
         self.channel_last_input = channel_last_input
         self.channel_last_output = channel_last_output
@@ -523,6 +522,7 @@ class QAIHMModelCodeGen:
         self.inference_metrics = inference_metrics
         self.additional_readme_section = additional_readme_section
         self.skip_export = skip_export
+        self.skip_example_usage = skip_example_usage
 
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
@@ -547,7 +547,6 @@ class QAIHMModelCodeGen:
             code_gen_config["qnn_export_failure_reason"],
             code_gen_config["tflite_export_failure_reason"],
             code_gen_config["ort_export_failure_reason"],
-            code_gen_config["has_demo"],
             code_gen_config["check_trace"],
             code_gen_config["channel_last_input"],
             code_gen_config["channel_last_output"],
@@ -563,6 +562,7 @@ class QAIHMModelCodeGen:
             code_gen_config["inference_metrics"],
             code_gen_config["additional_readme_section"],
             code_gen_config["skip_export"],
+            code_gen_config["skip_example_usage"],
         )
 
     # Schema for code-gen.yaml
@@ -575,7 +575,6 @@ class QAIHMModelCodeGen:
                 OptionalSchema("qnn_export_failure_reason", default=""): str,
                 OptionalSchema("tflite_export_failure_reason", default=""): str,
                 OptionalSchema("ort_export_failure_reason", default=""): str,
-                OptionalSchema("has_demo", default=True): bool,
                 OptionalSchema("check_trace", default=True): bool,
                 OptionalSchema("channel_last_input", default=[]): list,
                 OptionalSchema("channel_last_output", default=[]): list,
@@ -591,6 +590,7 @@ class QAIHMModelCodeGen:
                 OptionalSchema("inference_metrics", default="psnr"): str,
                 OptionalSchema("additional_readme_section", default=""): str,
                 OptionalSchema("skip_export", default=False): bool,
+                OptionalSchema("skip_example_usage", default=False): bool,
             }
         )
     )

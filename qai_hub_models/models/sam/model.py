@@ -4,19 +4,13 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
-import sys
+from pathlib import Path
 from typing import Callable, Tuple
 
 import numpy as np
 import torch
 
-from qai_hub_models.utils.asset_loaders import (
-    CachedWebModelAsset,
-    load_path,
-    maybe_clone_git_repo,
-    qaihm_temp_dir,
-)
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -77,15 +71,16 @@ class SAMQAIHMWrapper(CollectionModel):
 
     @classmethod
     def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAMQAIHMWrapper:
-        (
-            sam_model_registry,
-            SamOnnxModel,
-            ResizeLongestSide,
-            SamPredictor,
-        ) = _patch_sam_with_qaihm_modules()
-        sam = load_sam_model(sam_model_registry, model_type)
-        sam_encoder = SegmentAnythingEncoder(sam, ResizeLongestSide)
-        return cls(sam, sam_encoder, SamOnnxModel, ResizeLongestSide, SamPredictor)
+        with SourceAsRoot(
+            SAM_SOURCE_REPO, SAM_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
+        ):
+            from segment_anything import SamPredictor, sam_model_registry
+            from segment_anything.utils.onnx import SamOnnxModel
+            from segment_anything.utils.transforms import ResizeLongestSide
+
+            sam = sam_model_registry[model_type](_get_weights_path(model_type))
+            sam_encoder = SegmentAnythingEncoder(sam, ResizeLongestSide)
+            return cls(sam, sam_encoder, SamOnnxModel, ResizeLongestSide, SamPredictor)
 
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError("Cannot call SAMQAIHMWrapper directly")
@@ -272,62 +267,16 @@ class SegmentAnythingONNXDecoder(BaseModel):
         return SAMQAIHMWrapper.from_pretrained().get_sam_decoder()
 
 
-def _get_weights_url(model_type: str = DEFAULT_MODEL_TYPE):
+def _get_weights_path(model_type: str = DEFAULT_MODEL_TYPE) -> Path:
     """Convert from names of weights files to the url for the weights file"""
     if model_type not in MODEL_REGISTERY.keys():
         raise RuntimeError(f"Weights not found for model type `{model_type}`.")
 
-    return CachedWebModelAsset(
+    asset = CachedWebModelAsset(
         f"https://dl.fbaipublicfiles.com/segment_anything/{MODEL_REGISTERY[model_type]}",
         MODEL_ID,
         MODEL_ASSET_VERSION,
         f"{MODEL_REGISTERY[model_type]}",
     )
-
-
-def load_sam_model(
-    sam_model_registry, model_type: str = DEFAULT_MODEL_TYPE
-) -> torch.nn.Module:
-    """Loads SAM model of given model type"""
-    weights_url = _get_weights_url(model_type)
-    with qaihm_temp_dir() as tmpdir:
-        weights_path = load_path(weights_url, tmpdir)
-        sam = sam_model_registry[model_type](weights_path)
-    sam.eval()
-    return sam
-
-
-def _patch_sam_with_qaihm_modules():
-    """
-    Patches segment-anything with modifications
-
-    Returns:
-        sam_model_registry: semgment_anything.sam_model_registry
-            dictionary of str (model_type) to callback to build respective model
-        SamOnnxModel: torch.nn.Module
-            light-weight decoder with fix image size
-        ResizeLongestSide: segment_anything.utils.transforms.ResizeLongestSide
-            Resizing utility updated to work with input image size
-        SamPredictor: segment_anything.SamPredictor
-            Python class wrapper to call image encoder - decoder
-    """
-    sam_repo_path = str(
-        maybe_clone_git_repo(
-            SAM_SOURCE_REPO, SAM_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
-        )
-    )
-    cwd = os.getcwd()
-    try:
-        # Patch path for this load only
-        sys.path.insert(0, sam_repo_path)
-
-        # import required modules and utilities
-        from segment_anything import SamPredictor, sam_model_registry
-        from segment_anything.utils.onnx import SamOnnxModel
-        from segment_anything.utils.transforms import ResizeLongestSide
-
-        return sam_model_registry, SamOnnxModel, ResizeLongestSide, SamPredictor
-    finally:
-        # Reset global state
-        os.chdir(cwd)
-        sys.path.remove(sam_repo_path)
+    asset.fetch()
+    return asset.path()

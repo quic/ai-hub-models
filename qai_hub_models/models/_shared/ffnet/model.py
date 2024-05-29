@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from importlib import reload
+from pathlib import Path
 from typing import Type, TypeVar
 
 import torch
@@ -76,12 +77,11 @@ class FFNet(CityscapesSegmentor):
 def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
     subpath, src_name, dst_name = FFNET_SUBPATH_NAME_LOOKUP[variant_name]
 
-    weights_url = os.path.join(FFNET_WEIGHTS_URL_ROOT, src_name)
     weights_path = CachedWebModelAsset(
-        weights_url,
+        f"{FFNET_WEIGHTS_URL_ROOT.rstrip('/')}/{src_name.lstrip('/')}",
         MODEL_ID,
         MODEL_ASSET_VERSION,
-        os.path.join(subpath, dst_name),
+        Path(subpath) / dst_name,
     ).fetch()
     root_weights_path = os.path.dirname(os.path.dirname(weights_path))
 
