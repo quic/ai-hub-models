@@ -72,6 +72,20 @@ def set_log_level(log_level: int):
         logger.setLevel(old_level)
 
 
+@contextmanager
+def tmp_os_env(env_values: Dict[str, str]):
+    """
+    Creates a context where the os environment variables are replaced with
+        the given values. After exiting the context, the previous env is restored.
+    """
+    previous_env = os.environ.copy()
+    try:
+        os.environ.update(env_values)
+        yield
+    finally:
+        os.environ = previous_env  # type: ignore
+
+
 def _query_yes_no(question, default="yes"):
     """
     Ask a yes/no question and return their answer.
@@ -364,6 +378,7 @@ class ModelZooAssetConfig:
         dataset_asset_folder: str,
         local_store_path: str,
         qaihm_repo: str,
+        labels_path: str,
         example_use: str,
         huggingface_path: str,
         repo_url: str,
@@ -378,6 +393,7 @@ class ModelZooAssetConfig:
         self.model_asset_folder = model_asset_folder
         self.dataset_asset_folder = dataset_asset_folder
         self.qaihm_repo = qaihm_repo
+        self.labels_path = labels_path
         self.example_use = example_use
         self.huggingface_path = huggingface_path
         self.repo_url = repo_url
@@ -402,12 +418,7 @@ class ModelZooAssetConfig:
         return (
             f"{self.asset_url.rstrip('/')}/"
             + (
-                Path(
-                    ModelZooAssetConfig._replace_path_keywords(
-                        self.web_asset_folder.lstrip("/"), model_id=model_id
-                    )
-                )
-                / file
+                Path(self.web_asset_folder.lstrip("/").format(model_id=model_id)) / file
             ).as_posix()
         )
 
@@ -432,8 +443,8 @@ class ModelZooAssetConfig:
         self, model_id: str, version: Union[int, str], file_name: Path | str
     ) -> Path:
         return Path(
-            ModelZooAssetConfig._replace_path_keywords(
-                self.model_asset_folder.lstrip("/"), model_id=model_id, version=version
+            self.model_asset_folder.lstrip("/").format(
+                model_id=model_id, version=version
             )
         ) / Path(file_name)
 
@@ -441,10 +452,8 @@ class ModelZooAssetConfig:
         self, dataset_id: str, version: Union[int, str], file_name: Path | str
     ) -> Path:
         return Path(
-            ModelZooAssetConfig._replace_path_keywords(
-                self.dataset_asset_folder.lstrip("/"),
-                dataset_id=dataset_id,
-                version=version,
+            self.dataset_asset_folder.lstrip("/").format(
+                dataset_id=dataset_id, version=version
             )
         ) / Path(file_name)
 
@@ -465,48 +474,25 @@ class ModelZooAssetConfig:
             self.get_relative_dataset_asset_path(dataset_id, version, file_name)
         )
 
+    def get_labels_file_path(self, labels_file: str) -> str:
+        return self.labels_path.lstrip("/").format(labels_file=labels_file)
+
     def get_qaihm_repo(self, model_id: str, relative=True) -> Path | str:
-        relative_path = Path(
-            ModelZooAssetConfig._replace_path_keywords(
-                self.qaihm_repo.lstrip("/"), model_id=model_id
-            )
-        )
+        relative_path = Path(self.qaihm_repo.lstrip("/").format(model_id=model_id))
         if not relative:
             return f"{self.repo_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
 
     def get_website_url(self, model_id: str, relative=False) -> Path | str:
         relative_path = Path(
-            ModelZooAssetConfig._replace_path_keywords(
-                self.models_website_relative_path.lstrip("/"), model_id=model_id
-            )
+            self.models_website_relative_path.lstrip("/").format(model_id=model_id)
         )
         if not relative:
             return f"{self.models_website_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
 
     def get_example_use(self, model_id: str) -> str:
-        return ModelZooAssetConfig._replace_path_keywords(
-            self.example_use.lstrip("/"), model_id=model_id
-        )
-
-    ###
-    # Helpers
-    ###
-    @staticmethod
-    def _replace_path_keywords(
-        path: str,
-        model_id: Optional[str] = None,
-        dataset_id: Optional[str] = None,
-        version: Optional[Union[int, str]] = None,
-    ):
-        if model_id:
-            path = path.replace("{model_id}", model_id)
-        if dataset_id:
-            path = path.replace("{dataset_id}", dataset_id)
-        if version:
-            path = path.replace("{version}", str(version))
-        return path
+        return self.example_use.lstrip("/").format(model_id=model_id)
 
     ###
     # Load from CFG
@@ -531,6 +517,7 @@ class ModelZooAssetConfig:
             asset_cfg["dataset_asset_folder"],
             local_store_path,
             asset_cfg["qaihm_repo"],
+            asset_cfg["labels_path"],
             asset_cfg["example_use"],
             asset_cfg["huggingface_path"],
             asset_cfg["repo_url"],
@@ -548,6 +535,7 @@ class ModelZooAssetConfig:
                 "animated_web_banner_filename": str,
                 "model_asset_folder": str,
                 "qaihm_repo": str,
+                "labels_path": str,
                 "example_use": str,
                 "huggingface_path": str,
                 "repo_url": str,

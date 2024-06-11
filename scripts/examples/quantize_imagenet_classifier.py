@@ -22,6 +22,7 @@ from qai_hub_models.models.convnext_tiny_w8a16_quantized.model import (
 )
 from qai_hub_models.models.googlenet_quantized.model import GoogLeNetQuantizable
 from qai_hub_models.models.inception_v3_quantized.model import InceptionNetV3Quantizable
+from qai_hub_models.models.midas_quantized.model import MidasQuantizable
 from qai_hub_models.models.mobilenet_v2_quantized.model import MobileNetV2Quantizable
 from qai_hub_models.models.mobilenet_v3_large_quantized.model import (
     MobileNetV3LargeQuantizable,
@@ -37,9 +38,10 @@ from qai_hub_models.models.squeezenet1_1_quantized.model import SqueezeNetQuanti
 from qai_hub_models.models.wideresnet50_quantized.model import WideResNet50Quantizable
 from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 
-CLASSIFIERS = {
+MODELS = {
     "googlenet": GoogLeNetQuantizable,
     "inception_v3": InceptionNetV3Quantizable,
+    "midas": MidasQuantizable,
     "mobilenet_v2": MobileNetV2Quantizable,
     "mobilenet_v3_large": MobileNetV3LargeQuantizable,
     "regnet": RegNetQuantizable,
@@ -54,6 +56,10 @@ CLASSIFIERS = {
     "convnext_tiny_w8a8": ConvNextTinyW8A8Quantizable,
     "convnext_tiny_w8a16": ConvNextTinyW8A16Quantizable,
 }
+
+# These models are quantized by imagenet data, but are not classifiers
+# Don't try to compute accuracy for these models
+NON_CLASSIFIERS = ["midas"]
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -82,7 +88,7 @@ if __name__ == "__main__":
         "--model",
         "-m",
         type=str,
-        choices=list(CLASSIFIERS.keys()),
+        choices=list(MODELS.keys()),
         required=False,
         help="Name of the model to quantize.",
     )
@@ -101,17 +107,18 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     if args.all:
-        ImageNetClassifier_classes = CLASSIFIERS.values()
+        ImageNetClassifier_classes = MODELS.values()
     else:
         if not hasattr(args, "model"):
             raise ValueError(
                 "Specify a model via --model <model> or all models via --all"
             )
-        ImageNetClassifier_classes = [CLASSIFIERS[args.model]]
+        ImageNetClassifier_classes = [MODELS[args.model]]
 
     dataset = ImagenetteDataset()
     torch.manual_seed(args.seed)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    skip_accuracy = args.model in NON_CLASSIFIERS
 
     for ImageNetClassifier_cls in ImageNetClassifier_classes:
         model: AIMETQuantizableMixin = ImageNetClassifier_cls.from_pretrained(
@@ -119,24 +126,23 @@ if __name__ == "__main__":
         )
         print(f"\nQuantizing {ImageNetClassifier_cls.__name__}")
 
-        evaluator = model.get_evaluator()
-
-        evaluator.reset()
-        evaluator.add_from_dataset(model, dataloader, args.num_iter)
-        accuracy_fp32 = evaluator.get_accuracy_score()
+        if not skip_accuracy:
+            evaluator = model.get_evaluator()
+            evaluator.reset()
+            evaluator.add_from_dataset(model, dataloader, args.num_iter)
+            accuracy_fp32 = evaluator.get_accuracy_score()
+            print(f"FP32 Accuracy: {accuracy_fp32 * 100:.3g}%")
 
         model.quantize(dataloader, args.num_iter, data_has_gt=True)
 
-        evaluator.reset()
-        evaluator.add_from_dataset(model, dataloader, args.num_iter)
-        accuracy_int8 = evaluator.get_accuracy_score()
+        if not skip_accuracy:
+            evaluator = model.get_evaluator()
+            evaluator.add_from_dataset(model, dataloader, args.num_iter)
+            accuracy_int8 = evaluator.get_accuracy_score()
 
-        print(f"FP32 Accuracy: {accuracy_fp32 * 100:.3g}%")
-        print(f"INT8 Accuracy: {accuracy_int8 * 100:.3g}%")
+            print(f"INT8 Accuracy: {accuracy_int8 * 100:.3g}%")
 
         output_path = args.output_dir or str(Path() / "build")
-        output_name = (
-            args.output_name or f"{ImageNetClassifier_cls.__name__}_quantized_encodings"
-        )
+        output_name = args.output_name or f"{args.model}_quantized_encodings"
         model.quant_sim.save_encodings_to_json(output_path, output_name)
-        print(f"Wrote {output_path}/{output_name}\n")
+        print(f"Wrote {output_path}/{output_name}.json\n")

@@ -26,7 +26,7 @@ from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.quantization_aimet import (
     convert_all_depthwise_to_per_tensor,
-    tie_aimet_observer_groups,
+    tie_observers,
 )
 
 MODEL_ID = __name__.split(".")[-2]
@@ -82,7 +82,7 @@ class ShufflenetV2Quantizable(
             dummy_input=dummy_input,
         )
         convert_all_depthwise_to_per_tensor(sim.model)
-        cls._tie_pre_concat_quantizers(sim)
+        tie_observers(sim)
         constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
@@ -94,57 +94,3 @@ class ShufflenetV2Quantizable(
 
         sim.model.eval()
         return cls(sim)
-
-    @classmethod
-    def _tie_pre_concat_quantizers(cls, sim: QuantizationSimModel):
-        """
-        This ties together the output quantizers prior to concatenations. This
-        prevents unnecessary re-quantization during the concatenation.
-        """
-        n = sim.model.net
-        # Because of skip connections, the groups are large
-        groups = [
-            [
-                getattr(getattr(n.stage2, "0").branch1, "4"),
-                getattr(getattr(n.stage2, "0").branch2, "7"),
-                getattr(n.stage2, "0").module_cat,
-                getattr(getattr(n.stage2, "1").branch2, "7"),
-                getattr(n.stage2, "1").module_cat_1,
-                getattr(getattr(n.stage2, "2").branch2, "7"),
-                getattr(n.stage2, "2").module_cat_2,
-                getattr(getattr(n.stage2, "3").branch2, "7"),
-                getattr(n.stage2, "3").module_cat_3,
-            ],
-            [
-                getattr(getattr(n.stage3, "0").branch1, "4"),
-                getattr(getattr(n.stage3, "0").branch2, "7"),
-                getattr(n.stage3, "0").module_cat_4,
-                getattr(getattr(n.stage3, "1").branch2, "7"),
-                getattr(n.stage3, "1").module_cat_5,
-                getattr(getattr(n.stage3, "2").branch2, "7"),
-                getattr(n.stage3, "2").module_cat_6,
-                getattr(getattr(n.stage3, "3").branch2, "7"),
-                getattr(n.stage3, "3").module_cat_7,
-                getattr(getattr(n.stage3, "4").branch2, "7"),
-                getattr(n.stage3, "4").module_cat_8,
-                getattr(getattr(n.stage3, "5").branch2, "7"),
-                getattr(n.stage3, "5").module_cat_9,
-                getattr(getattr(n.stage3, "6").branch2, "7"),
-                getattr(n.stage3, "6").module_cat_10,
-                getattr(getattr(n.stage3, "7").branch2, "7"),
-                getattr(n.stage3, "7").module_cat_11,
-            ],
-            [
-                getattr(getattr(n.stage4, "0").branch1, "4"),
-                getattr(getattr(n.stage4, "0").branch2, "7"),
-                getattr(n.stage4, "0").module_cat_12,
-                getattr(getattr(n.stage4, "1").branch2, "7"),
-                getattr(n.stage4, "1").module_cat_13,
-                getattr(getattr(n.stage4, "2").branch2, "7"),
-                getattr(n.stage4, "2").module_cat_14,
-                getattr(getattr(n.stage4, "3").branch2, "7"),
-                getattr(n.stage4, "3").module_cat_15,
-            ],
-        ]
-
-        tie_aimet_observer_groups(groups)

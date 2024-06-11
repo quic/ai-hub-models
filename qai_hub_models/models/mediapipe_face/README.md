@@ -43,7 +43,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of MediaPipe-Face-Detection can be found
   [here](https://github.com/zmurez/MediaPipePyTorch/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 ## References
 * [BlazeFace: Sub-millisecond Neural Face Detection on Mobile GPUs](https://arxiv.org/abs/1907.05047)

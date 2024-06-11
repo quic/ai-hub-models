@@ -21,6 +21,11 @@ def get_default_aimet_config() -> str:
     return str(path.resolve())
 
 
+def get_default_per_tensor_aimet_config() -> str:
+    path = Path(__file__).parent / "default_per_tensor_config.json"
+    return str(path.resolve())
+
+
 def get_aimet_config_path(name: str) -> str:
     path = Path(__file__).parent / f"{name}.json"
     return str(path.resolve())

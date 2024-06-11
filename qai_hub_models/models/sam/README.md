@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of Segment-Anything-Model can be found
   [here](https://github.com/facebookresearch/segment-anything/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 ## References
 * [Segment Anything](https://arxiv.org/abs/2304.02643)

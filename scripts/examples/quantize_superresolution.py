@@ -23,6 +23,7 @@ from qai_hub_models.models.quicksrnetmedium_quantized.model import (
 from qai_hub_models.models.quicksrnetsmall_quantized.model import (
     QuickSRNetSmallQuantizable,
 )
+from qai_hub_models.models.sesr_m5_quantized.model import SESR_M5Quantizable
 from qai_hub_models.models.xlsr_quantized.model import XLSRQuantizable
 
 from qai_hub_models.utils.quantization_aimet import (  # isort: skip
@@ -34,6 +35,7 @@ MODELS = {
     "quicksrnetsmall": QuickSRNetSmallQuantizable,
     "quicksrnetmedium": QuickSRNetMediumQuantizable,
     "quicksrnetlarge": QuickSRNetLargeQuantizable,
+    "sesr_m5": SESR_M5Quantizable,
 }
 
 
@@ -77,11 +79,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--scale-factor",
         type=int,
-        default=4,
+        default=3,
         help="Scaling factor of the model.",
     )
     args = parser.parse_args()
-    model = MODELS[args.model].from_pretrained(aimet_encodings=None)
+    model = MODELS[args.model].from_pretrained(
+        aimet_encodings=None, scale_factor=args.scale_factor
+    )
 
     # Load dataset
     dataset = BSD300Dataset(scaling_factor=args.scale_factor)

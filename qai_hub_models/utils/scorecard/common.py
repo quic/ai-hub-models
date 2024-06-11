@@ -139,11 +139,6 @@ class ScorecardCompilePath(Enum):
         return [x for x in devices if x.enabled()] if only_enabled else devices
 
     def get_compile_options(self, aimet_model=False) -> str:
-        if aimet_model and self.get_runtime() == TargetRuntime.ORT:
-            # TODO(#10896): Restore quantize_io flag to
-            # the default set of flags used to target ORT.
-            # This flag can be removed when that happens.
-            return "--quantize_io"
         return ""
 
     def get_job_cache_name(
@@ -251,7 +246,7 @@ class ScorecardProfilePath(Enum):
                 ScorecardDevice.cs_8_gen_3,
                 ScorecardDevice.cs_x_elite,
                 ScorecardDevice.cs_8550,
-            ] + ([ScorecardDevice.cs_6490] if aimet_model else [])
+            ]
         elif self == ScorecardProfilePath.ORT_DML_GPU:
             devices = [ScorecardDevice.cs_x_elite]
         else:

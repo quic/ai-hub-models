@@ -19,20 +19,32 @@ class ClassificationEvaluator(BaseEvaluator):
     def add_batch(self, output: torch.Tensor, gt: int | torch.Tensor):
         # This evaluator supports only 1 output tensor at a time.
         assert len(output.shape) == 2 and output.shape[-1] == self.num_classes
-        gt_tensor = torch.Tensor(gt)
-        assert len(gt_tensor.shape) == 1 and gt_tensor.shape[0] == output.shape[0]
+        gt_tensor = torch.Tensor(gt).unsqueeze(1)
+        assert len(gt_tensor.shape) == 2 and gt_tensor.shape[0] == output.shape[0]
         batch_size = output.shape[0]
         self.total_samples += batch_size
-        self.num_correct += sum(torch.argmax(output, dim=-1) == gt_tensor)
+
+        top5 = torch.topk(output, 5).indices
+        self.top5_count += torch.sum(top5 == gt_tensor).item()
+        self.top1_count += torch.sum(top5[:, :1] == gt_tensor).item()
 
     def reset(self):
-        self.num_correct = 0
+        self.top1_count = 0
+        self.top5_count = 0
         self.total_samples = 0
 
-    def get_accuracy_score(self) -> float:
+    def top1(self) -> float:
         if self.total_samples == 0:
             return 0
-        return self.num_correct / self.total_samples
+        return self.top1_count / self.total_samples
+
+    def top5(self) -> float:
+        if self.total_samples == 0:
+            return 0
+        return self.top5_count / self.total_samples
+
+    def get_accuracy_score(self) -> float:
+        return self.top1()
 
     def formatted_accuracy(self) -> str:
-        return f"{self.get_accuracy_score() * 100:.1f}%"
+        return f"{self.top1() * 100:.1f}% (Top 1), {self.top5() * 100:.1f}% (Top 5)"

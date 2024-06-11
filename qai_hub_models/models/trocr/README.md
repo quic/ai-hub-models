@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of TrOCR can be found
   [here](https://github.com/microsoft/unilm/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 ## References
 * [TrOCR: Transformer-based Optical Character Recognition with Pre-trained Models](https://arxiv.org/abs/2109.10282)

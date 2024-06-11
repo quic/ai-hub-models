@@ -260,4 +260,14 @@ def get_all_models() -> Iterable[str]:
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
         if os.path.exists(os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")):
             model_names.add(model_name)
+
+    # Select a subset of models based on user input
+    allowed_models = os.environ.get("QAIHM_TEST_MODELS", None)
+    if allowed_models and allowed_models.upper() != "ALL":
+        allowed_models = allowed_models.split(",")
+        for model in allowed_models:
+            if model not in model_names:
+                raise ValueError(f"Unknown model selected: {model}")
+        model_names = allowed_models
+
     return model_names

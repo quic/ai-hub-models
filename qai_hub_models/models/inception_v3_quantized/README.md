@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of Inception-v3-Quantized can be found
   [here](https://github.com/pytorch/vision/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 ## References
 * [Rethinking the Inception Architecture for Computer Vision](http://arxiv.org/abs/1512.00567)

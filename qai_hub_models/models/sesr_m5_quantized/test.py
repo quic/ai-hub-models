@@ -10,13 +10,10 @@ import pytest
 import torch
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models.sesr_m5_quantized.demo import IMAGE_ADDRESS
+from qai_hub_models.models._shared.super_resolution.demo import IMAGE_ADDRESS
+from qai_hub_models.models.sesr_m5.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.models.sesr_m5_quantized.demo import main as demo_main
-from qai_hub_models.models.sesr_m5_quantized.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    SESR_M5Quantizable,
-)
+from qai_hub_models.models.sesr_m5_quantized.model import SESR_M5Quantizable
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     load_image,
@@ -24,7 +21,7 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
 
-OUTPUT_IMAGE_LOCAL_PATH = "sesr_m5_quantized_demo_output.png"
+OUTPUT_IMAGE_LOCAL_PATH = "sesr_m5_demo_output.png"
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, OUTPUT_IMAGE_LOCAL_PATH
 )

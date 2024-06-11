@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of YOLOv8-Segmentation can be found
   [here](https://github.com/ultralytics/ultralytics/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://github.com/ultralytics/ultralytics/blob/main/LICENSE)
 
 ## References
 * [Ultralytics YOLOv8 Docs: Instance Segmentation](https://docs.ultralytics.com/tasks/segment/)

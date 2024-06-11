@@ -24,6 +24,29 @@ models:
       primary_compute_unit: NPU
       job_id: "null"
       job_status: Passed
+  - reference_device_info:
+      name: Snapdragon X Elite CRD
+      os: '11'
+      form_factor: Compute
+      os_name: Windows
+      manufacturer: Qualcomm
+      chipset: Snapdragon® X Elite
+    timestamp: '2024-05-23T00:34:02.549319Z'
+    torchscript_onnx_qnn:
+      inference_time: 118139
+      throughput: 8.46
+      estimated_peak_memory_range:
+        min: 68124672
+        max: 68124672
+      layer_info:
+        layers_on_npu: 34842
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 34842
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
 - name: Llama-PromptProcessor-Quantized
   performance_metrics:
   - reference_device_info:
@@ -49,15 +72,40 @@ models:
       primary_compute_unit: NPU
       job_id: "null"
       job_status: Passed
+  - reference_device_info:
+      name: Snapdragon X Elite CRD
+      os: '11'
+      form_factor: Compute
+      os_name: Windows
+      manufacturer: Qualcomm
+      chipset: Snapdragon® X Elite
+    timestamp: '2024-05-23T00:34:02.549319Z'
+    torchscript_onnx_qnn:
+      inference_time: 2302575
+      throughput: 445.21
+      estimated_peak_memory_range:
+        min: 10788864
+        max: 10788864
+      layer_info:
+        layers_on_npu: 31766
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 31766
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
 aggregated:
   supported_devices:
   - Samsung Galaxy S23 Ultra
   - Samsung Galaxy S24
+  - Snapdragon X Elite CRD
   supported_oses:
   - Android
   supported_chipsets:
   - Snapdragon® 8 Gen 2
   - Snapdragon® 8 Gen 3
+  - Snapdragon® X Elite
   performance_metrics:
   - reference_device_info:
       name: Samsung Galaxy S23 Ultra

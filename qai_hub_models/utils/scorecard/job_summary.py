@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import datetime
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Dict, List, Optional, Type, Union, cast
@@ -104,6 +105,12 @@ class JobSummary:
             or self.model_id.endswith("Quantizable")
             else "No"
         )
+
+    @cached_property
+    def date(self) -> Optional[datetime.datetime]:
+        if self.job is None:
+            return None
+        return self.job.date
 
 
 @dataclass

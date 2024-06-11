@@ -22,7 +22,7 @@ from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.quantization_aimet import (
     constrain_quantized_inputs_to_image_range,
-    tie_aimet_observer_groups,
+    tie_observers,
 )
 
 MODEL_ID = __name__.split(".")[-2]
@@ -72,7 +72,7 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
             config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )
-        cls._tie_pre_concat_quantizers(sim)
+        tie_observers(sim)
         constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
@@ -84,36 +84,3 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
 
         sim.model.eval()
         return cls(sim)
-
-    @classmethod
-    def _tie_pre_concat_quantizers(cls, sim: QuantizationSimModel):
-        """
-        This ties together the output quantizers prior to concatenations. This
-        prevents unnecessary re-quantization during the concatenation.
-        """
-        blocks = [
-            sim.model.net.inception3a,
-            sim.model.net.inception3b,
-            sim.model.net.inception4a,
-            sim.model.net.inception4b,
-            sim.model.net.inception4c,
-            sim.model.net.inception4d,
-            sim.model.net.inception4e,
-            sim.model.net.inception5a,
-            sim.model.net.inception5b,
-        ]
-
-        idx = 3
-        groups = []
-        for block in blocks:
-            groups.append(
-                [
-                    getattr(block.branch1, f"module_relu_{idx}"),
-                    getattr(getattr(block.branch2, "1"), f"module_relu_{idx+2}"),
-                    getattr(getattr(block.branch3, "1"), f"module_relu_{idx+4}"),
-                    getattr(getattr(block.branch4, "1"), f"module_relu_{idx+5}"),
-                ]
-            )
-            idx += 6
-
-        tie_aimet_observer_groups(groups)

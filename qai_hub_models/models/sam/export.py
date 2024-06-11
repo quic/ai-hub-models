@@ -204,7 +204,7 @@ def export_model(
             target_runtime_extension = "so"
         elif target_runtime == TargetRuntime.TFLITE:
             target_runtime_extension = "tflite"
-        elif target_runtime == TargetRuntime.ORT:
+        elif target_runtime in {TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT}:
             target_runtime_extension = "onnx"
 
         os.makedirs(output_path, exist_ok=True)
@@ -251,6 +251,7 @@ def main():
         components=ALL_COMPONENTS,
         supports_qnn=False,
         supports_ort=False,
+        supports_precompiled_ort=False,
     )
     args = parser.parse_args()
     export_model(**vars(args))

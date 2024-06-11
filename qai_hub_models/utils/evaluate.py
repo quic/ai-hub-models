@@ -303,13 +303,13 @@ def evaluate_on_dataset(
     compiled_model: hub.Model,
     torch_model: BaseModel,
     hub_device: hub.Device,
-    dataset_name: str = "imagenette",
-    split_size: int = 2500,
-    num_samples: int = 100,
+    dataset_name: str,
+    split_size: int,
+    num_samples: int,
     seed: int = 42,
     profile_options: str = "",
     use_cache: bool = False,
-) -> None:
+) -> Tuple[str, str]:
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
@@ -327,6 +327,9 @@ def evaluate_on_dataset(
         use_cache: If set, will upload the full dataset to hub and store a local copy.
             This prevents re-uploading data to hub for each evaluation, with the
             tradeoff of increased initial overhead.
+
+    Returns:
+        Tuple of (torch accuracy, on device accuracy) both as formatted strings.
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
     _validate_inputs(num_samples)
@@ -383,7 +386,10 @@ def evaluate_on_dataset(
             f"Cumulative on device accuracy on batch {i + 1}/{num_batches}: "
             f"{on_device_evaluator.formatted_accuracy()}"
         )
+    torch_accuracy = torch_evaluator.formatted_accuracy()
+    on_device_accuracy = on_device_evaluator.formatted_accuracy()
 
     print("\nFinal accuracy:")
-    print(f"torch: {torch_evaluator.formatted_accuracy()}")
-    print(f"on-device: {on_device_evaluator.formatted_accuracy()}")
+    print(f"torch: {torch_accuracy}")
+    print(f"on-device: {on_device_accuracy}")
+    return (torch_accuracy, on_device_accuracy)

@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of FastSam-S can be found
   [here](https://github.com/CASIA-IVA-Lab/FastSAM/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://github.com/CASIA-IVA-Lab/FastSAM/blob/main/LICENSE)
 
 ## References
 * [Fast Segment Anything](https://arxiv.org/abs/2306.12156)

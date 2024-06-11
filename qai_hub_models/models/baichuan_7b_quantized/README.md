@@ -20,7 +20,7 @@ a hosted Qualcomm® device.
 ## License
 - The license for the original implementation of Baichuan-7B can be found
   [here](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE)
 
 ## References
 * [Baichuan 2: Open Large-scale Language Models](https://arxiv.org/abs/2309.10305)

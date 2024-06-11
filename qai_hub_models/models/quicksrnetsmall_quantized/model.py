@@ -12,12 +12,12 @@ from qai_hub_models.utils.quantization_aimet import (
 )
 
 # isort: on
-
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
+from qai_hub_models.models._shared.super_resolution.model import DEFAULT_SCALE_FACTOR
 from qai_hub_models.models.quicksrnetsmall.model import QuickSRNetSmall
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -26,7 +26,6 @@ MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 4
 
 DEFAULT_ENCODINGS = "quicksrnetsmall_quantized_encodings.json"
-SCALING_FACTOR = 4
 
 
 class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
@@ -37,13 +36,16 @@ class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
     def __init__(
         self,
         quicksrnet_model: QuantizationSimModel,
+        scale_factor: int,
     ) -> None:
-        QuickSRNetSmall.__init__(self, quicksrnet_model.model)
+        QuickSRNetSmall.__init__(self, quicksrnet_model.model, scale_factor)
         AIMETQuantizableMixin.__init__(self, quicksrnet_model)
 
     @classmethod
     def from_pretrained(
-        cls, aimet_encodings: str | None = "DEFAULT"
+        cls,
+        aimet_encodings: str | None = "DEFAULT",
+        scale_factor: int = DEFAULT_SCALE_FACTOR,
     ) -> "QuickSRNetSmallQuantizable":
         """
         Parameters:
@@ -53,7 +55,7 @@ class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
             else: Interprets as a filepath and loads the encodings stored there.
         """
         # Load Model
-        fp16_model = QuickSRNetSmall.from_pretrained()
+        fp16_model = QuickSRNetSmall.from_pretrained(scale_factor)
         input_shape = cls.get_input_spec()["image"][0]
         model = prepare_model(fp16_model)
         equalize_model(model, input_shape)
@@ -76,4 +78,4 @@ class QuickSRNetSmallQuantizable(AIMETQuantizableMixin, QuickSRNetSmall):
 
         sim.model.eval()
 
-        return cls(sim)
+        return cls(sim, scale_factor)

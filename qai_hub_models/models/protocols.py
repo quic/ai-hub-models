@@ -33,10 +33,10 @@ from qai_hub_models.models.common import (
 from qai_hub_models.utils.input_spec import InputSpec
 
 FromPretrainedTypeVar = TypeVar("FromPretrainedTypeVar", bound="FromPretrainedProtocol")
-
 FromPrecompiledTypeVar = TypeVar(
     "FromPrecompiledTypeVar", bound="FromPrecompiledProtocol"
 )
+HubModelProtocolTypeVar = TypeVar("HubModelProtocolTypeVar", bound="HubModelProtocol")
 
 
 class HubModelProtocol(Protocol):

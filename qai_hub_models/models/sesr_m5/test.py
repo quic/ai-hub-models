@@ -5,7 +5,7 @@
 import numpy as np
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models.sesr_m5.demo import IMAGE_ADDRESS
+from qai_hub_models.models._shared.super_resolution.demo import IMAGE_ADDRESS
 from qai_hub_models.models.sesr_m5.demo import main as demo_main
 from qai_hub_models.models.sesr_m5.model import MODEL_ASSET_VERSION, MODEL_ID, SESR_M5
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
@@ -23,9 +23,6 @@ def test_task():
     model = SESR_M5.from_pretrained()
     app = SuperResolutionApp(model=model)
     output_img = app.upscale_image(image)[0]
-
-    output_img.save("/local/mnt/workspace/sesr_m5_output.png")
-
     expected_output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     assert_most_same(
         np.asarray(expected_output_image, dtype=np.float32),

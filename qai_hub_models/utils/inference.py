@@ -212,7 +212,9 @@ def compile_zoo_model_to_hub(
 
 
 def compile_model_from_args(
-    model_id: str, cli_args: argparse.Namespace, model_kwargs: Mapping[str, Any]
+    model_id: str,
+    cli_args: argparse.Namespace,
+    model_kwargs: Mapping[str, Any],
 ) -> hub.Model:
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
@@ -228,6 +230,7 @@ def compile_model_from_args(
     )
     export_output = export_module.export_model(
         device=cli_args.device,
+        chipset=cli_args.chipset,
         skip_profiling=True,
         skip_inferencing=True,
         skip_downloading=True,

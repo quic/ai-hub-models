@@ -227,6 +227,10 @@ TFLITE_PATH = "torchscript_onnx_tflite"
 QNN_PATH = "torchscript_onnx_qnn"
 
 
+def bytes_to_mb(num_bytes: int) -> int:
+    return round(num_bytes / (1 << 20))
+
+
 class QAIHMModelPerf:
     """Class to read the perf.yaml and parse it for displaying it on HuggingFace."""
 
@@ -301,12 +305,8 @@ class QAIHMModelPerf:
             for summary, name in zip(summary_list, names):
                 inf_time = summary["inference_time"]
                 inference_time = f"{inf_time / 1000} ms"
-                mem_min = round(
-                    summary["estimated_peak_memory_range"]["min"] / 1024 / 1024
-                )
-                mem_max = round(
-                    summary["estimated_peak_memory_range"]["max"] / 1024 / 1024
-                )
+                mem_min = bytes_to_mb(summary["estimated_peak_memory_range"]["min"])
+                mem_max = bytes_to_mb(summary["estimated_peak_memory_range"]["max"])
                 peak_memory_range = f"{mem_min} - {mem_max} MB"
                 if model_type == "tflite":
                     self.tflite_inference_time = inference_time
@@ -501,6 +501,7 @@ class QAIHMModelCodeGen:
         inference_metrics: str,
         additional_readme_section: str,
         skip_example_usage: bool,
+        eval_datasets: List[str],
     ) -> None:
         self.is_aimet = is_aimet
         self.has_on_target_demo = has_on_target_demo
@@ -523,6 +524,7 @@ class QAIHMModelCodeGen:
         self.additional_readme_section = additional_readme_section
         self.skip_export = skip_export
         self.skip_example_usage = skip_example_usage
+        self.eval_datasets = eval_datasets
 
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
@@ -563,6 +565,7 @@ class QAIHMModelCodeGen:
             code_gen_config["additional_readme_section"],
             code_gen_config["skip_export"],
             code_gen_config["skip_example_usage"],
+            code_gen_config["eval_datasets"],
         )
 
     # Schema for code-gen.yaml
@@ -591,6 +594,7 @@ class QAIHMModelCodeGen:
                 OptionalSchema("additional_readme_section", default=""): str,
                 OptionalSchema("skip_export", default=False): bool,
                 OptionalSchema("skip_example_usage", default=False): bool,
+                OptionalSchema("eval_datasets", default=[]): list,
             }
         )
     )
@@ -634,6 +638,7 @@ class QAIHMModelInfo:
         license_type: str,
         deploy_license_type: str,
         dataset: List[str],
+        labels_file: str | None,
         technical_details: Dict[str, str],
     ) -> None:
         self.name = name
@@ -652,6 +657,7 @@ class QAIHMModelInfo:
         self.license_type = license_type
         self.deploy_license_type = deploy_license_type
         self.dataset = dataset
+        self.labels_file = labels_file
         self.source_repo = source_repo
         self.applicable_scenarios = applicable_scenarios
         self.related_models = related_models
@@ -724,6 +730,11 @@ class QAIHMModelInfo:
                 "`status_reason` in info.yaml should not be set for public models.",
             )
 
+        # Labels file
+        if self.labels_file is not None:
+            if not os.path.exists(ASSET_CONFIG.get_labels_file_path(self.labels_file)):
+                return False, f"Invalid labels file: {self.labels_file}"
+
         # Required assets exist
         if self.status == MODEL_STATUS.PUBLIC:
             if not os.path.exists(self.get_package_path() / "info.yaml"):
@@ -774,6 +785,11 @@ class QAIHMModelInfo:
         return os.path.join(
             ASSET_CONFIG.get_qaihm_repo(self.id, relative=False), "demo.py"
         )
+
+    def get_labels_file_path(self):
+        if self.labels_file is None:
+            return None
+        return ASSET_CONFIG.get_labels_file_path(self.labels_file)
 
     def get_info_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
         return self.get_package_path(root) / "info.yaml"
@@ -861,6 +877,7 @@ class QAIHMModelInfo:
             info_yaml["license_type"],
             info_yaml["deploy_license_type"],
             info_yaml["dataset"],
+            info_yaml.get("labels_file", None),
             info_yaml["technical_details"],
         )
 
@@ -891,6 +908,7 @@ class QAIHMModelInfo:
                 "license_type": str,
                 "deploy_license_type": str,
                 "dataset": list,
+                OptionalSchema("labels_file", default=None): str,
             }
         )
     )

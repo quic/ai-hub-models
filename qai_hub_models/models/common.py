@@ -12,13 +12,16 @@ class TargetRuntime(Enum):
     TFLITE = 0
     QNN = 1
     ORT = 2
+    PRECOMPILED_ORT = 3
 
     def __str__(self):
         return self.name.lower()
 
     @property
     def long_name(self):
-        return f"torchscript_onnx_{self.name.lower()}"
+        if "precompiled" not in self.name.lower():
+            return f"torchscript_onnx_{self.name.lower()}"
+        return f"{self.name.lower()}"
 
 
 class SourceModelFormat(Enum):

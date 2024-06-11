@@ -43,7 +43,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of Unet-Segmentation can be found
   [here](https://github.com/milesial/Pytorch-UNet/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://github.com/milesial/Pytorch-UNet/blob/master/LICENSE)
 
 ## References
 * [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597)

@@ -256,7 +256,7 @@ def _get_past_key_names(start: int = 0, end: int = 8, suffix=""):
 
 def _get_output_names_from_split(split_part: int = 1):
     layer_start, layer_end = _get_hidden_layer_range_from_split(split_part=split_part)
-    output_list = [f"layers_{layer_end-1}_add_out_0"]
+    output_list = [f"layers_{layer_end - 1}_add_out_0"]
     output_list += _get_past_key_names(layer_start, layer_end, suffix="_out")
     return output_list
 
@@ -414,7 +414,7 @@ def _get_llama_model_with_split(
         os.path.join(
             AIMET_ENCODINGS_PREFIX,
             model_encoding_tag,
-            f"llama_{model_encoding_tag}_sha_{split_part-1}.encodings",
+            f"llama_{model_encoding_tag}_sha_{split_part - 1}.encodings",
         )
     )
     aimet_encodings = str(

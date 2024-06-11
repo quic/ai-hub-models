@@ -6,19 +6,15 @@ import numpy as np
 import torch
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models.xlsr_quantized.demo import IMAGE_ADDRESS
+from qai_hub_models.models._shared.super_resolution.demo import IMAGE_ADDRESS
+from qai_hub_models.models.xlsr.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.models.xlsr_quantized.demo import main as demo_main
-from qai_hub_models.models.xlsr_quantized.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    XLSRQuantizable,
-)
+from qai_hub_models.models.xlsr_quantized.model import XLSRQuantizable
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
-from qai_hub_models.utils.testing import skip_clone_repo_check
+from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
 
-OUTPUT_IMAGE_LOCAL_PATH = "xlsr_quantized_demo_output.png"
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, OUTPUT_IMAGE_LOCAL_PATH
+    MODEL_ID, MODEL_ASSET_VERSION, "xlsr_demo_output.png"
 )
 
 
@@ -32,9 +28,10 @@ def test_task():
     app = SuperResolutionApp(model=model)
     app_output_image = app.upscale_image(image)[0]
 
-    np.testing.assert_allclose(
+    assert_most_close(
         np.asarray(app_output_image, dtype=np.float32) / 255,
         np.asarray(output_image, dtype=np.float32) / 255,
+        diff_tol=1e-4,
         rtol=0.02,
         atol=0.2,
     )

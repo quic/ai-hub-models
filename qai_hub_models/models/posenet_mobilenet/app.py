@@ -582,7 +582,7 @@ class PosenetApp:
             keypoint_scores,
             keypoint_coords,
             min_pose_score=0.25,
-            min_part_score=0.25,
+            min_part_score=0.1,
         )
         image_result = Image.fromarray(output_arr)
         return pil_undo_resize_pad(image_result, original_size, scale, padding)

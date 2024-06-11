@@ -33,6 +33,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
     transpose_channel_first_to_last,
+    transpose_channel_last_to_first,
 )
 
 
@@ -123,7 +124,7 @@ def export_model(
 
     # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
     channel_last_flags = (
-        " --force_channel_last_input image"
+        " --force_channel_last_input image" + " --force_channel_last_output output_4"
         if target_runtime != TargetRuntime.ORT
         else ""
     )
@@ -188,7 +189,7 @@ def export_model(
             target_runtime_extension = "so"
         elif target_runtime == TargetRuntime.TFLITE:
             target_runtime_extension = "tflite"
-        elif target_runtime == TargetRuntime.ORT:
+        elif target_runtime in {TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT}:
             target_runtime_extension = "onnx"
 
         os.makedirs(output_path, exist_ok=True)
@@ -207,6 +208,14 @@ def export_model(
         torch_out = torch_inference(model, sample_inputs)
         assert inference_job is not None and inference_job.wait().success
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
+        # Convert outputs from channel last to channel first
+        inference_result = (
+            inference_result
+            if target_runtime == TargetRuntime.ORT
+            else transpose_channel_last_to_first(
+                "output_4", inference_result, target_runtime
+            )
+        )
         print_inference_metrics(
             inference_job, inference_result, torch_out, outputs_to_skip=[3]
         )
@@ -219,7 +228,9 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_qnn=False)
+    parser = export_parser(
+        model_cls=Model, supports_qnn=False, supports_precompiled_ort=False
+    )
     args = parser.parse_args()
     export_model(**vars(args))
 

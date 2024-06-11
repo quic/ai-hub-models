@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import datetime
 import functools
 import multiprocessing
 import pprint
@@ -93,7 +92,7 @@ def supported_chipsets_santized(chips) -> List[str]:
 __CHIP_SUPPORTED_DEVICES_CACHE: Dict[str, List[str]] = {}
 
 
-def supported_devices(chips) -> List[str]:
+def get_supported_devices(chips) -> List[str]:
     """Return all the supported devices given the chipset being used."""
     supported_devices = set(
         [
@@ -110,7 +109,9 @@ def supported_devices(chips) -> List[str]:
         supported_devices_for_chip = __CHIP_SUPPORTED_DEVICES_CACHE.get(chip, list())
         if not supported_devices_for_chip:
             supported_devices_for_chip = [
-                device.name for device in hub.get_devices(attributes=f"chipset:{chip}")
+                device.name
+                for device in hub.get_devices(attributes=f"chipset:{chip}")
+                if "(Family)" not in device.name
             ]
             __CHIP_SUPPORTED_DEVICES_CACHE[chip] = supported_devices_for_chip
         supported_devices.update(supported_devices_for_chip)
@@ -175,6 +176,7 @@ class DevicePerfSummary:
         exclude_paths: Iterable[ScorecardProfilePath] = [],
     ) -> Dict[str, str | Dict[str, str]]:
         perf_card: Dict[str, str | Dict[str, str]] = {}
+        max_date = None
         for path, run in self.run_per_path.items():
             if (
                 not run.skipped  # Skipped runs are not included
@@ -185,8 +187,17 @@ class DevicePerfSummary:
                 )  # exclude failed jobs if requested
             ):
                 perf_card[path.long_name] = run.performance_metrics
+                if max_date is None:
+                    max_date = run.date
+                elif run.date is not None:
+                    max_date = max(max_date, run.date)
+        if not perf_card:
+            return {}
         perf_card["reference_device_info"] = get_reference_device_info(self.device)
-        perf_card["timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
+        # The timestamp for the device is the latest creation time among the runs
+        # If max_date is still None for some reason, something went wrong
+        assert max_date is not None
+        perf_card["timestamp"] = max_date.isoformat() + "Z"
         return perf_card
 
     def __repr__(self) -> str:
@@ -225,7 +236,10 @@ class ModelPerfSummary:
     ) -> List[Dict[str, Union[str, Dict[str, str]]]]:
         perf_card = []
         for summary in self.runs_per_device.values():
-            perf_card.append(summary.get_perf_card(include_failed_jobs, exclude_paths))
+            device_summary = summary.get_perf_card(include_failed_jobs, exclude_paths)
+            # If device had no runs, omit it from the card
+            if device_summary:
+                perf_card.append(device_summary)
         return perf_card
 
     def __repr__(self):
@@ -318,7 +332,7 @@ class PerfSummary:
         chips = self.get_chipsets()
         perf_card["aggregated"] = dict(
             supported_oses=supported_oses(),
-            supported_devices=supported_devices(chips),
+            supported_devices=get_supported_devices(chips),
             supported_chipsets=supported_chipsets_santized(chips),
         )
 

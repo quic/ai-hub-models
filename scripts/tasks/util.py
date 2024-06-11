@@ -36,9 +36,7 @@ def new_cd(x):
 
 
 def can_support_aimet(platform: str = sys.platform) -> bool:
-    return (
-        platform == "linux" or platform == "linux2"
-    ) and sys.version_info.minor == 8  # python 3.8 only
+    return platform == "linux" or platform == "linux2"
 
 
 def model_needs_aimet(model_name: str) -> bool:

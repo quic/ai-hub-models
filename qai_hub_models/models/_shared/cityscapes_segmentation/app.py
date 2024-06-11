@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Mapping, Optional, Tuple
 
 import numpy as np
 import torch
@@ -25,6 +25,7 @@ from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     MODEL_ID,
 )
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, SourceAsRoot
+from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 
 def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
@@ -92,9 +93,11 @@ class CityscapesSegmentationApp:
     def __init__(
         self,
         model: torch.nn.Module,
+        input_specs: Mapping[str, Tuple[Tuple[int, ...], str]],
     ):
         self.model = model
         self.color_mapping = _load_cityscapes_loader().dataset.color_mapping
+        (_, _, self.model_height, self.model_width) = input_specs["image"][0]
 
     def predict(self, image: Image, raw_output: bool = False) -> Image | np.ndarray:
         """
@@ -111,13 +114,18 @@ class CityscapesSegmentationApp:
             WIDTH]. Note, that WIDTH and HEIGHT will be smaller than the input
             image.
         """
+        resized_image, scale, padding = pil_resize_pad(
+            image, (self.model_height, self.model_width)
+        )
 
-        input_tensor = preprocess_cityscapes_image(image)
+        input_tensor = preprocess_cityscapes_image(resized_image)
         with torch.no_grad():
             small_res_output = self.model(input_tensor)
 
         output = F.interpolate(
-            small_res_output, (image.height, image.width), mode="bilinear"
+            small_res_output,
+            (resized_image.height, resized_image.width),
+            mode="bilinear",
         )
         if raw_output:
             return output.detach().numpy()
@@ -125,6 +133,9 @@ class CityscapesSegmentationApp:
 
         color_mask = ImageModule.fromarray(predictions.astype(np.uint8)).convert("P")
         color_mask.putpalette(self.color_mapping)
-        out = ImageModule.blend(image, color_mask.convert("RGB"), 0.5)
+        out = ImageModule.blend(resized_image, color_mask.convert("RGB"), 0.5)
 
-        return out
+        # Resize / unpad annotated image
+        image_annotated = pil_undo_resize_pad(out, image.size, scale, padding)
+
+        return image_annotated

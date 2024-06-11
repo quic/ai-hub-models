@@ -14,7 +14,7 @@ from tabulate import tabulate
 
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
-from qai_hub_models.utils.config_loaders import QAIHMModelPerf
+from qai_hub_models.utils.config_loaders import QAIHMModelPerf, bytes_to_mb
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
 _INFO_DASH = "-" * 60
@@ -122,7 +122,7 @@ def print_profile_metrics(
     details: QAIHMModelPerf.ModelRuntimePerformanceDetails,
 ):
     inf_time = details.inference_time_ms
-    peak_memory_mb = f"[{round(details.peak_memory_bytes[0] / 1e6)}, {round(details.peak_memory_bytes[1] / 1e6)}]"
+    peak_memory_mb = f"[{bytes_to_mb(details.peak_memory_bytes[0])}, {bytes_to_mb(details.peak_memory_bytes[1])}]"
     num_ops = sum(details.compute_unit_counts.values())
     compute_units = [
         f"{unit} ({num_ops} ops)"

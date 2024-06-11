@@ -70,7 +70,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of Llama-v2-7B-Chat can be found
   [here](https://github.com/facebookresearch/llama/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://github.com/facebookresearch/llama/blob/main/LICENSE)
 
 ## References
 * [LLaMA: Open and Efficient Foundation Language Models](https://arxiv.org/abs/2302.13971)

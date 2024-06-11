@@ -4,15 +4,35 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import sys
+
 import torch
 
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    SourceAsRoot,
+    find_replace_in_repo,
+    load_torch,
+    tmp_os_env,
+    wipe_sys_modules,
+)
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
-DEFAULT_WEIGHTS = "MiDaS_small"
+MODEL_ASSET_VERSION = 2
+
+SOURCE_REPO = "https://github.com/isl-org/MiDaS/"
+REPO_COMMIT = "bdc4ed64c095e026dc0a2f17cabb14d58263decb"
+DEFAULT_WEIGHTS = CachedWebModelAsset(
+    "https://github.com/isl-org/MiDaS/releases/download/v2_1/midas_v21_small_256.pt",
+    MODEL_ID,
+    MODEL_ASSET_VERSION,
+    "midas_v21_small_256.pt",
+)
+DEFAULT_HEIGHT = 256
+DEFAULT_WIDTH = 256
 
 
 class Midas(BaseModel):
@@ -21,20 +41,75 @@ class Midas(BaseModel):
     def __init__(
         self,
         model: torch.nn.Module,
+        height: int = DEFAULT_HEIGHT,
+        width: int = DEFAULT_WIDTH,
         normalize_input: bool = True,
     ) -> None:
         super().__init__()
         self.model = model
         self.normalize_input = normalize_input
+        self.height = height
+        self.width = width
 
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> Midas:
-        model = torch.hub.load("intel-isl/MiDaS", weights).eval()
+    def from_pretrained(
+        cls,
+        weights: str = DEFAULT_WEIGHTS,
+        height: int = DEFAULT_HEIGHT,
+        width: int = DEFAULT_WIDTH,
+    ) -> Midas:
+        with SourceAsRoot(
+            SOURCE_REPO,
+            REPO_COMMIT,
+            MODEL_ID,
+            MODEL_ASSET_VERSION,
+            keep_sys_modules=True,
+        ) as repo_root:
+            # Temporarily set torch home to the local repo so modules get cloned
+            # locally and we can modify their code.
+            with tmp_os_env(
+                {"TORCH_HOME": repo_root, "height": str(height), "width": str(width)}
+            ):
+                # Load the dependent module first to ensure the code gets cloned.
+                # Then wipe the cached modules and make necessary code changes.
+                torch.hub.load(
+                    "rwightman/gen-efficientnet-pytorch",
+                    "tf_efficientnet_lite3",
+                    pretrained=False,
+                    skip_validation=True,
+                )
+                wipe_sys_modules(sys.modules["geffnet"])
+
+                # The default implementation creates the self.pad layer within the
+                # forward function itself, which makes it untraceable by aimet.
+                find_replace_in_repo(
+                    repo_root,
+                    "hub/rwightman_gen-efficientnet-pytorch_master/geffnet/conv2d_layers.py",
+                    "self.pad = None",
+                    "self.pad = nn.ZeroPad2d(_same_pad_arg((int(os.environ['height']), int(os.environ['width'])), self.weight.shape[-2:], self.stride, self.dilation))",
+                )
+                find_replace_in_repo(
+                    repo_root,
+                    "hub/rwightman_gen-efficientnet-pytorch_master/geffnet/conv2d_layers.py",
+                    "import math",
+                    "import math; import os",
+                )
+
+                from hubconf import MiDaS_small
+
+                model = MiDaS_small(pretrained=False)
+                weights = load_torch(weights)
+                model.load_state_dict(weights)
         return cls(model)
 
     @staticmethod
-    def get_input_spec(height: int = 256, width: int = 256) -> InputSpec:
+    def get_input_spec(
+        height: int = DEFAULT_HEIGHT, width: int = DEFAULT_WIDTH
+    ) -> InputSpec:
         return {"image": ((1, 3, height, width), "float32")}
+
+    def _get_input_spec_for_instance(self) -> InputSpec:
+        return self.__class__.get_input_spec(self.height, self.width)
 
     def forward(self, image):
         """

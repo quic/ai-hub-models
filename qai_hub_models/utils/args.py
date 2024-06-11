@@ -16,13 +16,15 @@ from pydoc import locate
 from typing import Any, List, Mapping, Optional, Set, Type
 
 import qai_hub as hub
+from qai_hub.client import APIException, UserError
 
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
     FromPretrainedProtocol,
     FromPretrainedTypeVar,
+    HubModelProtocolTypeVar,
 )
-from qai_hub_models.utils.base_model import BaseModel, InputSpec, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.inference import HubModel, compile_model_from_args
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
@@ -35,7 +37,7 @@ class ParseEnumAction(argparse.Action):
         self.enum_type = enum_type
 
     def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, self.enum_type[values.upper()])
+        setattr(namespace, self.dest, self.enum_type[values.upper().replace("-", "_")])
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -79,7 +81,7 @@ def add_target_runtime_arg(
         type=str,
         action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore
         default=default,
-        choices=[rt.name.lower() for rt in available_target_runtimes],
+        choices=[rt.name.lower().replace("_", "-") for rt in available_target_runtimes],
         help=help,
     )
     return parser
@@ -310,13 +312,14 @@ def demo_model_from_cli_args(
                 inference_options=cli_args.inference_options,
             )
             print(f"Exported asset: {model_id}\n")
+
     else:
         inference_model = model_from_cli_args(model_cls, cli_args)
     return inference_model
 
 
 def get_input_spec_kwargs(
-    model: "BaseModel", args_dict: Mapping[str, Any]
+    model: Type[HubModelProtocolTypeVar], args_dict: Mapping[str, Any]
 ) -> Mapping[str, Any]:
     """
     Given a dict with many args, pull out the ones relevant
@@ -363,24 +366,33 @@ def get_model_input_spec_parser(
 
 
 def input_spec_from_cli_args(
-    model: "BaseModel", cli_args: argparse.Namespace
-) -> "InputSpec":
+    model: Type[HubModelProtocolTypeVar], cli_args: argparse.Namespace
+) -> hub.InputSpecs:
     """
     Create this model's input spec from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as get_input_spec method args.
+    Also, fetches shapes if demo is run on-device.
     """
+
+    is_on_device = "on_device" in cli_args and cli_args.on_device
+    if is_on_device and isinstance(model, HubModel):
+        assert isinstance(model.model.producer, hub.CompileJob)
+        return model.model.producer.shapes
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))
 
 
 def get_qcom_chipsets() -> Set[str]:
-    return set(
-        [
-            attr[len("chipset:") :]
-            for dev in hub.get_devices()
-            for attr in dev.attributes
-            if attr.startswith("chipset:qualcomm")
-        ]
-    )
+    try:
+        return set(
+            [
+                attr[len("chipset:") :]
+                for dev in hub.get_devices()
+                for attr in dev.attributes
+                if attr.startswith("chipset:qualcomm")
+            ]
+        )
+    except (APIException, UserError):
+        return set([])
 
 
 def _evaluate_export_common_parser(
@@ -388,28 +400,14 @@ def _evaluate_export_common_parser(
     supports_tflite=True,
     supports_qnn=True,
     supports_ort=True,
+    supports_precompiled_ort=True,
     default_runtime=TargetRuntime.TFLITE,
     exporting_compiled_model=False,
-    default_export_device: str = DEFAULT_EXPORT_DEVICE,
 ) -> argparse.ArgumentParser:
     """
     Common arguments between export and evaluate scripts.
     """
     parser = get_parser()
-    parser.add_argument(
-        "--device",
-        type=str,
-        default=default_export_device,
-        help="Device for which to export.",
-    )
-    parser.add_argument(
-        "--chipset",
-        type=str,
-        default=None,
-        choices=sorted(get_qcom_chipsets(), reverse=True),
-        help="If set, will choose a random device with this chipset. "
-        "Overrides whatever is set in --device.",
-    )
 
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
@@ -420,6 +418,8 @@ def _evaluate_export_common_parser(
             available_runtimes.append(TargetRuntime.QNN)
         if supports_ort:
             available_runtimes.append(TargetRuntime.ORT)
+        if supports_precompiled_ort:
+            available_runtimes.append(TargetRuntime.PRECOMPILED_ORT)
 
         default_runtime = _get_default_runtime(available_runtimes)
         add_target_runtime_arg(
@@ -460,6 +460,7 @@ def export_parser(
     supports_tflite: bool = True,
     supports_qnn: bool = True,
     supports_ort: bool = True,
+    supports_precompiled_ort: bool = True,
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     default_export_device: str = DEFAULT_EXPORT_DEVICE,
@@ -479,6 +480,9 @@ def export_parser(
         supports_ort:
             Whether ORT export is supported.
             Default=True.
+        supports_precompiled_ort:
+            Whether precompiled ORT (with QNN context binary) export is supported.
+            Default=True.
         default_runtime: Which runtime to use as default if not specified in cli args.
         exporting_compiled_model:
             True when exporting compiled model.
@@ -495,9 +499,23 @@ def export_parser(
         supports_tflite=supports_tflite,
         supports_qnn=supports_qnn,
         supports_ort=supports_ort,
+        supports_precompiled_ort=supports_precompiled_ort,
         default_runtime=default_runtime,
         exporting_compiled_model=exporting_compiled_model,
-        default_export_device=default_export_device,
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default=default_export_device,
+        help="Device for which to export.",
+    )
+    parser.add_argument(
+        "--chipset",
+        type=str,
+        default=None,
+        choices=sorted(get_qcom_chipsets(), reverse=True),
+        help="If set, will choose a random device with this chipset. "
+        "Overrides whatever is set in --device.",
     )
     parser.add_argument(
         "--skip-profiling",
@@ -578,6 +596,13 @@ def evaluate_parser(
         supports_qnn=supports_qnn,
         supports_ort=supports_ort,
         default_runtime=default_runtime,
+    )
+    parser.add_argument(
+        "--chipset",
+        type=str,
+        default="qualcomm-snapdragon-8gen2",
+        choices=sorted(get_qcom_chipsets(), reverse=True),
+        help="Which chipset to use to run evaluation.",
     )
     parser.add_argument(
         "--split-size",

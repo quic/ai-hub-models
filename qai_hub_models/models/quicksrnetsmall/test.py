@@ -5,7 +5,7 @@
 import numpy as np
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models.quicksrnetsmall.demo import IMAGE_ADDRESS
+from qai_hub_models.models._shared.super_resolution.demo import IMAGE_ADDRESS
 from qai_hub_models.models.quicksrnetsmall.demo import main as demo_main
 from qai_hub_models.models.quicksrnetsmall.model import (
     MODEL_ASSET_VERSION,

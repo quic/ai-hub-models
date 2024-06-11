@@ -65,6 +65,7 @@ def _should_tie_observers(op: torch.nn.Module) -> bool:
         nn.Upsample,
         aimet_ops.Concat,
         aimet_ops.Interpolate,
+        aimet_ops.MaxPool2d,
     ]
     for op_type in op_types_to_tie:
         if isinstance(wrapped_op, op_type):
@@ -458,43 +459,17 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        compile_options = super().get_hub_compile_options(  # type: ignore
-            target_runtime, other_compile_options, device
-        )
-        if target_runtime != TargetRuntime.ORT:
-            # TODO(#10896): Restore quantize_io flag when targeting ORT
-            compile_options = (
-                compile_options + " --quantize_full_type int8 --quantize_io"
+        quantization_flags = " --quantize_io"
+        if target_runtime not in [TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT]:
+            quantization_flags += " --quantize_full_type int8"
+        return (
+            super().get_hub_compile_options(  # type: ignore
+                target_runtime, other_compile_options, device
             )
-        return compile_options
+            + quantization_flags
+        )
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
         return SourceModelFormat.ONNX
-
-
-def tie_aimet_observer_groups(groups: List[List[Any]]):
-    """
-    Unless you're doing something very customized, you likely want to use
-    the `tie_observers` method instead.
-
-    This defines groups of ops that all should use the same output
-    quantizer observer. The input groups is a list of lists, where the
-    inner lists contain op references that should all use the same output
-    quantizer. Each op should have an `output_quantizers` member.
-
-    Example:
-
-        groups = [
-            [
-                sim.model.net.maxpool2,
-                sim.model.net.Mixed_5b.module_avg_pool2d,
-            ],
-        ]
-        _tie_aimet_observer_groups(groups)
-    """
-    for group in groups:
-        output_quantizer = group[0].output_quantizers[0]
-        for op in group[1:]:
-            op.output_quantizers[0] = output_quantizer

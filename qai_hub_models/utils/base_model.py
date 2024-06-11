@@ -178,6 +178,8 @@ class BaseModel(
                 target_runtime_flag = "onnx"
             elif target_runtime == TargetRuntime.TFLITE:
                 target_runtime_flag = "tflite"
+            elif target_runtime == TargetRuntime.PRECOMPILED_ORT:
+                target_runtime_flag = "compiled_qnn_onnx"
             else:
                 raise NotImplementedError()
 

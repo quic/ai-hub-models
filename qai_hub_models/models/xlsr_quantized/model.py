@@ -12,12 +12,12 @@ from qai_hub_models.utils.quantization_aimet import (
 )
 
 # isort: on
-
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
 
+from qai_hub_models.models._shared.super_resolution.model import DEFAULT_SCALE_FACTOR
 from qai_hub_models.models.xlsr.model import XLSR
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -25,7 +25,6 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 3
 DEFAULT_ENCODINGS = "xlsr_quantized_encodings.json"
-SCALING_FACTOR = 4
 
 
 class XLSRQuantizable(AIMETQuantizableMixin, XLSR):
@@ -37,14 +36,16 @@ class XLSRQuantizable(AIMETQuantizableMixin, XLSR):
     def __init__(
         self,
         xlsr_model: QuantizationSimModel,
+        scale_factor: int,
     ) -> None:
-        XLSR.__init__(self, xlsr_model.model)
+        XLSR.__init__(self, xlsr_model.model, scale_factor)
         AIMETQuantizableMixin.__init__(self, xlsr_model)
 
     @classmethod
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
+        scale_factor: int = DEFAULT_SCALE_FACTOR,
     ) -> XLSRQuantizable:
         """
         Parameters:
@@ -53,7 +54,7 @@ class XLSRQuantizable(AIMETQuantizableMixin, XLSR):
             elif None: Doesn't load any encodings. Used when computing encodings.
             else: Interprets as a filepath and loads the encodings stored there.
         """
-        fp16_model = XLSR.from_pretrained()
+        fp16_model = XLSR.from_pretrained(scale_factor)
         input_shape = cls.get_input_spec()["image"][0]
 
         model = prepare_model(fp16_model)
@@ -76,4 +77,4 @@ class XLSRQuantizable(AIMETQuantizableMixin, XLSR):
                 ).fetch()
             load_encodings_to_sim(sim, aimet_encodings)
 
-        return cls(sim)
+        return cls(sim, scale_factor)

@@ -48,7 +48,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## License
 - The license for the original implementation of StyleGAN2 can be found
   [here](https://github.com/NVlabs/stylegan3/blob/main/LICENSE.txt).
-- The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
+- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 ## References
 * [Analyzing and Improving the Image Quality of StyleGAN](http://arxiv.org/abs/1912.04958)

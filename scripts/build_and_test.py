@@ -448,7 +448,6 @@ class TaskLibrary:
     def test_all_models_long(
         self, plan: Plan, step_id: str = "test_all_models_long"
     ) -> str:
-        # Includes export tests, and creates a fresh environment for each model.
         all_models = get_all_models()
         return plan.add_step(
             step_id,
@@ -458,7 +457,6 @@ class TaskLibrary:
                 all_models,
                 self.venv_path,
                 venv_for_each_model=False,
-                skip_standard_unit_test=True,
                 use_shared_cache=True,
                 test_trace=False,
             ),

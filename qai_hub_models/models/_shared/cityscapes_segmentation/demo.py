@@ -17,12 +17,12 @@ from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
+    input_spec_from_cli_args,
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
-from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 # This image showcases the Cityscapes classes (but is not from the dataset)
 TEST_CITYSCAPES_LIKE_IMAGE_NAME = "cityscapes_like_demo_2048x1024.jpg"
@@ -58,22 +58,13 @@ def cityscapes_segmentation_demo(
         image = args.image
         image_name = os.path.basename(image)
 
-    input_spec = model_type.get_input_spec()
-
     inference_model = demo_model_from_cli_args(model_type, model_id, args)
-    app = CityscapesSegmentationApp(inference_model)
-
-    (_, _, height, width) = input_spec["image"][0]
-    orig_image = load_image(image)
-    image, scale, padding = pil_resize_pad(orig_image, (height, width))
+    input_spec = input_spec_from_cli_args(inference_model, args)
+    app = CityscapesSegmentationApp(inference_model, input_spec)
 
     # Run app
-    image_annotated = app.predict(image)
-
-    # Resize / unpad annotated image
-    image_annotated = pil_undo_resize_pad(
-        image_annotated, orig_image.size, scale, padding
-    )
+    orig_image = load_image(image)
+    image_annotated = app.predict(orig_image)
 
     if not is_test:
         display_or_save_image(
