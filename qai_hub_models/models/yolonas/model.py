@@ -105,7 +105,7 @@ class YoloNAS(BaseModel):
             input_size = cls.get_input_spec()["image"][0]
             model.prep_model_for_conversion(input_size=input_size)
             model.heads.eval_size = input_size[2:]
-            return cls(model.eval(), include_postprocessing)
+            return cls(model, include_postprocessing)
 
     def forward(self, image):
         """

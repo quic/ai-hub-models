@@ -135,7 +135,6 @@ def _for_each_batch(
             The input, output, and (if provided) ground_truth will be passed to this function after each inference.
     """
     torch_device = torch.device(device)
-    model.eval()
     model.to(torch_device)
     total_samples = 0
     num_samples = num_samples or len(data)

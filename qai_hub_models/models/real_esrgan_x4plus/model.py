@@ -50,9 +50,7 @@ class Real_ESRGAN_x4plus(BaseModel):
         """Load RealESRGAN from a weightfile created by the source RealESRGAN repository."""
 
         # Load PyTorch model from disk
-        realesrgan_model = _load_realesrgan_source_model_from_weights(
-            weight_path
-        ).eval()
+        realesrgan_model = _load_realesrgan_source_model_from_weights(weight_path)
 
         return cls(realesrgan_model)
 
@@ -74,11 +72,10 @@ class Real_ESRGAN_x4plus(BaseModel):
                    3-channel Color Space: RGB
         """
 
-        with torch.no_grad():
-            # upscale
-            output = self.model(image)
+        # upscale
+        output = self.model(image)
 
-            output_img = output.squeeze().float().cpu().clamp_(0, 1)
+        output_img = output.squeeze().float().cpu().clamp_(0, 1)
 
         return output_img
 

@@ -119,8 +119,7 @@ class CityscapesSegmentationApp:
         )
 
         input_tensor = preprocess_cityscapes_image(resized_image)
-        with torch.no_grad():
-            small_res_output = self.model(input_tensor)
+        small_res_output = self.model(input_tensor)
 
         output = F.interpolate(
             small_res_output,

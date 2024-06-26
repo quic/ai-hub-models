@@ -444,7 +444,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         """
         Calibration dataset for this model and input spec.
         """
-        if target_runtime == TargetRuntime.ORT:
+        if target_runtime == TargetRuntime.ONNX:
             # TODO(#10896): Restore quantize_io flag when targeting ORT
             return None
 
@@ -460,7 +460,10 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         device: Optional[Device] = None,
     ) -> str:
         quantization_flags = " --quantize_io"
-        if target_runtime not in [TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT]:
+        if target_runtime not in [
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ]:
             quantization_flags += " --quantize_full_type int8"
         return (
             super().get_hub_compile_options(  # type: ignore
@@ -473,3 +476,11 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
         return SourceModelFormat.ONNX
+
+    def __call__(self, *args, **kwargs):
+        """
+        Instance of AIMETQuantizableMixin should never be trained,
+            so should be safe to disable gradients during forward pass.
+        """
+        with torch.no_grad():
+            return super().__call__(*args, **kwargs)

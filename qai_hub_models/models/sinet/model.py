@@ -40,7 +40,7 @@ class SINet(BaseModel):
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> SINet:
         sinet_model = _load_sinet_source_model_from_weights(weights)
 
-        return cls(sinet_model.eval())
+        return cls(sinet_model)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """

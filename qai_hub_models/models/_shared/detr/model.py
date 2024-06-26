@@ -27,7 +27,6 @@ class DETR(BaseModel):
     @classmethod
     def from_pretrained(cls, ckpt_name: str):
         model = DetrForObjectDetection.from_pretrained(ckpt_name)
-        model.eval()
         return cls(model)
 
     def forward(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

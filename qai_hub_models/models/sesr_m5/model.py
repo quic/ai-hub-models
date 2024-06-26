@@ -41,6 +41,5 @@ class SESR_M5(SuperResolutionModel):
         )
         checkpoint = load_torch(checkpoint_asset)
         model.load_state_dict(checkpoint["state_dict"])
-        model.eval()
 
         return cls(model, scale_factor)

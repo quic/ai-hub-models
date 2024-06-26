@@ -368,10 +368,9 @@ def evaluate_on_dataset(
         else:
             on_device_results.append(hub_model(model_inputs.split(1, dim=0)))
 
-        with torch.no_grad():
-            for model_input, ground_truth in zip(model_inputs, ground_truth_values):
-                torch_output = torch_model(model_input.unsqueeze(0))
-                torch_evaluator.add_batch(torch_output, ground_truth.unsqueeze(0))
+        for model_input, ground_truth in zip(model_inputs, ground_truth_values):
+            torch_output = torch_model(model_input.unsqueeze(0))
+            torch_evaluator.add_batch(torch_output, ground_truth.unsqueeze(0))
         print(
             f"Cumulative torch accuracy on batch {i + 1}/{num_batches}: "
             f"{torch_evaluator.formatted_accuracy()}"

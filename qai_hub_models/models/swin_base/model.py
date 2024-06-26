@@ -29,4 +29,4 @@ class SwinBase(ImagenetClassifier):
         replace_module_recursively(
             net, torch.nn.Linear, AutoSplitLinear, parent_module=PatchMerging
         )
-        return cls(net.eval())
+        return cls(net)

@@ -28,7 +28,7 @@ from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.inference import HubModel, compile_model_from_args
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
-DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23"
+DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23 (Family)"
 
 
 class ParseEnumAction(argparse.Action):
@@ -40,9 +40,10 @@ class ParseEnumAction(argparse.Action):
         setattr(namespace, self.dest, self.enum_type[values.upper().replace("-", "_")])
 
 
-def get_parser() -> argparse.ArgumentParser:
+def get_parser(allow_dupe_args: bool = False) -> argparse.ArgumentParser:
     return argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        conflict_handler="resolve" if allow_dupe_args else "error",
     )
 
 
@@ -399,15 +400,17 @@ def _evaluate_export_common_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
     supports_tflite=True,
     supports_qnn=True,
-    supports_ort=True,
-    supports_precompiled_ort=True,
+    supports_onnx=True,
+    supports_precompiled_qnn_onnx=True,
     default_runtime=TargetRuntime.TFLITE,
     exporting_compiled_model=False,
 ) -> argparse.ArgumentParser:
     """
     Common arguments between export and evaluate scripts.
     """
-    parser = get_parser()
+    # Set handler to resolve, to allow from_pretrained and get_input_spec
+    # to have the same argument names.
+    parser = get_parser(allow_dupe_args=True)
 
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
@@ -416,10 +419,10 @@ def _evaluate_export_common_parser(
             available_runtimes.append(TargetRuntime.TFLITE)
         if supports_qnn:
             available_runtimes.append(TargetRuntime.QNN)
-        if supports_ort:
-            available_runtimes.append(TargetRuntime.ORT)
-        if supports_precompiled_ort:
-            available_runtimes.append(TargetRuntime.PRECOMPILED_ORT)
+        if supports_onnx:
+            available_runtimes.append(TargetRuntime.ONNX)
+        if supports_precompiled_qnn_onnx:
+            available_runtimes.append(TargetRuntime.PRECOMPILED_QNN_ONNX)
 
         default_runtime = _get_default_runtime(available_runtimes)
         add_target_runtime_arg(
@@ -459,8 +462,8 @@ def export_parser(
     components: Optional[List[str]] = None,
     supports_tflite: bool = True,
     supports_qnn: bool = True,
-    supports_ort: bool = True,
-    supports_precompiled_ort: bool = True,
+    supports_onnx: bool = True,
+    supports_precompiled_qnn_onnx: bool = True,
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     default_export_device: str = DEFAULT_EXPORT_DEVICE,
@@ -477,10 +480,10 @@ def export_parser(
         supports_qnn:
             Whether QNN export is supported.
             Default=True.
-        supports_ort:
+        supports_onnx:
             Whether ORT export is supported.
             Default=True.
-        supports_precompiled_ort:
+        supports_precompiled_qnn_onnx:
             Whether precompiled ORT (with QNN context binary) export is supported.
             Default=True.
         default_runtime: Which runtime to use as default if not specified in cli args.
@@ -498,8 +501,8 @@ def export_parser(
         model_cls=model_cls,
         supports_tflite=supports_tflite,
         supports_qnn=supports_qnn,
-        supports_ort=supports_ort,
-        supports_precompiled_ort=supports_precompiled_ort,
+        supports_onnx=supports_onnx,
+        supports_precompiled_qnn_onnx=supports_precompiled_qnn_onnx,
         default_runtime=default_runtime,
         exporting_compiled_model=exporting_compiled_model,
     )
@@ -563,7 +566,7 @@ def evaluate_parser(
     supported_datasets: List[str],
     supports_tflite=True,
     supports_qnn=True,
-    supports_ort=True,
+    supports_onnx=True,
     default_runtime=TargetRuntime.TFLITE,
 ) -> argparse.ArgumentParser:
     """
@@ -578,7 +581,7 @@ def evaluate_parser(
         supports_qnn:
             Whether QNN export is supported.
             Default=True.
-        supports_ort:
+        supports_onnx:
             Whether ORT export is supported.
             Default=True.
         exporting_compiled_model:
@@ -594,7 +597,7 @@ def evaluate_parser(
         model_cls=model_cls,
         supports_tflite=supports_tflite,
         supports_qnn=supports_qnn,
-        supports_ort=supports_ort,
+        supports_onnx=supports_onnx,
         default_runtime=default_runtime,
     )
     parser.add_argument(

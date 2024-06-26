@@ -37,7 +37,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
 
 
 def export_model(
-    device: str = "Samsung Galaxy S23",
+    device: str = "Samsung Galaxy S23 (Family)",
     chipset: Optional[str] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -116,13 +116,12 @@ def export_model(
     )
 
     # Trace the model
-    model.eval()
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
     # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
     channel_last_flags = (
         " --force_channel_last_input image"
-        if target_runtime != TargetRuntime.ORT
+        if target_runtime != TargetRuntime.ONNX
         else ""
     )
 
@@ -168,7 +167,7 @@ def export_model(
         # Convert inputs from channel first to channel last
         hub_inputs = (
             sample_inputs
-            if target_runtime == TargetRuntime.ORT
+            if target_runtime == TargetRuntime.ONNX
             else transpose_channel_first_to_last("image", sample_inputs, target_runtime)
         )
         submitted_inference_job = hub.submit_inference_job(
@@ -186,7 +185,7 @@ def export_model(
             target_runtime_extension = "so"
         elif target_runtime == TargetRuntime.TFLITE:
             target_runtime_extension = "tflite"
-        elif target_runtime in {TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT}:
+        elif target_runtime in {TargetRuntime.ONNX, TargetRuntime.PRECOMPILED_QNN_ONNX}:
             target_runtime_extension = "onnx"
 
         os.makedirs(output_path, exist_ok=True)
@@ -218,7 +217,7 @@ def export_model(
 def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
-        model_cls=Model, supports_qnn=False, supports_precompiled_ort=False
+        model_cls=Model, supports_qnn=False, supports_precompiled_qnn_onnx=False
     )
     args = parser.parse_args()
     export_model(**vars(args))

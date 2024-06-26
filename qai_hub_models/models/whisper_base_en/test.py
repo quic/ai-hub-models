@@ -19,4 +19,4 @@ def test_transcribe():
 
 
 def test_demo():
-    demo_main()
+    demo_main(is_test=True)

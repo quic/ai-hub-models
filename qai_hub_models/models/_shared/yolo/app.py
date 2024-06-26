@@ -126,18 +126,15 @@ class YoloObjectDetectionApp:
         self.check_image_size(NCHW_fp32_torch_frames)
 
         # Run prediction
-        with torch.no_grad():
-            if self.model_includes_postprocessing:
-                pred_boxes, pred_scores, pred_class_idx = self.model(
-                    NCHW_fp32_torch_frames
-                )
-            else:
-                model_output = self.model(NCHW_fp32_torch_frames)
-                if isinstance(model_output, torch.Tensor):
-                    model_output = (model_output,)
-                pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
-                    *model_output
-                )
+        if self.model_includes_postprocessing:
+            pred_boxes, pred_scores, pred_class_idx = self.model(NCHW_fp32_torch_frames)
+        else:
+            model_output = self.model(NCHW_fp32_torch_frames)
+            if isinstance(model_output, torch.Tensor):
+                model_output = (model_output,)
+            pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
+                *model_output
+            )
 
         # Non Maximum Suppression on each batch
         pred_boxes, pred_scores, pred_class_idx = batched_nms(

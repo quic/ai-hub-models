@@ -14,6 +14,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     load_image,
+    wipe_sys_modules,
 )
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -66,6 +67,10 @@ class AOTGAN(BaseModel):
             MODEL_ASSET_VERSION,
             source_repo_patches=AOTGAN_SOURCE_PATCHES,
         ):
+            import src
+
+            wipe_sys_modules(src)
+
             from src.model.aotgan import InpaintGenerator
 
             # AOT-GAN InpaintGenerator uses ArgParser to

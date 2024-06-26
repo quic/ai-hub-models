@@ -43,8 +43,7 @@ def torch_inference(
             inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i]).to(
                 "cpu"
             )
-        with torch.no_grad():
-            out = model(*inputs.values())
+        out = model(*inputs.values())
         out_tuple = (out,) if isinstance(out, torch.Tensor) else out
         out_tuple = _flatten_tuple(out_tuple)
 

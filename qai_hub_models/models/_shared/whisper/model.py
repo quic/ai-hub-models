@@ -13,20 +13,40 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
+MODEL_ID = "whisper_asr_shared"
+MODEL_ASSET_VERSION = 1
+
+# 20ms sample rate
+SAMPLE_RATE = 16000
+
+# Length of the Hann window signal used when applying a FFT to the audio.
+N_FFT = 400
+
+# Number of audio samples between adjacent STFT columns when applying FFT to the audio.
+HOP_LENGTH = 160
+
+# Audio chunk length in seconds
+CHUNK_LENGTH = 30
+
+# Samples per chunk
+N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 20ms samples in a 30-second chunk
+
 # The official default max decoded length is 448. We use mean decoded length 224 for benchmarking purpose
 MEAN_DECODE_LEN = 224
 
-# The number of 20ms audio contexts in 30 seconds of audio
-AUDIO_EMB_LEN = 1500
+# MEL filter to be applied to audio after applying FFT
+MEL_FILTER_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "openai_assets/mel_filters.npz"
+)
 
 # The number of Mel features per audio context
 N_MELS = 80
 
-MODEL_ID = "whisper_asr_shared"
-MODEL_ASSET_VERSION = 1
-MEL_FILTER_PATH = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "openai_assets/mel_filters.npz"
-)
+# Audio embedding length
+AUDIO_EMB_LEN = int(N_SAMPLES / N_MELS / 4)
+
+# Audio length per MEL feature
+MELS_AUDIO_LEN = AUDIO_EMB_LEN * 2
 
 
 class Whisper(CollectionModel):
@@ -111,7 +131,7 @@ class WhisperEncoderInf(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return dict(audio=((1, N_MELS, AUDIO_EMB_LEN * 2), "float32"))
+        return dict(audio=((1, N_MELS, MELS_AUDIO_LEN), "float32"))
 
     @classmethod
     def from_pretrained(cls):

@@ -32,27 +32,27 @@ from qai_hub_models.utils.qai_hub_helpers import (
 from qai_hub_models.utils.qnn_helpers import get_qnn_inputs
 
 ALL_COMPONENTS = [
-    "Llama2_PromptProcessor_1_Quantized",
-    "Llama2_PromptProcessor_2_Quantized",
-    "Llama2_PromptProcessor_3_Quantized",
-    "Llama2_PromptProcessor_4_Quantized",
-    "Llama2_TokenGenerator_1_Quantized",
-    "Llama2_TokenGenerator_2_Quantized",
-    "Llama2_TokenGenerator_3_Quantized",
-    "Llama2_TokenGenerator_4_Quantized",
+    "PromptProcessor_1_Quantized",
+    "PromptProcessor_2_Quantized",
+    "PromptProcessor_3_Quantized",
+    "PromptProcessor_4_Quantized",
+    "TokenGenerator_1_Quantized",
+    "TokenGenerator_2_Quantized",
+    "TokenGenerator_3_Quantized",
+    "TokenGenerator_4_Quantized",
 ]
 DEFAULT_COMPONENTS = [
-    "Llama2_PromptProcessor_1_Quantized",
-    "Llama2_PromptProcessor_2_Quantized",
-    "Llama2_PromptProcessor_3_Quantized",
-    "Llama2_PromptProcessor_4_Quantized",
-    "Llama2_TokenGenerator_1_Quantized",
-    "Llama2_TokenGenerator_2_Quantized",
-    "Llama2_TokenGenerator_3_Quantized",
-    "Llama2_TokenGenerator_4_Quantized",
+    "PromptProcessor_1_Quantized",
+    "PromptProcessor_2_Quantized",
+    "PromptProcessor_3_Quantized",
+    "PromptProcessor_4_Quantized",
+    "TokenGenerator_1_Quantized",
+    "TokenGenerator_2_Quantized",
+    "TokenGenerator_3_Quantized",
+    "TokenGenerator_4_Quantized",
 ]
 
-DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24"
+DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24 (Family)"
 
 
 def export_model(
@@ -137,8 +137,9 @@ def export_model(
     compile_jobs: Dict[str, hub.client.CompileJob] = {}
     profile_options_per_component: Dict[str, str] = {}
 
-    for component_name in components:
+    for i, component_name in enumerate(components):
         # Load model part
+
         component = model.load_model_part(component_name)
 
         input_spec = component.get_input_spec(
@@ -281,7 +282,7 @@ def main():
         model_cls=Model,
         components=ALL_COMPONENTS,
         supports_tflite=False,
-        supports_ort=False,
+        supports_precompiled_qnn_onnx=False,
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     args = parser.parse_args()

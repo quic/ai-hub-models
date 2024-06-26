@@ -77,9 +77,8 @@ class DDRNetApp:
         input_transform = normalize_image_transform()
         NCHW_fp32_torch_frames = input_transform(NCHW_fp32_torch_frames)
 
-        with torch.no_grad():
-            # pred_mask is 8x downsampled
-            pred_masks = self.model(NCHW_fp32_torch_frames)
+        # pred_mask is 8x downsampled
+        pred_masks = self.model(NCHW_fp32_torch_frames)
 
         # Upsample pred mask to original image size
         # Need to upsample in the probability space, not in class labels

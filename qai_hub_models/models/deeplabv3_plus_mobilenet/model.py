@@ -29,7 +29,6 @@ class DeepLabV3PlusMobilenet(DeepLabV3Model):
         ).fetch()
         checkpoint = torch.load(dst, map_location=torch.device("cpu"))
         model.load_state_dict(checkpoint["state_dict"])
-        model.eval()
 
         return cls(model, normalize_input)
 

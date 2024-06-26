@@ -32,6 +32,10 @@ class ScorecardDevice(Enum):
     cs_8250 = 4
     cs_8550 = 5
     cs_x_elite = 6
+    cs_auto_lemans_8255 = 7
+    cs_auto_lemans_8775 = 8
+    cs_auto_lemans_8650 = 9
+    # cs_auto_makena_8540  | Disabled until fp16 support is enabled for makena.
 
     def enabled(self) -> bool:
         valid_test_devices = os.environ.get("WHITELISTED_PROFILE_TEST_DEVICES", "ALL")
@@ -40,6 +44,24 @@ class ScorecardDevice(Enum):
             or self == ScorecardDevice.any
             or self.name in valid_test_devices.split(",")
         )
+
+    def get_disabled_models(self) -> List[str]:
+        """
+        Each chipset can have a list of 'disabled' models, for which the
+        chipset won't show up as a 'supported chipset' for that model.
+        """
+        if self == ScorecardDevice.cs_6490:
+            return [
+                "ConvNext-Tiny-w8a8-Quantized",
+                "ConvNext-Tiny-w8a16-Quantized",
+                "ResNet50Quantized",
+                "RegNetQuantized",
+                "HRNetPoseQuantized",
+                "SESR-M5-Quantized",
+                "Midas-V2-Quantized",
+                "Posenet-Mobilenet-Quantized",
+            ]
+        return []
 
     def all_enabled(self) -> List["ScorecardDevice"]:
         return [x for x in ScorecardDevice if x.enabled()]
@@ -57,6 +79,14 @@ class ScorecardDevice(Enum):
             return _get_cached_device("QCS8550 (Proxy)")
         if self == ScorecardDevice.cs_x_elite:
             return _get_cached_device("Snapdragon X Elite CRD")
+        if self == ScorecardDevice.cs_auto_lemans_8255:
+            return _get_cached_device("SA8255 (Proxy)")
+        if self == ScorecardDevice.cs_auto_lemans_8775:
+            return _get_cached_device("SA8775 (Proxy)")
+        if self == ScorecardDevice.cs_auto_lemans_8650:
+            return _get_cached_device("SA8650 (Proxy)")
+        # if self == ScorecardDevice.cs_auto_makena_8540:
+        #    return _get_cached_device("SA8540 (Proxy)")
         raise NotImplementedError(f"No reference device for {self.name}")
 
     def get_chipset(self) -> str:
@@ -72,6 +102,14 @@ class ScorecardDevice(Enum):
             return "qualcomm-qcs8550"
         if self == ScorecardDevice.cs_x_elite:
             return "qualcomm-snapdragon-x-elite"
+        if self == ScorecardDevice.cs_auto_lemans_8255:
+            return "qualcomm-sa8255p"
+        if self == ScorecardDevice.cs_auto_lemans_8775:
+            return "qualcomm-sa8775p"
+        if self == ScorecardDevice.cs_auto_lemans_8650:
+            return "qualcomm-sa8650p"
+        # if self == ScorecardDevice.cs_auto_makena_8540:
+        #    return "qualcomm-sa8540p"
         raise NotImplementedError(f"No chipset for {self.name}")
 
     def get_os(self) -> str:
@@ -84,7 +122,7 @@ class ScorecardDevice(Enum):
 class ScorecardCompilePath(Enum):
     TFLITE = 0
     QNN = 1
-    ORT = 2
+    ONNX = 2
 
     def __str__(self):
         return self.name.lower()
@@ -122,8 +160,8 @@ class ScorecardCompilePath(Enum):
     def get_runtime(self) -> TargetRuntime:
         if self == ScorecardCompilePath.TFLITE:
             return TargetRuntime.TFLITE
-        if self == ScorecardCompilePath.ORT:
-            return TargetRuntime.ORT
+        if self == ScorecardCompilePath.ONNX:
+            return TargetRuntime.ONNX
         if self == ScorecardCompilePath.QNN:
             return TargetRuntime.QNN
         raise NotImplementedError()
@@ -155,14 +193,16 @@ class ScorecardCompilePath(Enum):
 class ScorecardProfilePath(Enum):
     TFLITE = 0
     QNN = 1
-    ORT = 2
-    ORT_DML_GPU = 3
+    ONNX = 2
+    ONNX_DML_GPU = 3
 
     def __str__(self):
         return self.name.lower()
 
     @property
     def long_name(self):
+        if self.name.lower() == "onnx":
+            return f"torchscript_{self.name.lower()}"
         return f"torchscript_onnx_{self.name.lower()}"
 
     def enabled(self) -> bool:
@@ -179,7 +219,7 @@ class ScorecardProfilePath(Enum):
     def include_in_perf_yaml(self) -> bool:
         return self in [
             ScorecardProfilePath.QNN,
-            ScorecardProfilePath.ORT,
+            ScorecardProfilePath.ONNX,
             ScorecardProfilePath.TFLITE,
         ]
 
@@ -201,8 +241,8 @@ class ScorecardProfilePath(Enum):
     def get_runtime(self) -> TargetRuntime:
         if self == ScorecardProfilePath.TFLITE:
             return TargetRuntime.TFLITE
-        if self in [ScorecardProfilePath.ORT, ScorecardProfilePath.ORT_DML_GPU]:
-            return TargetRuntime.ORT
+        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_GPU]:
+            return TargetRuntime.ONNX
         if self == ScorecardProfilePath.QNN:
             return TargetRuntime.QNN
         raise NotImplementedError()
@@ -210,14 +250,14 @@ class ScorecardProfilePath(Enum):
     def get_compile_path(self) -> ScorecardCompilePath:
         if self == ScorecardProfilePath.TFLITE:
             return ScorecardCompilePath.TFLITE
-        if self in [ScorecardProfilePath.ORT, ScorecardProfilePath.ORT_DML_GPU]:
-            return ScorecardCompilePath.ORT
+        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_GPU]:
+            return ScorecardCompilePath.ONNX
         if self == ScorecardProfilePath.QNN:
             return ScorecardCompilePath.QNN
         raise NotImplementedError()
 
     def get_profile_options(self) -> str:
-        if self == ScorecardProfilePath.ORT_DML_GPU:
+        if self == ScorecardProfilePath.ONNX_DML_GPU:
             return "--compute_unit gpu"
         return ""
 
@@ -234,7 +274,7 @@ class ScorecardProfilePath(Enum):
                 if aimet_model
                 else []
             )
-        elif self == ScorecardProfilePath.ORT:
+        elif self == ScorecardProfilePath.ONNX:
             devices = [
                 ScorecardDevice.cs_8_gen_2,
                 ScorecardDevice.cs_8_gen_3,
@@ -246,8 +286,11 @@ class ScorecardProfilePath(Enum):
                 ScorecardDevice.cs_8_gen_3,
                 ScorecardDevice.cs_x_elite,
                 ScorecardDevice.cs_8550,
+                ScorecardDevice.cs_auto_lemans_8650,
+                ScorecardDevice.cs_auto_lemans_8775,
+                ScorecardDevice.cs_auto_lemans_8255,
             ]
-        elif self == ScorecardProfilePath.ORT_DML_GPU:
+        elif self == ScorecardProfilePath.ONNX_DML_GPU:
             devices = [ScorecardDevice.cs_x_elite]
         else:
             raise NotImplementedError()

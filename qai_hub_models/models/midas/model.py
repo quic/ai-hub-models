@@ -21,7 +21,7 @@ from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 SOURCE_REPO = "https://github.com/isl-org/MiDaS/"
 REPO_COMMIT = "bdc4ed64c095e026dc0a2f17cabb14d58263decb"

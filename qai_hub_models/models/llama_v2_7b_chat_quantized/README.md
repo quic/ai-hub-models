@@ -3,7 +3,7 @@
 
 # [Llama-v2-7B-Chat: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v2_7b_chat_quantized)
 
-Llama 2 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to 4-bit weights and 16-bit activations making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-KVCache-Quantized's latency.
+Llama 2 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to w4a16(4-bit weights and 16-bit activations) and part of the model is quantized to w8a16(8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-KVCache-Quantized's latency.
 
 This is based on the implementation of Llama-v2-7B-Chat found
 [here](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf). This repository contains scripts for optimized on-device
@@ -34,7 +34,39 @@ Here, we divide the model into 4 parts in order to
 
 In order to export Llama 2, please ensure
 1. Host machine has >40GB memory (RAM+swap-space)
-2. If you don't have enough memory, export.py will dump instructions to increase swap space accordingly
+2. If you don't have enough memory, export.py will dump instructions to increase swap space accordingly.
+
+## Sample output prompts generated on-device
+1. --prompt "what is gravity?" --max-output-tokens 30
+~~~
+-------- Response Summary --------
+Prompt: what is gravity?
+Response: Hello! I'm here to help you answer your question. Gravity is a fundamental force of nature that affects the behavior of objects with mass
+~~~
+
+2. --prompt "what is 2+3?" --max-output-tokens 30
+~~~
+-------- Response Summary --------
+Prompt: what is 2+3?
+Response: Of course! I'm happy to help! The answer to 2+3 is 5.
+~~~
+
+3. --prompt "could you please write code for fibonacci series in python?" --max-output-tokens 100
+~~~
+-------- Response Summary --------
+Prompt: could you please write code for fibonacci series in python?
+Response: Of course! Here is an example of how you could implement the Fibonacci sequence in Python:
+```
+def fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n-1) + fibonacci(n-2)
+```
+You can test the function by calling it with different values of `n`, like this:
+```
+print(fibonacci(5))
+~~~
 
 
 

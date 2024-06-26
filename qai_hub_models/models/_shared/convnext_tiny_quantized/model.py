@@ -122,5 +122,4 @@ class ConvNextTinyQuantizableBase(AIMETQuantizableMixin, ConvNextTiny):
                 aimet_encodings = cls._default_aimet_encodings()
             load_encodings_to_sim(sim, aimet_encodings)
 
-        sim.model.eval()
         return cls(sim)

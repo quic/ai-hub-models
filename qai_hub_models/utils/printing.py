@@ -98,7 +98,7 @@ def print_profile_metrics_from_job(
     elif is_qnn_hub_model(profile_job.model):
         runtime = TargetRuntime.QNN
     elif profile_job.model.model_type in [SourceModelType.ORT, SourceModelType.ONNX]:
-        runtime = TargetRuntime.ORT
+        runtime = TargetRuntime.ONNX
     else:
         raise NotImplementedError()
 

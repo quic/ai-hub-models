@@ -286,6 +286,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [MobileNet-v3-Large-Quantized](https://aihub.qualcomm.com/models/mobilenet_v3_large_quantized) | [qai_hub_models.models.mobilenet_v3_large_quantized](qai_hub_models/models/mobilenet_v3_large_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [MobileNet-v3-Small](https://aihub.qualcomm.com/models/mobilenet_v3_small) | [qai_hub_models.models.mobilenet_v3_small](qai_hub_models/models/mobilenet_v3_small/README.md) | ✔️ | ✔️ | ✔️
 | [RegNet](https://aihub.qualcomm.com/models/regnet) | [qai_hub_models.models.regnet](qai_hub_models/models/regnet/README.md) | ✔️ | ✔️ | ✔️
+| [RegNetQuantized](https://aihub.qualcomm.com/models/regnet_quantized) | [qai_hub_models.models.regnet_quantized](qai_hub_models/models/regnet_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [ResNeXt101](https://aihub.qualcomm.com/models/resnext101) | [qai_hub_models.models.resnext101](qai_hub_models/models/resnext101/README.md) | ✔️ | ✔️ | ✔️
 | [ResNeXt101Quantized](https://aihub.qualcomm.com/models/resnext101_quantized) | [qai_hub_models.models.resnext101_quantized](qai_hub_models/models/resnext101_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [ResNeXt50](https://aihub.qualcomm.com/models/resnext50) | [qai_hub_models.models.resnext50](qai_hub_models/models/resnext50/README.md) | ✔️ | ✔️ | ✔️
@@ -295,6 +296,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [ResNet18](https://aihub.qualcomm.com/models/resnet18) | [qai_hub_models.models.resnet18](qai_hub_models/models/resnet18/README.md) | ✔️ | ✔️ | ✔️
 | [ResNet18Quantized](https://aihub.qualcomm.com/models/resnet18_quantized) | [qai_hub_models.models.resnet18_quantized](qai_hub_models/models/resnet18_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [ResNet50](https://aihub.qualcomm.com/models/resnet50) | [qai_hub_models.models.resnet50](qai_hub_models/models/resnet50/README.md) | ✔️ | ✔️ | ✔️
+| [ResNet50Quantized](https://aihub.qualcomm.com/models/resnet50_quantized) | [qai_hub_models.models.resnet50_quantized](qai_hub_models/models/resnet50_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Shufflenet-v2](https://aihub.qualcomm.com/models/shufflenet_v2) | [qai_hub_models.models.shufflenet_v2](qai_hub_models/models/shufflenet_v2/README.md) | ✔️ | ✔️ | ✔️
 | [Shufflenet-v2Quantized](https://aihub.qualcomm.com/models/shufflenet_v2_quantized) | [qai_hub_models.models.shufflenet_v2_quantized](qai_hub_models/models/shufflenet_v2_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [SqueezeNet-1_1](https://aihub.qualcomm.com/models/squeezenet1_1) | [qai_hub_models.models.squeezenet1_1](qai_hub_models/models/squeezenet1_1/README.md) | ✔️ | ✔️ | ✔️
@@ -368,13 +370,16 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | | | | |
 | **Pose Estimation**
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) | ✔️ | ✔️ | ✔️
+| [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [LiteHRNet](https://aihub.qualcomm.com/models/litehrnet) | [qai_hub_models.models.litehrnet](qai_hub_models/models/litehrnet/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Pose-Estimation](https://aihub.qualcomm.com/models/mediapipe_pose) | [qai_hub_models.models.mediapipe_pose](qai_hub_models/models/mediapipe_pose/README.md) | ✔️ | ✔️ | ✔️
 | [OpenPose](https://aihub.qualcomm.com/models/openpose) | [qai_hub_models.models.openpose](qai_hub_models/models/openpose/README.md) | ✔️ | ✔️ | ✔️
 | [Posenet-Mobilenet](https://aihub.qualcomm.com/models/posenet_mobilenet) | [qai_hub_models.models.posenet_mobilenet](qai_hub_models/models/posenet_mobilenet/README.md) | ✔️ | ✔️ | ✔️
+| [Posenet-Mobilenet-Quantized](https://aihub.qualcomm.com/models/posenet_mobilenet_quantized) | [qai_hub_models.models.posenet_mobilenet_quantized](qai_hub_models/models/posenet_mobilenet_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
 | **Depth Estimation**
 | [Midas-V2](https://aihub.qualcomm.com/models/midas) | [qai_hub_models.models.midas](qai_hub_models/models/midas/README.md) | ✔️ | ✔️ | ✔️
+| [Midas-V2-Quantized](https://aihub.qualcomm.com/models/midas_quantized) | [qai_hub_models.models.midas_quantized](qai_hub_models/models/midas_quantized/README.md) | ✔️ | ✔️ | ✔️
 
 ### Audio
 

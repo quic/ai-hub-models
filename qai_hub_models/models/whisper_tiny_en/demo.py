@@ -6,8 +6,8 @@ from qai_hub_models.models._shared.whisper.demo import whisper_demo
 from qai_hub_models.models.whisper_tiny_en.model import WhisperTinyEn
 
 
-def main():
-    whisper_demo(WhisperTinyEn)
+def main(is_test: bool = False):
+    whisper_demo(WhisperTinyEn, is_test)
 
 
 if __name__ == "__main__":

@@ -99,7 +99,6 @@ class YoloV8Detector(BaseModel):
             from ultralytics import YOLO as ultralytics_YOLO
 
             model = ultralytics_YOLO(ckpt_name).model
-            model.eval()
             return cls(
                 model,
                 include_postprocessing,

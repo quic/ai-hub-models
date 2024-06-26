@@ -153,7 +153,7 @@ class KineticsClassifierApp:
     """
 
     def __init__(self, model: KineticsClassifier):
-        self.model = model.eval()
+        self.model = model
 
     def predict(self, path: str | Path) -> List[str]:
         """

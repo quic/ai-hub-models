@@ -69,7 +69,6 @@ class FFNet(CityscapesSegmentor):
     @classmethod
     def from_pretrained(cls: Type[FFNetType], variant_name: str) -> FFNetType:
         model = _load_ffnet_source_model(variant_name)
-        model.eval()
 
         return cls(model)
 
@@ -121,7 +120,7 @@ def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
 
         from models.model_registry import model_entrypoint
 
-        model = model_entrypoint(variant_name)().eval()
+        model = model_entrypoint(variant_name)()
         return model
 
 

@@ -76,34 +76,31 @@ class StyleGAN2App:
         Returns:
             See raw_output parameter description.
         """
-        with torch.no_grad():
-            if image_noise is None:
-                image_noise = self.generate_random_vec(
-                    batch_size=class_idx.shape[0] if class_idx is not None else 1
-                )
-
-            if self.num_classes != 0:
-                if isinstance(class_idx, int):
-                    class_idx = torch.Tensor([class_idx] * image_noise.shape[0])
-
-                if isinstance(class_idx, torch.Tensor) and len(class_idx.shape) == 1:
-                    # Convert from [N] class index to one-hot [N, # of classes]
-                    assert class_idx.dtype == torch.int
-                    model_classes = torch.nn.functional.one_hot(
-                        class_idx, self.num_classes
-                    )
-                else:
-                    model_classes = class_idx
-
-                image_tensor = self.model(image_noise, model_classes)
-            else:
-                image_tensor = self.model(image_noise)
-
-            image_tensor = (
-                (image_tensor.permute(0, 2, 3, 1) * 127.5 + 128)
-                .clamp(0, 255)
-                .to(torch.uint8)
+        if image_noise is None:
+            image_noise = self.generate_random_vec(
+                batch_size=class_idx.shape[0] if class_idx is not None else 1
             )
+
+        if self.num_classes != 0:
+            if isinstance(class_idx, int):
+                class_idx = torch.Tensor([class_idx] * image_noise.shape[0])
+
+            if isinstance(class_idx, torch.Tensor) and len(class_idx.shape) == 1:
+                # Convert from [N] class index to one-hot [N, # of classes]
+                assert class_idx.dtype == torch.int
+                model_classes = torch.nn.functional.one_hot(class_idx, self.num_classes)
+            else:
+                model_classes = class_idx
+
+            image_tensor = self.model(image_noise, model_classes)
+        else:
+            image_tensor = self.model(image_noise)
+
+        image_tensor = (
+            (image_tensor.permute(0, 2, 3, 1) * 127.5 + 128)
+            .clamp(0, 255)
+            .to(torch.uint8)
+        )
 
         if raw_output:
             return image_tensor

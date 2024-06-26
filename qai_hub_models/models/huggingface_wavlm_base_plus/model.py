@@ -191,13 +191,13 @@ def convert_to_wavlm_npu(model: WavLMModel):
     conv_layer = model.feature_extractor.conv_layers[0]
     assert isinstance(conv_layer, WavLMGroupNormConvLayer)
     # Replace with NPU friendly implementation
-    conv_layer_npu = WavLMGroupNormConvLayerNPU(conv_layer).eval()
+    conv_layer_npu = WavLMGroupNormConvLayerNPU(conv_layer)
     model.feature_extractor.conv_layers[0] = conv_layer_npu
 
     conv_layer1 = model.feature_extractor.conv_layers[1].conv
     assert isinstance(conv_layer1, torch.nn.Conv1d)
     # Replace with NPU friendly implementation
-    conv_layer1_npu = SliceConv1d(conv_layer1).eval()
+    conv_layer1_npu = SliceConv1d(conv_layer1)
     model.feature_extractor.conv_layers[1].conv = conv_layer1_npu
 
     return model

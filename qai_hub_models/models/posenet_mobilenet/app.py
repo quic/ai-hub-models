@@ -556,14 +556,13 @@ class PosenetApp:
         tensor = tensor.reshape(1, 3, self.input_height, self.input_width)
 
         np.save("build/posenet_inputs", tensor.numpy())
-        with torch.no_grad():
-            (
-                heatmaps_result,
-                offsets_result,
-                displacement_fwd_result,
-                displacement_bwd_result,
-                max_vals,
-            ) = self.model(tensor)
+        (
+            heatmaps_result,
+            offsets_result,
+            displacement_fwd_result,
+            displacement_bwd_result,
+            max_vals,
+        ) = self.model(tensor)
         pose_scores, keypoint_scores, keypoint_coords = decode_multiple_poses(
             heatmaps_result.squeeze(0),
             offsets_result.squeeze(0),

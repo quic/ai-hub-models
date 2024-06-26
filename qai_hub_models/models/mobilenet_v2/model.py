@@ -34,7 +34,6 @@ class MobileNetV2(ImagenetClassifier):
             k.replace("classifier.1", "classifier"): v for k, v in checkpoint.items()
         }
         model.load_state_dict(state_dict)
-        model.eval()
 
         return cls(model)
 

@@ -86,5 +86,4 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
                 ).fetch()
             load_encodings_to_sim(sim, aimet_encodings)
 
-        sim.model.eval()
         return cls(sim)

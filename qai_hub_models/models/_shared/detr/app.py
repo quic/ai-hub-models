@@ -81,8 +81,7 @@ class DETRApp:
             )
         image_array = normalize_image_torchvision(preprocess_PIL_image(image))
 
-        with torch.no_grad():
-            outputs = self.model(image_array)
+        outputs = self.model(image_array)
         target_sizes = torch.tensor(image.size[::-1]).unsqueeze(0)
 
         out_logits, out_bbox = outputs[0], outputs[1]

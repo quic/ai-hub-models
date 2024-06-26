@@ -59,7 +59,6 @@ class Clip(CollectionModel):
 
     @staticmethod
     def from_source_model(net, preprocess, tokenizer_func):
-        net = net.eval()
         text_encoder = ClipTextEncoder(net)
         image_encoder = ClipImageEncoder(net)
         return Clip(text_encoder, image_encoder, preprocess, tokenizer_func)

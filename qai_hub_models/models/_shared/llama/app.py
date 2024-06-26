@@ -2,28 +2,18 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import gc
-from typing import Any, Callable, List, Tuple
+from abc import abstractmethod
+from typing import Any, Callable, Dict, List, Set, Tuple
 
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.llama_v2_7b_chat_quantized.model import (
-    NUM_SPLITS,
-    Llama2_PromptProcessor_1_Quantized,
-    Llama2_PromptProcessor_2_Quantized,
-    Llama2_PromptProcessor_3_Quantized,
-    Llama2_PromptProcessor_4_Quantized,
-    Llama2_TokenGenerator_1_Quantized,
-    Llama2_TokenGenerator_2_Quantized,
-    Llama2_TokenGenerator_3_Quantized,
-    Llama2_TokenGenerator_4_Quantized,
-    get_input_prompt_with_tags,
-    get_past_keyval_with_shift,
-    prepare_combined_attention_mask,
-)
-from qai_hub_models.models.llama_v2_7b_chat_quantized.modeling_llama import (
+from qai_hub_models.models._shared.llama.model import (
     RopeEmbedding,
+    get_past_keyval_with_shift,
 )
 from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.inference import ExecutableModelProtocol, HubModel
@@ -35,36 +25,22 @@ def _get_tokens_from_logits(output: torch.Tensor):
     return torch.multinomial(probs, num_samples=1).squeeze(1)
 
 
-def _get_model_class(split_part: int, is_token_generator: bool = False):
-    if split_part < 1 or split_part > 4:
-        raise RuntimeError(
-            "Incorrect index provided to request Model split class."
-            f" Must be within (1-4), provided ({split_part})."
-        )
-
-    if is_token_generator:
-        return [
-            Llama2_TokenGenerator_1_Quantized,
-            Llama2_TokenGenerator_2_Quantized,
-            Llama2_TokenGenerator_3_Quantized,
-            Llama2_TokenGenerator_4_Quantized,
-        ][split_part - 1]
-    return [
-        Llama2_PromptProcessor_1_Quantized,
-        Llama2_PromptProcessor_2_Quantized,
-        Llama2_PromptProcessor_3_Quantized,
-        Llama2_PromptProcessor_4_Quantized,
-    ][split_part - 1]
-
-
-class Llama2ModelPipelineBase(ExecutableModelProtocol):
+class LlamaModelPipelineBase(ExecutableModelProtocol):
     """
     Llama Pipeline to execute model splits one after another
     """
 
-    def __init__(self, num_splits: int, is_token_generator: bool = False):
+    def __init__(
+        self,
+        num_splits: int,
+        num_past_key_val_heads: int,
+        model_split_map: Dict[int, Tuple[int, int]],
+        is_token_generator: bool = False,
+    ):
         self.num_splits = num_splits
         self.is_token_generator = is_token_generator
+        self.num_past_key_val_heads = num_past_key_val_heads
+        self.model_split_map = model_split_map
         self.model_type = "TokenGenerator" if is_token_generator else "PromptProcessor"
 
     def __call__(
@@ -94,10 +70,11 @@ class Llama2ModelPipelineBase(ExecutableModelProtocol):
             del model
             gc.collect()
             input_ids = out[0]
-            past_key_values.extend(list(out[1:]))
+            for each in out[1:]:
+                past_key_values.extend(list(torch.split(each, 1, dim=1)))
 
         # Return logits + past_key_values
-        return (out[0],) + tuple(past_key_values)
+        return tuple((out[0], *past_key_values))
 
     def forward_tg(
         self,
@@ -108,13 +85,18 @@ class Llama2ModelPipelineBase(ExecutableModelProtocol):
         *past_key_values,
     ):
         past_key_values_new = []
-        n = 512
+        start_past_key_offset = 0
         for i in range(1, self.num_splits + 1):
             with suppress_warnings():
                 model = self.load_model_part(i)
             print(f"Running {self.model_type} {i}/{self.num_splits}")
-            split_offset = n * (i - 1)
-            past_values = past_key_values[split_offset : split_offset + n]
+            layer_start, layer_end = self.model_split_map[i]
+            num_of_key_vals = (
+                self.num_past_key_val_heads * 2 * (layer_end - layer_start)
+            )
+
+            end_past_key_offset = start_past_key_offset + num_of_key_vals
+            past_values = past_key_values[start_past_key_offset:end_past_key_offset]
             out = model(
                 input_ids,
                 attention_mask,
@@ -131,7 +113,7 @@ class Llama2ModelPipelineBase(ExecutableModelProtocol):
 
             for j, new_cache_j in enumerate(out[1:]):
                 # Construct new past entries by concatenating old and new
-                past_j = past_key_values[split_offset + j]
+                past_j = past_key_values[start_past_key_offset + j]
 
                 # Concatenation is not always along the same dimension
                 if new_cache_j.shape[3] == 1:
@@ -151,12 +133,17 @@ class Llama2ModelPipelineBase(ExecutableModelProtocol):
                         dim=dim,
                     )
                 )
+            start_past_key_offset = end_past_key_offset
 
         # Return logits + past_key_values
-        return (out[0],) + tuple(past_key_values_new)
+        return tuple((out[0], *past_key_values_new))
+
+    @abstractmethod
+    def load_model_part(self, model_part: int):
+        pass
 
 
-class HubLlama2ModelPipeline(Llama2ModelPipelineBase):
+class HubLlamaModelPipeline(LlamaModelPipelineBase):
     """
     Pipeline wrapper for HubModels
     """
@@ -166,21 +153,29 @@ class HubLlama2ModelPipeline(Llama2ModelPipelineBase):
         hub_model_ids: List[str],
         hub_device: hub.Device,
         inference_options: str,
+        get_model_class: Callable,
+        num_past_key_val_heads: int,
+        model_split_map: Dict[int, Tuple[int, int]],
         is_token_generator: bool = False,
     ):
-        super().__init__(len(hub_model_ids), is_token_generator=is_token_generator)
+        super().__init__(
+            len(hub_model_ids),
+            num_past_key_val_heads,
+            model_split_map,
+            is_token_generator=is_token_generator,
+        )
         self.models = []
         for i, model_id in enumerate(hub_model_ids):
             hub_model = HubModel(
                 hub.get_model(model_id),
-                input_names=_get_model_class(
+                input_names=get_model_class(
                     i + 1, is_token_generator=is_token_generator
                 )
                 .get_input_spec()
                 .keys(),
                 device=hub_device,
                 inference_options=inference_options,
-                output_names=_get_model_class(
+                output_names=get_model_class(
                     i + 1, is_token_generator=is_token_generator
                 ).get_output_names(),
             )
@@ -190,95 +185,122 @@ class HubLlama2ModelPipeline(Llama2ModelPipelineBase):
         model_index = model_part - 1
         if model_index < 0 or model_index > len(self.models):
             raise RuntimeError(
-                f"HubLlama2ModelPipeline does not have requested model_part {model_part}."
+                f"HubLlamaModelPipeline does not have requested model_part {model_part}."
             )
-
         return self.models[model_index]
 
 
-class Llama2ModelPipeline(Llama2ModelPipelineBase):
+class LlamaModelPipeline(LlamaModelPipelineBase):
     """
     Pipeline wrapper for PyTorch base model
     """
 
     def __init__(
-        self, prompt_processor: CollectionModel, is_token_generator: bool = False
+        self,
+        models: CollectionModel,
+        num_splits: int,
+        num_past_key_val_heads: int,
+        model_split_map: Dict[int, Tuple[int, int]],
+        is_token_generator: bool = False,
     ):
-        self.prompt_processor = prompt_processor
+        self.models = models
+        self.num_splits = num_splits
         self.model_type = "TokenGenerator" if is_token_generator else "PromptProcessor"
-        super().__init__(NUM_SPLITS, is_token_generator=is_token_generator)
+        super().__init__(
+            num_splits,
+            num_past_key_val_heads=num_past_key_val_heads,
+            model_split_map=model_split_map,
+            is_token_generator=is_token_generator,
+        )
 
     def load_model_part(self, model_part: int):
-        if model_part < 1 or model_part > NUM_SPLITS:
+        if model_part < 1 or model_part > self.num_splits:
             raise RuntimeError(
-                f"ModelLlama2ModelPipeline does not have requested model_part {model_part}."
+                f"ModelLlamaModelPipeline does not have requested model_part {model_part}."
             )
-        return self.prompt_processor.load_model_part(
-            f"Llama2_{self.model_type}_{model_part}_Quantized"
-        )
+        return self.models.load_model_part(f"{self.model_type}_{model_part}_Quantized")
 
 
 class ChatApp:
+    """
+    This class is demonstration of how once can use Llama model to build a basic ChatApp.
+    This App use two models
+        * Prompt Processor
+            - Processes user input prompt to generate first token and KV-cache
+        * Token Generator
+            - Generators output token one at a time
+            - Uses KV-cache to speed up token generation
+    """
+
     def __init__(
-        self, prompt_processor: Callable, token_generator: Callable, tokenizer: Any
+        self,
+        prompt_processor: Callable,
+        token_generator: Callable,
+        get_input_prompt_with_tags: Callable,
+        prepare_combined_attention_mask: Callable,
+        tokenizer: Any,
+        end_tokens: Set[str],
+        num_past_key_val_heads: int,
     ):
+        """
+        Base ChatApp that generates one response for given input token.
+
+            prompt_processor: Prompt Processor collection model
+            token_generator: Token Generator collection model
+            get_input_prompt_with_tags: Function to wrap input prompt with appropriate tags
+            prepare_combined_attention_mask: Function to combine and build attention mask,
+            tokenizer: Tokenizer to use,
+            end_tokens: Set of end tokens to convey end of token generation,
+            num_past_key_val_heads: Number of heads in past-key value,
+        """
         self.prompt_processor = prompt_processor
         self.token_generator = token_generator
+        self.get_input_prompt_with_tags = get_input_prompt_with_tags
+        self.prepare_combined_attention_mask = prepare_combined_attention_mask
         self.tokenizer = tokenizer
+        self.end_tokens = end_tokens
+        self.num_past_key_val_heads = num_past_key_val_heads
 
     def generate_output_prompt(
         self, input_prompt: str, max_seq_len: int, max_output_tokens: int
     ):
-        input_prompt_processed = get_input_prompt_with_tags(
+        input_prompt_processed = self.get_input_prompt_with_tags(
             user_input_prompt=input_prompt
         )
-        input_tokens = self.tokenizer(input_prompt_processed, return_tensors="pt")
-        token_size = input_tokens["input_ids"].shape[-1]
-        padding_size = max_seq_len - token_size
 
-        input_ids = torch.cat(
-            (
-                torch.Tensor([self.tokenizer.unk_token_id] * padding_size).reshape(
-                    1, padding_size
-                ),
-                input_tokens["input_ids"],
-            ),
-            dim=-1,
-        ).type(torch.int32)
-        attention_mask = torch.cat(
-            (
-                torch.Tensor([0] * padding_size).reshape(1, padding_size),
-                input_tokens["attention_mask"],
-            ),
-            dim=-1,
-        ).type(torch.int32)
-        cm_attention_masks = prepare_combined_attention_mask(
-            attention_mask=attention_mask
+        input_tokens = self.tokenizer(
+            input_prompt_processed,
+            return_tensors="pt",
+            padding="max_length",
+            max_length=max_seq_len,
         )
+        input_ids = input_tokens["input_ids"].type(torch.long)
+        num_tokens = torch.sum(input_tokens["attention_mask"]).item()
+        padding_size = max_seq_len - num_tokens
+        position_ids = [0] * (padding_size) + list(range(0, num_tokens))
         position_ids = (
-            torch.cat(
-                (
-                    torch.zeros(
-                        padding_size,
-                    ),
-                    torch.arange(token_size),
-                )
-            )
-            .reshape(1, max_seq_len)
-            .type(torch.int32)
+            torch.Tensor(position_ids).type(torch.long).reshape(1, max_seq_len)
         )
-
+        attention_mask = input_tokens["attention_mask"].type(torch.float32)
+        cm_attention_masks = self.prepare_combined_attention_mask(
+            attention_mask=attention_mask,
+            input_shape=input_tokens["attention_mask"].shape,
+        )
         position_ids = (
             torch.Tensor(position_ids).type(torch.long).reshape(1, max_seq_len)
         )
         position_ids_cos, position_ids_sin = RopeEmbedding(
             max_length=max_seq_len
         ).get_embedding(position_ids)
+
+        # Process input prompt
         output = self.prompt_processor(
             input_ids, cm_attention_masks, position_ids_cos, position_ids_sin
         )
         output_token = _get_tokens_from_logits(output)
-        past_key_values = get_past_keyval_with_shift(output[1:]).values()
+        past_key_values = get_past_keyval_with_shift(
+            output[1:], num_of_past_key_heads=self.num_past_key_val_heads
+        ).values()
         output_prompt = self.tokenizer.decode(output_token)
         print()
         print(f"Text generated by Prompt Processor: {output_prompt}")
@@ -286,10 +308,8 @@ class ChatApp:
 
         # Collect output prompt to summarize later
         hub_tokens = output_token
-        num_of_tokens_processed = token_size + 1
+        num_of_tokens_processed = num_tokens + 1
 
-        # TODO: Revisiting demo and app to refactor like a chat-bot
-        # This is just a place-holder to show how both models work together
         for _ in range(max_output_tokens - 1):
             # TODO: check if previous generated token is EOS
             if num_of_tokens_processed >= max_seq_len:
@@ -300,7 +320,7 @@ class ChatApp:
             attention_mask = torch.cat(
                 (attention_mask[:, 1:], torch.Tensor([[1]])), dim=-1
             )
-            cm_attention_masks = prepare_combined_attention_mask(
+            cm_attention_masks = self.prepare_combined_attention_mask(
                 attention_mask=attention_mask,
                 input_shape=(1, 1),
                 past_key_values_length=max_seq_len - 1,
@@ -311,6 +331,8 @@ class ChatApp:
             position_ids_cos, position_ids_sin = RopeEmbedding(
                 max_length=max_seq_len
             ).get_embedding(position_ids)
+
+            # Generate output token
             output = self.token_generator(
                 input_ids,
                 cm_attention_masks,
@@ -322,6 +344,11 @@ class ChatApp:
             del input_ids
             output_token = _get_tokens_from_logits(output)
             output_prompt = self.tokenizer.decode(output_token)
+
+            # Assistant generating end of token
+            if output_prompt in self.end_tokens:
+                break
+
             past_key_values = output[1:]
             hub_tokens = torch.cat((hub_tokens, output_token), dim=-1)
             print()
@@ -333,4 +360,3 @@ class ChatApp:
         print("-------- Response Summary --------")
         print(f"Prompt: {input_prompt}")
         print(f"Response: {self.tokenizer.decode(hub_tokens)}")
-        return output_prompt

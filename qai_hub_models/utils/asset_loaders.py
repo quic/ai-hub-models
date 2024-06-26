@@ -969,19 +969,21 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
 
         # Streaming, so we can iterate over the response.
         response = requests.get(web_url, stream=True)
+        if response.status_code != 200:
+            raise ValueError(f"Unable to download file at {web_url}")
 
         # Sizes in bytes.
         total_size = int(response.headers.get("content-length", 0))
         block_size = 1024
 
-        with tqdm(total=total_size, unit="B", unit_scale=True) as progress_bar:
-            with open(dst_path, "wb") as file:
-                for data in response.iter_content(block_size):
-                    progress_bar.update(len(data))
-                    file.write(data)
-
-        if response.status_code != 200:
-            raise ValueError(f"Unable to download file at {web_url}")
+        with qaihm_temp_dir() as tmp_dir:
+            tmp_filepath = os.path.join(tmp_dir, Path(dst_path).name)
+            with tqdm(total=total_size, unit="B", unit_scale=True) as progress_bar:
+                with open(tmp_filepath, "wb") as file:
+                    for data in response.iter_content(block_size):
+                        progress_bar.update(len(data))
+                        file.write(data)
+            os.rename(tmp_filepath, dst_path)
         print("Done")
     return dst_path
 

@@ -60,7 +60,7 @@ class PosenetMobilenet(BaseModel):
 
             model = posenet.load_model(model_id)
 
-            return cls(model).eval()
+            return cls(model)
 
     def forward(self, image):
         """

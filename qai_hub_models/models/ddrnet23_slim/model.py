@@ -74,7 +74,7 @@ class DDRNet(BaseModel):
             model_dict.update(pretrained_dict)
             ddrnetslim_model.load_state_dict(model_dict)
 
-            ddrnetslim_model.to(torch.device("cpu")).eval()
+            ddrnetslim_model.to(torch.device("cpu"))
 
             return cls(ddrnetslim_model)
 

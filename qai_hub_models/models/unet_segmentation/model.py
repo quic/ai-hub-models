@@ -37,7 +37,7 @@ class UNet(BaseModel):
         if ckpt_url is not None:
             state_dict = load_torch(ckpt_url)
             net.load_state_dict(state_dict)
-        return cls(net.eval())
+        return cls(net)
 
     def forward(self, image: torch.Tensor):
         """

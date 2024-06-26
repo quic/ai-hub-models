@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from contextlib import nullcontext
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -102,6 +104,26 @@ class BaseModel(
     def __init__(self):
         torch.nn.Module.__init__(self)  # Initialize Torch Module
         HubModel.__init__(self)  # Initialize Hub Model
+        self.eval()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """
+        When a new torch.nn.Module attribute is added, we want to set it to eval mode.
+            If this model is being trained, calling `model.train()`
+            will reverse all of these.
+        """
+        if isinstance(value, torch.nn.Module) and not self.training:
+            value.eval()
+        torch.nn.Module.__setattr__(self, name, value)
+
+    def __call__(self, *args, **kwargs):
+        """
+        If a model is in eval mode (which equates to self.training == False),
+            we don't want to compute gradients when doing the forward pass.
+        """
+        context_fn = nullcontext if self.training else torch.no_grad
+        with context_fn():
+            return torch.nn.Module.__call__(self, *args, **kwargs)
 
     def convert_to_torchscript(
         self, input_spec: InputSpec | None = None, check_trace: bool = True
@@ -115,8 +137,14 @@ class BaseModel(
         if not input_spec:
             input_spec = self.get_input_spec()
 
+        # Torchscript should never be trained, so disable gradients for all parameters.
+        # Need to do this on a model copy, in case the original model is being trained.
+        model_copy = deepcopy(self)
+        for param in model_copy.parameters():
+            param.requires_grad = False
+
         return torch.jit.trace(
-            self, make_torch_inputs(input_spec), check_trace=check_trace
+            model_copy, make_torch_inputs(input_spec), check_trace=check_trace
         )
 
     def convert_to_hub_source_model(
@@ -174,12 +202,12 @@ class BaseModel(
                             break
 
                 target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
-            elif target_runtime == TargetRuntime.ORT:
+            elif target_runtime == TargetRuntime.ONNX:
                 target_runtime_flag = "onnx"
             elif target_runtime == TargetRuntime.TFLITE:
                 target_runtime_flag = "tflite"
-            elif target_runtime == TargetRuntime.PRECOMPILED_ORT:
-                target_runtime_flag = "compiled_qnn_onnx"
+            elif target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+                target_runtime_flag = "precompiled_qnn_onnx"
             else:
                 raise NotImplementedError()
 

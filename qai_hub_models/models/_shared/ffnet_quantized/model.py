@@ -78,5 +78,4 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
                 aimet_encodings = cls.default_aimet_encodings()
             load_encodings_to_sim(sim, aimet_encodings)
 
-        sim.model.eval()
         return cls(sim)

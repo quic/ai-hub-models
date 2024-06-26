@@ -94,5 +94,5 @@ def display_or_save_image(
     if display_image(image, desc):
         return True
 
-    save_image(image, str(Path.cwd() / "build"), filename, desc)
+    save_image(image, os.path.join(Path.cwd(), "build"), filename, desc)
     return False

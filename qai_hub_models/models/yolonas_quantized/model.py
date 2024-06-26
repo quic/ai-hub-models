@@ -79,7 +79,6 @@ class YoloNASQuantizable(AIMETQuantizableMixin, YoloNAS):
                 ).fetch()
             load_encodings_to_sim(sim, aimet_encodings)
 
-        sim.model.eval()
         final_model = cls(sim)
         return final_model
 

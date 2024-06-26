@@ -22,7 +22,6 @@ class Fast_SAM(BaseModel):
     @classmethod
     def from_pretrained(cls, ckpt_name: str):
         model = FastSAM(ckpt_name).model
-        model.eval()
         return cls(model)
 
     def forward(self, image: torch.Tensor):

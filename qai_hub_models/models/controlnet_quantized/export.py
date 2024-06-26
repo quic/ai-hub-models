@@ -37,7 +37,7 @@ DEFAULT_COMPONENTS = [
 
 
 def export_model(
-    device: str = "Samsung Galaxy S23",
+    device: str = "Samsung Galaxy S23 (Family)",
     chipset: Optional[str] = None,
     components: Optional[List[str]] = None,
     skip_profiling: bool = False,

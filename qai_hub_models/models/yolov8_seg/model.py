@@ -43,7 +43,6 @@ class YoloV8Segmentor(BaseModel):
                 f"Supported checkpoints are {list(SUPPORTED_WEIGHTS)}."
             )
         model = ultralytics_YOLO(ckpt_name).model
-        model.eval()
         return cls(model)
 
     def forward(self, image: torch.Tensor):

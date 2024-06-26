@@ -71,7 +71,7 @@ class HRNetPose(BaseModel):
             cfg.freeze()
             net = PoseHighResolutionNet(cfg)
             net.load_state_dict(weights)
-            return cls(net).eval()
+            return cls(net)
 
     def forward(self, image):
         """

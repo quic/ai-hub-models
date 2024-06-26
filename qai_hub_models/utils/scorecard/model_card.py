@@ -316,10 +316,22 @@ class PerfSummary:
 
     def get_chipsets(self) -> Set[str]:
         chips: Set[str] = set()
-        for _, model_summary in self.runs_per_model.items():
-            chips.update(
-                [x.get_chipset() for x in model_summary.runs_per_device.keys()]
-            )
+        for model_id, model_summary in self.runs_per_model.items():
+            for device, device_summary in model_summary.runs_per_device.items():
+                # At least 1 successful run must exist for this chipset
+                success = False
+                for run in device_summary.run_per_path.values():
+                    if run.success:
+                        success = True
+                        break
+                if not success:
+                    continue
+
+                # Don't incude disabled models
+                if model_id in device.get_disabled_models():
+                    continue
+
+                chips.add(device.get_chipset())
         return chips
 
     def get_perf_card(

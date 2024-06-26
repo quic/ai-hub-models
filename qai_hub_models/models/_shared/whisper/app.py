@@ -7,20 +7,21 @@ from __future__ import annotations
 from typing import List, Tuple
 
 import numpy as np
+import samplerate
 import torch
 import whisper  # type: ignore
 from scipy import special as scipy_special  # type: ignore
 
-from qai_hub_models.models._shared.whisper.model import Whisper
+from qai_hub_models.models._shared.whisper.model import (
+    CHUNK_LENGTH,
+    HOP_LENGTH,
+    MEL_FILTER_PATH,
+    N_FFT,
+    N_MELS,
+    SAMPLE_RATE,
+    Whisper,
+)
 from qai_hub_models.utils.model_adapters import TorchNumpyAdapter
-
-# hard-coded audio hyperparameters
-SAMPLE_RATE = 16000
-N_FFT = 400
-N_MELS = 80
-HOP_LENGTH = 160
-CHUNK_LENGTH = 30
-N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
 
 
 class WhisperApp:
@@ -30,7 +31,15 @@ class WhisperApp:
     OpenAI Whisper.
     """
 
-    def __init__(self, whisper: Whisper):
+    def __init__(
+        self,
+        whisper: Whisper,
+        mel_filter: np.ndarray | None = None,
+        sample_rate: int = SAMPLE_RATE,
+        max_audio_seconds: int = CHUNK_LENGTH,
+        n_fft: int = N_FFT,
+        hop_length: int = HOP_LENGTH,
+    ):
         decoder = whisper.decoder.to("cpu")
         encoder = whisper.encoder.to("cpu")
         self.num_decoder_blocks = whisper.num_decoder_blocks
@@ -38,13 +47,25 @@ class WhisperApp:
         self.attention_dim = whisper.attention_dim
         self.mean_decode_len = whisper.mean_decode_len
 
+        self.mel_filter = mel_filter
+        if not self.mel_filter:
+            MEL_FILTER_PATH.fetch()
+            with np.load(MEL_FILTER_PATH.path()) as f:
+                self.mel_filter = f[f"mel_{N_MELS}"]
+
+        self.hop_length = hop_length
+        self.sample_rate = sample_rate
+        self.max_audio_seconds = max_audio_seconds
+        self.n_fft = n_fft
+        self.max_audio_samples = self.max_audio_seconds * self.sample_rate
+
         # Wraps torch Module so it takes np ndarray as input and outputs
         if isinstance(encoder, torch.nn.Module):
             self.encoder = TorchNumpyAdapter(encoder)
         else:
             self.encoder = encoder
         if isinstance(decoder, torch.nn.Module):
-            self.decoder = TorchNumpyAdapter(decoder.eval())
+            self.decoder = TorchNumpyAdapter(decoder)
         else:
             self.decoder = decoder
 
@@ -52,18 +73,57 @@ class WhisperApp:
         # See transcribe.
         return self.transcribe(*args, **kwargs)
 
-    def transcribe(self, mel_input: np.ndarray) -> str:
+    def transcribe(
+        self, audio: np.ndarray | str, audio_sample_rate: int | None = None
+    ) -> str:
         """
-        Transcribe an audio to text.
+        Transcribe the provided audio to text.
+
+        Parameters
+        ----------
+        audio: numpy array | str
+            Path to audio file if a string.
+            Raw audio array of shape (# of samples) if a numpy array.
+
+        audio_sample_rate: int | None
+            The sample rate of the provided audio, in samples / second.
+            If audio is a numpy array, this must be provided.
+            If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
+
+        Returns
+        -------
+        List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+        """
+        if isinstance(audio, str):
+            import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
+
+            audio, audio_sample_rate = a2n.audio_from_file(audio)
+        else:
+            assert audio_sample_rate is not None
+
+        return " ".join(
+            self._transcribe_single_chunk(x)
+            for x in chunk_and_resample_audio(audio, audio_sample_rate)
+        )
+
+    def _transcribe_single_chunk(self, audio: np.ndarray) -> str:
+        """
+        Transcribe an audio chunk to text.
 
         Parameters:
 
-        - mel_input: of shape (1, 80, 3000). Mel spectrogram of 30s audio.
+        audio: numpy array
+            A numpy array of audio of shape (number of samples).
+            The sample rate of this audio must be self.sample_rate.
+            The maximum length of this audio must be self.max_audio_samples.
 
         Returns:
 
         - transcribed texts
         """
+        mel_input = log_mel_spectrogram(
+            self.mel_filter, audio, self.max_audio_samples, self.n_fft, self.hop_length
+        )
         k_cache_cross, v_cache_cross = self.encoder(mel_input)
         # Start decoding
         # coreml only takes float tensors
@@ -307,31 +367,13 @@ def apply_timestamp_rules(
     return logits, logprobs
 
 
-def load_audio(mel_filter: np.ndarray, audio_path: str) -> np.ndarray:
-    """
-    Load audio to a mel spectrogram.
-    """
-    with np.load(audio_path) as f:
-        audio_np = f["audio"]
-    # Pad 30-seconds of silence to the input audio, for slicing
-    input_feature = log_mel_spectrogram(mel_filter, audio_np, pad_to_length=N_SAMPLES)
-    # input_feature has fixed shape [1, 80, 3000]. 80 is
-    # spectrogram feature dim, 3000 is due to Whisper only takes
-    # 30 seconds input represented as 10ms spectrogram segments
-    assert input_feature.shape == (1, 80, 3000)
-    return input_feature
-
-
-def load_mel_filter(mel_filter_path: str) -> np.ndarray:
-    with np.load(mel_filter_path) as f:
-        return f["mel_80"]
-
-
 # Adopted from https://github.com/openai/whisper/blob/main/whisper/audio.py
 def log_mel_spectrogram(
     mel_filter: np.ndarray,
     audio_np: np.ndarray,
     pad_to_length: int,
+    n_fft: int,
+    hop_length: int,
 ) -> np.ndarray:
     """
     Compute the log-Mel spectrogram of
@@ -356,8 +398,8 @@ def log_mel_spectrogram(
         padding = pad_to_length - len(audio)
         if padding > 0:
             audio = torch.nn.functional.pad(audio, (0, padding))
-    window = torch.hann_window(N_FFT)
-    stft = torch.stft(audio, N_FFT, HOP_LENGTH, window=window, return_complex=True)
+    window = torch.hann_window(n_fft)
+    stft = torch.stft(audio, n_fft, hop_length, window=window, return_complex=True)
     magnitudes = stft[..., :-1].abs() ** 2
 
     mel_spec = torch.from_numpy(mel_filter) @ magnitudes
@@ -366,3 +408,53 @@ def log_mel_spectrogram(
     log_spec = torch.maximum(log_spec, log_spec.max() - 8.0)
     log_spec = (log_spec + 4.0) / 4.0
     return log_spec.unsqueeze(0).detach().float().numpy()
+
+
+def chunk_and_resample_audio(
+    audio: np.ndarray,
+    audio_sample_rate: int,
+    model_sample_rate=SAMPLE_RATE,
+    model_chunk_seconds=CHUNK_LENGTH,
+) -> List[np.ndarray]:
+    """
+    Parameters
+    ----------
+    audio: str
+        Raw audio numpy array of shape [# of samples]
+
+    audio_sample_rate: int
+        Sample rate of audio array, in samples / sec.
+
+    model_sample_rate: int
+        Sample rate (samples / sec) required to run Whisper. The audio file
+        will be resampled to use this rate.
+
+    model_chunk_seconds: int
+        Split the audio in to N sequences of this many seconds.
+        The final split may be shorter than this many seconds.
+
+    Returns
+    -------
+    List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+    """
+    if audio_sample_rate != model_sample_rate:
+        audio = samplerate.resample(audio, model_sample_rate / audio_sample_rate)
+        audio_sample_rate = model_sample_rate
+
+    number_of_full_length_audio_chunks = (
+        audio.shape[0] // audio_sample_rate // model_chunk_seconds
+    )
+    last_sample_in_full_length_audio_chunks = (
+        audio_sample_rate * number_of_full_length_audio_chunks * model_chunk_seconds
+    )
+
+    if number_of_full_length_audio_chunks == 0:
+        return [audio]
+
+    return [
+        *np.array_split(
+            audio[:last_sample_in_full_length_audio_chunks],
+            number_of_full_length_audio_chunks,
+        ),
+        audio[last_sample_in_full_length_audio_chunks:],
+    ]

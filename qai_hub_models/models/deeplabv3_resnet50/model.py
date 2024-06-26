@@ -22,7 +22,7 @@ class DeepLabV3_ResNet50(DeepLabV3Model):
 
     @classmethod
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> DeepLabV3_ResNet50:
-        model = tv_models.segmentation.deeplabv3_resnet50(weights=weights).eval()
+        model = tv_models.segmentation.deeplabv3_resnet50(weights=weights)
         return cls(model)
 
     def get_hub_compile_options(

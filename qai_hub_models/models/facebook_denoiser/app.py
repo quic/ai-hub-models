@@ -60,27 +60,26 @@ class FacebookDenoiserApp:
         Returns:
            Predicted audio. See `raw_output` parameter above for type of return value.
         """
-        with torch.no_grad():
-            all_inputs_are_paths = True
+        all_inputs_are_paths = True
 
-            noisy_audios = []
-            for audio in input_audio:
-                if isinstance(audio, str) or isinstance(audio, Path):
-                    audio, sample_rate = torchaudio.load(audio)
-                    assert sample_rate == self.sample_rate
-                else:
-                    all_inputs_are_paths = False
-                    if isinstance(audio, np.ndarray):
-                        audio = torch.from_numpy(audio)
-                noisy_audios.append(audio)
+        noisy_audios = []
+        for audio in input_audio:
+            if isinstance(audio, str) or isinstance(audio, Path):
+                audio, sample_rate = torchaudio.load(audio)
+                assert sample_rate == self.sample_rate
+            else:
+                all_inputs_are_paths = False
+                if isinstance(audio, np.ndarray):
+                    audio = torch.from_numpy(audio)
+            noisy_audios.append(audio)
 
-            estimates = []
-            for noisy in noisy_audios:
-                out = self.denoiser(noisy)
-                out = out / max(out.abs().max().item(), 1)  # Normalize
-                if all_inputs_are_paths:
-                    # We don't run files in batches, take the first batch output
-                    out = out[:, 0]
-                estimates.append(out)
+        estimates = []
+        for noisy in noisy_audios:
+            out = self.denoiser(noisy)
+            out = out / max(out.abs().max().item(), 1)  # Normalize
+            if all_inputs_are_paths:
+                # We don't run files in batches, take the first batch output
+                out = out[:, 0]
+            estimates.append(out)
 
-            return estimates
+        return estimates

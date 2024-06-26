@@ -75,6 +75,5 @@ class ImagenetClassifierApp:
             to a different Imagenet1K class.
         """
         input_tensor = preprocess_image(image, not self.normalization_in_network)
-        with torch.no_grad():
-            output = self.model(input_tensor)
+        output = self.model(input_tensor)
         return torch.softmax(output[0], dim=0)

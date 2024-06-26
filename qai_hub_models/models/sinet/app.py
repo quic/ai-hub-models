@@ -78,8 +78,7 @@ class SINetApp:
         """
 
         input_tensor = preprocess_image(image)
-        with torch.no_grad():
-            output = self.model(input_tensor)
+        output = self.model(input_tensor)
 
         face_map = (output[0].data.cpu() > 0).numpy()[0]
         bg_map = output[0].max(0)[1].byte().data.cpu().numpy()

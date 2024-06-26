@@ -31,7 +31,7 @@ class FCN_ResNet50(BaseModel):
 
     @classmethod
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> FCN_ResNet50:
-        model = tv_models.segmentation.fcn_resnet50(weights=weights).eval()
+        model = tv_models.segmentation.fcn_resnet50(weights=weights)
         model.aux_classifier = None
         return cls(model)
 

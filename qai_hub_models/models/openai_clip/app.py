@@ -60,10 +60,9 @@ class ClipApp:
                 by doing a transpose.
 
         """
-        with torch.no_grad():
-            image_features = self.image_encoder(image)
-            text_features = self.text_encoder(text)
-            logits_per_image = image_features @ text_features.t()
+        image_features = self.image_encoder(image)
+        text_features = self.text_encoder(text)
+        logits_per_image = image_features @ text_features.t()
         return logits_per_image.cpu().numpy()
 
     def process_image(self, image: Image) -> torch.Tensor:

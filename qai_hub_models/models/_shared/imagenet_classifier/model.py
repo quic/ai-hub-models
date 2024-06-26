@@ -55,7 +55,6 @@ class ImagenetClassifier(BaseModel):
         self.normalize_input = normalize_input
         self.transform_input = transform_input
         self.net = net
-        self.eval()
 
     # Type annotation on image_tensor causes aimet onnx export failure
     def forward(self, image_tensor):

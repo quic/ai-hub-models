@@ -100,6 +100,7 @@ HF_AVAILABLE_LICENSES = {
     "lgpl-lr",
     "deepfloyd-if-license",
     "llama2",
+    "llama3",
     "unknown",
     "other",
 }
@@ -484,7 +485,7 @@ class QAIHMModelCodeGen:
         has_on_target_demo: bool,
         qnn_export_failure_reason: str,
         tflite_export_failure_reason: str,
-        ort_export_failure_reason: str,
+        onnx_export_failure_reason: str,
         check_trace: bool,
         channel_last_input: List[str],
         channel_last_output: List[str],
@@ -507,7 +508,7 @@ class QAIHMModelCodeGen:
         self.has_on_target_demo = has_on_target_demo
         self.qnn_export_failure_reason = qnn_export_failure_reason
         self.tflite_export_failure_reason = tflite_export_failure_reason
-        self.ort_export_failure_reason = ort_export_failure_reason
+        self.onnx_export_failure_reason = onnx_export_failure_reason
         self.check_trace = check_trace
         self.channel_last_input = channel_last_input
         self.channel_last_output = channel_last_output
@@ -548,7 +549,7 @@ class QAIHMModelCodeGen:
             code_gen_config["has_on_target_demo"],
             code_gen_config["qnn_export_failure_reason"],
             code_gen_config["tflite_export_failure_reason"],
-            code_gen_config["ort_export_failure_reason"],
+            code_gen_config["onnx_export_failure_reason"],
             code_gen_config["check_trace"],
             code_gen_config["channel_last_input"],
             code_gen_config["channel_last_output"],
@@ -577,7 +578,7 @@ class QAIHMModelCodeGen:
                 OptionalSchema("has_on_target_demo", default=False): bool,
                 OptionalSchema("qnn_export_failure_reason", default=""): str,
                 OptionalSchema("tflite_export_failure_reason", default=""): str,
-                OptionalSchema("ort_export_failure_reason", default=""): str,
+                OptionalSchema("onnx_export_failure_reason", default=""): str,
                 OptionalSchema("check_trace", default=True): bool,
                 OptionalSchema("channel_last_input", default=[]): list,
                 OptionalSchema("channel_last_output", default=[]): list,
@@ -743,6 +744,7 @@ class QAIHMModelInfo:
             if (
                 self.code_gen_config.tflite_export_failure_reason
                 and self.code_gen_config.qnn_export_failure_reason
+                and self.code_gen_config.onnx_export_failure_reason
             ):
                 return False, "Public models must support at least one export path"
 

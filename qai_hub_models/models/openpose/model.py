@@ -8,7 +8,11 @@ from typing import Tuple
 
 import torch
 
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    SourceAsRoot,
+    wipe_sys_modules,
+)
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -93,8 +97,7 @@ class OpenPose(BaseModel):
         im = img_padded.permute(2, 0, 1).unsqueeze(0) - 0.5
 
         # Run the model
-        with torch.no_grad():
-            paf, heatmap = self.model(im)
+        paf, heatmap = self.model(im)
 
         return paf, heatmap
 
@@ -131,9 +134,13 @@ def _load_openpose_source_model_from_weights(
                 MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
             ).fetch()
 
+        import src
+
+        wipe_sys_modules(src)
+
         # Import model files from pytorch openpose repo
         from src.body import Body
 
         body_estimation = Body(weights_path_body)
 
-        return body_estimation.model.eval()
+        return body_estimation.model

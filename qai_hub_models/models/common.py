@@ -11,16 +11,18 @@ import numpy as np
 class TargetRuntime(Enum):
     TFLITE = 0
     QNN = 1
-    ORT = 2
-    PRECOMPILED_ORT = 3
+    ONNX = 2
+    PRECOMPILED_QNN_ONNX = 3
 
     def __str__(self):
         return self.name.lower()
 
     @property
     def long_name(self):
-        if "precompiled" not in self.name.lower():
+        if self.name.lower() in {"tflite", "qnn"}:
             return f"torchscript_onnx_{self.name.lower()}"
+        elif self.name.lower() == "onnx":
+            return f"torchscript_{self.name.lower()}"
         return f"{self.name.lower()}"
 
 

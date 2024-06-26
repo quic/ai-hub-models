@@ -51,8 +51,7 @@ class MidasApp:
             image, (self.input_height, self.input_width)
         )
         image_tensor = transforms.ToTensor()(resized_image).unsqueeze(0)
-        with torch.no_grad():
-            prediction = self.model(image_tensor)
+        prediction = self.model(image_tensor)
         prediction = undo_resize_pad(
             prediction.unsqueeze(0), image.size, scale, padding
         )

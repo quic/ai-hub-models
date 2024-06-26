@@ -34,7 +34,7 @@ ALL_COMPONENTS = ["SAMDecoder", "SAMEncoder"]
 
 
 def export_model(
-    device: str = "Samsung Galaxy S23",
+    device: str = "Samsung Galaxy S23 (Family)",
     chipset: Optional[str] = None,
     components: Optional[List[str]] = None,
     skip_profiling: bool = False,
@@ -128,7 +128,6 @@ def export_model(
     for component_name, component in components_dict.items():
         # Trace the model
         input_spec = component.get_input_spec()
-        component.eval()
         source_model = torch.jit.trace(
             component.to("cpu"), make_torch_inputs(input_spec)
         )
@@ -204,7 +203,7 @@ def export_model(
             target_runtime_extension = "so"
         elif target_runtime == TargetRuntime.TFLITE:
             target_runtime_extension = "tflite"
-        elif target_runtime in {TargetRuntime.ORT, TargetRuntime.PRECOMPILED_ORT}:
+        elif target_runtime in {TargetRuntime.ONNX, TargetRuntime.PRECOMPILED_QNN_ONNX}:
             target_runtime_extension = "onnx"
 
         os.makedirs(output_path, exist_ok=True)
@@ -250,8 +249,8 @@ def main():
         model_cls=Model,
         components=ALL_COMPONENTS,
         supports_qnn=False,
-        supports_ort=False,
-        supports_precompiled_ort=False,
+        supports_onnx=False,
+        supports_precompiled_qnn_onnx=False,
     )
     args = parser.parse_args()
     export_model(**vars(args))

@@ -36,7 +36,6 @@ class UNetSegmentationApp:
         """
 
         img = preprocess_PIL_image(image)
-        with torch.no_grad():
-            out = self.model(img)
+        out = self.model(img)
         mask = out.argmax(dim=1)
         return mask[0].bool().numpy()
