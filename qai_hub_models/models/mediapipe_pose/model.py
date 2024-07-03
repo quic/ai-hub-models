@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import torch
 
@@ -146,6 +146,10 @@ class PoseDetector(BaseModel):
         """
         return {"image": ((batch_size, 3, 128, 128), "float32")}
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["box_coords", "box_scores"]
+
 
 class PoseLandmarkDetector(BaseModel):
     def __init__(
@@ -156,7 +160,8 @@ class PoseLandmarkDetector(BaseModel):
         self.detector = detector
 
     def forward(self, image: torch.Tensor):
-        return self.detector(image)
+        output = self.detector(image)
+        return output[0], output[1]
 
     @classmethod
     def from_pretrained(cls, landmark_detector_weights: str = "blazepose_landmark.pth"):
@@ -174,3 +179,7 @@ class PoseLandmarkDetector(BaseModel):
         This can be used to submit profiling job on Qualcomm AI Hub.
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["scores", "landmarks"]

@@ -22,10 +22,9 @@ from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
     FromPretrainedProtocol,
     FromPretrainedTypeVar,
-    HubModelProtocolTypeVar,
 )
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
-from qai_hub_models.utils.inference import HubModel, compile_model_from_args
+from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
+from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23 (Family)"
@@ -282,31 +281,37 @@ def demo_model_from_cli_args(
     model_cls: Type[FromPretrainedTypeVar],
     model_id: str,
     cli_args: argparse.Namespace,
-) -> FromPretrainedTypeVar | HubModel:
+) -> FromPretrainedTypeVar | OnDeviceModel:
     """
     Create this model from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as from_pretrained method args.
 
-    If the model is a BaseModel and an on-device demo is requested, the BaseModel will be wrapped in a HubModel.
+    If the model is a BaseModel and an on-device demo is requested,
+        the BaseModel will be wrapped in an OnDeviceModel.
     """
     is_on_device = "on_device" in cli_args and cli_args.on_device
-    inference_model: FromPretrainedTypeVar | HubModel
+    inference_model: FromPretrainedTypeVar | OnDeviceModel
     if is_on_device and issubclass(model_cls, BaseModel):
         device = get_hub_device(cli_args.device, cli_args.chipset, cli_args.device_os)
         if cli_args.hub_model_id:
             model_from_hub = hub.get_model(cli_args.hub_model_id)
-            inference_model = HubModel(
+            inference_model = OnDeviceModel(
                 model_from_hub,
                 list(model_cls.get_input_spec().keys()),
                 device,
                 cli_args.inference_options,
             )
         else:
+            cli_dict = vars(cli_args)
+            additional_kwargs = dict(
+                get_model_kwargs(model_cls, cli_dict),
+                **get_input_spec_kwargs(model_cls, cli_dict),
+            )
             target_model = compile_model_from_args(
-                model_id, cli_args, get_model_kwargs(model_cls, vars(cli_args))
+                model_id, cli_args, additional_kwargs
             )
             input_names = list(model_cls.get_input_spec().keys())
-            inference_model = HubModel(
+            inference_model = OnDeviceModel(
                 target_model,
                 input_names,
                 device,
@@ -320,7 +325,7 @@ def demo_model_from_cli_args(
 
 
 def get_input_spec_kwargs(
-    model: Type[HubModelProtocolTypeVar], args_dict: Mapping[str, Any]
+    model: HubModel | Type[HubModel], args_dict: Mapping[str, Any]
 ) -> Mapping[str, Any]:
     """
     Given a dict with many args, pull out the ones relevant
@@ -367,16 +372,15 @@ def get_model_input_spec_parser(
 
 
 def input_spec_from_cli_args(
-    model: Type[HubModelProtocolTypeVar], cli_args: argparse.Namespace
+    model: HubModel | OnDeviceModel, cli_args: argparse.Namespace
 ) -> hub.InputSpecs:
     """
     Create this model's input spec from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as get_input_spec method args.
     Also, fetches shapes if demo is run on-device.
     """
-
-    is_on_device = "on_device" in cli_args and cli_args.on_device
-    if is_on_device and isinstance(model, HubModel):
+    if isinstance(model, OnDeviceModel):
+        assert "on_device" in cli_args and cli_args.on_device
         assert isinstance(model.model.producer, hub.CompileJob)
         return model.model.producer.shapes
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))

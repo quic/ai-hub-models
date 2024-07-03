@@ -24,6 +24,7 @@ MODEL_ID = __name__.split(".")[-2]
 TROCR_BATCH_SIZE = 1
 TROCR_EXPORT_SEQ_LEN = 1  # -1 TODO(#5428): Dynamic sequence length support. This limits the input size to a seq len of 1.
 MODEL_ASSET_VERSION = 1
+DEFAULT_NUM_DECODER_LAYERS = 6
 
 """
 Traceable modules used by TrOCRApp
@@ -117,12 +118,25 @@ class TrOCREncoder(BaseModel):
         return (*kv_cache,)  # convert list to tuple for export
 
     @staticmethod
-    def get_input_spec() -> InputSpec:
+    def get_input_spec(batch_size: int = TROCR_BATCH_SIZE) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
         # This can be used with the qai_hub python API to declared
         # the model input specification upon submitting a profile job.
-        return {"pixel_values": ((TROCR_BATCH_SIZE, 3, 384, 384), "float32")}
+        return {"pixel_values": ((batch_size, 3, 384, 384), "float32")}
+
+    @staticmethod
+    def get_output_names(
+        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
+    ) -> List[str]:
+        output_names = []
+        for i in range(num_decoder_layers):
+            output_names.append(f"kv_cache_key_{i}")
+            output_names.append(f"kv_cache_val_{i}")
+        return output_names
+
+    def _get_output_names_for_instance(self) -> List[str]:
+        return self.__class__.get_output_names(len(self.decoder.model.decoder.layers))
 
     @classmethod
     def from_pretrained(cls):
@@ -219,7 +233,10 @@ class TrOCRDecoder(BaseModel):
 
     @staticmethod
     def get_input_spec(
-        decoder_attention_heads: int, embeddings_per_head: int, num_decoder_layers: int
+        batch_size: int = TROCR_BATCH_SIZE,
+        decoder_attention_heads: int = 8,
+        embeddings_per_head: int = 32,
+        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
@@ -229,7 +246,7 @@ class TrOCRDecoder(BaseModel):
 
         attn_cache_spec = (
             (
-                TROCR_BATCH_SIZE,
+                batch_size,
                 decoder_attention_heads,
                 TROCR_EXPORT_SEQ_LEN,
                 embeddings_per_head,
@@ -239,7 +256,7 @@ class TrOCRDecoder(BaseModel):
 
         cross_attn_cache_spec = (
             (
-                TROCR_BATCH_SIZE,
+                batch_size,
                 decoder_attention_heads,
                 578,  # TODO: Can we get this programatically?
                 embeddings_per_head,
@@ -256,8 +273,24 @@ class TrOCRDecoder(BaseModel):
 
         return decoder_input_specs
 
-    def _get_input_spec_for_instance(self) -> InputSpec:
+    @staticmethod
+    def get_output_names(
+        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
+    ) -> List[str]:
+        output_names = ["next_token"]
+        for i in range(num_decoder_layers):
+            output_names.append(f"kv_cache_key_{i}")
+            output_names.append(f"kv_cache_val_{i}")
+        return output_names
+
+    def _get_output_names_for_instance(self) -> List[str]:
+        return self.__class__.get_output_names(self.num_decoder_layers)
+
+    def _get_input_spec_for_instance(
+        self, batch_size: int = TROCR_BATCH_SIZE
+    ) -> InputSpec:
         return self.__class__.get_input_spec(
+            batch_size,
             self.decoder_attention_heads,
             self.embeddings_per_head,
             self.num_decoder_layers,

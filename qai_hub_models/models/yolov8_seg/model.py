@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 import torch
 import torch.nn as nn
 from ultralytics import YOLO as ultralytics_YOLO
@@ -74,7 +76,6 @@ class YoloV8Segmentor(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 640,
     ) -> InputSpec:
@@ -82,7 +83,11 @@ class YoloV8Segmentor(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["boxes", "scores", "masks", "class_idx", "protos"]
 
 
 def yolov8_segment_postprocess(detector_output: torch.Tensor):

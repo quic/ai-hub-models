@@ -5,6 +5,7 @@
 from typing import Callable
 
 import torch
+from PIL import Image
 from PIL.Image import fromarray
 
 from qai_hub_models.models.unet_segmentation.app import UNetSegmentationApp
@@ -61,8 +62,8 @@ def unet_demo(
     app = UNetSegmentationApp(model)
     mask = fromarray(app.predict(image))
     if not is_test:
-        display_or_save_image(image, args.output_dir, "input_image.png", "input image")
-        display_or_save_image(mask, args.output_dir, "mask.png", "mask")
+        output = Image.blend(image.convert("RGBA"), mask.convert("RGBA"), alpha=0.5)
+        display_or_save_image(output, args.output_dir, "output.png", "output")
 
 
 def main(is_test: bool = False):

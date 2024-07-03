@@ -149,7 +149,12 @@ class CompileJobSummary(JobSummary):
         path: ScorecardCompilePath
         for path in ScorecardCompilePath.all_enabled():
             for component in components:
-                for device in path.get_test_devices(model_code_gen.is_aimet):
+                path_devices_enabled = [
+                    x
+                    for x in path.get_test_devices(model_code_gen.is_aimet)
+                    if x.enabled()
+                ]
+                for device in path_devices_enabled:
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,
@@ -217,7 +222,12 @@ class ProfileJobSummary(JobSummary):
         path: ScorecardProfilePath
         for path in ScorecardProfilePath.all_enabled():
             for component in components:
-                for device in path.get_test_devices(model_code_gen.is_aimet):
+                path_devices_enabled = [
+                    x
+                    for x in path.get_test_devices(model_code_gen.is_aimet)
+                    if x.enabled()
+                ]
+                for device in path_devices_enabled:
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,

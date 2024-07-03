@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import argparse
-import glob
 import logging
 import os
 import sys
@@ -22,7 +21,6 @@ from tasks.changes import (
     get_models_with_export_file_changes,
 )
 from tasks.constants import VENV_PATH
-from tasks.github import set_github_output
 from tasks.plan import (
     ALL_TASKS,
     PUBLIC_TASKS,
@@ -31,13 +29,10 @@ from tasks.plan import (
     Plan,
     depends,
     public_task,
-    summarizer,
     task,
 )
 from tasks.release import ReleaseTask
 from tasks.task import (
-    COVERAGE_DIR,
-    TEST_RESULTS_DIR,
     ConditionalTask,
     ListTasksTask,
     NoOpTask,
@@ -50,12 +45,8 @@ from tasks.test import (
     PyTestScriptsTask,
     PyTestUtilsTask,
 )
-from tasks.util import can_support_aimet, echo, run, run_with_venv_and_get_output
+from tasks.util import can_support_aimet, echo, run
 from tasks.venv import CreateVenvTask, SyncLocalQAIHMVenvTask
-
-
-def get_coverage_reports():
-    return glob.glob(os.path.join(COVERAGE_DIR, ".coverage.*"))
 
 
 def parse_arguments():
@@ -118,19 +109,6 @@ def parse_arguments():
         "--dry-run", action="store_true", help="Print the plan, rather than running it."
     )
 
-    parser.add_argument(
-        "--defer-coverage-report",
-        action="store_true",
-        help=textwrap.dedent(
-            """\
-                Skip coverage report and keep coverage files. These files will
-                be included in subsequent runs to build_and_test.py that do not
-                defer the report. This helps produce a single report from a
-                series of separate build_and_test.py commands.
-            """
-        ),
-    )
-
     args = parser.parse_args()
     if args.legacy_task:
         args.task.extend(args.legacy_task.split(","))
@@ -143,11 +121,9 @@ class TaskLibrary:
         self,
         python_executable: str,
         venv_path: Optional[str],
-        defer_coverage_report: bool = False,
     ) -> None:
         self.python_executable = python_executable
         self.venv_path = venv_path
-        self.defer_coverage_report = defer_coverage_report
 
     @staticmethod
     def to_dot(highlight: List[str] = []) -> str:
@@ -470,52 +446,6 @@ class TaskLibrary:
             PyTestE2eHubTask(self.venv_path),
         )
 
-    @summarizer
-    def test_report_coverage(self, plan: Plan) -> str:
-        defer_coverage_report = self.defer_coverage_report
-
-        class RunCoverageTask(Task):
-            def __init__(self, venv_path: Optional[str]) -> None:
-                super().__init__("Report Coverage")
-                self.venv_path = venv_path
-
-            def does_work(self) -> bool:
-                return True
-
-            def run_task(self) -> bool:
-                coverage_reports = get_coverage_reports()
-                all_reports = '"' + '" "'.join(coverage_reports) + '"'
-                result = RunCommandsWithVenvTask(
-                    group_name=None,
-                    venv=self.venv_path,
-                    commands=[
-                        f"coverage combine {all_reports}",
-                        "coverage report",
-                        f'coverage html -d "{TEST_RESULTS_DIR}/html"',
-                    ],
-                ).run()
-                coverage = run_with_venv_and_get_output(
-                    self.venv_path,
-                    "coverage report | tail -1 | sed 's/[[:blank:]]*$//;s/.*[[:blank:]]//'",
-                )
-                set_github_output("coverage", coverage)
-                return result
-
-        class ReportCoverageTask(ConditionalTask):
-            def __init__(self, venv_path: Optional[str]) -> None:
-                super().__init__(
-                    group_name=None,
-                    condition=lambda: len(get_coverage_reports()) == 0
-                    or defer_coverage_report,
-                    true_task=NoOpTask(),
-                    false_task=RunCoverageTask(venv_path),
-                )
-
-            def does_work(self) -> bool:
-                return True
-
-        return plan.add_step("test_report_coverage", ReportCoverageTask(self.venv_path))
-
     @public_task("Release QAIHM (build repo & wheel, push repo & wheel)")
     @depends(["install_deps"])
     def release(self, plan: Plan, step_id: str = "release") -> str:
@@ -561,8 +491,7 @@ class TaskLibrary:
             ),
         )
 
-    # This taks has no depedencies and does nothing. It will still trigger
-    # summarizer, so it can be used to finalize a coverage report.
+    # This taks has no depedencies and does nothing.
     @task
     def nop(self, plan: Plan) -> str:
         return plan.add_step("nop", NoOpTask())
@@ -572,12 +501,10 @@ def plan_from_dependencies(
     main_tasks: List[str],
     python_executable: str,
     venv_path: Optional[str],
-    defer_coverage_report: bool = False,
 ) -> Plan:
     task_library = TaskLibrary(
         python_executable,
         venv_path,
-        defer_coverage_report=defer_coverage_report,
     )
     plan = Plan()
 
@@ -622,12 +549,10 @@ def plan_from_task_list(
     tasks: List[str],
     python_executable: str,
     venv_path: Optional[str],
-    defer_coverage_report: bool = False,
 ) -> Plan:
     task_library = TaskLibrary(
         python_executable,
         venv_path,
-        defer_coverage_report=defer_coverage_report,
     )
     plan = Plan()
     for task_name in tasks:
@@ -654,7 +579,6 @@ def build_and_test():
             args.task,
             python_executable,
             venv_path,
-            defer_coverage_report=args.defer_coverage_report,
         )
 
     if args.print_task_graph:

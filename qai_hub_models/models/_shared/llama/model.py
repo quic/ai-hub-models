@@ -233,7 +233,7 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         end: int = 8,
         past_key_val_heads: int = 32,
         output_name: str = "",
-    ):
+    ) -> List[str]:
         # Clipped hidden layers are named same as first part for all parts
         # Eventually, each split should have respective names.
         # layer_start, layer_end = get_hidden_layer_range_from_split(split_part=split_part, model_split_map=model_split_map)

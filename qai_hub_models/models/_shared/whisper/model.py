@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 import whisper  # type: ignore
+from qai_hub.client import Device
 
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel, TargetRuntime
@@ -133,6 +134,10 @@ class WhisperEncoderInf(BaseModel):
         """
         return dict(audio=((1, N_MELS, MELS_AUDIO_LEN), "float32"))
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["k_cache", "v_cache"]
+
     @classmethod
     def from_pretrained(cls):
         return Whisper.from_pretrained().encoder
@@ -149,6 +154,21 @@ class WhisperEncoderInf(BaseModel):
         ):
             profile_options = profile_options + " --compute_unit gpu"
         return profile_options + " --max_profiler_iterations 10"
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[Device] = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options, device
+        )
+        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+            compile_options = (
+                compile_options + " --quantize_full_type float16 --quantize_io"
+            )
+        return compile_options
 
 
 class WhisperDecoderInf(BaseModel):
@@ -324,6 +344,10 @@ class WhisperDecoderInf(BaseModel):
 
         return specs
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["logits", "k_cache", "v_cache"]
+
     def _get_input_spec_for_instance(self) -> InputSpec:
         return self.__class__.get_input_spec(
             len(self.blocks), self.attention_dim, self.num_heads
@@ -332,6 +356,21 @@ class WhisperDecoderInf(BaseModel):
     @classmethod
     def from_pretrained(cls):
         return Whisper.from_pretrained().decoder
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[Device] = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options, device
+        )
+        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+            compile_options = (
+                compile_options + " --quantize_full_type float16 --quantize_io"
+            )
+        return compile_options
 
 
 class SplitLinear(torch.nn.Module):

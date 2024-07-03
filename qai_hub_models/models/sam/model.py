@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 import torch
@@ -115,7 +115,6 @@ class SegmentAnythingEncoder(BaseModel):
     def _get_input_spec_for_instance(
         self,
         batch_size: int = 1,
-        num_channels: int = 3,
     ) -> InputSpec:
         """
         Override for model.get_input_spec() when called on instances of this class.
@@ -125,7 +124,6 @@ class SegmentAnythingEncoder(BaseModel):
         """
         return self.__class__.get_input_spec(
             batch_size,
-            num_channels,
             self.sam.image_encoder.img_size,
             self.sam.image_encoder.img_size,
         )
@@ -133,7 +131,6 @@ class SegmentAnythingEncoder(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         encoder_img_height: int = 1024,  # self.sam.image_encoder.img_size[0]
         encoder_img_width: int = 1024,  # self.sam.image_encoder.img_size[1]
     ) -> InputSpec:
@@ -143,10 +140,14 @@ class SegmentAnythingEncoder(BaseModel):
         # the model input specification upon submitting a profile job.
         return {
             "image": (
-                (batch_size, num_channels, encoder_img_height, encoder_img_width),
+                (batch_size, 3, encoder_img_height, encoder_img_width),
                 "float32",
             )
         }
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["image_embeddings"]
 
     def preprocess_input_image(self, input_image: np.ndarray):
         """Transform input image to work with SAM encoder"""
@@ -261,6 +262,10 @@ class SegmentAnythingONNXDecoder(BaseModel):
             "has_mask_input": ((1,), "float32"),
         }
         return input_spec
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["upscaled_masks", "scores", "masks"]
 
     @classmethod
     def from_pretrained(cls):

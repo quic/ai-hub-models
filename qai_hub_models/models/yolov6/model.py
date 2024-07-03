@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from importlib import reload
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -59,8 +60,9 @@ class YoloV6(BaseModel):
 
         Returns:
             If self.include_postprocessing:
-                boxes: Shape [batch, num preds, 4] where 4 == (center_x, center_y, w, h)
-                classes: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+                boxes: Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
+                scores: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
+                class_idx: Predicted class for each bounding box: Shape [batch, num_preds, 1]
 
             Otherwise:
                 detector_output: torch.Tensor
@@ -79,7 +81,6 @@ class YoloV6(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 640,
     ) -> InputSpec:
@@ -87,7 +88,16 @@ class YoloV6(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names(include_postprocessing: bool = True) -> List[str]:
+        if include_postprocessing:
+            return ["boxes", "scores", "class_idx"]
+        return ["detector_output"]
+
+    def _get_output_names_for_instance(self) -> List[str]:
+        return self.__class__.get_output_names(self.include_postprocessing)
 
 
 def _load_yolov6_source_model_from_weights(

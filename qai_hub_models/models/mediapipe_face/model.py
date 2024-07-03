@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import torch
 
@@ -254,6 +254,10 @@ class FaceDetector(BaseModel):
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["box_coords", "box_scores"]
+
 
 class FaceLandmarkDetector(BaseModel):
     def __init__(
@@ -282,3 +286,7 @@ class FaceLandmarkDetector(BaseModel):
         This can be used to submit profiling job on Qualcomm AI Hub.
         """
         return {"image": ((batch_size, 3, 192, 192), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["scores", "landmarks"]

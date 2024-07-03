@@ -181,7 +181,7 @@ class MediaPipeHandApp(MediaPipeApp):
 
         # selected landmarks for the ROI (if any)
         # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
-        # where K == number of landmark keypoints, 3 == (x, y, p)
+        # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
         batched_selected_landmarks: List[torch.Tensor | None] = []

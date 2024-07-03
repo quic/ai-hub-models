@@ -41,7 +41,7 @@ def get_qnn_inputs(compile_job: Job, sample_inputs: SampleInputsType):
 
 def is_qnn_hub_model(model: Model):
     return model.model_type in [
-        SourceModelType.QNN_BIN,
+        SourceModelType.QNN_CONTEXT_BINARY,
         SourceModelType.QNN_LIB_AARCH64_ANDROID,
         SourceModelType.QNN_LIB_X86_64_LINUX,
     ]

@@ -4,16 +4,25 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import torch
 
+from qai_hub_models.utils.base_model import BaseModel
+
 
 def _flatten_tuple(out_tuple):
-    if not isinstance(out_tuple, tuple):
+    if isinstance(out_tuple, torch.Tensor):
         return (out_tuple.detach(),)
+    elif isinstance(out_tuple, Iterable):
+        out_tuple = tuple(out_tuple)
+    else:
+        raise ValueError(
+            f"Invalid type for out_tuple: {type(out_tuple)}. "
+            "Expected torch.Tensor or Iterable."
+        )
 
     flattened_tuple = []
     for elem in out_tuple:
@@ -23,7 +32,7 @@ def _flatten_tuple(out_tuple):
 
 
 def torch_inference(
-    model: torch.nn.Module, sample_inputs: Dict[str, List[np.ndarray]]
+    model: BaseModel, sample_inputs: Dict[str, List[np.ndarray]]
 ) -> List[np.ndarray]:
     """
     Performs inference on a torch model given a set of sample inputs.

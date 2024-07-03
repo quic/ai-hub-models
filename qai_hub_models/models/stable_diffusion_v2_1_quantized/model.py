@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 from qai_hub_models.models.protocols import FromPrecompiledProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BasePrecompiledModel, CollectionModel
@@ -60,6 +62,10 @@ class ClipVITTextEncoder(BasePrecompiledModel):
     def get_input_spec() -> InputSpec:
         return {"tokens": ((1, 77), "int32")}
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["embeddings"]
+
 
 class Unet(BasePrecompiledModel):
     """
@@ -84,6 +90,10 @@ class Unet(BasePrecompiledModel):
             "text_emb": ((1, 77, 1024), "float32"),
         }
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["noise"]
+
 
 class VAEDecoder(BasePrecompiledModel):
     """
@@ -103,3 +113,7 @@ class VAEDecoder(BasePrecompiledModel):
     @staticmethod
     def get_input_spec() -> InputSpec:
         return {"latent": ((1, 4, 64, 64), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["output_image"]

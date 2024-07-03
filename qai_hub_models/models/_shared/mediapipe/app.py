@@ -240,7 +240,7 @@ class MediaPipeApp:
 
         # selected landmarks for the ROI (if any)
         # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
-        # where K == number of landmark keypoints, 3 == (x, y, p)
+        # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
         landmarks_out = self._run_landmark_detector(
@@ -300,7 +300,7 @@ class MediaPipeApp:
         # Run object detector.
         # Outputs:
         # - box_coords: <B, N, C>, where N == # of anchors & C == # of of coordinates
-        #       Layout of C is (box_cx, boc_cw, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y)
+        #       Layout of C is (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y)
         # - box_scores: <B, N>, where N == # of anchors.
         box_coords, box_scores = self.detector(box_detector_net_inputs)
         box_scores = box_scores.clamp(
@@ -471,7 +471,7 @@ class MediaPipeApp:
 
         # selected landmarks for the ROI (if any)
         # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
-        # where K == number of landmark keypoints, 3 == (x, y, p)
+        # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
         batched_selected_landmarks: List[torch.Tensor | None] = []

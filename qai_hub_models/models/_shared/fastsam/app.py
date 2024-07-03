@@ -69,9 +69,6 @@ class FastSAMApp:
         original_image = np.array(original_image)
         image_path = [image_path]
         preds = self.model(img)
-        preds = tuple(
-            (preds[0], tuple(([preds[1], preds[2], preds[3]], preds[4], preds[5])))
-        )
         p = ops.non_max_suppression(
             preds[0],
             self.confidence,
@@ -99,9 +96,6 @@ class FastSAMApp:
             p[0][critical_iou_index] = full_box
 
         results = []
-        proto = (
-            preds[1][-1] if len(preds[1]) == 3 else preds[1]
-        )  # second output is len 3 if pt, but only 1 if exported
         for i, pred in enumerate(p):
             orig_img = original_image
             img_path = image_path[0][i]
@@ -114,11 +108,11 @@ class FastSAMApp:
                 )
 
                 masks = ops.process_mask_native(
-                    proto[i], pred[:, 6:], pred[:, :4], orig_img.shape[:2]
+                    preds[1][i], pred[:, 6:], pred[:, :4], orig_img.shape[:2]
                 )  # HWC
             else:
                 masks = ops.process_mask(
-                    proto[i], pred[:, 6:], pred[:, :4], img.shape[2:], upsample=True
+                    preds[1][i], pred[:, 6:], pred[:, :4], img.shape[2:], upsample=True
                 )  # HWC
                 pred[:, :4] = ops.scale_boxes(
                     img.shape[2:], pred[:, :4], orig_img.shape

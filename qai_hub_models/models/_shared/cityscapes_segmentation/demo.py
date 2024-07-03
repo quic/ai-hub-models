@@ -16,6 +16,7 @@ from qai_hub_models.models._shared.cityscapes_segmentation.model import (
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
+    get_model_input_spec_parser,
     get_on_device_demo_parser,
     input_spec_from_cli_args,
     validate_on_device_demo_args,
@@ -40,6 +41,7 @@ def cityscapes_segmentation_demo(
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_type)
+    parser = get_model_input_spec_parser(model_type, parser)
     parser = get_on_device_demo_parser(
         parser, available_target_runtimes=[TargetRuntime.TFLITE], add_output_dir=True
     )

@@ -11,11 +11,7 @@ assignees: ''
 Please provide details relating to the issue you're hitting, if it is related to performance, accuracy or other model issues with bringing your own model to Qualcomm AI Hub, to deploy to mobile devices.
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+Please provide clear steps as to how the issue occurred. Either provide a job link or exact steps (i.e. go to xx model, scroll down and click on xx).
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.

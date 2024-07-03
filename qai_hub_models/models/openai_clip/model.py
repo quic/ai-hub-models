@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, List
 
 import torch
 import torchvision
@@ -103,6 +103,10 @@ class ClipTextEncoder(BaseModel):
             "text": ((batch_size, text_length), "int32"),
         }
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["text_features"]
+
     @classmethod
     def from_pretrained(cls):
         return Clip.from_pretrained().text_encoder
@@ -137,6 +141,7 @@ class ClipImageEncoder(BaseModel):
 
     @staticmethod
     def get_input_spec(
+        batch_size: int = 1,
         height: int = 224,
         width: int = 224,
     ) -> InputSpec:
@@ -145,8 +150,12 @@ class ClipImageEncoder(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {
-            "image": ((1, 3, height, width), "float32"),
+            "image": ((batch_size, 3, height, width), "float32"),
         }
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["image_features"]
 
     @classmethod
     def from_pretrained(cls):

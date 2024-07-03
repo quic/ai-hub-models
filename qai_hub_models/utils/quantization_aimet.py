@@ -460,11 +460,19 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         device: Optional[Device] = None,
     ) -> str:
         quantization_flags = " --quantize_io"
-        if target_runtime not in [
-            TargetRuntime.ONNX,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
-        ]:
+        if (
+            target_runtime == TargetRuntime.QNN
+            or target_runtime == TargetRuntime.TFLITE
+        ):
             quantization_flags += " --quantize_full_type int8"
+        if target_runtime == TargetRuntime.TFLITE:
+            # uint8 is the easiest I/O type for integration purposes,
+            # especially for image applications. Images are always
+            # uint8 RGB when coming from disk or a camera.
+            #
+            # Uint8 has not been thoroughly tested with other paths,
+            # so it is enabled only for TF Lite today.
+            quantization_flags += " --quantize_io_type uint8"
         return (
             super().get_hub_compile_options(  # type: ignore
                 target_runtime, other_compile_options, device

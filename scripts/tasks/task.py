@@ -2,18 +2,12 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
 import subprocess
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 from .github import end_group, start_group
 from .util import BASH_EXECUTABLE, default_parallelism, echo, have_root
-
-REPO_ROOT = Path(__file__).parent.parent.parent
-TEST_RESULTS_DIR = os.path.join(REPO_ROOT, "build", "test-results")
-COVERAGE_DIR = os.path.join(REPO_ROOT, "build", "test-coverage")
 
 
 class Task(ABC):
@@ -199,22 +193,16 @@ class PyTestTask(RunCommandsWithVenvTask):
         group_name: Optional[str],
         venv: Optional[str],
         files_or_dirs: str,
-        report_name: str,
         ignore: Optional[Union[str, List[str]]] = None,
-        omit: Optional[Union[str, List[str]]] = None,
         parallel: Optional[Union[bool, int]] = None,
         extra_args: Optional[str] = None,
         env: Optional[Dict[str, str]] = None,
-        skip_coverage: bool = False,
         raise_on_failure: bool = True,
         # Pytest returns code 5 if no tests were run. Set this to true
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
     ) -> None:
-        pytest_options = f"--name={report_name}"
-
-        if omit is not None:
-            pytest_options += f" --omit={omit}"
+        pytest_options = ""
 
         if ignore:
             if isinstance(ignore, str):
@@ -234,12 +222,10 @@ class PyTestTask(RunCommandsWithVenvTask):
         if extra_args:
             pytest_options += f" {extra_args}"
 
-        if skip_coverage:
-            pytest_options += " --no-cov"
-
         pytest_options += f" {files_or_dirs}"
 
-        command = f"{REPO_ROOT}/scripts/util/pytest_with_coverage.sh {pytest_options} "
+        default_options = "-rxXs -p no:warnings --durations-min=0.5 --durations=20"
+        command = f"pytest {default_options} {pytest_options} "
 
         super().__init__(
             group_name,

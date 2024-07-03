@@ -126,7 +126,7 @@ def export_model(
 
     # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
     channel_last_flags = (
-        " --force_channel_last_input image" + " --force_channel_last_output output_0"
+        " --force_channel_last_input image" + " --force_channel_last_output heatmaps"
         if target_runtime != TargetRuntime.ONNX
         else ""
     )
@@ -219,7 +219,7 @@ def export_model(
             inference_result
             if target_runtime == TargetRuntime.ONNX
             else transpose_channel_last_to_first(
-                "output_0", inference_result, target_runtime
+                "heatmaps", inference_result, target_runtime
             )
         )
         print_inference_metrics(inference_job, inference_result, torch_out)

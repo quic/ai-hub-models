@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 from tflite import Model
 from torch import nn
 
@@ -204,6 +206,10 @@ class SelfieSegmentation(BaseModel):
         else:
             height, width = 144, 256
         return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["mask"]
 
     def forward(self, image):
         """

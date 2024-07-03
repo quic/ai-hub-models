@@ -35,7 +35,6 @@ class PyTestUtilsTask(PyTestTask):
         super().__init__(
             "Test Utils",
             venv=venv,
-            report_name="utils-tests",
             files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/test/test_utils",
             parallel=True,
         )
@@ -50,7 +49,6 @@ class PyTestScriptsTask(PyTestTask):
         super().__init__(
             group_name="Test Scripts",
             venv=venv,
-            report_name="scripts-tests",
             files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/scripts",
             parallel=True,
         )
@@ -72,7 +70,6 @@ class PyTestE2eHubTask(CompositeTask):
                 PyTestTask(
                     group_name="E2e on Hub",
                     venv=venv,
-                    report_name="e2e-on-hub",
                     files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/test/e2e/",
                     parallel=False,
                     env=env,
@@ -160,7 +157,6 @@ class PyTestModelTask(CompositeTask):
                         PyTestTask(
                             group_name=f"Model: {model_name}",
                             venv=model_venv,
-                            report_name=f"model-{model_name}-tests",
                             files_or_dirs=model_dir,
                             parallel=False,
                             extra_args=" ".join(extras_args),
@@ -283,7 +279,6 @@ class PyTestModelsTask(CompositeTask):
                 PyTestTask(
                     group_name="Verify Compile Jobs Success",
                     venv=base_test_venv,
-                    report_name="compile-jobs-success",
                     files_or_dirs=os.path.join(
                         PY_PACKAGE_SRC_ROOT, "test", "test_async_compile_jobs.py"
                     ),

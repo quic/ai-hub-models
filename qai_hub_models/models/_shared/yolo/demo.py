@@ -16,14 +16,14 @@ from qai_hub_models.utils.args import (
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_image
-from qai_hub_models.utils.base_model import HubModel
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
 
 # Run Yolo end-to-end on a sample image.
 # The demo will display a image with the predicted bounding boxes.
 def yolo_detection_demo(
-    model_type: Type[HubModel],
+    model_type: Type[BaseModel],
     model_id: str,
     app_type: Callable[..., YoloObjectDetectionApp],
     default_image: str | CachedWebAsset,

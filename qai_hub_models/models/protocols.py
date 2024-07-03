@@ -36,7 +36,6 @@ FromPretrainedTypeVar = TypeVar("FromPretrainedTypeVar", bound="FromPretrainedPr
 FromPrecompiledTypeVar = TypeVar(
     "FromPrecompiledTypeVar", bound="FromPrecompiledProtocol"
 )
-HubModelProtocolTypeVar = TypeVar("HubModelProtocolTypeVar", bound="HubModelProtocol")
 
 
 class HubModelProtocol(Protocol):
@@ -66,6 +65,15 @@ class HubModelProtocol(Protocol):
 
         A subclass may choose to override this and fetch a batch of real input data
         from a data source.
+        """
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def get_output_names(*args, **kwargs) -> List[str]:
+        """
+        List of output names. If there are multiple outputs, the order of the names
+            should match the order of tuple returned by the model.
         """
         ...
 

@@ -10,8 +10,8 @@ import qai_hub as hub
 
 from qai_hub_models.models._shared.llama.app import ChatApp as App
 from qai_hub_models.models._shared.llama.app import (
-    HubLlamaModelPipeline,
     LlamaModelPipeline,
+    OnDeviceLlamaModelPipeline,
 )
 from qai_hub_models.models._shared.llama.model import DEFAULT_INPUT_SEQ_LEN
 from qai_hub_models.utils.args import (
@@ -149,7 +149,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             )
 
         hub_device = hub.Device(args.device)
-        prompt_processor = HubLlamaModelPipeline(
+        prompt_processor = OnDeviceLlamaModelPipeline(
             hub_model_ids[:num_splits],
             hub_device=hub_device,
             inference_options=args.inference_options,
@@ -157,7 +157,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
         )
-        token_generator = HubLlamaModelPipeline(
+        token_generator = OnDeviceLlamaModelPipeline(
             hub_model_ids[num_splits:],
             hub_device=hub_device,
             inference_options=args.inference_options,

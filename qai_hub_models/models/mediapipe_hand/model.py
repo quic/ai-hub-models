@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
 import torch
@@ -150,6 +150,10 @@ class HandDetector(BaseModel):
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["box_coords", "box_scores"]
+
 
 class HandLandmarkDetector(BaseModel):
     def __init__(
@@ -178,3 +182,7 @@ class HandLandmarkDetector(BaseModel):
         This can be used to submit profiling job on Qualcomm AI Hub.
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["scores", "lr", "landmarks"]

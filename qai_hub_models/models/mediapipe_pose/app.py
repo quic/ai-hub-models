@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List
 
 import torch
 
@@ -52,21 +52,10 @@ class MediaPipePoseApp(MediaPipeApp):
 
             See parent initializer for further parameter documentation.
         """
-
-        def _landmark_detector_ignore_third_output(
-            x: torch.Tensor,
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
-            """
-            The Last landmark detector output ("mask") is not used by the demo application.
-            Wrap the detector in a function that discards the mask.
-            """
-            out0, out1, _ = model.pose_landmark_detector(x)
-            return out0, out1
-
         super().__init__(
             model.pose_detector,
             model.pose_detector.anchors,
-            _landmark_detector_ignore_third_output,
+            model.pose_landmark_detector,
             model.pose_detector.get_input_spec()["image"][0][-2:],
             model.pose_landmark_detector.get_input_spec()["image"][0][-2:],
             POSE_KEYPOINT_INDEX_START,

@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import torch
 
@@ -52,6 +52,10 @@ class FacebookDenoiser(BaseModel):
         used to submit profiling job on Qualcomm AI Hub.
         """
         return {"audio": ((batch_size, 1, sequence_length), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["output_audio"]
 
     @classmethod
     def from_pretrained(

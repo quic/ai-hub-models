@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
+from typing import List, Tuple
 
 import torch
 import torch.nn as nn
@@ -38,13 +38,12 @@ class DETR(BaseModel):
             mask: This represents the padding mask. True if padding was applied on that pixel else False.
 
         Returns:
-            predictions: Tuple of tensors (logits and coordinates)
-               Shape of logit tensor: [1, 100 (number of predictions), 92 (number of classes)]
-               Shape of coordinates: [1, 100, 4]
+            logits: [1, 100 (number of predictions), 92 (number of classes)]
+            boxes: [1, 100, 4], 4 == (center_x, center_y, w, h)
 
         """
         predictions = self.model(image, return_dict=False)
-        return predictions
+        return predictions[0], predictions[1]
 
     @staticmethod
     def get_input_spec(
@@ -60,3 +59,7 @@ class DETR(BaseModel):
         return {
             "image": ((batch_size, num_channels, height, width), "float32"),
         }
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["logits", "boxes"]

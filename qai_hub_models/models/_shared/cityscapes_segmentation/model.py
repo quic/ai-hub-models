@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
+from typing import List
 
 import torch
 from torch import nn
@@ -73,8 +74,10 @@ class CityscapesSegmentor(BaseModel):
                    Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 
         Returns:
-            A [1, 1000] where each value is the log-likelihood of
-            the image belonging to the corresponding Imagenet class.
+            Raw logit probabilities as a tensor of shape
+            [1, num_classes, modified_height, modified_width],
+            where the modified height and width will be some factor smaller
+            than the input image.
         """
         return self.model(image)
 
@@ -90,3 +93,7 @@ class CityscapesSegmentor(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a compile job.
         return {"image": ((batch_size, num_channels, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["mask"]

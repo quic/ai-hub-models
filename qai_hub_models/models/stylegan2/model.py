@@ -85,7 +85,7 @@ class StyleGAN2(BaseModel):
 
     @staticmethod
     def get_input_spec(
-        output_size: int, num_classes: int, batch_size: int = 1
+        batch_size: int = 1, output_size: int = 512, num_classes: int = 0
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
@@ -96,9 +96,13 @@ class StyleGAN2(BaseModel):
             inputs["classes"] = ((batch_size, num_classes), "float32")
         return inputs
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["output_image"]
+
     def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
         return self.__class__.get_input_spec(
-            self.output_size, self.num_classes, batch_size
+            batch_size, self.output_size, self.num_classes
         )
 
     def sample_inputs(

@@ -45,6 +45,8 @@ class HubModel(HubModelProtocol):
         # then calling `get_input_spec` on the instance will redirect to it.
         if self._get_input_spec_for_instance.__module__ != __name__:
             self.get_input_spec = self._get_input_spec_for_instance
+        if self._get_output_names_for_instance.__module__ != __name__:
+            self.get_output_names = self._get_output_names_for_instance
 
     def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
         """
@@ -55,6 +57,16 @@ class HubModel(HubModelProtocol):
 
         If this function is implemented by a child class, the initializer for BaseModel
         will automatically override get_input_spec with this function
+        when the class is instantiated.
+        """
+        raise NotImplementedError
+
+    def _get_output_names_for_instance(self, *args, **kwargs) -> List[str]:
+        """
+        Get the output names for an instance of this model.
+
+        If this function is implemented by a child class, the initializer for BaseModel
+        will automatically override get_output_names with this function
         when the class is instantiated.
         """
         raise NotImplementedError
@@ -214,6 +226,7 @@ class BaseModel(
         compile_options = (
             f"--target_runtime {target_runtime_flag}" if target_runtime_flag else ""
         )
+        compile_options += f" --output_names {','.join(self.get_output_names())}"
 
         if other_compile_options != "":
             return compile_options + " " + other_compile_options

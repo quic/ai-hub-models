@@ -18,21 +18,21 @@ from qai_hub_models.models._shared.stable_diffusion.app import StableDiffusionAp
 from qai_hub_models.utils.args import add_output_dir_arg
 from qai_hub_models.utils.base_model import BasePrecompiledModel
 from qai_hub_models.utils.display import display_or_save_image
-from qai_hub_models.utils.inference import HubModel, get_uploaded_precompiled_model
+from qai_hub_models.utils.inference import OnDeviceModel, get_uploaded_precompiled_model
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 DEFAULT_DEMO_PROMPT = "spectacular view of northern lights from Alaska"
 DEFAULT_DEVICE_NAME = "Samsung Galaxy S23 Ultra"
 
 
-def _get_hub_model(
+def _get_on_device_model(
     model_id: str,
     model_asset_version: str,
     input_model: BasePrecompiledModel,
     model_name: str,
     ignore_cached_model: bool = False,
     device_name=DEFAULT_DEVICE_NAME,
-) -> HubModel:
+) -> OnDeviceModel:
     if not can_access_qualcomm_ai_hub():
         raise RuntimeError(
             "Stable-diffusion on-device demo requires access to QAI-Hub.\n"
@@ -47,7 +47,7 @@ def _get_hub_model(
         ignore_cached_model=ignore_cached_model,
     )
     inputs = list(input_model.get_input_spec().keys())
-    return HubModel(uploaded_model, inputs, hub.Device(name=device_name))
+    return OnDeviceModel(uploaded_model, inputs, hub.Device(name=device_name))
 
 
 # Run Stable Diffuison end-to-end on a given prompt. The demo will output an
@@ -128,12 +128,12 @@ def stable_diffusion_demo(
     print(f"Downloading model assets\n{'-' * 35}")
     # Load target models
 
-    # Create three HubModel instances to prepare for on-device inference.
+    # Create three OnDeviceModel instances to prepare for on-device inference.
     # This is similar to initializing PyTorch model to call forward method later.
     # Instead of forward, we later submit inference_jobs on QAI-Hub for
     # on-device evaluation.
     print(f"Uploading model assets on QAI-Hub\n{'-' * 35}")
-    hub_text_encoder = _get_hub_model(
+    hub_text_encoder = _get_on_device_model(
         model_id,
         model_asset_version,
         text_encoder,
@@ -141,7 +141,7 @@ def stable_diffusion_demo(
         args.ignore_cached_model,
         args.device_name,
     )
-    hub_unet = _get_hub_model(
+    hub_unet = _get_on_device_model(
         model_id,
         model_asset_version,
         unet,
@@ -149,7 +149,7 @@ def stable_diffusion_demo(
         args.ignore_cached_model,
         args.device_name,
     )
-    hub_vae_decoder = _get_hub_model(
+    hub_vae_decoder = _get_on_device_model(
         model_id,
         model_asset_version,
         vae_decoder,

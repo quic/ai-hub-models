@@ -14,7 +14,10 @@ from tabulate import tabulate
 
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
-from qai_hub_models.utils.config_loaders import QAIHMModelPerf, bytes_to_mb
+from qai_hub_models.utils.config_loaders import (
+    ModelRuntimePerformanceDetails,
+    bytes_to_mb,
+)
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
 _INFO_DASH = "-" * 60
@@ -103,7 +106,7 @@ def print_profile_metrics_from_job(
         raise NotImplementedError()
 
     print_profile_metrics(
-        QAIHMModelPerf.ModelRuntimePerformanceDetails(
+        ModelRuntimePerformanceDetails(
             profile_job.model.name,
             profile_job.device.name,
             profile_job.device.os,
@@ -119,7 +122,7 @@ def print_profile_metrics_from_job(
 
 
 def print_profile_metrics(
-    details: QAIHMModelPerf.ModelRuntimePerformanceDetails,
+    details: ModelRuntimePerformanceDetails,
 ):
     inf_time = details.inference_time_ms
     peak_memory_mb = f"[{bytes_to_mb(details.peak_memory_bytes[0])}, {bytes_to_mb(details.peak_memory_bytes[1])}]"

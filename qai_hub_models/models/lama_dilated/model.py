@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 from importlib import reload
+from typing import List
 
 import torch
 from omegaconf import OmegaConf
@@ -78,7 +79,6 @@ class LamaDilated(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 512,
         width: int = 512,
     ) -> InputSpec:
@@ -87,9 +87,13 @@ class LamaDilated(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {
-            "image": ((batch_size, num_channels, height, width), "float32"),
+            "image": ((batch_size, 3, height, width), "float32"),
             "mask": ((batch_size, 1, height, width), "float32"),
         }
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["painted_image"]
 
 
 def _get_weightsfile_from_name(weights_name: str):

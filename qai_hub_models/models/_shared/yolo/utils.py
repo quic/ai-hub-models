@@ -82,7 +82,7 @@ def detect_postprocess(detector_output: torch.Tensor):
         scores: torch.Tensor
             class scores multiplied by confidence: Shape is [batch, num_preds]
         class_idx: torch.tensor
-            Shape is [batch, num_preds, 1] where the last dim is the index of the most probable class of the prediction.
+            Predicted class for each bounding box: Shape [batch, num_preds, 1]
     """
     # Break output into parts
     boxes = detector_output[:, :, :4]

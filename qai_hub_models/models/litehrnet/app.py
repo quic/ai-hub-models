@@ -77,7 +77,7 @@ class LiteHRNetApp:
         proc_inputs_ = proc_inputs["inputs"][0]
 
         # run inference
-        input = proc_inputs_.to(torch.float32)
+        input = proc_inputs_.to(torch.float32).unsqueeze(0)
         predictions, _, heatmaps = self.model(input)
 
         # get the bounding box center from the preprocessing

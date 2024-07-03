@@ -16,7 +16,7 @@ from qai_hub_models.models._shared.llama.model import (
     get_past_keyval_with_shift,
 )
 from qai_hub_models.utils.base_model import CollectionModel
-from qai_hub_models.utils.inference import ExecutableModelProtocol, HubModel
+from qai_hub_models.utils.inference import ExecutableModelProtocol, OnDeviceModel
 from qai_hub_models.utils.model_adapters import suppress_warnings
 
 
@@ -143,9 +143,9 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
         pass
 
 
-class HubLlamaModelPipeline(LlamaModelPipelineBase):
+class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
     """
-    Pipeline wrapper for HubModels
+    Pipeline wrapper for OnDeviceModels
     """
 
     def __init__(
@@ -166,7 +166,7 @@ class HubLlamaModelPipeline(LlamaModelPipelineBase):
         )
         self.models = []
         for i, model_id in enumerate(hub_model_ids):
-            hub_model = HubModel(
+            hub_model = OnDeviceModel(
                 hub.get_model(model_id),
                 input_names=get_model_class(
                     i + 1, is_token_generator=is_token_generator

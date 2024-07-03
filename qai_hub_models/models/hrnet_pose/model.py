@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import sys
 from importlib import reload
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -85,7 +86,12 @@ class HRNetPose(BaseModel):
 
     @staticmethod
     def get_input_spec(
+        batch_size: int = 1,
         height: int = 256,
         width: int = 192,
     ) -> InputSpec:
-        return {"image": ((1, 3, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["heatmaps"]

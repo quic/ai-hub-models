@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import math
-from typing import Tuple
+from typing import List, Tuple
 
 import torch
 from transformers import WavLMModel
@@ -60,10 +60,9 @@ class HuggingFaceWavLMBasePlus(BaseModel):
                    20 seconds of audio sampled at 16kHz
 
         Returns:
-            feature_vec: a tuple of tensors
-                         1x999x768
-                         1x999x512
-                        features detected in the audio stream
+            Tuple of tensors of features detected in the audio stream:
+                feature_vector_1: Shape (1, 249, 768)
+                feature_vector_2: Shape (1, 249, 512)
         """
         return self.model(input)
 
@@ -75,6 +74,10 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {"input": ((batch_size, sample_length), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["feature_vector_1", "feature_vector_2"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""

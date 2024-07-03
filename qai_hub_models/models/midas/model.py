@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import sys
+from typing import List
 
 import torch
 
@@ -104,12 +105,16 @@ class Midas(BaseModel):
 
     @staticmethod
     def get_input_spec(
-        height: int = DEFAULT_HEIGHT, width: int = DEFAULT_WIDTH
+        batch_size: int = 1, height: int = DEFAULT_HEIGHT, width: int = DEFAULT_WIDTH
     ) -> InputSpec:
-        return {"image": ((1, 3, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
 
-    def _get_input_spec_for_instance(self) -> InputSpec:
-        return self.__class__.get_input_spec(self.height, self.width)
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["depth_estimates"]
+
+    def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
+        return self.__class__.get_input_spec(batch_size, self.height, self.width)
 
     def forward(self, image):
         """

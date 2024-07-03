@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import torch
 
@@ -16,12 +16,8 @@ MODEL_ID = __name__.split(".")[-2]
 MODEL_REPO = "milesial/Pytorch-UNet"
 MODEL_TYPE = "unet_carvana"
 MODEL_ASSET_VERSION = 1
-DEFAULT_WEIGHTS = CachedWebModelAsset(
-    "https://github.com/milesial/Pytorch-UNet/releases/download/v3.0/unet_carvana_scale1.0_epoch2.pth",
-    MODEL_ID,
-    MODEL_ASSET_VERSION,
-    "unet_carvana_scale1.0_epoch2.pth",
-)
+DEFAULT_WEIGHTS = "unet_carvana_scale1.0_epoch2.pth"
+# from https://github.com/milesial/Pytorch-UNet/releases/download/v3.0/unet_carvana_scale1.0_epoch2.pth
 
 
 class UNet(BaseModel):
@@ -30,12 +26,15 @@ class UNet(BaseModel):
         self.net = net
 
     @classmethod
-    def from_pretrained(cls, ckpt_url: Optional[str] = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights: Optional[str] = DEFAULT_WEIGHTS):
         net = torch.hub.load(
             MODEL_REPO, MODEL_TYPE, pretrained=False, scale=1.0, trust_repo=True
         )
-        if ckpt_url is not None:
-            state_dict = load_torch(ckpt_url)
+        if weights is not None:
+            checkpoint_path = CachedWebModelAsset.from_asset_store(
+                MODEL_ID, MODEL_ASSET_VERSION, weights
+            ).fetch()
+            state_dict = load_torch(checkpoint_path)
             net.load_state_dict(state_dict)
         return cls(net)
 
@@ -63,7 +62,6 @@ class UNet(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 1280,
     ) -> InputSpec:
@@ -71,4 +69,8 @@ class UNet(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["mask"]

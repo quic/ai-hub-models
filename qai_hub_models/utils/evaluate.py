@@ -28,7 +28,7 @@ from qai_hub_models.utils.asset_loaders import (
     qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
-from qai_hub_models.utils.inference import AsyncHubModel, make_hub_dataset_entries
+from qai_hub_models.utils.inference import AsyncOnDeviceModel, make_hub_dataset_entries
 from qai_hub_models.utils.qai_hub_helpers import transpose_channel_last_to_first
 
 CACHE_SPLIT_SIZE_FILE = "current_split_size.txt"
@@ -336,7 +336,9 @@ def evaluate_on_dataset(
 
     source_torch_dataset = get_dataset_from_name(dataset_name)
     input_names = list(torch_model.get_input_spec().keys())
-    hub_model = AsyncHubModel(compiled_model, input_names, hub_device, profile_options)
+    on_device_model = AsyncOnDeviceModel(
+        compiled_model, input_names, hub_device, profile_options
+    )
 
     torch_dataset: Dataset
     if use_cache:
@@ -344,11 +346,11 @@ def evaluate_on_dataset(
             source_torch_dataset,
             split_size,
             seed,
-            hub_model.input_names,
-            hub_model.channel_last_input,
+            on_device_model.input_names,
+            on_device_model.channel_last_input,
         )
         torch_dataset = HubDataset(
-            dataset_name, num_samples, hub_model.channel_last_input
+            dataset_name, num_samples, on_device_model.channel_last_input
         )
     else:
         torch_dataset = sample_dataset(source_torch_dataset, num_samples, seed)
@@ -364,9 +366,9 @@ def evaluate_on_dataset(
 
         if isinstance(torch_dataset, HubDataset):
             hub_dataset = hub.get_dataset(torch_dataset.input_ids[i])
-            on_device_results.append(hub_model(hub_dataset))
+            on_device_results.append(on_device_model(hub_dataset))
         else:
-            on_device_results.append(hub_model(model_inputs.split(1, dim=0)))
+            on_device_results.append(on_device_model(model_inputs.split(1, dim=0)))
 
         for model_input, ground_truth in zip(model_inputs, ground_truth_values):
             torch_output = torch_model(model_input.unsqueeze(0))

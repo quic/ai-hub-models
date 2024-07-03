@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from typing import List
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -65,3 +67,7 @@ class SuperResolutionModel(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {"image": ((batch_size, num_channels, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["upscaled_image"]

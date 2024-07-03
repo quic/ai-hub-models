@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import List
 
 import torch
 
@@ -143,7 +144,6 @@ class YoloNAS(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 640,
     ) -> InputSpec:
@@ -151,7 +151,17 @@ class YoloNAS(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names(include_postprocessing: bool = True) -> List[str]:
+        output_names = ["boxes", "scores"]
+        if include_postprocessing:
+            output_names.append("class_idx")
+        return output_names
+
+    def _get_output_names_for_instance(self) -> List[str]:
+        return self.__class__.get_output_names(self.include_postprocessing)
 
     def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         if input_spec is not None and input_spec != self.get_input_spec():

@@ -32,6 +32,7 @@ from qai_hub_models.utils.printing import (
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
+    transpose_channel_last_to_first,
 )
 
 
@@ -117,9 +118,16 @@ def export_model(
     # Trace the model
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
+    # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
+    channel_last_flags = (
+        " --force_channel_last_output upscaled_image"
+        if target_runtime != TargetRuntime.ONNX
+        else ""
+    )
+
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options, hub_device
+        target_runtime, compile_options + channel_last_flags, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -190,6 +198,14 @@ def export_model(
         torch_out = torch_inference(model, sample_inputs)
         assert inference_job is not None and inference_job.wait().success
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
+        # Convert outputs from channel last to channel first
+        inference_result = (
+            inference_result
+            if target_runtime == TargetRuntime.ONNX
+            else transpose_channel_last_to_first(
+                "upscaled_image", inference_result, target_runtime
+            )
+        )
         print_inference_metrics(inference_job, inference_result, torch_out)
 
     if not skip_summary:

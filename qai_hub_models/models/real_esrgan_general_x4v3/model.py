@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import List
 
 import torch
 
@@ -67,7 +68,6 @@ class Real_ESRGAN_General_x4v3(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 128,
         width: int = 128,
     ) -> InputSpec:
@@ -75,7 +75,11 @@ class Real_ESRGAN_General_x4v3(BaseModel):
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["upscaled_image"]
 
 
 def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):

@@ -103,6 +103,10 @@ class ImagenetClassifier(BaseModel):
         """
         return {"image_tensor": ((1, 3, IMAGENET_DIM, IMAGENET_DIM), "float32")}
 
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["class_logits"]
+
     @classmethod
     def from_pretrained(
         cls,

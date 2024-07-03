@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
+from typing import List, Tuple
 
 import torch
 from mmpose.apis import MMPoseInferencer
@@ -58,9 +58,8 @@ class LiteHRNet(BaseModel):
                       of each joint in the image. The keypoints and scores are derived from this
         """
         # Preprocess
-        x = image[[2, 1, 0], ...]
+        x = image[:, [2, 1, 0], ...]  # RGB -> BGR
         x = (x - self.pre_processor.mean) / self.pre_processor.std
-        x = torch.unsqueeze(x, 0)
 
         # Model prediction
         heatmaps = self.model._forward(x)
@@ -82,7 +81,7 @@ class LiteHRNet(BaseModel):
 
     @staticmethod
     def get_input_spec(
-        num_channels: int = 3,
+        batch_size: int = 1,
         height: int = 256,
         width: int = 192,
     ) -> InputSpec:
@@ -90,4 +89,8 @@ class LiteHRNet(BaseModel):
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-        return {"image": ((num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["keypoints", "scores", "heatmaps"]

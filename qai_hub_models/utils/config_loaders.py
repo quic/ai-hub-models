@@ -4,11 +4,24 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import dataclasses
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_type_hints,
+)
 
 import requests
 from qai_hub.util.session import create_session
@@ -232,18 +245,19 @@ def bytes_to_mb(num_bytes: int) -> int:
     return round(num_bytes / (1 << 20))
 
 
+@dataclass
+class ModelRuntimePerformanceDetails:
+    model_name: str
+    device_name: str
+    device_os: str
+    runtime: TargetRuntime
+    inference_time_ms: int
+    peak_memory_bytes: Tuple[int, int]  # min, max
+    compute_unit_counts: Dict[str, int]
+
+
 class QAIHMModelPerf:
     """Class to read the perf.yaml and parse it for displaying it on HuggingFace."""
-
-    @dataclass
-    class ModelRuntimePerformanceDetails:
-        model_name: str
-        device_name: str
-        device_os: str
-        runtime: TargetRuntime
-        inference_time_ms: int
-        peak_memory_bytes: Tuple[int, int]  # min, max
-        compute_unit_counts: Dict[str, int]
 
     def __init__(self, perf_yaml_path, model_name):
         self.model_name = model_name
@@ -423,9 +437,7 @@ class QAIHMModelPerf:
 
         # Model -> Performance Details
         # None == Test did not run.
-        perf_details: Dict[
-            str, QAIHMModelPerf.ModelRuntimePerformanceDetails | None
-        ] = {}
+        perf_details: Dict[str, ModelRuntimePerformanceDetails | None] = {}
 
         for model in self.perf_details["models"]:
             name = model["name"]
@@ -462,7 +474,7 @@ class QAIHMModelPerf:
                         if count > 0:
                             compute_unit_counts[layer_name[-3:].upper()] = count
 
-                perf_details[name] = QAIHMModelPerf.ModelRuntimePerformanceDetails(
+                perf_details[name] = ModelRuntimePerformanceDetails(
                     model_name=model,
                     device_name=device_name,
                     device_os=metric_device_os,
@@ -478,58 +490,165 @@ class QAIHMModelPerf:
         return perf_details
 
 
-class QAIHMModelCodeGen:
-    def __init__(
-        self,
-        is_aimet: bool,
-        has_on_target_demo: bool,
-        qnn_export_failure_reason: str,
-        tflite_export_failure_reason: str,
-        onnx_export_failure_reason: str,
-        check_trace: bool,
-        channel_last_input: List[str],
-        channel_last_output: List[str],
-        outputs_to_skip_validation: List[str],
-        export_test_model_kwargs: Dict[str, str],
-        components: Dict[str, Any],
-        default_components: List[str],
-        skip_tests: bool,
-        is_precompiled: bool,
-        no_assets: bool,
-        skip_export: bool,
-        global_requirements_incompatible: bool,
-        torchscript_opt: List[str],
-        inference_metrics: str,
-        additional_readme_section: str,
-        skip_example_usage: bool,
-        eval_datasets: List[str],
-    ) -> None:
-        self.is_aimet = is_aimet
-        self.has_on_target_demo = has_on_target_demo
-        self.qnn_export_failure_reason = qnn_export_failure_reason
-        self.tflite_export_failure_reason = tflite_export_failure_reason
-        self.onnx_export_failure_reason = onnx_export_failure_reason
-        self.check_trace = check_trace
-        self.channel_last_input = channel_last_input
-        self.channel_last_output = channel_last_output
-        self.outputs_to_skip_validation = outputs_to_skip_validation
-        self.export_test_model_kwargs = export_test_model_kwargs
-        self.components = components
-        self.default_components = default_components
-        self.skip_tests = skip_tests
-        self.is_precompiled = is_precompiled
-        self.no_assets = no_assets
-        self.global_requirements_incompatible = global_requirements_incompatible
-        self.torchscript_opt = torchscript_opt
-        self.inference_metrics = inference_metrics
-        self.additional_readme_section = additional_readme_section
-        self.skip_export = skip_export
-        self.skip_example_usage = skip_example_usage
-        self.eval_datasets = eval_datasets
+def _get_origin(input_type: Type) -> Type:
+    """
+    For nested types like List[str] or Union[str, int], this function will
+        return the "parent" type like List or Union.
 
-    def validate(self) -> Tuple[bool, Optional[str]]:
-        """Returns false with a reason if the info spec for this model is not valid."""
-        return True, None
+    If the input type is not a nested type, the function returns the input_type.
+    """
+    return getattr(input_type, "__origin__", input_type)
+
+
+def _extract_optional_type(input_type: Type) -> Type:
+    """
+    Given an optional type as input, returns the inner type that is wrapped.
+
+    For example, if input type is Optional[int], the function returns int.
+    """
+    assert (
+        _get_origin(input_type) == Union
+    ), "Input type must be an instance of `Optional`."
+    union_args = get_args(input_type)
+    assert len(union_args) == 2 and issubclass(
+        union_args[1], type(None)
+    ), "Input type must be an instance of `Optional`."
+    return union_args[0]
+
+
+def _constructor_from_type(input_type: Type) -> Union[Type, Callable]:
+    """
+    Given a type, return the appropriate constructor for that type.
+
+    For primitive types like str and int, the type and constructor are the same object.
+
+    For types like List, the constructor is list.
+    """
+    input_type = _get_origin(input_type)
+    if input_type == List:
+        return list
+    if input_type == Dict:
+        return dict
+    return input_type
+
+
+@dataclass
+class BaseDataClass:
+    @classmethod
+    def get_schema(cls) -> Schema:
+        """Derive the Schema from the fields set on the dataclass."""
+        schema_dict = {}
+        field_datatypes = get_type_hints(cls)
+        for field in fields(cls):
+            field_type = field_datatypes[field.name]
+            if _get_origin(field_type) == Union:
+                field_type = _extract_optional_type(field_type)
+                assert (
+                    field.default != dataclasses.MISSING
+                ), "Optional fields must have a default set."
+            if field.default != dataclasses.MISSING:
+                field_key = OptionalSchema(field.name, default=field.default)
+            else:
+                field_key = field.name
+            schema_dict[field_key] = _constructor_from_type(field_type)
+        return Schema(And(schema_dict))
+
+    @classmethod
+    def from_dict(
+        cls: Type[BaseDataClassTypeVar], val_dict: Dict[str, Any]
+    ) -> BaseDataClassTypeVar:
+        kwargs = {field.name: val_dict[field.name] for field in fields(cls)}
+        return cls(**kwargs)
+
+
+BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
+
+
+@dataclass
+class QAIHMModelCodeGen(BaseDataClass):
+    # Whether the model is quantized with aimet.
+    is_aimet: bool = False
+
+    # Whether the model's demo supports running on device with the `--on-device` flag.
+    has_on_target_demo: bool = False
+
+    # If the model doesn't work on qnn, this should explain why,
+    # ideally with a reference to an internal issue.
+    qnn_export_failure_reason: str = ""
+
+    # If the model doesn't work on tflite, this should explain why,
+    # ideally with a reference to an internal issue.
+    tflite_export_failure_reason: str = ""
+
+    # If the model doesn't work on onnx, this should explain why,
+    # ideally with a reference to an internal issue.
+    onnx_export_failure_reason: str = ""
+
+    # Sets the `check_trace` argument on `torch.jit.trace`.
+    check_trace: bool = True
+
+    # A list of input names to transpose to channel last format for perf reasons.
+    channel_last_input: Optional[List[str]] = None
+
+    # A list of output names to transpose to channel last format for perf reasons.
+    channel_last_output: Optional[List[str]] = None
+
+    # Some model outputs have low PSNR when in practice the numerical accuracy is fine.
+    # This can happen when the model outputs many low confidence values that get
+    # filtered out in post-processing.
+    # Omit printing PSNR in `export.py` for these to avoid confusion.
+    outputs_to_skip_validation: Optional[List[str]] = None
+
+    # Additional arguments to initialize the model when unit testing export.
+    # This is commonly used to test a smaller variant in the unit test.
+    export_test_model_kwargs: Optional[Dict[str, str]] = None
+
+    # Some models are comprised of submodels that should be compiled separately.
+    # For example, this is used when there is an encoder/decoder pattern.
+    # This is a dict from component name to a python expression that can be evaluated
+    # to produce the submodel. The expression can assume the parent model has been
+    # initialized and assigned to the variable `model`.
+    components: Optional[Dict[str, Any]] = None
+
+    # If components is set, this field can specify a subset of components to run
+    # by default when invoking `export.py`. If unset, all components are run by default.
+    default_components: Optional[List[str]] = None
+
+    # If set, skips generating `test_generated.py`, which is used for unit-testing
+    # `export.py` as well as running the weekly scorecard.
+    skip_tests: bool = False
+
+    # Whether the model uses the pre-compiled pattern instead of the
+    # standard pre-trained pattern.
+    is_precompiled: bool = False
+
+    # If set, disables uploading compiled assets to HuggingFace
+    no_assets: bool = False
+
+    # If set, disables generating `export.py`.
+    skip_export: bool = False
+
+    # When possible, package versions in a model's specific `requirements.txt`
+    # should match the versions in `qai_hub_models/global_requirements.txt`.
+    # When this is not possible, set this field to indicate an inconsistency.
+    global_requirements_incompatible: bool = False
+
+    # A list of optimizations from `torch.utils.mobile_optimizer` that will
+    # speed up the conversion to torchscript.
+    torchscript_opt: Optional[List[str]] = None
+
+    # A comma separated list of metrics to print in the inference summary of `export.py`.
+    inference_metrics: str = "psnr"
+
+    # Additional details that can be set on the model's readme.
+    additional_readme_section: str = ""
+
+    # If set, omits the "Example Usage" section from the HuggingFace readme.
+    skip_example_usage: bool = False
+
+    # If set, generates an `evaluate.py` file which can be used to evaluate the model
+    # on a full dataset. Datasets specified here must be chosen from `qai_hub_models/datasets`.
+    eval_datasets: Optional[List[str]] = None
 
     @classmethod
     def from_model(cls: Type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
@@ -544,129 +663,113 @@ class QAIHMModelCodeGen:
     ) -> QAIHMModelCodeGen:
         # Load CFG and params
         code_gen_config = QAIHMModelCodeGen.load_code_gen_yaml(code_gen_path)
-        return cls(
-            code_gen_config["is_aimet"],
-            code_gen_config["has_on_target_demo"],
-            code_gen_config["qnn_export_failure_reason"],
-            code_gen_config["tflite_export_failure_reason"],
-            code_gen_config["onnx_export_failure_reason"],
-            code_gen_config["check_trace"],
-            code_gen_config["channel_last_input"],
-            code_gen_config["channel_last_output"],
-            code_gen_config["outputs_to_skip_validation"],
-            code_gen_config["export_test_model_kwargs"],
-            code_gen_config["components"],
-            code_gen_config["default_components"],
-            code_gen_config["skip_tests"],
-            code_gen_config["is_precompiled"],
-            code_gen_config["no_assets"],
-            code_gen_config["global_requirements_incompatible"],
-            code_gen_config["torchscript_opt"],
-            code_gen_config["inference_metrics"],
-            code_gen_config["additional_readme_section"],
-            code_gen_config["skip_export"],
-            code_gen_config["skip_example_usage"],
-            code_gen_config["eval_datasets"],
-        )
-
-    # Schema for code-gen.yaml
-    CODE_GEN_YAML_SCHEMA = Schema(
-        And(
-            {
-                OptionalSchema("has_components", default=""): str,
-                OptionalSchema("is_aimet", default=False): bool,
-                OptionalSchema("has_on_target_demo", default=False): bool,
-                OptionalSchema("qnn_export_failure_reason", default=""): str,
-                OptionalSchema("tflite_export_failure_reason", default=""): str,
-                OptionalSchema("onnx_export_failure_reason", default=""): str,
-                OptionalSchema("check_trace", default=True): bool,
-                OptionalSchema("channel_last_input", default=[]): list,
-                OptionalSchema("channel_last_output", default=[]): list,
-                OptionalSchema("outputs_to_skip_validation", default=[]): list,
-                OptionalSchema("export_test_model_kwargs", default={}): dict,
-                OptionalSchema("components", default={}): dict,
-                OptionalSchema("default_components", default=[]): list,
-                OptionalSchema("skip_tests", default=False): bool,
-                OptionalSchema("is_precompiled", default=False): bool,
-                OptionalSchema("no_assets", default=False): bool,
-                OptionalSchema("global_requirements_incompatible", default=False): bool,
-                OptionalSchema("torchscript_opt", default=[]): list,
-                OptionalSchema("inference_metrics", default="psnr"): str,
-                OptionalSchema("additional_readme_section", default=""): str,
-                OptionalSchema("skip_export", default=False): bool,
-                OptionalSchema("skip_example_usage", default=False): bool,
-                OptionalSchema("eval_datasets", default=[]): list,
-            }
-        )
-    )
+        return cls.from_dict(code_gen_config)
 
     @staticmethod
-    def load_code_gen_yaml(path: str | Path | None = None):
+    def load_code_gen_yaml(path: str | Path | None = None) -> Dict[str, Any]:
         if not path or not os.path.exists(path):
-            return QAIHMModelCodeGen.CODE_GEN_YAML_SCHEMA.validate({})  # Default Schema
+            return QAIHMModelCodeGen.get_schema().validate({})  # Default Schema
         data = load_yaml(path)
         try:
             # Validate high level-schema
-            data = QAIHMModelCodeGen.CODE_GEN_YAML_SCHEMA.validate(data)
+            data = QAIHMModelCodeGen.get_schema().validate(data)
         except SchemaError as e:
             assert 0, f"{e.code} in {path}"
         return data
 
 
-class QAIHMModelInfo:
-    def __init__(
-        self,
-        name: str,
-        id: str,
-        status: MODEL_STATUS,
-        status_reason: str | None,
-        headline: str,
-        domain: MODEL_DOMAIN,
-        description: str,
-        use_case: MODEL_USE_CASE,
-        tags: List[MODEL_TAG],
-        research_paper: str,
-        research_paper_title: str,
-        license: str,
-        deploy_license: str,
-        source_repo: str,
-        applicable_scenarios: List[str],
-        related_models: List[str],
-        form_factors: List[FORM_FACTOR],
-        has_static_banner: bool,
-        has_animated_banner: bool,
-        code_gen_config: QAIHMModelCodeGen,
-        license_type: str,
-        deploy_license_type: str,
-        dataset: List[str],
-        labels_file: str | None,
-        technical_details: Dict[str, str],
-    ) -> None:
-        self.name = name
-        self.id = id
-        self.status = status
-        self.status_reason = status_reason
-        self.headline = headline
-        self.domain = domain
-        self.description = description
-        self.use_case = use_case
-        self.tags = tags
-        self.research_paper = research_paper
-        self.research_paper_title = research_paper_title
-        self.license = license
-        self.deploy_license = deploy_license
-        self.license_type = license_type
-        self.deploy_license_type = deploy_license_type
-        self.dataset = dataset
-        self.labels_file = labels_file
-        self.source_repo = source_repo
-        self.applicable_scenarios = applicable_scenarios
-        self.related_models = related_models
-        self.form_factors = form_factors
-        self.has_static_banner = has_static_banner
-        self.has_animated_banner = has_animated_banner
-        self.code_gen_config = code_gen_config
-        self.technical_details = technical_details
+@dataclass
+class QAIHMModelInfo(BaseDataClass):
+    # Name of the model as it will appear on the website.
+    # Should have dashes instead of underscores and all
+    # words capitalized. For example, `Whisper-Base-En`.
+    name: str
+
+    # Name of the model's folder within the repo.
+    id: str
+
+    # Whether or not the model is published on the website.
+    # This should be set to public unless the model has poor accuracy/perf.
+    status: MODEL_STATUS
+
+    # A brief catchy headline explaining what the model does and why it may be interesting
+    headline: str
+
+    # The domain the model is used in such as computer vision, audio, etc.
+    domain: MODEL_DOMAIN
+
+    # A 2-3 sentence description of how the model can be used.
+    description: str
+
+    # What task the model is used to solve, such as object detection, classification, etc.
+    use_case: MODEL_USE_CASE
+
+    # A list of applicable tags to add to the model
+    tags: List[MODEL_TAG]
+
+    # Link to the research paper where the model was first published. Usually an arxiv link.
+    research_paper: str
+
+    # The title of the research paper.
+    research_paper_title: str
+
+    # A link to the model's license. Most commonly found in the github repo it was cloned from.
+    license: str
+
+    # A link to the AIHub license, unless the license is more restrictive like GPL.
+    # In that case, this should point to the same as the model license.
+    deploy_license: str
+
+    # A link to the original github repo with the model's code.
+    source_repo: str
+
+    # A list of real-world applicaitons for which this model could be used.
+    # This is free-from and almost anything reasonable here is fine.
+    applicable_scenarios: List[str]
+
+    # A list of other similar models in the repo.
+    # Typically, any model that performs the same task is fine.
+    # If nothing fits, this can be left blank. Limit to 3 models.
+    related_models: List[str]
+
+    # A list of device types for which this model could be useful.
+    # If unsure what to put here, default to `Phone` and `Tablet`.
+    form_factors: List[FORM_FACTOR]
+
+    # Whether the model has a static image uploaded in S3. All public models must have this.
+    has_static_banner: bool
+
+    # Whether the model has an animated asset uploaded in S3. This is optional.
+    has_animated_banner: bool
+
+    # CodeGen options from code-gen.yaml in the model's folder.
+    code_gen_config: QAIHMModelCodeGen
+
+    # The license type of the original model repo.
+    license_type: str
+
+    # Should be set to `AI Model Hub License`, unless the license is more restrictive like GPL.
+    # In that case, this should be the same as the model license.
+    deploy_license_type: str
+
+    # A list of datasets for which the model has pre-trained checkpoints
+    # available as options in `model.py`. Typically only has one entry.
+    dataset: List[str]
+
+    # A list of a few technical details about the model.
+    #   Model checkpoint: The name of the downloaded model checkpoint file.
+    #   Input resolution: The size of the model's input. For example, `2048x1024`.
+    #   Number of parameters: The number of parameters in the model.
+    #   Model size: The file size of the downloaded model asset.
+    #       This and `Number of parameters` should be auto-generated by running `python qai_hub_models/scripts/autofill_info_yaml.py -m <model_name>`
+    technical_details: Dict[str, str]
+
+    # If status is private, this must have a reference to an internal issue with an explanation.
+    status_reason: Optional[str] = None
+
+    # If the model outputs class indices, this field should be set and point
+    # to a file in `qai_hub_models/labels`, which specifies the name for each index.
+    labels_file: Optional[str] = None
 
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
@@ -854,73 +957,19 @@ class QAIHMModelInfo:
         code_gen_path: str | Path | None = None,
     ) -> QAIHMModelInfo:
         # Load CFG and params
-        info_yaml = QAIHMModelInfo.load_info_yaml(info_path)
-        return cls(
-            info_yaml["name"],
-            info_yaml["id"],
-            MODEL_STATUS.from_string(info_yaml["status"]),
-            info_yaml.get("status_reason", None),
-            info_yaml["headline"],
-            MODEL_DOMAIN.from_string(info_yaml["domain"]),
-            info_yaml["description"],
-            MODEL_USE_CASE.from_string(info_yaml["use_case"]),
-            [MODEL_TAG.from_string(tag) for tag in info_yaml["tags"]],
-            info_yaml["research_paper"],
-            info_yaml["research_paper_title"],
-            info_yaml["license"],
-            info_yaml["deploy_license"],
-            info_yaml["source_repo"],
-            info_yaml["applicable_scenarios"],
-            info_yaml["related_models"],
-            [FORM_FACTOR.from_string(ff) for ff in info_yaml["form_factors"]],
-            info_yaml["has_static_banner"],
-            info_yaml["has_animated_banner"],
-            QAIHMModelCodeGen.from_yaml(code_gen_path),
-            info_yaml["license_type"],
-            info_yaml["deploy_license_type"],
-            info_yaml["dataset"],
-            info_yaml.get("labels_file", None),
-            info_yaml["technical_details"],
-        )
+        data = load_yaml(info_path)
+        data["status"] = MODEL_STATUS.from_string(data["status"])
+        data["domain"] = MODEL_DOMAIN.from_string(data["domain"])
+        data["use_case"] = MODEL_USE_CASE.from_string(data["use_case"])
+        data["tags"] = [MODEL_TAG.from_string(tag) for tag in data["tags"]]
+        data["form_factors"] = [
+            FORM_FACTOR.from_string(tag) for tag in data["form_factors"]
+        ]
+        data["code_gen_config"] = QAIHMModelCodeGen.from_yaml(code_gen_path)
 
-    # Schema for info.yaml
-    INFO_YAML_SCHEMA = Schema(
-        And(
-            {
-                "name": str,
-                "id": str,
-                "status": str,
-                OptionalSchema("status_reason", default=None): str,
-                "headline": str,
-                "domain": str,
-                "description": str,
-                "use_case": str,
-                "tags": lambda s: len(s) >= 0,
-                "research_paper": str,
-                "research_paper_title": str,
-                "license": str,
-                "deploy_license": str,
-                "source_repo": str,
-                "technical_details": dict,
-                "applicable_scenarios": lambda s: len(s) >= 0,
-                "related_models": lambda s: len(s) >= 0,
-                "form_factors": lambda s: len(s) >= 0,
-                "has_static_banner": bool,
-                "has_animated_banner": bool,
-                "license_type": str,
-                "deploy_license_type": str,
-                "dataset": list,
-                OptionalSchema("labels_file", default=None): str,
-            }
-        )
-    )
-
-    @staticmethod
-    def load_info_yaml(path: str | Path) -> Dict[str, Any]:
-        data = load_yaml(path)
         try:
             # Validate high level-schema
-            data = QAIHMModelInfo.INFO_YAML_SCHEMA.validate(data)
+            data = QAIHMModelInfo.get_schema().validate(data)
         except SchemaError as e:
-            assert 0, f"{e.code} in {path}"
-        return data
+            assert 0, f"{e.code} in {info_path}"
+        return cls.from_dict(data)

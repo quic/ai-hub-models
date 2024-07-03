@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 import torch
 import torchvision.models as tv_models
 
@@ -55,7 +57,6 @@ class FCN_ResNet50(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 512,
         width: int = 512,
     ) -> InputSpec:
@@ -63,4 +64,8 @@ class FCN_ResNet50(BaseModel):
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["mask"]

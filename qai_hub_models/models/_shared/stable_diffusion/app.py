@@ -11,7 +11,7 @@ import torch
 from diffusers.models.embeddings import get_timestep_embedding
 from transformers import CLIPTokenizer
 
-from qai_hub_models.utils.inference import HubModel
+from qai_hub_models.utils.inference import OnDeviceModel
 
 OUT_H, OUT_W = 512, 512
 
@@ -34,9 +34,9 @@ class StableDiffusionApp:
 
     def __init__(
         self,
-        text_encoder: HubModel | torch.nn.Module,
-        vae_decoder: HubModel | torch.nn.Module,
-        unet: HubModel | torch.nn.Module,
+        text_encoder: OnDeviceModel | torch.nn.Module,
+        vae_decoder: OnDeviceModel | torch.nn.Module,
+        unet: OnDeviceModel | torch.nn.Module,
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
         time_embedding: diffusers.embeddings.TimeEmbedding,

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import List
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -72,10 +73,21 @@ class PosenetMobilenet(BaseModel):
 
     @staticmethod
     def get_input_spec(
+        batch_size: int = 1,
         height: int = 513,
         width: int = 257,
     ) -> InputSpec:
-        return {"image": ((1, 3, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return [
+            "heatmaps_result",
+            "offsets_result",
+            "displacement_fwd_result",
+            "displacement_bwd_result",
+            "max_vals",
+        ]
 
     def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         return {"image": [load_numpy(SAMPLE_INPUTS)]}

@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -63,7 +65,6 @@ class ESRGAN(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 128,
         width: int = 128,
     ) -> InputSpec:
@@ -71,7 +72,11 @@ class ESRGAN(BaseModel):
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["upscaled_image"]
 
 
 def _load_esrgan_source_model_from_weights(

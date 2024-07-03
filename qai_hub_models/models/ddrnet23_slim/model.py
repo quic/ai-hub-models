@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List
 
 import torch
 import torch.nn as nn
@@ -95,7 +96,6 @@ class DDRNet(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 1280,
         width: int = 640,
     ) -> InputSpec:
@@ -104,4 +104,8 @@ class DDRNet(BaseModel):
         used to submit profiling job on Qualcomm AI Hub. Default resolution is 2048x1024
         so this expects an image where width is twice the height.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["mask"]

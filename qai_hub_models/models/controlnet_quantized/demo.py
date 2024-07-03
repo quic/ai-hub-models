@@ -23,7 +23,7 @@ from qai_hub_models.utils.args import DEFAULT_EXPORT_DEVICE, add_output_dir_arg
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BasePrecompiledModel
 from qai_hub_models.utils.display import display_or_save_image
-from qai_hub_models.utils.inference import HubModel, get_uploaded_precompiled_model
+from qai_hub_models.utils.inference import OnDeviceModel, get_uploaded_precompiled_model
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 INPUT_IMAGE = CachedWebModelAsset.from_asset_store(
@@ -34,7 +34,7 @@ DEFAULT_DEMO_PROMPT = "a white bird on a colorful window"
 DEFAULT_DEVICE_NAME = "Samsung Galaxy S23 Ultra"
 
 
-def _get_hub_model(
+def _get_on_device_model(
     input_model: BasePrecompiledModel,
     model_name: str,
     ignore_cached_model: bool = False,
@@ -55,7 +55,7 @@ def _get_hub_model(
         ignore_cached_model=ignore_cached_model,
     )
     inputs = list(input_model.get_input_spec().keys())
-    return HubModel(uploaded_model, inputs, hub.Device(name=device_name))
+    return OnDeviceModel(uploaded_model, inputs, hub.Device(name=device_name))
 
 
 # Run ControlNet end-to-end on a given prompt and input image.
@@ -130,19 +130,21 @@ def main(is_test: bool = False):
     vae_decoder = VAEDecoder.from_precompiled()
     controlnet = ControlNet.from_precompiled()
 
-    # Create four HubModel instances to prepare for on-device inference.
+    # Create four OnDeviceModel instances to prepare for on-device inference.
     # This is similar to initializing PyTorch model to call forward method later.
     # Instead of forward, we later submit inference_jobs on QAI-Hub for
     # on-device evaluation.
     print(f"Uploading model assets on QAI-Hub\n{'-' * 35}")
-    text_encoder = _get_hub_model(
+    text_encoder = _get_on_device_model(
         text_encoder, "text_encoder", args.ignore_cached_model, args.device_name
     )
-    unet = _get_hub_model(unet, "unet", args.ignore_cached_model, args.device_name)
-    vae_decoder = _get_hub_model(
+    unet = _get_on_device_model(
+        unet, "unet", args.ignore_cached_model, args.device_name
+    )
+    vae_decoder = _get_on_device_model(
         vae_decoder, "vae_decoder", args.ignore_cached_model, args.device_name
     )
-    controlnet = _get_hub_model(
+    controlnet = _get_on_device_model(
         controlnet, "controlnet", args.ignore_cached_model, args.device_name
     )
 

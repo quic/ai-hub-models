@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 import torch
 import torch.nn as nn
 
@@ -148,7 +150,6 @@ class YoloV8Detector(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 640,
     ) -> InputSpec:
@@ -156,7 +157,22 @@ class YoloV8Detector(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names(
+        include_postprocessing: bool = True, split_output: bool = False
+    ) -> List[str]:
+        if include_postprocessing:
+            return ["boxes", "scores", "class_idx"]
+        if split_output:
+            return ["boxes", "scores"]
+        return ["detector_output"]
+
+    def _get_output_names_for_instance(self) -> List[str]:
+        return self.__class__.get_output_names(
+            self.include_postprocessing, self.split_output
+        )
 
     def get_evaluator(self) -> BaseEvaluator:
         return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])

@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import List
+
 import torch
 import torch.nn as nn
 from ultralytics import FastSAM
@@ -38,14 +40,7 @@ class Fast_SAM(BaseModel):
         """
         predictions = self.model(image)
         # Return predictions as a tuple instead of nested tuple.
-        return (
-            predictions[0],
-            predictions[1][0][0],
-            predictions[1][0][1],
-            predictions[1][0][2],
-            predictions[1][1],
-            predictions[1][2],
-        )
+        return (predictions[0], predictions[1][2])
 
     @staticmethod
     def get_input_spec(
@@ -59,3 +54,7 @@ class Fast_SAM(BaseModel):
         used to submit profiling job on Qualcomm® AI Hub.
         """
         return {"image": ((batch_size, num_channels, height, width), "float32")}
+
+    @staticmethod
+    def get_output_names() -> List[str]:
+        return ["boxes", "mask"]

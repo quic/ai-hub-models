@@ -78,6 +78,12 @@ def _get_file_edges(filename):
     for grep_result in grep_out.strip().split("\n"):
         dependent_file = grep_result.split(":")[0]
         dependent_files.add(dependent_file)
+
+    # Model is imported to export.py via the __init__ file, so changes
+    # to model.py don't automatically register as a change to export.py
+    # Manually remedy that here.
+    if filename.endswith("model.py"):
+        dependent_files.add(filename.replace("model.py", "export.py"))
     return dependent_files
 
 

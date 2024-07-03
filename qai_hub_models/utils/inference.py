@@ -103,6 +103,7 @@ def prepare_compile_zoo_model_to_hub(
                 print("Exporting model to ONNX with AIMET encodings")
                 return model.convert_to_onnx_and_aimet_encodings(
                     output_path,
+                    input_spec=input_spec,
                     model_name=model_name,
                     external_weights=external_onnx_weights,
                     output_names=output_names,
@@ -166,10 +167,10 @@ def compile_zoo_model_to_hub(
     input_spec: InputSpec | None = None,
     inference_options: str = "",
     check_trace: bool = True,
-) -> HubModel:
+) -> OnDeviceModel:
     """
     Similar to `prepare_compile_zoo_model_to_hub`, but also performs the
-    compilation on AI Hub and construct a HubModel object.
+    compilation on AI Hub and construct a OnDeviceModel object.
     """
 
     if input_spec is None:
@@ -203,7 +204,7 @@ def compile_zoo_model_to_hub(
     hub_model = compile_job.get_target_model()
     assert hub_model is not None
     input_names = list(model.get_input_spec().keys())
-    return HubModel(
+    return OnDeviceModel(
         hub_model,
         input_names,
         device,
@@ -290,7 +291,7 @@ def make_hub_dataset_entries(
     return dataset
 
 
-class AsyncHubModelResult:
+class AsyncOnDeviceResult:
     def __init__(
         self,
         inference_job: hub.InferenceJob,
@@ -334,11 +335,11 @@ class AsyncHubModelResult:
         return tuple(output_torch)
 
 
-class AsyncHubModel:
+class AsyncOnDeviceModel:
     """
     Class that behaves like a pytorch model except when called, it runs an
-        inference job on hub and returns an AsyncHubModelResult. Calling
-        AsyncHubModelResult.wait() will return a torch result in the same format
+        inference job on hub and returns an AsyncOnDeviceResult. Calling
+        AsyncOnDeviceResult.wait() will return a torch result in the same format
         as the PyTorch model.
 
     Parameters:
@@ -348,7 +349,7 @@ class AsyncHubModel:
         model: If hub_model_id is absent, this model is compiled and used for inference.
 
     Returns:
-        AsyncHubModelResult that mimics the I/O of a torch model and evaluates inference on device.
+        AsyncOnDeviceResult that mimics the I/O of a torch model and evaluates inference on device.
     """
 
     def __init__(
@@ -387,7 +388,7 @@ class AsyncHubModel:
         | List[torch.Tensor | np.ndarray]
         | hub.Dataset
         | DatasetEntries,
-    ) -> AsyncHubModelResult:
+    ) -> AsyncOnDeviceResult:
         assert len(args) > 0, "At least 1 input should be provided for inference."
 
         dataset: hub.Dataset | DatasetEntries
@@ -407,7 +408,7 @@ class AsyncHubModel:
             options=self.inference_options,
         )
         assert isinstance(inference_job, hub.InferenceJob)
-        return AsyncHubModelResult(
+        return AsyncOnDeviceResult(
             inference_job,
             self.target_runtime,
             self.channel_last_output,
@@ -415,7 +416,7 @@ class AsyncHubModel:
         )
 
 
-class HubModel(ExecutableModelProtocol):
+class OnDeviceModel(ExecutableModelProtocol):
     """
     Class that behaves like a pytorch model except when called, it runs an
         inference job on hub and returns a torch output.
@@ -440,7 +441,7 @@ class HubModel(ExecutableModelProtocol):
         inference_options: str = "",
         output_names: Optional[List[str]] = None,
     ):
-        self.async_model = AsyncHubModel(
+        self.async_model = AsyncOnDeviceModel(
             model,
             input_names,
             device,
