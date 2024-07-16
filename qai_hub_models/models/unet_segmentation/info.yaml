@@ -7,7 +7,10 @@ domain: Computer Vision
 description: UNet is a machine learning model that produces a segmentation mask for
   an image. The most basic use case will label each pixel in the image as being in
   the foreground or the background. More advanced usage will assign a class label
-  to each pixel.
+  to each pixel. This version of the model was trained on the data from
+  Kaggle's Carvana Image Masking Challenge (see
+  https://www.kaggle.com/c/carvana-image-masking-challenge) and is used for vehicle
+  segmentation.
 use_case: Semantic Segmentation
 tags:
   - backbone
@@ -22,6 +25,7 @@ technical_details:
   Input resolution: 224x224
   Number of parameters: 31.0M
   Model size: 118 MB
+  Number of output classes: 2 (foreground / background)
 applicable_scenarios:
   - Autonomous Vehicles
   - Medical Imaging

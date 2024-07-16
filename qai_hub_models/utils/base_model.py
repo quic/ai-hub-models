@@ -209,7 +209,10 @@ class BaseModel(
                         devices = [device]
 
                     for device in devices:
-                        if "os:android" not in device.attributes:
+                        if (
+                            "os:android" not in device.attributes
+                            or "format:iot" in device.attributes
+                        ):
                             target_runtime_flag = "qnn_context_binary"
                             break
 

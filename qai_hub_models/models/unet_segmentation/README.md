@@ -3,7 +3,7 @@
 
 # [Unet-Segmentation: Real-time segmentation optimized for mobile and edge](https://aihub.qualcomm.com/models/unet_segmentation)
 
-UNet is a machine learning model that produces a segmentation mask for an image. The most basic use case will label each pixel in the image as being in the foreground or the background. More advanced usage will assign a class label to each pixel.
+UNet is a machine learning model that produces a segmentation mask for an image. The most basic use case will label each pixel in the image as being in the foreground or the background. More advanced usage will assign a class label to each pixel. This version of the model was trained on the data from Kaggle's Carvana Image Masking Challenge (see https://www.kaggle.com/c/carvana-image-masking-challenge) and is used for vehicle segmentation.
 
 This is based on the implementation of Unet-Segmentation found
 [here](https://github.com/milesial/Pytorch-UNet). This repository contains scripts for optimized on-device

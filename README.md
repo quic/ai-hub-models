@@ -417,3 +417,4 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | **Text Generation**
 | [Baichuan-7B](https://aihub.qualcomm.com/models/baichuan_7b_quantized) | [qai_hub_models.models.baichuan_7b_quantized](qai_hub_models/models/baichuan_7b_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Llama-v2-7B-Chat](https://aihub.qualcomm.com/models/llama_v2_7b_chat_quantized) | [qai_hub_models.models.llama_v2_7b_chat_quantized](qai_hub_models/models/llama_v2_7b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Llama-v3-8B-Chat](https://aihub.qualcomm.com/models/llama_v3_8b_chat_quantized) | [qai_hub_models.models.llama_v3_8b_chat_quantized](qai_hub_models/models/llama_v3_8b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️

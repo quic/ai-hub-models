@@ -188,17 +188,16 @@ def yolov8_detect_postprocess(
         such as bounding boxes, scores and classes.
 
     Parameters:
-        detector_output: torch.Tensor
-            The output of Yolo Detection model
-            Shape is [batch, k, num_preds]
-                Where, k = # of classes + 4
-                The array dimension k is structured as follows:
-                    [box coordintes, # of classes]
-                where box coordinates are [x_center, y_center, w, h]
+        boxes: torch.Tensor
+            Shape is [batch, 4, num_preds] where 4 == [x_center, y_center, w, h]
+        scores: torch.Tensor
+            Shape is [batch, num_classes, num_preds]
+            Each element represents the probability that a given box is
+                an instance of a given class.
         use_quantized_postprocessing: bool
             If post-processing a non-quantized model, need to split the bounding box
-            processing into multiple smaller tensors due to NPU limitations.
-            If quantized, the entire processing can be done in a single operation.
+                processing into multiple smaller tensors due to NPU limitations.
+            If quantized, the entire processing can be done on a single tensor.
 
     Returns:
         boxes: torch.Tensor

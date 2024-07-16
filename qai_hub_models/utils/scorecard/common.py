@@ -167,10 +167,16 @@ class ScorecardCompilePath(Enum):
         raise NotImplementedError()
 
     def get_test_devices(
-        self, aimet_model=False, only_enabled=True
+        self, aimet_model: bool = False, only_enabled: bool = True
     ) -> List[ScorecardDevice]:
         if self == ScorecardCompilePath.QNN:
-            devices = [ScorecardDevice.any, ScorecardDevice.cs_x_elite]
+            devices = [
+                ScorecardDevice.any,
+                ScorecardDevice.cs_x_elite,
+                ScorecardDevice.cs_8550,
+            ]
+            if aimet_model:
+                devices.append(ScorecardDevice.cs_6490)
         else:
             devices = [ScorecardDevice.any]
 
@@ -183,9 +189,10 @@ class ScorecardCompilePath(Enum):
         self,
         model: str,
         device: ScorecardDevice = ScorecardDevice.any,
+        aimet_model: bool = False,
         component: Optional[str] = None,
     ):
-        if device not in self.get_test_devices():
+        if device not in self.get_test_devices(aimet_model=aimet_model):
             device = ScorecardDevice.any  # default to the "generic" compilation path
         return f"{model}_{self.name}{'-' + device.name if device != ScorecardDevice.any else ''}{'_' + component if component else ''}"
 
@@ -262,7 +269,7 @@ class ScorecardProfilePath(Enum):
         return ""
 
     def get_test_devices(
-        self, aimet_model=False, only_enabled=True
+        self, aimet_model: bool = False, only_enabled: bool = True
     ) -> List[ScorecardDevice]:
         if self == ScorecardProfilePath.TFLITE:
             devices = [
@@ -289,7 +296,7 @@ class ScorecardProfilePath(Enum):
                 ScorecardDevice.cs_auto_lemans_8650,
                 ScorecardDevice.cs_auto_lemans_8775,
                 ScorecardDevice.cs_auto_lemans_8255,
-            ]
+            ] + ([ScorecardDevice.cs_6490] if aimet_model else [])
         elif self == ScorecardProfilePath.ONNX_DML_GPU:
             devices = [ScorecardDevice.cs_x_elite]
         else:

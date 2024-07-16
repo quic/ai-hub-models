@@ -52,9 +52,7 @@ class MidasApp:
         )
         image_tensor = transforms.ToTensor()(resized_image).unsqueeze(0)
         prediction = self.model(image_tensor)
-        prediction = undo_resize_pad(
-            prediction.unsqueeze(0), image.size, scale, padding
-        )
+        prediction = undo_resize_pad(prediction, image.size, scale, padding)
         numpy_output = prediction.squeeze().cpu().numpy()
         if raw_output:
             return numpy_output

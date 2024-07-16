@@ -5,9 +5,10 @@
 from __future__ import annotations
 
 import copy
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
+import qai_hub as hub
 import torch
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from transformers.models.trocr.modeling_trocr import (
@@ -16,6 +17,7 @@ from transformers.models.trocr.modeling_trocr import (
     TrOCRForCausalLM,
 )
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -299,3 +301,14 @@ class TrOCRDecoder(BaseModel):
     @classmethod
     def from_pretrained(cls):
         return TrOCR.from_pretrained().decoder
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[hub.Device] = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options, device
+        )
+        return compile_options + " --truncate_64bit_io"
