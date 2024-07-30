@@ -128,8 +128,7 @@ class FFNetLowRes(FFNet):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 512,
         width: int = 1024,
     ) -> InputSpec:
-        return FFNet.get_input_spec(batch_size, num_channels, height, width)
+        return FFNet.get_input_spec(batch_size, height, width)

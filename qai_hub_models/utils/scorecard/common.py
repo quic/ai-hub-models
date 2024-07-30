@@ -119,16 +119,32 @@ class ScorecardDevice(Enum):
         raise ValueError(f"OS Not found for device: {self.name}")
 
 
+def get_job_cache_name(
+    runtime_name: str,
+    model_name: str,
+    device: ScorecardDevice,
+    component: Optional[str] = None,
+) -> str:
+    return (
+        f"{model_name}_{runtime_name}"
+        + ("-" + device.name if device != ScorecardDevice.any else "")
+        + ("_" + component if component else "")
+    )
+
+
 class ScorecardCompilePath(Enum):
     TFLITE = 0
     QNN = 1
     ONNX = 2
+    ONNX_FP16 = 3
 
     def __str__(self):
         return self.name.lower()
 
     @property
     def long_name(self):
+        if "onnx" in self.name.lower():
+            return f"torchscript_{self.name.lower()}"
         return f"torchscript_onnx_{self.name.lower()}"
 
     def enabled(self) -> bool:
@@ -160,7 +176,7 @@ class ScorecardCompilePath(Enum):
     def get_runtime(self) -> TargetRuntime:
         if self == ScorecardCompilePath.TFLITE:
             return TargetRuntime.TFLITE
-        if self == ScorecardCompilePath.ONNX:
+        if self in [ScorecardCompilePath.ONNX, ScorecardCompilePath.ONNX_FP16]:
             return TargetRuntime.ONNX
         if self == ScorecardCompilePath.QNN:
             return TargetRuntime.QNN
@@ -183,6 +199,8 @@ class ScorecardCompilePath(Enum):
         return [x for x in devices if x.enabled()] if only_enabled else devices
 
     def get_compile_options(self, aimet_model=False) -> str:
+        if self == ScorecardCompilePath.ONNX_FP16 and not aimet_model:
+            return "--quantize_full_type float16 --quantize_io"
         return ""
 
     def get_job_cache_name(
@@ -194,7 +212,7 @@ class ScorecardCompilePath(Enum):
     ):
         if device not in self.get_test_devices(aimet_model=aimet_model):
             device = ScorecardDevice.any  # default to the "generic" compilation path
-        return f"{model}_{self.name}{'-' + device.name if device != ScorecardDevice.any else ''}{'_' + component if component else ''}"
+        return get_job_cache_name(self.name, model, device, component)
 
 
 class ScorecardProfilePath(Enum):
@@ -208,7 +226,7 @@ class ScorecardProfilePath(Enum):
 
     @property
     def long_name(self):
-        if self.name.lower() == "onnx":
+        if "onnx" in self.name.lower():
             return f"torchscript_{self.name.lower()}"
         return f"torchscript_onnx_{self.name.lower()}"
 
@@ -257,8 +275,10 @@ class ScorecardProfilePath(Enum):
     def get_compile_path(self) -> ScorecardCompilePath:
         if self == ScorecardProfilePath.TFLITE:
             return ScorecardCompilePath.TFLITE
-        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_GPU]:
+        if self == ScorecardProfilePath.ONNX:
             return ScorecardCompilePath.ONNX
+        if self == ScorecardProfilePath.ONNX_DML_GPU:
+            return ScorecardCompilePath.ONNX_FP16
         if self == ScorecardProfilePath.QNN:
             return ScorecardCompilePath.QNN
         raise NotImplementedError()
@@ -310,6 +330,4 @@ class ScorecardProfilePath(Enum):
         device: ScorecardDevice,
         component: Optional[str] = None,
     ):
-        return (
-            f"{model}_{self.name}-{device.name}{'_' + component if component else ''}"
-        )
+        return get_job_cache_name(self.name, model, device, component)

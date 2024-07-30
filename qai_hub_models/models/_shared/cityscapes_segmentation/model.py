@@ -84,7 +84,6 @@ class CityscapesSegmentor(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 1024,
         width: int = 2048,
     ) -> InputSpec:
@@ -92,7 +91,7 @@ class CityscapesSegmentor(BaseModel):
         #
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a compile job.
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
     def get_output_names() -> List[str]:

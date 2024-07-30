@@ -25,36 +25,50 @@ from qai_hub_models.utils.scorecard.job_summary import (
 
 
 def supported_chipsets(chips: List[str]) -> List[str]:
-    """Return all the supported chipsets given the chipset it works on."""
+    """
+    Return all the supported chipsets given the chipset it works on.
 
-    # Don't assign "chips" directly to supported_chips.
-    # The lists will share the same pointer, and hence the for
-    # loop below will break.
-    supported_chips = set(chips)
+    The order of chips in the website list mirror the order here. Order
+    chips from newest to oldest to highlight newest chips most prominently.
+    """
+    chipset_set = set(chips)
+    chipset_list = []
+    if "qualcomm-snapdragon-8gen3" in chipset_set:
+        chipset_list.extend(
+            [
+                "qualcomm-snapdragon-8gen3",
+                "qualcomm-snapdragon-8gen2",
+                "qualcomm-snapdragon-8gen1",
+                "qualcomm-snapdragon-888",
+            ]
+        )
+    elif "qualcomm-snapdragon-8gen2" in chipset_set:
+        chipset_list.extend(
+            [
+                "qualcomm-snapdragon-8gen2",
+                "qualcomm-snapdragon-8gen1",
+                "qualcomm-snapdragon-888",
+            ]
+        )
 
-    for chip in chips:
-        if chip == "qualcomm-snapdragon-8gen3":
-            supported_chips.update(
-                [
-                    "qualcomm-snapdragon-8gen2",
-                    "qualcomm-snapdragon-8gen1",
-                    "qualcomm-snapdragon-888",
-                ]
-            )
-        if chip == "qualcomm-snapdragon-8gen2":
-            supported_chips.update(
-                [
-                    "qualcomm-snapdragon-8gen3",
-                    "qualcomm-snapdragon-8gen1",
-                    "qualcomm-snapdragon-888",
-                ]
-            )
-        if chip == "qualcomm-snapdragon-855":
-            supported_chips.update(
-                ["qualcomm-snapdragon-845", "qualcomm-snapdragon-865"]
-            )
+    chipset_order = [
+        "qualcomm-snapdragon-x-elite",
+        "qualcomm-qcs6490",
+        "qualcomm-qcs8250",
+        "qualcomm-qcs8550",
+        "qualcomm-sa8775p",
+        "qualcomm-sa8650p",
+        "qualcomm-sa8255p",
+    ]
+    for chipset in chipset_order:
+        if chipset in chipset_set:
+            chipset_list.append(chipset)
 
-    return sorted(list(supported_chips))
+    # Add any remaining chipsets not covered
+    for chipset in chipset_set:
+        if chipset not in chipset_list:
+            chipset_list.append(chipset)
+    return chipset_list
 
 
 def chipset_marketing_name(chipset) -> str:
@@ -82,9 +96,7 @@ def chipset_marketing_name(chipset) -> str:
 def supported_chipsets_santized(chips) -> List[str]:
     """Santize the chip name passed via hub."""
     chips = [chip for chip in chips if chip != ""]
-    return sorted(
-        list(set([chipset_marketing_name(chip) for chip in supported_chipsets(chips)]))
-    )
+    return [chipset_marketing_name(chip) for chip in supported_chipsets(chips)]
 
 
 # Caching this information is helpful because it requires pulling data from hub.
@@ -94,16 +106,7 @@ __CHIP_SUPPORTED_DEVICES_CACHE: Dict[str, List[str]] = {}
 
 def get_supported_devices(chips) -> List[str]:
     """Return all the supported devices given the chipset being used."""
-    supported_devices = set(
-        [
-            "Google Pixel 3",
-            "Google Pixel 3a",
-            "Google Pixel 4",
-            "Google Pixel 3a XL",
-            "Google Pixel 4a",
-            "Google Pixel 5a 5G",
-        ]
-    )
+    supported_devices = []
 
     for chip in supported_chipsets(chips):
         supported_devices_for_chip = __CHIP_SUPPORTED_DEVICES_CACHE.get(chip, list())
@@ -113,10 +116,20 @@ def get_supported_devices(chips) -> List[str]:
                 for device in hub.get_devices(attributes=f"chipset:{chip}")
                 if "(Family)" not in device.name
             ]
+            supported_devices_for_chip = sorted(set(supported_devices_for_chip))
             __CHIP_SUPPORTED_DEVICES_CACHE[chip] = supported_devices_for_chip
-        supported_devices.update(supported_devices_for_chip)
-
-    return sorted(list(supported_devices))
+        supported_devices.extend(supported_devices_for_chip)
+    supported_devices.extend(
+        [
+            "Google Pixel 5a 5G",
+            "Google Pixel 4",
+            "Google Pixel 4a",
+            "Google Pixel 3",
+            "Google Pixel 3a",
+            "Google Pixel 3a XL",
+        ]
+    )
+    return supported_devices
 
 
 def supported_oses() -> List[str]:

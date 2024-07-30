@@ -45,7 +45,6 @@ class Fast_SAM(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 640,
         width: int = 640,
     ) -> InputSpec:
@@ -53,7 +52,7 @@ class Fast_SAM(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm® AI Hub.
         """
-        return {"image": ((batch_size, num_channels, height, width), "float32")}
+        return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
     def get_output_names() -> List[str]:

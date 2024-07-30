@@ -48,7 +48,6 @@ class DETR(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        num_channels: int = 3,
         height: int = 480,
         width: int = 480,
     ) -> InputSpec:
@@ -57,7 +56,7 @@ class DETR(BaseModel):
         used to submit profiling job on Qualcomm® AI Hub.
         """
         return {
-            "image": ((batch_size, num_channels, height, width), "float32"),
+            "image": ((batch_size, 3, height, width), "float32"),
         }
 
     @staticmethod

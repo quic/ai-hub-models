@@ -10,6 +10,7 @@ memory etc.) and ready to deploy on Qualcomm® devices.
 * View open-source recipes to quantize, optimize, and deploy these models on-device.
 * Browse through [performance metrics](https://aihub.qualcomm.com/models) captured for these models on several devices.
 * Access the models through [Hugging Face](https://huggingface.co/qualcomm).
+* Check out [sample apps](https://github.com/quic/ai-hub-apps) for on-device deployment of AI Hub models.
 * [Sign up](https://myaccount.qualcomm.com/signup) to run these models on hosted Qualcomm® devices.
 
 Supported **python package host machine** Operating Systems:
@@ -312,9 +313,6 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [AOT-GAN](https://aihub.qualcomm.com/models/aotgan) | [qai_hub_models.models.aotgan](qai_hub_models/models/aotgan/README.md) | ✔️ | ✔️ | ✔️
 | [LaMa-Dilated](https://aihub.qualcomm.com/models/lama_dilated) | [qai_hub_models.models.lama_dilated](qai_hub_models/models/lama_dilated/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
-| **Image Generation**
-| [StyleGAN2](https://aihub.qualcomm.com/models/stylegan2) | [qai_hub_models.models.stylegan2](qai_hub_models/models/stylegan2/README.md) | ✔️ | ✔️ | ✔️
-| | | | |
 | **Super Resolution**
 | [ESRGAN](https://aihub.qualcomm.com/models/esrgan) | [qai_hub_models.models.esrgan](qai_hub_models/models/esrgan/README.md) | ✔️ | ✔️ | ✔️
 | [QuickSRNetLarge](https://aihub.qualcomm.com/models/quicksrnetlarge) | [qai_hub_models.models.quicksrnetlarge](qai_hub_models/models/quicksrnetlarge/README.md) | ✔️ | ✔️ | ✔️
@@ -391,9 +389,6 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [Whisper-Base-En](https://aihub.qualcomm.com/models/whisper_base_en) | [qai_hub_models.models.whisper_base_en](qai_hub_models/models/whisper_base_en/README.md) | ✔️ | ✔️ | ✔️
 | [Whisper-Small-En](https://aihub.qualcomm.com/models/whisper_small_en) | [qai_hub_models.models.whisper_small_en](qai_hub_models/models/whisper_small_en/README.md) | ✔️ | ✔️ | ✔️
 | [Whisper-Tiny-En](https://aihub.qualcomm.com/models/whisper_tiny_en) | [qai_hub_models.models.whisper_tiny_en](qai_hub_models/models/whisper_tiny_en/README.md) | ✔️ | ✔️ | ✔️
-| | | | |
-| **Audio Enhancement**
-| [Facebook-Denoiser](https://aihub.qualcomm.com/models/facebook_denoiser) | [qai_hub_models.models.facebook_denoiser](qai_hub_models/models/facebook_denoiser/README.md) | ✔️ | ✔️ | ✔️
 
 ### Multimodal
 

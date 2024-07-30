@@ -93,6 +93,7 @@ class PyTestModelTask(CompositeTask):
         run_general: bool = True,
         run_compile: bool = True,
         run_profile: bool = False,
+        run_export: bool = False,
         run_trace: bool = True,
         install_deps: bool = True,
         raise_on_failure: bool = False,
@@ -136,8 +137,11 @@ class PyTestModelTask(CompositeTask):
                 test_flags.append("compile")
             if run_profile:
                 test_flags.append("profile")
+                test_flags.append("inference")
             if run_trace:
                 test_flags.append("trace")
+            if run_export:
+                test_flags.append("export")
             if test_flags:
                 extras_args += ["-m", f'"{" or ".join(test_flags)}"']
 
@@ -200,6 +204,7 @@ class PyTestModelsTask(CompositeTask):
         test_trace: bool = True,
         run_export_compile: bool = True,
         run_export_profile: bool = False,
+        run_full_export: bool = False,
         exit_after_single_model_failure=False,
         raise_on_failure=True,
     ):
@@ -269,6 +274,7 @@ class PyTestModelsTask(CompositeTask):
                     and model_name in models_to_test_export,
                     run_profile=run_export_profile
                     and model_name in models_to_test_export,
+                    run_export=run_full_export and model_name in models_to_test_export,
                     raise_on_failure=False,  # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                 )
             )

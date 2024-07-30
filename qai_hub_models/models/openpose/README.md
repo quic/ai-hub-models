@@ -47,8 +47,8 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
 - The license for the original implementation of OpenPose can be found
-  [here](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+  [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740).
+- The license for the compiled assets for on-device deployment can be found [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740)
 
 ## References
 * [OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields](https://arxiv.org/abs/1812.08008)

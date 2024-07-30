@@ -419,6 +419,31 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Verify all export scripts work e2e.")
+    @depends(["install_deps"])
+    def test_all_export_scripts(
+        self, plan: Plan, step_id: str = "test_all_export_scripts"
+    ) -> str:
+        all_models = get_all_models()
+        return plan.add_step(
+            step_id,
+            PyTestModelsTask(
+                self.python_executable,
+                all_models,
+                all_models,
+                self.venv_path,
+                venv_for_each_model=False,
+                use_shared_cache=True,
+                run_export_compile=False,
+                run_export_profile=False,
+                run_full_export=True,
+                skip_standard_unit_test=True,
+                # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
+                exit_after_single_model_failure=False,
+                test_trace=False,
+            ),
+        )
+
     @public_task("Run tests for all models in Model Zoo.")
     @depends(["install_deps"])
     def test_all_models_long(
