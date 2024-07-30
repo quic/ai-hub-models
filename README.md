@@ -395,8 +395,8 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | Model | README | Torch App | Device Export | CLI Demo
 | -- | -- | -- | -- | --
 | | | | |
-| [OpenAI-Clip](https://aihub.qualcomm.com/models/openai_clip) | [qai_hub_models.models.openai_clip](qai_hub_models/models/openai_clip/README.md) | ✔️ | ✔️ | ✔️
 | [TrOCR](https://aihub.qualcomm.com/models/trocr) | [qai_hub_models.models.trocr](qai_hub_models/models/trocr/README.md) | ✔️ | ✔️ | ✔️
+| [OpenAI-Clip](https://aihub.qualcomm.com/models/openai_clip) | [qai_hub_models.models.openai_clip](qai_hub_models/models/openai_clip/README.md) | ✔️ | ✔️ | ✔️
 
 ### Generative Ai
 
