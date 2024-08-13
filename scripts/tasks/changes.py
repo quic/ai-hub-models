@@ -17,8 +17,7 @@ from .util import new_cd, run, run_and_get_output
 REPRESENTATIVE_EXPORT_MODELS = [
     "sinet",
     "quicksrnetsmall_quantized",
-    "mediapipe_face",
-    "facebook_denoiser",
+    "whisper_tiny_en",
 ]
 REPRESENTATIVE_EXPORT_FILES = [
     f"qai_hub_models/models/{model}/export.py" for model in REPRESENTATIVE_EXPORT_MODELS

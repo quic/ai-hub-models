@@ -81,7 +81,9 @@ class HRNetPose(BaseModel):
         image = normalize_image_torchvision(image)
         return self.model(image)
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
         return {"image": [load_numpy(SAMPLE_INPUTS)]}
 
     @staticmethod
@@ -94,4 +96,12 @@ class HRNetPose(BaseModel):
 
     @staticmethod
     def get_output_names() -> List[str]:
+        return ["heatmaps"]
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
         return ["heatmaps"]

@@ -146,6 +146,14 @@ class SegmentAnythingEncoder(BaseModel):
         }
 
     @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["image_embeddings"]
+
+    @staticmethod
     def get_output_names() -> List[str]:
         return ["image_embeddings"]
 
@@ -262,6 +270,14 @@ class SegmentAnythingONNXDecoder(BaseModel):
             "has_mask_input": ((1,), "float32"),
         }
         return input_spec
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image_embeddings", "mask_input"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["upscaled_masks", "masks"]
 
     @staticmethod
     def get_output_names() -> List[str]:

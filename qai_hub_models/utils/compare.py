@@ -11,6 +11,7 @@ import pandas as pd
 import torch
 
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
 
 def _flatten_tuple(out_tuple):
@@ -32,7 +33,9 @@ def _flatten_tuple(out_tuple):
 
 
 def torch_inference(
-    model: BaseModel, sample_inputs: Dict[str, List[np.ndarray]]
+    model: BaseModel,
+    sample_inputs: Dict[str, List[np.ndarray]],
+    return_channel_last_output: bool = True,
 ) -> List[np.ndarray]:
     """
     Performs inference on a torch model given a set of sample inputs.
@@ -40,6 +43,9 @@ def torch_inference(
     Parameters:
         model: The torch model.
         sample_inputs: Map from input name to list of values for that input.
+        return_channel_last_output: If set, will transpose outputs to channel last
+            format. Will only transpose the outputs specified by
+            `model.get_channel_last_outputs()`.
 
     Returns:
         List of numpy array outputs,
@@ -60,7 +66,16 @@ def torch_inference(
             if i == len(torch_outs):
                 torch_outs.append([])
             torch_outs[i].append(out_val)
-    return [torch.cat(out_list, dim=0).numpy() for out_list in torch_outs]
+    numpy_outputs = [torch.cat(out_list, dim=0).numpy() for out_list in torch_outs]
+    if return_channel_last_output:
+        channel_last_outputs = model.get_channel_last_outputs()
+        for i, (name, np_out) in enumerate(
+            zip(model.get_output_names(), numpy_outputs)
+        ):
+            if name in channel_last_outputs:
+                new_out = transpose_channel_first_to_last([name], {name: [np_out]})
+                numpy_outputs[i] = new_out[name][0]
+    return numpy_outputs
 
 
 def compute_psnr(

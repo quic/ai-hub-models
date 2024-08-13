@@ -35,6 +35,8 @@ class ScorecardDevice(Enum):
     cs_auto_lemans_8255 = 7
     cs_auto_lemans_8775 = 8
     cs_auto_lemans_8650 = 9
+    cs_xr_8450 = 10
+
     # cs_auto_makena_8540  | Disabled until fp16 support is enabled for makena.
 
     def enabled(self) -> bool:
@@ -85,6 +87,8 @@ class ScorecardDevice(Enum):
             return _get_cached_device("SA8775 (Proxy)")
         if self == ScorecardDevice.cs_auto_lemans_8650:
             return _get_cached_device("SA8650 (Proxy)")
+        if self == ScorecardDevice.cs_xr_8450:
+            return _get_cached_device("QCS8450 (Proxy)")
         # if self == ScorecardDevice.cs_auto_makena_8540:
         #    return _get_cached_device("SA8540 (Proxy)")
         raise NotImplementedError(f"No reference device for {self.name}")
@@ -108,6 +112,8 @@ class ScorecardDevice(Enum):
             return "qualcomm-sa8775p"
         if self == ScorecardDevice.cs_auto_lemans_8650:
             return "qualcomm-sa8650p"
+        if self == ScorecardDevice.cs_xr_8450:
+            return "qualcomm-qcs8450"
         # if self == ScorecardDevice.cs_auto_makena_8540:
         #    return "qualcomm-sa8540p"
         raise NotImplementedError(f"No chipset for {self.name}")
@@ -190,6 +196,8 @@ class ScorecardCompilePath(Enum):
                 ScorecardDevice.any,
                 ScorecardDevice.cs_x_elite,
                 ScorecardDevice.cs_8550,
+                ScorecardDevice.cs_auto_lemans_8255,
+                ScorecardDevice.cs_auto_lemans_8775,
             ]
             if aimet_model:
                 devices.append(ScorecardDevice.cs_6490)
@@ -210,6 +218,9 @@ class ScorecardCompilePath(Enum):
         aimet_model: bool = False,
         component: Optional[str] = None,
     ):
+        # These two auto chips are the same, re-use the same compiled asset.
+        if device == ScorecardDevice.cs_auto_lemans_8650:
+            device = ScorecardDevice.cs_auto_lemans_8775
         if device not in self.get_test_devices(aimet_model=aimet_model):
             device = ScorecardDevice.any  # default to the "generic" compilation path
         return get_job_cache_name(self.name, model, device, component)
@@ -296,6 +307,10 @@ class ScorecardProfilePath(Enum):
                 ScorecardDevice.cs_8_gen_2,
                 ScorecardDevice.cs_8_gen_3,
                 ScorecardDevice.cs_8550,
+                ScorecardDevice.cs_xr_8450,
+                ScorecardDevice.cs_auto_lemans_8650,
+                ScorecardDevice.cs_auto_lemans_8775,
+                ScorecardDevice.cs_auto_lemans_8255,
             ] + (
                 [ScorecardDevice.cs_6490, ScorecardDevice.cs_8250]
                 if aimet_model
@@ -316,6 +331,7 @@ class ScorecardProfilePath(Enum):
                 ScorecardDevice.cs_auto_lemans_8650,
                 ScorecardDevice.cs_auto_lemans_8775,
                 ScorecardDevice.cs_auto_lemans_8255,
+                ScorecardDevice.cs_xr_8450,
             ] + ([ScorecardDevice.cs_6490] if aimet_model else [])
         elif self == ScorecardProfilePath.ONNX_DML_GPU:
             devices = [ScorecardDevice.cs_x_elite]

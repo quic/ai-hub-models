@@ -57,3 +57,11 @@ class Fast_SAM(BaseModel):
     @staticmethod
     def get_output_names() -> List[str]:
         return ["boxes", "mask"]
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["boxes", "mask"]

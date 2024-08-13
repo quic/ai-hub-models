@@ -142,6 +142,10 @@ class TrOCREncoder(BaseModel):
     def from_pretrained(cls):
         return TrOCR.from_pretrained().encoder
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["pixel_values"]
+
 
 class TrOCRDecoder(BaseModel):
     """

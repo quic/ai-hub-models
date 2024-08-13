@@ -163,8 +163,14 @@ class YoloNAS(BaseModel):
     def _get_output_names_for_instance(self) -> List[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
         if input_spec is not None and input_spec != self.get_input_spec():
             raise ValueError("Sample input has a fixed size that cannot be changed")
 
         return yolo_sample_inputs()
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]

@@ -89,6 +89,14 @@ class YoloV8Segmentor(BaseModel):
     def get_output_names() -> List[str]:
         return ["boxes", "scores", "masks", "class_idx", "protos"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["masks"]
+
 
 def yolov8_segment_postprocess(detector_output: torch.Tensor):
     """

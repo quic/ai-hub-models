@@ -59,6 +59,7 @@ def supported_chipsets(chips: List[str]) -> List[str]:
         "qualcomm-sa8775p",
         "qualcomm-sa8650p",
         "qualcomm-sa8255p",
+        "qualcomm-qcs8450",
     ]
     for chipset in chipset_order:
         if chipset in chipset_set:

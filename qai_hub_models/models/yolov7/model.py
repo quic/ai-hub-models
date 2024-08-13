@@ -164,11 +164,17 @@ class YoloV7(BaseModel):
             self.include_postprocessing, self.split_output
         )
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
         if input_spec is not None and input_spec != YoloV7.get_input_spec():
             raise ValueError("Sample input has a fixed size that cannot be changed")
 
         return yolo_sample_inputs()
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
 
 
 class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection

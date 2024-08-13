@@ -254,8 +254,7 @@ def compile_model_from_args(
 
 def make_hub_dataset_entries(
     input_names: List[str],
-    channel_last_input: Optional[str],
-    target_runtime: TargetRuntime,
+    channel_last_input: Optional[List[str]],
     *args: torch.Tensor | np.ndarray | List[torch.Tensor | np.ndarray],
 ) -> DatasetEntries:
     """
@@ -285,9 +284,7 @@ def make_hub_dataset_entries(
 
     # Transpose dataset I/O if necessary to fit with the on-device model format
     if channel_last_input:
-        dataset = transpose_channel_first_to_last(
-            channel_last_input, dataset, target_runtime
-        )
+        dataset = transpose_channel_first_to_last(channel_last_input, dataset)
     return dataset
 
 
@@ -296,7 +293,7 @@ class AsyncOnDeviceResult:
         self,
         inference_job: hub.InferenceJob,
         target_runtime: TargetRuntime,
-        channel_last_output: str,
+        channel_last_output: List[str],
         output_names: List[str],
     ):
         self.inference_job = inference_job
@@ -319,7 +316,6 @@ class AsyncOnDeviceResult:
             output_dataset = transpose_channel_last_to_first(
                 self.channel_last_output,
                 output_dataset,  # type: ignore
-                self.target_runtime,
             )  # type: ignore
 
         outputs = output_dataset.values()  # type: ignore
@@ -366,14 +362,18 @@ class AsyncOnDeviceModel:
         self.inference_options = inference_options
         self.output_names = [] if output_names is None else output_names
         # Determine whether I/O is channel last
-        self.channel_last_input, self.channel_last_output = "", ""
+        self.channel_last_input, self.channel_last_output = [], []
         if self.model.producer is not None:
             model_options = self.model.producer.options.strip().split()
             for option_num in range(len(model_options)):
                 if model_options[option_num] == "--force_channel_last_input":
-                    self.channel_last_input = model_options[option_num + 1]
+                    self.channel_last_input = (
+                        model_options[option_num + 1].strip().split(",")
+                    )
                 if model_options[option_num] == "--force_channel_last_output":
-                    self.channel_last_output = model_options[option_num + 1]
+                    self.channel_last_output = (
+                        model_options[option_num + 1].strip().split(",")
+                    )
 
     @property
     def target_runtime(self) -> TargetRuntime:
@@ -397,7 +397,7 @@ class AsyncOnDeviceModel:
             assert len(args) == 1, "Only 1 dataset can be provided for inference."
             dataset = args[0]
         else:
-            dataset_entries = make_hub_dataset_entries(self.input_names, self.channel_last_input, self.target_runtime, *args)  # type: ignore
+            dataset_entries = make_hub_dataset_entries(self.input_names, self.channel_last_input, *args)  # type: ignore
             dataset = hub.upload_dataset(dataset_entries)
 
         inference_job = hub.submit_inference_job(

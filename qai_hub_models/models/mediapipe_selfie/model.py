@@ -211,6 +211,14 @@ class SelfieSegmentation(BaseModel):
     def get_output_names() -> List[str]:
         return ["mask"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["mask"]
+
     def forward(self, image):
         """
         Parameters:

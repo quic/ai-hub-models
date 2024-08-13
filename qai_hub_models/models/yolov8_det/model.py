@@ -177,6 +177,10 @@ class YoloV8Detector(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
 
 def yolov8_detect_postprocess(
     boxes: torch.Tensor,

@@ -8,9 +8,7 @@ import json
 from pathlib import Path
 from typing import Dict
 
-from qai_hub.client import Job, Model, SourceModelType
-
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub.client import Model, SourceModelType
 
 
 def onnx_elem_type_to_str(elem_type: int) -> str:
@@ -32,11 +30,6 @@ def load_encodings(output_path: Path, model_name: str) -> Dict:
     with open(encodings_file) as f:
         encodings = json.load(f)
     return encodings["activation_encodings"]
-
-
-def get_qnn_inputs(compile_job: Job, sample_inputs: SampleInputsType):
-    compile_job.target_shapes
-    return dict(zip(compile_job.target_shapes.keys(), sample_inputs.values()))
 
 
 def is_qnn_hub_model(model: Model):

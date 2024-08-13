@@ -59,3 +59,11 @@ class DeepLabV3Model(BaseModel):
     @staticmethod
     def get_output_names() -> List[str]:
         return ["mask"]
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["mask"]

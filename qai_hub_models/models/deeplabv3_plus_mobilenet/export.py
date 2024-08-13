@@ -32,8 +32,6 @@ from qai_hub_models.utils.printing import (
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
-    transpose_channel_first_to_last,
-    transpose_channel_last_to_first,
 )
 
 
@@ -110,6 +108,9 @@ def export_model(
             profile_options,
         )
 
+    # On-device perf improves with I/O in channel_last format except when using ONNX.
+    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     input_spec = model.get_input_spec(
@@ -119,16 +120,9 @@ def export_model(
     # Trace the model
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
-    # Convert outputs from channel last to channel first (preferred I/O format for QNN and TensorFlow Lite)
-    channel_last_flags = (
-        " --force_channel_last_input image" + " --force_channel_last_output mask"
-        if target_runtime != TargetRuntime.ONNX
-        else ""
-    )
-
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options + channel_last_flags, hub_device
+        target_runtime, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -164,16 +158,12 @@ def export_model(
         print(
             f"Running inference for {model_name} on a hosted device with example inputs."
         )
-        sample_inputs = model.sample_inputs(input_spec)
-        # Convert inputs from channel first to channel last
-        hub_inputs = (
-            sample_inputs
-            if target_runtime == TargetRuntime.ONNX
-            else transpose_channel_first_to_last("image", sample_inputs, target_runtime)
+        sample_inputs = model.sample_inputs(
+            input_spec, use_channel_last_format=use_channel_last_format
         )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
-            inputs=hub_inputs,
+            inputs=sample_inputs,
             device=hub_device,
             name=model_name,
             options=profile_options_all,
@@ -202,18 +192,16 @@ def export_model(
         print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
-        torch_out = torch_inference(model, sample_inputs)
+        sample_inputs = model.sample_inputs(use_channel_last_format=False)
+        torch_out = torch_inference(
+            model, sample_inputs, return_channel_last_output=use_channel_last_format
+        )
         assert inference_job is not None and inference_job.wait().success
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
-        # Convert outputs from channel last to channel first
-        inference_result = (
-            inference_result
-            if target_runtime == TargetRuntime.ONNX
-            else transpose_channel_last_to_first(
-                "mask", inference_result, target_runtime
-            )
+
+        print_inference_metrics(
+            inference_job, inference_result, torch_out, model.get_output_names()
         )
-        print_inference_metrics(inference_job, inference_result, torch_out)
 
     if not skip_summary:
         print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)

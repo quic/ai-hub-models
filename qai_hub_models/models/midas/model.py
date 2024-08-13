@@ -141,3 +141,7 @@ class Midas(BaseModel):
         if self.normalize_input:
             image = normalize_image_torchvision(image)
         return self.model(image)
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]

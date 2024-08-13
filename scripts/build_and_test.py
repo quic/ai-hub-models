@@ -39,12 +39,7 @@ from tasks.task import (
     RunCommandsWithVenvTask,
     Task,
 )
-from tasks.test import (
-    PyTestE2eHubTask,
-    PyTestModelsTask,
-    PyTestScriptsTask,
-    PyTestUtilsTask,
-)
+from tasks.test import PyTestModelsTask, PyTestScriptsTask, PyTestUtilsTask
 from tasks.util import can_support_aimet, echo, run
 from tasks.venv import CreateVenvTask, SyncLocalQAIHMVenvTask
 
@@ -187,7 +182,6 @@ class TaskLibrary:
             "test_utils",
             "test_scripts",
             "test_all_models",
-            "test_e2e_on_hub",
         ]
     )
     def all_tests(self, plan: Plan) -> str:
@@ -199,7 +193,6 @@ class TaskLibrary:
             "test_utils",
             "test_scripts",
             "test_all_models_long",
-            "test_e2e_on_hub",
         ]
     )
     def all_tests_long(self, plan: Plan) -> str:
@@ -461,14 +454,6 @@ class TaskLibrary:
                 use_shared_cache=True,
                 test_trace=False,
             ),
-        )
-
-    @public_task("Run e2e tests against Hub")
-    @depends(["install_deps"])
-    def test_e2e_on_hub(self, plan: Plan, step_id: str = "test_e2e_on_hub") -> str:
-        return plan.add_step(
-            step_id,
-            PyTestE2eHubTask(self.venv_path),
         )
 
     @public_task("Release QAIHM (build repo & wheel, push repo & wheel)")

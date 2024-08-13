@@ -54,30 +54,6 @@ class PyTestScriptsTask(PyTestTask):
         )
 
 
-class PyTestE2eHubTask(CompositeTask):
-    """
-    Runs e2e tests on Hub that's not specific to any model.
-    """
-
-    def __init__(self, venv: Optional[str]):
-        # Create temporary directory for storing cloned & downloaded test artifacts.
-        with TemporaryDirectory() as tmpdir:
-            env = os.environ.copy()
-            env[STORE_ROOT_ENV_VAR] = tmpdir
-
-            # Standard Test Suite
-            tasks = [
-                PyTestTask(
-                    group_name="E2e on Hub",
-                    venv=venv,
-                    files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/test/e2e/",
-                    parallel=False,
-                    env=env,
-                )
-            ]
-        super().__init__("E2e on Hub Tests", tasks)
-
-
 class PyTestModelTask(CompositeTask):
     """
     Run all tests for a single model.
@@ -258,7 +234,9 @@ class PyTestModelsTask(CompositeTask):
                     )
                 )
 
-        for model_name in sorted(models_for_testing):
+        # Sort models for ease of tracking how far along the tests are.
+        # Do reverse order because whisper is slow to compile, so trigger earlier.
+        for model_name in sorted(models_for_testing, reverse=True):
             # Run standard test suite for this model.
             is_global_model = model_name in global_models
             tasks.append(

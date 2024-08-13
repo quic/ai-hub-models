@@ -150,6 +150,10 @@ class PoseDetector(BaseModel):
     def get_output_names() -> List[str]:
         return ["box_coords", "box_scores"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
 
 class PoseLandmarkDetector(BaseModel):
     def __init__(
@@ -183,3 +187,7 @@ class PoseLandmarkDetector(BaseModel):
     @staticmethod
     def get_output_names() -> List[str]:
         return ["scores", "landmarks"]
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]

@@ -45,7 +45,7 @@ def main(is_test: bool = False):
         tokenizer=tokenizer,
         scheduler=scheduler,
         time_embedding=time_embedding,
-        channel_last_latent=False,
+        channel_last_latent=True,
         is_test=is_test,
     )
 

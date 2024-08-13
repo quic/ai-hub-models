@@ -29,7 +29,6 @@ from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
-from qai_hub_models.utils.qnn_helpers import get_qnn_inputs
 
 ALL_COMPONENTS = [
     "PromptProcessor_1_Quantized",
@@ -218,12 +217,9 @@ def export_model(
             profile_options_all = profile_options_per_component[component_name]
             # Load individual model part
             sample_inputs = component.sample_inputs()
-            hub_inputs = sample_inputs
-            if target_runtime == TargetRuntime.QNN:
-                hub_inputs = get_qnn_inputs(compile_jobs[component_name], sample_inputs)
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
-                inputs=hub_inputs,
+                inputs=sample_inputs,
                 device=hub.Device(device),
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,

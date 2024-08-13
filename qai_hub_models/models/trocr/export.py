@@ -115,6 +115,9 @@ def export_model(
             component_arg,
         )
 
+    # On-device perf improves with I/O in channel_last format except when using ONNX.
+    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: Dict[str, BaseModel] = {}
@@ -175,7 +178,9 @@ def export_model(
             profile_options_all = components_dict[
                 component_name
             ].get_hub_profile_options(target_runtime, profile_options)
-            sample_inputs = components_dict[component_name].sample_inputs()
+            sample_inputs = components_dict[component_name].sample_inputs(
+                use_channel_last_format=use_channel_last_format
+            )
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
                 inputs=sample_inputs,
@@ -215,13 +220,20 @@ def export_model(
             print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
-        for component_name in components:
+        for component_name, component in components_dict.items():
             inference_job = inference_jobs[component_name]
-            sample_inputs = components_dict[component_name].sample_inputs()
-            torch_out = torch_inference(components_dict[component_name], sample_inputs)
+            sample_inputs = component.sample_inputs(use_channel_last_format=False)
+            torch_out = torch_inference(
+                component,
+                sample_inputs,
+                return_channel_last_output=use_channel_last_format,
+            )
             assert inference_job is not None and inference_job.wait().success
             inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
-            print_inference_metrics(inference_job, inference_result, torch_out)
+
+            print_inference_metrics(
+                inference_job, inference_result, torch_out, component.get_output_names()
+            )
 
     return {
         component_name: (
@@ -235,12 +247,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(
-        model_cls=Model,
-        components=ALL_COMPONENTS,
-        supports_qnn=False,
-        supports_precompiled_qnn_onnx=False,
-    )
+    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
     args = parser.parse_args()
     export_model(**vars(args))
 

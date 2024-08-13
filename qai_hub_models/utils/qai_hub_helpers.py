@@ -6,60 +6,22 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import numpy as np
 import qai_hub as hub
 import torch
 from qai_hub.client import APIException, UserError
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.config_loaders import QAIHMModelPerf
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
 from qai_hub_models.utils.printing import print_profile_metrics
-
-
-def transpose_channel(
-    io_names: str,
-    inputs: hub.client.DatasetEntries,
-    target_runtime: TargetRuntime,
-    first_to_last: bool,
-):
-
-    min_dim = 4 if target_runtime == TargetRuntime.QNN else 3
-    io_names_list = io_names.strip().split(",")
-    target = dict()
-
-    for name, array in inputs.items():
-        if len(array[0].shape) < min_dim or len(array[0].shape) > 5:
-            target[name] = array
-        elif name in io_names_list:
-            transpose_order = list(range(len(array[0].shape)))
-            if first_to_last:
-                transpose_order.append(transpose_order.pop(-3))
-            else:
-                transpose_order.insert(-2, transpose_order.pop(-1))
-            target[name] = [np.transpose(arr, transpose_order) for arr in array]
-        else:
-            target[name] = array
-    return target
-
-
-def transpose_channel_first_to_last(
-    io_names: str,
-    sample_inputs: hub.client.DatasetEntries,
-    target_runtime: TargetRuntime,
-) -> Dict[str, List[np.ndarray]]:
-    return transpose_channel(io_names, sample_inputs, target_runtime, True)
-
-
-def transpose_channel_last_to_first(
-    io_names: str,
-    job_outputs: hub.client.DatasetEntries,
-    target_runtime: TargetRuntime,
-) -> Dict[str, List[np.ndarray]]:
-    return transpose_channel(io_names, job_outputs, target_runtime, False)
+from qai_hub_models.utils.transpose_channel import (  # noqa: F401
+    transpose_channel_first_to_last,
+    transpose_channel_last_to_first,
+)
 
 
 def can_access_qualcomm_ai_hub():

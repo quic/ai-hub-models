@@ -219,13 +219,20 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        if target_runtime != TargetRuntime.QNN:
+        if (
+            target_runtime != TargetRuntime.QNN
+            and target_runtime != TargetRuntime.PRECOMPILED_QNN_ONNX
+        ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
-                " Only QNN runtime is supported for Llama for now."
+                " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-
-        return " --target_runtime qnn_context_binary --quantize_full_type w8a16 --quantize_io"
+        target_runtime_options = (
+            " --target_runtime qnn_context_binary"
+            if target_runtime == TargetRuntime.QNN
+            else " --target_runtime precompiled_qnn_onnx"
+        )
+        return target_runtime_options + " --quantize_full_type w8a16 --quantize_io"
 
     @staticmethod
     def get_output_names(
@@ -246,7 +253,9 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         )
         return output_list
 
-    def sample_inputs(self, input_spec: Optional[InputSpec] = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: Optional[InputSpec] = None
+    ) -> SampleInputsType:
         data = self.get_calibration_data(input_spec=input_spec)
         for key, val in data.items():
             data[key] = [val.detach().numpy()]

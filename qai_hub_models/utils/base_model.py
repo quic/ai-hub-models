@@ -25,6 +25,7 @@ from qai_hub_models.models.protocols import (
     PretrainedHubModelProtocol,
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
+from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
 
 class CollectionModel:
@@ -71,18 +72,41 @@ class HubModel(HubModelProtocol):
         """
         raise NotImplementedError
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def sample_inputs(
+        self,
+        input_spec: InputSpec | None = None,
+        use_channel_last_format: bool = True,
+        **kwargs,
+    ) -> SampleInputsType:
         """
         Returns a set of sample inputs for the model.
 
         For each input name in the model, a list of numpy arrays is provided.
         If the returned set is batch N, all input names must contain exactly N numpy arrays.
 
+        Subclasses should NOT override this. They should instead override _sample_inputs_impl.
+
+        This function will invoke _sample_inputs_impl and then apply any required channel
+            format transposes.
+        """
+        sample_inputs = self._sample_inputs_impl(input_spec, **kwargs)
+        if use_channel_last_format and self.get_channel_last_inputs():
+            return transpose_channel_first_to_last(
+                self.get_channel_last_inputs(), sample_inputs
+            )
+        return sample_inputs
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        """
         This is a default implementation that returns a single random data array
         for each input name based on the shapes and dtypes in `get_input_spec`.
 
         A subclass may choose to override this and fetch a batch of real input data
         from a data source.
+
+        See the `sample_inputs` doc for the expected format.
         """
         if not input_spec:
             input_spec = self.get_input_spec()
@@ -101,6 +125,22 @@ class HubModel(HubModelProtocol):
         AI Hub profile options recommended for the model.
         """
         return other_profile_options
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        """
+        A list of input names that should be transposed to channel-last format
+            for the on-device model in order to improve performance.
+        """
+        return []
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        """
+        A list of output names that should be transposed to channel-last format
+            for the on-device model in order to improve performance.
+        """
+        return []
 
 
 class BaseModel(
@@ -182,7 +222,7 @@ class BaseModel(
             input_spec=input_spec,
             check_trace=check_trace,
             external_onnx_weights=external_onnx_weights,
-            output_names=output_names,
+            output_names=output_names or self.get_output_names(),
         )
         return source_model
 
@@ -212,6 +252,7 @@ class BaseModel(
                         if (
                             "os:android" not in device.attributes
                             or "format:iot" in device.attributes
+                            or "format:auto" in device.attributes
                         ):
                             target_runtime_flag = "qnn_context_binary"
                             break
@@ -230,6 +271,16 @@ class BaseModel(
             f"--target_runtime {target_runtime_flag}" if target_runtime_flag else ""
         )
         compile_options += f" --output_names {','.join(self.get_output_names())}"
+
+        if target_runtime != TargetRuntime.ONNX:
+            if self.get_channel_last_inputs():
+                channel_last_inputs = ",".join(self.get_channel_last_inputs())
+                compile_options += f" --force_channel_last_input {channel_last_inputs}"
+            if self.get_channel_last_outputs():
+                channel_last_outputs = ",".join(self.get_channel_last_outputs())
+                compile_options += (
+                    f" --force_channel_last_output {channel_last_outputs}"
+                )
 
         if other_compile_options != "":
             return compile_options + " " + other_compile_options

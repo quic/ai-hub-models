@@ -89,5 +89,11 @@ class PosenetMobilenet(BaseModel):
             "max_vals",
         ]
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
         return {"image": [load_numpy(SAMPLE_INPUTS)]}
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]

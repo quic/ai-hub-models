@@ -97,6 +97,14 @@ class Real_ESRGAN_x4plus(BaseModel):
     def get_output_names() -> List[str]:
         return ["upscaled_image"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["upscaled_image"]
+
 
 def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
     """Convert from names of weights files to the url for the weights file"""

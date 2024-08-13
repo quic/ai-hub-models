@@ -95,6 +95,14 @@ class LamaDilated(BaseModel):
     def get_output_names() -> List[str]:
         return ["painted_image"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image", "mask"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["painted_image"]
+
 
 def _get_weightsfile_from_name(weights_name: str):
     """Convert from names of weights files to the url for the weights file"""

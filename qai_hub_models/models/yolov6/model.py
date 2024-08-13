@@ -99,6 +99,10 @@ class YoloV6(BaseModel):
     def _get_output_names_for_instance(self) -> List[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
 
 def _load_yolov6_source_model_from_weights(
     ckpt_path: str | CachedWebModelAsset,

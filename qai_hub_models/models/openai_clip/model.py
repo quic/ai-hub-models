@@ -160,3 +160,7 @@ class ClipImageEncoder(BaseModel):
     @classmethod
     def from_pretrained(cls):
         return Clip.from_pretrained().image_encoder
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]

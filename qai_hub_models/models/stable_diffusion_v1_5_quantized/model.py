@@ -14,7 +14,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
-QNN_SDK_PREFIX = "QNN220"
+QNN_SDK_PREFIX = "QNN224"
 TEXT_ENCODER = Path(QNN_SDK_PREFIX, "text_encoder.serialized.bin")
 UNET_DIFFUSER = Path(QNN_SDK_PREFIX, "unet.serialized.bin")
 VAE_DECODER = Path(QNN_SDK_PREFIX, "vae_decoder.serialized.bin")
@@ -87,14 +87,14 @@ class Unet(BasePrecompiledModel):
     @staticmethod
     def get_input_spec() -> InputSpec:
         return {
-            "input_1": ((1, 64, 64, 4), "float32"),
-            "input_2": ((1, 1280), "float32"),
-            "input_3": ((1, 77, 768), "float32"),
+            "latent": ((1, 64, 64, 4), "float32"),
+            "time_emb": ((1, 1280), "float32"),
+            "text_emb": ((1, 77, 768), "float32"),
         }
 
     @staticmethod
     def get_output_names() -> List[str]:
-        return ["noise"]
+        return ["output_latent"]
 
 
 class VAEDecoder(BasePrecompiledModel):

@@ -78,6 +78,14 @@ class ESRGAN(BaseModel):
     def get_output_names() -> List[str]:
         return ["upscaled_image"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["upscaled_image"]
+
 
 def _load_esrgan_source_model_from_weights(
     weights_path: str | None = None,

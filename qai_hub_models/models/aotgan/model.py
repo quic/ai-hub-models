@@ -128,7 +128,9 @@ class AOTGAN(BaseModel):
     def get_output_names() -> List[str]:
         return ["painted_image"]
 
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
         """
         Provides an example image of a man with a mask over the glasses.
         """
@@ -138,3 +140,11 @@ class AOTGAN(BaseModel):
         mask = load_image(MASK_ADDRESS)
         torch_inputs = RepaintMaskApp.preprocess_inputs(image, mask)
         return {k: [v.detach().numpy()] for k, v in torch_inputs.items()}
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image", "mask"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["painted_image"]

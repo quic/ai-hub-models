@@ -112,6 +112,9 @@ def export_model(
         )
 
     target_runtime = TargetRuntime.TFLITE
+    # On-device perf improves with I/O in channel_last format except when using ONNX.
+    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
@@ -161,7 +164,9 @@ def export_model(
             profile_options_all = components_dict[
                 component_name
             ].get_hub_profile_options(target_runtime, profile_options)
-            sample_inputs = components_dict[component_name].sample_inputs()
+            sample_inputs = components_dict[component_name].sample_inputs(
+                use_channel_last_format=use_channel_last_format
+            )
             submitted_inference_job = hub.submit_inference_job(
                 model=uploaded_models[component_name],
                 inputs=sample_inputs,

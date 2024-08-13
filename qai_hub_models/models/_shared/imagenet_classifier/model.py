@@ -115,8 +115,12 @@ class ImagenetClassifier(BaseModel):
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)
 
-    def sample_inputs(
+    def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> Dict[str, List[np.ndarray]]:
         samples = get_image_quantization_samples()
         return dict(image_tensor=[samples[:1].numpy()])
+
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image_tensor"]

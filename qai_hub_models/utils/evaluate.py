@@ -27,7 +27,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_raw_file,
     qaihm_temp_dir,
 )
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.inference import AsyncOnDeviceModel, make_hub_dataset_entries
 from qai_hub_models.utils.qai_hub_helpers import transpose_channel_last_to_first
 
@@ -104,7 +104,7 @@ def _populate_data_cache_impl(
     split_size: int,
     seed: int,
     input_names: List[str],
-    channel_last_input: Optional[str],
+    channel_last_input: Optional[List[str]],
     cache_path: Path,
     dataset_ids_filepath: Path,
 ) -> None:
@@ -122,12 +122,9 @@ def _populate_data_cache_impl(
         input_entries = make_hub_dataset_entries(
             input_names,
             channel_last_input,
-            TargetRuntime.TFLITE,
             model_inputs.split(1, dim=0),
         )
-        gt_entries = make_hub_dataset_entries(
-            output_names, None, TargetRuntime.TFLITE, ground_truth_values
-        )
+        gt_entries = make_hub_dataset_entries(output_names, None, ground_truth_values)
         # print(input_entries)
         input_dataset = hub.upload_dataset(input_entries)
         gt_dataset = hub.upload_dataset(gt_entries)
@@ -144,7 +141,7 @@ def _populate_data_cache(
     split_size: int,
     seed: int,
     input_names: List[str],
-    channel_last_input: Optional[str],
+    channel_last_input: Optional[List[str]],
 ) -> None:
     """
     Creates hub datasets out of the input dataset and stores the same data locally.
@@ -244,7 +241,10 @@ class HubDataset(Dataset):
     """
 
     def __init__(
-        self, dataset_name: str, num_samples: int, channel_last_input: Optional[str]
+        self,
+        dataset_name: str,
+        num_samples: int,
+        channel_last_input: Optional[List[str]],
     ):
         self.cache_path = get_dataset_cache_filepath(dataset_name)
         self.split_size = get_dataset_cache_split_size(dataset_name)
@@ -276,7 +276,7 @@ class HubDataset(Dataset):
         input_data = load_h5(get_dataset_path(self.cache_path, self.input_ids[index]))
         if self.channel_last_input:
             input_data = transpose_channel_last_to_first(
-                self.channel_last_input, input_data, TargetRuntime.TFLITE
+                self.channel_last_input, input_data
             )
         input_np_data = np.concatenate(list(input_data.values())[0], axis=0)
         gt_data = load_h5(get_dataset_path(self.cache_path, self.gt_ids[index]))

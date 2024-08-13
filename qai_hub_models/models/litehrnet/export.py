@@ -108,6 +108,9 @@ def export_model(
             profile_options,
         )
 
+    # On-device perf improves with I/O in channel_last format except when using ONNX.
+    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     input_spec = model.get_input_spec(
@@ -155,7 +158,9 @@ def export_model(
         print(
             f"Running inference for {model_name} on a hosted device with example inputs."
         )
-        sample_inputs = model.sample_inputs(input_spec)
+        sample_inputs = model.sample_inputs(
+            input_spec, use_channel_last_format=use_channel_last_format
+        )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_job.get_target_model(),
             inputs=sample_inputs,
@@ -187,10 +192,16 @@ def export_model(
         print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
-        torch_out = torch_inference(model, sample_inputs)
+        sample_inputs = model.sample_inputs(use_channel_last_format=False)
+        torch_out = torch_inference(
+            model, sample_inputs, return_channel_last_output=use_channel_last_format
+        )
         assert inference_job is not None and inference_job.wait().success
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
-        print_inference_metrics(inference_job, inference_result, torch_out)
+
+        print_inference_metrics(
+            inference_job, inference_result, torch_out, model.get_output_names()
+        )
 
     if not skip_summary:
         print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)

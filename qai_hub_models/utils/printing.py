@@ -44,8 +44,8 @@ def print_inference_metrics(
     inference_job: hub.InferenceJob,
     inference_result: DatasetEntries,
     torch_out: List[np.ndarray],
-    outputs_to_skip: Optional[List[int]] = None,
     output_names: Optional[List[str]] = None,
+    outputs_to_skip: Optional[List[int]] = None,
     metrics: str = "psnr",
 ) -> None:
     if output_names is None:

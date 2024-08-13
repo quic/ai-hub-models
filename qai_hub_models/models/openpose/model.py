@@ -117,6 +117,14 @@ class OpenPose(BaseModel):
     def get_output_names() -> List[str]:
         return ["paf", "heatmap"]
 
+    @staticmethod
+    def get_channel_last_inputs() -> List[str]:
+        return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["paf", "heatmap"]
+
 
 def _load_openpose_source_model_from_weights(
     weights_path_body: str | None = None,
