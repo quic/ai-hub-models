@@ -34,13 +34,14 @@ def trocr_app(source_huggingface_model: VisionEncoderDecoderModel) -> TrOCRApp:
 
 
 @pytest.fixture(scope="module")
-def processed_sample_image(trocr_app: TrOCRApp) -> torch.Tensor:
+def processed_sample_image(trocr_app: TrOCRApp) -> np.ndarray:
     """Huggingface-provided image preprocessing and token decoding."""
     return trocr_app.preprocess_image(load_image(DEFAULT_SAMPLE_IMAGE))
 
 
 def test_predict_text_from_image(
-    trocr_app: TrOCRApp, processed_sample_image: torch.Tensor
+    trocr_app: TrOCRApp,
+    processed_sample_image: np.ndarray,
 ):
     """Verify our driver produces the correct sentences from a given image input."""
     assert trocr_app.predict_text_from_image(processed_sample_image)[0] == IMAGE_TEXT
@@ -49,10 +50,12 @@ def test_predict_text_from_image(
 def test_task(
     source_huggingface_model: VisionEncoderDecoderModel,
     trocr_app: TrOCRApp,
-    processed_sample_image: torch.Tensor,
+    processed_sample_image: np.ndarray,
 ):
     """Verify that raw (numeric) outputs of both networks are the same."""
-    source_out = source_huggingface_model.generate(processed_sample_image).numpy()
+    source_out = source_huggingface_model.generate(
+        torch.from_numpy(processed_sample_image)
+    ).numpy()
     qaihm_out = trocr_app.predict_text_from_image(
         processed_sample_image, raw_output=True
     )

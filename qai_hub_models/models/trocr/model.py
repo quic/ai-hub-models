@@ -22,7 +22,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 HUGGINGFACE_TROCR_MODEL = "microsoft/trocr-small-stage1"
 MODEL_ID = __name__.split(".")[-2]
 TROCR_BATCH_SIZE = 1
-TROCR_EXPORT_SEQ_LEN = 1  # -1 TODO(#5428): Dynamic sequence length support. This limits the input size to a seq len of 1.
+MAX_DECODE_LEN = 20
 MODEL_ASSET_VERSION = 1
 DEFAULT_NUM_DECODER_LAYERS = 6
 
@@ -38,10 +38,13 @@ class TrOCR(CollectionModel):
         encoder: Callable[[torch.Tensor], KVCache],
         decoder: Callable[..., Tuple[torch.Tensor, ...]],
         io_processor: TrOCRProcessor,
-        pad_token_id: int,
-        eos_token_id: int,
-        start_token_id: int,
-        max_seq_len: int,
+        pad_token_id: int = 1,
+        eos_token_id: int = 2,
+        start_token_id: int = 2,
+        max_seq_len: int = 20,
+        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
+        decoder_attention_heads: int = 8,
+        embeddings_per_head: int = 32,
     ):
         self.encoder = encoder
         self.decoder = decoder
@@ -50,6 +53,9 @@ class TrOCR(CollectionModel):
         self.eos_token_id = eos_token_id
         self.start_token_id = start_token_id
         self.max_seq_len = max_seq_len
+        self.num_decoder_layers = num_decoder_layers
+        self.decoder_attention_heads = decoder_attention_heads
+        self.embeddings_per_head = embeddings_per_head
 
     @classmethod
     def from_pretrained(cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL) -> TrOCR:
@@ -155,7 +161,7 @@ class TrOCRDecoder(BaseModel):
     Outputs: (output_ids, Updated Attention KV Cache)
     """
 
-    def __init__(self, decoder: TrOCRForCausalLM):
+    def __init__(self, decoder: TrOCRForCausalLM, max_decode_len: int = MAX_DECODE_LEN):
         super().__init__()
         self.decoder = copy.deepcopy(decoder)
         # Delete unused layers that exist only to generate initial KV cache.
@@ -170,8 +176,25 @@ class TrOCRDecoder(BaseModel):
             decoder.config.d_model // decoder.config.decoder_attention_heads
         )
 
+        # Since kv cache is a fixed size, mask out elements
+        # that correspond to not yet used entries.
+        # The kv cache for current token is inserted at the first
+        # index, with the previous cache shifted down by one element.
+        #
+        # Mask values: 1 for non-padded, 0 for padded
+        # https://github.com/huggingface/transformers/blob/main/src/transformers/models/trocr/modeling_trocr.py#L799
+        self.attn_mask = torch.nn.Embedding(max_decode_len, max_decode_len)
+        attn_mask = torch.zeros([max_decode_len, max_decode_len], dtype=torch.float32)
+        for c_idx in range(0, max_decode_len):
+            attn_mask[c_idx, -(c_idx + 1) :] = 1
+        self.attn_mask.weight = torch.nn.Parameter(attn_mask)
+
     def forward(
-        self, input_ids: torch.IntTensor, *kv_cache_args, **kv_cache_kwargs
+        self,
+        input_ids: torch.IntTensor,
+        index: torch.IntTensor,
+        *kv_cache_args,
+        **kv_cache_kwargs,
     ) -> Tuple[torch.Tensor, ...]:
         """
         Generate the next token in the predicted output text sequence.
@@ -179,6 +202,9 @@ class TrOCRDecoder(BaseModel):
         Parameters:
             input_ids : torch.IntTensor
                 Next token ID in each batch sequence (always shape (batch_size, 1))
+
+            index: torch.tensor, shape = (batch_size, 1)
+                index to get the attn_mask to mask out padded kv cache.
 
             kv_cache: Tuple[kv_cache_attn_0_key, kv_cache_attn_0_val,
                             kv_cache_cross_attn_0_key, kv_cache_cross_attn_0_val,
@@ -213,10 +239,13 @@ class TrOCRDecoder(BaseModel):
                 kv_cache.append((*curr_tuple,))
                 curr_tuple = []
         kv_cache = (*kv_cache,)  # type: ignore
+        attn_mask = self.attn_mask(index)
+        # (tgt_len,) -> (batch, 1, tgt_len, src_len)
 
         # Run decoder
         outputs = self.decoder(
             input_ids=input_ids,
+            attention_mask=attn_mask,
             encoder_hidden_states=encoder_hidden_states,
             return_dict=False,
             use_cache=True,
@@ -241,6 +270,7 @@ class TrOCRDecoder(BaseModel):
         decoder_attention_heads: int = 8,
         embeddings_per_head: int = 32,
         num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
+        max_decode_len: int = MAX_DECODE_LEN,
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
@@ -252,7 +282,7 @@ class TrOCRDecoder(BaseModel):
             (
                 batch_size,
                 decoder_attention_heads,
-                TROCR_EXPORT_SEQ_LEN,
+                max_decode_len - 1,
                 embeddings_per_head,
             ),
             "float32",
@@ -268,7 +298,10 @@ class TrOCRDecoder(BaseModel):
             "float32",
         )
 
-        decoder_input_specs: InputSpec = {"input_ids": input_ids_spec}
+        decoder_input_specs: InputSpec = {
+            "input_ids": input_ids_spec,
+            "index": ((1,), "int32"),
+        }
         for i in range(0, num_decoder_layers):
             decoder_input_specs[f"kv_{i}_attn_key"] = attn_cache_spec
             decoder_input_specs[f"kv_{i}_attn_val"] = attn_cache_spec
