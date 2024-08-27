@@ -145,3 +145,7 @@ class Midas(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> List[str]:
         return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> List[str]:
+        return ["depth_estimates"]

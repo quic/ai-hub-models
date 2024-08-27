@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import argparse
+from typing import Type
 
 import numpy as np
 from PIL import Image
@@ -25,7 +26,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run Mediapipe Face landmark detection end-to-end on a sample image or camera stream.
 # The demo will display output with the predicted landmarks & bounding boxes drawn.
-def main(is_test: bool = False):
+def mediapipe_face_demo(model_cls: Type[MediaPipeFace], is_test: bool = False):
     # Demo parameters
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -65,7 +66,7 @@ def main(is_test: bool = False):
 
     # Load app
     app = MediaPipeFaceApp(
-        MediaPipeFace.from_pretrained(),
+        model_cls.from_pretrained(),
         args.score_threshold,
         args.iou_threshold,
     )
@@ -85,6 +86,10 @@ def main(is_test: bool = False):
         capture_and_display_processed_frames(
             frame_processor, "QAIHM Mediapipe Face Demo", args.camera
         )
+
+
+def main(is_test: bool = False):
+    return mediapipe_face_demo(MediaPipeFace, is_test)
 
 
 if __name__ == "__main__":

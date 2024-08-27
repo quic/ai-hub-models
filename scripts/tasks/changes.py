@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from typing import Iterable
+from pathlib import Path
+from typing import Iterable, Optional, Set
 
 from .constants import (
     PY_PACKAGE_MODELS_ROOT,
@@ -58,7 +59,7 @@ def get_python_import_expression(filepath: str) -> str:
     return rel_path.replace("/", ".")
 
 
-def _get_file_edges(filename):
+def _get_file_edges(filename) -> Set[str]:
     """
     Resolve which files directly import from `filename`.
     """
@@ -93,7 +94,7 @@ def resolve_affected_models(
     include_export: bool = True,
     include_tests: bool = True,
     include_generated_tests: bool = True,
-) -> Iterable[str]:
+) -> Set[str]:
     """
     Given a list of changed python files, performs a Depth-First Search (DFS)
     over the qai_hub_models directory to figure out which directories were affected.
@@ -125,8 +126,8 @@ def resolve_affected_models(
     changed_models = set()
     for f in seen:
         if f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):
-            basename = os.path.basename(f)
-            if basename not in [
+            file_path = Path(f)
+            if file_path.name not in [
                 "model.py",
                 "export.py",
                 "test.py",
@@ -134,28 +135,39 @@ def resolve_affected_models(
                 "demo.py",
             ]:
                 continue
-            if not include_model and basename == "model.py":
+            if not include_model and file_path.name == "model.py":
                 continue
-            if not include_export and basename == "export.py":
+            if not include_export and file_path.name == "export.py":
                 continue
-            if not include_tests and basename == "test.py":
+            if not include_tests and file_path.name == "test.py":
                 continue
-            if not include_generated_tests and basename == "test_generated.py":
+            if not include_generated_tests and file_path.name == "test_generated.py":
                 continue
-            if not include_demo and basename == "demo.py":
+            if not include_demo and file_path.name == "demo.py":
                 continue
 
-            model_name = f[len(PY_PACKAGE_RELATIVE_MODELS_ROOT) :].split("/")[1]
-            if os.path.exists(
-                os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")
-            ):
+            model_name = file_path.parent.name
+            if (file_path.parent / "model.py").exists():
                 changed_models.add(model_name)
     return changed_models
 
 
-def get_changed_files_in_package() -> Iterable[str]:
+def get_code_gen_changed_models() -> Set[str]:
+    """Get models where the `code-gen.yaml` changed."""
+    changed_code_gen_files = get_changed_files_in_package("code-gen.yaml")
+    changed_models = []
+    for f in changed_code_gen_files:
+        if not f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):
+            continue
+        changed_models.append(Path(f).parent.name)
+    return set(changed_models)
+
+
+def get_changed_files_in_package(suffix: Optional[str] = None) -> Iterable[str]:
     """
     Returns the list of changed files in zoo based on git tracking.
+
+    If the suffix argument is passed, restrict only to files ending in that suffix.
     """
     with new_cd(REPO_ROOT):
         os.makedirs("build/model-zoo/", exist_ok=True)
@@ -168,14 +180,14 @@ def get_changed_files_in_package() -> Iterable[str]:
                     file
                     for file in f.read().split("\n")
                     if file.startswith(PY_PACKAGE_RELATIVE_SRC_ROOT)
-                    and file.endswith(".py")
+                    and (suffix is None or file.endswith(suffix))
                 ]
                 # Weed out duplicates
                 return list(set(changed_files))
         return []
 
 
-def get_models_to_test_export() -> Iterable[str]:
+def get_models_to_test_export() -> Set[str]:
     """
     The models for which to test export (i.e. compilation to .tflite).
     Current heuristic is to only do this for models where model.py or
@@ -190,7 +202,7 @@ def get_models_to_test_export() -> Iterable[str]:
     )
 
 
-def get_models_with_export_file_changes() -> Iterable[str]:
+def get_models_with_export_file_changes() -> Set[str]:
     """
     The models for which to test export (i.e. compilation to .tflite).
     Current heuristic is to only do this for models where model.py or
@@ -205,7 +217,7 @@ def get_models_with_export_file_changes() -> Iterable[str]:
     )
 
 
-def get_models_with_changed_definitions() -> Iterable[str]:
+def get_models_with_changed_definitions() -> Set[str]:
     """
     The models for which to run non-generated (demo / model) tests.
     """
@@ -218,7 +230,7 @@ def get_models_with_changed_definitions() -> Iterable[str]:
     )
 
 
-def get_models_to_run_general_tests() -> Iterable[str]:
+def get_models_to_run_general_tests() -> Set[str]:
     """
     The models for which to run non-generated (demo / model) tests.
     """
@@ -237,7 +249,7 @@ def get_changed_models(
     include_export: bool = True,
     include_tests: bool = True,
     include_generated_tests: bool = True,
-) -> Iterable[str]:
+) -> Set[str]:
     """
     Resolve which models within zoo have changed to figure which ones need to be tested.
 
@@ -248,7 +260,7 @@ def get_changed_models(
     Returns a list of model IDs (folder names) that have changed.
     """
     return resolve_affected_models(
-        get_changed_files_in_package(),
+        get_changed_files_in_package(".py"),
         include_model,
         include_demo,
         include_export,
@@ -257,7 +269,7 @@ def get_changed_models(
     )
 
 
-def get_all_models() -> Iterable[str]:
+def get_all_models() -> Set[str]:
     """
     Resolve model IDs (folder names) of all models in QAIHM.
     """

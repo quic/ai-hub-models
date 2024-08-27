@@ -33,6 +33,7 @@ def get_past_key_names(
     start: int = 0, end: int = 8, num_of_past_key_heads=32, suffix=""
 ):
     past_key_val_name = []
+
     for i in range(start, end):
         cache_names = [
             f"past_key_{i}_h{j}{suffix}" for j in range(num_of_past_key_heads)
@@ -113,7 +114,10 @@ def load_input_cached_data(
 
 
 def get_past_keyval_with_shift(
-    past_key_vals: List[torch.Tensor], num_of_past_key_heads: int = 32
+    past_key_vals: List[torch.Tensor],
+    past_key_start: int,
+    num_of_past_key_heads: int = 32,
+    new_key_suffix: str = "",
 ):
     """
     Clip past key value to feed next iteration
@@ -122,13 +126,18 @@ def get_past_keyval_with_shift(
     total_key_val = num_of_past_key_heads * 2
     for i in range(0, len(past_key_vals), total_key_val):
         l_num = i // total_key_val
+        past_key_num = l_num + past_key_start
         for j, key in enumerate(past_key_vals[i : i + num_of_past_key_heads]):
-            tg_inputs[f"past_key_{l_num}_h{j}"] = key[:, :, :, 1:].detach()
+            tg_inputs[f"past_key_{past_key_num}_h{j}{new_key_suffix}"] = key[
+                :, :, :, 1:
+            ].detach()
 
         for j, val in enumerate(
             past_key_vals[i + num_of_past_key_heads : i + total_key_val]
         ):
-            tg_inputs[f"past_value_{l_num}_h{j}"] = val[:, :, 1:, :].detach()
+            tg_inputs[f"past_value_{past_key_num}_h{j}{new_key_suffix}"] = val[
+                :, :, 1:, :
+            ].detach()
 
     return tg_inputs
 
@@ -244,12 +253,10 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         # Clipped hidden layers are named same as first part for all parts
         # Eventually, each split should have respective names.
         # layer_start, layer_end = get_hidden_layer_range_from_split(split_part=split_part, model_split_map=model_split_map)
-        layer_range = end - start
-        output_list = [
-            output_name if output_name else f"layers_{layer_range - 1}_add_out_0"
-        ]
+
+        output_list = [output_name if output_name else f"layers_{end - 1}_add_out_0"]
         output_list += get_past_key_names(
-            0, layer_range, num_of_past_key_heads=past_key_val_heads, suffix="_out"
+            start, end, num_of_past_key_heads=past_key_val_heads, suffix="_out"
         )
         return output_list
 

@@ -299,7 +299,9 @@ class ChatApp:
         )
         output_token = _get_tokens_from_logits(output)
         past_key_values = get_past_keyval_with_shift(
-            output[1:], num_of_past_key_heads=self.num_past_key_val_heads
+            output[1:],
+            past_key_start=0,
+            num_of_past_key_heads=self.num_past_key_val_heads,
         ).values()
         output_prompt = self.tokenizer.decode(output_token)
         print()

@@ -15,6 +15,7 @@ from tasks.changes import (
     REPRESENTATIVE_EXPORT_MODELS,
     get_all_models,
     get_changed_models,
+    get_code_gen_changed_models,
     get_models_to_run_general_tests,
     get_models_to_test_export,
     get_models_with_changed_definitions,
@@ -264,48 +265,36 @@ class TaskLibrary:
     def test_changed_models(
         self, plan: Plan, step_id: str = "test_changed_models"
     ) -> str:
-        changed_model_defs = set(
-            get_models_with_changed_definitions()
-        )  # model.py changed
-        export_changed_models = set(
-            get_models_with_export_file_changes()
-        )  # export.py or test_generated.py changed
+        # model.py changed
+        model_changed_models = get_models_with_changed_definitions()
 
-        # Get the set of models for which export changed and model defs changed
-        model_and_export_changed = changed_model_defs & export_changed_models
-        if len(model_and_export_changed) > 0:
-            # Don't bother testing all models for export.
-            # Just test the export for the models whose definitions changed.
-            export_models = model_and_export_changed
-        elif len(export_changed_models) > 0:
-            # This is true when `export.py` or `test_generated.py` are mass-changed,
-            # but no model definitions actually changed. That means this was a mass-change
-            # to the export scripts.
-            #
-            # Test a representative set of models.
-            # One regular model, one aimet, one components, and one non-image input.
-            # These are among the smallest instances of each of these.
-            # If none of these models were changed, test one model.
-            export_models = export_changed_models & set(REPRESENTATIVE_EXPORT_MODELS)
-            if len(export_models) == 0:
-                export_models = set([next(iter(export_changed_models))])
-        else:
-            export_models = set()
+        # export.py or test_generated.py changed
+        export_changed_models = get_models_with_export_file_changes()
 
-        # Set of models to run general tests
-        models_to_run_tests = set(
-            get_models_to_run_general_tests()
-        )  # demo.py or model.py changed
-        models_to_run_tests = (
-            models_to_run_tests | export_models
-        )  # export tests can only run alongside general model tests
+        # code-gen.yaml changed
+        code_gen_changed_models = get_code_gen_changed_models()
+
+        # If model or code-gen changed, then test export.
+        models_to_test_export = model_changed_models | code_gen_changed_models
+
+        # For all other models where export.py or test_generated.py changed,
+        #   only test if they're part of REPRESENTATIVE_EXPORT_MODELS
+        models_to_test_export.update(
+            export_changed_models & set(REPRESENTATIVE_EXPORT_MODELS)
+        )
+
+        # Set of models where model.py, demo.py, or test.py changed.
+        models_to_run_tests = get_models_to_run_general_tests()
+
+        # export tests can only run alongside general model tests
+        models_to_run_tests = models_to_run_tests | models_to_test_export
 
         return plan.add_step(
             step_id,
             PyTestModelsTask(
                 self.python_executable,
                 models_to_run_tests,
-                export_models,
+                models_to_test_export,
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
@@ -320,7 +309,7 @@ class TaskLibrary:
     def test_changed_models_long(
         self, plan: Plan, step_id: str = "test_changed_models_long"
     ) -> str:
-        default_test_models = ["mobilenet_v2", "googlenet"]
+        default_test_models = REPRESENTATIVE_EXPORT_MODELS
         return plan.add_step(
             step_id,
             PyTestModelsTask(

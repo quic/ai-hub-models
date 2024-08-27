@@ -9,6 +9,12 @@ from typing import Callable, List, Tuple
 import torch
 
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    find_replace_in_repo,
+    load_numpy,
+)
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -164,6 +170,12 @@ RIGHT_EYE_KEYPOINT_INDEX = 1  # The face detector outputs several keypoints. Thi
 ROTATION_VECTOR_OFFSET_RADS = (
     0  # Offset required when computing rotation of the detected face.
 )
+FACE_DETECTOR_SAMPLE_INPUTS_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "face_detector_inputs.npy"
+)
+LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "landmark_detector_inputs.npy"
+)
 
 
 class MediaPipeFace(CollectionModel):
@@ -203,7 +215,12 @@ class MediaPipeFace(CollectionModel):
             <source repository>.blazeface_landmark.BlazeFaceLandmark,
         ]
         """
-        with MediaPipePyTorchAsRoot():
+        with MediaPipePyTorchAsRoot() as repo_path:
+            # This conditional is unlikely to be hit, and breaks torch fx graph conversion
+            find_replace_in_repo(
+                repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
+            )
+
             from blazeface import BlazeFace
             from blazeface_landmark import BlazeFaceLandmark
 
@@ -229,7 +246,7 @@ class FaceDetector(BaseModel):
         self.detector = detector
         self.anchors = anchors
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image):
         return self.detector(image)
 
     @classmethod
@@ -237,7 +254,7 @@ class FaceDetector(BaseModel):
         cls,
         detector_weights: str = "blazefaceback.pth",
         detector_anchors: str = "anchors_face_back.npy",
-    ):
+    ) -> FaceDetector:
         with MediaPipePyTorchAsRoot():
             from blazeface import BlazeFace
 
@@ -262,6 +279,11 @@ class FaceDetector(BaseModel):
     def get_channel_last_inputs() -> List[str]:
         return ["image"]
 
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        return {"image": [load_numpy(FACE_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}
+
 
 class FaceLandmarkDetector(BaseModel):
     def __init__(
@@ -271,12 +293,17 @@ class FaceLandmarkDetector(BaseModel):
         super().__init__()
         self.detector = detector
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image):
         return self.detector(image)
 
     @classmethod
     def from_pretrained(cls, landmark_detector_weights: str = "blazeface_landmark.pth"):
-        with MediaPipePyTorchAsRoot():
+        with MediaPipePyTorchAsRoot() as repo_path:
+            # This conditional is unlikely to be hit, and breaks torch fx graph conversion
+            find_replace_in_repo(
+                repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
+            )
+
             from blazeface_landmark import BlazeFaceLandmark
 
             face_regressor = BlazeFaceLandmark()
@@ -298,3 +325,8 @@ class FaceLandmarkDetector(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> List[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        return {"image": [load_numpy(LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}

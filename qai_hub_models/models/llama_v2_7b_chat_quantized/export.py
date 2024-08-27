@@ -136,7 +136,7 @@ def export_model(
     compile_jobs: Dict[str, hub.client.CompileJob] = {}
     profile_options_per_component: Dict[str, str] = {}
 
-    for i, component_name in enumerate(components):
+    for component_name in components:
         # Load model part
 
         component = model.load_model_part(component_name)
@@ -145,7 +145,6 @@ def export_model(
             **get_input_spec_kwargs(component, additional_model_kwargs)
         )
 
-        # Trace the model
         source_model = component.convert_to_hub_source_model(
             target_runtime,
             output_path,

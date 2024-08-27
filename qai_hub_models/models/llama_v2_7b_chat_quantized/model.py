@@ -47,7 +47,7 @@ from transformers import AutoConfig, LlamaTokenizer  # noqa: E402
 
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 6
+MODEL_ASSET_VERSION = 7
 
 # Configs
 AIMET_ENCODINGS_PREFIX = "config"
@@ -92,6 +92,13 @@ END_TOKENS = {"</s>"}
 
 DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "Hi! What is 2+3?"
+
+
+def _get_intermediate_logit_name(split_part):
+    if split_part == 1:
+        return "input_ids"
+    start_layer_num = MODEL_SPLIT_MAP[split_part][0]
+    return f"layers_{start_layer_num-1}_add_out_0"
 
 
 def get_input_prompt_with_tags(
@@ -173,6 +180,7 @@ class Llama2Wrapper(torch.nn.Module):
         config.use_conv = True
         config.mask_neg = -100
         config.split_model = split_part
+
         if split_part < 1 or split_part > 4:
             raise RuntimeError(
                 f"Llama2 split_part must be within 1-4 (Provided {split_part})."
@@ -396,6 +404,17 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         }
 
     @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
+
+    @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
         data = load_input_cached_data(
             split_part=1,
@@ -493,11 +512,25 @@ class Llama2_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a compile job.
         return {
-            "input_ids": ((1, input_seq_length, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=2): (
+                (1, input_seq_length, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, input_seq_length, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
         }
+
+    @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
 
     @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
@@ -520,7 +553,7 @@ class Llama2_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
         del model
 
         new_inputs = {}
-        new_inputs["input_ids"] = output[0].detach()
+        new_inputs[_get_intermediate_logit_name(split_part=2)] = output[0].detach()
         new_inputs["attention_mask"] = inputs["attention_mask"]
         new_inputs["position_ids_cos"] = inputs["position_ids_cos"]
         new_inputs["position_ids_sin"] = inputs["position_ids_sin"]
@@ -584,11 +617,25 @@ class Llama2_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a compile job.
         return {
-            "input_ids": ((1, input_seq_length, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=3): (
+                (1, input_seq_length, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, input_seq_length, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
         }
+
+    @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
 
     @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
@@ -611,7 +658,7 @@ class Llama2_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
         del model
 
         new_inputs = {}
-        new_inputs["input_ids"] = output[0].detach()
+        new_inputs[_get_intermediate_logit_name(split_part=3)] = output[0].detach()
         new_inputs["attention_mask"] = inputs["attention_mask"]
         new_inputs["position_ids_cos"] = inputs["position_ids_cos"]
         new_inputs["position_ids_sin"] = inputs["position_ids_sin"]
@@ -675,7 +722,10 @@ class Llama2_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a compile job.
         return {
-            "input_ids": ((1, input_seq_length, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=4): (
+                (1, input_seq_length, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, input_seq_length, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, input_seq_length, POS_EMBED_DIM), "float32"),
@@ -713,7 +763,7 @@ class Llama2_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
         output = model(*inputs.values())
 
         new_inputs = {}
-        new_inputs["input_ids"] = output[0].detach()
+        new_inputs[_get_intermediate_logit_name(split_part=4)] = output[0].detach()
         new_inputs["attention_mask"] = inputs["attention_mask"]
         new_inputs["position_ids_cos"] = inputs["position_ids_cos"]
         new_inputs["position_ids_sin"] = inputs["position_ids_sin"]
@@ -799,7 +849,15 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names()
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=NUM_KEY_VAL_HEADS,
+            suffix="_in",
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -812,6 +870,17 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
                     "float32",
                 )
         return input_spec
+
+    @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
 
     @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
@@ -879,7 +948,12 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": position_ids_sin,
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, new_key_suffix="_in"
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -955,14 +1029,25 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         # the model input specification upon submitting a compile job.
 
         input_spec = {
-            "input_ids": ((1, 1, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=2): (
+                (1, 1, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, 1, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, 1, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, 1, POS_EMBED_DIM), "float32"),
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names()
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=NUM_KEY_VAL_HEADS,
+            suffix="_in",
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -975,6 +1060,17 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
                     "float32",
                 )
         return input_spec
+
+    @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
 
     @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
@@ -1005,13 +1101,18 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         del model
 
         data = {
-            "input_ids": output_tg[0].detach(),
+            _get_intermediate_logit_name(split_part=2): output_tg[0].detach(),
             "attention_mask": inputs["attention_mask"],
             "position_ids_cos": inputs["position_ids_cos"],
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, new_key_suffix="_in"
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1086,14 +1187,25 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         # the model input specification upon submitting a compile job.
 
         input_spec = {
-            "input_ids": ((1, 1, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=3): (
+                (1, 1, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, 1, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, 1, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, 1, POS_EMBED_DIM), "float32"),
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names()
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=NUM_KEY_VAL_HEADS,
+            suffix="_in",
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1106,6 +1218,17 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
                     "float32",
                 )
         return input_spec
+
+    @staticmethod
+    def get_output_names():
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        return Llama_QuantizedMixin.get_output_names(
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+        )
 
     @staticmethod
     def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
@@ -1136,13 +1259,18 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         del model
 
         data = {
-            "input_ids": output_tg[0].detach(),
+            _get_intermediate_logit_name(split_part=3): output_tg[0].detach(),
             "attention_mask": inputs["attention_mask"],
             "position_ids_cos": inputs["position_ids_cos"],
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, new_key_suffix="_in"
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1217,14 +1345,25 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         # the model input specification upon submitting a compile job.
 
         input_spec = {
-            "input_ids": ((1, 1, ATTENTION_HIDDEN_DIM), "float32"),
+            _get_intermediate_logit_name(split_part=4): (
+                (1, 1, ATTENTION_HIDDEN_DIM),
+                "float32",
+            ),
             "attention_mask": ((1, 1, 1, input_seq_length), "float32"),
             "position_ids_cos": ((1, 1, 1, POS_EMBED_DIM), "float32"),
             "position_ids_sin": ((1, 1, 1, POS_EMBED_DIM), "float32"),
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names()
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=4, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=NUM_KEY_VAL_HEADS,
+            suffix="_in",
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1279,13 +1418,18 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         del model
 
         data = {
-            "input_ids": output_tg[0].detach(),
+            _get_intermediate_logit_name(split_part=4): output_tg[0].detach(),
             "attention_mask": inputs["attention_mask"],
             "position_ids_cos": inputs["position_ids_cos"],
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=4, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, new_key_suffix="_in"
+        )
         for key, val in key_val.items():
             data[key] = val
 

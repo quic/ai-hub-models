@@ -129,8 +129,9 @@ def export_model(
 
     compile_jobs: Dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():
-        # Trace the model
         input_spec = component.get_input_spec()
+
+        # Trace the model
         source_model = torch.jit.trace(
             component.to("cpu"), make_torch_inputs(input_spec)
         )

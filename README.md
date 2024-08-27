@@ -357,6 +357,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [DETR-ResNet50](https://aihub.qualcomm.com/models/detr_resnet50) | [qai_hub_models.models.detr_resnet50](qai_hub_models/models/detr_resnet50/README.md) | ✔️ | ✔️ | ✔️
 | [DETR-ResNet50-DC5](https://aihub.qualcomm.com/models/detr_resnet50_dc5) | [qai_hub_models.models.detr_resnet50_dc5](qai_hub_models/models/detr_resnet50_dc5/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) | ✔️ | ✔️ | ✔️
+| [MediaPipe-Face-Detection-Quantized](https://aihub.qualcomm.com/models/mediapipe_face_quantized) | [qai_hub_models.models.mediapipe_face_quantized](qai_hub_models/models/mediapipe_face_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection-Quantized](https://aihub.qualcomm.com/models/yolov8_det_quantized) | [qai_hub_models.models.yolov8_det_quantized](qai_hub_models/models/yolov8_det_quantized/README.md) | ✔️ | ✔️ | ✔️
