@@ -116,6 +116,8 @@ HF_AVAILABLE_LICENSES = {
     "llama3",
     "unknown",
     "other",
+    "yolo-nas",
+    "yolo-nas-weights",
 }
 
 
