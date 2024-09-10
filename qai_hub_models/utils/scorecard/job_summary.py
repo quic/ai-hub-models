@@ -56,7 +56,7 @@ class JobSummary:
             return None
 
         job = hub.get_job(self.job_id)
-        if job.get_status().running:
+        if not job.get_status().finished:
             if self.max_job_wait_secs and self.max_job_wait_secs < 0:
                 return None
             else:

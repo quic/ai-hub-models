@@ -444,14 +444,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         """
         Calibration dataset for this model and input spec.
         """
-        if target_runtime == TargetRuntime.ONNX:
-            # TODO(#10896): Restore quantize_io flag when targeting ORT
-            return None
-
-        if not input_spec:
-            input_spec = self.get_input_spec()
-        inputs = make_torch_inputs(input_spec)
-        return {k: v.numpy() for k, v in zip(input_spec.keys(), inputs)}
+        return None
 
     def get_hub_compile_options(
         self,
@@ -460,11 +453,6 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         device: Optional[Device] = None,
     ) -> str:
         quantization_flags = " --quantize_io"
-        if (
-            target_runtime == TargetRuntime.QNN
-            or target_runtime == TargetRuntime.TFLITE
-        ):
-            quantization_flags += " --quantize_full_type int8"
         if target_runtime == TargetRuntime.TFLITE:
             # uint8 is the easiest I/O type for integration purposes,
             # especially for image applications. Images are always

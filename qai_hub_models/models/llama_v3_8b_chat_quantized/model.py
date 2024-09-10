@@ -47,7 +47,7 @@ from transformers import AutoConfig, AutoTokenizer  # noqa: E402
 
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 
 # Configs
 AIMET_ENCODINGS_PREFIX = "config"
@@ -275,7 +275,7 @@ class Llama3Wrapper(torch.nn.Module):
         *past_key_values,
     ):
         past_key_values_tuple = make_torch_compatible_past_key_values(
-            self.total_hidden_layers, 8, *past_key_values
+            self.total_hidden_layers, 8, False, *past_key_values
         )
         return self.model(
             input_ids,
@@ -424,7 +424,10 @@ class Llama3_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -538,7 +541,10 @@ class Llama3_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -639,7 +645,10 @@ class Llama3_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -740,7 +749,10 @@ class Llama3_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -843,6 +855,7 @@ class Llama3_PromptProcessor_5_Quantized(Llama_QuantizedMixin):
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
             output_name="logits",
         )
 
@@ -953,8 +966,14 @@ class Llama3_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
         past_key_val_names = get_past_key_names(
-            start=0, end=4, num_of_past_key_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
@@ -975,7 +994,10 @@ class Llama3_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -1044,7 +1066,12 @@ class Llama3_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": position_ids_sin,
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=1, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, bundled_kvcache=False
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1127,7 +1154,15 @@ class Llama3_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names(start=0, end=8, num_of_past_key_heads=8)
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=8,
+            bundled_kvcache=False,
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1147,7 +1182,10 @@ class Llama3_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -1185,7 +1223,12 @@ class Llama3_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=2, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, bundled_kvcache=False
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1267,7 +1310,15 @@ class Llama3_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names(start=0, end=8, num_of_past_key_heads=8)
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=8,
+            bundled_kvcache=False,
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1287,7 +1338,10 @@ class Llama3_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -1325,7 +1379,12 @@ class Llama3_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=3, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, bundled_kvcache=False
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1407,7 +1466,15 @@ class Llama3_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names(start=0, end=8, num_of_past_key_heads=8)
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=4, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=8,
+            bundled_kvcache=False,
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1427,7 +1494,10 @@ class Llama3_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )
         return Llama_QuantizedMixin.get_output_names(
-            start=layers_start, end=layers_end, past_key_val_heads=NUM_KEY_VAL_HEADS
+            start=layers_start,
+            end=layers_end,
+            past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
         )
 
     @staticmethod
@@ -1465,7 +1535,12 @@ class Llama3_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=4, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, bundled_kvcache=False
+        )
         for key, val in key_val.items():
             data[key] = val
 
@@ -1547,7 +1622,15 @@ class Llama3_TokenGenerator_5_Quantized(Llama_QuantizedMixin):
         }
 
         # Collect past_key_values and drop output names
-        past_key_val_names = get_past_key_names(start=0, end=4, num_of_past_key_heads=8)
+        layers_start, layers_end = get_hidden_layer_range_from_split(
+            split_part=5, model_split_map=MODEL_SPLIT_MAP
+        )
+        past_key_val_names = get_past_key_names(
+            start=layers_start,
+            end=layers_end,
+            num_of_past_key_heads=8,
+            bundled_kvcache=False,
+        )
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
@@ -1570,6 +1653,7 @@ class Llama3_TokenGenerator_5_Quantized(Llama_QuantizedMixin):
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
+            bundled_kvcache=False,
             output_name="logits",
         )
 
@@ -1608,7 +1692,12 @@ class Llama3_TokenGenerator_5_Quantized(Llama_QuantizedMixin):
             "position_ids_sin": inputs["position_ids_sin"],
         }
 
-        key_val = get_past_keyval_with_shift(output[1:], NUM_KEY_VAL_HEADS)
+        layers_start, _ = get_hidden_layer_range_from_split(
+            split_part=5, model_split_map=MODEL_SPLIT_MAP
+        )
+        key_val = get_past_keyval_with_shift(
+            output[1:], layers_start, NUM_KEY_VAL_HEADS, bundled_kvcache=False
+        )
         for key, val in key_val.items():
             data[key] = val
 

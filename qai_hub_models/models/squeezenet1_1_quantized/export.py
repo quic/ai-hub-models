@@ -119,10 +119,6 @@ def export_model(
     source_model = model.convert_to_hub_source_model(
         target_runtime, output_path, input_spec
     )
-    if target_runtime == TargetRuntime.TFLITE:
-        quant_calibration_data = None
-    else:
-        quant_calibration_data = model.get_calibration_data(target_runtime, input_spec)
 
     # 2. Compile the model to an on-device asset
     model_compile_options = model.get_hub_compile_options(
@@ -134,7 +130,7 @@ def export_model(
         input_specs=input_spec,
         device=hub_device,
         name=model_name,
-        calibration_data=quant_calibration_data,
+        calibration_data=model.get_calibration_data(target_runtime),
         options=model_compile_options,
     )
     compile_job = cast(hub.client.CompileJob, submitted_compile_job)
@@ -177,18 +173,9 @@ def export_model(
 
     # 5. Download the model asset to a local file
     if not skip_downloading:
-        if target_runtime == TargetRuntime.QNN:
-            target_runtime_extension = "so"
-        elif target_runtime == TargetRuntime.TFLITE:
-            target_runtime_extension = "tflite"
-        elif target_runtime in {TargetRuntime.ONNX, TargetRuntime.PRECOMPILED_QNN_ONNX}:
-            target_runtime_extension = "onnx"
-
         os.makedirs(output_path, exist_ok=True)
         target_model: hub.Model = compile_job.get_target_model()  # type: ignore
-        target_model.download(
-            str(output_path / f"{model_name}.{target_runtime_extension}")
-        )
+        target_model.download(str(output_path / model_name))
 
     # 6. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:

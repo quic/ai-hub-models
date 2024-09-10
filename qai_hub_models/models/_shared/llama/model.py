@@ -30,10 +30,24 @@ def get_hidden_layer_range_from_split(split_part: int, model_split_map: dict):
 
 
 def get_past_key_names(
-    start: int = 0, end: int = 8, num_of_past_key_heads=32, suffix=""
+    start: int = 0,
+    end: int = 8,
+    num_of_past_key_heads: int = 32,
+    suffix: str = "",
+    bundled_kvcache: bool = True,
 ):
     past_key_val_name = []
 
+    if bundled_kvcache:
+        # Key and Values are concatanated on batch dimension
+        for i in range(start, end):
+            past_key_val_name += [
+                f"past_key_{i}{suffix}",
+                f"past_value_{i}{suffix}",
+            ]
+        return past_key_val_name
+
+    # Key and Values are separate for each head
     for i in range(start, end):
         cache_names = [
             f"past_key_{i}_h{j}{suffix}" for j in range(num_of_past_key_heads)
@@ -118,11 +132,27 @@ def get_past_keyval_with_shift(
     past_key_start: int,
     num_of_past_key_heads: int = 32,
     new_key_suffix: str = "",
+    bundled_kvcache: bool = True,
 ):
     """
     Clip past key value to feed next iteration
     """
     tg_inputs = {}
+    if bundled_kvcache:
+        # Key and Values are concatanated on batch dimension
+        for i in range(0, len(past_key_vals), 2):
+            l_num = i // 2
+            past_key_num = l_num + past_key_start
+            tg_inputs[f"past_key_{past_key_num}{new_key_suffix}"] = past_key_vals[i][
+                :, :, :, 1:
+            ].detach()
+
+            tg_inputs[f"past_value_{past_key_num}{new_key_suffix}"] = past_key_vals[
+                i + 1
+            ][:, :, 1:, :].detach()
+        return tg_inputs
+
+    # Key and Values separate for each head
     total_key_val = num_of_past_key_heads * 2
     for i in range(0, len(past_key_vals), total_key_val):
         l_num = i // total_key_val
@@ -138,15 +168,33 @@ def get_past_keyval_with_shift(
             tg_inputs[f"past_value_{past_key_num}_h{j}{new_key_suffix}"] = val[
                 :, :, 1:, :
             ].detach()
-
     return tg_inputs
 
 
 def make_torch_compatible_past_key_values(
-    decode_layers, past_key_val_per_layer, *past_values_flattened
+    decode_layers: int,
+    past_key_val_per_layer: int,
+    bundled_kvcache: bool = True,
+    *past_values_flattened,
 ):
     past_key_values = []
     total_past_entries = len(past_values_flattened)
+
+    if bundled_kvcache:
+        # Key and Value are concatanated on batch dimension
+        if decode_layers * 2 != total_past_entries:
+            raise RuntimeError(
+                "Incorrect number of past key-values provided for model."
+                f"Expecting {decode_layers * 2}, got {total_past_entries}."
+            )
+
+        for i in range(0, total_past_entries, 2):
+            past_key_values.append(
+                (past_values_flattened[i], past_values_flattened[i + 1])
+            )
+        return tuple(past_key_values)
+
+    # Key and Value are separate for each head
 
     # past values consists of
     # 1. k decode/hidden layers
@@ -248,6 +296,7 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         start: int = 0,
         end: int = 8,
         past_key_val_heads: int = 32,
+        bundled_kvcache: bool = True,
         output_name: str = "",
     ) -> List[str]:
         # Clipped hidden layers are named same as first part for all parts
@@ -256,7 +305,11 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
 
         output_list = [output_name if output_name else f"layers_{end - 1}_add_out_0"]
         output_list += get_past_key_names(
-            start, end, num_of_past_key_heads=past_key_val_heads, suffix="_out"
+            start,
+            end,
+            num_of_past_key_heads=past_key_val_heads,
+            bundled_kvcache=bundled_kvcache,
+            suffix="_out",
         )
         return output_list
 

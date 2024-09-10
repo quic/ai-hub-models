@@ -86,6 +86,7 @@ def llama_3_chat_demo(
         default_prompt=default_prompt,
         is_test=is_test,
         available_target_runtimes=available_target_runtimes,
+        bundled_kvcache=False,
     )
 
 

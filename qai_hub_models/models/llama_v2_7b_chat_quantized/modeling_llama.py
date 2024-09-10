@@ -220,6 +220,19 @@ def apply_rope_single(x, rope_vals: Tuple[torch.Tensor, torch.Tensor]):
     return x
 
 
+# Add Concat Module for AIMET encoding consumption
+class Concat(nn.Module):
+    """Concat module for a functional concat"""
+
+    def __init__(self, axis: int = 0):
+        super().__init__()
+        self._axis = axis
+
+    def forward(self, *x) -> torch.Tensor:
+        """Forward-pass routine for cat op"""
+        return torch.cat(x, dim=self._axis)
+
+
 ### ------- QCOM EDITS ENDS ------- ###
 
 
@@ -270,7 +283,7 @@ class LlamaMLP(nn.Module):
 
         return x
 
-    ### ------- QCOM EDITS ENDS ------- ###
+        ### ------- QCOM EDITS ENDS ------- ###
 
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
@@ -314,8 +327,12 @@ class LlamaAttention(nn.Module):
             if hasattr(config, "return_new_key_value_only")
             else False
         )
-
-    ### ------- QCOM EDITS ENDS ------- ###
+        self.concat_head_in_batch_dimension = (
+            config.concat_head_in_batch_dimension
+            if hasattr(config, "concat_head_in_batch_dimension")
+            else False
+        )
+        ### ------- QCOM EDITS ENDS ------- ###
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return (
@@ -348,6 +365,9 @@ class LlamaAttention(nn.Module):
             self.o_proj_conv = nn.Conv2d(
                 self.num_heads * self.head_dim, self.hidden_size, 1, bias=False
             )
+            self.cache_cat = nn.ModuleList(
+                [Concat(0) for _ in range(2)]
+            )  # 2: (key,value)
 
             self.forward_mha = self.forward
             self.forward = self.forward_sha
@@ -397,7 +417,7 @@ class LlamaAttention(nn.Module):
 
         kv_seq_len = value_states[0].shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value[1][0].shape[-2]
+            kv_seq_len += past_key_value[1].shape[-2]
 
         if isinstance(position_ids, (tuple, list)):
             rope_embedding = position_ids
@@ -420,10 +440,25 @@ class LlamaAttention(nn.Module):
             present_key_value = (
                 (tuple(key_states), tuple(value_states)) if use_cache else None
             )
+            if self.concat_head_in_batch_dimension:
+                present_key_value = (
+                    tuple(
+                        cat(*present)
+                        for cat, present in zip(self.cache_cat, present_key_value)
+                    )
+                    if use_cache
+                    else None
+                )
 
         if past_key_value is not None:
             # reuse k, v, self_attention
-            past_key, past_value = past_key_value
+            if self.concat_head_in_batch_dimension:
+                past_key, past_value = [
+                    [past[head : head + 1, ...] for head in range(self.num_heads)]
+                    for past in past_key_value
+                ]
+            else:
+                past_key, past_value = past_key_value
             key_states = [
                 torch.cat([pk, k], dim=3) for pk, k in zip(past_key, key_states)
             ]
@@ -477,7 +512,11 @@ class LlamaAttention(nn.Module):
         if not output_attentions:
             attn_weights = None
 
-        return attn_output, attn_weights, present_key_value
+        return (
+            attn_output,
+            attn_weights,
+            present_key_value if self.return_new_key_value_only else past_key_value,
+        )
 
     ### ------- QCOM EDITS ENDS ------- ###
 
@@ -510,7 +549,7 @@ class LlamaAttention(nn.Module):
 
         kv_seq_len = key_states.shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value[0].shape[-2]
+            kv_seq_len += past_key_value[1].shape[-2]
 
         if isinstance(position_ids, (tuple, list)):
             rope_embedding = position_ids
@@ -523,16 +562,29 @@ class LlamaAttention(nn.Module):
             )
             # [bsz, nh, t, hd]
 
+        if self.config.transposed_key_cache:
+            key_states = key_states.transpose(2, 3)
+
+        if self.return_new_key_value_only:
+            present_key_value = (key_states, value_states) if use_cache else None
+
         if past_key_value is not None:
             # reuse k, v, self_attention
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
+            dim = 3 if self.config.transposed_key_cache else 2
+            key_states = torch.cat([past_key_value[0], key_states], dim=dim)
             value_states = torch.cat([past_key_value[1], value_states], dim=2)
 
-        past_key_value = (key_states, value_states) if use_cache else None
+        if not self.return_new_key_value_only:
+            present_key_value = (key_states, value_states) if use_cache else None
 
-        attn_weights = torch.matmul(
-            query_states, key_states.transpose(2, 3)
-        ) / math.sqrt(self.head_dim)
+        if self.config.transposed_key_cache:
+            attn_weights = torch.matmul(query_states, key_states) / math.sqrt(
+                self.head_dim
+            )
+        else:
+            attn_weights = torch.matmul(
+                query_states, key_states.transpose(2, 3)
+            ) / math.sqrt(self.head_dim)
 
         if attn_weights.size() != (bsz, self.num_heads, q_len, kv_seq_len):
             raise ValueError(
@@ -560,14 +612,18 @@ class LlamaAttention(nn.Module):
             )
 
         attn_output = attn_output.transpose(1, 2)
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
 
+        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
         attn_output = self.o_proj(attn_output)
 
         if not output_attentions:
             attn_weights = None
 
-        return attn_output, attn_weights, past_key_value
+        return (
+            attn_output,
+            attn_weights,
+            present_key_value if self.return_new_key_value_only else past_key_value,
+        )
 
 
 class LlamaDecoderLayer(nn.Module):
@@ -892,8 +948,8 @@ class LlamaModel(LlamaPreTrainedModel):
         past_key_values_length = 0
 
         if past_key_values is not None:
-            # Get shape from value
-            past_key_values_length = past_key_values[0][0][1].shape[-2]
+            # Get shape from past key
+            past_key_values_length = past_key_values[0][0].shape[-1]
             seq_length_with_past = seq_length_with_past + past_key_values_length
 
         if position_ids is None:

@@ -36,12 +36,14 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
         num_past_key_val_heads: int,
         model_split_map: Dict[int, Tuple[int, int]],
         is_token_generator: bool = False,
+        is_bundled_kvcache: bool = True,
     ):
         self.num_splits = num_splits
         self.is_token_generator = is_token_generator
         self.num_past_key_val_heads = num_past_key_val_heads
         self.model_split_map = model_split_map
         self.model_type = "TokenGenerator" if is_token_generator else "PromptProcessor"
+        self.is_bundled_kvcache = is_bundled_kvcache
 
     def __call__(
         self,
@@ -91,9 +93,10 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
                 model = self.load_model_part(i)
             print(f"Running {self.model_type} {i}/{self.num_splits}")
             layer_start, layer_end = self.model_split_map[i]
-            num_of_key_vals = (
-                self.num_past_key_val_heads * 2 * (layer_end - layer_start)
+            num_past_key_val_head = (
+                1 if self.is_bundled_kvcache else self.num_past_key_val_heads
             )
+            num_of_key_vals = num_past_key_val_head * 2 * (layer_end - layer_start)
 
             end_past_key_offset = start_past_key_offset + num_of_key_vals
             past_values = past_key_values[start_past_key_offset:end_past_key_offset]
@@ -157,12 +160,14 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
         num_past_key_val_heads: int,
         model_split_map: Dict[int, Tuple[int, int]],
         is_token_generator: bool = False,
+        is_bundled_kvcache: bool = True,
     ):
         super().__init__(
             len(hub_model_ids),
             num_past_key_val_heads,
             model_split_map,
             is_token_generator=is_token_generator,
+            is_bundled_kvcache=is_bundled_kvcache,
         )
         self.models = []
         for i, model_id in enumerate(hub_model_ids):
@@ -202,6 +207,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
         num_past_key_val_heads: int,
         model_split_map: Dict[int, Tuple[int, int]],
         is_token_generator: bool = False,
+        is_bundled_kvcache: bool = True,
     ):
         self.models = models
         self.num_splits = num_splits
@@ -211,6 +217,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
             num_past_key_val_heads=num_past_key_val_heads,
             model_split_map=model_split_map,
             is_token_generator=is_token_generator,
+            is_bundled_kvcache=is_bundled_kvcache,
         )
 
     def load_model_part(self, model_part: int):
@@ -262,7 +269,11 @@ class ChatApp:
         self.num_past_key_val_heads = num_past_key_val_heads
 
     def generate_output_prompt(
-        self, input_prompt: str, max_seq_len: int, max_output_tokens: int
+        self,
+        input_prompt: str,
+        max_seq_len: int,
+        max_output_tokens: int,
+        bundled_kvcache: bool = True,
     ):
         input_prompt_processed = self.get_input_prompt_with_tags(
             user_input_prompt=input_prompt
@@ -302,6 +313,7 @@ class ChatApp:
             output[1:],
             past_key_start=0,
             num_of_past_key_heads=self.num_past_key_val_heads,
+            bundled_kvcache=bundled_kvcache,
         ).values()
         output_prompt = self.tokenizer.decode(output_token)
         print()

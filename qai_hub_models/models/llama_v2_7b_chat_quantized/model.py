@@ -47,7 +47,7 @@ from transformers import AutoConfig, LlamaTokenizer  # noqa: E402
 
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 7
+MODEL_ASSET_VERSION = 8
 
 # Configs
 AIMET_ENCODINGS_PREFIX = "config"
@@ -98,7 +98,7 @@ def _get_intermediate_logit_name(split_part):
     if split_part == 1:
         return "input_ids"
     start_layer_num = MODEL_SPLIT_MAP[split_part][0]
-    return f"layers_{start_layer_num-1}_add_out_0"
+    return f"layers_{start_layer_num - 1}_add_out_0"
 
 
 def get_input_prompt_with_tags(
@@ -180,6 +180,7 @@ class Llama2Wrapper(torch.nn.Module):
         config.use_conv = True
         config.mask_neg = -100
         config.split_model = split_part
+        config.concat_head_in_batch_dimension = True
 
         if split_part < 1 or split_part > 4:
             raise RuntimeError(
@@ -268,7 +269,7 @@ class Llama2Wrapper(torch.nn.Module):
         *past_key_values,
     ):
         past_key_values_tuple = make_torch_compatible_past_key_values(
-            self.total_hidden_layers, 32, *past_key_values
+            self.total_hidden_layers, 32, True, *past_key_values
         )
         return self.model(
             input_ids,
@@ -861,12 +862,12 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
-                    (1, 1, 128, input_seq_length - 1),
+                    (32, 1, 128, input_seq_length - 1),
                     "float32",
                 )
             else:
                 input_spec[past_key_val] = (
-                    (1, 1, input_seq_length - 1, 128),
+                    (32, 1, input_seq_length - 1, 128),
                     "float32",
                 )
         return input_spec
@@ -951,6 +952,7 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         layers_start, _ = get_hidden_layer_range_from_split(
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
+
         key_val = get_past_keyval_with_shift(
             output[1:], layers_start, NUM_KEY_VAL_HEADS, new_key_suffix="_in"
         )
@@ -1051,12 +1053,12 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
-                    (1, 1, 128, input_seq_length - 1),
+                    (32, 1, 128, input_seq_length - 1),
                     "float32",
                 )
             else:
                 input_spec[past_key_val] = (
-                    (1, 1, input_seq_length - 1, 128),
+                    (32, 1, input_seq_length - 1, 128),
                     "float32",
                 )
         return input_spec
@@ -1209,12 +1211,12 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
-                    (1, 1, 128, input_seq_length - 1),
+                    (32, 1, 128, input_seq_length - 1),
                     "float32",
                 )
             else:
                 input_spec[past_key_val] = (
-                    (1, 1, input_seq_length - 1, 128),
+                    (32, 1, input_seq_length - 1, 128),
                     "float32",
                 )
         return input_spec
@@ -1367,12 +1369,12 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         for past_key_val in past_key_val_names:
             if "key" in past_key_val:
                 input_spec[past_key_val] = (
-                    (1, 1, 128, input_seq_length - 1),
+                    (32, 1, 128, input_seq_length - 1),
                     "float32",
                 )
             else:
                 input_spec[past_key_val] = (
-                    (1, 1, input_seq_length - 1, 128),
+                    (32, 1, input_seq_length - 1, 128),
                     "float32",
                 )
         return input_spec

@@ -11,6 +11,7 @@ from qai_hub_models.utils.config_loaders import (
 )
 
 HF_PIPELINE_TAGS = {
+    "keypoint-detection",
     "text-classification",
     "token-classification",
     "table-question-answering",

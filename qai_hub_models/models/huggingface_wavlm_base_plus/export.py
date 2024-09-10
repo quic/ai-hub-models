@@ -171,18 +171,9 @@ def export_model(
 
     # 5. Download the model asset to a local file
     if not skip_downloading:
-        if target_runtime == TargetRuntime.QNN:
-            target_runtime_extension = "so"
-        elif target_runtime == TargetRuntime.TFLITE:
-            target_runtime_extension = "tflite"
-        elif target_runtime in {TargetRuntime.ONNX, TargetRuntime.PRECOMPILED_QNN_ONNX}:
-            target_runtime_extension = "onnx"
-
         os.makedirs(output_path, exist_ok=True)
         target_model: hub.Model = compile_job.get_target_model()  # type: ignore
-        target_model.download(
-            str(output_path / f"{model_name}.{target_runtime_extension}")
-        )
+        target_model.download(str(output_path / model_name))
 
     # 6. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:

@@ -46,6 +46,7 @@ def llama_chat_demo(
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
     available_target_runtimes: List[TargetRuntime] = [TargetRuntime.QNN],
+    bundled_kvcache: bool = True,
 ):
     """
     Shared Chat Demo App to generate output for provided input prompt
@@ -125,6 +126,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             num_splits=num_splits,
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
+            is_bundled_kvcache=bundled_kvcache,
         )
         token_generator = LlamaModelPipeline(
             model_cls.from_pretrained(),
@@ -132,6 +134,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
             is_token_generator=True,
+            is_bundled_kvcache=bundled_kvcache,
         )
     else:
         hub_model_ids = args.hub_model_id.split(",")
@@ -156,6 +159,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             get_model_class=get_model_class,
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
+            is_bundled_kvcache=bundled_kvcache,
         )
         token_generator = OnDeviceLlamaModelPipeline(
             hub_model_ids[num_splits:],
@@ -165,6 +169,7 @@ We are actively working on to improve UX and reduce turn-around time for these m
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
             is_token_generator=True,
+            is_bundled_kvcache=bundled_kvcache,
         )
 
     has_model_access(hf_repo_name, hf_repo_url)
@@ -182,4 +187,5 @@ We are actively working on to improve UX and reduce turn-around time for these m
         args.prompt,
         max_seq_len=args.prompt_processor_input_seq_len,
         max_output_tokens=args.max_output_tokens,
+        bundled_kvcache=bundled_kvcache,
     )

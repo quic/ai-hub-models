@@ -25,7 +25,7 @@ def test_compile_jobs_success():
     for name, job_id in job_ids.items():
         job = hub.get_job(job_id)
         status = job.get_status()
-        if status.running or status.pending:
+        if not status.finished:
             # Wait a maximum of 15 minutes for a compile job
             timemax = datetime.timedelta(minutes=15)
             timediff = datetime.datetime.now() - job.date

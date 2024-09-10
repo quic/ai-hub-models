@@ -225,7 +225,7 @@ class MODEL_USE_CASE(Enum):
         if self.name == "SEMANTIC_SEGMENTATION":
             return "image-segmentation"
         if self.name == "POSE_ESTIMATION":
-            return "image-classification"
+            return "keypoint-detection"
         if self.name == "AUDIO_ENHANCEMENT":
             return "audio-to-audio"
         if self.name == "VIDEO_GENERATION":
