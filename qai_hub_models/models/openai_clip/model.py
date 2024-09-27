@@ -4,10 +4,13 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List
+import contextlib
+from typing import Callable, List, Optional
 
 import torch
+import torch.nn.functional as F
 import torchvision
+from torch import Tensor
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, callback_with_retry
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
@@ -85,10 +88,11 @@ class ClipTextEncoder(BaseModel):
                 corresponding image and text input.
 
         """
-        clipped_text = torch.clip(text, min=0, max=self.eot_token)
-        text_features = self.net.encode_text(clipped_text)
-        text_features = text_features / text_features.norm(dim=1, keepdim=True)
-        return text_features
+        with patched_in_projection_packed():
+            clipped_text = torch.clip(text, min=0, max=self.eot_token)
+            text_features = self.net.encode_text(clipped_text)
+            text_features = text_features / text_features.norm(dim=1, keepdim=True)
+            return text_features
 
     @staticmethod
     def get_input_spec(
@@ -135,9 +139,10 @@ class ClipImageEncoder(BaseModel):
                 text input.
 
         """
-        image_features = self.net.encode_image(image)
-        image_features = image_features / image_features.norm(dim=1, keepdim=True)
-        return self.net.logit_scale.exp() * image_features
+        with patched_in_projection_packed():
+            image_features = self.net.encode_image(image)
+            image_features = image_features / image_features.norm(dim=1, keepdim=True)
+            return self.net.logit_scale.exp() * image_features
 
     @staticmethod
     def get_input_spec(
@@ -164,3 +169,33 @@ class ClipImageEncoder(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> List[str]:
         return ["image"]
+
+
+@contextlib.contextmanager
+def patched_in_projection_packed():
+    """
+    Avoid unflatten that causes ONNX export failure.
+    https://github.com/pytorch/pytorch/issues/135764
+    """
+    original_in_projection_packed = torch.nn.functional._in_projection_packed
+
+    def patched_in_projection_packed(
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        w: Tensor,
+        b: Optional[Tensor] = None,
+    ) -> List[Tensor]:
+        E = q.size(-1)
+        if k is v and q is k:
+            proj = F.linear(q, w, b)
+            proj = proj.view(*proj.shape[:-1], 3, E).permute((2, 0, 1, 3)).contiguous()
+            return proj[0], proj[1], proj[2]
+        return original_in_projection_packed(q, k, v, w, b)
+
+    torch.nn.functional._in_projection_packed = patched_in_projection_packed
+
+    try:
+        yield
+    finally:
+        torch.nn.functional._in_projection_packed = original_in_projection_packed

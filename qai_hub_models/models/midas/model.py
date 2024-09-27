@@ -95,6 +95,12 @@ class Midas(BaseModel):
                     "import math",
                     "import math; import os",
                 )
+                find_replace_in_repo(
+                    repo_root,
+                    "midas/midas_net_custom.py",
+                    "return torch.squeeze(out, dim=1)",
+                    "return out",
+                )
 
                 # Doing squeeze within the model sometimes causes issues during onnx export.
                 # Given that this is the last layer, we'll do this in the app instead.

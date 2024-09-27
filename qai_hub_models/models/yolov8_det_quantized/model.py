@@ -28,7 +28,7 @@ from qai_hub_models.utils.quantization_aimet import (
 )
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 3
+MODEL_ASSET_VERSION = 4
 DEFAULT_ENCODINGS = "yolov8_quantized_encodings.json"
 
 

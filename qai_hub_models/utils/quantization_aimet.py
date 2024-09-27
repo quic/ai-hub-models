@@ -11,6 +11,7 @@ import logging
 import os
 
 try:
+    import aimet_torch.elementwise_ops as aimet_ops
     from aimet_common.connected_graph.operation import Op as AimetOp
     from aimet_common.connected_graph.product import Product as AimetProduct
     from aimet_common.utils import AimetLogger  # type: ignore
@@ -22,7 +23,11 @@ try:
     # Suppress aimet info logs within zoo
     if not os.environ.get("SHOW_AIMET_LOGS"):
         AimetLogger.set_level_for_all_areas(logging.WARN)
-except (ImportError, ModuleNotFoundError):
+except (ImportError, ModuleNotFoundError) as e:
+    if "libcublas.so.11" in e.msg:
+        raise NotImplementedError(
+            "Missing library 'libcublas.so.11'. Run `sudo apt install libcublas11` to resolve."
+        )
     raise NotImplementedError(
         "Quantized models require the AIMET package, which is only supported on Linux. "
         "Install qai-hub-models on a Linux machine to use quantized models."
@@ -33,7 +38,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from zipfile import ZipFile
 
-import aimet_torch.elementwise_ops as aimet_ops
 import torch
 import torch.nn.modules as nn
 from onnx import load_model as load_onnx_model

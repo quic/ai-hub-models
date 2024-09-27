@@ -24,8 +24,8 @@ def box_transform_xywh2xyxy_split_input(xy: torch.Tensor, wh: torch.Tensor):
     """
     cx = xy[..., 0]
     cy = xy[..., 1]
-    w_2 = wh[..., 0] / 2
-    h_2 = wh[..., 1] / 2
+    w_2 = wh[..., 0] * 0.5
+    h_2 = wh[..., 1] * 0.5
     # TODO(10344) torch.stack doesn't play nicely with torch.fx.Graph
     # For now replace with unsqueeze + cat, but long-term would be nice to support it
     top_left_x = (cx - w_2).unsqueeze(-1)
@@ -50,8 +50,8 @@ def transform_box_layout_xywh2xyxy(boxes: torch.Tensor) -> torch.Tensor:
     # TODO(#8595): Splitting ops into smaller chunks makes them NPU resident
     cx = torch.split(boxes[..., 0], 5000, dim=-1)
     cy = torch.split(boxes[..., 1], 5000, dim=-1)
-    w_2 = torch.split(boxes[..., 2] / 2, 5000, dim=-1)
-    h_2 = torch.split(boxes[..., 3] / 2, 5000, dim=-1)
+    w_2 = torch.split(boxes[..., 2] * 0.5, 5000, dim=-1)
+    h_2 = torch.split(boxes[..., 3] * 0.5, 5000, dim=-1)
     boxes_splits = []
     for i in range(len(cx)):
         top_left_x = cx[i] - w_2[i]

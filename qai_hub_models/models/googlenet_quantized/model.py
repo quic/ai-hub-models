@@ -12,11 +12,15 @@ from qai_hub_models.utils.quantization_aimet import (
 
 # isort: on
 
+from typing import Optional
+
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.model_preparer import prepare_model
 from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
+from qai_hub import Device
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.googlenet.model import GoogLeNet
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -45,6 +49,7 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
         AIMETQuantizableMixin.__init__(
             self,
             sim_model,
+            needs_onnx_direct_aimet_export=True,
         )
 
     @classmethod
@@ -83,3 +88,20 @@ class GoogLeNetQuantizable(AIMETQuantizableMixin, GoogLeNet):
             load_encodings_to_sim(sim, aimet_encodings)
 
         return cls(sim)
+
+    # TODO(12424) remove this once encodings export correctly
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_compile_options: str = "",
+        device: Optional[Device] = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, other_compile_options, device
+        )
+        if target_runtime not in [
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ]:
+            compile_options += " --quantize_full_type int8"
+        return compile_options

@@ -172,7 +172,7 @@ The commands above may take over 15 mins to finish.
 In Powershell, navigate to the directory containing the above contents and run
 
 ```
-.\genie-t2t-run -c htp-model-config-llama2-7b.json -p "<<SYS>>\nYou are a helpful AI assistant.<</SYS>>\n\n[INST] have we been to Mars? [/INST]"
+.\genie-t2t-run -c htp-model-config-llama2-7b.json -p "[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\nHave we been to Mars? [/INST]"
 ```
 
 See below for sample outputs.
@@ -188,13 +188,13 @@ export LD_LIBRARY_PATH=<path to where all the libraries are copied into>
 Input prompt for genie requires tags similar to source llama2 model and must follow similar pattern for better results
 
 ```text
-<<SYS>>\nYou are a helpful AI assistant.<</SYS>>\n\n[INST] have we been to the Mars? [/INST]
+[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\nHave we been to the Mars? [/INST]
 ```
 
 ```bash
 # Optional: connect to device (e.g. adb shell)
 cd {parent dir of genie binary}
-./genie-t2t-run -c htp-model-config-llama2-7b.json -p "<<SYS>>\nYou are a helpful AI assistant.<</SYS>>\n\n[INST] have we been to Mars? [/INST]"
+./genie-t2t-run -c htp-model-config-llama2-7b.json -p "[INST] <<SYS>>\nYou are a helpful AI assistant.\n<</SYS>>\n\nHave we been to Mars? [/INST]"
 ```
 
 **Sample output**

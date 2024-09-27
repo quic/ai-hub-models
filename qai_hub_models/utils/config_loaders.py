@@ -7,7 +7,7 @@ from __future__ import annotations
 import dataclasses
 import os
 from dataclasses import dataclass, fields
-from enum import Enum
+from enum import Enum, unique
 from pathlib import Path
 from typing import (
     Any,
@@ -119,6 +119,7 @@ HF_AVAILABLE_LICENSES = {
 }
 
 
+@unique
 class FORM_FACTOR(Enum):
     PHONE = 0
     TABLET = 1
@@ -135,6 +136,7 @@ class FORM_FACTOR(Enum):
         return self.name.title()
 
 
+@unique
 class MODEL_DOMAIN(Enum):
     COMPUTER_VISION = 0
     AUDIO = 1
@@ -149,6 +151,7 @@ class MODEL_DOMAIN(Enum):
         return self.name.title().replace("_", " ")
 
 
+@unique
 class MODEL_TAG(Enum):
     BACKBONE = 0
     REAL_TIME = 1
@@ -173,6 +176,7 @@ def is_gen_ai_model(tags: List[MODEL_TAG]) -> bool:
     return MODEL_TAG.LLM in tags or MODEL_TAG.GENERATIVE_AI in tags
 
 
+@unique
 class MODEL_STATUS(Enum):
     PUBLIC = 0
     PRIVATE = 1
@@ -187,6 +191,7 @@ class MODEL_STATUS(Enum):
         return self.name
 
 
+@unique
 class MODEL_USE_CASE(Enum):
     # Image: 100 - 199
     IMAGE_CLASSIFICATION = 100
@@ -196,9 +201,9 @@ class MODEL_USE_CASE(Enum):
     SEMANTIC_SEGMENTATION = 104
     DEPTH_ESTIMATION = 105
     # Ex: OCR, image caption
-    IMAGE_TO_TEXT = 105
-    OBJECT_DETECTION = 106
-    POSE_ESTIMATION = 107
+    IMAGE_TO_TEXT = 106
+    OBJECT_DETECTION = 107
+    POSE_ESTIMATION = 108
 
     # Audio: 200 - 299
     SPEECH_RECOGNITION = 200

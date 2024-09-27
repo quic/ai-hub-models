@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
+from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -20,6 +21,36 @@ def _get_cached_device(device_name: str) -> hub.Device:
         device = hub.get_devices(device_name)[0]
         _DEVICE_CACHE[device_name] = device
     return device
+
+
+def _on_staging() -> bool:
+    """
+    Returns whether the hub client is pointing to staging.
+
+    Can be sometimes useful to diverge logic between PR CI (prod) and nightly (staging).
+    """
+    client = hub.client.Client()
+    client.get_devices()
+    client_config = client._config
+    assert client_config is not None
+    return "staging" in client_config.api_url
+
+
+@dataclass
+class ClientState:
+    on_staging: bool
+
+
+class ClientStateSingleton:
+    _instance: Optional[ClientState] = None
+
+    def __init__(self):
+        if self._instance is None:
+            self._instance = ClientState(on_staging=_on_staging())
+
+    def on_staging(self) -> bool:
+        assert self._instance is not None
+        return self._instance.on_staging
 
 
 class ScorecardDevice(Enum):
@@ -99,21 +130,21 @@ class ScorecardDevice(Enum):
         if self == ScorecardDevice.cs_8_gen_3:
             return "qualcomm-snapdragon-8gen3"
         if self == ScorecardDevice.cs_6490:
-            return "qualcomm-qcs6490"
+            return "qualcomm-qcs6490-proxy"
         if self == ScorecardDevice.cs_8250:
-            return "qualcomm-qcs8250"
+            return "qualcomm-qcs8250-proxy"
         if self == ScorecardDevice.cs_8550:
-            return "qualcomm-qcs8550"
+            return "qualcomm-qcs8550-proxy"
         if self == ScorecardDevice.cs_x_elite:
             return "qualcomm-snapdragon-x-elite"
         if self == ScorecardDevice.cs_auto_lemans_8255:
-            return "qualcomm-sa8255p"
+            return "qualcomm-sa8255p-proxy"
         if self == ScorecardDevice.cs_auto_lemans_8775:
-            return "qualcomm-sa8775p"
+            return "qualcomm-sa8775p-proxy"
         if self == ScorecardDevice.cs_auto_lemans_8650:
-            return "qualcomm-sa8650p"
+            return "qualcomm-sa8650p-proxy"
         if self == ScorecardDevice.cs_xr_8450:
-            return "qualcomm-qcs8450"
+            return "qualcomm-qcs8450-proxy"
         # if self == ScorecardDevice.cs_auto_makena_8540:
         #    return "qualcomm-sa8540p"
         raise NotImplementedError(f"No chipset for {self.name}")

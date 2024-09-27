@@ -282,7 +282,7 @@ def SourceAsRoot(
     source_repo_name: str,
     source_repo_version: int | str,
     source_repo_patches: List[str] = [],
-    keep_sys_modules: bool = False,
+    keep_sys_modules: bool = True,
 ):
     """
     Context manager that runs code with:

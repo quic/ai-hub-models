@@ -32,6 +32,11 @@ try:
 except NotImplementedError:
     AIMETQuantizableMixin = None  # type: ignore
 
+try:
+    from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
+except NotImplementedError:
+    AIMETOnnxQuantizableMixin = None  # type: ignore
+
 from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
 
 
@@ -66,7 +71,8 @@ def prepare_compile_zoo_model_to_hub(
 
         (3) (TORCHSCRIPT, TFLITE)
 
-            (a) Fp32: Invalid option for model not subclass of AIMETQuantizableMixin
+            (a) Fp32: Invalid option for model not subclass of
+            (AIMETQuantizableMixin, AIMETOnnxQuantizableMixin)
 
             (b) For AIMETQuantizableMixin subclass, torch(AIMET) ->
             torchscript with embedded quantizer -> tflite
@@ -85,9 +91,12 @@ def prepare_compile_zoo_model_to_hub(
     Path to source model that can be used directly with hub.upload_model or
     hub.submit_compile_job.
     """
-    is_aimet = (
+    is_aimet_torch = (
         AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin)
     ) or isinstance(model, AimetEncodingLoaderMixin)
+    is_aimet_onnx = AIMETOnnxQuantizableMixin is not None and isinstance(
+        model, AIMETOnnxQuantizableMixin
+    )
 
     model_name = model.__class__.__name__
 
@@ -96,7 +105,16 @@ def prepare_compile_zoo_model_to_hub(
     if output_names is None:
         output_names = []
 
-    if is_aimet:
+    if is_aimet_onnx:
+
+        def export_model_func():
+            print("Exporting model to ONNX with AIMET encodings")
+            return model.convert_to_onnx_and_aimet_encodings(
+                output_dir=output_path,
+                model_name=model_name,
+            )
+
+    elif is_aimet_torch:
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():

@@ -36,6 +36,8 @@ MANUAL_EDGES = {
         "qai_hub_models/models/xlsr_quantized/model.py",
         "qai_hub_models/models/resnet18_quantized/model.py",
     ],
+    "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/config_loaders.py": REPRESENTATIVE_EXPORT_FILES,
 }
@@ -125,8 +127,10 @@ def resolve_affected_models(
                 changed_files.append(dependent_file)
     changed_models = set()
     for f in seen:
-        if f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):
-            file_path = Path(f)
+        file_path = Path(f)
+        # Only consider directories directly in the top-level `models/` folder
+        # (i.e. ignore `models/_shared`, `models/_internal`)
+        if str(file_path.parent.parent) == PY_PACKAGE_RELATIVE_MODELS_ROOT:
             if file_path.name not in [
                 "model.py",
                 "export.py",

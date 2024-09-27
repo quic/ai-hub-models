@@ -87,6 +87,13 @@ class YoloV8Detector(BaseModel):
                 "self.dynamic or self.shape != shape",
                 "False",
             )
+            # TFLite doesn't support quantized division, so convert to multiply
+            find_replace_in_repo(
+                repo_path,
+                "ultralytics/utils/tal.py",
+                "/ 2",
+                "* 0.5",
+            )
             # Boxes and scores have different scales, so return separately
             find_replace_in_repo(
                 repo_path,
@@ -99,8 +106,24 @@ class YoloV8Detector(BaseModel):
 
             wipe_sys_modules(ultralytics)
             from ultralytics import YOLO as ultralytics_YOLO
+            from ultralytics.nn.modules.head import Detect
+            from ultralytics.utils.tal import make_anchors
 
             model = ultralytics_YOLO(ckpt_name).model
+            assert isinstance(model, torch.nn.Module)
+            assert isinstance(model.model, torch.nn.Module)
+            detect_module = model.model._modules["22"]
+            assert isinstance(detect_module, Detect)
+            _, _, h, w = cls.get_input_spec()["image"][0]
+            make_anchors_input = [
+                torch.randn((1, 1, int(h // stride), int(w // stride)))
+                for stride in detect_module.stride
+            ]
+            detect_module.anchors, detect_module.strides = (
+                x.transpose(0, 1)
+                for x in make_anchors(make_anchors_input, detect_module.stride, 0.5)
+            )
+
             return cls(
                 model,
                 include_postprocessing,
@@ -225,8 +248,8 @@ def yolov8_detect_postprocess(
     # Get class ID of most likely score.
     scores, class_idx = torch.max(scores, -1, keepdim=False)
 
-    # Quantized model runtime doesn't like int32 outputs, so cast class idx to int8.
-    # This is a no-op for coco models, but for datasets with >128 classes, this
-    # should be int32 for the unquantized model.
-    class_dtype = torch.int8 if use_quantized_postprocessing else torch.float32
+    # Quantized model runtime doesn't like int32 outputs, so cast class idx to uint8.
+    # This is a no-op for coco models, but for datasets with >255 classes, this
+    # should be float32 for the unquantized model.
+    class_dtype = torch.uint8 if use_quantized_postprocessing else torch.float32
     return boxes, scores, class_idx.to(class_dtype)

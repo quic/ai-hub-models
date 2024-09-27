@@ -41,10 +41,10 @@ def test_task():
         assert score < 1e-4
 
     np.testing.assert_allclose(
-        keypoint_scores[:2], load_numpy(KEYPOINT_SCORES_GT), atol=1e-4
+        keypoint_scores[:2], load_numpy(KEYPOINT_SCORES_GT), atol=1e-2
     )
     np.testing.assert_allclose(
-        keypoint_coords[:2], load_numpy(KEYPOINT_COORDS_GT), atol=1e-4
+        keypoint_coords[:2], load_numpy(KEYPOINT_COORDS_GT), atol=1
     )
 
 

@@ -38,8 +38,9 @@ def capture_and_display_processed_frames(
     frame_count = 0
     has_frame, frame = capture.read()
     while has_frame:
-        frame_count = frame_count + 1
+        assert isinstance(frame, np.ndarray)
 
+        frame_count = frame_count + 1
         # mirror frame
         frame = np.ascontiguousarray(frame[:, ::-1, ::-1])
 

@@ -260,7 +260,7 @@ class ProfileJobSummary(JobSummary):
         if not self.job:
             return self._device.get_chipset()
 
-        hub_device = self.job.device
+        hub_device = self.device
         for attr in hub_device.attributes:
             if attr.startswith("chipset:"):
                 return attr.split(":")[1]
@@ -268,7 +268,11 @@ class ProfileJobSummary(JobSummary):
 
     @cached_property
     def device(self) -> hub.Device:
-        return self.job.device if self.job else self._device.get_reference_device()
+        return (
+            self.job.device
+            if self.job and isinstance(self.job, hub.ProfileJob)
+            else self._device.get_reference_device()
+        )
 
     @cached_property
     def profile_job(self) -> Optional[hub.ProfileJob]:

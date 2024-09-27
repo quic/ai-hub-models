@@ -54,7 +54,7 @@ class YoloNASQuantizable(AIMETQuantizableMixin, YoloNAS):
             weights_name,
             include_postprocessing=include_postprocessing,
         )
-        fp16_model.class_dtype = torch.int8
+        fp16_model.class_dtype = torch.uint8
 
         input_shape = cls.get_input_spec()["image"][0]
 

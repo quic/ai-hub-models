@@ -2,12 +2,13 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from enum import Enum
+from enum import Enum, unique
 from typing import Dict, List
 
 import numpy as np
 
 
+@unique
 class TargetRuntime(Enum):
     TFLITE = 0
     QNN = 1
@@ -26,6 +27,7 @@ class TargetRuntime(Enum):
         return f"{self.name.lower()}"
 
 
+@unique
 class SourceModelFormat(Enum):
     ONNX = 0
     TORCHSCRIPT = 1

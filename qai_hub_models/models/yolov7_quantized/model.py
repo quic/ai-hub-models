@@ -26,7 +26,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.quantization_aimet import tie_observers
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 6
+MODEL_ASSET_VERSION = 8
 DEFAULT_ENCODINGS = "yolov7_quantized_encodings.json"
 
 
@@ -55,7 +55,7 @@ class YoloV7Quantizable(AIMETQuantizableMixin, YoloV7):
             include_postprocessing=include_postprocessing,
             split_output=True,
         )
-        fp16_model.class_dtype = torch.int8
+        fp16_model.class_dtype = torch.uint8
 
         input_shape = cls.get_input_spec()["image"][0]
 

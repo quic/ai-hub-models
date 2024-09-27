@@ -165,7 +165,7 @@ def compute_box_affine_crop_resize_matrix(
     )
 
     # Compute affine transformation that will map the square to the point
-    affines = []
+    affines: List[np.ndarray] = []
     for batch in range(box_corners.shape[0]):
         src = box_corners[batch][..., :3].detach().numpy()
         affines.append(cv2.getAffineTransform(src, network_input_points))

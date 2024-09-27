@@ -52,7 +52,8 @@ class SyncLocalQAIHMVenvTask(CompositeTask):
                 group_name=f"Install QAIHM{extras_str}",
                 venv=venv_path,
                 commands=[
-                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html',
+                    f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" '
+                    "-f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html ",
                 ],
             )
         )
@@ -98,7 +99,7 @@ class SyncModelRequirementsVenvTask(RunCommandsWithVenvTask):
         )
         if os.path.exists(requirements_txt):
             commands = [
-                f'pip install {"--force-reinstall" if pip_force_install else None} -r "{requirements_txt}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch1.13/index.html'
+                f'pip install {"--force-reinstall" if pip_force_install else None} -r "{requirements_txt}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html'
             ]
         else:
             commands = []

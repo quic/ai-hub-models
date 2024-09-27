@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.utils.compare import compute_psnr
 
 
 class SuperResolutionOutputEvaluator(BaseEvaluator):
@@ -27,16 +28,6 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
 
         return img
 
-    def _compute_psnr(self, img, gt):
-        # Compute PSNR between two images
-        # Assumed that they are in YUV format
-        diff = (img - gt) ** 2
-        error = np.mean(diff)
-        eps = 1e-8  # a tiny amount to ensure no division by 0
-        data_range = 255.0  # 8-bit data range
-
-        return 10 * np.log10((data_range**2) / (error + eps))
-
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         assert gt.shape == output.shape
 
@@ -53,8 +44,9 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
             pred = self._rgb_to_yuv(pred)
             truth = self._rgb_to_yuv(truth)
 
-            psnr = self._compute_psnr(pred, truth)
-            self.psnr_list.append(psnr.item())
+            # 8-bit data range
+            psnr = compute_psnr(pred, truth, data_range=255)
+            self.psnr_list.append(psnr)
 
     def reset(self):
         self.psnr_list = []
