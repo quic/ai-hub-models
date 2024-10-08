@@ -55,7 +55,7 @@ class MobileNetV2Quantizable(AIMETQuantizableMixin, MobileNetV2):
         """
         Parameters:
           aimet_encodings:
-            if "DEFAULT": Loads the model with aimet encodings calibrated on imagenette.
+            if "DEFAULT": Loads the model with aimet encodings calibrated on imagenet.
             elif None: Doesn't load any encodings. Used when computing encodings.
             else: Interprets as a filepath and loads the encodings stored there.
         """
