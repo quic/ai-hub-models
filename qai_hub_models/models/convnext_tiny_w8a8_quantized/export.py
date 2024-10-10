@@ -41,7 +41,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    target_runtime: TargetRuntime = TargetRuntime.QNN,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -200,7 +200,7 @@ def export_model(
         )
 
     if not skip_summary:
-        print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)
+        print_on_target_demo_cmd(compile_job, Path(__file__).parent, hub_device)
 
     return (compile_job, profile_job, inference_job)
 

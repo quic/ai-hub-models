@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from ultralytics import YOLO as ultralytics_YOLO
 
+from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 from qai_hub_models.models.yolov8_det.app import YoloV8DetectionApp
 from qai_hub_models.models.yolov8_det.demo import IMAGE_ADDRESS
 from qai_hub_models.models.yolov8_det.demo import main as demo_main
@@ -13,7 +14,6 @@ from qai_hub_models.models.yolov8_det.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
     YoloV8Detector,
-    yolov8_detect_postprocess,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
@@ -36,7 +36,7 @@ def test_numerical():
         # original model output
         source_detect_out, *_ = source_model(processed_sample_image)
         boxes, scores = torch.split(source_detect_out, [4, 80], 1)
-        source_out_postprocessed = yolov8_detect_postprocess(boxes, scores)
+        source_out_postprocessed = yolo_detect_postprocess(boxes, scores)
 
         # Qualcomm AI Hub Model output
         qaihm_out_postprocessed = qaihm_model(processed_sample_image)

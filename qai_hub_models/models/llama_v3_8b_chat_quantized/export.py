@@ -140,6 +140,7 @@ def export_model(
     compile_jobs: Dict[str, hub.client.CompileJob] = {}
     profile_options_per_component: Dict[str, str] = {}
 
+    hub_device = hub.Device(device)
     for component_name in components:
         # Load model part
         component = model.load_model_part(component_name)
@@ -172,7 +173,7 @@ def export_model(
         submitted_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub.Device(device),
+            device=hub_device,
             name=f"{model_name}_{component_name}",
             calibration_data=quant_calibration_data,
             options=model_compile_options,
@@ -196,7 +197,7 @@ def export_model(
             print(f"Profiling model {component_name} on a hosted device.")
             submitted_profile_job = hub.submit_profile_job(
                 model=compile_jobs[component_name].get_target_model(),
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -220,7 +221,7 @@ def export_model(
             submitted_inference_job = hub.submit_inference_job(
                 model=compile_jobs[component_name].get_target_model(),
                 inputs=sample_inputs,
-                device=hub.Device(device),
+                device=hub_device,
                 name=f"{model_name}_{component_name}",
                 options=profile_options_all,
             )
@@ -262,7 +263,7 @@ def export_model(
 
     if not skip_summary:
         print_on_target_demo_cmd(
-            compile_jobs.values(), Path(__file__).parent.resolve(), device
+            compile_jobs.values(), Path(__file__).parent.resolve(), hub_device
         )
 
     return {

@@ -152,11 +152,12 @@ def print_profile_metrics(
 def print_on_target_demo_cmd(
     compile_job: Union[hub.CompileJob, List[hub.CompileJob]],
     model_folder: Path,
-    device: str,
+    device: hub.Device,
 ) -> None:
     """
     Outputs a command that will run a model's demo script via inference job.
     """
+    model_folder = model_folder.resolve()
     if isinstance(compile_job, hub.CompileJob):
         compile_job = [compile_job]
 
@@ -174,6 +175,10 @@ def print_on_target_demo_cmd(
     print(
         f"python {model_folder / 'demo.py'} "
         "--on-device "
-        f"--hub-model-id {target_model_id_str} "
-        f'--device "{device}"\n'
+        f"--hub-model-id {target_model_id_str} ",
+        end="",
     )
+    if device.attributes:
+        print(f"--chipset {device.attributes[len('chipset:'):]}\n")
+    else:
+        print(f'--device "{device.name}"\n')

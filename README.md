@@ -359,6 +359,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Face-Detection-Quantized](https://aihub.qualcomm.com/models/mediapipe_face_quantized) | [qai_hub_models.models.mediapipe_face_quantized](qai_hub_models/models/mediapipe_face_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) | ✔️ | ✔️ | ✔️
+| [YOLOv11-Detection](qai_hub_models/models/yolov11_det/README.md) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection-Quantized](https://aihub.qualcomm.com/models/yolov8_det_quantized) | [qai_hub_models.models.yolov8_det_quantized](qai_hub_models/models/yolov8_det_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Yolo-NAS](https://aihub.qualcomm.com/models/yolonas) | [qai_hub_models.models.yolonas](qai_hub_models/models/yolonas/README.md) | ✔️ | ✔️ | ✔️
@@ -368,6 +369,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [Yolo-v7-Quantized](https://aihub.qualcomm.com/models/yolov7_quantized) | [qai_hub_models.models.yolov7_quantized](qai_hub_models/models/yolov7_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
 | **Pose Estimation**
+| [FaceMap_3DMM](qai_hub_models/models/facemap_3dmm/README.md) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) | ✔️ | ✔️ | ✔️
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) | ✔️ | ✔️ | ✔️
 | [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [LiteHRNet](https://aihub.qualcomm.com/models/litehrnet) | [qai_hub_models.models.litehrnet](qai_hub_models/models/litehrnet/README.md) | ✔️ | ✔️ | ✔️

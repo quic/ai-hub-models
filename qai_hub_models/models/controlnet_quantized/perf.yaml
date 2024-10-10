@@ -7,9 +7,11 @@ aggregated:
   - Samsung Galaxy S23+
   - Samsung Galaxy S24
   - Samsung Galaxy S24 Ultra
+  - QCS8550 (Proxy)
   supported_chipsets:
   - Snapdragon® 8 Gen 2
   - Snapdragon® 8 Gen 3
+  - Qcs8550 Proxy
 models:
 - name: TextEncoder_Quantized
   performance_metrics:
@@ -89,6 +91,29 @@ models:
         total_layers: 570
       job_id: jnp148j8p
       job_status: Passed
+  - torchscript_onnx_qnn:
+      inference_time: 10982.0
+      throughput: 91.05809506465124
+      estimated_peak_memory_range:
+        min: 77824
+        max: 1260072
+      primary_compute_unit: NPU
+      precision: uint16
+      layer_info:
+        layers_on_npu: 569
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 569
+      job_id: jz57wxwnp
+      job_status: Passed
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-03T16:19:26Z'
 - name: UNet_Quantized
   performance_metrics:
   - torchscript_onnx_tflite:
@@ -167,6 +192,29 @@ models:
         total_layers: 5434
       job_id: jz5we97m5
       job_status: Passed
+  - torchscript_onnx_qnn:
+      inference_time: 260158.0
+      throughput: 3.8438179875306546
+      estimated_peak_memory_range:
+        min: 14417920
+        max: 15838624
+      primary_compute_unit: NPU
+      precision: uint16
+      layer_info:
+        layers_on_npu: 5433
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 5433
+      job_id: j0pxjyj8g
+      job_status: Passed
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-03T16:19:27Z'
 - name: VAEDecoder_Quantized
   performance_metrics:
   - torchscript_onnx_tflite:
@@ -245,6 +293,29 @@ models:
         total_layers: 409
       job_id: jvgdxv3rp
       job_status: Passed
+  - torchscript_onnx_qnn:
+      inference_time: 379548.0
+      throughput: 2.6347128689915373
+      estimated_peak_memory_range:
+        min: 294912
+        max: 1539664
+      primary_compute_unit: NPU
+      precision: uint16
+      layer_info:
+        layers_on_npu: 408
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 408
+      job_id: jqp4ovo25
+      job_status: Passed
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-03T16:19:26Z'
 - name: ControlNet_Quantized
   performance_metrics:
   - torchscript_onnx_tflite:
@@ -323,3 +394,26 @@ models:
         total_layers: 2406
       job_id: jmg9l4m8g
       job_status: Passed
+  - torchscript_onnx_qnn:
+      inference_time: 103520.0
+      throughput: 9.659969088098919
+      estimated_peak_memory_range:
+        min: 1937408
+        max: 3217696
+      primary_compute_unit: NPU
+      precision: uint16
+      layer_info:
+        layers_on_npu: 2405
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 2405
+      job_id: jo5m2327p
+      job_status: Passed
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-03T16:19:27Z'

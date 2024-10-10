@@ -8,12 +8,13 @@ Utility Functions for parsing input args for export and other customer facing sc
 from __future__ import annotations
 
 import argparse
+import copy
 import inspect
 import os
 import sys
 from functools import partial
 from pydoc import locate
-from typing import Any, List, Mapping, Optional, Set, Type
+from typing import Any, List, Mapping, Optional, Set, Tuple, Type
 
 import qai_hub as hub
 from qai_hub.client import APIException, UserError
@@ -277,10 +278,43 @@ def get_hub_device(
     raise ValueError("Must specify one of device or chipset")
 
 
+def demo_model_components_from_cli_args(
+    model_cls: List[Type[FromPretrainedTypeVar]],
+    model_id: str,
+    components: List[str],
+    cli_args: argparse.Namespace,
+) -> Tuple[FromPretrainedTypeVar | OnDeviceModel, ...]:
+    """
+    Similar to demo_model_from_cli_args, but for component models.
+
+    Args:
+    - model_cls: Must have the same length as components
+
+    - components: the component names returned by export.py
+    """
+    res = []
+    if cli_args.hub_model_id:
+        if len(cli_args.hub_model_id.split(",")) != len(components):
+            raise ValueError(
+                f"Expected {len(components)} components in "
+                f"hub-model-id, but got {cli_args.hub_model_id}"
+            )
+
+    cli_args_comp = copy.deepcopy(cli_args)
+
+    for i, (cls, comp) in enumerate(zip(model_cls, components)):
+        if cli_args.hub_model_id:
+            cli_args_comp.hub_model_id = cli_args.hub_model_id.split(",")[i]
+        res.append(demo_model_from_cli_args(cls, model_id, cli_args_comp, comp))
+
+    return tuple(res)
+
+
 def demo_model_from_cli_args(
     model_cls: Type[FromPretrainedTypeVar],
     model_id: str,
     cli_args: argparse.Namespace,
+    component: str | None = None,
 ) -> FromPretrainedTypeVar | OnDeviceModel:
     """
     Create this model from an argparse namespace.
@@ -308,7 +342,10 @@ def demo_model_from_cli_args(
                 **get_input_spec_kwargs(model_cls, cli_dict),
             )
             target_model = compile_model_from_args(
-                model_id, cli_args, additional_kwargs
+                model_id,
+                cli_args,
+                additional_kwargs,
+                component,
             )
             input_names = list(model_cls.get_input_spec().keys())
             inference_model = OnDeviceModel(

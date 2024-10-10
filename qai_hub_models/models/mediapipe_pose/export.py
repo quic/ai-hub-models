@@ -236,7 +236,12 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
+    parser = export_parser(
+        model_cls=Model,
+        components=ALL_COMPONENTS,
+        supports_qnn=False,
+        supports_precompiled_qnn_onnx=False,
+    )
     args = parser.parse_args()
     export_model(**vars(args))
 

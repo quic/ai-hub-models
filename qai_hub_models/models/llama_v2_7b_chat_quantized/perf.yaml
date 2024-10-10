@@ -2,6 +2,29 @@ models:
 - name: Llama2-TokenGenerator-KVCache-Quantized
   performance_metrics:
   - reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-04T23:59:26.162600Z'
+    torchscript_onnx_qnn:
+      inference_time: 97732
+      throughput: 10.23
+      estimated_peak_memory_range:
+        min: 74272768
+        max: 75651480
+      layer_info:
+        layers_on_npu: 35926
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 35926
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
+  - reference_device_info:
       name: Samsung Galaxy S24
       os: '14'
       form_factor: Phone
@@ -49,6 +72,29 @@ models:
       job_status: Passed
 - name: Llama2-PromptProcessor-Quantized
   performance_metrics:
+  - reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Qcs8550 Proxy
+    timestamp: '2024-10-04T23:59:26.162600Z'
+    torchscript_onnx_qnn:
+      inference_time: 2020745
+      throughput: 506.93
+      estimated_peak_memory_range:
+        min: 11554816
+        max: 13002000
+      layer_info:
+        layers_on_npu: 31830
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 31830
+      precision: uint16
+      primary_compute_unit: NPU
+      job_id: "null"
+      job_status: Passed
   - reference_device_info:
       name: Samsung Galaxy S24
       os: '14'

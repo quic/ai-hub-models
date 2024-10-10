@@ -234,7 +234,23 @@ def compile_model_from_args(
     model_id: str,
     cli_args: argparse.Namespace,
     model_kwargs: Mapping[str, Any],
+    component: str | None = None,
 ) -> hub.Model:
+    """
+    Args:
+
+    - model_id: e.g., yolov7_quantized, stable_diffusion_v1_5_ao_quantized
+
+    - cli_args: CLI arguments. We will use cli_args.chipset, .device,
+    .target_runtime.
+
+    - model_kwargs: kwargs pertaining to model's .from_pretrained.
+
+    - component: For qai_hub_models.utils.base_model.CollectionModel, set
+    component to compile a specific components. None (default) to compile all
+    components.
+
+    """
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
     compile_job: hub.CompileJob
@@ -242,11 +258,15 @@ def compile_model_from_args(
         device_cli = f"--chipset {cli_args.chipset}"
     else:
         device_cli = f"--device {cli_args.device}"
-    print(f"Compiling on-device model asset for {model_id}.")
+    model_name = model_id + (f".{component}" if component else "")
+    print(f"Compiling on-device model asset for {model_name}.")
     print(
         f"Running python -m {export_file} {device_cli} "
         f"--target-runtime {cli_args.target_runtime.name.lower()}\n"
     )
+    component_kwargs = {}
+    if component is not None:
+        component_kwargs = {"components": [component]}
     export_output = export_module.export_model(
         device=cli_args.device,
         chipset=cli_args.chipset,
@@ -256,14 +276,21 @@ def compile_model_from_args(
         skip_summary=True,
         target_runtime=cli_args.target_runtime,
         **model_kwargs,
+        **component_kwargs,
     )
 
-    if len(export_output) == 0 or isinstance(export_output[0], str):
+    if component is None:
+        no_hub_access = len(export_output) == 0 or isinstance(export_output[0], str)
+    else:
+        no_hub_access = export_output[component][0] is None
+
+    if no_hub_access:
         # The export returned local file paths, which mean Hub credentials were not found.
         raise NotImplementedError(
             f"Please sign-up for {_AIHUB_NAME} to continue the demo with on-device inference."
         )
 
+    export_output = export_output if component is None else export_output[component]
     compile_job, _, _ = export_output
     target_model = compile_job.get_target_model()
     assert target_model is not None

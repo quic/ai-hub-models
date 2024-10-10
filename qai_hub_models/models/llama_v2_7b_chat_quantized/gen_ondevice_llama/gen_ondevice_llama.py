@@ -4,22 +4,21 @@
 # ---------------------------------------------------------------------
 import argparse
 
-from utils import generate_shared_bins
+from utils import (
+    TARGET_ANDROID,
+    TARGET_GEN2,
+    TARGET_GEN3,
+    TARGET_WINDOWS,
+    generate_shared_bins,
+)
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="AI-Hub-QNN-Bin-Generator",
-        description="Converts AI Hub model to weight shared QNN bins for llama family models.",
+        description="Exports Llama2 models to QNN Context binary to run on-device.",
     )
 
-    parser.add_argument(
-        "--hub-model-id",
-        type=str,
-        required=True,
-        help="Provide comma separated model-ids provided by export.py"
-        " Expects comma separated 8 model-ids (first four prompt processor, last four token generator).",
-    )
     parser.add_argument(
         "--output-dir",
         type=str,
@@ -35,31 +34,28 @@ def main():
     parser.add_argument(
         "--target-gen",
         type=str,
-        default="snapdragon-gen3",
-        choices=["snapdragon-gen2", "snapdragon-gen3"],
+        default=TARGET_GEN3,
+        choices=[TARGET_GEN2, TARGET_GEN3],
         help="Snapdragon generation to target QNN binaries to. Valid options: snapdragon-gen2 or snapdragon-gen3.",
     )
     parser.add_argument(
         "--target-os",
         type=str,
-        default="android",
-        choices=["android", "windows"],
+        default=TARGET_ANDROID,
+        choices=[TARGET_ANDROID, TARGET_WINDOWS],
         help="Target Operating System to prepare app to run on.",
     )
 
     args = parser.parse_args()
     output_dir = args.output_dir
-    model_ids = args.hub_model_id.split(",")
-    if len(model_ids) != 8:
+
+    if args.target_gen == TARGET_GEN3 and args.target_os != TARGET_ANDROID:
         raise RuntimeError(
-            f"Expecting 8 model-ids of target models produced by AI Hub. Got {len(model_ids)}."
+            f"--target-gen {args.target_gen} is only supported with --target-os {TARGET_ANDROID}, provided {args.target_os}."
         )
 
-    num_of_splits = len(model_ids) // 2
-    model_ids = {"pp": model_ids[:num_of_splits], "tg": model_ids[num_of_splits:]}
-
     generate_shared_bins(
-        output_dir, model_ids, args.tokenizer_zip_path, args.target_gen, args.target_os
+        output_dir, args.tokenizer_zip_path, args.target_gen, args.target_os
     )
 
 

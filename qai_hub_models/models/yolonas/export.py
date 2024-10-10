@@ -199,7 +199,7 @@ def export_model(
         )
 
     if not skip_summary:
-        print_on_target_demo_cmd(compile_job, Path(__file__).parent.resolve(), device)
+        print_on_target_demo_cmd(compile_job, Path(__file__).parent, hub_device)
 
     return (compile_job, profile_job, inference_job)
 

@@ -37,6 +37,7 @@ from qai_hub_models.utils.path_helpers import (
     get_qaihm_models_root,
     get_qaihm_package_root,
 )
+from qai_hub_models.utils.scorecard.common import get_supported_devices
 
 QAIHM_PACKAGE_ROOT = get_qaihm_package_root()
 QAIHM_MODELS_ROOT = get_qaihm_models_root()
@@ -117,6 +118,12 @@ HF_AVAILABLE_LICENSES = {
     "unknown",
     "other",
 }
+
+
+def get_all_supported_devices():
+    return get_supported_devices(
+        ["qualcomm-snapdragon-x-elite", "qualcomm-snapdragon-8gen3"]
+    )
 
 
 @unique
@@ -574,6 +581,10 @@ class QAIHMModelCodeGen(BaseDataClass):
     # Whether the model is quantized with aimet.
     is_aimet: bool = False
 
+    # aimet model can additionally specify num calibration samples to speed up
+    # compilation
+    num_calibration_samples: Optional[int] = None
+
     # Whether the model's demo supports running on device with the `--on-device` flag.
     has_on_target_demo: bool = False
 
@@ -777,6 +788,12 @@ class QAIHMModelInfo(BaseDataClass):
     # to a file in `qai_hub_models/labels`, which specifies the name for each index.
     labels_file: Optional[str] = None
 
+    # It is a large language model (LLM) or not.
+    model_type_llm: bool = False
+
+    # Add per device, download, app and if the model is available for purchase.
+    llm_details: Optional[Dict[str, Any]] = None
+
     def validate(self) -> Tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
         # Validate ID
@@ -878,6 +895,32 @@ class QAIHMModelInfo(BaseDataClass):
         expected_example_use = f"qai_hub_models/models/{self.id}#example--usage"
         if expected_example_use != ASSET_CONFIG.get_example_use(self.id):
             return False, "Example-usage field not pointing to expected relative path"
+
+        if self.model_type_llm:
+            assert self.llm_details is not None
+            for dev in self.llm_details:
+                # Check the device is one of the supported devices.
+                assert dev in get_all_supported_devices()
+
+                if "purchase_required" in self.llm_details[dev]:
+                    assert self.llm_details[dev]["purchase_required"]
+                if "model_download_url" in self.llm_details[dev]:
+                    assert self.llm_details[dev]["model_download_url"] is not None
+                    model_download_url = ASSET_CONFIG.get_web_asset_url(
+                        self.id, self.llm_details[dev]["model_download_url"]
+                    )
+                    # Check if the url exists
+                    if (
+                        session.head(model_download_url).status_code
+                        != requests.codes.ok
+                    ):
+                        return False, f"Download URL is missing at {model_download_url}"
+                if "genie_url" in self.llm_details[dev]:
+                    assert self.llm_details[dev]["genie_url"] is not None
+                    genie_url = self.llm_details[dev]["genie_url"]
+                    # Check if the url exists
+                    if session.head(genie_url).status_code != requests.codes.ok:
+                        return False, f"Genie App URL is missing at {genie_url}"
 
         return True, None
 

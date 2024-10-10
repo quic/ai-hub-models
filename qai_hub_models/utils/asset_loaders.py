@@ -541,6 +541,7 @@ class ModelZooAssetConfig:
                 "repo_url": str,
                 "models_website_url": str,
                 "models_website_relative_path": str,
+                "email_template": str,
             }
         )
     )

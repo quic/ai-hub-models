@@ -152,7 +152,7 @@ class CompileJobSummary(JobSummary):
                 path_devices_enabled = [
                     x
                     for x in path.get_test_devices(model_code_gen.is_aimet)
-                    if x.enabled()
+                    if x.enabled
                 ]
                 for device in path_devices_enabled:
                     model_runs.append(
@@ -225,7 +225,7 @@ class ProfileJobSummary(JobSummary):
                 path_devices_enabled = [
                     x
                     for x in path.get_test_devices(model_code_gen.is_aimet)
-                    if x.enabled()
+                    if x.enabled
                 ]
                 for device in path_devices_enabled:
                     model_runs.append(
@@ -258,7 +258,7 @@ class ProfileJobSummary(JobSummary):
     def chipset(self) -> str:
         """Chipset the job was run on."""
         if not self.job:
-            return self._device.get_chipset()
+            return self._device.chipset
 
         hub_device = self.device
         for attr in hub_device.attributes:
@@ -271,7 +271,7 @@ class ProfileJobSummary(JobSummary):
         return (
             self.job.device
             if self.job and isinstance(self.job, hub.ProfileJob)
-            else self._device.get_reference_device()
+            else self._device.reference_device
         )
 
     @cached_property
@@ -375,6 +375,16 @@ class ProfileJobSummary(JobSummary):
         return "null"
 
     @cached_property
+    def llm_metrics(self) -> Union[Dict[str, Any], str]:
+        """Get LLM specific metrics."""
+        return "null"
+
+    @cached_property
+    def evaluation_metrics(self) -> Union[Dict[str, Any], str]:
+        """Get evaluation_metrics."""
+        return "null"
+
+    @cached_property
     def performance_metrics(self) -> Dict[str, Any]:
         return dict(
             inference_time=self.inference_time,
@@ -388,6 +398,8 @@ class ProfileJobSummary(JobSummary):
                 layers_on_cpu=self.cpu,
                 total_layers=self.total,
             ),
+            llm_metrics=self.llm_metrics,
+            evaluation_metrics=self.evaluation_metrics,
             job_id=self.job_id,
             job_status=self.job_status,
         )

@@ -66,9 +66,18 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self,
         target_runtime: TargetRuntime,
         input_spec: InputSpec | None = None,
+        num_samples: int | None = None,
     ) -> DatasetEntries | None:
         """
-        Same as AIMETQuantizableMixin.get_calibration_data
+        Same as AIMETQuantizableMixin.get_calibration_data with the addition
+        of `num_samples`
+
+        Args:
+
+        num_samples: None to use all. Specify `num_samples` to use fewer. If
+        `num_samples` are more than available, use all available (same
+        behavior as None)
+
         """
         return None
 
@@ -97,7 +106,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         def _forward(session, _):
             run_onnx_inference(session, data, num_samples)
 
-        print("Start QuantSim calibration...")
+        print(f"Start QuantSim calibration for {self.__class__.__name__}")
         self.quant_sim.compute_encodings(_forward, tuple())
 
     def _sample_inputs_impl(
@@ -151,12 +160,17 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
             onnx_file_path = str(base_path / "model.onnx")
             encoding_file_path = str(base_path / "model.encodings")
+            external_data_file_path = str(base_path / "model.onnx.data")
+
+            if not os.path.exists(external_data_file_path):
+                external_data_file_path = ""
 
             zip_aimet_model(
                 zip_path,
                 base_dir,
                 onnx_file_path,
                 encoding_file_path,
+                external_data_file_path,
             )
 
         return zip_path

@@ -10,133 +10,20 @@ import pprint
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Set, Tuple, Union
 
-import qai_hub as hub
-
 from qai_hub_models.utils.config_loaders import MODEL_IDS
 from qai_hub_models.utils.scorecard.common import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
+    chipset_marketing_name,
+    get_supported_devices,
+    supported_chipsets_santized,
+    supported_oses,
 )
 from qai_hub_models.utils.scorecard.job_summary import (
     CompileJobSummary,
     ProfileJobSummary,
 )
-
-
-def supported_chipsets(chips: List[str]) -> List[str]:
-    """
-    Return all the supported chipsets given the chipset it works on.
-
-    The order of chips in the website list mirror the order here. Order
-    chips from newest to oldest to highlight newest chips most prominently.
-    """
-    chipset_set = set(chips)
-    chipset_list = []
-    if "qualcomm-snapdragon-8gen3" in chipset_set:
-        chipset_list.extend(
-            [
-                "qualcomm-snapdragon-8gen3",
-                "qualcomm-snapdragon-8gen2",
-                "qualcomm-snapdragon-8gen1",
-                "qualcomm-snapdragon-888",
-            ]
-        )
-    elif "qualcomm-snapdragon-8gen2" in chipset_set:
-        chipset_list.extend(
-            [
-                "qualcomm-snapdragon-8gen2",
-                "qualcomm-snapdragon-8gen1",
-                "qualcomm-snapdragon-888",
-            ]
-        )
-
-    chipset_order = [
-        "qualcomm-snapdragon-x-elite",
-        "qualcomm-qcs6490",
-        "qualcomm-qcs8250",
-        "qualcomm-qcs8550",
-        "qualcomm-sa8775p",
-        "qualcomm-sa8650p",
-        "qualcomm-sa8255p",
-        "qualcomm-qcs8450",
-    ]
-    for chipset in chipset_order:
-        if chipset in chipset_set:
-            chipset_list.append(chipset)
-
-    # Add any remaining chipsets not covered
-    for chipset in chipset_set:
-        if chipset not in chipset_list:
-            chipset_list.append(chipset)
-    return chipset_list
-
-
-def chipset_marketing_name(chipset) -> str:
-    """Sanitize chip name to match marketting."""
-    chip = [word.capitalize() for word in chipset.split("-")]
-    details_to_remove = []
-    for i in range(len(chip)):
-        if chip[i] == "8gen3":
-            chip[i] = "8 Gen 3"
-        if chip[i] == "8gen2":
-            chip[i] = "8 Gen 2"
-        elif chip[i] == "8gen1":
-            chip[i] = "8 Gen 1"
-        elif chip[i] == "Snapdragon":
-            # Marketing name for Qualcomm Snapdragon is Snapdragon®
-            chip[i] = "Snapdragon®"
-        elif chip[i] == "Qualcomm":
-            details_to_remove.append(chip[i])
-
-    for detail in details_to_remove:
-        chip.remove(detail)
-    return " ".join(chip)
-
-
-def supported_chipsets_santized(chips) -> List[str]:
-    """Santize the chip name passed via hub."""
-    chips = [chip for chip in chips if chip != ""]
-    return [chipset_marketing_name(chip) for chip in supported_chipsets(chips)]
-
-
-# Caching this information is helpful because it requires pulling data from hub.
-# Pulling data from hub is slow.
-__CHIP_SUPPORTED_DEVICES_CACHE: Dict[str, List[str]] = {}
-
-
-def get_supported_devices(chips) -> List[str]:
-    """Return all the supported devices given the chipset being used."""
-    supported_devices = []
-
-    for chip in supported_chipsets(chips):
-        supported_devices_for_chip = __CHIP_SUPPORTED_DEVICES_CACHE.get(chip, list())
-        if not supported_devices_for_chip:
-            supported_devices_for_chip = [
-                device.name
-                for device in hub.get_devices(attributes=f"chipset:{chip}")
-                if "(Family)" not in device.name
-            ]
-            supported_devices_for_chip = sorted(set(supported_devices_for_chip))
-            __CHIP_SUPPORTED_DEVICES_CACHE[chip] = supported_devices_for_chip
-        supported_devices.extend(supported_devices_for_chip)
-    supported_devices.extend(
-        [
-            "Google Pixel 5a 5G",
-            "Google Pixel 4",
-            "Google Pixel 4a",
-            "Google Pixel 3",
-            "Google Pixel 3a",
-            "Google Pixel 3a XL",
-        ]
-    )
-    return supported_devices
-
-
-def supported_oses() -> List[str]:
-    """Return all the supported operating systems."""
-    return ["Android"]
-
 
 # Caching this information is helpful because it requires pulling data from hub.
 # Pulling data from hub is slow.
@@ -144,9 +31,9 @@ __REFERENCE_DEVICE_INFO_PER_CHIPSET = {}
 
 
 def get_reference_device_info(device: ScorecardDevice) -> Dict[str, str]:
-    chipset = device.get_chipset()
+    chipset = device.chipset
     if chipset not in __REFERENCE_DEVICE_INFO_PER_CHIPSET:
-        hub_device = device.get_reference_device()
+        hub_device = device.reference_device
         device_name = hub_device.name
         os_version = hub_device.os
         os_name, form_factor, manufacturer = "", "", ""
@@ -246,14 +133,19 @@ class ModelPerfSummary:
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
+        include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
     ) -> List[Dict[str, Union[str, Dict[str, str]]]]:
         perf_card = []
         for summary in self.runs_per_device.values():
-            device_summary = summary.get_perf_card(include_failed_jobs, exclude_paths)
-            # If device had no runs, omit it from the card
-            if device_summary:
-                perf_card.append(device_summary)
+            if include_internal_devices or summary.device.public:
+                device_summary = summary.get_perf_card(
+                    include_failed_jobs, exclude_paths
+                )
+
+                # If device had no runs, omit it from the card
+                if len(device_summary) != 0:
+                    perf_card.append(device_summary)
         return perf_card
 
     def __repr__(self):
@@ -342,15 +234,16 @@ class PerfSummary:
                     continue
 
                 # Don't incude disabled models
-                if model_id in device.get_disabled_models():
+                if model_id in device.disabled_models:
                     continue
 
-                chips.add(device.get_chipset())
+                chips.add(device.chipset)
         return chips
 
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
+        include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
     ) -> Dict[str, str | List[Any] | Dict[str, Any]]:
         perf_card: Dict[str, str | List[Any] | Dict[str, Any]] = {}
@@ -368,7 +261,7 @@ class PerfSummary:
                 {
                     "name": model_id,
                     "performance_metrics": summary.get_perf_card(
-                        include_failed_jobs, exclude_paths
+                        include_failed_jobs, include_internal_devices, exclude_paths
                     ),
                 }
             )

@@ -9,7 +9,7 @@ from typing import Tuple
 import torch
 
 from qai_hub_models.models._shared.yolo.app import YoloObjectDetectionApp
-from qai_hub_models.models.yolov8_det.model import yolov8_detect_postprocess
+from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 
 
 class YoloV8DetectionApp(YoloObjectDetectionApp):
@@ -22,4 +22,4 @@ class YoloV8DetectionApp(YoloObjectDetectionApp):
     def pre_nms_postprocess(
         self, prediction: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return yolov8_detect_postprocess(prediction)
+        return yolo_detect_postprocess(prediction)

@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from typing import Dict, List, Optional, Tuple
 
 import qai_hub as hub
@@ -23,137 +23,193 @@ def _get_cached_device(device_name: str) -> hub.Device:
     return device
 
 
-def _on_staging() -> bool:
-    """
-    Returns whether the hub client is pointing to staging.
-
-    Can be sometimes useful to diverge logic between PR CI (prod) and nightly (staging).
-    """
-    client = hub.client.Client()
-    client.get_devices()
-    client_config = client._config
-    assert client_config is not None
-    return "staging" in client_config.api_url
+def scorecard_unit_test_idfn(val):
+    """Name of unit test parameters used in tests created in test_generated.py"""
+    if val == ScorecardDevices.any:
+        return "device_agnostic"
+    elif isinstance(val, ScorecardDevice):
+        return val.name
 
 
-@dataclass
-class ClientState:
-    on_staging: bool
+class ScorecardDevice:
+    # -- DEVICE REGISTRY --
+    _registry: Dict[str, "ScorecardDevice"] = {}
 
+    @classmethod
+    def all_enabled(cls) -> List["ScorecardDevice"]:
+        return [x for x in cls._registry.values() if x.enabled]
 
-class ClientStateSingleton:
-    _instance: Optional[ClientState] = None
+    @classmethod
+    def register(
+        cls,
+        name: str,
+        reference_device_name: Optional[str],
+        execution_device_name: Optional[str] = None,
+        disabled_models: List[str] = [],
+    ) -> "ScorecardDevice":
+        if name in cls._registry:
+            raise ValueError("Device " + name + "already registered.")
 
-    def __init__(self):
-        if self._instance is None:
-            self._instance = ClientState(on_staging=_on_staging())
+        device = ScorecardDevice(
+            name, reference_device_name, execution_device_name, disabled_models
+        )
+        cls._registry[name] = device
+        return device
 
-    def on_staging(self) -> bool:
-        assert self._instance is not None
-        return self._instance.on_staging
+    @classmethod
+    def __getitem__(cls, device_name: str) -> "ScorecardDevice":
+        return cls._registry[device_name]
 
+    # -- DEVICE CLASS --
+    def __init__(
+        self,
+        name: str,
+        reference_device_name: Optional[str],
+        execution_device_name: Optional[str] = None,
+        disabled_models: List[str] = [],
+    ):
+        """
+        Parameters
+            name: Name of this device for scorecard use. Must conform to the name of a python enum.
 
-class ScorecardDevice(Enum):
-    any = 0  # no specific device (usable only during compilation)
+            reference_device_name: The name of the "reference" device used by the scorecard for metadata when coalating results.
 
-    # cs == chipset
-    cs_8_gen_2 = 1
-    cs_8_gen_3 = 2
-    cs_6490 = 3
-    cs_8250 = 4
-    cs_8550 = 5
-    cs_x_elite = 6
-    cs_auto_lemans_8255 = 7
-    cs_auto_lemans_8775 = 8
-    cs_auto_lemans_8650 = 9
-    cs_xr_8450 = 10
+            execution_device_name: The name of the device to be used by associated Hub jobs.
+                                   If not provided, jobs will be submitted with the chipset of the reference device.
+                                   Hub will decide what device to use depending on availability.
 
-    # cs_auto_makena_8540  | Disabled until fp16 support is enabled for makena.
+            disabled_models: AI Hub Model IDs that are not supported by this device.
+                            These models will be ignored by the scorecard in combination with this device.
+        """
+        self.name = name
+        self.disabled_models = disabled_models
+        self.reference_device_name = reference_device_name
+        self.execution_device_name = execution_device_name
 
+    def __str__(self):
+        return self.name.lower()
+
+    def __repr__(self):
+        return self.name.lower()
+
+    def __eq__(self, other):
+        if not isinstance(other, ScorecardDevice):
+            return False
+        return (
+            self.name == other.name
+            and self.reference_device_name == other.reference_device_name
+            and self.execution_device_name == other.execution_device_name
+        )
+
+    def __hash__(self):
+        return (
+            hash(self.name)
+            + hash(self.reference_device_name)
+            + hash(self.execution_device_name)
+        )
+
+    @property
     def enabled(self) -> bool:
+        """
+        Whether the scorecard should include this scorecard device.
+        This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
+        """
         valid_test_devices = os.environ.get("WHITELISTED_PROFILE_TEST_DEVICES", "ALL")
         return (
             valid_test_devices == "ALL"
-            or self == ScorecardDevice.any
+            or self.name == "all"
             or self.name in valid_test_devices.split(",")
         )
 
-    def get_disabled_models(self) -> List[str]:
-        """
-        Each chipset can have a list of 'disabled' models, for which the
-        chipset won't show up as a 'supported chipset' for that model.
-        """
-        if self == ScorecardDevice.cs_6490:
-            return [
-                "ConvNext-Tiny-w8a8-Quantized",
-                "ConvNext-Tiny-w8a16-Quantized",
-                "ResNet50Quantized",
-                "RegNetQuantized",
-                "HRNetPoseQuantized",
-                "SESR-M5-Quantized",
-                "Midas-V2-Quantized",
-                "Posenet-Mobilenet-Quantized",
-            ]
-        return []
+    @property
+    def public(self) -> bool:
+        return self in ScorecardDevices.__dict__.values()
 
-    def all_enabled(self) -> List["ScorecardDevice"]:
-        return [x for x in ScorecardDevice if x.enabled()]
-
-    def get_reference_device(self) -> hub.Device:
-        if self in [ScorecardDevice.cs_8_gen_2, ScorecardDevice.any]:
-            return _get_cached_device("Samsung Galaxy S23")
-        if self == ScorecardDevice.cs_8_gen_3:
-            return _get_cached_device("Samsung Galaxy S24")
-        if self == ScorecardDevice.cs_6490:
-            return _get_cached_device("RB3 Gen 2 (Proxy)")
-        if self == ScorecardDevice.cs_8250:
-            return _get_cached_device("RB5 (Proxy)")
-        if self == ScorecardDevice.cs_8550:
-            return _get_cached_device("QCS8550 (Proxy)")
-        if self == ScorecardDevice.cs_x_elite:
-            return _get_cached_device("Snapdragon X Elite CRD")
-        if self == ScorecardDevice.cs_auto_lemans_8255:
-            return _get_cached_device("SA8255 (Proxy)")
-        if self == ScorecardDevice.cs_auto_lemans_8775:
-            return _get_cached_device("SA8775 (Proxy)")
-        if self == ScorecardDevice.cs_auto_lemans_8650:
-            return _get_cached_device("SA8650 (Proxy)")
-        if self == ScorecardDevice.cs_xr_8450:
-            return _get_cached_device("QCS8450 (Proxy)")
-        # if self == ScorecardDevice.cs_auto_makena_8540:
-        #    return _get_cached_device("SA8540 (Proxy)")
+    @cached_property
+    def reference_device(self) -> hub.Device:
+        """
+        Get the "reference" device used by the scorecard for metadata when coalating results.
+        This is not used by any actual scorecard jobs.
+        """
+        if self.reference_device_name:
+            return _get_cached_device(self.reference_device_name)
         raise NotImplementedError(f"No reference device for {self.name}")
 
-    def get_chipset(self) -> str:
-        if self in [ScorecardDevice.cs_8_gen_2, ScorecardDevice.any]:
-            return "qualcomm-snapdragon-8gen2"
-        if self == ScorecardDevice.cs_8_gen_3:
-            return "qualcomm-snapdragon-8gen3"
-        if self == ScorecardDevice.cs_6490:
-            return "qualcomm-qcs6490-proxy"
-        if self == ScorecardDevice.cs_8250:
-            return "qualcomm-qcs8250-proxy"
-        if self == ScorecardDevice.cs_8550:
-            return "qualcomm-qcs8550-proxy"
-        if self == ScorecardDevice.cs_x_elite:
-            return "qualcomm-snapdragon-x-elite"
-        if self == ScorecardDevice.cs_auto_lemans_8255:
-            return "qualcomm-sa8255p-proxy"
-        if self == ScorecardDevice.cs_auto_lemans_8775:
-            return "qualcomm-sa8775p-proxy"
-        if self == ScorecardDevice.cs_auto_lemans_8650:
-            return "qualcomm-sa8650p-proxy"
-        if self == ScorecardDevice.cs_xr_8450:
-            return "qualcomm-qcs8450-proxy"
-        # if self == ScorecardDevice.cs_auto_makena_8540:
-        #    return "qualcomm-sa8540p"
-        raise NotImplementedError(f"No chipset for {self.name}")
+    @cached_property
+    def execution_device(self) -> hub.Device:
+        """
+        Get the "reference" device used by the scorecard for metadata when coalating results.
+        This is not used by any actual scorecard jobs.
+        """
+        if self.execution_device_name:
+            return _get_cached_device(self.execution_device_name)
+        raise NotImplementedError(f"No execution device for {self.name}")
 
-    def get_os(self) -> str:
-        for attr in self.get_reference_device().attributes:
+    @cached_property
+    def chipset(self) -> str:
+        """
+        The chipset used by this device.
+        """
+        device = (
+            self.execution_device
+            if self.execution_device_name
+            else self.reference_device
+        )
+        for attr in device.attributes:
+            if attr.startswith("chipset:"):
+                return attr[8:]
+        raise ValueError(f"Chipset not found for device: {self.name}")
+
+    @cached_property
+    def os(self) -> str:
+        """
+        The operating system used by this device.
+        """
+        for attr in self.reference_device.attributes:
             if attr.startswith("os:"):
                 return attr[3:]
         raise ValueError(f"OS Not found for device: {self.name}")
+
+
+class ScorecardDevices:
+    any = ScorecardDevice.register(
+        "any", "Samsung Galaxy S23"
+    )  # no specific device (usable only during compilation)
+    cs_8_gen_2 = ScorecardDevice.register("cs_8_gen_2", "Samsung Galaxy S23")
+    cs_8_gen_3 = ScorecardDevice.register(
+        "cs_8_gen_3", "Samsung Galaxy S24", "Samsung Galaxy S24 (Family)"
+    )
+    cs_6490 = ScorecardDevice.register(
+        "cs_6490",
+        "RB3 Gen 2 (Proxy)",
+        None,
+        [
+            "ConvNext-Tiny-w8a8-Quantized",
+            "ConvNext-Tiny-w8a16-Quantized",
+            "ResNet50Quantized",
+            "RegNetQuantized",
+            "HRNetPoseQuantized",
+            "SESR-M5-Quantized",
+            "Midas-V2-Quantized",
+            "Posenet-Mobilenet-Quantized",
+        ],
+    )
+    cs_8250 = ScorecardDevice.register("cs_8250", "RB5 (Proxy)")
+    cs_8550 = ScorecardDevice.register("cs_8550", "QCS8550 (Proxy)")
+    cs_x_elite = ScorecardDevice.register("cs_x_elite", "Snapdragon X Elite CRD")
+    cs_auto_lemans_8255 = ScorecardDevice.register(
+        "cs_auto_lemans_8255", "SA8255 (Proxy)"
+    )
+    cs_auto_lemans_8775 = ScorecardDevice.register(
+        "cs_auto_lemans_8775", "SA8775 (Proxy)"
+    )
+    cs_auto_lemans_8650 = ScorecardDevice.register(
+        "cs_auto_lemans_8650", "SA8650 (Proxy)"
+    )
+    cs_xr_8450 = ScorecardDevice.register("cs_xr_8450", "QCS8450 (Proxy)")
+    cs_auto_makena_8295 = ScorecardDevice.register(
+        "cs_auto_makena_8295", "Snapdragon Cockpit Gen 4 QAM"
+    )
 
 
 def get_job_cache_name(
@@ -164,7 +220,7 @@ def get_job_cache_name(
 ) -> str:
     return (
         f"{model_name}_{runtime_name}"
-        + ("-" + device.name if device != ScorecardDevice.any else "")
+        + ("-" + device.name if device != ScorecardDevices.any else "")
         + ("_" + component if component else "")
     )
 
@@ -224,18 +280,28 @@ class ScorecardCompilePath(Enum):
     ) -> List[ScorecardDevice]:
         if self == ScorecardCompilePath.QNN:
             devices = [
-                ScorecardDevice.any,
-                ScorecardDevice.cs_x_elite,
-                ScorecardDevice.cs_8550,
-                ScorecardDevice.cs_auto_lemans_8255,
-                ScorecardDevice.cs_auto_lemans_8775,
+                ScorecardDevices.any,
+                ScorecardDevices.cs_x_elite,
+                ScorecardDevices.cs_8550,
+                ScorecardDevices.cs_auto_lemans_8255,
+                ScorecardDevices.cs_auto_lemans_8775,
+                ScorecardDevices.cs_auto_makena_8295,
             ]
             if aimet_model:
-                devices.append(ScorecardDevice.cs_6490)
+                devices.append(ScorecardDevices.cs_6490)
         else:
-            devices = [ScorecardDevice.any]
+            devices = [ScorecardDevices.any]
 
-        return [x for x in devices if x.enabled()] if only_enabled else devices
+        try:
+            from qai_hub_models.utils.scorecard._common_private import (
+                get_private_compile_path_test_devices,
+            )
+
+            devices.extend(get_private_compile_path_test_devices(self, aimet_model))  # type: ignore
+        except ImportError:
+            pass
+
+        return [x for x in devices if x.enabled] if only_enabled else devices
 
     def get_compile_options(self, aimet_model=False) -> str:
         if self == ScorecardCompilePath.ONNX_FP16 and not aimet_model:
@@ -245,15 +311,15 @@ class ScorecardCompilePath(Enum):
     def get_job_cache_name(
         self,
         model: str,
-        device: ScorecardDevice = ScorecardDevice.any,
+        device: ScorecardDevice = ScorecardDevices.any,
         aimet_model: bool = False,
         component: Optional[str] = None,
     ):
         # These two auto chips are the same, re-use the same compiled asset.
-        if device == ScorecardDevice.cs_auto_lemans_8650:
-            device = ScorecardDevice.cs_auto_lemans_8775
+        if device == ScorecardDevices.cs_auto_lemans_8650:
+            device = ScorecardDevices.cs_auto_lemans_8775
         if device not in self.get_test_devices(aimet_model=aimet_model):
-            device = ScorecardDevice.any  # default to the "generic" compilation path
+            device = ScorecardDevices.any  # default to the "generic" compilation path
         return get_job_cache_name(self.name, model, device, component)
 
 
@@ -335,41 +401,52 @@ class ScorecardProfilePath(Enum):
     ) -> List[ScorecardDevice]:
         if self == ScorecardProfilePath.TFLITE:
             devices = [
-                ScorecardDevice.cs_8_gen_2,
-                ScorecardDevice.cs_8_gen_3,
-                ScorecardDevice.cs_8550,
-                ScorecardDevice.cs_xr_8450,
-                ScorecardDevice.cs_auto_lemans_8650,
-                ScorecardDevice.cs_auto_lemans_8775,
-                ScorecardDevice.cs_auto_lemans_8255,
+                ScorecardDevices.cs_8_gen_2,
+                ScorecardDevices.cs_8_gen_3,
+                ScorecardDevices.cs_8550,
+                ScorecardDevices.cs_xr_8450,
+                ScorecardDevices.cs_auto_lemans_8650,
+                ScorecardDevices.cs_auto_lemans_8775,
+                ScorecardDevices.cs_auto_lemans_8255,
+                ScorecardDevices.cs_auto_makena_8295,
             ] + (
-                [ScorecardDevice.cs_6490, ScorecardDevice.cs_8250]
+                [ScorecardDevices.cs_6490, ScorecardDevices.cs_8250]
                 if aimet_model
                 else []
             )
         elif self == ScorecardProfilePath.ONNX:
             devices = [
-                ScorecardDevice.cs_8_gen_2,
-                ScorecardDevice.cs_8_gen_3,
-                ScorecardDevice.cs_x_elite,
+                ScorecardDevices.cs_8_gen_2,
+                ScorecardDevices.cs_8_gen_3,
+                ScorecardDevices.cs_x_elite,
             ]
         elif self == ScorecardProfilePath.QNN:
             devices = [
-                ScorecardDevice.cs_8_gen_2,
-                ScorecardDevice.cs_8_gen_3,
-                ScorecardDevice.cs_x_elite,
-                ScorecardDevice.cs_8550,
-                ScorecardDevice.cs_auto_lemans_8650,
-                ScorecardDevice.cs_auto_lemans_8775,
-                ScorecardDevice.cs_auto_lemans_8255,
-                ScorecardDevice.cs_xr_8450,
-            ] + ([ScorecardDevice.cs_6490] if aimet_model else [])
+                ScorecardDevices.cs_8_gen_2,
+                ScorecardDevices.cs_8_gen_3,
+                ScorecardDevices.cs_x_elite,
+                ScorecardDevices.cs_8550,
+                ScorecardDevices.cs_auto_lemans_8650,
+                ScorecardDevices.cs_auto_lemans_8775,
+                ScorecardDevices.cs_auto_lemans_8255,
+                ScorecardDevices.cs_auto_makena_8295,
+                ScorecardDevices.cs_xr_8450,
+            ] + ([ScorecardDevices.cs_6490] if aimet_model else [])
         elif self == ScorecardProfilePath.ONNX_DML_GPU:
-            devices = [ScorecardDevice.cs_x_elite]
+            devices = [ScorecardDevices.cs_x_elite]
         else:
             raise NotImplementedError()
 
-        return [x for x in devices if x.enabled()] if only_enabled else devices
+        try:
+            from qai_hub_models.utils.scorecard._common_private import (
+                get_private_profile_path_test_devices,
+            )
+
+            devices.extend(get_private_profile_path_test_devices(self, aimet_model))  # type: ignore
+        except ImportError:
+            pass
+
+        return [x for x in devices if x.enabled] if only_enabled else devices
 
     def get_job_cache_name(
         self,
@@ -378,3 +455,130 @@ class ScorecardProfilePath(Enum):
         component: Optional[str] = None,
     ):
         return get_job_cache_name(self.name, model, device, component)
+
+
+def supported_chipsets(chips: List[str]) -> List[str]:
+    """
+    Return all the supported chipsets given the chipset it works on.
+
+    The order of chips in the website list mirror the order here. Order
+    chips from newest to oldest to highlight newest chips most prominently.
+    """
+    chipset_set = set(chips)
+    chipset_list = []
+    if "qualcomm-snapdragon-8gen3" in chipset_set:
+        chipset_list.extend(
+            [
+                "qualcomm-snapdragon-8gen3",
+                "qualcomm-snapdragon-8gen2",
+                "qualcomm-snapdragon-8gen1",
+                "qualcomm-snapdragon-888",
+            ]
+        )
+    elif "qualcomm-snapdragon-8gen2" in chipset_set:
+        chipset_list.extend(
+            [
+                "qualcomm-snapdragon-8gen2",
+                "qualcomm-snapdragon-8gen1",
+                "qualcomm-snapdragon-888",
+            ]
+        )
+
+    if "qualcomm-snapdragon-x-elite" in chipset_set:
+        chipset_list.extend(["qualcomm-snapdragon-x-plus-8-core"])
+
+    chipset_order = [
+        "qualcomm-snapdragon-x-elite",
+        "qualcomm-qcs6490",
+        "qualcomm-qcs8250",
+        "qualcomm-qcs8550",
+        "qualcomm-sa8775p",
+        "qualcomm-sa8650p",
+        "qualcomm-sa8255p",
+        "qualcomm-qcs8450",
+    ]
+    for chipset in chipset_order:
+        if chipset in chipset_set:
+            chipset_list.append(chipset)
+
+    # Add any remaining chipsets not covered
+    for chipset in chipset_set:
+        if chipset not in chipset_list:
+            chipset_list.append(chipset)
+    return chipset_list
+
+
+def chipset_marketing_name(chipset) -> str:
+    """Sanitize chip name to match marketting."""
+    chip = [word.capitalize() for word in chipset.split("-")]
+    details_to_remove = []
+    for i in range(len(chip)):
+        if chip[i] == "8gen3":
+            chip[i] = "8 Gen 3"
+        if chip[i] == "8gen2":
+            chip[i] = "8 Gen 2"
+        elif chip[i] == "8gen1":
+            chip[i] = "8 Gen 1"
+        elif chip[i] == "Snapdragon":
+            # Marketing name for Qualcomm Snapdragon is Snapdragon®
+            chip[i] = "Snapdragon®"
+        elif chip[i] == "Qualcomm":
+            details_to_remove.append(chip[i])
+
+    for detail in details_to_remove:
+        chip.remove(detail)
+    return " ".join(chip)
+
+
+def supported_chipsets_santized(chips) -> List[str]:
+    """Santize the chip name passed via hub."""
+    chips = [chip for chip in chips if chip != ""]
+    return [chipset_marketing_name(chip) for chip in supported_chipsets(chips)]
+
+
+# Caching this information is helpful because it requires pulling data from hub.
+# Pulling data from hub is slow.
+__CHIP_SUPPORTED_DEVICES_CACHE: Dict[str, List[str]] = {}
+
+
+def get_supported_devices(chips) -> List[str]:
+    """Return all the supported devices given the chipset being used."""
+    supported_devices = []
+
+    for chip in supported_chipsets(chips):
+        supported_devices_for_chip = __CHIP_SUPPORTED_DEVICES_CACHE.get(chip, list())
+        if not supported_devices_for_chip:
+            supported_devices_for_chip = [
+                device.name
+                for device in hub.get_devices(attributes=f"chipset:{chip}")
+                if "(Family)" not in device.name
+            ]
+            supported_devices_for_chip = sorted(set(supported_devices_for_chip))
+            __CHIP_SUPPORTED_DEVICES_CACHE[chip] = supported_devices_for_chip
+        supported_devices.extend(supported_devices_for_chip)
+    supported_devices.extend(
+        [
+            "Google Pixel 5a 5G",
+            "Google Pixel 4",
+            "Google Pixel 4a",
+            "Google Pixel 3",
+            "Google Pixel 3a",
+            "Google Pixel 3a XL",
+        ]
+    )
+    return supported_devices
+
+
+def supported_oses() -> List[str]:
+    """Return all the supported operating systems."""
+    return ["Android"]
+
+
+try:
+    # Register private devices
+    # This must live at the end of this file to avoid circular import problems.
+    from qai_hub_models.utils.scorecard._common_private import (  # noqa: F401
+        PrivateScorecardDevices,
+    )
+except ImportError:
+    pass
