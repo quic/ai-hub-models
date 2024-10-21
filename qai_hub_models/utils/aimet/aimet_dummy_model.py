@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from contextlib import ExitStack
 from pathlib import Path
 from typing import List, Optional
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -13,6 +14,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import torch
 from onnx import load_model as load_onnx_model
 from onnx import save_model as save_onnx_model
+from packaging.version import Version
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader
 from qai_hub_models.models.protocols import (
@@ -68,10 +70,10 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
       - Export Torch model to ONNX and load pre-computed encodings
     """
 
-    def __init__(self, model, aimet_encoding_path: str):
+    def __init__(self, model, aimet_encodings: str):
         super().__init__()
         self.model = model
-        self.encodings_path = aimet_encoding_path
+        self.aimet_encodings = aimet_encodings
 
     def quantize(
         self,
@@ -91,6 +93,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         input_spec: InputSpec | None = None,
         model_name: str | None = None,
         external_weights: bool = False,
+        bundle_external_weights: bool = False,
         output_names: Optional[List[str]] = None,
     ) -> str:
         """
@@ -103,29 +106,50 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
             input_spec = self.get_input_spec()
 
         os.makedirs(output_dir, exist_ok=True)
-        zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
         zip_base_dir = Path(f"{model_name}.aimet")
+        zip = self._use_zip_file()
 
-        with qaihm_temp_dir() as tmpdir:
+        with ExitStack() as stack:
+            if zip:
+                # Use temporary directory for preparation
+                tmpdir = stack.enter_context(qaihm_temp_dir())
+            else:
+                tmpdir = output_dir
+
             base_path = Path(tmpdir) / zip_base_dir
-            if base_path.exists():
-                shutil.rmtree(base_path)
-            os.makedirs(base_path)
+            os.makedirs(base_path, exist_ok=True)
 
             onnx_file_path = str(base_path / f"{model_name}.onnx")
             encoding_file_path = str(base_path / f"{model_name}.encodings")
+            torch_inputs = tuple(make_torch_inputs(input_spec))
+
+            if Version(torch.__version__) < Version("2.4.0"):
+                print()
+                print(
+                    f"WARNING: You are using PyTorch {torch.__version__}, which pre-dates significant ONNX export optimizations"
+                )
+                print(
+                    "         introduced in 2.4.0. We recommend upgrading PyTorch version to speed up this step:"
+                )
+                print()
+                print("         pip install torch==2.4.0")
+                print()
+
             torch.onnx.export(
-                self.model,
-                tuple(make_torch_inputs(input_spec)),
+                self,
+                torch_inputs,
                 onnx_file_path,
                 input_names=[name for name in input_spec],
                 output_names=output_names,
+                opset_version=17,
             )
 
-            shutil.copyfile(self.encodings_path, encoding_file_path)
-            external_weights_file_path = ""
+            self._adapt_aimet_encodings(
+                self.aimet_encodings, encoding_file_path, onnx_file_path
+            )
 
-            if external_weights:
+            external_weights_file_path = ""
+            if external_weights and zip:
                 external_weights_file_name = f"{model_name}.data"
                 external_weights_file_path = str(base_path / external_weights_file_name)
                 # Torch exports to onnx with external weights scattered in a directory.
@@ -139,11 +163,30 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                     location=external_weights_file_name,
                 )
 
-            zip_aimet_model(
-                zip_path,
-                zip_base_dir,
-                onnx_file_path,
-                encoding_file_path,
-                external_weights_file_path,
-            )
-        return zip_path
+            if zip:
+                zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
+                zip_aimet_model(
+                    zip_path,
+                    zip_base_dir,
+                    onnx_file_path,
+                    encoding_file_path,
+                    external_weights_file_path,
+                )
+                return zip_path
+            else:
+                # This path is persistent
+                return base_path.as_posix()
+
+        return ""  # mypy requires this for some reason
+
+    def _use_zip_file(self) -> bool:
+        """
+        Should the return of convert_to_hub_source_model be zipped.
+        """
+        return True
+
+    def _adapt_aimet_encodings(self, src_encodings, dst_encodings, onnx_model_path):
+        """
+        Overridable file that adapts the AIMET encodings.
+        """
+        shutil.copyfile(src=src_encodings, dst=dst_encodings)

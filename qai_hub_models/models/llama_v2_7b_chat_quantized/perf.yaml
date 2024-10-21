@@ -1,173 +1,72 @@
-models:
-- name: Llama2-TokenGenerator-KVCache-Quantized
-  performance_metrics:
-  - reference_device_info:
-      name: QCS8550 (Proxy)
-      os: '12'
-      form_factor: Iot
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Qcs8550 Proxy
-    timestamp: '2024-10-04T23:59:26.162600Z'
-    torchscript_onnx_qnn:
-      inference_time: 97732
-      throughput: 10.23
-      estimated_peak_memory_range:
-        min: 74272768
-        max: 75651480
-      layer_info:
-        layers_on_npu: 35926
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 35926
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
-  - reference_device_info:
-      name: Samsung Galaxy S24
-      os: '14'
-      form_factor: Phone
-      os_name: Android
-      manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-07-01T19:11:33.087816Z'
-    torchscript_onnx_qnn:
-      inference_time: 88438
-      throughput: 11.307
-      estimated_peak_memory_range:
-        min: 95744000
-        max: 4468197056
-      layer_info:
-        layers_on_npu: 33818
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 33818
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
-  - reference_device_info:
-      name: Snapdragon X Elite CRD
-      os: '11'
-      form_factor: Compute
-      os_name: Windows
-      manufacturer: Qualcomm
-      chipset: Snapdragon® X Elite
-    timestamp: '2024-07-01T19:09:26.083951Z'
-    torchscript_onnx_qnn:
-      inference_time: 95960
-      throughput: 10.421
-      estimated_peak_memory_range:
-        min: 68235264
-        max: 68235264
-      layer_info:
-        layers_on_npu: 33818
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 33818
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
-- name: Llama2-PromptProcessor-Quantized
-  performance_metrics:
-  - reference_device_info:
-      name: QCS8550 (Proxy)
-      os: '12'
-      form_factor: Iot
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Qcs8550 Proxy
-    timestamp: '2024-10-04T23:59:26.162600Z'
-    torchscript_onnx_qnn:
-      inference_time: 2020745
-      throughput: 506.93
-      estimated_peak_memory_range:
-        min: 11554816
-        max: 13002000
-      layer_info:
-        layers_on_npu: 31830
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 31830
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
-  - reference_device_info:
-      name: Samsung Galaxy S24
-      os: '14'
-      form_factor: Phone
-      os_name: Android
-      manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-07-01T20:53:21.204302Z'
-    torchscript_onnx_qnn:
-      inference_time: 1484949
-      throughput: 689.5859
-      estimated_peak_memory_range:
-        min: 8421376
-        max: 1809446256
-      layer_info:
-        layers_on_npu: 31766
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 31766
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
-  - reference_device_info:
-      name: Snapdragon X Elite CRD
-      os: '11'
-      form_factor: Compute
-      os_name: Windows
-      manufacturer: Qualcomm
-      chipset: Snapdragon® X Elite
-    timestamp: '2024-07-02T00:17:42.777637Z'
-    torchscript_onnx_qnn:
-      inference_time: 1889092
-      throughput: 542.059
-      estimated_peak_memory_range:
-        min: 10784768
-        max: 10784768
-      layer_info:
-        layers_on_npu: 31766
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 31766
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: "null"
-      job_status: Passed
 aggregated:
   supported_devices:
-  - Samsung Galaxy S23 Ultra
+  - QCS8550 (Proxy)
   - Samsung Galaxy S24
   - Snapdragon X Elite CRD
+  - Snapdragon 8 Elite QRD
   supported_oses:
   - Android
   supported_chipsets:
-  - Snapdragon® 8 Gen 2
   - Snapdragon® 8 Gen 3
   - Snapdragon® X Elite
+  - QCS8550 Proxy
+  - Snapdragon® 8 Elite
+models:
+  name: Llama-v2-7B-Chat
   performance_metrics:
-  - reference_device_info:
-      name: Samsung Galaxy S23 Ultra
-      os: '13'
+  - torchscript_onnx_qnn:
+      llm_metrics:
+        time_to_first_token_range:
+          min: 1495830
+          max: 1495830
+        tokens_per_second: 12.85
+    reference_device_info:
+      name: Samsung Galaxy S24
+      os: '14'
       form_factor: Phone
       os_name: Android
       manufacturer: Samsung
-      chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-01-26T00:34:02.549319Z'
-    torchscript_onnx_qnn:
-      inference_time: 117423.0
-      throughput: 8.5
-      estimated_peak_memory_range:
-        min: 68579328
-        max: 73044264
-      precision: uint16
-      primary_compute_unit: NPU
-      job_id: ""
-      job_status: Passed
+      chipset: Snapdragon® 8 Gen 3
+    timestamp: '2024-10-16T00:32:42.210701Z'
+  - torchscript_onnx_qnn:
+      llm_metrics:
+        time_to_first_token_range:
+          min: 1919000
+          max: 1919000
+        tokens_per_second: 11.20
+    reference_device_info:
+      name: Snapdragon X Elite CRD
+      os: '11'
+      form_factor: Compute
+      os_name: Windows
+      manufacturer: Qualcomm
+      chipset: Snapdragon® X Elite
+    timestamp: '2024-10-16T00:32:42.210701Z'
+  - torchscript_onnx_qnn:
+      llm_metrics:
+        time_to_first_token_range:
+          min: 1919000
+          max: 1919000
+        tokens_per_second: 11.20
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: QCS8550 Proxy
+    timestamp: '2024-10-16T00:32:42.210701Z'
+  - torchscript_onnx_qnn:
+      llm_metrics:
+        time_to_first_token_range:
+          min: 1440000
+          max: 1440000
+        tokens_per_second: 17.94
+    reference_device_info:
+      name: Snapdragon 8 Elite QRD
+      os: '15'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Snapdragon® 8 Elite
+    timestamp: '2024-10-16T00:32:42.210701Z'

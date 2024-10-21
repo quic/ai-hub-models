@@ -63,4 +63,4 @@ class FaceMap_3DMM(BaseModel):
 
     @staticmethod
     def get_output_names() -> List[str]:
-        return ["3dmm_parameters"]
+        return ["parameters_3dmm"]

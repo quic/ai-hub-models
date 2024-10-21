@@ -3,8 +3,29 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
+import subprocess
 
-from .util import run_and_get_output
+
+def process_output(command):
+    return command.stdout.decode("utf-8").strip()
+
+
+BASH_EXECUTABLE = process_output(
+    subprocess.run("which bash", stdout=subprocess.PIPE, shell=True, check=True)
+)
+
+
+def run_and_get_output(command, check=True):
+    return process_output(
+        subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            shell=True,
+            check=check,
+            executable=BASH_EXECUTABLE,
+        )
+    )
+
 
 # Env Variable
 STORE_ROOT_ENV_VAR = "QAIHM_STORE_ROOT"

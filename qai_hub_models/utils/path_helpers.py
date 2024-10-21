@@ -18,7 +18,7 @@ def get_all_models(public_only: bool = False):
         if not subdir.is_dir():
             continue
         # Heuristic to see if this is a model we should generate export.py for.
-        if (subdir / "model.py").exists() and (subdir / "test.py").exists():
+        if (subdir / "model.py").exists():
             if public_only:
                 if not (subdir / "info.yaml").exists():
                     continue

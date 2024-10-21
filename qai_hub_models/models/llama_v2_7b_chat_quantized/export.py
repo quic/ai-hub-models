@@ -31,25 +31,33 @@ from qai_hub_models.utils.qai_hub_helpers import (
 )
 
 ALL_COMPONENTS = [
-    "PromptProcessor_1_Quantized",
-    "PromptProcessor_2_Quantized",
-    "PromptProcessor_3_Quantized",
-    "PromptProcessor_4_Quantized",
-    "TokenGenerator_1_Quantized",
-    "TokenGenerator_2_Quantized",
-    "TokenGenerator_3_Quantized",
-    "TokenGenerator_4_Quantized",
+    "Llama2_Part1_Quantized",
+    "Llama2_Part2_Quantized",
+    "Llama2_Part3_Quantized",
+    "Llama2_Part4_Quantized",
 ]
-DEFAULT_COMPONENTS = [
-    "PromptProcessor_1_Quantized",
-    "PromptProcessor_2_Quantized",
-    "PromptProcessor_3_Quantized",
-    "PromptProcessor_4_Quantized",
-    "TokenGenerator_1_Quantized",
-    "TokenGenerator_2_Quantized",
-    "TokenGenerator_3_Quantized",
-    "TokenGenerator_4_Quantized",
-]
+
+DEFAULT_COMPONENTS = ALL_COMPONENTS
+
+# Each components is two sub-components linked together with shared weights
+ALL_SUB_COMPONENTS = {
+    "Llama2_Part1_Quantized": [
+        "PromptProcessor_1_Quantized",
+        "TokenGenerator_1_Quantized",
+    ],
+    "Llama2_Part2_Quantized": [
+        "PromptProcessor_2_Quantized",
+        "TokenGenerator_2_Quantized",
+    ],
+    "Llama2_Part3_Quantized": [
+        "PromptProcessor_3_Quantized",
+        "TokenGenerator_3_Quantized",
+    ],
+    "Llama2_Part4_Quantized": [
+        "PromptProcessor_4_Quantized",
+        "TokenGenerator_4_Quantized",
+    ],
+}
 
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24 (Family)"
 
@@ -133,142 +141,168 @@ def export_model(
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
-    compile_jobs: Dict[str, hub.client.CompileJob] = {}
-    profile_options_per_component: Dict[str, str] = {}
+    hub_device = hub.Device(device)
+    compile_jobs: Dict[str, List[hub.client.CompileJob]] = {}
+    profile_options_per_sub_component: Dict[str, str] = {}
+    link_jobs: Dict[str, hub.client.LinkJob] = {}
 
     hub_device = hub.Device(device)
     for component_name in components:
-        # Load model part
+        compile_jobs[component_name] = []
+        for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
 
-        component = model.load_model_part(component_name)
+            # Load model part
+            component = model.load_model_part(sub_component_name)
 
-        input_spec = component.get_input_spec(
-            **get_input_spec_kwargs(component, additional_model_kwargs)
-        )
-
-        source_model = component.convert_to_hub_source_model(
-            target_runtime,
-            output_path,
-            input_spec,
-            external_onnx_weights=True,
-            output_names=component.get_output_names(),
-        )
-
-        if target_runtime == TargetRuntime.TFLITE:
-            quant_calibration_data = None
-        else:
-            quant_calibration_data = component.get_calibration_data(
-                target_runtime, input_spec=input_spec
+            input_spec = component.get_input_spec(
+                **get_input_spec_kwargs(component, additional_model_kwargs)
             )
 
-        # 2. Compile the models to an on-device asset
-        model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options
-        )
-        print(f"Optimizing model {component_name} to run on-device")
-        submitted_compile_job = hub.submit_compile_job(
-            model=source_model,
-            input_specs=input_spec,
-            device=hub_device,
-            name=f"{model_name}_{component_name}",
-            calibration_data=quant_calibration_data,
-            options=model_compile_options,
+            source_model = component.convert_to_hub_source_model(
+                target_runtime,
+                output_path,
+                input_spec,
+                external_onnx_weights=True,
+                output_names=component.get_output_names(),
+            )
+
+            if target_runtime == TargetRuntime.TFLITE:
+                quant_calibration_data = None
+            else:
+                quant_calibration_data = component.get_calibration_data(
+                    target_runtime, input_spec=input_spec
+                )
+
+            # 2. Compile the models to an on-device asset
+            model_compile_options = component.get_hub_compile_options(
+                target_runtime, compile_options
+            )
+            print(f"Optimizing model {sub_component_name} to run on-device")
+            submitted_compile_job = hub.submit_compile_job(
+                model=source_model,
+                input_specs=input_spec,
+                device=hub_device,
+                name=f"{model_name}_{sub_component_name}",
+                calibration_data=quant_calibration_data,
+                options=model_compile_options,
+            )
+
+            profile_options_per_sub_component[
+                sub_component_name
+            ] = component.get_hub_profile_options(target_runtime, profile_options)
+
+            compile_jobs[component_name].append(submitted_compile_job)
+            # Free model part to reduce memory-pressure
+            del component
+
+    for component_name, compile_jobs_list in compile_jobs.items():
+        models = []
+        for compile_job in compile_jobs_list:
+            if compile_job.get_status().code == "FAILED":
+                raise RuntimeError(
+                    f"Compile job failed for {component_name}. Please re-run export script for failed component."
+                )
+            models.append(compile_job.get_target_model())
+
+        # Link Prompt processor and Token generator
+        link_jobs[component_name] = hub.submit_link_job(
+            models, name=f"{model_name}_{component_name}"
         )
 
-        compile_jobs[component_name] = cast(
-            hub.client.CompileJob, submitted_compile_job
-        )
-        profile_options_per_component[
-            component_name
-        ] = component.get_hub_profile_options(target_runtime, profile_options)
-
-        # Free model part to reduce memory-pressure
-        del component
-
-    # 3. Profile the model assets on real devices
+    # 4. Profile the model assets on real devices
     profile_jobs: Dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
-            profile_options_all = profile_options_per_component[component_name]
-            print(f"Profiling model {component_name} on a hosted device.")
-            submitted_profile_job = hub.submit_profile_job(
-                model=compile_jobs[component_name].get_target_model(),
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            profile_jobs[component_name] = cast(
-                hub.client.ProfileJob, submitted_profile_job
-            )
+            hub_model = link_jobs[component_name].get_target_model()
+            for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
+                profile_options_all = profile_options_per_sub_component[
+                    sub_component_name
+                ]
+                print(f"Profiling model {component_name} on a hosted device.")
+                submitted_profile_job = hub.submit_profile_job(
+                    model=hub_model,
+                    device=hub_device,
+                    name=f"{model_name}_{sub_component_name}",
+                    options=profile_options_all,
+                )
+                profile_jobs[sub_component_name] = cast(
+                    hub.client.ProfileJob, submitted_profile_job
+                )
 
-    # 4. Run inference on-device with sample inputs
+    # 5. Run inference on-device with sample inputs
     inference_jobs: Dict[str, hub.client.InferenceJob] = {}
-
     if not skip_inferencing:
         for component_name in components:
-            print(
-                f"Running inference for {component_name} on a hosted device with example inputs."
-            )
-            # Load model with no-AIMET mode
-            component = model.load_model_part(component_name)
-            profile_options_all = profile_options_per_component[component_name]
-            # Load individual model part
-            sample_inputs = component.sample_inputs()
-            submitted_inference_job = hub.submit_inference_job(
-                model=compile_jobs[component_name].get_target_model(),
-                inputs=sample_inputs,
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            inference_jobs[component_name] = cast(
-                hub.client.InferenceJob, submitted_inference_job
-            )
+            for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
+                print(
+                    f"Running inference for {sub_component_name} on a hosted device with example inputs."
+                )
+                # Load model with no-AIMET mode
+                component = model.load_model_part(sub_component_name)
+                profile_options_all = profile_options_per_sub_component[
+                    sub_component_name
+                ]
+                # Load individual model part
+                sample_inputs = component.sample_inputs()
+                submitted_inference_job = hub.submit_inference_job(
+                    model=link_jobs[component_name].get_target_model(),
+                    inputs=sample_inputs,
+                    device=hub_device,
+                    name=f"{model_name}_{sub_component_name}",
+                    options=profile_options_all,
+                )
+                inference_jobs[sub_component_name] = cast(
+                    hub.client.InferenceJob, submitted_inference_job
+                )
 
-    # 5. Download the model assets to a local file
+    # 6. Download the model assets to a local file
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
-        for component_name, compile_job in compile_jobs.items():
+        for component_name, compile_job in link_jobs.items():
             target_model: hub.Model = compile_job.get_target_model()  # type: ignore
-            target_model.download(
-                str(output_path / f"{model_name}_{component_name}.bin")
-            )
+            target_model.download(str(output_path / f"{component_name}.bin"))
 
-    # 6. Summarize the results from profiling and inference
+    # 7. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:
         for component_name in components:
-            profile_job = profile_jobs[component_name]
-            assert profile_job is not None and profile_job.wait().success
-            profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
-            print_profile_metrics_from_job(profile_job, profile_data)
+            for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
+                profile_job = profile_jobs[sub_component_name]
+                assert profile_job is not None and profile_job.wait().success
+                profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
+                print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
         for component_name in components:
-            inference_job = inference_jobs[component_name]
-            # Load individual model part
-            component = model.load_model_part(component_name)
-            # Get ordered model output names
-            output_names = component.get_output_names()
-            sample_inputs = component.sample_inputs()
-            torch_out = torch_inference(component, sample_inputs)
-            assert inference_job is not None and inference_job.wait().success
-            inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
-            print_inference_metrics(
-                inference_job, inference_result, torch_out, output_names=output_names
-            )
+            for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
+                inference_job = inference_jobs[sub_component_name]
+                # Load individual model part
+                component = model.load_model_part(sub_component_name)
+                # Get ordered model output names
+                output_names = component.get_output_names()
+                sample_inputs = component.sample_inputs()
+                torch_out = torch_inference(component, sample_inputs)
+                assert inference_job is not None and inference_job.wait().success
+                inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
+                print_inference_metrics(
+                    inference_job,
+                    inference_result,
+                    torch_out,
+                    output_names=output_names,
+                )
 
     if not skip_summary:
         print_on_target_demo_cmd(
-            compile_jobs.values(), Path(__file__).parent.resolve(), hub_device
+            link_jobs.values(), Path(__file__).parent.resolve(), hub_device
         )
 
     return {
         component_name: (
-            compile_jobs[component_name],
-            profile_jobs.get(component_name, None),
-            inference_jobs.get(component_name, None),
+            link_jobs[component_name],
+            profile_jobs.get(sub_component_name, None),
+            inference_jobs.get(sub_component_name, None),
         )
         for component_name in components
+        for sub_component_name in ALL_SUB_COMPONENTS[component_name]
     }
 
 

@@ -6,7 +6,7 @@
 Midas is designed for estimating depth at each point in an image.
 
 This is based on the implementation of Midas-V2-Quantized found
-[here](https://github.com/isl-org/MiDaS). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/midas_quantized).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.midas_quantized.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Midas-V2-Quantized can be found
+* The license for the original implementation of Midas-V2-Quantized can be found
   [here](https://github.com/isl-org/MiDaS/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-shot Cross-dataset Transfer](https://arxiv.org/abs/1907.01341v3)
 * [Source Model Implementation](https://github.com/isl-org/MiDaS)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

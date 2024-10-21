@@ -6,7 +6,7 @@
 LiteHRNet is a machine learning model that detects human pose and returns a location and confidence for each of 17 joints.
 
 This is based on the implementation of LiteHRNet found
-[here](https://github.com/HRNet/Lite-HRNet). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/litehrnet).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.litehrnet.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of LiteHRNet can be found
+* The license for the original implementation of LiteHRNet can be found
   [here](https://github.com/HRNet/Lite-HRNet/blob/hrnet/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Lite-HRNet: A Lightweight High-Resolution Network](https://arxiv.org/abs/2104.06403)
 * [Source Model Implementation](https://github.com/HRNet/Lite-HRNet)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

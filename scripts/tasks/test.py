@@ -16,7 +16,12 @@ from .constants import (
     STORE_ROOT_ENV_VAR,
 )
 from .task import CompositeTask, PyTestTask, RunCommandsTask
-from .util import can_support_aimet, model_needs_aimet
+from .util import (
+    can_support_aimet,
+    check_code_gen_field,
+    get_is_hub_quantized,
+    model_needs_aimet,
+)
 from .venv import (
     CreateVenvTask,
     RunCommandsWithVenvTask,
@@ -69,6 +74,7 @@ class PyTestModelTask(CompositeTask):
         run_general: bool = True,
         run_compile: bool = True,
         run_profile: bool = False,
+        run_quantize: bool = False,
         run_export: bool = False,
         run_trace: bool = True,
         install_deps: bool = True,
@@ -114,12 +120,15 @@ class PyTestModelTask(CompositeTask):
             if run_profile:
                 test_flags.append("profile")
                 test_flags.append("inference")
+            if run_quantize:
+                test_flags.append("quantize")
             if run_trace:
                 test_flags.append("trace")
             if run_export:
                 test_flags.append("export")
-            if test_flags:
-                extras_args += ["-m", f'"{" or ".join(test_flags)}"']
+            if not test_flags:
+                raise ValueError("Must specify which types of tests to run")
+            extras_args += ["-m", f'"{" or ".join(test_flags)}"']
 
             # Create temporary directory for storing cloned & downloaded test artifacts.
             with TemporaryDirectory() as tmpdir:
@@ -179,6 +188,7 @@ class PyTestModelsTask(CompositeTask):
         skip_standard_unit_test: bool = False,
         test_trace: bool = True,
         run_export_compile: bool = True,
+        run_export_quantize: bool = False,
         run_export_profile: bool = False,
         run_full_export: bool = False,
         exit_after_single_model_failure=False,
@@ -213,14 +223,13 @@ class PyTestModelsTask(CompositeTask):
             )
 
         print(f"Tests to be run for models: {models_for_testing}")
-        global_models = []
+        global_models = set([])
         if not venv_for_each_model:
             for model_name in models_for_testing:
-                yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
-                if yaml_path.exists():
-                    with open(yaml_path, "r") as f:
-                        if "global_requirements_incompatible" not in f.read():
-                            global_models.append(model_name)
+                if not check_code_gen_field(
+                    model_name, "global_requirements_incompatible"
+                ):
+                    global_models.add(model_name)
 
             if len(global_models) > 0:
                 globals_path = Path(PY_PACKAGE_SRC_ROOT) / "global_requirements.txt"
@@ -238,7 +247,21 @@ class PyTestModelsTask(CompositeTask):
 
         # Sort models for ease of tracking how far along the tests are.
         # Do reverse order because whisper is slow to compile, so trigger earlier.
-        for model_name in sorted(models_for_testing, reverse=True):
+        export_models = models_to_test_export
+        hub_quantized_models = []
+        nonhub_quantized_models = []
+        for model in sorted(models_for_testing, reverse=True):
+            if get_is_hub_quantized(model) and model in export_models:
+                hub_quantized_models.append(model)
+            else:
+                nonhub_quantized_models.append(model)
+
+        if run_export_quantize:
+            models_to_run = hub_quantized_models
+        else:
+            # Run hub quantized models last to give quantize job time to complete
+            models_to_run = nonhub_quantized_models + hub_quantized_models
+        for model_name in models_to_run:
             # Run standard test suite for this model.
             is_global_model = model_name in global_models
             tasks.append(
@@ -250,12 +273,12 @@ class PyTestModelsTask(CompositeTask):
                     install_deps=not is_global_model,
                     run_trace=test_trace,
                     run_general=not skip_standard_unit_test,
-                    run_compile=run_export_compile
-                    and model_name in models_to_test_export,
-                    run_profile=run_export_profile
-                    and model_name in models_to_test_export,
-                    run_export=run_full_export and model_name in models_to_test_export,
-                    raise_on_failure=False,  # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
+                    run_compile=run_export_compile and model_name in export_models,
+                    run_profile=run_export_profile and model_name in export_models,
+                    run_quantize=run_export_quantize and model_name in export_models,
+                    run_export=run_full_export and model_name in export_models,
+                    # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
+                    raise_on_failure=False,
                 )
             )
 

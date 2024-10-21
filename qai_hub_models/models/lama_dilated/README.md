@@ -6,7 +6,7 @@
 LaMa-Dilated is a machine learning model that allows to erase and in-paint part of given input image.
 
 This is based on the implementation of LaMa-Dilated found
-[here](https://github.com/advimman/lama). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/lama_dilated).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.lama_dilated.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of LaMa-Dilated can be found
+* The license for the original implementation of LaMa-Dilated can be found
   [here](https://github.com/advimman/lama/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Resolution-robust Large Mask Inpainting with Fourier Convolutions](https://arxiv.org/abs/2109.07161)
 * [Source Model Implementation](https://github.com/advimman/lama)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

@@ -220,7 +220,7 @@ class PerfSummary:
             }
         )
 
-    def get_chipsets(self) -> Set[str]:
+    def get_chipsets(self, include_internal_devices: bool = False) -> Set[str]:
         chips: Set[str] = set()
         for model_id, model_summary in self.runs_per_model.items():
             for device, device_summary in model_summary.runs_per_device.items():
@@ -237,6 +237,10 @@ class PerfSummary:
                 if model_id in device.disabled_models:
                     continue
 
+                # Don't include private devices
+                if not include_internal_devices and not device.public:
+                    continue
+
                 chips.add(device.chipset)
         return chips
 
@@ -248,7 +252,7 @@ class PerfSummary:
     ) -> Dict[str, str | List[Any] | Dict[str, Any]]:
         perf_card: Dict[str, str | List[Any] | Dict[str, Any]] = {}
 
-        chips = self.get_chipsets()
+        chips = self.get_chipsets(include_internal_devices)
         perf_card["aggregated"] = dict(
             supported_oses=supported_oses(),
             supported_devices=get_supported_devices(chips),

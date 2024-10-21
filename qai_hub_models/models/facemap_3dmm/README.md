@@ -1,14 +1,14 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [FaceMap_3DMM: Facial landmark predictor with 3DMM](#)
+# [Facial-Landmark-Detection: Facial landmark predictor with 3DMM](https://aihub.qualcomm.com/models/facemap_3dmm)
 
 Facial landmark is a deep learning model that can predict 68 landmarks from a single image. It can also be used as a backbone in building more complex models for specific use cases.
 
-This is based on the implementation of FaceMap_3DMM found
-[here](https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py). This repository contains scripts for optimized on-device
+This is based on the implementation of Facial-Landmark-Detection found
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](#).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/facemap_3dmm).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -39,14 +39,18 @@ python -m qai_hub_models.models.facemap_3dmm.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of FaceMap_3DMM can be found
-  [here](https://github.com/pytorch/vision/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the original implementation of Facial-Landmark-Detection can be found
+  [here](https://github.com/qcom-ai-hub/ai-hub-models-internal/blob/main/LICENSE).
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
-* [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385.)
-* [Source Model Implementation](https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py)
+* [None](None)
+* [Source Model Implementation](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/facemap_3dmm/model.py)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

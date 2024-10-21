@@ -6,7 +6,7 @@
 OpenAI’s Whisper ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a mean decoded length specified below.
 
 This is based on the implementation of Whisper-Small-En found
-[here](https://github.com/openai/whisper/tree/main). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/whisper_small_en).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.whisper_small_en.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Whisper-Small-En can be found
+* The license for the original implementation of Whisper-Small-En can be found
   [here](https://github.com/openai/whisper/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Robust Speech Recognition via Large-Scale Weak Supervision](https://cdn.openai.com/papers/whisper.pdf)
 * [Source Model Implementation](https://github.com/openai/whisper/tree/main)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

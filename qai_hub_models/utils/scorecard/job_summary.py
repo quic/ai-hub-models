@@ -149,12 +149,12 @@ class CompileJobSummary(JobSummary):
         path: ScorecardCompilePath
         for path in ScorecardCompilePath.all_enabled():
             for component in components:
-                path_devices_enabled = [
-                    x
-                    for x in path.get_test_devices(model_code_gen.is_aimet)
-                    if x.enabled
-                ]
-                for device in path_devices_enabled:
+                for device in path.get_test_devices(
+                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization,
+                    only_enabled=True,
+                    include_duplicate_devices=True,
+                    include_any=True,
+                ):
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,
@@ -222,12 +222,11 @@ class ProfileJobSummary(JobSummary):
         path: ScorecardProfilePath
         for path in ScorecardProfilePath.all_enabled():
             for component in components:
-                path_devices_enabled = [
-                    x
-                    for x in path.get_test_devices(model_code_gen.is_aimet)
-                    if x.enabled
-                ]
-                for device in path_devices_enabled:
+                for device in path.get_test_devices(
+                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization,
+                    only_enabled=True,
+                    include_duplicate_devices=True,
+                ):
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,
@@ -251,7 +250,7 @@ class ProfileJobSummary(JobSummary):
         super().__post_init__()
         if not self.skipped:
             assert isinstance(self.job, hub.ProfileJob)
-            if self._job_status.success:
+            if self._job_status.success:  # type: ignore
                 assert self.profile_results
 
     @cached_property
@@ -386,7 +385,7 @@ class ProfileJobSummary(JobSummary):
 
     @cached_property
     def performance_metrics(self) -> Dict[str, Any]:
-        return dict(
+        metrics = dict(
             inference_time=self.inference_time,
             throughput=self.throughput,
             estimated_peak_memory_range=self.peak_memory_range,
@@ -398,8 +397,11 @@ class ProfileJobSummary(JobSummary):
                 layers_on_cpu=self.cpu,
                 total_layers=self.total,
             ),
-            llm_metrics=self.llm_metrics,
-            evaluation_metrics=self.evaluation_metrics,
             job_id=self.job_id,
             job_status=self.job_status,
         )
+        if self.llm_metrics != "null":
+            metrics["llm_metrics"] = self.llm_metrics
+        if self.evaluation_metrics != "null":
+            metrics["evaluation_metrics"] = self.evaluation_metrics
+        return metrics

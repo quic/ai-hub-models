@@ -6,7 +6,7 @@
 Posenet performs pose estimation on human images.
 
 This is based on the implementation of Posenet-Mobilenet found
-[here](https://github.com/rwightman/posenet-pytorch). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/posenet_mobilenet).
 
@@ -39,14 +39,18 @@ python -m qai_hub_models.models.posenet_mobilenet.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Posenet-Mobilenet can be found
+* The license for the original implementation of Posenet-Mobilenet can be found
   [here](https://github.com/rwightman/posenet-pytorch/blob/master/LICENSE.txt).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [PersonLab: Person Pose Estimation and Instance Segmentation with a Bottom-Up, Part-Based, Geometric Embedding Model](https://arxiv.org/abs/1803.08225)
 * [Source Model Implementation](https://github.com/rwightman/posenet-pytorch)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

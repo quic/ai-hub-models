@@ -1,0 +1,43 @@
+name: DenseNet-121-Quantized
+# id must match with the model dir name in qai_hub_models
+id: densenet121_quantized
+status: public
+headline: Imagenet classifier and general purpose backbone.
+domain: Computer Vision
+description: Densenet is a machine learning model that can classify images from the
+  Imagenet dataset. It can also be used as a backbone in building more complex models
+  for specific use cases.
+use_case: Image Classification
+tags:
+  - backbone
+  - quantized
+research_paper: https://arxiv.org/abs/1608.06993
+research_paper_title: Densely Connected Convolutional Networks
+license: https://github.com/pytorch/vision/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/pytorch/vision/blob/main/torchvision/models/densenet.py
+technical_details:
+  Model checkpoint: Imagenet
+  Input resolution: 224x224
+  Number of parameters: 7.97M
+  Model size: 9.4 MB
+applicable_scenarios:
+  - Medical Imaging
+  - Anomaly Detection
+  - Inventory Management
+related_models:
+  - mobilenet_v2
+  - squeezenet1_1
+  - googlenet
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: bsd-3-clause
+deploy_license_type: AI Model Hub License
+dataset:
+  - imagenet-1k
+  - imagenet-22k
+labels_file: imagenet_labels.txt

@@ -30,14 +30,16 @@ from schema import Optional as OptionalSchema
 from schema import Schema, SchemaError
 
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.path_helpers import (
     MODELS_PACKAGE_NAME,
     QAIHM_PACKAGE_NAME,
     get_qaihm_models_root,
     get_qaihm_package_root,
 )
-from qai_hub_models.utils.scorecard.common import get_supported_devices
+from qai_hub_models.utils.scorecard.common import (
+    ScorecardProfilePath,
+    get_supported_devices,
+)
 
 QAIHM_PACKAGE_ROOT = get_qaihm_package_root()
 QAIHM_MODELS_ROOT = get_qaihm_models_root()
@@ -122,8 +124,86 @@ HF_AVAILABLE_LICENSES = {
 
 def get_all_supported_devices():
     return get_supported_devices(
-        ["qualcomm-snapdragon-x-elite", "qualcomm-snapdragon-8gen3"]
+        [
+            "qualcomm-snapdragon-8-elite",
+            "qualcomm-snapdragon-x-elite",
+            "qualcomm-snapdragon-8gen3",
+        ]
     )
+
+
+def _get_origin(input_type: Type) -> Type:
+    """
+    For nested types like List[str] or Union[str, int], this function will
+        return the "parent" type like List or Union.
+
+    If the input type is not a nested type, the function returns the input_type.
+    """
+    return getattr(input_type, "__origin__", input_type)
+
+
+def _extract_optional_type(input_type: Type) -> Type:
+    """
+    Given an optional type as input, returns the inner type that is wrapped.
+
+    For example, if input type is Optional[int], the function returns int.
+    """
+    assert (
+        _get_origin(input_type) == Union
+    ), "Input type must be an instance of `Optional`."
+    union_args = get_args(input_type)
+    assert len(union_args) == 2 and issubclass(
+        union_args[1], type(None)
+    ), "Input type must be an instance of `Optional`."
+    return union_args[0]
+
+
+def _constructor_from_type(input_type: Type) -> Union[Type, Callable]:
+    """
+    Given a type, return the appropriate constructor for that type.
+
+    For primitive types like str and int, the type and constructor are the same object.
+
+    For types like List, the constructor is list.
+    """
+    input_type = _get_origin(input_type)
+    if input_type == List:
+        return list
+    if input_type == Dict:
+        return dict
+    return input_type
+
+
+@dataclass
+class BaseDataClass:
+    @classmethod
+    def get_schema(cls) -> Schema:
+        """Derive the Schema from the fields set on the dataclass."""
+        schema_dict = {}
+        field_datatypes = get_type_hints(cls)
+        for field in fields(cls):
+            field_type = field_datatypes[field.name]
+            if _get_origin(field_type) == Union:
+                field_type = _extract_optional_type(field_type)
+                assert (
+                    field.default != dataclasses.MISSING
+                ), "Optional fields must have a default set."
+            if field.default != dataclasses.MISSING:
+                field_key = OptionalSchema(field.name, default=field.default)
+            else:
+                field_key = field.name
+            schema_dict[field_key] = _constructor_from_type(field_type)
+        return Schema(And(schema_dict))
+
+    @classmethod
+    def from_dict(
+        cls: Type[BaseDataClassTypeVar], val_dict: Dict[str, Any]
+    ) -> BaseDataClassTypeVar:
+        kwargs = {field.name: val_dict[field.name] for field in fields(cls)}
+        return cls(**kwargs)
+
+
+BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
 
 
 @unique
@@ -257,323 +337,178 @@ def bytes_to_mb(num_bytes: int) -> int:
     return round(num_bytes / (1 << 20))
 
 
-@dataclass
-class ModelRuntimePerformanceDetails:
-    model_name: str
-    device_name: str
-    device_os: str
-    runtime: TargetRuntime
-    inference_time_ms: int
-    peak_memory_bytes: Tuple[int, int]  # min, max
-    compute_unit_counts: Dict[str, int]
-
-
 class QAIHMModelPerf:
     """Class to read the perf.yaml and parse it for displaying it on HuggingFace."""
+
+    ###
+    # Helper Struct Classes
+    ###
+
+    @dataclass
+    class PerformanceDetails:
+        job_id: str
+        inference_time_microsecs: float
+        peak_memory_bytes: Tuple[int, int]  # min, max
+        compute_unit_counts: Dict[str, int]
+        primary_compute_unit: str
+        precision: str
+
+        @staticmethod
+        def from_dict(device_perf_details: Dict) -> QAIHMModelPerf.PerformanceDetails:
+            peak_memory = device_perf_details["estimated_peak_memory_range"]
+            layer_info = device_perf_details["layer_info"]
+            compute_unit_counts = {}
+            for layer_name, count in layer_info.items():
+                if "layers_on" in layer_name:
+                    if count > 0:
+                        compute_unit_counts[layer_name[-3:].upper()] = count
+
+            return QAIHMModelPerf.PerformanceDetails(
+                job_id=device_perf_details["job_id"],
+                inference_time_microsecs=float(device_perf_details["inference_time"]),
+                peak_memory_bytes=(peak_memory["min"], peak_memory["max"]),
+                compute_unit_counts=compute_unit_counts,
+                primary_compute_unit=device_perf_details["primary_compute_unit"],
+                precision=device_perf_details["precision"],
+            )
+
+    @dataclass
+    class LLMPerformanceDetails:
+        time_to_first_token_range_secs: Tuple[str, str]  # min, max
+        tokens_per_second: float
+
+        @staticmethod
+        def from_dict(
+            device_perf_details: Dict,
+        ) -> QAIHMModelPerf.LLMPerformanceDetails:
+            ttftr = device_perf_details["time_to_first_token_range"]
+            return QAIHMModelPerf.LLMPerformanceDetails(
+                time_to_first_token_range_secs=(
+                    # Original data is in microseconds
+                    str(float(ttftr["min"]) * 1e-6),
+                    str(float(ttftr["max"]) * 1e-6),
+                ),
+                tokens_per_second=device_perf_details["tokens_per_second"],
+            )
+
+    @dataclass
+    class EvaluationDetails(BaseDataClass):
+        name: str
+        value: float
+        unit: str
+
+    @dataclass
+    class DeviceDetails(BaseDataClass):
+        name: str
+        os: str
+        form_factor: str
+        os_name: str
+        manufacturer: str
+        chipset: str
+
+    @dataclass
+    class ProfilePerfDetails:
+        path: ScorecardProfilePath
+        perf_details: QAIHMModelPerf.PerformanceDetails | QAIHMModelPerf.LLMPerformanceDetails
+        eval_details: Optional[QAIHMModelPerf.EvaluationDetails] = None
+
+        @staticmethod
+        def from_dict(
+            path: ScorecardProfilePath, perf_details_dict: Dict
+        ) -> QAIHMModelPerf.ProfilePerfDetails:
+            perf_details: QAIHMModelPerf.LLMPerformanceDetails | QAIHMModelPerf.PerformanceDetails
+            if llm_metrics := perf_details_dict.get("llm_metrics", None):
+                perf_details = QAIHMModelPerf.LLMPerformanceDetails.from_dict(
+                    llm_metrics
+                )
+            else:
+                perf_details = QAIHMModelPerf.PerformanceDetails.from_dict(
+                    perf_details_dict
+                )
+
+            if eval_metrics := perf_details_dict.get("evaluation_metrics", None):
+                eval_details_data = (
+                    QAIHMModelPerf.EvaluationDetails.get_schema().validate(eval_metrics)
+                )
+                eval_details = QAIHMModelPerf.EvaluationDetails.from_dict(
+                    eval_details_data
+                )
+            else:
+                eval_details = None
+
+            return QAIHMModelPerf.ProfilePerfDetails(
+                path=path, perf_details=perf_details, eval_details=eval_details
+            )
+
+    @dataclass
+    class DevicePerfDetails:
+        device: QAIHMModelPerf.DeviceDetails
+        details_per_path: Dict[ScorecardProfilePath, QAIHMModelPerf.ProfilePerfDetails]
+
+        @staticmethod
+        def from_dict(
+            device: QAIHMModelPerf.DeviceDetails, device_runtime_details: Dict
+        ) -> QAIHMModelPerf.DevicePerfDetails:
+            details_per_path = {}
+            for profile_path in ScorecardProfilePath:
+                if profile_path.long_name in device_runtime_details:
+                    perf_details_dict = device_runtime_details[profile_path.long_name]
+                    details_per_path[
+                        profile_path
+                    ] = QAIHMModelPerf.ProfilePerfDetails.from_dict(
+                        profile_path, perf_details_dict
+                    )
+            return QAIHMModelPerf.DevicePerfDetails(
+                device=device, details_per_path=details_per_path
+            )
+
+    @dataclass
+    class ModelPerfDetails:
+        model: str
+        details_per_device: Dict[str, QAIHMModelPerf.DevicePerfDetails]
+
+        @staticmethod
+        def from_dict(
+            model: str, model_performance_metrics: List[Dict]
+        ) -> QAIHMModelPerf.ModelPerfDetails:
+            details_per_device = {}
+            for device_perf_details in model_performance_metrics:
+                device_details_data = (
+                    QAIHMModelPerf.DeviceDetails.get_schema().validate(
+                        device_perf_details["reference_device_info"]
+                    )
+                )
+                device_details = QAIHMModelPerf.DeviceDetails.from_dict(
+                    device_details_data
+                )
+                details_per_device[
+                    device_details.name
+                ] = QAIHMModelPerf.DevicePerfDetails.from_dict(
+                    device_details, device_perf_details
+                )
+
+            return QAIHMModelPerf.ModelPerfDetails(
+                model=model, details_per_device=details_per_device
+            )
 
     def __init__(self, perf_yaml_path, model_name):
         self.model_name = model_name
         self.perf_yaml_path = perf_yaml_path
-        self.skip_overall = False
-        self.skip_tflite = False
-        self.skip_qnn = False
-        self.tflite_row = (
-            "| Samsung Galaxy S23 Ultra (Android 13) | Snapdragon® 8 Gen 2 |"
-        )
-        self.qnn_row = "| Samsung Galaxy S23 Ultra (Android 13) | Snapdragon® 8 Gen 2 |"
+        self.per_model_details: Dict[str, QAIHMModelPerf.ModelPerfDetails] = {}
 
         if os.path.exists(self.perf_yaml_path):
             self.perf_details = load_yaml(self.perf_yaml_path)
-            num_models = len(self.perf_details["models"])
+            all_models_and_perf = self.perf_details["models"]
+            if not isinstance(all_models_and_perf, list):
+                all_models_and_perf = [all_models_and_perf]
 
-            # Get TFLite summary from perf.yaml
-            try:
-                self.tflite_summary = []
-                for model in self.perf_details["models"]:
-                    self.tflite_summary.append(
-                        model["performance_metrics"][0][TFLITE_PATH]
-                    )
-            except Exception:
-                self.skip_tflite = True
-
-            if not self.skip_overall and not self.skip_tflite:
-                for num in range(num_models):
-                    if isinstance(self.tflite_summary[num]["inference_time"], str):
-                        self.skip_tflite = True
-
-            # Get QNN summary from perf.yaml
-            try:
-                self.qnn_summary = []
-                for model in self.perf_details["models"]:
-                    self.qnn_summary.append(model["performance_metrics"][0][QNN_PATH])
-            except Exception:
-                self.skip_qnn = True
-            if not self.skip_overall and not self.skip_qnn:
-                for num in range(num_models):
-                    if isinstance(self.qnn_summary[num]["inference_time"], str):
-                        self.skip_qnn = True
-        else:
-            self.skip_overall = True
-
-    def _get_runtime_type(self, model_type):
-        if model_type == "tflite":
-            return "TFLite"
-        if model_type == "so":
-            return "QNN Model Library"
-        if model_type == "bin":
-            return "QNN Binary"
-        raise RuntimeError(f"Unsupported model_type specified {model_type}.")
-
-    def get_row(self, skip, summary_list, initial_row, model_type, has_assets=True):
-        # Creating a row for performance table.
-        row = ""
-        if not skip:
-            names = self.get_submodel_names()
-            for summary, name in zip(summary_list, names):
-                inf_time = summary["inference_time"]
-                inference_time = f"{inf_time / 1000} ms"
-                mem_min = bytes_to_mb(summary["estimated_peak_memory_range"]["min"])
-                mem_max = bytes_to_mb(summary["estimated_peak_memory_range"]["max"])
-                peak_memory_range = f"{mem_min} - {mem_max} MB"
-                if model_type == "tflite":
-                    self.tflite_inference_time = inference_time
-                    self.tflite_peak_memory_range = peak_memory_range
-                elif model_type == "so" or model_type == "bin":
-                    self.qnn_inference_time = inference_time
-                    self.qnn_peak_memory_range = peak_memory_range
-                primary_compute_unit = summary["primary_compute_unit"]
-                precision = summary["precision"].upper()
-                base_url = ASSET_CONFIG.get_hugging_face_url(self.model_name)
-                # For model cards with no assets, only show model name with no link;
-                # as there is not target model to download
-                if has_assets:
-                    target_model = f" [{name}.{model_type}]({base_url}/blob/main/{name}.{model_type})"
-                else:
-                    target_model = name
-
-                runtime_type = self._get_runtime_type(model_type)
-                row += (
-                    initial_row
-                    + f" {runtime_type} | {inference_time} | {peak_memory_range} | {precision} | {primary_compute_unit} | {target_model} \n"
+            for model_perf in all_models_and_perf:
+                model_name = model_perf["name"]
+                self.per_model_details[
+                    model_name
+                ] = QAIHMModelPerf.ModelPerfDetails.from_dict(
+                    model_name, model_perf["performance_metrics"]
                 )
-            return row
-        return ""
-
-    def get_tflite_row(self):
-        # Get TFLite row for a submodel on a device.
-        return self.get_row(
-            self.skip_tflite, self.tflite_summary, self.tflite_row, "tflite"
-        )
-
-    def get_qnn_row(self, is_precompiled: bool = False, has_assets=True):
-        # Get QNN row for a submodel on a device.
-        return self.get_row(
-            self.skip_qnn,
-            self.qnn_summary,
-            self.qnn_row,
-            "bin" if is_precompiled else "so",
-            has_assets,
-        )
-
-    def body_perf(self, is_precompiled: bool = False, has_assets: bool = True):
-        # Combine all the rows to make the body of performance table.
-        if self.skip_tflite:
-            return self.get_qnn_row(is_precompiled, has_assets)
-        elif self.skip_qnn:
-            return self.get_tflite_row()
-        else:
-            return self.get_tflite_row() + self.get_qnn_row(is_precompiled, has_assets)
-
-    def compute_unit_summary(self, runtime_path=TFLITE_PATH):
-        # Get compute unit summary for export script's output.
-        npu, gpu, cpu = 0, 0, 0
-        cu_summary = ""
-        for model in self.perf_details["models"]:
-            layer_info = model["performance_metrics"][0][runtime_path]["layer_info"]
-            npu += layer_info["layers_on_npu"]
-            gpu += layer_info["layers_on_gpu"]
-            cpu += layer_info["layers_on_cpu"]
-        if npu > 0:
-            cu_summary += f"NPU ({npu})"
-        if gpu > 0:
-            cu_summary += f"GPU ({gpu})"
-        if cpu > 0:
-            cu_summary += f"CPU ({cpu})"
-        return cu_summary
-
-    def get_submodel_names_and_ids(self):
-        # Get the names, TFLite job ids and QNN job ids.
-        names = self.get_submodel_names()
-        tflite_job_ids, qnn_job_ids = [], []
-        for model in self.perf_details["models"]:
-            if TFLITE_PATH in model["performance_metrics"][0]:
-                tflite_job_ids.append(
-                    model["performance_metrics"][0][TFLITE_PATH]["job_id"]
-                )
-            if QNN_PATH in model["performance_metrics"][0]:
-                qnn_job_ids.append(model["performance_metrics"][0][QNN_PATH]["job_id"])
-        return names, tflite_job_ids, qnn_job_ids
-
-    def get_submodel_names(self):
-        # Get names of all the submodels.
-        names = []
-        for model in self.perf_details["models"]:
-            names.append(model["name"])
-        return names
-
-    def get_perf_details(
-        self,
-        runtime: TargetRuntime,
-        device: str | None = None,
-        device_os: str | None = None,
-    ) -> Dict[str, ModelRuntimePerformanceDetails | None]:
-        """
-        Get model performance details for the selected device and runtime.
-
-        If device is None, picks the first device specified in the perf results.
-
-        Returns a dictionary of
-            { model_component_name : performance details object }
-
-        If there is only one component, model_component_name == model_name.
-
-        The performance details object will be null if the requested
-        perf details do not exist, or if the perf job failed.
-        """
-        if runtime == TargetRuntime.TFLITE:
-            rt_name = "torchscript_onnx_tflite"
-        elif runtime == TargetRuntime.QNN:
-            rt_name = "torchscript_onnx_qnn"
-        else:
-            raise NotImplementedError()
-
-        # Model -> Performance Details
-        # None == Test did not run.
-        perf_details: Dict[str, ModelRuntimePerformanceDetails | None] = {}
-
-        for model in self.perf_details["models"]:
-            name = model["name"]
-            metrics = model["performance_metrics"]
-            for device_metrics in metrics:
-                device_name = device_metrics["reference_device_info"]["name"]
-                metric_device_os = device_metrics["reference_device_info"]["os"]
-
-                # Verify Device Matches Requested Device
-                if device and device_name != device:
-                    continue
-                if device_os and metric_device_os != device_os:
-                    continue
-
-                perf_rt = device_metrics.get(rt_name, None)
-
-                # Inference Time
-                inf_time = perf_rt["inference_time"] if perf_rt else "null"
-                if inf_time == "null":
-                    # Compilation or inference failed.
-                    perf_details[name] = None
-                    continue
-                inf_time /= 1000
-
-                # Memory
-                peak_mem = perf_rt["estimated_peak_memory_range"]
-                peak_mem_bytes: Tuple[int, int] = tuple([peak_mem["min"], peak_mem["max"]])  # type: ignore
-
-                # Layer Info
-                layer_info = perf_rt["layer_info"]
-                compute_unit_counts = {}
-                for layer_name, count in layer_info.items():
-                    if "layers_on" in layer_name:
-                        if count > 0:
-                            compute_unit_counts[layer_name[-3:].upper()] = count
-
-                perf_details[name] = ModelRuntimePerformanceDetails(
-                    model_name=model,
-                    device_name=device_name,
-                    device_os=metric_device_os,
-                    runtime=runtime,
-                    inference_time_ms=inf_time,
-                    peak_memory_bytes=peak_mem_bytes,
-                    compute_unit_counts=compute_unit_counts,
-                )
-
-            if name not in perf_details.keys():
-                perf_details[name] = None
-
-        return perf_details
-
-
-def _get_origin(input_type: Type) -> Type:
-    """
-    For nested types like List[str] or Union[str, int], this function will
-        return the "parent" type like List or Union.
-
-    If the input type is not a nested type, the function returns the input_type.
-    """
-    return getattr(input_type, "__origin__", input_type)
-
-
-def _extract_optional_type(input_type: Type) -> Type:
-    """
-    Given an optional type as input, returns the inner type that is wrapped.
-
-    For example, if input type is Optional[int], the function returns int.
-    """
-    assert (
-        _get_origin(input_type) == Union
-    ), "Input type must be an instance of `Optional`."
-    union_args = get_args(input_type)
-    assert len(union_args) == 2 and issubclass(
-        union_args[1], type(None)
-    ), "Input type must be an instance of `Optional`."
-    return union_args[0]
-
-
-def _constructor_from_type(input_type: Type) -> Union[Type, Callable]:
-    """
-    Given a type, return the appropriate constructor for that type.
-
-    For primitive types like str and int, the type and constructor are the same object.
-
-    For types like List, the constructor is list.
-    """
-    input_type = _get_origin(input_type)
-    if input_type == List:
-        return list
-    if input_type == Dict:
-        return dict
-    return input_type
-
-
-@dataclass
-class BaseDataClass:
-    @classmethod
-    def get_schema(cls) -> Schema:
-        """Derive the Schema from the fields set on the dataclass."""
-        schema_dict = {}
-        field_datatypes = get_type_hints(cls)
-        for field in fields(cls):
-            field_type = field_datatypes[field.name]
-            if _get_origin(field_type) == Union:
-                field_type = _extract_optional_type(field_type)
-                assert (
-                    field.default != dataclasses.MISSING
-                ), "Optional fields must have a default set."
-            if field.default != dataclasses.MISSING:
-                field_key = OptionalSchema(field.name, default=field.default)
-            else:
-                field_key = field.name
-            schema_dict[field_key] = _constructor_from_type(field_type)
-        return Schema(And(schema_dict))
-
-    @classmethod
-    def from_dict(
-        cls: Type[BaseDataClassTypeVar], val_dict: Dict[str, Any]
-    ) -> BaseDataClassTypeVar:
-        kwargs = {field.name: val_dict[field.name] for field in fields(cls)}
-        return cls(**kwargs)
-
-
-BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
 
 
 @dataclass
@@ -659,6 +594,11 @@ class QAIHMModelCodeGen(BaseDataClass):
     # on a full dataset. Datasets specified here must be chosen from `qai_hub_models/datasets`.
     eval_datasets: Optional[List[str]] = None
 
+    # If set, quantizes the model using AI Hub quantize job. This also requires setting
+    # the `eval_datasets` field. Calibration data will be pulled from the first item
+    # in `eval_datasets`.
+    use_hub_quantization: bool = False
+
     # By default inference tests are done using 8gen1 chipset to avoid overloading
     # newer devices. Some models don't work on 8gen1, so use 8gen3 for those.
     inference_on_8gen3: bool = False
@@ -688,6 +628,12 @@ class QAIHMModelCodeGen(BaseDataClass):
             data = QAIHMModelCodeGen.get_schema().validate(data)
         except SchemaError as e:
             assert 0, f"{e.code} in {path}"
+        if data["is_aimet"] and data["use_hub_quantization"]:
+            raise ValueError(
+                "Flags is_aimet and use_hub_quantization cannot both be set."
+            )
+        if data["use_hub_quantization"] and len(data["eval_datasets"]) == 0:
+            raise ValueError("Must set eval_datasets if use_hub_quantization is set.")
         return data
 
 
@@ -720,22 +666,6 @@ class QAIHMModelInfo(BaseDataClass):
     # A list of applicable tags to add to the model
     tags: List[MODEL_TAG]
 
-    # Link to the research paper where the model was first published. Usually an arxiv link.
-    research_paper: str
-
-    # The title of the research paper.
-    research_paper_title: str
-
-    # A link to the model's license. Most commonly found in the github repo it was cloned from.
-    license: str
-
-    # A link to the AIHub license, unless the license is more restrictive like GPL.
-    # In that case, this should point to the same as the model license.
-    deploy_license: str
-
-    # A link to the original github repo with the model's code.
-    source_repo: str
-
     # A list of real-world applicaitons for which this model could be used.
     # This is free-from and almost anything reasonable here is fine.
     applicable_scenarios: List[str]
@@ -758,13 +688,6 @@ class QAIHMModelInfo(BaseDataClass):
     # CodeGen options from code-gen.yaml in the model's folder.
     code_gen_config: QAIHMModelCodeGen
 
-    # The license type of the original model repo.
-    license_type: str
-
-    # Should be set to `AI Model Hub License`, unless the license is more restrictive like GPL.
-    # In that case, this should be the same as the model license.
-    deploy_license_type: str
-
     # A list of datasets for which the model has pre-trained checkpoints
     # available as options in `model.py`. Typically only has one entry.
     dataset: List[str]
@@ -777,6 +700,32 @@ class QAIHMModelInfo(BaseDataClass):
     #       This and `Number of parameters` should be auto-generated by running `python qai_hub_models/scripts/autofill_info_yaml.py -m <model_name>`
     #   Number of output classes: The number of classes the model can classify or annotate.
     technical_details: Dict[str, str]
+
+    # The license type of the original model repo.
+    license_type: str
+
+    # Some models are made by company
+    model_maker_id: Optional[str] = None
+
+    # Link to the research paper where the model was first published. Usually an arxiv link.
+    research_paper: Optional[str] = None
+
+    # The title of the research paper.
+    research_paper_title: Optional[str] = None
+
+    # A link to the original github repo with the model's code.
+    source_repo: Optional[str] = None
+
+    # A link to the model's license. Most commonly found in the github repo it was cloned from.
+    license: Optional[str] = None
+
+    # A link to the AIHub license, unless the license is more restrictive like GPL.
+    # In that case, this should point to the same as the model license.
+    deploy_license: Optional[str] = None
+
+    # Should be set to `AI Model Hub License`, unless the license is more restrictive like GPL.
+    # In that case, this should be the same as the model license.
+    deploy_license_type: Optional[str] = None
 
     # If set, model assets shouldn't distributed.
     restrict_model_sharing: bool = False
@@ -829,7 +778,9 @@ class QAIHMModelInfo(BaseDataClass):
                 return False, f"Model {r_model} cannot be related to itself."
 
         # If paper is arxiv, it should be an abs link
-        if self.research_paper.startswith("https://arxiv.org/"):
+        if self.research_paper is not None and self.research_paper.startswith(
+            "https://arxiv.org/"
+        ):
             if "/abs/" not in self.research_paper:
                 return (
                     False,
@@ -840,9 +791,14 @@ class QAIHMModelInfo(BaseDataClass):
         if self.license_type not in HF_AVAILABLE_LICENSES:
             return False, f"license can be one of these: {HF_AVAILABLE_LICENSES}"
 
-        if not self.deploy_license:
+        if self.model_type_llm and self.llm_details is not None:
+            purchase_required = (
+                self.llm_details.get("call_to_action", "") == "contact_for_purchase"
+            )
+
+        if not self.deploy_license and not purchase_required:
             return False, "deploy_license cannot be empty"
-        if not self.deploy_license_type:
+        if not self.deploy_license_type and not purchase_required:
             return False, "deploy_license_type cannot be empty"
 
         # Status Reason
@@ -896,31 +852,64 @@ class QAIHMModelInfo(BaseDataClass):
         if expected_example_use != ASSET_CONFIG.get_example_use(self.id):
             return False, "Example-usage field not pointing to expected relative path"
 
+        # Check that model_type_llm and llm_details fields
         if self.model_type_llm:
-            assert self.llm_details is not None
+            assert (
+                self.llm_details is not None
+            ), "All LLMs must have 'llm_details' section."
+            assert (
+                "call_to_action" in self.llm_details
+            ), "All LLMs must have 'call_to_action' in 'llm_details'."
+            assert self.llm_details["call_to_action"] in {
+                "contact_for_purchase",
+                "download",
+                "view_readme",
+                "contact_for_download",
+            }, "All LLMs 'call_to_action' field only allows these values: download, view_readme, contact_for_purchase or contact_for_download."
             for dev in self.llm_details:
-                # Check the device is one of the supported devices.
-                assert dev in get_all_supported_devices()
-
-                if "purchase_required" in self.llm_details[dev]:
-                    assert self.llm_details[dev]["purchase_required"]
-                if "model_download_url" in self.llm_details[dev]:
-                    assert self.llm_details[dev]["model_download_url"] is not None
-                    model_download_url = ASSET_CONFIG.get_web_asset_url(
-                        self.id, self.llm_details[dev]["model_download_url"]
+                if dev not in {"call_to_action", "genie_compatible"}:
+                    assert (
+                        list(self.llm_details[dev].keys())[0] == "torchscript_onnx_qnn"
                     )
-                    # Check if the url exists
+                    # Check the device is one of the supported devices.
+                    assert dev in get_all_supported_devices()
+
                     if (
-                        session.head(model_download_url).status_code
-                        != requests.codes.ok
+                        "model_download_url"
+                        in self.llm_details[dev]["torchscript_onnx_qnn"]
                     ):
-                        return False, f"Download URL is missing at {model_download_url}"
-                if "genie_url" in self.llm_details[dev]:
-                    assert self.llm_details[dev]["genie_url"] is not None
-                    genie_url = self.llm_details[dev]["genie_url"]
-                    # Check if the url exists
-                    if session.head(genie_url).status_code != requests.codes.ok:
-                        return False, f"Genie App URL is missing at {genie_url}"
+                        assert (
+                            self.llm_details[dev]["torchscript_onnx_qnn"][
+                                "model_download_url"
+                            ]
+                            is not None
+                        )
+                        version, relative_path = int(
+                            self.llm_details[dev]["torchscript_onnx_qnn"][
+                                "model_download_url"
+                            ].split("/")[0][1:]
+                        ), "/".join(
+                            self.llm_details[dev]["torchscript_onnx_qnn"][
+                                "model_download_url"
+                            ].split("/")[1:]
+                        )
+                        model_download_url = ASSET_CONFIG.get_model_asset_url(
+                            self.id, version, relative_path
+                        )
+                        # Check if the url exists
+                        if (
+                            session.head(model_download_url).status_code
+                            != requests.codes.ok
+                        ):
+                            return (
+                                False,
+                                f"Download URL is missing at {model_download_url}",
+                            )
+
+            if self.llm_details["call_to_action"] == "contact_for_purchase":
+                assert not self.llm_details.get("genie_compatible", False)
+        else:
+            assert self.llm_details is None
 
         return True, None
 

@@ -6,7 +6,7 @@
 YoloV7 is a machine learning model that predicts bounding boxes and classes of objects in an image. This model is post-training quantized to int8 using samples from the COCO dataset.
 
 This is based on the implementation of Yolo-v7-Quantized found
-[here](https://github.com/WongKinYiu/yolov7/). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolov7_quantized).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.yolov7_quantized.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Yolo-v7-Quantized can be found
+* The license for the original implementation of Yolo-v7-Quantized can be found
   [here](https://github.com/WongKinYiu/yolov7/blob/main/LICENSE.md).
-- The license for the compiled assets for on-device deployment can be found [here](https://github.com/WongKinYiu/yolov7/blob/main/LICENSE.md)
+* The license for the compiled assets for on-device deployment can be found [here](https://github.com/WongKinYiu/yolov7/blob/main/LICENSE.md)
+
 
 ## References
 * [YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors](https://arxiv.org/abs/2207.02696)
 * [Source Model Implementation](https://github.com/WongKinYiu/yolov7/)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

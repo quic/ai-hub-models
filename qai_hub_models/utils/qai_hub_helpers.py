@@ -70,25 +70,44 @@ def export_without_hub_access(
         print("")
 
         missing_perf = True
-        # Components in perf.yaml don't yet have the same name as their code generated names.
-        if not components:
-            perf_yaml_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)),
-                "models",
-                model_id,
-                "perf.yaml",
-            )
-            if os.path.exists(perf_yaml_path):
-                parsed_perf = QAIHMModelPerf(perf_yaml_path, model_id).get_perf_details(
-                    target_runtime, device_name
-                )
-                missing_perf = None in parsed_perf.values()
+        perf_yaml_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            "models",
+            model_id,
+            "perf.yaml",
+        )
+        if os.path.exists(perf_yaml_path):
+            parsed_perf = QAIHMModelPerf(perf_yaml_path, model_id)
 
-            if not missing_perf:
-                print(f"Profiling Results for {model_display_name}\n{_INFO_DASH}")
-                for model_name, perf in parsed_perf.items():
-                    assert perf is not None  # for mypy
-                    print_profile_metrics(perf)
+            if not components:
+                components = [model_display_name]
+
+            print(f"Profiling Results\n{_INFO_DASH}")
+            for component in components:
+                print(f"{component}")
+                model_perf = parsed_perf.per_model_details[component]
+
+                # Device families aren't stored in perf yamls. Replace with the original device name.
+                device_search_name = device_name.replace(" (Family)", "")
+                device_perf = model_perf.details_per_device.get(
+                    device_search_name, None
+                )
+                if not device_perf:
+                    break
+
+                runtime_perf = None
+                for path, path_runtime_perf in device_perf.details_per_path.items():
+                    if path.get_runtime() == target_runtime:
+                        runtime_perf = path_runtime_perf
+                        break
+
+                if not runtime_perf:
+                    break
+
+                missing_perf = False
+                print_profile_metrics(
+                    device_perf.device, target_runtime, runtime_perf.perf_details
+                )
 
         if missing_perf:
             print(

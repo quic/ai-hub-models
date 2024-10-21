@@ -2,6 +2,7 @@ aggregated:
   supported_oses:
   - Android
   supported_devices:
+  - Snapdragon 8 Elite QRD
   - Samsung Galaxy S24
   - Samsung Galaxy S24 Ultra
   - Samsung Galaxy S24+
@@ -19,41 +20,36 @@ aggregated:
   - Samsung Galaxy S21 Ultra
   - Samsung Galaxy S21+
   - Snapdragon X Elite CRD
-  - QCS8550 (Proxy)
-  - SA8775 (Proxy)
-  - SA8650 (Proxy)
-  - SA8255 (Proxy)
+  - Snapdragon X Plus 8-Core CRD
   - QCS8250 (Proxy)
   - RB5 (Proxy)
   - QCS8450 (Proxy)
   - XR2 Gen 2 (Proxy)
-  - Google Pixel 5a 5G
-  - Google Pixel 4
-  - Google Pixel 4a
-  - Google Pixel 3
-  - Google Pixel 3a
-  - Google Pixel 3a XL
+  - QCS8550 (Proxy)
+  - SA8255 (Proxy)
+  - SA8775 (Proxy)
   supported_chipsets:
+  - Snapdragon® 8 Elite
   - Snapdragon® 8 Gen 3
   - Snapdragon® 8 Gen 2
   - Snapdragon® 8 Gen 1
   - Snapdragon® 888
   - Snapdragon® X Elite
-  - Qcs8550 Proxy
-  - Qcs8450 Proxy
-  - Sa8650p Proxy
-  - Sa8255p Proxy
-  - Qcs8250 Proxy
-  - Sa8775p Proxy
+  - Snapdragon® X Plus 8-Core
+  - QCS8250 Proxy
+  - QCS8450 Proxy
+  - QCS8550 Proxy
+  - SA8255P Proxy
+  - SA8775P Proxy
 models:
 - name: RegNetQuantized
   performance_metrics:
   - torchscript_onnx_tflite:
-      inference_time: 904.0
-      throughput: 1106.1946902654868
+      inference_time: 896.0
+      throughput: 1116.0714285714287
       estimated_peak_memory_range:
-        min: 20480
-        max: 1550536
+        min: 16384
+        max: 2233688
       primary_compute_unit: NPU
       precision: int8
       layer_info:
@@ -61,29 +57,29 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 116
-      job_id: jlpe9vo7g
+      job_id: jg9l04vmg
       job_status: Passed
     torchscript_onnx_qnn:
-      inference_time: 1034.0
-      throughput: 967.1179883945841
+      inference_time: 1042.0
+      throughput: 959.6928982725528
       estimated_peak_memory_range:
-        min: 12288
-        max: 14327824
+        min: 0
+        max: 13613808
       primary_compute_unit: NPU
       precision: int8
       layer_info:
-        layers_on_npu: 113
+        layers_on_npu: 189
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 113
-      job_id: jo5mrzeyg
+        total_layers: 189
+      job_id: jgn60eyv5
       job_status: Passed
     torchscript_onnx:
-      inference_time: 1547.0
-      throughput: 646.4124111182934
+      inference_time: 1524.0
+      throughput: 656.1679790026246
       estimated_peak_memory_range:
-        min: 94208
-        max: 2600640
+        min: 12288
+        max: 27258352
       primary_compute_unit: NPU
       precision: int8
       layer_info:
@@ -91,7 +87,7 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 218
-      job_id: j1glnk6ep
+      job_id: jgo2zv04p
       job_status: Passed
     reference_device_info:
       name: Samsung Galaxy S23
@@ -100,13 +96,13 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 2
-    timestamp: '2024-09-25T11:57:33Z'
+    timestamp: '2024-10-17T17:25:31Z'
   - torchscript_onnx_tflite:
-      inference_time: 610.0
-      throughput: 1639.344262295082
+      inference_time: 750.0
+      throughput: 1333.3333333333333
       estimated_peak_memory_range:
         min: 12288
-        max: 137910400
+        max: 140573344
       primary_compute_unit: NPU
       precision: int8
       layer_info:
@@ -114,29 +110,29 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 116
-      job_id: jygze72zg
+      job_id: jp14280np
       job_status: Passed
     torchscript_onnx_qnn:
-      inference_time: 751.0
-      throughput: 1331.5579227696405
+      inference_time: 744.0
+      throughput: 1344.0860215053763
       estimated_peak_memory_range:
-        min: 167936
-        max: 31013392
+        min: 163840
+        max: 31485744
       primary_compute_unit: NPU
       precision: int8
       layer_info:
-        layers_on_npu: 113
+        layers_on_npu: 189
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 113
-      job_id: jegn2elvg
+        total_layers: 189
+      job_id: jprv6yqvg
       job_status: Passed
     torchscript_onnx:
-      inference_time: 1316.0
-      throughput: 759.8784194528876
+      inference_time: 1107.0
+      throughput: 903.342366757001
       estimated_peak_memory_range:
-        min: 0
-        max: 171753424
+        min: 28672
+        max: 177195600
       primary_compute_unit: NPU
       precision: int8
       layer_info:
@@ -144,7 +140,7 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 218
-      job_id: jw5661ev5
+      job_id: jpv6qwo75
       job_status: Passed
     reference_device_info:
       name: Samsung Galaxy S24
@@ -153,203 +149,13 @@ models:
       os_name: Android
       manufacturer: Samsung
       chipset: Snapdragon® 8 Gen 3
-    timestamp: '2024-09-25T11:57:34Z'
+    timestamp: '2024-10-17T17:25:33Z'
   - torchscript_onnx_tflite:
-      inference_time: 885.0
-      throughput: 1129.9435028248588
+      inference_time: 30336.0
+      throughput: 32.96413502109704
       estimated_peak_memory_range:
-        min: 24576
-        max: 5661376
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 116
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 116
-      job_id: jz5wo9wzp
-      job_status: Passed
-    torchscript_onnx_qnn:
-      inference_time: 953.0
-      throughput: 1049.3179433368311
-      estimated_peak_memory_range:
-        min: 188416
-        max: 1334288
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 113
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 113
-      job_id: jep28m0xp
-      job_status: Passed
-    reference_device_info:
-      name: QCS8550 (Proxy)
-      os: '12'
-      form_factor: Iot
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Qcs8550 Proxy
-    timestamp: '2024-09-25T11:57:28Z'
-  - torchscript_onnx_tflite:
-      inference_time: 1037.0
-      throughput: 964.3201542912246
-      estimated_peak_memory_range:
-        min: 16384
-        max: 141484048
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 116
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 116
-      job_id: jmg9v40q5
-      job_status: Passed
-    torchscript_onnx_qnn:
-      inference_time: 1174.0
-      throughput: 851.7887563884157
-      estimated_peak_memory_range:
-        min: 163840
-        max: 31496784
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 113
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 113
-      job_id: jogkzy7yg
-      job_status: Passed
-    reference_device_info:
-      name: QCS8450 (Proxy)
-      os: '13'
-      form_factor: Xr
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Qcs8450 Proxy
-    timestamp: '2024-09-25T11:57:32Z'
-  - torchscript_onnx_tflite:
-      inference_time: 905.0
-      throughput: 1104.9723756906078
-      estimated_peak_memory_range:
-        min: 12288
-        max: 5407592
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 116
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 116
-      job_id: jnp1082k5
-      job_status: Passed
-    torchscript_onnx_qnn:
-      inference_time: 961.0
-      throughput: 1040.5827263267429
-      estimated_peak_memory_range:
-        min: 184320
-        max: 1426312
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 113
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 113
-      job_id: jqpyedrrg
-      job_status: Passed
-    reference_device_info:
-      name: SA8650 (Proxy)
-      os: '13'
-      form_factor: Auto
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Sa8650p Proxy
-    timestamp: '2024-09-25T11:57:28Z'
-  - torchscript_onnx_tflite:
-      inference_time: 902.0
-      throughput: 1108.6474501108648
-      estimated_peak_memory_range:
-        min: 12288
-        max: 12826976
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 116
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 116
-      job_id: jvgdwvnk5
-      job_status: Passed
-    torchscript_onnx_qnn:
-      inference_time: 962.0
-      throughput: 1039.5010395010395
-      estimated_peak_memory_range:
-        min: 188416
-        max: 1472072
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 113
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 113
-      job_id: j2p0yr32g
-      job_status: Passed
-    reference_device_info:
-      name: SA8775 (Proxy)
-      os: '13'
-      form_factor: Auto
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Sa8775p Proxy
-    timestamp: '2024-09-25T11:57:30Z'
-  - torchscript_onnx_tflite:
-      inference_time: 902.0
-      throughput: 1108.6474501108648
-      estimated_peak_memory_range:
-        min: 36864
-        max: 1556416
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 116
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 116
-      job_id: jz57zd2qp
-      job_status: Passed
-    torchscript_onnx_qnn:
-      inference_time: 950.0
-      throughput: 1052.6315789473683
-      estimated_peak_memory_range:
-        min: 217088
-        max: 1406984
-      primary_compute_unit: NPU
-      precision: int8
-      layer_info:
-        layers_on_npu: 113
-        layers_on_gpu: 0
-        layers_on_cpu: 0
-        total_layers: 113
-      job_id: j1p8o70zg
-      job_status: Passed
-    reference_device_info:
-      name: SA8255 (Proxy)
-      os: '13'
-      form_factor: Auto
-      os_name: Android
-      manufacturer: Qualcomm
-      chipset: Sa8255p Proxy
-    timestamp: '2024-09-25T11:57:31Z'
-  - torchscript_onnx_tflite:
-      inference_time: 30147.0
-      throughput: 33.17079643082231
-      estimated_peak_memory_range:
-        min: 102400
-        max: 75838848
+        min: 86016
+        max: 75736048
       primary_compute_unit: GPU
       precision: int8
       layer_info:
@@ -357,22 +163,22 @@ models:
         layers_on_gpu: 116
         layers_on_cpu: 0
         total_layers: 116
-      job_id: jqp4qwnqg
+      job_id: jgdxnvw6p
       job_status: Passed
     torchscript_onnx_qnn:
-      inference_time: 4055.0
-      throughput: 246.6091245376079
+      inference_time: 4094.0
+      throughput: 244.2598925256473
       estimated_peak_memory_range:
-        min: 167936
-        max: 7980064
+        min: 217088
+        max: 9048560
       primary_compute_unit: NPU
       precision: int8
       layer_info:
-        layers_on_npu: 113
+        layers_on_npu: 189
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 113
-      job_id: jn5q82e75
+        total_layers: 189
+      job_id: jp2kxm6xp
       job_status: Passed
     reference_device_info:
       name: RB3 Gen 2 (Proxy)
@@ -380,14 +186,14 @@ models:
       form_factor: Iot
       os_name: Android
       manufacturer: Qualcomm
-      chipset: Qcs6490 Proxy
-    timestamp: '2024-09-25T11:57:32Z'
+      chipset: QCS6490 Proxy
+    timestamp: '2024-10-17T17:25:17Z'
   - torchscript_onnx_tflite:
-      inference_time: 41510.0
-      throughput: 24.09058058299205
+      inference_time: 39674.0
+      throughput: 25.205424207289408
       estimated_peak_memory_range:
-        min: 12288
-        max: 64667064
+        min: 2801664
+        max: 91186368
       primary_compute_unit: GPU
       precision: int8
       layer_info:
@@ -395,7 +201,7 @@ models:
         layers_on_gpu: 91
         layers_on_cpu: 13
         total_layers: 116
-      job_id: j0pxv19jg
+      job_id: j5wew9oz5
       job_status: Passed
     reference_device_info:
       name: RB5 (Proxy)
@@ -403,29 +209,196 @@ models:
       form_factor: Iot
       os_name: Android
       manufacturer: Qualcomm
-      chipset: Qcs8250 Proxy
-    timestamp: '2024-09-25T11:57:23Z'
-  - torchscript_onnx_qnn:
-      inference_time: 1116.0
-      throughput: 896.0573476702509
+      chipset: QCS8250 Proxy
+    timestamp: '2024-10-17T17:25:02Z'
+  - torchscript_onnx_tflite:
+      inference_time: 905.0
+      throughput: 1104.9723756906078
       estimated_peak_memory_range:
-        min: 442368
-        max: 442368
+        min: 20480
+        max: 1443656
       primary_compute_unit: NPU
       precision: int8
       layer_info:
-        layers_on_npu: 113
+        layers_on_npu: 116
         layers_on_gpu: 0
         layers_on_cpu: 0
-        total_layers: 113
-      job_id: joprky8v5
+        total_layers: 116
+      job_id: jg9l04vqg
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 964.0
+      throughput: 1037.344398340249
+      estimated_peak_memory_range:
+        min: 176128
+        max: 1571688
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: jpy1zdwrp
+      job_status: Passed
+    reference_device_info:
+      name: QCS8550 (Proxy)
+      os: '12'
+      form_factor: Iot
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: QCS8550 Proxy
+    timestamp: '2024-10-17T17:25:19Z'
+  - torchscript_onnx_tflite:
+      inference_time: 898.0
+      throughput: 1113.5857461024498
+      estimated_peak_memory_range:
+        min: 12288
+        max: 9672640
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 116
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 116
+      job_id: jp14280kp
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 966.0
+      throughput: 1035.1966873706003
+      estimated_peak_memory_range:
+        min: 217088
+        max: 1482600
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: jp8q279zp
+      job_status: Passed
+    reference_device_info:
+      name: SA8255 (Proxy)
+      os: '13'
+      form_factor: Auto
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: SA8255P Proxy
+    timestamp: '2024-10-17T17:25:22Z'
+  - torchscript_onnx_tflite:
+      inference_time: 900.0
+      throughput: 1111.111111111111
+      estimated_peak_memory_range:
+        min: 12288
+        max: 8539544
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 116
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 116
+      job_id: jgdxnvwkp
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 962.0
+      throughput: 1039.5010395010395
+      estimated_peak_memory_range:
+        min: 176128
+        max: 1467512
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: jgkevynyg
+      job_status: Passed
+    reference_device_info:
+      name: SA8775 (Proxy)
+      os: '13'
+      form_factor: Auto
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: SA8775P Proxy
+    timestamp: '2024-10-17T17:25:24Z'
+  - torchscript_onnx_tflite:
+      inference_time: 1023.0
+      throughput: 977.5171065493646
+      estimated_peak_memory_range:
+        min: 0
+        max: 143886928
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 116
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 116
+      job_id: j57y2dzq5
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 1190.0
+      throughput: 840.3361344537815
+      estimated_peak_memory_range:
+        min: 163840
+        max: 35308880
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: j5q602k7p
+      job_status: Passed
+    reference_device_info:
+      name: QCS8450 (Proxy)
+      os: '13'
+      form_factor: Xr
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: QCS8450 Proxy
+    timestamp: '2024-10-17T17:25:25Z'
+  - torchscript_onnx_tflite:
+      inference_time: 626.0
+      throughput: 1597.444089456869
+      estimated_peak_memory_range:
+        min: 8192
+        max: 69178288
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 116
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 116
+      job_id: jp4lnwqq5
+      job_status: Passed
+    torchscript_onnx_qnn:
+      inference_time: 740.0
+      throughput: 1351.3513513513512
+      estimated_peak_memory_range:
+        min: 29278208
+        max: 59289440
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: jglv4kze5
       job_status: Passed
     torchscript_onnx:
-      inference_time: 1540.0
-      throughput: 649.3506493506494
+      inference_time: 1087.0
+      throughput: 919.9632014719411
       estimated_peak_memory_range:
-        min: 23322624
-        max: 23322624
+        min: 0
+        max: 89205056
       primary_compute_unit: NPU
       precision: int8
       layer_info:
@@ -433,7 +406,45 @@ models:
         layers_on_gpu: 0
         layers_on_cpu: 0
         total_layers: 218
-      job_id: j1p3kmvx5
+      job_id: jpedov175
+      job_status: Passed
+    reference_device_info:
+      name: Snapdragon 8 Elite QRD
+      os: '15'
+      form_factor: Phone
+      os_name: Android
+      manufacturer: Qualcomm
+      chipset: Snapdragon® 8 Elite
+    timestamp: '2024-10-17T17:25:36Z'
+  - torchscript_onnx_qnn:
+      inference_time: 1129.0
+      throughput: 885.7395925597874
+      estimated_peak_memory_range:
+        min: 442368
+        max: 442368
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 189
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 189
+      job_id: jp0z4rq25
+      job_status: Passed
+    torchscript_onnx:
+      inference_time: 1532.0
+      throughput: 652.7415143603133
+      estimated_peak_memory_range:
+        min: 23302144
+        max: 23302144
+      primary_compute_unit: NPU
+      precision: int8
+      layer_info:
+        layers_on_npu: 218
+        layers_on_gpu: 0
+        layers_on_cpu: 0
+        total_layers: 218
+      job_id: jgjvdlm7g
       job_status: Passed
     reference_device_info:
       name: Snapdragon X Elite CRD
@@ -442,4 +453,4 @@ models:
       os_name: Windows
       manufacturer: Qualcomm
       chipset: Snapdragon® X Elite
-    timestamp: '2024-09-25T11:57:35Z'
+    timestamp: '2024-10-17T17:25:34Z'

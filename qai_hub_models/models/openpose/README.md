@@ -6,7 +6,7 @@
 OpenPose is a machine learning model that estimates body and hand pose in an image and returns location and confidence for each of 19 joints.
 
 This is based on the implementation of OpenPose found
-[here](https://github.com/CMU-Perceptual-Computing-Lab/openpose). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/openpose).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.openpose.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of OpenPose can be found
+* The license for the original implementation of OpenPose can be found
   [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740).
-- The license for the compiled assets for on-device deployment can be found [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740)
+* The license for the compiled assets for on-device deployment can be found [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740)
+
 
 ## References
 * [OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields](https://arxiv.org/abs/1812.08008)
 * [Source Model Implementation](https://github.com/CMU-Perceptual-Computing-Lab/openpose)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

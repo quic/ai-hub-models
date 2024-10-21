@@ -6,7 +6,7 @@
 Real-ESRGAN is a machine learning model that upscales an image with minimal loss in quality. The implementation is a derivative of the Real-ESRGAN-x4plus architecture, a larger and more powerful version compared to the Real-ESRGAN-general-x4v3 architecture.
 
 This is based on the implementation of Real-ESRGAN-x4plus found
-[here](https://github.com/xinntao/Real-ESRGAN). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/real_esrgan_x4plus).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.real_esrgan_x4plus.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Real-ESRGAN-x4plus can be found
+* The license for the original implementation of Real-ESRGAN-x4plus can be found
   [here](https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Real-ESRGAN: Training Real-World Blind Super-Resolution with Pure Synthetic Data](https://arxiv.org/abs/2107.10833)
 * [Source Model Implementation](https://github.com/xinntao/Real-ESRGAN)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

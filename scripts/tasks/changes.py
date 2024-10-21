@@ -2,9 +2,10 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import functools
 import os
 from pathlib import Path
-from typing import Iterable, Optional, Set
+from typing import Iterable, Optional, Set, Tuple
 
 from .constants import (
     PY_PACKAGE_MODELS_ROOT,
@@ -89,6 +90,32 @@ def _get_file_edges(filename) -> Set[str]:
     return dependent_files
 
 
+@functools.lru_cache(maxsize=1)
+def get_affected_files(changed_files: Iterable[str]) -> Set[str]:
+    """
+    Given a list of changed python files, performs a Depth-First Search (DFS)
+    over the qai_hub_models directory to figure out which files were affected.
+
+    Cached so that the graph traversal is done once, and `resolve_affected_models`
+    can be run with different args using the same base set of files.
+    """
+    changed_files = list(changed_files)
+    seen = set(changed_files)
+    while len(changed_files) > 0:
+        # Pop off stack
+        curr_file = changed_files.pop()
+        if curr_file in MANUAL_EDGES:
+            dependent_files = set(MANUAL_EDGES[curr_file])
+        else:
+            dependent_files = _get_file_edges(curr_file)
+        # Add new nodes to stack
+        for dependent_file in dependent_files:
+            if dependent_file not in seen:
+                seen.add(dependent_file)
+                changed_files.append(dependent_file)
+    return seen
+
+
 def resolve_affected_models(
     changed_files: Iterable[str],
     include_model: bool = True,
@@ -111,22 +138,10 @@ def resolve_affected_models(
     changed_files: List of filepaths to files that changed. Paths are
         relative to the root of this repository.
     """
-    changed_files = list(changed_files)
-    seen = set(changed_files)
-    while len(changed_files) > 0:
-        # Pop off stack
-        curr_file = changed_files.pop()
-        if curr_file in MANUAL_EDGES:
-            dependent_files = set(MANUAL_EDGES[curr_file])
-        else:
-            dependent_files = _get_file_edges(curr_file)
-        # Add new nodes to stack
-        for dependent_file in dependent_files:
-            if dependent_file not in seen:
-                seen.add(dependent_file)
-                changed_files.append(dependent_file)
+    # Convert to tuple so it can be used as a cache key
+    affected_files = get_affected_files(tuple(changed_files))
     changed_models = set()
-    for f in seen:
+    for f in affected_files:
         file_path = Path(f)
         # Only consider directories directly in the top-level `models/` folder
         # (i.e. ignore `models/_shared`, `models/_internal`)
@@ -167,6 +182,7 @@ def get_code_gen_changed_models() -> Set[str]:
     return set(changed_models)
 
 
+@functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
 def get_changed_files_in_package(suffix: Optional[str] = None) -> Iterable[str]:
     """
     Returns the list of changed files in zoo based on git tracking.
@@ -277,7 +293,7 @@ def get_all_models() -> Set[str]:
     """
     Resolve model IDs (folder names) of all models in QAIHM.
     """
-    model_names = set()
+    model_names: Set[str] = set()
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
         if os.path.exists(os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")):
             model_names.add(model_name)
@@ -289,6 +305,40 @@ def get_all_models() -> Set[str]:
         for model in allowed_models:
             if model not in model_names:
                 raise ValueError(f"Unknown model selected: {model}")
-        model_names = allowed_models
+        model_names = set(allowed_models)
 
     return model_names
+
+
+def get_models_to_test() -> Tuple[Set[str], Set[str]]:
+    """
+    This is the master function that is called directly in CI to determine
+    which models to test.
+
+    Returns:
+        Tuple[list of models to run unit tests, list of models to run compile tests]
+    """
+    # model.py changed
+    model_changed_models = get_models_with_changed_definitions()
+
+    # export.py or test_generated.py changed
+    export_changed_models = get_models_with_export_file_changes()
+
+    # code-gen.yaml changed
+    code_gen_changed_models = get_code_gen_changed_models()
+
+    # If model or code-gen changed, then test export.
+    models_to_test_export = model_changed_models | code_gen_changed_models
+
+    # For all other models where export.py or test_generated.py changed,
+    #   only test if they're part of REPRESENTATIVE_EXPORT_MODELS
+    models_to_test_export.update(
+        export_changed_models & set(REPRESENTATIVE_EXPORT_MODELS)
+    )
+
+    # Set of models where model.py, demo.py, or test.py changed.
+    models_to_run_tests = get_models_to_run_general_tests()
+
+    # export tests can only run alongside general model tests
+    models_to_run_tests = models_to_run_tests | models_to_test_export
+    return models_to_run_tests, models_to_test_export

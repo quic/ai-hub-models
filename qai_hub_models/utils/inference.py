@@ -253,7 +253,6 @@ def compile_model_from_args(
     """
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
-    compile_job: hub.CompileJob
     if cli_args.chipset:
         device_cli = f"--chipset {cli_args.chipset}"
     else:
@@ -279,10 +278,7 @@ def compile_model_from_args(
         **component_kwargs,
     )
 
-    if component is None:
-        no_hub_access = len(export_output) == 0 or isinstance(export_output[0], str)
-    else:
-        no_hub_access = export_output[component][0] is None
+    no_hub_access = isinstance(export_output, list)
 
     if no_hub_access:
         # The export returned local file paths, which mean Hub credentials were not found.
@@ -291,29 +287,36 @@ def compile_model_from_args(
         )
 
     export_output = export_output if component is None else export_output[component]
-    compile_job, _, _ = export_output
-    target_model = compile_job.get_target_model()
+    target_model = export_output.compile_job.get_target_model()
     assert target_model is not None
     return target_model
 
 
 def make_hub_dataset_entries(
+    tensors_tuple: Tuple[
+        torch.Tensor
+        | np.ndarray
+        | List[torch.Tensor | np.ndarray]
+        | Tuple[torch.Tensor | np.ndarray],
+        ...,
+    ],
     input_names: List[str],
-    channel_last_input: Optional[List[str]],
-    *args: torch.Tensor | np.ndarray | List[torch.Tensor | np.ndarray],
+    channel_last_input: Optional[List[str]] = None,
 ) -> DatasetEntries:
     """
     Given input tensor(s) in either numpy or torch format,
         convert to hub DatasetEntries format.
 
     Parameters:
+        tensors: Tensor data in numpy or torch.Tensor format.
         input_names: List of input names.
         channel_last_input: Comma-separated list of input names to transpose channel.
-        target_runtime: Runtime of model being used to inference this dataset.
-        args: Tensor data in numpy or torch.Tensor format.
     """
     dataset = {}
-    for name, inputs in zip(input_names, args):
+    assert len(tensors_tuple) == len(
+        input_names
+    ), "Number of elements in tensors_tuple must match number of inputs"
+    for name, inputs in zip(input_names, tensors_tuple):
         if not isinstance(inputs, (list, tuple)):
             inputs = [inputs]  # type: ignore
 
@@ -442,7 +445,8 @@ class AsyncOnDeviceModel:
             assert len(args) == 1, "Only 1 dataset can be provided for inference."
             dataset = args[0]
         else:
-            dataset_entries = make_hub_dataset_entries(self.input_names, self.channel_last_input, *args)  # type: ignore
+            tensors = tuple(args)
+            dataset_entries = make_hub_dataset_entries(tensors, self.input_names, self.channel_last_input)  # type: ignore
             dataset = hub.upload_dataset(dataset_entries)
 
         inference_job = hub.submit_inference_job(

@@ -15,12 +15,13 @@ import tarfile
 import tempfile
 import threading
 import time
+import zipfile
 from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 from zipfile import ZipFile
 
 import gdown
@@ -542,6 +543,7 @@ class ModelZooAssetConfig:
                 "models_website_url": str,
                 "models_website_relative_path": str,
                 "email_template": str,
+                "genie_url": str,
             }
         )
     )
@@ -743,7 +745,7 @@ class CachedWebAsset:
 
         _, ext = os.path.splitext(self.local_cache_path)
         if ext == ".zip":
-            # Update local cache path to pont to the extracted zip folder.
+            # Update local cache path to point to the extracted zip folder.
             extract_zip_file(str(self.path()))
             os.remove(self.path())  # Deletes zip file
             self.is_extracted = True  # Updates path() to return extracted path
@@ -1043,6 +1045,37 @@ def extract_zip_file(filepath_str: str) -> Path:
         out_path = filepath.parent / filepath.stem
         zf.extractall(path=out_path)
     return out_path
+
+
+# TODO (#12708): Remove this and rely on client
+def zip_model(output_dir_path: str, model_path: str) -> str:
+    model_path = os.path.realpath(model_path)
+    package_name = os.path.basename(model_path)
+    compresslevel = 1
+
+    output_path = os.path.join(output_dir_path, package_name + ".zip")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with zipfile.ZipFile(
+        output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=compresslevel
+    ) as f:
+        walk: Iterable[Tuple[str, List[str], List[str]]]
+        if os.path.isfile(model_path):
+            root_path = os.path.dirname(model_path)
+            walk = [(root_path, [], [model_path])]
+        else:
+            root_path = os.path.join(model_path, "..")
+            walk = os.walk(model_path)
+        for root, _, files in walk:
+            # Create directory entry (can use f.mkdir from Python 3.11)
+            rel_root = os.path.relpath(root, root_path)
+            if rel_root != ".":
+                f.writestr(rel_root + "/", "")
+            for file in files:
+                f.write(
+                    os.path.join(root, file),
+                    os.path.relpath(os.path.join(root, file), root_path),
+                )
+    return output_path
 
 
 def callback_with_retry(

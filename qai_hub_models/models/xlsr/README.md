@@ -6,7 +6,7 @@
 XLSR is designed for lightweight real-time upscaling of images.
 
 This is based on the implementation of XLSR found
-[here](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/xlsr). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/xlsr).
 
@@ -39,14 +39,18 @@ python -m qai_hub_models.models.xlsr.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of XLSR can be found
+* The license for the original implementation of XLSR can be found
   [here](https://github.com/quic/aimet-model-zoo/blob/develop/LICENSE.pdf).
-- The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
 
 ## References
 * [Extremely Lightweight Quantization Robust Real-Time Single-Image Super Resolution for Mobile Devices](https://arxiv.org/abs/2105.10288)
 * [Source Model Implementation](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/xlsr)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

@@ -1,0 +1,42 @@
+name: IndusQ-1.1B
+id: indus_1b_quantized
+status: public
+headline: State-of-the-art large language model useful on a variety of language
+  understanding and generation tasks.
+domain: Generative AI
+description:  Indus is today a 1.2 billion parameter model and has been supervised fine tuned for Hindi and dialects.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://www.techmahindra.com/makers-lab/indus-project/
+research_paper_title: "Project Indus: A Foundational Model for Indian Languages"
+source_repo: https://huggingface.co/nickmalhotra/ProjectIndus
+model_maker_id: tech-mahindra
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Max context length: 1024
+  Number of parameters: 1B
+  Precision: w4a16 + w8a16 (few layers)
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.7
+  Supported languages: Hindi and English.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (1024 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: false
+dataset: []
+model_type_llm: true
+license_type: 'other'
+restrict_model_sharing: true
+llm_details:
+  call_to_action: 'contact_for_purchase'

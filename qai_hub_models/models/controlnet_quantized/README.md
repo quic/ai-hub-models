@@ -6,7 +6,7 @@
 On-device, high-resolution image synthesis from text and image prompts. ControlNet guides Stable-diffusion with provided input image to generate accurate images from given input prompt.
 
 This is based on the implementation of ControlNet found
-[here](https://github.com/lllyasviel/ControlNet). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/controlnet_quantized).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.controlnet_quantized.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of ControlNet can be found
+* The license for the original implementation of ControlNet can be found
   [here](https://github.com/lllyasviel/ControlNet/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://github.com/lllyasviel/ControlNet/blob/main/LICENSE)
+* The license for the compiled assets for on-device deployment can be found [here](https://github.com/lllyasviel/ControlNet/blob/main/LICENSE)
+
 
 ## References
 * [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543)
 * [Source Model Implementation](https://github.com/lllyasviel/ControlNet)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

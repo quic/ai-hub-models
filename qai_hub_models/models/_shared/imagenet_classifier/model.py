@@ -11,16 +11,21 @@ import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import (
     IMAGENET_DIM,
+    IMAGENET_TRANSFORM,
     normalize_image_torchvision,
 )
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.quantization import get_image_quantization_samples
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
+
+TEST_IMAGENET_IMAGE = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "dog.jpg"
+)
 
 
 class ImagenetClassifier(BaseModel):
@@ -118,8 +123,9 @@ class ImagenetClassifier(BaseModel):
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> Dict[str, List[np.ndarray]]:
-        samples = get_image_quantization_samples()
-        return dict(image_tensor=[samples[:1].numpy()])
+        image = load_image(TEST_IMAGENET_IMAGE)
+        tensor = IMAGENET_TRANSFORM(image).unsqueeze(0)
+        return dict(image_tensor=[tensor.numpy()])
 
     @staticmethod
     def get_channel_last_inputs() -> List[str]:

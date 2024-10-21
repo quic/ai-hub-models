@@ -2,10 +2,12 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
+import qai_hub as hub
 
 
 @unique
@@ -34,3 +36,12 @@ class SourceModelFormat(Enum):
 
 
 SampleInputsType = Dict[str, List[np.ndarray]]
+
+
+@dataclass
+class ExportResult:
+    compile_job: Optional[hub.CompileJob] = None
+    quantize_job: Optional[hub.QuantizeJob] = None
+    profile_job: Optional[hub.ProfileJob] = None
+    inference_job: Optional[hub.InferenceJob] = None
+    link_job: Optional[hub.LinkJob] = None

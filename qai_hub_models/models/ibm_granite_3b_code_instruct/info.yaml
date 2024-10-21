@@ -1,0 +1,58 @@
+name: IBM-Granite-3B-Code-Instruct
+id: ibm_granite_3b_code_instruct
+status: public
+headline: State-of-the-art large language model useful on a variety of code
+  understanding and generation tasks.
+domain: Generative AI
+description: Granite-3B-Code-Instruct-2K is a 3B parameter model fine tuned from Granite-3B-Code-Base-2K
+ on a combination of permissively licensed instruction data to enhance instruction following
+ capabilities including logical reasoning and problem-solving skills.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+research_paper: https://arxiv.org/abs/2405.04324
+research_paper_title: "Granite Code Models: A Family of Open Foundation Models for Code Intelligence"
+license: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+deploy_license: https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md
+source_repo: https://huggingface.co/ibm-granite/granite-3b-code-instruct-2k
+model_maker_id: ibm-watsonx
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Context length: 2048
+  Number of parameters: 3.48B
+  Precision: fp16
+  Num of key-value heads: 32
+  Information about the model parts: Prompt Processor and Token Generator are split into 4 parts each. Each corresponding Prompt Processor and Token Generator part share weights.
+  Prompt processor model size: 7 GB
+  Prompt processor input (part1): 128 tokens
+  Prompt processor output (part1): Embeddings output
+  Prompt processor input (other parts): 128 tokens + KVCache initialized with pad token
+  Prompt processor output (other parts): 128 output tokens + KVCache for token generator
+  Token generator model size: 7 GB
+  Token generator input (part1): 1 token
+  Token generator output (part1): Embeddings output
+  Token generator input (other parts): 1 input token + past KVCache
+  Token generator output (other parts): 1 output token + KVCache for next iteration
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Supported natural languages: English
+  Supported programming languages: The Granite code foundation models support 116 programming languages including Python, Javascript, Java, C++, Go, and Rust.
+  Minimum QNN SDK version required: 2.27.7
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (2048 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Coding
+  - Coding assist
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: false
+dataset: []
+model_type_llm: true
+restrict_model_sharing: true
+license_type: apache-2.0
+deploy_license_type: apache-2.
+llm_details:
+  call_to_action: 'contact_for_download'

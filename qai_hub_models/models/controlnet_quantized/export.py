@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
+from typing import Any, Dict, List, Mapping, Optional, cast
 
 import qai_hub as hub
 
+from qai_hub_models.models.common import ExportResult, TargetRuntime
 from qai_hub_models.models.controlnet_quantized import Model
 from qai_hub_models.utils.args import export_parser
-from qai_hub_models.utils.base_model import BasePrecompiledModel, TargetRuntime
+from qai_hub_models.utils.base_model import BasePrecompiledModel
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
@@ -46,19 +47,16 @@ def export_model(
     output_dir: Optional[str] = None,
     profile_options: str = "",
     **additional_model_kwargs,
-) -> Mapping[str, Tuple[Optional[hub.ProfileJob], Optional[hub.InferenceJob]]] | List[
-    str
-]:
+) -> Mapping[str, ExportResult] | List[str]:
     """
-    This function accomplishes 5 main tasks:
+    This function executes the following recipe:
 
-        1. Initialize model.
-        2. Upload model assets to hub.
-        3. Profiles the model performance on real devices.
-        4. Inferences the model on sample inputs.
-        5. Summarizes the results from profiling.
+        1. Initialize model
+        2. Upload model assets to hub
+        3. Profiles the model performance on a real device
+        4. Summarizes the results from profiling
 
-    Each of the last three steps can be optionally skipped using the input options.
+    Each of the last 2 steps can be optionally skipped using the input options.
 
     Parameters:
         device: Device for which to export the model.
@@ -80,9 +78,8 @@ def export_model(
             `model_cls.from_precompiled`
 
     Returns:
-        A Mapping from component_name to a 2-tuple of:
+        A Mapping from component_name to a struct of:
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
-            * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
     model_name = "controlnet_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
@@ -111,9 +108,7 @@ def export_model(
             component_arg,
         )
 
-    target_runtime = TargetRuntime.TFLITE
-    # On-device perf improves with I/O in channel_last format except when using ONNX.
-    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+    target_runtime = TargetRuntime.QNN
 
     # 1. Initialize model
     print("Initializing model class")
@@ -135,8 +130,11 @@ def export_model(
         uploaded_models[component_name] = hub.upload_model(
             components_dict[component_name].get_target_model_path()
         )
+    print(
+        f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
+    )
 
-    # 3. Profile the model assets on real devices
+    # 3. Profiles the model performance on a real device
     profile_jobs: Dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
@@ -154,31 +152,7 @@ def export_model(
                 hub.client.ProfileJob, submitted_profile_job
             )
 
-    # 4. Run inference on-device with sample inputs
-    inference_jobs: Dict[str, hub.client.InferenceJob] = {}
-    if not skip_inferencing:
-        for component_name in components:
-            print(
-                f"Running inference for {component_name} on a hosted device with example inputs."
-            )
-            profile_options_all = components_dict[
-                component_name
-            ].get_hub_profile_options(target_runtime, profile_options)
-            sample_inputs = components_dict[component_name].sample_inputs(
-                use_channel_last_format=use_channel_last_format
-            )
-            submitted_inference_job = hub.submit_inference_job(
-                model=uploaded_models[component_name],
-                inputs=sample_inputs,
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            inference_jobs[component_name] = cast(
-                hub.client.InferenceJob, submitted_inference_job
-            )
-
-    # 5. Summarize the results from profiling
+    # 4. Summarizes the results from profiling
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
@@ -187,9 +161,8 @@ def export_model(
             print_profile_metrics_from_job(profile_job, profile_data)
 
     return {
-        component_name: (
-            profile_jobs.get(component_name, None),
-            inference_jobs.get(component_name, None),
+        component_name: ExportResult(
+            profile_job=profile_jobs.get(component_name, None),
         )
         for component_name in components
     }

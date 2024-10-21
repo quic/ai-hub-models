@@ -3,10 +3,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import contextlib
+import functools
 import os
 import platform
 import subprocess
 import sys
+from pathlib import Path
+
+from .constants import (
+    BASH_EXECUTABLE,
+    PY_PACKAGE_MODELS_ROOT,
+    process_output,
+    run_and_get_output,
+)
 
 
 class Colors:
@@ -35,12 +44,30 @@ def new_cd(x):
         os.chdir(d)
 
 
+@functools.lru_cache(maxsize=None)
+def check_code_gen_field(model_name: str, field_name: str) -> bool:
+    """
+    This process does not have the yaml package, so use this primitive way
+    to check if a code gen field is true and apply branching logic within CI/scorecard.
+    """
+    yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
+    if yaml_path.exists():
+        with open(yaml_path, "r") as f:
+            if f"{field_name}: true" in f.read():
+                return True
+    return False
+
+
 def can_support_aimet(platform: str = sys.platform) -> bool:
     return platform == "linux" or platform == "linux2"
 
 
+def get_is_hub_quantized(model_name) -> bool:
+    return check_code_gen_field(model_name.lower(), "use_hub_quantization")
+
+
 def model_needs_aimet(model_name: str) -> bool:
-    return "quantized" in model_name.lower()
+    return "quantized" in model_name.lower() and not get_is_hub_quantized(model_name)
 
 
 def default_parallelism() -> int:
@@ -76,24 +103,8 @@ def on_mac():
     return platform.uname().system == "Darwin"
 
 
-def process_output(command):
-    return command.stdout.decode("utf-8").strip()
-
-
 def run(command):
     return subprocess.run(command, shell=True, check=True, executable=BASH_EXECUTABLE)
-
-
-def run_and_get_output(command, check=True):
-    return process_output(
-        subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            shell=True,
-            check=check,
-            executable=BASH_EXECUTABLE,
-        )
-    )
 
 
 def run_with_venv(venv, command, env=None):
@@ -122,8 +133,3 @@ def run_with_venv_and_get_output(venv, command):
         )
     else:
         return run_and_get_output(command)
-
-
-BASH_EXECUTABLE = process_output(
-    subprocess.run("which bash", stdout=subprocess.PIPE, shell=True, check=True)
-)

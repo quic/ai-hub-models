@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -14,10 +16,7 @@ from tabulate import tabulate
 
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
-from qai_hub_models.utils.config_loaders import (
-    ModelRuntimePerformanceDetails,
-    bytes_to_mb,
-)
+from qai_hub_models.utils.config_loaders import QAIHMModelPerf, bytes_to_mb
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
 _INFO_DASH = "-" * 60
@@ -41,7 +40,7 @@ def print_with_box(data: List[str]) -> None:
 
 
 def print_inference_metrics(
-    inference_job: hub.InferenceJob,
+    inference_job: Optional[hub.InferenceJob],
     inference_result: DatasetEntries,
     torch_out: List[np.ndarray],
     output_names: Optional[List[str]] = None,
@@ -68,7 +67,8 @@ def print_inference_metrics(
     formatted_df = df_eval.applymap(custom_float_format)
 
     print(
-        f"\nComparing on-device vs. local-cpu inference for {inference_job.name.title()}."
+        "\nComparing on-device vs. local-cpu inference"
+        + (f" for {inference_job.name.title()}." if inference_job is not None else "")
     )
     print(tabulate(formatted_df, headers="keys", tablefmt="grid"))  # type: ignore
     print()
@@ -77,9 +77,10 @@ def print_inference_metrics(
     for m in df_eval.columns.drop("shape"):  # type: ignore
         print(f"- {m}:", METRICS_FUNCTIONS[m][1])
 
-    last_line = f"More details: {inference_job.url}"
-    print()
-    print(last_line)
+    if inference_job is not None:
+        last_line = f"More details: {inference_job.url}"
+        print()
+        print(last_line)
 
 
 def print_profile_metrics_from_job(
@@ -90,7 +91,6 @@ def print_profile_metrics_from_job(
         [op.get("compute_unit", "UNK") for op in profile_data["execution_detail"]]
     )
     execution_summary = profile_data["execution_summary"]
-    inference_time_ms = execution_summary["estimated_inference_time"] / 1000
     peak_memory_bytes = execution_summary["inference_memory_peak_range"]
     print(f"\n{_INFO_DASH}")
     print(f"Performance results on-device for {profile_job.name.title()}.")
@@ -105,48 +105,87 @@ def print_profile_metrics_from_job(
     else:
         raise NotImplementedError()
 
-    print_profile_metrics(
-        ModelRuntimePerformanceDetails(
-            profile_job.model.name,
-            profile_job.device.name,
-            profile_job.device.os,
-            runtime,
-            inference_time_ms,
-            peak_memory_bytes,
-            compute_unit_counts,
-        )
+    perf_details = QAIHMModelPerf.PerformanceDetails(
+        job_id=profile_job.job_id,
+        inference_time_microsecs=execution_summary["estimated_inference_time"],
+        peak_memory_bytes=peak_memory_bytes,
+        compute_unit_counts=compute_unit_counts,
+        # Unused
+        primary_compute_unit="",
+        precision="",
     )
+
+    device_details = QAIHMModelPerf.DeviceDetails(
+        name=profile_job.device.name,
+        os=profile_job.device.os,
+        # unused
+        form_factor="",
+        os_name="",
+        manufacturer="",
+        chipset="",
+    )
+
+    print_profile_metrics(device_details, runtime, perf_details)
     print(_INFO_DASH)
     last_line = f"More details: {profile_job.url}\n"
     print(last_line)
 
 
-def print_profile_metrics(
-    details: ModelRuntimePerformanceDetails,
-):
-    inf_time = details.inference_time_ms
-    peak_memory_mb = f"[{bytes_to_mb(details.peak_memory_bytes[0])}, {bytes_to_mb(details.peak_memory_bytes[1])}]"
-    num_ops = sum(details.compute_unit_counts.values())
-    compute_units = [
-        f"{unit} ({num_ops} ops)"
-        for unit, num_ops in details.compute_unit_counts.items()
+def get_profile_metrics(
+    device: QAIHMModelPerf.DeviceDetails,
+    runtime: TargetRuntime,
+    perf_details: QAIHMModelPerf.PerformanceDetails
+    | QAIHMModelPerf.LLMPerformanceDetails,
+) -> str:
+    rows = [
+        ["Device", f"{device.name} ({device.os})"],
+        ["Runtime", runtime.name],
     ]
 
-    rows = [
-        ["Device", f"{details.device_name} ({details.device_os})"],
-        ["Runtime", f"{details.runtime.name}"],
-        [
-            "Estimated inference time (ms)",
-            "<0.1" if inf_time < 0.1 else f"{inf_time:.1f}",
-        ],
-        ["Estimated peak memory usage (MB)", f"{peak_memory_mb}"],
-        ["Total # Ops", f"{num_ops}"],
-        ["Compute Unit(s)", " ".join(compute_units)],
-    ]
+    if isinstance(perf_details, QAIHMModelPerf.LLMPerformanceDetails):
+        rows.extend(
+            [
+                ["Response Rate (Tokens/Second)", str(perf_details.tokens_per_second)],
+                [
+                    "Time to First Token (Seconds)",
+                    str(perf_details.time_to_first_token_range_secs),
+                ],
+            ]
+        )
+    else:
+        inf_time_ms = perf_details.inference_time_microsecs / 1000
+        mem_min = bytes_to_mb(perf_details.peak_memory_bytes[0])
+        mem_max = bytes_to_mb(perf_details.peak_memory_bytes[1])
+        compute_units = [
+            f"{unit} ({num_ops} ops)"
+            for unit, num_ops in perf_details.compute_unit_counts.items()
+        ]
+
+        rows.extend(
+            [
+                [
+                    "Estimated inference time (ms)",
+                    "<0.1" if inf_time_ms < 0.1 else f"{inf_time_ms:.1f}",
+                ],
+                ["Estimated peak memory usage (MB)", f"[{mem_min}, {mem_max}]"],
+                ["Total # Ops", str(sum(perf_details.compute_unit_counts.values()))],
+                ["Compute Unit(s)", " ".join(compute_units)],
+            ]
+        )
+
     table = PrettyTable(align="l", header=False, border=False, padding_width=0)
     for row in rows:
         table.add_row([row[0], f": {row[1]}"])
-    print(table.get_string())
+    return table.get_string()
+
+
+def print_profile_metrics(
+    device: QAIHMModelPerf.DeviceDetails,
+    runtime: TargetRuntime,
+    perf_details: QAIHMModelPerf.PerformanceDetails
+    | QAIHMModelPerf.LLMPerformanceDetails,
+):
+    print(get_profile_metrics(device, runtime, perf_details))
 
 
 def print_on_target_demo_cmd(

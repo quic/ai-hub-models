@@ -120,11 +120,13 @@ def _populate_data_cache_impl(
         else:
             output_names = ["output_0"]
         input_entries = make_hub_dataset_entries(
+            (model_inputs.split(1, dim=0),),
             input_names,
             channel_last_input,
-            model_inputs.split(1, dim=0),
         )
-        gt_entries = make_hub_dataset_entries(output_names, None, ground_truth_values)
+        gt_entries = make_hub_dataset_entries(
+            (ground_truth_values,), output_names, None
+        )
         # print(input_entries)
         input_dataset = hub.upload_dataset(input_entries)
         gt_dataset = hub.upload_dataset(gt_entries)
@@ -209,7 +211,7 @@ def _populate_data_cache(
         shutil.move(str(tmp_cache_path), str(cache_path))
 
 
-def sample_dataset(dataset: Dataset, num_samples: int, seed: int) -> Dataset:
+def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Dataset:
     """
     Create a dataset that is a subsample of `dataset` with `num_samples`.
 

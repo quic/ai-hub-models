@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import Callable
+from unittest import mock
+
 import numpy as np
 import pytest
 
@@ -95,3 +98,20 @@ def assert_most_close(
     assert (
         np.mean(not_close_values) <= diff_tol
     ), f"More than {diff_tol * 100}% of values were not close."
+
+
+def mock_first_n(fn: Callable, n: int):
+    """
+    Return a function that returns a Mock object for the first N calls
+    and calls the given fn on all subsequent calls.
+    """
+    call_count = 0
+
+    def mock_fn(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= n:
+            return mock.Mock()
+        return fn(*args, **kwargs)
+
+    return mock_fn

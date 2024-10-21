@@ -38,7 +38,8 @@ Supported precision
 
 Supported chipsets
 * [Snapdragon 845](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-845-mobile-platform), [Snapdragon 855/855+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-855-mobile-platform), [Snapdragon 865/865+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-865-plus-5g-mobile-platform), [Snapdragon 888/888+](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-888-5g-mobile-platform)
-* [Snapdragon 8 Gen 1](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-1-mobile-platform), [Snapdragon 8 Gen 2](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-2-mobile-platform), [Snapdragon 8 Gen 3](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-3-mobile-platform), [Snapdragon X Elite](https://www.qualcomm.com/products/mobile/snapdragon/pcs-and-tablets/snapdragon-x-elite)
+* [Snapdragon 8 Elite](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-elite-mobile-platform), [Snapdragon 8 Gen 3](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-3-mobile-platform), [Snapdragon 8 Gen 2](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-2-mobile-platform), [Snapdragon 8 Gen 1](https://www.qualcomm.com/products/mobile/snapdragon/smartphones/snapdragon-8-series-mobile-platforms/snapdragon-8-gen-1-mobile-platform)
+* [Snapdragon X Elite](https://www.qualcomm.com/products/mobile/snapdragon/pcs-and-tablets/snapdragon-x-elite)
 
 Select supported devices
 * Samsung Galaxy S21 Series, Galaxy S22 Series, Galaxy S23 Series, Galaxy S24 Series
@@ -275,6 +276,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [ConvNext-Tiny-w8a16-Quantized](https://aihub.qualcomm.com/models/convnext_tiny_w8a16_quantized) | [qai_hub_models.models.convnext_tiny_w8a16_quantized](qai_hub_models/models/convnext_tiny_w8a16_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [ConvNext-Tiny-w8a8-Quantized](https://aihub.qualcomm.com/models/convnext_tiny_w8a8_quantized) | [qai_hub_models.models.convnext_tiny_w8a8_quantized](qai_hub_models/models/convnext_tiny_w8a8_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [DenseNet-121](https://aihub.qualcomm.com/models/densenet121) | [qai_hub_models.models.densenet121](qai_hub_models/models/densenet121/README.md) | ✔️ | ✔️ | ✔️
+| [DenseNet-121-Quantized](https://aihub.qualcomm.com/models/densenet121_quantized) | [qai_hub_models.models.densenet121_quantized](qai_hub_models/models/densenet121_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [EfficientNet-B0](https://aihub.qualcomm.com/models/efficientnet_b0) | [qai_hub_models.models.efficientnet_b0](qai_hub_models/models/efficientnet_b0/README.md) | ✔️ | ✔️ | ✔️
 | [GoogLeNet](https://aihub.qualcomm.com/models/googlenet) | [qai_hub_models.models.googlenet](qai_hub_models/models/googlenet/README.md) | ✔️ | ✔️ | ✔️
 | [GoogLeNetQuantized](https://aihub.qualcomm.com/models/googlenet_quantized) | [qai_hub_models.models.googlenet_quantized](qai_hub_models/models/googlenet_quantized/README.md) | ✔️ | ✔️ | ✔️
@@ -306,6 +308,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [Swin-Small](https://aihub.qualcomm.com/models/swin_small) | [qai_hub_models.models.swin_small](qai_hub_models/models/swin_small/README.md) | ✔️ | ✔️ | ✔️
 | [Swin-Tiny](https://aihub.qualcomm.com/models/swin_tiny) | [qai_hub_models.models.swin_tiny](qai_hub_models/models/swin_tiny/README.md) | ✔️ | ✔️ | ✔️
 | [VIT](https://aihub.qualcomm.com/models/vit) | [qai_hub_models.models.vit](qai_hub_models/models/vit/README.md) | ✔️ | ✔️ | ✔️
+| [VITQuantized](https://aihub.qualcomm.com/models/vit_quantized) | [qai_hub_models.models.vit_quantized](qai_hub_models/models/vit_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [WideResNet50](https://aihub.qualcomm.com/models/wideresnet50) | [qai_hub_models.models.wideresnet50](qai_hub_models/models/wideresnet50/README.md) | ✔️ | ✔️ | ✔️
 | [WideResNet50-Quantized](https://aihub.qualcomm.com/models/wideresnet50_quantized) | [qai_hub_models.models.wideresnet50_quantized](qai_hub_models/models/wideresnet50_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
@@ -359,7 +362,9 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Face-Detection-Quantized](https://aihub.qualcomm.com/models/mediapipe_face_quantized) | [qai_hub_models.models.mediapipe_face_quantized](qai_hub_models/models/mediapipe_face_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) | ✔️ | ✔️ | ✔️
-| [YOLOv11-Detection](qai_hub_models/models/yolov11_det/README.md) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) | ✔️ | ✔️ | ✔️
+| [PPE-Detection](https://aihub.qualcomm.com/models/gear_guard_net) | [qai_hub_models.models.gear_guard_net](qai_hub_models/models/gear_guard_net/README.md) | ✔️ | ✔️ | ✔️
+| [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) | ✔️ | ✔️ | ✔️
+| [YOLOv11-Detection](https://aihub.qualcomm.com/models/yolov11_det) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection-Quantized](https://aihub.qualcomm.com/models/yolov8_det_quantized) | [qai_hub_models.models.yolov8_det_quantized](qai_hub_models/models/yolov8_det_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Yolo-NAS](https://aihub.qualcomm.com/models/yolonas) | [qai_hub_models.models.yolonas](qai_hub_models/models/yolonas/README.md) | ✔️ | ✔️ | ✔️
@@ -369,7 +374,7 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [Yolo-v7-Quantized](https://aihub.qualcomm.com/models/yolov7_quantized) | [qai_hub_models.models.yolov7_quantized](qai_hub_models/models/yolov7_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
 | **Pose Estimation**
-| [FaceMap_3DMM](qai_hub_models/models/facemap_3dmm/README.md) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) | ✔️ | ✔️ | ✔️
+| [Facial-Landmark-Detection](https://aihub.qualcomm.com/models/facemap_3dmm) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) | ✔️ | ✔️ | ✔️
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) | ✔️ | ✔️ | ✔️
 | [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [LiteHRNet](https://aihub.qualcomm.com/models/litehrnet) | [qai_hub_models.models.litehrnet](qai_hub_models/models/litehrnet/README.md) | ✔️ | ✔️ | ✔️
@@ -413,6 +418,15 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1_quantized) | [qai_hub_models.models.stable_diffusion_v2_1_quantized](qai_hub_models/models/stable_diffusion_v2_1_quantized/README.md) | ✔️ | ✔️ | ✔️
 | | | | |
 | **Text Generation**
-| [Baichuan-7B](https://aihub.qualcomm.com/models/baichuan_7b_quantized) | [qai_hub_models.models.baichuan_7b_quantized](qai_hub_models/models/baichuan_7b_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Baichuan2-7B](https://aihub.qualcomm.com/models/baichuan2_7b_quantized) | [qai_hub_models.models.baichuan2_7b_quantized](qai_hub_models/models/baichuan2_7b_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [IBM-Granite-3B-Code-Instruct](https://aihub.qualcomm.com/models/ibm_granite_3b_code_instruct) | [qai_hub_models.models.ibm_granite_3b_code_instruct](qai_hub_models/models/ibm_granite_3b_code_instruct/README.md) | ✔️ | ✔️ | ✔️
+| [IndusQ-1.1B](https://aihub.qualcomm.com/models/indus_1b_quantized) | [qai_hub_models.models.indus_1b_quantized](qai_hub_models/models/indus_1b_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [JAIS-6p7b-Chat](https://aihub.qualcomm.com/models/jais_6p7b_chat_quantized) | [qai_hub_models.models.jais_6p7b_chat_quantized](qai_hub_models/models/jais_6p7b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Llama-v2-7B-Chat](https://aihub.qualcomm.com/models/llama_v2_7b_chat_quantized) | [qai_hub_models.models.llama_v2_7b_chat_quantized](qai_hub_models/models/llama_v2_7b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Llama-v3-8B-Chat](https://aihub.qualcomm.com/models/llama_v3_8b_chat_quantized) | [qai_hub_models.models.llama_v3_8b_chat_quantized](qai_hub_models/models/llama_v3_8b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Llama-v3.1-8B-Chat](https://aihub.qualcomm.com/models/llama_v3_1_8b_chat_quantized) | [qai_hub_models.models.llama_v3_1_8b_chat_quantized](qai_hub_models/models/llama_v3_1_8b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Llama-v3.2-3B-Chat](https://aihub.qualcomm.com/models/llama_v3_2_3b_chat_quantized) | [qai_hub_models.models.llama_v3_2_3b_chat_quantized](qai_hub_models/models/llama_v3_2_3b_chat_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Mistral-3B](https://aihub.qualcomm.com/models/mistral_3b_quantized) | [qai_hub_models.models.mistral_3b_quantized](qai_hub_models/models/mistral_3b_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Mistral-7B-Instruct-v0.3](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3_quantized) | [qai_hub_models.models.mistral_7b_instruct_v0_3_quantized](qai_hub_models/models/mistral_7b_instruct_v0_3_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [PLaMo-1B](https://aihub.qualcomm.com/models/plamo_1b_quantized) | [qai_hub_models.models.plamo_1b_quantized](qai_hub_models/models/plamo_1b_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Qwen2-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_7b_instruct_quantized) | [qai_hub_models.models.qwen2_7b_instruct_quantized](qai_hub_models/models/qwen2_7b_instruct_quantized/README.md) | ✔️ | ✔️ | ✔️

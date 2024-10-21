@@ -1,0 +1,56 @@
+name: Mistral-7B-Instruct-v0.3
+id: mistral_7b_instruct_v0_3_quantized
+status: public
+headline: State-of-the-art large language model useful on a variety of language
+  understanding and generation tasks.
+domain: Generative AI
+description: Mistral AI's first open source dense model released September 2023. Mistral-7B-Instruct-v0.3 Large Language Model (LLM) is an instruct fine‑tuned version of the Mistral‑7B‑v0.3. It has an extended vocabulary and supports the v3 Tokenizer, enhancing language understanding and generation. Additionally function calling is enabled.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2310.06825
+research_paper_title: "Mistral 7B"
+model_maker_id: mistral-ai
+license: https://github.com/mistralai/mistral-inference/blob/main/LICENSE
+deploy_license: https://github.com/mistralai/mistral-inference/blob/main/LICENSE
+source_repo: https://github.com/mistralai/mistral-inference
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Context length: 4096
+  Number of parameters: 7.3B
+  Precision: w4a16 + w8a16 (few layers)
+  Num of key-value heads: 8
+  Information about the model parts: Prompt Processor and Token Generator are split into 4 parts each. Each corresponding Prompt Processor and Token Generator part share weights.
+  Prompt processor model size: 4.17 GB
+  Prompt processor input: 128 tokens + KVCache initialized with pad token
+  Prompt processor output: 128 output tokens + KVCache for token generator
+  Token generator model size: 4.17 GB
+  Token generator input: 1 input token + past KVCache
+  Token generator output: 1 output token + KVCache for next iteration
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.7
+  Supported languages: English.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: false
+license_type: apache-2.0
+deploy_license_type: apache-2.0
+dataset: []
+model_type_llm: true
+llm_details:
+  call_to_action: 'download'
+  genie_compatible: true
+  Snapdragon 8 Elite QRD:
+    torchscript_onnx_qnn:
+      model_download_url: v2/snapdragon_8_elite/models.zip

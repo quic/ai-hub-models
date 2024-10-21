@@ -270,12 +270,17 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         self.split_part = 1
         self.is_token_generator = is_token_generator
 
+    def get_qnn_graph_name(self) -> Optional[str]:
+        model_name = "token" if self.is_token_generator else "prompt"
+        return f"{model_name}_part{self.split_part}"
+
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
+        graph_name = self.get_qnn_graph_name()
         if (
             target_runtime != TargetRuntime.QNN
             and target_runtime != TargetRuntime.PRECOMPILED_QNN_ONNX
@@ -284,12 +289,26 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-        target_runtime_options = (
+        options = (
             " --target_runtime qnn_context_binary"
             if target_runtime == TargetRuntime.QNN
             else " --target_runtime precompiled_qnn_onnx"
         )
-        return target_runtime_options + " --quantize_full_type w8a16 --quantize_io"
+        options += " --quantize_full_type w8a16 --quantize_io"
+        if graph_name is not None:
+            options += f" --qnn_graph_name {graph_name}"
+        return options
+
+    def get_hub_profile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_profile_options: str = "",
+    ) -> str:
+        options = "--max_profiler_iterations 50"
+        graph_name = self.get_qnn_graph_name()
+        if graph_name is not None:
+            options += f" --qnn_options context_enable_graphs={graph_name}"
+        return options
 
     @staticmethod
     def get_output_names(

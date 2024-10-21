@@ -6,7 +6,7 @@
 Generates high resolution spectrograms images from text prompts using a latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising, and VAE based decoder to generate the final image.
 
 This is based on the implementation of Riffusion found
-[here](https://github.com/CompVis/stable-diffusion/tree/main). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/riffusion_quantized).
 
@@ -44,14 +44,18 @@ python -m qai_hub_models.models.riffusion_quantized.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Riffusion can be found
+* The license for the original implementation of Riffusion can be found
   [here](https://github.com/CompVis/stable-diffusion/blob/main/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://github.com/CompVis/stable-diffusion/blob/main/LICENSE)
+* The license for the compiled assets for on-device deployment can be found [here](https://github.com/CompVis/stable-diffusion/blob/main/LICENSE)
+
 
 ## References
 * [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752)
 * [Source Model Implementation](https://github.com/CompVis/stable-diffusion/tree/main)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

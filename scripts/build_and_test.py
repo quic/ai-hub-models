@@ -14,12 +14,7 @@ from typing import Callable, List, Optional
 from tasks.changes import (
     REPRESENTATIVE_EXPORT_MODELS,
     get_all_models,
-    get_changed_models,
-    get_code_gen_changed_models,
-    get_models_to_run_general_tests,
-    get_models_to_test_export,
-    get_models_with_changed_definitions,
-    get_models_with_export_file_changes,
+    get_models_to_test,
 )
 from tasks.constants import VENV_PATH
 from tasks.plan import (
@@ -258,37 +253,55 @@ class TaskLibrary:
             PyTestScriptsTask(self.venv_path),
         )
 
+    def _get_quantize_models_task(self, models) -> PyTestModelsTask:
+        return PyTestModelsTask(
+            self.python_executable,
+            models,
+            models,
+            self.venv_path,
+            venv_for_each_model=False,
+            use_shared_cache=True,
+            test_trace=False,
+            run_export_quantize=True,
+            run_export_compile=False,
+            skip_standard_unit_test=True,
+        )
+
+    @public_task("Quantize changed models in preparation for testing all of them.")
+    @depends(["install_deps"])
+    def quantize_changed_models(
+        self, plan: Plan, step_id: str = "quantize_changed_models"
+    ) -> str:
+        _, models_to_test_export = get_models_to_test()
+        return plan.add_step(
+            step_id, self._get_quantize_models_task(models_to_test_export)
+        )
+
+    @public_task("Quantize changed models in preparation for testing all of them.")
+    @depends(["install_deps"])
+    def quantize_representative_models(
+        self, plan: Plan, step_id: str = "quantize_representative_models"
+    ) -> str:
+        return plan.add_step(
+            step_id, self._get_quantize_models_task(REPRESENTATIVE_EXPORT_MODELS)
+        )
+
+    @public_task("Quantize changed models in preparation for testing all of them.")
+    @depends(["install_deps"])
+    def quantize_all_models(
+        self, plan: Plan, step_id: str = "quantize_all_models"
+    ) -> str:
+        all_models = get_all_models()
+        return plan.add_step(step_id, self._get_quantize_models_task(all_models))
+
     @public_task(
         "Run most tests for only added/modified models in Model Zoo. Includes most tests, uses shared global cache, and uses the same environment for each model."
     )
-    @depends(["install_deps"])
+    @depends(["install_deps", "quantize_changed_models"])
     def test_changed_models(
         self, plan: Plan, step_id: str = "test_changed_models"
     ) -> str:
-        # model.py changed
-        model_changed_models = get_models_with_changed_definitions()
-
-        # export.py or test_generated.py changed
-        export_changed_models = get_models_with_export_file_changes()
-
-        # code-gen.yaml changed
-        code_gen_changed_models = get_code_gen_changed_models()
-
-        # If model or code-gen changed, then test export.
-        models_to_test_export = model_changed_models | code_gen_changed_models
-
-        # For all other models where export.py or test_generated.py changed,
-        #   only test if they're part of REPRESENTATIVE_EXPORT_MODELS
-        models_to_test_export.update(
-            export_changed_models & set(REPRESENTATIVE_EXPORT_MODELS)
-        )
-
-        # Set of models where model.py, demo.py, or test.py changed.
-        models_to_run_tests = get_models_to_run_general_tests()
-
-        # export tests can only run alongside general model tests
-        models_to_run_tests = models_to_run_tests | models_to_test_export
-
+        models_to_run_tests, models_to_test_export = get_models_to_test()
         return plan.add_step(
             step_id,
             PyTestModelsTask(
@@ -305,17 +318,17 @@ class TaskLibrary:
     @public_task(
         "Run all tests for only added/modified models in Model Zoo. Includes all tests, and creates a fresh environment for each model."
     )
-    @depends(["install_deps"])
+    @depends(["install_deps", "quantize_changed_models"])
     def test_changed_models_long(
         self, plan: Plan, step_id: str = "test_changed_models_long"
     ) -> str:
-        default_test_models = REPRESENTATIVE_EXPORT_MODELS
+        models_to_run_tests, models_to_test_export = get_models_to_test()
         return plan.add_step(
             step_id,
             PyTestModelsTask(
                 self.python_executable,
-                get_changed_models() or default_test_models,
-                get_models_to_test_export() or default_test_models,
+                models_to_run_tests,
+                models_to_test_export,
                 self.venv_path,
                 venv_for_each_model=True,
                 use_shared_cache=False,
@@ -323,7 +336,7 @@ class TaskLibrary:
         )
 
     @public_task("Run tests for all models in Model Zoo.")
-    @depends(["install_deps"])
+    @depends(["install_deps", "quantize_representative_models"])
     def test_all_models(self, plan: Plan, step_id: str = "test_all_models") -> str:
         # Excludes export tests, and uses the same environment for each model.
         all_models = get_all_models()
@@ -353,53 +366,46 @@ class TaskLibrary:
             ),
         )
 
+    def _make_hub_scorecard_task(
+        self, compile: bool = False, profile: bool = False, quantize: bool = False
+    ) -> PyTestModelsTask:
+        all_models = get_all_models()
+        return PyTestModelsTask(
+            self.python_executable,
+            all_models,
+            all_models,
+            self.venv_path,
+            venv_for_each_model=False,
+            use_shared_cache=True,
+            run_export_compile=compile,
+            run_export_profile=profile,
+            run_export_quantize=quantize,
+            # If one model fails, we should still try the others.
+            exit_after_single_model_failure=False,
+            skip_standard_unit_test=True,
+            test_trace=False,
+        )
+
     @public_task("Run Compile jobs for all models in Model Zoo.")
     @depends(["install_deps"])
     def test_compile_all_models(
         self, plan: Plan, step_id: str = "test_compile_all_models"
     ) -> str:
-        all_models = get_all_models()
-        return plan.add_step(
-            step_id,
-            PyTestModelsTask(
-                self.python_executable,
-                all_models,
-                all_models,
-                self.venv_path,
-                venv_for_each_model=False,
-                use_shared_cache=True,
-                run_export_compile=True,
-                run_export_profile=False,
-                # If one model fails to export, we should still try the others.
-                exit_after_single_model_failure=False,
-                skip_standard_unit_test=True,
-                test_trace=False,
-            ),
-        )
+        return plan.add_step(step_id, self._make_hub_scorecard_task(compile=True))
 
     @public_task("Run profile jobs for all models in Model Zoo.")
     @depends(["install_deps"])
     def test_profile_all_models(
         self, plan: Plan, step_id: str = "test_profile_all_models"
     ) -> str:
-        all_models = get_all_models()
-        return plan.add_step(
-            step_id,
-            PyTestModelsTask(
-                self.python_executable,
-                all_models,
-                all_models,
-                self.venv_path,
-                venv_for_each_model=False,
-                use_shared_cache=True,
-                run_export_compile=False,
-                run_export_profile=True,
-                skip_standard_unit_test=True,
-                # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
-                exit_after_single_model_failure=False,
-                test_trace=False,
-            ),
-        )
+        return plan.add_step(step_id, self._make_hub_scorecard_task(profile=True))
+
+    @public_task("Run quantize jobs for all models in Model Zoo.")
+    @depends(["install_deps"])
+    def test_quantize_all_models(
+        self, plan: Plan, step_id: str = "test_quantize_all_models"
+    ) -> str:
+        return plan.add_step(step_id, self._make_hub_scorecard_task(quantize=True))
 
     @public_task("Verify all export scripts work e2e.")
     @depends(["install_deps"])
@@ -427,7 +433,7 @@ class TaskLibrary:
         )
 
     @public_task("Run tests for all models in Model Zoo.")
-    @depends(["install_deps"])
+    @depends(["install_deps", "quantize_all_models"])
     def test_all_models_long(
         self, plan: Plan, step_id: str = "test_all_models_long"
     ) -> str:

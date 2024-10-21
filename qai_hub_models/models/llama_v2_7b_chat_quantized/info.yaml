@@ -21,10 +21,11 @@ research_paper_title: "LLaMA: Open and Efficient Foundation Language Models"
 license: https://github.com/facebookresearch/llama/blob/main/LICENSE
 source_repo: https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
 technical_details:
+  Input sequence length for Prompt Processor: 1024
+  Context length: 1024
   Number of parameters: 7B
   Precision: w4a16 + w8a16 (few layers)
   Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
-  Max context length: 1024
   Prompt processor model size: 3.6 GB
   Prompt processor input: 1024 tokens
   Prompt processor output: 1024 output tokens + KVCache for token generator
@@ -32,8 +33,11 @@ technical_details:
   Token generator model size: 3.6 GB
   Token generator input: 1 input token + past KVCache
   Token generator output: 1 output token + KVCache for next iteration
-  Decoding length: 1024 (1 output token + 1023 from KVCache)
   Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.0
+  Supported languages: English.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. For Llama-v2-7B-Chat, both values in the range are the same since prompt length is the full context length (1024 tokens).
+  Response Rate: Rate of response generation after the first response token.
 applicable_scenarios:
   - Dialogue
   - Content Generation
@@ -49,3 +53,7 @@ deploy_license: https://github.com/facebookresearch/llama/blob/main/LICENSE
 deploy_license_type: llama2
 dataset: []
 restrict_model_sharing: true
+model_type_llm: true
+llm_details:
+  call_to_action: 'view_readme'
+  genie_compatible: true

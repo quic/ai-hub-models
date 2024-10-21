@@ -116,10 +116,9 @@ class PerformanceSummary:
                     prev_inference_time = prev_inference_time.get(
                         "inference_time", "null"
                     )
-                    new_inference_time = new_perf_metrics[device].get(runtime_type, {})
-                    new_inference_time = new_inference_time.get(
-                        "inference_time", "null"
-                    )
+                    run_stats = new_perf_metrics[device].get(runtime_type, {})
+                    job_id = run_stats.get("job_id", "null")
+                    new_inference_time = run_stats.get("inference_time", "null")
                     if new_inference_time == prev_inference_time:
                         continue
 
@@ -131,6 +130,7 @@ class PerformanceSummary:
                             "inf",
                             self._format_speedup(new_inference_time),
                             self._format_speedup(prev_inference_time),
+                            job_id,
                             device_info["chipset"],
                             device_info["os"],
                         )
@@ -161,6 +161,7 @@ class PerformanceSummary:
                                 self._format_speedup(speedup),
                                 self._format_speedup(new_inference_time),
                                 self._format_speedup(prev_inference_time),
+                                job_id,
                                 device_info["chipset"],
                                 device_info["os"],
                             )
@@ -183,6 +184,7 @@ class PerformanceSummary:
                 "Kx faster" if get_progressions else "Kx slower",
                 "New Inference time",
                 "Prev Inference time",
+                "Job ID",
                 "Chipset",
                 "OS",
             ]

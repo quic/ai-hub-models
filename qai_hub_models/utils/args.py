@@ -439,12 +439,13 @@ def get_qcom_chipsets() -> Set[str]:
 
 def _evaluate_export_common_parser(
     model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
-    supports_tflite=True,
-    supports_qnn=True,
-    supports_onnx=True,
-    supports_precompiled_qnn_onnx=True,
-    default_runtime=TargetRuntime.TFLITE,
-    exporting_compiled_model=False,
+    supports_tflite: bool = True,
+    supports_qnn: bool = True,
+    supports_onnx: bool = True,
+    supports_precompiled_qnn_onnx: bool = True,
+    default_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    exporting_compiled_model: bool = False,
+    is_hub_quantized: bool = False,
 ) -> argparse.ArgumentParser:
     """
     Common arguments between export and evaluate scripts.
@@ -452,7 +453,13 @@ def _evaluate_export_common_parser(
     # Set handler to resolve, to allow from_pretrained and get_input_spec
     # to have the same argument names.
     parser = get_parser(allow_dupe_args=True)
-
+    if is_hub_quantized:
+        parser.add_argument(
+            "--num-calibration-samples",
+            type=int,
+            default=100,
+            help="The number of calibration data samples to use for quantization.",
+        )
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
         available_runtimes = []
@@ -508,6 +515,7 @@ def export_parser(
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     default_export_device: str = DEFAULT_EXPORT_DEVICE,
+    is_hub_quantized: bool = False,
 ) -> argparse.ArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -532,11 +540,11 @@ def export_parser(
             True when exporting compiled model.
             If set, removing skip_profiling flag from export arguments.
             Default = False.
-        default_export_device:
-            Default device to set for export.
+        default_export_device: Default device to set for export.
+        is_hub_quantized: Whether the model is quantized via the hub quantize job.
 
     Returns:
-        Arg parser object.
+        argparse ArgumentParser object.
     """
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
@@ -546,6 +554,7 @@ def export_parser(
         supports_precompiled_qnn_onnx=supports_precompiled_qnn_onnx,
         default_runtime=default_runtime,
         exporting_compiled_model=exporting_compiled_model,
+        is_hub_quantized=is_hub_quantized,
     )
     parser.add_argument(
         "--device",
@@ -561,6 +570,12 @@ def export_parser(
         help="If set, will choose a random device with this chipset. "
         "Overrides whatever is set in --device.",
     )
+    if is_hub_quantized:
+        parser.add_argument(
+            "--skip-compiling",
+            action="store_true",
+            help="If set, skips compiling to asset that can run on device.",
+        )
     parser.add_argument(
         "--skip-profiling",
         action="store_true",
@@ -609,6 +624,7 @@ def evaluate_parser(
     supports_qnn=True,
     supports_onnx=True,
     default_runtime=TargetRuntime.TFLITE,
+    is_hub_quantized: bool = False,
 ) -> argparse.ArgumentParser:
     """
     Arg parser to be used in evaluate scripts.
@@ -630,6 +646,7 @@ def evaluate_parser(
             If set, removing skip_profiling flag from export arguments.
             Default = False.
         default_runtime: Which runtime to use as default if not specified in cli args.
+        is_hub_quantized: Whether the model is quantized via the hub quantize job.
 
     Returns:
         Arg parser object.
@@ -640,6 +657,7 @@ def evaluate_parser(
         supports_qnn=supports_qnn,
         supports_onnx=supports_onnx,
         default_runtime=default_runtime,
+        is_hub_quantized=is_hub_quantized,
     )
     parser.add_argument(
         "--chipset",

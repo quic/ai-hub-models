@@ -6,7 +6,7 @@
 UNet is a machine learning model that produces a segmentation mask for an image. The most basic use case will label each pixel in the image as being in the foreground or the background. More advanced usage will assign a class label to each pixel. This version of the model was trained on the data from Kaggle's Carvana Image Masking Challenge (see https://www.kaggle.com/c/carvana-image-masking-challenge) and is used for vehicle segmentation.
 
 This is based on the implementation of Unet-Segmentation found
-[here](https://github.com/milesial/Pytorch-UNet). This repository contains scripts for optimized on-device
+[here]({source_repo}). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/unet_segmentation).
 
@@ -39,14 +39,18 @@ python -m qai_hub_models.models.unet_segmentation.export
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
+
 ## License
-- The license for the original implementation of Unet-Segmentation can be found
+* The license for the original implementation of Unet-Segmentation can be found
   [here](https://github.com/milesial/Pytorch-UNet/blob/master/LICENSE).
-- The license for the compiled assets for on-device deployment can be found [here](https://github.com/milesial/Pytorch-UNet/blob/master/LICENSE)
+* The license for the compiled assets for on-device deployment can be found [here](https://github.com/milesial/Pytorch-UNet/blob/master/LICENSE)
+
 
 ## References
 * [U-Net: Convolutional Networks for Biomedical Image Segmentation](https://arxiv.org/abs/1505.04597)
 * [Source Model Implementation](https://github.com/milesial/Pytorch-UNet)
+
+
 
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.

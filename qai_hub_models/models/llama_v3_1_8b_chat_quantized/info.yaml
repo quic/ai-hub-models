@@ -1,0 +1,61 @@
+name: Llama-v3.1-8B-Chat
+id: llama_v3_1_8b_chat_quantized
+status: public
+headline: State-of-the-art large language model useful on a variety of language
+  understanding and generation tasks.
+domain: Generative AI
+description: Llama 3 is a family of LLMs. The "Chat" at the end indicates that
+  the model is optimized for chatbot-like dialogue. The model is quantized to
+  w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to
+  w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device
+  deployment. For Prompt and output length specified below, the time to first token is
+  Llama-PromptProcessor-Quantized's latency and average time per addition token is
+  Llama-TokenGenerator-Quantized's latency.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/
+research_paper_title: "LLaMA: Open and Efficient Foundation Language Models"
+license: https://github.com/facebookresearch/llama/blob/main/LICENSE
+source_repo: https://github.com/meta-llama/llama3/tree/main
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Context length: 4096
+  Number of parameters: 8B
+  Model size: 4.8GB
+  Precision: w4a16 + w8a16 (few layers)
+  Num of key-value heads: 8
+  Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
+  Prompt processor input: 128 tokens + position embeddings + attention mask + KV cache inputs
+  Prompt processor output: 128 output tokens + KV cache outputs
+  Model-2 (Token Generator): Llama-TokenGenerator-Quantized
+  Token generator input: 1 input token + position embeddings + attention mask + KV cache inputs
+  Token generator output: 1 output token + KV cache outputs
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.7
+  Language(s) supported: English.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models:
+  - llama_v3_8b_chat_quantized
+  - llama_v3_2_3b_chat_quantized
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: true
+license_type: llama3
+deploy_license: https://github.com/facebookresearch/llama/blob/main/LICENSE
+deploy_license_type: llama3
+dataset: []
+restrict_model_sharing: true
+model_type_llm: true
+llm_details:
+  call_to_action: 'view_readme'
+  genie_compatible: true

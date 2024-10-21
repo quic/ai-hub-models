@@ -10,17 +10,17 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, cast
 
 import qai_hub as hub
 
+from qai_hub_models.models.common import ExportResult, TargetRuntime
 from qai_hub_models.models.ffnet_78s_quantized import Model
 from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
@@ -44,20 +44,18 @@ def export_model(
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
-) -> Tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]] | List[
-    str
-]:
+) -> ExportResult | List[str]:
     """
-    This function accomplishes 6 main tasks:
+    This function executes the following recipe:
 
-        1. Instantiates a PyTorch model and converts it to a traced TorchScript format.
-        2. Compiles the model to an asset that can be run on device.
-        3. Profiles the model performance on real devices.
-        4. Inferences the model on sample inputs.
-        5. Downloads the model asset to the local directory.
-        6. Summarizes the results from profiling and inference.
+        1. Instantiates a PyTorch model and converts it to a traced TorchScript format
+        2. Compiles the model to an asset that can be run on device
+        3. Profiles the model performance on a real device
+        4. Inferences the model on sample inputs
+        5. Downloads the model asset to the local directory
+        6. Summarizes the results from profiling and inference
 
-    Each of the last four steps can be optionally skipped using the input options.
+    Each of the last 4 steps can be optionally skipped using the input options.
 
     Parameters:
         device: Device for which to export the model.
@@ -79,10 +77,10 @@ def export_model(
             `model_cls.from_pretrained` and `model.get_input_spec`
 
     Returns:
-        A 3-tuple of:
+        A struct of:
             * A CompileJob object containing metadata about the compile job submitted to hub.
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
     """
     model_name = "ffnet_78s_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
@@ -108,7 +106,7 @@ def export_model(
     # On-device perf improves with I/O in channel_last format except when using ONNX.
     use_channel_last_format = target_runtime != TargetRuntime.ONNX
 
-    # 1. Initialize PyTorch model
+    # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     input_spec = model.get_input_spec(
         **get_input_spec_kwargs(model, additional_model_kwargs)
@@ -119,7 +117,7 @@ def export_model(
         target_runtime, output_path, input_spec
     )
 
-    # 2. Compile the model to an on-device asset
+    # 2. Compiles the model to an asset that can be run on device
     model_compile_options = model.get_hub_compile_options(
         target_runtime, compile_options, hub_device
     )
@@ -134,7 +132,7 @@ def export_model(
     )
     compile_job = cast(hub.client.CompileJob, submitted_compile_job)
 
-    # 3. Profile the model asset on real devices
+    # 3. Profiles the model performance on a real device
     profile_job: Optional[hub.client.ProfileJob] = None
     if not skip_profiling:
         profile_options_all = model.get_hub_profile_options(
@@ -149,7 +147,7 @@ def export_model(
         )
         profile_job = cast(hub.client.ProfileJob, submitted_profile_job)
 
-    # 4. Run inference on-device with sample inputs
+    # 4. Inferences the model on sample inputs
     inference_job: Optional[hub.client.InferenceJob] = None
     if not skip_inferencing:
         profile_options_all = model.get_hub_profile_options(
@@ -170,13 +168,13 @@ def export_model(
         )
         inference_job = cast(hub.client.InferenceJob, submitted_inference_job)
 
-    # 5. Download the model asset to a local file
+    # 5. Downloads the model asset to the local directory
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
         target_model: hub.Model = compile_job.get_target_model()  # type: ignore
         target_model.download(str(output_path / model_name))
 
-    # 6. Summarize the results from profiling and inference
+    # 6. Summarizes the results from profiling and inference
     if not skip_summary and not skip_profiling:
         assert profile_job is not None and profile_job.wait().success
         profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
@@ -194,7 +192,11 @@ def export_model(
             inference_job, inference_result, torch_out, model.get_output_names()
         )
 
-    return (compile_job, profile_job, inference_job)
+    return ExportResult(
+        compile_job=compile_job,
+        inference_job=inference_job,
+        profile_job=profile_job,
+    )
 
 
 def main():

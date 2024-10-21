@@ -99,7 +99,7 @@ def test_model_inference_run_toggle():
     perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     assert perf_summary.progressions["inf"] == [
-        (MODEL_ID, "torchscript_onnx_tflite", "inf", 10.0, "null", CHIPSET, OS)
+        (MODEL_ID, "torchscript_onnx_tflite", "inf", 10.0, "null", "null", CHIPSET, OS)
     ]
 
 
@@ -118,7 +118,7 @@ def test_perf_progression_basic():
     perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
-        (MODEL_ID, "torchscript_onnx_tflite", 20.0, 0.5, 10.0, CHIPSET, OS),
+        (MODEL_ID, "torchscript_onnx_tflite", 20.0, 0.5, 10.0, "null", CHIPSET, OS),
     ]
 
     assert perf_summary.progressions[10] == expected_inf_bucket
@@ -140,7 +140,7 @@ def test_perf_regression_basic():
     perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
-        (MODEL_ID, "torchscript_onnx_tflite", 2, 20.0, 10.0, CHIPSET, OS),
+        (MODEL_ID, "torchscript_onnx_tflite", 2, 20.0, 10.0, "null", CHIPSET, OS),
     ]
 
     assert perf_summary.regressions[2] == expected_inf_bucket
