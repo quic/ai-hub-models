@@ -35,7 +35,7 @@ except (ImportError, ModuleNotFoundError) as e:
 
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from zipfile import ZipFile
 
 import torch
@@ -77,7 +77,7 @@ def _should_tie_observers(op: torch.nn.Module) -> bool:
     return False
 
 
-def _get_observer_module_name(modules: Dict[str, Any], target: Any) -> Optional[str]:
+def _get_observer_module_name(modules: dict[str, Any], target: Any) -> Optional[str]:
     if not isinstance(target, str):
         return None
     module = modules.get(target)
@@ -89,13 +89,13 @@ def _get_observer_module_name(modules: Dict[str, Any], target: Any) -> Optional[
 
 
 def _tie_quantizer_deps(
-    quantizer_deps: Dict[str, List[str]], modules: Dict[str, torch.nn.Module]
+    quantizer_deps: dict[str, list[str]], modules: dict[str, torch.nn.Module]
 ) -> None:
     """
     Given a dependency graph of nodes, tie output quantizers of nodes that share an edge.
     All edges should be bidirectional.
     """
-    seen = set([])
+    seen = set()
     for input_module_name in quantizer_deps.keys():
         if input_module_name in seen:
             continue
@@ -138,7 +138,7 @@ def tie_observers(quant_sim: QuantizationSimModel) -> None:
     # nodes store the graph structure (which ops input into other ops).
     # modules store the op objects themselves.
     # Create a dependency graph of modules that need to share output quantizers.
-    quantizer_deps: Dict[str, List[str]] = {}
+    quantizer_deps: dict[str, list[str]] = {}
     for node in nodes:
         module = modules.get(node.target)
         if module is None or not _should_tie_observers(module):
@@ -197,14 +197,14 @@ def convert_all_depthwise_to_per_tensor(module):
 
 
 def constrain_quantized_inputs_to_range(
-    qsim: QuantizationSimModel, range: Tuple[float, float]
+    qsim: QuantizationSimModel, range: tuple[float, float]
 ):
     """
     For all model inputs, set the quantizer to have the provided input range.
     """
 
     # Map: <nn.Module, List of Quantized Inputs>
-    module_to_inputs_idx: Dict[torch.nn.Module, List[int]] = {}
+    module_to_inputs_idx: dict[torch.nn.Module, list[int]] = {}
     op: AimetOp
     for op in qsim.connected_graph.get_all_ops().values():
         if op.get_module():
@@ -364,7 +364,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         input_spec: InputSpec | None = None,
         model_name: str | None = None,
         external_weights: bool = False,
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ) -> str:
         """
         Converts the torch module to a zip file containing an

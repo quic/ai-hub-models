@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -35,7 +35,7 @@ class YoloObjectDetectionApp:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         ],
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
@@ -86,9 +86,9 @@ class YoloObjectDetectionApp:
 
     def predict_boxes_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
-    ) -> Tuple[List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]] | List[
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[
         np.ndarray
     ]:
         """
@@ -107,15 +107,15 @@ class YoloObjectDetectionApp:
 
         Returns:
             If raw_output is false or pixel_values_or_image is not a PIL image, returns:
-                images: List[np.ndarray]
+                images: list[np.ndarray]
                     A list of predicted BGR, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
 
             Otherwise, returns:
-                boxes: List[torch.Tensor]
+                boxes: list[torch.Tensor]
                     Bounding box locations per batch. List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2)
-                scores: List[torch.Tensor]
+                scores: list[torch.Tensor]
                     class scores per batch multiplied by confidence: List element shape is [num_preds, # of classes (typically 80)]
-                class_idx: List[torch.tensor]
+                class_idx: list[torch.tensor]
                     Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
         """
 
@@ -166,7 +166,7 @@ class YoloObjectDetectionApp:
 
     def pre_nms_postprocess(
         self, *predictions: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Process the output of the YOLO detector for input to NMS.
 

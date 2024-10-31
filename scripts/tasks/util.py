@@ -2,10 +2,13 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import contextlib
 import functools
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -44,7 +47,7 @@ def new_cd(x):
         os.chdir(d)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def check_code_gen_field(model_name: str, field_name: str) -> bool:
     """
     This process does not have the yaml package, so use this primitive way
@@ -52,14 +55,16 @@ def check_code_gen_field(model_name: str, field_name: str) -> bool:
     """
     yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
     if yaml_path.exists():
-        with open(yaml_path, "r") as f:
+        with open(yaml_path) as f:
             if f"{field_name}: true" in f.read():
                 return True
     return False
 
 
 def can_support_aimet(platform: str = sys.platform) -> bool:
-    return platform == "linux" or platform == "linux2"
+    return (
+        platform == "linux" or platform == "linux2"
+    ) and sys.version_info.minor == 10
 
 
 def get_is_hub_quantized(model_name) -> bool:
@@ -68,6 +73,31 @@ def get_is_hub_quantized(model_name) -> bool:
 
 def model_needs_aimet(model_name: str) -> bool:
     return "quantized" in model_name.lower() and not get_is_hub_quantized(model_name)
+
+
+def get_model_python_version_requirements(
+    model_name: str,
+) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
+    # Returns minimum required version,
+    # and "less than" required version (eg. python version must be less than the provided version)
+    # None == No version set (any version OK)
+    info = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "code-gen.yaml")
+    req_less_than, min_version = None, None
+    if os.path.exists(info):
+        info_data = open(info).read()
+        req_less_than = re.search(r'python_version_less_than:\s*"([\d.]+)"', info_data)
+        if req_less_than:
+            spl = req_less_than.group(1).split(".")
+            req_less_than = int(spl[0]), int(spl[1])
+
+        min_version = re.search(
+            r'python_version_greater_than_or_equal_to:\s*"([\d.]+)"', info_data
+        )
+        if min_version:
+            spl = min_version.group(1).split(".")
+            min_version = int(spl[0]), int(spl[1])
+
+    return (min_version, req_less_than)
 
 
 def default_parallelism() -> int:

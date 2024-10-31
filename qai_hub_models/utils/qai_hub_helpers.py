@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import qai_hub as hub
@@ -52,8 +52,8 @@ def export_without_hub_access(
     target_runtime: TargetRuntime,
     compile_options: str,
     profile_options: str,
-    components: Optional[List[str]] = None,
-) -> List[str]:
+    components: Optional[list[str]] = None,
+) -> list[str]:
     print(_WARNING_DASH)
     print(
         f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"
@@ -97,7 +97,7 @@ def export_without_hub_access(
 
                 runtime_perf = None
                 for path, path_runtime_perf in device_perf.details_per_path.items():
-                    if path.get_runtime() == target_runtime:
+                    if path.runtime == target_runtime:
                         runtime_perf = path_runtime_perf
                         break
 

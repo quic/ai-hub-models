@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -57,11 +57,11 @@ class MediaPipeApp:
 
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         detector_anchors: torch.Tensor,
-        landmark_detector: Callable[[torch.Tensor], Tuple[torch.Tensor, ...]],
-        detector_input_dims: Tuple[int, int],
-        landmark_input_dims: Tuple[int, int],
+        landmark_detector: Callable[[torch.Tensor], tuple[torch.Tensor, ...]],
+        detector_input_dims: tuple[int, int],
+        landmark_input_dims: tuple[int, int],
         keypoint_rotation_vec_start_idx: int,
         keypoint_rotation_vec_end_idx: int,
         rotation_offset_rads: float,
@@ -71,27 +71,27 @@ class MediaPipeApp:
         detector_score_clipping_threshold: int = 100,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
-        landmark_connections: List[Tuple[int, int]] | None = None,
+        landmark_connections: list[tuple[int, int]] | None = None,
     ):
         """
         Create a MediaPipe application.
 
         Parameters:
-            detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]
+            detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
                 The bounding box and keypoint detector model.
                 Input is an image [N C H W], channel layout is BGR, output is [coordinates, scores].
 
             detector_anchors: torch.Tensor
                 Detector anchors, for decoding predictions from anchor points to boxes.
 
-            landmark_detector: Callable[[torch.Tensor], Tuple[torch.Tensor, ...]]
+            landmark_detector: Callable[[torch.Tensor], tuple[torch.Tensor, ...]]
                 The landmark detector model. Input is an image [N C H W],
                 channel layout is BGR, output is [scores, landmarks].
 
-            detector_input_dims: Tuple[int, int]
+            detector_input_dims: tuple[int, int]
                 Input dimensionality (W, H) of the bounding box detector.
 
-            landmark_input_dims: Tuple[int, int]
+            landmark_input_dims: tuple[int, int]
                 Input dimensionality (W, H) of the landmark detector.
 
             keypoint_rotation_vec_start_idx: int
@@ -124,9 +124,9 @@ class MediaPipeApp:
             min_landmark_score: float
                 Any landmark set with a score below this number will be discarded.
 
-            landmark_connections: List[Tuple[int, int]] | None
+            landmark_connections: list[tuple[int, int]] | None
                 Connections between landmark output points.
-                Format is List[Tuple[Landmark Point Index 0, Landmark Point Index 1]]
+                Format is list[tuple[Landmark Point Index 0, Landmark Point Index 1]]
                 These connections will be drawn on the output image when applicable.
         """
         self.detector = detector
@@ -151,14 +151,14 @@ class MediaPipeApp:
 
     def predict_landmarks_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
-    ) -> Tuple[
-        List[torch.Tensor | None],
-        List[torch.Tensor | None],
-        List[torch.Tensor | None],
-        List[torch.Tensor | None],
-    ] | List[np.ndarray]:
+    ) -> tuple[
+        list[torch.Tensor | None],
+        list[torch.Tensor | None],
+        list[torch.Tensor | None],
+        list[torch.Tensor | None],
+    ] | list[np.ndarray]:
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
@@ -175,19 +175,19 @@ class MediaPipeApp:
 
         Returns:
             If raw_output is false, returns:
-                images: List[np.ndarray]
+                images: list[np.ndarray]
                     A list of predicted images (one for each batch), with NHWC shape and BGR channel layout.
                     Each image will have landmarks, roi, and bounding boxes drawn, if they are detected.
 
             Otherwise, returns several "batched" (one element per input image) lists:
-                batched_selected_boxes: List[torch.Tensor | None]
+                batched_selected_boxes: list[torch.Tensor | None]
                     Selected object bounding box coordinates. None if batch had no bounding boxes with a score above the threshold.
                     Shape of each list element is [num_selected_boxes, 2, 2].
                         Layout is
                             [[box_x1, box_y1],
                              [box_x2, box_y2]]
 
-                batched_selected_keypoints: List[torch.Tensor | None]
+                batched_selected_keypoints: list[torch.Tensor | None]
                     Selected object bounding box keypoints. None if batch had no bounding boxes with a score above the threshold.
                     Shape of each list element is [num_selected_boxes, # of keypoints, 2].
                         Layout is
@@ -195,13 +195,13 @@ class MediaPipeApp:
                              ...,
                              [keypoint_max_x, keypoint_max_y]]
 
-                batched_roi_4corners: List[torch.Tensor | None]
+                batched_roi_4corners: list[torch.Tensor | None]
                     Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                     None if batch had no bounding boxes with a score above the threshold.
                     Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
                     The order of points is  (top left point, bottom left point, top right point, bottom right point)
 
-                batched_selected_landmarks: List[torch.tensor | None]
+                batched_selected_landmarks: list[torch.tensor | None]
                     Selected landmarks. Organized like the following:
                     [
                         # Batch 0 (for Input Image 0)
@@ -230,7 +230,7 @@ class MediaPipeApp:
         )
 
         # The region of interest ( bounding box of 4 (x, y) corners).
-        # List[torch.Tensor(shape=[Num Boxes, 4, 2])],
+        # list[torch.Tensor(shape=[Num Boxes, 4, 2])],
         # where 2 == (x, y)
         #
         # A list element will be None if there is no selected ROI.
@@ -239,7 +239,7 @@ class MediaPipeApp:
         )
 
         # selected landmarks for the ROI (if any)
-        # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
+        # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
@@ -267,7 +267,7 @@ class MediaPipeApp:
 
     def _run_box_detector(
         self, NCHW_fp32_torch_frames: torch.Tensor
-    ) -> Tuple[List[torch.Tensor | None], List[torch.Tensor | None]]:
+    ) -> tuple[list[torch.Tensor | None], list[torch.Tensor | None]]:
         """
         From the provided image or tensor, predict the bounding boxes and keypoints of objects detected within.
 
@@ -276,14 +276,14 @@ class MediaPipeApp:
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
 
         Returns:
-            batched_selected_boxes: List[torch.Tensor | None]
+            batched_selected_boxes: list[torch.Tensor | None]
                 Selected object bounding box coordinates. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 2, 2].
                     Layout is
                         [[box_x1, box_y1],
                             [box_x2, box_y2]]
 
-            batched_selected_keypoints: List[torch.Tensor | None]
+            batched_selected_keypoints: list[torch.Tensor | None]
                 Selected object bounding box keypoints. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, # of keypoints, 2].
                     Layout is
@@ -325,7 +325,7 @@ class MediaPipeApp:
         flattened_box_coords = box_coords.view(list(box_coords.shape)[:-2] + [-1])
 
         # Run non maximum suppression on the output
-        # batched_selected_coords = List[torch.Tensor(shape=[Num Boxes, 4])],
+        # batched_selected_coords = list[torch.Tensor(shape=[Num Boxes, 4])],
         # where 4 = (x0, y0, x1, y1)
         batched_selected_coords, _ = batched_nms(
             self.nms_iou_threshold,
@@ -361,22 +361,22 @@ class MediaPipeApp:
 
     def _compute_object_roi(
         self,
-        batched_selected_boxes: List[torch.Tensor | None],
-        batched_selected_keypoints: List[torch.Tensor | None],
-    ) -> List[torch.Tensor | None]:
+        batched_selected_boxes: list[torch.Tensor | None],
+        batched_selected_keypoints: list[torch.Tensor | None],
+    ) -> list[torch.Tensor | None]:
         """
         From the provided bounding boxes and keypoints, compute the region of interest (ROI) that should be used
         as input to the landmark detection model.
 
         Parameters:
-            batched_selected_boxes: List[torch.Tensor | None]
+            batched_selected_boxes: list[torch.Tensor | None]
                 Selected object bounding box coordinates. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 2, 2].
                     Layout is
                         [[box_x1, box_y1],
                             [box_x2, box_y2]]
 
-            batched_selected_keypoints: List[torch.Tensor | None]
+            batched_selected_keypoints: list[torch.Tensor | None]
                 Selected object bounding box keypoints. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, # of keypoints, 2].
                     Layout is
@@ -385,7 +385,7 @@ class MediaPipeApp:
                             [keypoint_max_x, keypoint_max_y]]
 
         Returns
-            batched_roi_4corners: List[torch.Tensor | None]
+            batched_roi_4corners: list[torch.Tensor | None]
                 Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                 None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
@@ -432,9 +432,9 @@ class MediaPipeApp:
 
     def _run_landmark_detector(
         self,
-        NHWC_int_numpy_frames: List[np.ndarray],
-        batched_roi_4corners: List[torch.Tensor | None],
-    ) -> Tuple[List[torch.Tensor | None]]:
+        NHWC_int_numpy_frames: list[np.ndarray],
+        batched_roi_4corners: list[torch.Tensor | None],
+    ) -> tuple[list[torch.Tensor | None]]:
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
@@ -443,14 +443,14 @@ class MediaPipeApp:
                 List of numpy arrays of shape (H W C x uint8) -- BGR channel layout
                 Length of list is # of batches (the number of input images)
 
-                batched_roi_4corners: List[torch.Tensor | None]
+                batched_roi_4corners: list[torch.Tensor | None]
                     Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                     None if batch had no bounding boxes with a score above the threshold.
                     Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
                     The order of points is (top left point, bottom left point, top right point, bottom right point)
 
         Returns:
-                batched_selected_landmarks: List[torch.tensor | None]
+                batched_selected_landmarks: list[torch.tensor | None]
                     Selected landmarks. Organized like the following:
                     [
                         # Batch 0 (for Input Image 0)
@@ -470,11 +470,11 @@ class MediaPipeApp:
         """
 
         # selected landmarks for the ROI (if any)
-        # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
+        # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
-        batched_selected_landmarks: List[torch.Tensor | None] = []
+        batched_selected_landmarks: list[torch.Tensor | None] = []
 
         # For each input image...
         for batch_idx, roi_4corners in enumerate(batched_roi_4corners):
@@ -548,14 +548,14 @@ class MediaPipeApp:
                         [[box_x1, box_y1],
                          [box_x2, box_y2]]
 
-            selected_keypoints: List[torch.Tensor | None]
+            selected_keypoints: list[torch.Tensor | None]
                 Selected object bounding box keypoints. Shape is [num_selected_boxes, # of keypoints, 2].
                     Layout is
                         [[keypoint_0_x, keypoint_0_y],
                          ...,
                          [keypoint_max_x, keypoint_max_y]]
 
-            roi_4corners: List[torch.Tensor | None]
+            roi_4corners: list[torch.Tensor | None]
                 Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                 Shape is [num_selected_boxes, 4, 2], where 2 == (x, y)
 
@@ -612,11 +612,11 @@ class MediaPipeApp:
 
     def _draw_predictions(
         self,
-        NHWC_int_numpy_frames: List[np.ndarray],
-        batched_selected_boxes: List[torch.Tensor | None],
-        batched_selected_keypoints: List[torch.Tensor | None],
-        batched_roi_4corners: List[torch.Tensor | None],
-        batched_selected_landmarks: List[torch.Tensor | None],
+        NHWC_int_numpy_frames: list[np.ndarray],
+        batched_selected_boxes: list[torch.Tensor | None],
+        batched_selected_keypoints: list[torch.Tensor | None],
+        batched_roi_4corners: list[torch.Tensor | None],
+        batched_selected_landmarks: list[torch.Tensor | None],
         **kwargs,
     ):
         """
@@ -627,14 +627,14 @@ class MediaPipeApp:
                 List of numpy arrays of shape (H W C x uint8) -- BGR channel layout
                 Length of list is # of batches (the number of input images)
 
-            batched_selected_boxes: List[torch.Tensor | None]
+            batched_selected_boxes: list[torch.Tensor | None]
                 Selected object bounding box coordinates. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 2, 2].
                     Layout is
                         [[box_x1, box_y1],
                             [box_x2, box_y2]]
 
-            batched_selected_keypoints: List[torch.Tensor | None]
+            batched_selected_keypoints: list[torch.Tensor | None]
                 Selected object bounding box keypoints. None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, # of keypoints, 2].
                     Layout is
@@ -642,13 +642,13 @@ class MediaPipeApp:
                             ...,
                             [keypoint_max_x, keypoint_max_y]]
 
-            batched_roi_4corners: List[torch.Tensor | None]
+            batched_roi_4corners: list[torch.Tensor | None]
                 Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                 None if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
                 The order of points is  (top left point, bottom left point, top right point, bottom right point)
 
-            batched_selected_landmarks: List[torch.tensor | None]
+            batched_selected_landmarks: list[torch.tensor | None]
                 Selected landmarks. Organized like the following:
                 [
                     # Batch 0 (for Input Image 0)

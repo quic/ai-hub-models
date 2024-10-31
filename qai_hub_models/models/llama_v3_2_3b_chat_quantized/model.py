@@ -27,8 +27,7 @@ HF_REPO_NAME = "meta-llama/Llama-3.2-3B-Instruct"
 HF_REPO_URL = f"https://huggingface.co/meta-llama/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
-# TODO: #10762 should reduce once AIMET export consumes less memory during export.   TODO!!! Not quite correct, since we are not using AIMET
-MIN_MEMORY_RECOMMENDED = 40  # TODO: Does this work for Llama 3?
+MIN_MEMORY_RECOMMENDED = 50
 
 
 class Llama3_2_Quantized(Llama3Base_Quantized):
@@ -47,7 +46,7 @@ class Llama3_2_Quantized(Llama3Base_Quantized):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         aimet_encodings: str | None = "DEFAULT",
         huggingface_model_name: str = HF_REPO_NAME,
-    ) -> "Llama3_2_Quantized":
+    ) -> Llama3_2_Quantized:
         """
         Load a pre-trained Llama 3.2 (3B) model from Meta via HuggingFace.
 

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import torch
 from torch import nn
@@ -29,7 +29,7 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
-def _apply_rope_single(x, rope_vals: Tuple[torch.Tensor, torch.Tensor]):
+def _apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
     """
     Based on FacebookResearch's llama, provided by Carl
     """
@@ -63,11 +63,11 @@ class SHADynamicCacheNewValueOnly(DynamicCache):
 
     def update(
         self,
-        key_states: List[torch.Tensor],
-        value_states: List[torch.Tensor],
+        key_states: list[torch.Tensor],
+        value_states: list[torch.Tensor],
         layer_idx: int,
-        cache_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        cache_kwargs: Optional[dict[str, Any]] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # Update the number of seen tokens
         if layer_idx == 0:
             # self._seen_tokens += key_states.shape[-2]
@@ -181,14 +181,14 @@ class SHALlamaAttention(LlamaAttention):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
+        past_key_value: Optional[tuple[torch.Tensor]] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[
-            Tuple[torch.Tensor, torch.Tensor]
+            tuple[torch.Tensor, torch.Tensor]
         ] = None,  # will become mandatory in v4.45
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
 
         bsz, q_len, _ = hidden_states.size()
 

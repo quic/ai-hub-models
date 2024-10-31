@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple, no_type_check
+from typing import no_type_check
 
 import numpy as np
 import torch
@@ -64,7 +64,7 @@ class SAMApp:
         self.sam_decoder = None
 
     def preprocess_point_coordinates(
-        self, input_coords: np.ndarray, image_shape: Tuple[int, int]
+        self, input_coords: np.ndarray, image_shape: tuple[int, int]
     ):
         """Peprocesses Point coordinates to work with decoder"""
         if self.sam_encoder is None:

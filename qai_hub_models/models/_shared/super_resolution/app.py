@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List
+from collections.abc import Callable
 
 import torch
 from PIL.Image import Image
@@ -40,8 +40,8 @@ class SuperResolutionApp:
 
     def upscale_image(
         self,
-        pixel_values_or_image: torch.Tensor | Image | List[Image],
-    ) -> List[Image]:
+        pixel_values_or_image: torch.Tensor | Image | list[Image],
+    ) -> list[Image]:
         """
         Upscale provided images
 
@@ -54,7 +54,7 @@ class SuperResolutionApp:
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
         Returns:
-                images: List[PIL.Image.Image]
+                images: list[PIL.Image.Image]
                     A list of upscaled images (one for each input image).
         """
         _, NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)

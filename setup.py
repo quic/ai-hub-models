@@ -6,7 +6,6 @@
 
 import glob
 import pathlib
-from typing import Dict, List
 
 from setuptools import find_packages, setup
 
@@ -17,7 +16,7 @@ qaihm_dir = qaihm_path / "models"
 requirements_path = qaihm_path / r_file
 
 version_path = qaihm_path / "_version.py"
-version_locals: Dict[str, str] = {}
+version_locals: dict[str, str] = {}
 exec(open(version_path).read(), version_locals)
 
 
@@ -25,7 +24,7 @@ exec(open(version_path).read(), version_locals)
 data_file_extensions = ["yaml", "txt", "json", "diff"]
 
 
-def get_data_files() -> List[str]:
+def get_data_files() -> list[str]:
     data_files = []
     for ext in data_file_extensions:
         data_files.extend(
@@ -65,7 +64,7 @@ setup(
     author="Qualcomm® Technologies, Inc.",
     url="https://github.com/quic/ai-hub-models",
     packages=find_packages(),
-    python_requires=">=3.8, <3.11",
+    python_requires=">=3.9, <3.13",
     package_data={"qai_hub_models": get_data_files()},
     include_package_data=True,
     install_requires=[line.strip() for line in open(requirements_path).readlines()],

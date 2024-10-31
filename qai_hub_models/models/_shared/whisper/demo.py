@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Tuple, Type
 
 import numpy as np
 
@@ -21,13 +20,13 @@ TEST_AUDIO_PATH = CachedWebModelAsset.from_asset_store(
 )
 
 
-def load_demo_audio() -> Tuple[np.ndarray, int]:
+def load_demo_audio() -> tuple[np.ndarray, int]:
     TEST_AUDIO_PATH.fetch()
     with np.load(TEST_AUDIO_PATH.path()) as f:
         return f["audio"], SAMPLE_RATE
 
 
-def whisper_demo(model_cls: Type[Whisper], is_test: bool = False):
+def whisper_demo(model_cls: type[Whisper], is_test: bool = False):
     parser = get_model_cli_parser(model_cls)
     parser.add_argument(
         "--audio_file",

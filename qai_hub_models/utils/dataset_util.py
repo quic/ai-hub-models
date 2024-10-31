@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 from torch.utils.data import DataLoader, Dataset
@@ -28,7 +26,7 @@ class CustomDataset(Dataset):
     def __len__(self) -> int:
         return self.length
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, ...]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, ...]:
         return tuple(
             torch.from_numpy(self.data_entries[key][index]) for key in self.data_entries
         )

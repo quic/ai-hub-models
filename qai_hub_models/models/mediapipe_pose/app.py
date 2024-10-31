@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 import torch
 
 from qai_hub_models.models._shared.mediapipe.app import MediaPipeApp
@@ -72,9 +70,9 @@ class MediaPipePoseApp(MediaPipeApp):
 
     def _compute_object_roi(
         self,
-        batched_selected_boxes: List[torch.Tensor | None],
-        batched_selected_keypoints: List[torch.Tensor | None],
-    ) -> List[torch.Tensor | None]:
+        batched_selected_boxes: list[torch.Tensor | None],
+        batched_selected_keypoints: list[torch.Tensor | None],
+    ) -> list[torch.Tensor | None]:
         """
         See parent function for base functionality and parameter documentation.
 

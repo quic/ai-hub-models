@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -35,11 +35,11 @@ class YoloV8SegmentationApp:
         self,
         model: Callable[
             [torch.Tensor],
-            Tuple[
-                List[torch.Tensor],
-                List[torch.Tensor],
-                List[torch.Tensor],
-                List[torch.Tensor],
+            tuple[
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[torch.Tensor],
+                list[torch.Tensor],
                 torch.Tensor,
             ],
         ],
@@ -99,11 +99,11 @@ class YoloV8SegmentationApp:
 
     def predict_segmentation_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
-    ) -> Tuple[
-        List[torch.Tensor], List[torch.Tensor], List[torch.Tensor], List[torch.Tensor]
-    ] | List[Image.Image]:
+    ) -> tuple[
+        list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]
+    ] | list[Image.Image]:
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
@@ -120,21 +120,21 @@ class YoloV8SegmentationApp:
 
         Returns:
             If raw_output is false or pixel_values_or_image is not a PIL image, returns:
-                pred_boxes: List[torch.Tensor]
+                pred_boxes: list[torch.Tensor]
                     List of predicted boxes for all the batches.
                     Each pred_box is of shape [num_boxes, 4]
-                pred_scores: List[torch.Tensor]
+                pred_scores: list[torch.Tensor]
                     List of scores for each predicted box for all the batches.
                     Each pred_score is of shape [num_boxes]
-                pred_masks: List[torch.Tensor]
+                pred_masks: list[torch.Tensor]
                     List of predicted masks for all the batches.
                     Each pred_mask is of shape [num_boxes, 32]
-                pred_classes: List[torch.Tensor]
+                pred_classes: list[torch.Tensor]
                     List of predicted class for all the batches.
                     Each pred_class is of shape [num_boxes]
 
             Otherwise, returns:
-                image_with_masks: List[PIL.Image]
+                image_with_masks: list[PIL.Image]
                     Input image with predicted masks applied
         """
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 import qai_hub
 import torch
@@ -62,7 +62,7 @@ class HubModel(HubModelProtocol):
         """
         raise NotImplementedError
 
-    def _get_output_names_for_instance(self, *args, **kwargs) -> List[str]:
+    def _get_output_names_for_instance(self, *args, **kwargs) -> list[str]:
         """
         Get the output names for an instance of this model.
 
@@ -127,7 +127,7 @@ class HubModel(HubModelProtocol):
         return other_profile_options
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         """
         A list of input names that should be transposed to channel-last format
             for the on-device model in order to improve performance.
@@ -135,7 +135,7 @@ class HubModel(HubModelProtocol):
         return []
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         """
         A list of output names that should be transposed to channel-last format
             for the on-device model in order to improve performance.
@@ -206,7 +206,7 @@ class BaseModel(
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
         external_onnx_weights: bool = False,
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ) -> SourceModel:
         """
         Convert to a AI Hub source model appropriate for the export method.

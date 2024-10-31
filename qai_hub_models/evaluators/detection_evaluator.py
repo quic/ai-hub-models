@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Collection
+from collections.abc import Collection
 
 import torch
 from podm.metrics import (  # type: ignore
@@ -33,7 +33,11 @@ class DetectionEvaluator(BaseEvaluator):
         self.scale_x = 1 / image_height
         self.scale_y = 1 / image_width
 
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+    def add_batch(
+        self,
+        output: Collection[torch.Tensor],
+        gt: Collection[torch.Tensor],
+    ):
         # This evaluator supports 1 output tensor at a time.
         image_id, _, _, bboxes, classes = gt
         pred_boxes, pred_scores, pred_class_idx = output

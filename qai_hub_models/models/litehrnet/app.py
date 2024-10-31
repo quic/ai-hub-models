@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Callable, List, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -31,7 +32,7 @@ class LiteHRNetApp:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         ],
         inferencer: Any,
     ):
@@ -44,9 +45,9 @@ class LiteHRNetApp:
 
     def predict_pose_keypoints(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output=False,
-    ) -> np.ndarray | List[Image]:
+    ) -> np.ndarray | list[Image]:
         """
         Predicts pose keypoints for a person in the image.
 
@@ -67,7 +68,7 @@ class LiteHRNetApp:
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
 
             Otherwise, returns:
-                predicted_images: List[PIL.Image]
+                predicted_images: list[PIL.Image]
                     Images with keypoints drawn.
         """
         # Preprocess image to get data required for post processing

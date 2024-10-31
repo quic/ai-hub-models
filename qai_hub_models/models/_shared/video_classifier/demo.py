@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from qai_hub_models.models._shared.video_classifier.app import KineticsClassifierApp
 from qai_hub_models.models._shared.video_classifier.model import KineticsClassifier
 from qai_hub_models.utils.args import get_model_cli_parser, model_from_cli_args
@@ -17,7 +15,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_path, qaihm_
 # The demo will display top classification predictions for the video.
 #
 def kinetics_classifier_demo(
-    model_type: Type[KineticsClassifier],
+    model_type: type[KineticsClassifier],
     default_video: str | CachedWebAsset,
     is_test: bool = False,
 ):

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List
 
 from huggingface_hub import HfApi, HfFileSystem, hf_hub_download
 from huggingface_hub.utils import GatedRepoError
@@ -21,7 +20,7 @@ def fetch_huggingface_target_model(
     dst_folder: str | Path,
     runtime_path: TargetRuntime = TargetRuntime.TFLITE,
     config: ModelZooAssetConfig = ASSET_CONFIG,
-) -> List[str]:
+) -> list[str]:
     fs = HfFileSystem()
     hf_path = config.get_huggingface_path(model_name)
 

@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -13,7 +12,7 @@ from qai_hub_models.models._shared.whisper.demo import load_demo_audio
 from qai_hub_models.models._shared.whisper.model import MEAN_DECODE_LEN, Whisper
 
 
-def load_sample_audio_input(app: WhisperApp) -> Tuple[np.ndarray, np.ndarray, int]:
+def load_sample_audio_input(app: WhisperApp) -> tuple[np.ndarray, np.ndarray, int]:
     audio, sample_rate = load_demo_audio()
     return (
         audio,

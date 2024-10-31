@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -30,7 +29,7 @@ class VOCSegmentationDataset(BaseDataset):
         https://host.robots.ox.ac.uk/pascal/VOC/voc2012/
     """
 
-    def __init__(self, split: str = "train", image_size: Tuple[int, int] = (224, 224)):
+    def __init__(self, split: str = "train", image_size: tuple[int, int] = (224, 224)):
         BaseDataset.__init__(self, str(VOC_ASSET.path().parent / DEVKIT_FOLDER_NAME))
         assert split in ["train", "val", "trainval"]
         self.split = split
@@ -44,7 +43,7 @@ class VOCSegmentationDataset(BaseDataset):
         self.images = []
         self.categories = []
 
-        with open(splits_dir / (split + ".txt"), "r") as f:
+        with open(splits_dir / (split + ".txt")) as f:
             lines = f.read().splitlines()
 
         for line in lines:

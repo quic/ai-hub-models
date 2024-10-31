@@ -51,7 +51,7 @@ class DeepLabV3PlusMobilenetQuantizable(AIMETQuantizableMixin, DeepLabV3PlusMobi
         cls,
         aimet_encodings: str | None = "DEFAULT",
         normalize_input: bool = True,
-    ) -> "DeepLabV3PlusMobilenetQuantizable":
+    ) -> DeepLabV3PlusMobilenetQuantizable:
         # Load Model
         fp16_model = DeepLabV3PlusMobilenet.from_pretrained(
             normalize_input=normalize_input

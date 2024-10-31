@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from qai_hub_models.models._shared.deeplab.app import DeepLabV3App
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
@@ -20,7 +18,7 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 
 
 def deeplabv3_demo(
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     model_id: str,
     default_image: str | CachedWebAsset,
     num_classes: int,

@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Type
 
 from qai_hub_models.models.fcn_resnet50.app import FCN_ResNet50App
 from qai_hub_models.models.fcn_resnet50.model import (
@@ -28,7 +27,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def fcn_resnet50_demo(model_cls: Type[FCN_ResNet50], is_test: bool = False):
+def fcn_resnet50_demo(model_cls: type[FCN_ResNet50], is_test: bool = False):
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

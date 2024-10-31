@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from typing import Tuple, Union
+from typing import Union
 
 import torch
 from torch.utils.data.dataloader import default_collate
@@ -56,7 +56,7 @@ class CocoDataset(BaseDataset, CocoDetection):
     Contains ~5k images spanning 80 classes.
     """
 
-    def __init__(self, target_image_size: Union[int, Tuple[int, int]] = 640):
+    def __init__(self, target_image_size: Union[int, tuple[int, int]] = 640):
         BaseDataset.__init__(self, str(COCO_DATASET.path(extracted=True)))
         CocoDetection.__init__(
             self,
@@ -78,7 +78,7 @@ class CocoDataset(BaseDataset, CocoDetection):
         )
 
     def __getitem__(self, item):
-        image, target = super(CocoDataset, self).__getitem__(item)
+        image, target = super().__getitem__(item)
         width, height = image.size
         boxes = []
         labels = []

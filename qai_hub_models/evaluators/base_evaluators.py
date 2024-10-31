@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Collection, Tuple, Union
+from collections.abc import Callable, Collection
+from typing import Union
 
 import torch
 from torch.utils.data.dataloader import DataLoader
@@ -15,7 +16,7 @@ from typing_extensions import TypeAlias
 _ModelIO: TypeAlias = Union[Collection[torch.Tensor], torch.Tensor]
 # Typically is a torch DataLoader, but anything with the collection signature is acceptable.
 _DataLoader: TypeAlias = Union[
-    DataLoader, Collection[Union[_ModelIO, Tuple[_ModelIO, _ModelIO]]]
+    DataLoader, Collection[Union[_ModelIO, tuple[_ModelIO, _ModelIO]]]
 ]
 
 

@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -37,7 +37,7 @@ class FastSAMApp:
         confidence: float = 0.4,
         iou_threshold: float = 0.9,
         retina_masks: bool = True,
-        model_image_input_shape: Tuple[int, int] = (640, 640),
+        model_image_input_shape: tuple[int, int] = (640, 640),
     ):
         self.model = fastsam_model
         self.confidence = confidence
@@ -58,7 +58,7 @@ class FastSAMApp:
                 Input PIL image (before pre-processing) or pyTorch tensor (after image pre-processing).
 
         Returns:
-            images: List[PIL.Image.Image]
+            images: list[PIL.Image.Image]
                 A list of upscaled images (one for each input image).
         """
         original_image = Image.open(image_path)

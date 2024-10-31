@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict
 
 from qai_hub.client import Model, SourceModelType
 
@@ -25,7 +24,7 @@ def onnx_elem_type_to_str(elem_type: int) -> str:
     raise ValueError("Unsupported elem_type.")
 
 
-def load_encodings(output_path: Path, model_name: str) -> Dict:
+def load_encodings(output_path: Path, model_name: str) -> dict:
     encodings_file = output_path / f"{model_name}.aimet" / f"{model_name}.encodings"
     with open(encodings_file) as f:
         encodings = json.load(f)

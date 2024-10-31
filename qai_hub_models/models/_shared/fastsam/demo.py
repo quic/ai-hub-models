@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-from typing import Type
 
 from PIL import Image
 
@@ -26,7 +25,7 @@ from qai_hub_models.utils.display import display_or_save_image
 
 
 def fastsam_demo(
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     model_id: str,
     image_path: str | CachedWebAsset,
     is_test: bool,

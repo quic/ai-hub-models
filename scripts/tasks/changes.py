@@ -4,8 +4,9 @@
 # ---------------------------------------------------------------------
 import functools
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional, Set, Tuple
+from typing import Optional
 
 from .constants import (
     PY_PACKAGE_MODELS_ROOT,
@@ -62,7 +63,7 @@ def get_python_import_expression(filepath: str) -> str:
     return rel_path.replace("/", ".")
 
 
-def _get_file_edges(filename) -> Set[str]:
+def _get_file_edges(filename) -> set[str]:
     """
     Resolve which files directly import from `filename`.
     """
@@ -91,7 +92,7 @@ def _get_file_edges(filename) -> Set[str]:
 
 
 @functools.lru_cache(maxsize=1)
-def get_affected_files(changed_files: Iterable[str]) -> Set[str]:
+def get_affected_files(changed_files: Iterable[str]) -> set[str]:
     """
     Given a list of changed python files, performs a Depth-First Search (DFS)
     over the qai_hub_models directory to figure out which files were affected.
@@ -123,7 +124,7 @@ def resolve_affected_models(
     include_export: bool = True,
     include_tests: bool = True,
     include_generated_tests: bool = True,
-) -> Set[str]:
+) -> set[str]:
     """
     Given a list of changed python files, performs a Depth-First Search (DFS)
     over the qai_hub_models directory to figure out which directories were affected.
@@ -171,7 +172,7 @@ def resolve_affected_models(
     return changed_models
 
 
-def get_code_gen_changed_models() -> Set[str]:
+def get_code_gen_changed_models() -> set[str]:
     """Get models where the `code-gen.yaml` changed."""
     changed_code_gen_files = get_changed_files_in_package("code-gen.yaml")
     changed_models = []
@@ -183,7 +184,9 @@ def get_code_gen_changed_models() -> Set[str]:
 
 
 @functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
-def get_changed_files_in_package(suffix: Optional[str] = None) -> Iterable[str]:
+def get_changed_files_in_package(
+    suffix: Optional[str] = None,
+) -> Iterable[str]:
     """
     Returns the list of changed files in zoo based on git tracking.
 
@@ -195,7 +198,7 @@ def get_changed_files_in_package(suffix: Optional[str] = None) -> Iterable[str]:
         if not on_github():
             run(f"git diff origin/main --name-only > {changed_files_path}")
         if os.path.exists(changed_files_path):
-            with open(changed_files_path, "r") as f:
+            with open(changed_files_path) as f:
                 changed_files = [
                     file
                     for file in f.read().split("\n")
@@ -207,7 +210,7 @@ def get_changed_files_in_package(suffix: Optional[str] = None) -> Iterable[str]:
         return []
 
 
-def get_models_to_test_export() -> Set[str]:
+def get_models_to_test_export() -> set[str]:
     """
     The models for which to test export (i.e. compilation to .tflite).
     Current heuristic is to only do this for models where model.py or
@@ -222,7 +225,7 @@ def get_models_to_test_export() -> Set[str]:
     )
 
 
-def get_models_with_export_file_changes() -> Set[str]:
+def get_models_with_export_file_changes() -> set[str]:
     """
     The models for which to test export (i.e. compilation to .tflite).
     Current heuristic is to only do this for models where model.py or
@@ -237,7 +240,7 @@ def get_models_with_export_file_changes() -> Set[str]:
     )
 
 
-def get_models_with_changed_definitions() -> Set[str]:
+def get_models_with_changed_definitions() -> set[str]:
     """
     The models for which to run non-generated (demo / model) tests.
     """
@@ -250,7 +253,7 @@ def get_models_with_changed_definitions() -> Set[str]:
     )
 
 
-def get_models_to_run_general_tests() -> Set[str]:
+def get_models_to_run_general_tests() -> set[str]:
     """
     The models for which to run non-generated (demo / model) tests.
     """
@@ -269,7 +272,7 @@ def get_changed_models(
     include_export: bool = True,
     include_tests: bool = True,
     include_generated_tests: bool = True,
-) -> Set[str]:
+) -> set[str]:
     """
     Resolve which models within zoo have changed to figure which ones need to be tested.
 
@@ -289,11 +292,11 @@ def get_changed_models(
     )
 
 
-def get_all_models() -> Set[str]:
+def get_all_models() -> set[str]:
     """
     Resolve model IDs (folder names) of all models in QAIHM.
     """
-    model_names: Set[str] = set()
+    model_names: set[str] = set()
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
         if os.path.exists(os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")):
             model_names.add(model_name)
@@ -310,13 +313,13 @@ def get_all_models() -> Set[str]:
     return model_names
 
 
-def get_models_to_test() -> Tuple[Set[str], Set[str]]:
+def get_models_to_test() -> tuple[set[str], set[str]]:
     """
     This is the master function that is called directly in CI to determine
     which models to test.
 
     Returns:
-        Tuple[list of models to run unit tests, list of models to run compile tests]
+        tuple[list of models to run unit tests, list of models to run compile tests]
     """
     # model.py changed
     model_changed_models = get_models_with_changed_definitions()

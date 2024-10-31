@@ -53,7 +53,7 @@ class ConvBlock(nn.Module):
         bn_eps=1e-5,
         activation=(lambda: nn.ReLU(inplace=True)),
     ):
-        super(ConvBlock, self).__init__()
+        super().__init__()
         self.activate = activation is not None
         self.use_bn = use_bn
         self.use_pad = isinstance(padding, (list, tuple)) and (len(padding) == 4)
@@ -249,7 +249,7 @@ class ResBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, stride, bias=False, use_bn=True):
-        super(ResBlock, self).__init__()
+        super().__init__()
         self.conv1 = conv3x3_block(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -303,7 +303,7 @@ class ResBottleneck(nn.Module):
         conv1_stride=False,
         bottleneck_factor=4,
     ):
-        super(ResBottleneck, self).__init__()
+        super().__init__()
         mid_channels = out_channels // bottleneck_factor
 
         self.conv1 = conv1x1_block(
@@ -367,7 +367,7 @@ class ResUnit(nn.Module):
         bottleneck=True,
         conv1_stride=False,
     ):
-        super(ResUnit, self).__init__()
+        super().__init__()
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
 
         if bottleneck:
@@ -422,7 +422,7 @@ class ResInitBlock(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels):
-        super(ResInitBlock, self).__init__()
+        super().__init__()
         self.conv = conv7x7_block(
             in_channels=in_channels, out_channels=out_channels, stride=2
         )
@@ -467,7 +467,7 @@ class ResNet(nn.Module):
         in_size=(128, 128),
         num_classes=265,
     ):
-        super(ResNet, self).__init__()
+        super().__init__()
         self.in_size = in_size
         self.num_classes = num_classes
 
@@ -488,7 +488,7 @@ class ResNet(nn.Module):
             for j, out_channels in enumerate(channels_per_stage):
                 stride = 2 if (j == 0) and (i != 0) else 1
                 stage.add_module(
-                    "unit{}".format(j + 1),
+                    f"unit{j + 1}",
                     ResUnit(
                         in_channels=in_channels,
                         out_channels=out_channels,
@@ -498,7 +498,7 @@ class ResNet(nn.Module):
                     ),
                 )
                 in_channels = out_channels
-            self.features.add_module("stage{}".format(i + 1), stage)
+            self.features.add_module(f"stage{i + 1}", stage)
         self.features.add_module("final_pool", nn.AvgPool2d(kernel_size=4, stride=1))
 
         # Total 264 outputs including 219 shape coefficients, 39 exp coefficients, 3 rotation and 3 camera intrinsic parameters
@@ -536,7 +536,7 @@ def get_resnet(
     model_name=None,
     pretrained=False,
     root=os.path.join("~", ".torch", "models"),
-    **kwargs
+    **kwargs,
 ):
     """
     Create ResNet model with specific parameters.
@@ -590,7 +590,7 @@ def get_resnet(
     elif blocks == 200:
         layers = [3, 24, 36, 3]
     else:
-        raise ValueError("Unsupported ResNet with number of blocks: {}".format(blocks))
+        raise ValueError(f"Unsupported ResNet with number of blocks: {blocks}")
 
     if bottleneck:
         assert sum(layers) * 3 + 2 == blocks
@@ -623,7 +623,7 @@ def get_resnet(
         init_block_channels=init_block_channels,
         bottleneck=bottleneck,
         conv1_stride=conv1_stride,
-        **kwargs
+        **kwargs,
     )
 
     if pretrained:

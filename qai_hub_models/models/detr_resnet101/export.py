@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Optional, cast
 
 import qai_hub as hub
 import torch
@@ -36,7 +36,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
 
 
 def export_model(
-    device: str = "Samsung Galaxy S23 (Family)",
+    device: Optional[str] = None,
     chipset: Optional[str] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -47,7 +47,7 @@ def export_model(
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
-) -> ExportResult | List[str]:
+) -> ExportResult | list[str]:
     """
     This function executes the following recipe:
 
@@ -87,15 +87,16 @@ def export_model(
     """
     model_name = "detr_resnet101"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if chipset:
-        hub_device = hub.Device(attributes=f"chipset:{chipset}")
-    else:
-        hub_device = hub.Device(name=device)
+    if not device and not chipset:
+        raise ValueError("Device or Chipset must be provided.")
+    hub_device = hub.Device(
+        name=device or "", attributes=f"chipset:{chipset}" if chipset else None
+    )
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "detr_resnet101",
             "DETR-ResNet101",
-            device,
+            device or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -177,7 +178,7 @@ def export_model(
     # 6. Summarizes the results from profiling and inference
     if not skip_summary and not skip_profiling:
         assert profile_job is not None and profile_job.wait().success
-        profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
+        profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
         print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:

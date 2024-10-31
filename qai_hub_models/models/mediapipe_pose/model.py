@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import torch
 
@@ -68,7 +68,7 @@ class MediaPipePose(CollectionModel):
         Construct a mediapipe pose model.
 
         Inputs:
-            pose_detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]
+            pose_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
                 Pose detection model. Input is an image, output is
                 [bounding boxes & keypoints, box & kp scores]
 
@@ -114,7 +114,7 @@ class MediaPipePose(CollectionModel):
 class PoseDetector(BaseModel):
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         anchors: torch.Tensor,
     ):
         super().__init__()
@@ -147,18 +147,18 @@ class PoseDetector(BaseModel):
         return {"image": ((batch_size, 3, 128, 128), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["box_coords", "box_scores"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
 
 class PoseLandmarkDetector(BaseModel):
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
     ):
         super().__init__()
         self.detector = detector
@@ -185,9 +185,9 @@ class PoseLandmarkDetector(BaseModel):
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["scores", "landmarks"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]

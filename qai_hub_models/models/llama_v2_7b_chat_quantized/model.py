@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from qai_hub.client import DatasetEntries
@@ -134,7 +134,7 @@ def get_tokenizer():
 
 def prepare_combined_attention_mask(
     attention_mask: torch.Tensor,
-    input_shape: Optional[Tuple] = None,
+    input_shape: Optional[tuple] = None,
     past_key_values_length: int = 0,
     dtype: torch.dtype = torch.float32,
 ):
@@ -283,7 +283,7 @@ def _get_llama_model_with_split(
     max_position_embeddings: int = MAX_POS_EMBEDDINGS,
     split_part: int = 1,
     is_token_generator: bool = False,
-) -> Tuple[torch.nn.Module, str]:
+) -> tuple[torch.nn.Module, str]:
 
     # Ensure User has access to model,
     # otherwise point to instructions to get access and error out.
@@ -326,7 +326,7 @@ class Llama2_Quantized(CollectionModel):
     @classmethod
     def from_pretrained(
         cls, max_position_embeddings: int = MAX_POS_EMBEDDINGS
-    ) -> "Llama2_Quantized":
+    ) -> Llama2_Quantized:
         return Llama2_Quantized(max_position_embeddings=max_position_embeddings)
 
     def load_model_part(self, split_part):

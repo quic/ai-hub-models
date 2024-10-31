@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -91,14 +90,14 @@ class GearGuardNet(BaseModel):
         model.eval()
         return cls(model)
 
-    def forward(self, image: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> list[torch.Tensor]:
         """
         Forward computation of GearGuardNet.
 
         Inputs:
             image: torch.Tensor
                 Input image.
-        Outputs: List[torch.Tensor]
+        Outputs: list[torch.Tensor]
             Multi-scale detection result.
         """
         return self.model(image)
@@ -116,9 +115,13 @@ class GearGuardNet(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["bbox_8x", "bbox_16x", "bbox_32x"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
+        return ["bbox_8x", "bbox_16x", "bbox_32x"]

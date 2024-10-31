@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import math
-from typing import Tuple
 
 import numpy as np
 import PIL
@@ -47,7 +46,7 @@ class OpenPoseApp:
                 image: Input PIL image
 
         Returns:
-                keypoints: List[<get shape>]
+                keypoints: list[<get shape>]
                     A list of keypoints of joints in the image
         """
 
@@ -69,7 +68,7 @@ class OpenPoseApp:
 
 def getKeypointsFromPredictions(
     paf: torch.Tensor, heatmap: torch.Tensor, h, w
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     # upsample the PAF and heatmap to be the same size as the original image
     target_size = (h, w)
     upsampled_paf = (

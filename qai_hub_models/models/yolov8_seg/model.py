@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 import torch
 import torch.nn as nn
 from ultralytics import YOLO as ultralytics_YOLO
@@ -86,15 +84,15 @@ class YoloV8Segmentor(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["boxes", "scores", "masks", "class_idx", "protos"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["masks"]
 
 

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import os
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, cast
+from typing import Any, Optional, cast
 
 import qai_hub as hub
 import torch
@@ -35,9 +36,9 @@ ALL_COMPONENTS = ["SAMDecoder", "SAMEncoder"]
 
 
 def export_model(
-    device: str = "Samsung Galaxy S23 (Family)",
+    device: Optional[str] = None,
     chipset: Optional[str] = None,
-    components: Optional[List[str]] = None,
+    components: Optional[list[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -47,7 +48,7 @@ def export_model(
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
-) -> Mapping[str, ExportResult] | List[str]:
+) -> Mapping[str, ExportResult] | list[str]:
     """
     This function executes the following recipe:
 
@@ -90,10 +91,11 @@ def export_model(
     """
     model_name = "sam"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if chipset:
-        hub_device = hub.Device(attributes=f"chipset:{chipset}")
-    else:
-        hub_device = hub.Device(name=device)
+    if not device and not chipset:
+        raise ValueError("Device or Chipset must be provided.")
+    hub_device = hub.Device(
+        name=device or "", attributes=f"chipset:{chipset}" if chipset else None
+    )
     component_arg = components
     components = components or ALL_COMPONENTS
     for component_name in components:
@@ -103,7 +105,7 @@ def export_model(
         return export_without_hub_access(
             "sam",
             "Segment-Anything-Model",
-            device,
+            device or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -120,13 +122,13 @@ def export_model(
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
-    components_dict: Dict[str, BaseModel] = {}
+    components_dict: dict[str, BaseModel] = {}
     if "SAMDecoder" in components:
         components_dict["SAMDecoder"] = model.get_sam_decoder()  # type: ignore
     if "SAMEncoder" in components:
         components_dict["SAMEncoder"] = model.get_sam_encoder()  # type: ignore
 
-    compile_jobs: Dict[str, hub.client.CompileJob] = {}
+    compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():
         input_spec = component.get_input_spec()
 
@@ -161,7 +163,7 @@ def export_model(
         )
 
     # 3. Profiles the model performance on a real device
-    profile_jobs: Dict[str, hub.client.ProfileJob] = {}
+    profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
             profile_options_all = components_dict[
@@ -179,7 +181,7 @@ def export_model(
             )
 
     # 4. Inferences the model on sample inputs
-    inference_jobs: Dict[str, hub.client.InferenceJob] = {}
+    inference_jobs: dict[str, hub.client.InferenceJob] = {}
     if not skip_inferencing:
         for component_name in components:
             print(
@@ -214,7 +216,7 @@ def export_model(
         for component_name in components:
             profile_job = profile_jobs[component_name]
             assert profile_job is not None and profile_job.wait().success
-            profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
+            profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
             print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:

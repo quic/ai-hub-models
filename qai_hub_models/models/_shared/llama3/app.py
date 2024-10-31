@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 import gc
 import math
-from typing import Any, Callable, Set, Type
+from collections.abc import Callable
+from typing import Any
 
 import torch
 
@@ -34,11 +35,11 @@ class ChatApp:
 
     def __init__(
         self,
-        model_cls: Type[Llama3Base_Quantized],
+        model_cls: type[Llama3Base_Quantized],
         get_input_prompt_with_tags: Callable,
         prepare_combined_attention_mask: Callable,
         tokenizer: Any,
-        end_tokens: Set[str],
+        end_tokens: set[str],
     ):
         """
         Base ChatApp that generates one response for given input token.

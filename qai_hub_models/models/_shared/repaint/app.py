@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Dict, List
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -29,7 +29,10 @@ class RepaintMaskApp:
         * Convert the output tensor into a PIL Image
     """
 
-    def __init__(self, model: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]):
+    def __init__(
+        self,
+        model: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+    ):
         self.model = model
 
     def predict(self, *args, **kwargs):
@@ -38,9 +41,9 @@ class RepaintMaskApp:
 
     @staticmethod
     def preprocess_inputs(
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         mask_pixel_values_or_image: torch.Tensor | np.ndarray | Image,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)[1]
         NCHW_fp32_torch_masks = app_to_net_image_inputs(mask_pixel_values_or_image)[1]
 
@@ -58,9 +61,9 @@ class RepaintMaskApp:
 
     def paint_mask_on_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         mask_pixel_values_or_image: torch.Tensor | np.ndarray | Image,
-    ) -> List[Image]:
+    ) -> list[Image]:
         """
         Erases and repaints the source image[s] in the pixel values given by the mask.
 
@@ -82,7 +85,7 @@ class RepaintMaskApp:
                 If one mask is provided, it will be used for every input image.
 
         Returns:
-            images: List[PIL.Image]
+            images: list[PIL.Image]
                 A list of predicted images (one list element per batch).
         """
         inputs = self.preprocess_inputs(

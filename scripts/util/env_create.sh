@@ -14,7 +14,7 @@ ENV_PATH="qaihm-dev"
 
 SYNC=1
 
-PYTHON="python3.8"
+PYTHON="python3.10"
 
 # command flag options
 # Parse command line configure flags ------------------------------------------

@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from qai_hub_models.models.yolov8_seg.app import YoloV8SegmentationApp
 from qai_hub_models.models.yolov8_seg.model import (
     DEFAULT_WEIGHTS,
@@ -34,7 +32,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def yolov8_seg_demo(
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     default_weights: str,
     weights_help_msg: str,
     default_image: CachedWebModelAsset,

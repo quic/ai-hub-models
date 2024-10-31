@@ -48,7 +48,7 @@ class FCN_ResNet50Quantizable(AIMETQuantizableMixin, FCN_ResNet50):
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "FCN_ResNet50Quantizable":
+    ) -> FCN_ResNet50Quantizable:
         # Load Model
         fp16_model = FCN_ResNet50.from_pretrained()
         input_shape = cls.get_input_spec()["image"][0]

@@ -46,7 +46,7 @@ class QuickSRNetMediumQuantizable(AIMETQuantizableMixin, QuickSRNetMedium):
         cls,
         aimet_encodings: str | None = "DEFAULT",
         scale_factor: int = DEFAULT_SCALE_FACTOR,
-    ) -> "QuickSRNetMediumQuantizable":
+    ) -> QuickSRNetMediumQuantizable:
         """
         Parameters:
           aimet_encodings:

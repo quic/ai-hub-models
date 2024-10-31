@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 from tflite import Model
 from torch import nn
 
@@ -33,7 +31,7 @@ DEFAULT_IMAGE_TYPE = "square"
 
 class DepthwiseConv2d(nn.Module):
     def __init__(self, in_channels, kernel_size=3, stride=2, padding=1):
-        super(DepthwiseConv2d, self).__init__()
+        super().__init__()
         self.depthwise = nn.Conv2d(
             in_channels,
             in_channels,
@@ -68,7 +66,7 @@ class SelfieSegmentation(BaseModel):
         if image_type not in ["square", "landscape"]:
             raise ValueError(f"Unsupported image type {image_type}")
 
-        super(SelfieSegmentation, self).__init__()
+        super().__init__()
         self.image_type = image_type
         self.allow_avg = image_type != "landscape"
         self.relu = nn.ReLU(inplace=True)
@@ -208,15 +206,15 @@ class SelfieSegmentation(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["mask"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["mask"]
 
     def forward(self, image):

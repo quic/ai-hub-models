@@ -45,5 +45,5 @@ if __name__ == "__main__":
 
     # Make the directory if not present.
     os.makedirs(os.path.dirname(args.path), exist_ok=True)
-    with open(args.path, mode="wt", encoding="utf-8") as file:
+    with open(args.path, mode="w", encoding="utf-8") as file:
         file.write(filenames)

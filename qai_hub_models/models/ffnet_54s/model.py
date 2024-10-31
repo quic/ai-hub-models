@@ -12,4 +12,4 @@ MODEL_ID = __name__.split(".")[-2]
 class FFNet54S(FFNet):
     @classmethod
     def from_pretrained(cls) -> FFNet54S:  # type: ignore
-        return super(FFNet54S, cls).from_pretrained("segmentation_ffnet54S_dBBB_mobile")
+        return super().from_pretrained("segmentation_ffnet54S_dBBB_mobile")

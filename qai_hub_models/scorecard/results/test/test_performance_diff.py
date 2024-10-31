@@ -6,7 +6,7 @@ import os
 
 import ruamel.yaml
 
-from qai_hub_models.utils.scorecard.perf_summary import PerformanceSummary
+from qai_hub_models.scorecard.results.performance_diff import PerformanceDiff
 
 CHIPSET = "GEN2"
 OS = "13"
@@ -49,20 +49,20 @@ def read_config(config_path):
     yaml = ruamel.yaml.YAML()
     yaml.preserve_quotes = True
     yaml.preserve_yaml_order = True
-    with open(config_path, "r") as file:
+    with open(config_path) as file:
         return yaml.load(file)
 
 
-def validate_perf_summary_is_empty(perf_summary):
+def validate_perf_diff_is_empty(perf_diff):
     # No difference captured
-    for _, val in perf_summary.progressions.items():
+    for _, val in perf_diff.progressions.items():
         assert len(val) == 0
-    for _, val in perf_summary.regressions.items():
+    for _, val in perf_diff.regressions.items():
         assert len(val) == 0
     # No new reports captured
-    assert len(perf_summary.new_perf_report) == 0
+    assert len(perf_diff.new_perf_report) == 0
     # No missing devices found in updated report
-    assert len(perf_summary.missing_devices) == 0
+    assert len(perf_diff.missing_devices) == 0
 
 
 def test_ios_excluded():
@@ -73,14 +73,14 @@ def test_ios_excluded():
         onnx_tf_inference_time=10.0,
     )
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     # Ensure no change in perf summary
-    validate_perf_summary_is_empty(perf_summary)
+    validate_perf_diff_is_empty(perf_diff)
 
 
 def test_model_inference_run_toggle():
@@ -92,13 +92,13 @@ def test_model_inference_run_toggle():
         onnx_tf_inference_time=10.0, onnx_ort_qnn_inference_time="null"
     )
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
-    assert perf_summary.progressions["inf"] == [
+    assert perf_diff.progressions["inf"] == [
         (MODEL_ID, "torchscript_onnx_tflite", "inf", 10.0, "null", "null", CHIPSET, OS)
     ]
 
@@ -111,17 +111,17 @@ def test_perf_progression_basic():
         onnx_tf_inference_time=0.5, onnx_ort_qnn_inference_time=5.123
     )
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
         (MODEL_ID, "torchscript_onnx_tflite", 20.0, 0.5, 10.0, "null", CHIPSET, OS),
     ]
 
-    assert perf_summary.progressions[10] == expected_inf_bucket
+    assert perf_diff.progressions[10] == expected_inf_bucket
 
 
 def test_perf_regression_basic():
@@ -133,17 +133,17 @@ def test_perf_regression_basic():
         onnx_tf_inference_time=20.0, onnx_ort_qnn_inference_time=5.123
     )
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
         (MODEL_ID, "torchscript_onnx_tflite", 2, 20.0, 10.0, "null", CHIPSET, OS),
     ]
 
-    assert perf_summary.regressions[2] == expected_inf_bucket
+    assert perf_diff.regressions[2] == expected_inf_bucket
 
 
 def test_missing_devices():
@@ -159,14 +159,14 @@ def test_missing_devices():
         "chipset"
     ] = "diff-chip-xyz"
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
-    assert len(perf_summary.missing_devices) == 1
-    assert perf_summary.missing_devices[0] == (MODEL_ID, CHIPSET)
+    assert len(perf_diff.missing_devices) == 1
+    assert perf_diff.missing_devices[0] == (MODEL_ID, CHIPSET)
 
 
 def test_empty_report():
@@ -176,31 +176,31 @@ def test_empty_report():
     ] = {}
     new_perf_metrics = prev_perf_metrics
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     # Update perf summary
-    perf_summary.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
+    perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
-    assert len(perf_summary.empty_perf_report) == 1
-    assert perf_summary.empty_perf_report[0] == (MODEL_ID,)
+    assert len(perf_diff.empty_perf_report) == 1
+    assert perf_diff.empty_perf_report[0] == (MODEL_ID,)
 
 
-def test_e2e_aotgan_perf_summary_no_change():
+def test_e2e_aotgan_perf_diff_no_change():
     perf_filename = os.path.join(os.path.dirname(__file__), "perf.yaml")
 
     # Ensure perf.yaml is present, if moved, please make accordingly changes in the script.
     assert os.path.exists(os.path.join(perf_filename))
 
-    perf_summary = PerformanceSummary()
-    validate_perf_summary_is_empty(perf_summary)
+    perf_diff = PerformanceDiff()
+    validate_perf_diff_is_empty(perf_diff)
 
     existing_model_card = read_config(perf_filename)
-    perf_summary.update_summary(
+    perf_diff.update_summary(
         "aotgan",
         previous_report=existing_model_card,
         new_report=existing_model_card,
     )
 
     # Ensure perf summary is empty
-    validate_perf_summary_is_empty(perf_summary)
+    validate_perf_diff_is_empty(perf_diff)

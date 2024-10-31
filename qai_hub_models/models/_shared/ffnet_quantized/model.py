@@ -14,7 +14,7 @@ from qai_hub_models.utils.quantization_aimet import (
 # isort: on
 
 import os
-from typing import Type, TypeVar
+from typing import TypeVar
 
 import torch
 from aimet_torch.batch_norm_fold import fold_all_batch_norms
@@ -51,7 +51,7 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
 
     @classmethod
     def from_pretrained(
-        cls: Type[FFNetQuantizableType],
+        cls: type[FFNetQuantizableType],
         variant_name: str,
         aimet_encodings: str | None = "DEFAULT",
     ) -> FFNetQuantizableType:

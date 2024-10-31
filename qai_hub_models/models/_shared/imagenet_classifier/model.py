@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -109,24 +109,24 @@ class ImagenetClassifier(BaseModel):
         return {"image_tensor": ((1, 3, IMAGENET_DIM, IMAGENET_DIM), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["class_logits"]
 
     @classmethod
     def from_pretrained(
         cls,
         weights: Optional[str] = None,
-    ) -> "ImagenetClassifier":
+    ) -> ImagenetClassifier:
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
-    ) -> Dict[str, List[np.ndarray]]:
+    ) -> dict[str, list[np.ndarray]]:
         image = load_image(TEST_IMAGENET_IMAGE)
         tensor = IMAGENET_TRANSFORM(image).unsqueeze(0)
         return dict(image_tensor=[tensor.numpy()])
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image_tensor"]

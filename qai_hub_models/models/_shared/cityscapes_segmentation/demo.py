@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from typing import Type
 
 from qai_hub_models.models._shared.cityscapes_segmentation.app import (
     CityscapesSegmentationApp,
@@ -35,7 +34,7 @@ TEST_CITYSCAPES_LIKE_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
 # Run Imagenet Classifier end-to-end on a sample image.
 # The demo will print the predicted class to terminal.
 def cityscapes_segmentation_demo(
-    model_type: Type[CityscapesSegmentor],
+    model_type: type[CityscapesSegmentor],
     model_id: str,
     is_test: bool = False,
 ):

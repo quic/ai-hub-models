@@ -4,14 +4,13 @@
 # ---------------------------------------------------------------------
 import os
 
-import numpy as np
 import torch
 import torch.nn as nn
 
 from .layers import CBAModule, DetectModule, HeadModule, Mbv3SmallFast, UpModule
 
 
-class FootTrackNet(nn.Module):
+class FTNet(nn.Module):
     def __init__(
         self,
         wide: int = 64,
@@ -22,11 +21,11 @@ class FootTrackNet(nn.Module):
         strict: bool = False,
         n_lmk: int = 17,
     ):
-        super(FootTrackNet, self).__init__()
+        super().__init__()
         """
         FootTrackNet multi task human detector model for person, face detection plus head and feet landmark detection.
         Draw the given points on the frame.
-
+        It takes RGB (uint8) as input directly.
         Parameters:
             wide: the channel size of bandwith of the intermediate layers
             has_ext: if add extension layer in the head module.
@@ -44,18 +43,10 @@ class FootTrackNet(nn.Module):
         self.use_rgb = RGB
         self.strict = strict
 
-        self.mean = nn.Parameter(
-            torch.tensor(
-                np.array([0.408, 0.447, 0.47]).reshape(1, 3, 1, 1).astype(np.float32)
-            ),
-            requires_grad=False,
-        )
-        self.std = nn.Parameter(
-            torch.tensor(
-                np.array([0.289, 0.274, 0.278]).reshape(1, 3, 1, 1).astype(np.float32)
-            ),
-            requires_grad=False,
-        )
+        # internal normalization layer,  RGB->BGR, as a conv norm
+        self.conv_layer = nn.Conv2d(3, 3, 1, stride=1, padding=0, bias=False)
+        # norm layer
+        self.bn2 = nn.BatchNorm2d(3)
 
         # define backbone
         self.bb = Mbv3SmallFast(act, RGB)
@@ -99,7 +90,7 @@ class FootTrackNet(nn.Module):
         self.landmark = HeadModule(wide, 2 * n_lmk, has_ext=has_ext)
         self.landmark_vis = HeadModule(wide, n_lmk, has_ext=has_ext)
 
-    def forward(self, x: torch.Tensor) -> list:
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         """
         x: N,C,H,W (1,3,480,640) tensor of input image
         return: 4 tensors including
@@ -108,7 +99,8 @@ class FootTrackNet(nn.Module):
         landmark: N,C,H,W (1,34,120,160)
         landmark: N,C,H,W (1,17,120,160)
         """
-
+        x = self.conv_layer(x * 1.0)  # conv to float
+        x = self.bn2(x)
         s4, s8, s16, s32 = self.bb(x)
         s32 = self.conv3(s32)
         s16 = self.up0(s32) + self.connect2(s16)

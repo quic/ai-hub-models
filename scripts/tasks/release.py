@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 import pathlib
 import shutil
-from typing import Dict, Optional
+from typing import Optional
 
 from .constants import BUILD_ROOT
 from .task import CompositeTask
@@ -20,7 +20,7 @@ from .venv import (
 
 qaihm_path = pathlib.Path(__file__).parent.parent.parent / "qai_hub_models"
 version_path = qaihm_path / "_version.py"
-version_locals: Dict[str, str] = {}
+version_locals: dict[str, str] = {}
 exec(open(version_path).read(), version_locals)
 __version__ = version_locals["__version__"]
 
@@ -96,7 +96,7 @@ class BuildPublicRepositoryTask(CompositeTask):
             # Create Venv
             venv = os.path.join(BUILD_ROOT, "test", "release_venv")
             tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"], include_aimet=False))
+            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
 
         # Setup output directories
         release_dir = _get_release_dir()
@@ -216,7 +216,7 @@ class BuildWheelTask(CompositeTask):
             # Create Venv
             venv = os.path.join(BUILD_ROOT, "test", "release_venv")
             tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"], include_aimet=False))
+            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
 
         # Build Wheel
         repo_dir = _get_release_repository_dir()
@@ -257,7 +257,7 @@ class PublishWheelTask(CompositeTask):
             # Create Venv
             venv = os.path.join(BUILD_ROOT, "test", "release_venv")
             tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"], include_aimet=False))
+            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
 
         pypi = os.environ.get(PYPI_VARNAME, None)
         if not pypi:

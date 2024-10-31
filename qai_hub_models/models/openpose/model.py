@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import torch
 
 from qai_hub_models.utils.asset_loaders import (
@@ -45,7 +43,7 @@ class OpenPose(BaseModel):
 
         return cls(openpose_model)
 
-    def forward(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Run OpenPose on `image`, and produce keypoints for pose estimation
 
@@ -114,15 +112,15 @@ class OpenPose(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["paf", "heatmap"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["paf", "heatmap"]
 
 

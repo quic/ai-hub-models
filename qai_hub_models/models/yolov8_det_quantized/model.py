@@ -52,7 +52,7 @@ class YoloV8DetectorQuantizable(AIMETQuantizableMixin, YoloV8Detector):
         aimet_encodings: str | None = "DEFAULT",
         include_postprocessing: bool = True,
         split_output: bool = False,
-    ) -> "YoloV8DetectorQuantizable":
+    ) -> YoloV8DetectorQuantizable:
         """Load YoloV8 from a weightfile created by the source YoloV8 repository."""
         fp16_model = YoloV8Detector.from_pretrained(
             ckpt_name,

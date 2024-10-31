@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import functools
 import math
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -28,8 +28,8 @@ IMAGENET_TRANSFORM = transforms.Compose(
 
 
 def app_to_net_image_inputs(
-    pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
-) -> Tuple[List[np.ndarray], torch.Tensor]:
+    pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
+) -> tuple[list[np.ndarray], torch.Tensor]:
     """
     Convert the provided images to application inputs.
     ~~This does not change channel order. RGB stays RGB, BGR stays BGR, etc~~
@@ -48,7 +48,7 @@ def app_to_net_image_inputs(
             Size to which the image should be reshaped.
 
     Returns:
-        NHWC_int_numpy_frames: List[numpy.ndarray]
+        NHWC_int_numpy_frames: list[numpy.ndarray]
             List of numpy arrays (one per input image with uint8 dtype, [H W C] shape, and BGR or grayscale layout.
             This output is typically used for use of drawing/displaying images with PIL and CV2
 
@@ -57,7 +57,7 @@ def app_to_net_image_inputs(
 
     Based on https://github.com/zmurez/MediaPipePyTorch/blob/master/blazebase.py
     """
-    NHWC_int_numpy_frames: List[np.ndarray] = []
+    NHWC_int_numpy_frames: list[np.ndarray] = []
     NCHW_fp32_torch_frames: torch.Tensor
     if isinstance(pixel_values_or_image, Image):
         pixel_values_or_image = [pixel_values_or_image]
@@ -162,7 +162,7 @@ def pad_to_square(frame: np.ndarray) -> np.ndarray:
     return np.pad(frame, pad_values, constant_values=255)
 
 
-def resize_pad(image: torch.Tensor, dst_size: Tuple[int, int]):
+def resize_pad(image: torch.Tensor, dst_size: tuple[int, int]):
     """
     Resize and pad image to be shape [..., dst_size[0], dst_size[1]]
 
@@ -218,9 +218,9 @@ def resize_pad(image: torch.Tensor, dst_size: Tuple[int, int]):
 
 def undo_resize_pad(
     image: torch.Tensor,
-    orig_size_wh: Tuple[int, int],
+    orig_size_wh: tuple[int, int],
     scale: float,
-    padding: Tuple[int, int],
+    padding: tuple[int, int],
 ):
     """
     Undos the efffect of resize_pad. Instead of scale, the original size
@@ -242,8 +242,8 @@ def undo_resize_pad(
 
 
 def pil_resize_pad(
-    image: Image, dst_size: Tuple[int, int]
-) -> Tuple[Image, float, Tuple[int, int]]:
+    image: Image, dst_size: tuple[int, int]
+) -> tuple[Image, float, tuple[int, int]]:
     torch_image = preprocess_PIL_image(image)
     torch_out_image, scale, padding = resize_pad(
         torch_image,
@@ -254,7 +254,7 @@ def pil_resize_pad(
 
 
 def pil_undo_resize_pad(
-    image: Image, orig_size_wh: Tuple[int, int], scale: float, padding: Tuple[int, int]
+    image: Image, orig_size_wh: tuple[int, int], scale: float, padding: tuple[int, int]
 ) -> Image:
     torch_image = preprocess_PIL_image(image)
     torch_out_image = undo_resize_pad(torch_image, orig_size_wh, scale, padding)
@@ -264,9 +264,9 @@ def pil_undo_resize_pad(
 
 def denormalize_coordinates(
     coordinates: torch.Tensor,
-    input_img_size: Tuple[int, int],
+    input_img_size: tuple[int, int],
     scale: float = 1.0,
-    pad: Tuple[int, int] = (0, 0),
+    pad: tuple[int, int] = (0, 0),
 ) -> None:
     """
     Maps detection coordinates from [0,1] to coordinates in the original image.
@@ -283,14 +283,14 @@ def denormalize_coordinates(
         coordinates: [..., 2] tensor
             coordinates. Range must be [0, 1]
 
-        input_img_size: Tuple(int, int)
+        input_img_size: tuple(int, int)
             The size of the tensor that was fed to the NETWORK (NOT the original image size).
             H / W is the same order as coordinates.
 
         scale: float
             Scale factor that to resize the image to be fed to the network.
 
-        pad: Tuple(int, int)
+        pad: tuple(int, int)
             Padding used during resizing of input image to network input tensor.
             This is the absolute # of padding pixels in the network input tensor, NOT in the original image.
             H / W is in the same order as coordinates.
@@ -308,7 +308,7 @@ def denormalize_coordinates(
 
 
 def apply_batched_affines_to_frame(
-    frame: np.ndarray, affines: List[np.ndarray], output_image_size: Tuple[int, int]
+    frame: np.ndarray, affines: list[np.ndarray], output_image_size: tuple[int, int]
 ) -> np.ndarray:
     """
     Generate one image per affine applied to the given frame.
@@ -317,7 +317,7 @@ def apply_batched_affines_to_frame(
     Inputs:
         frame: np.ndarray
             Frame on which to apply the affine. Shape is [ H W C ], dtype must be np.byte.
-        affines: List[np.ndarray]
+        affines: list[np.ndarray]
             List of 2x3 affine matrices to apply to the frame.
         output_image_size: torch.Tensor
             Size of each output frame.

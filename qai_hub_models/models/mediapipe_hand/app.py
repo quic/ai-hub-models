@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import cv2
 import numpy as np
 import torch
@@ -80,14 +78,14 @@ class MediaPipeHandApp(MediaPipeApp):
 
     def predict_landmarks_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
-    ) -> Tuple[
-        List[torch.Tensor | None],
-        List[torch.Tensor | None],
-        List[torch.Tensor | None],
-        List[List[bool] | None],
-    ] | List[np.ndarray]:
+    ) -> tuple[
+        list[torch.Tensor | None],
+        list[torch.Tensor | None],
+        list[torch.Tensor | None],
+        list[list[bool] | None],
+    ] | list[np.ndarray]:
         """
         From the provided image or tensor, predict the bounding boxes & classes of the hand detected within.
 
@@ -99,7 +97,7 @@ class MediaPipeHandApp(MediaPipeApp):
 
             If raw_output is false, returns an additional output:
 
-                batched_is_right_hand: List[List[bool] | None]]
+                batched_is_right_hand: list[list[bool] | None]]
                     Whether each landmark represents a right (True) or left (False) hand.
                     Organized like the following:
                     [
@@ -118,19 +116,19 @@ class MediaPipeHandApp(MediaPipeApp):
 
     def _draw_predictions(
         self,
-        NHWC_int_numpy_frames: List[np.ndarray],
-        batched_selected_boxes: List[torch.Tensor | None],
-        batched_selected_keypoints: List[torch.Tensor | None],
-        batched_roi_4corners: List[torch.Tensor | None],
-        batched_selected_landmarks: List[torch.Tensor | None],
-        batched_is_right_hand: List[List[bool] | None],
+        NHWC_int_numpy_frames: list[np.ndarray],
+        batched_selected_boxes: list[torch.Tensor | None],
+        batched_selected_keypoints: list[torch.Tensor | None],
+        batched_roi_4corners: list[torch.Tensor | None],
+        batched_selected_landmarks: list[torch.Tensor | None],
+        batched_is_right_hand: list[list[bool] | None],
     ):
         """
         Override of mediapipe::app.py::MediaPipeApp::draw_outputs
         Also draws whether the detection is a right or left hand.
 
         Additional inputs:
-            batched_is_right_hand: List[List[bool] | None]
+            batched_is_right_hand: list[list[bool] | None]
                 True if the detection is a right hand, false if it's a left hand. None if no hand detected.
         """
         for batch_idx in range(len(NHWC_int_numpy_frames)):
@@ -150,7 +148,7 @@ class MediaPipeHandApp(MediaPipeApp):
         self,
         NHWC_int_numpy_frame: np.ndarray,
         landmarks: torch.Tensor,
-        is_right_hand: List[bool],
+        is_right_hand: list[bool],
     ):
         """
         Override of mediapipe::app.py::MediaPipeApp::draw_landmarks
@@ -171,25 +169,25 @@ class MediaPipeHandApp(MediaPipeApp):
 
     def _run_landmark_detector(
         self,
-        NHWC_int_numpy_frames: List[np.ndarray],
-        batched_roi_4corners: List[torch.Tensor | None],
-    ) -> Tuple[List[torch.Tensor | None], List[List[bool] | None]]:
+        NHWC_int_numpy_frames: list[np.ndarray],
+        batched_roi_4corners: list[torch.Tensor | None],
+    ) -> tuple[list[torch.Tensor | None], list[list[bool] | None]]:
         """
         Override of mediapipe::app.py::MediaPipeApp::run_landmark_detector
         Additionally returns whether the detection is a right or left hand.
         """
 
         # selected landmarks for the ROI (if any)
-        # List[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
+        # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
         #
         # A list element will be None if there is no ROI.
-        batched_selected_landmarks: List[torch.Tensor | None] = []
+        batched_selected_landmarks: list[torch.Tensor | None] = []
 
         # whether the selected landmarks for the ROI (if applicable) are for a left or right hand
         #
         # A list element will be None if there is no ROI.
-        batched_is_right_hand: List[List[bool] | None] = []
+        batched_is_right_hand: list[list[bool] | None] = []
 
         # For each input image...
         for batch_idx, roi_4corners in enumerate(batched_roi_4corners):

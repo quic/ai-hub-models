@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Set, Tuple, Type
+from collections.abc import Callable
+from typing import Any
 
 import qai_hub as hub
 
@@ -31,7 +32,7 @@ DEFAULT_USER_PROMPT = "Hi! What is 2+3?"
 
 
 def llama_chat_demo(
-    model_cls: Type[BaseModel],
+    model_cls: type[BaseModel],
     model_id: str,
     get_model_class: Callable,
     get_input_prompt_with_tags: Callable,
@@ -39,13 +40,13 @@ def llama_chat_demo(
     tokenizer: Any,
     num_splits: int,
     num_key_val_heads: int,
-    model_split_map: Dict[int, Tuple[int, int]],
-    end_tokens: Set[str],
+    model_split_map: dict[int, tuple[int, int]],
+    end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = [TargetRuntime.QNN],
+    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN],
     bundled_kvcache: bool = True,
 ):
     """

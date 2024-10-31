@@ -5,7 +5,6 @@
 """
 Run it with pytest --on-device
 """
-from typing import Tuple
 
 import numpy as np
 import pytest
@@ -63,7 +62,7 @@ def data_loaders():
 
 
 @pytest.fixture(scope="module")
-def test_data(data_loaders) -> Tuple[torch.Tensor, torch.Tensor, hub.Dataset]:
+def test_data(data_loaders) -> tuple[torch.Tensor, torch.Tensor, hub.Dataset]:
     calib_loader, test_loader = data_loaders
     num_test = 1000
 

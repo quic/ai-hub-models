@@ -4,8 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import Mapping
 from importlib import reload
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, Optional
 
 import torch
 
@@ -152,14 +153,14 @@ class YoloV7(BaseModel):
     @staticmethod
     def get_output_names(
         include_postprocessing: bool = True, split_output: bool = False
-    ) -> List[str]:
+    ) -> list[str]:
         if include_postprocessing:
             return ["boxes", "scores", "class_idx"]
         if split_output:
             return ["boxes_xy", "boxes_wh", "scores"]
         return ["detector_output"]
 
-    def _get_output_names_for_instance(self) -> List[str]:
+    def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
@@ -173,7 +174,7 @@ class YoloV7(BaseModel):
         return yolo_sample_inputs()
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
 
@@ -185,11 +186,11 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         stride: torch.Tensor,
         num_anchors: int,
         num_layers: int,
-        m_in_channels: List[int],
+        m_in_channels: list[int],
         m_out_channel,
-        input_shape: Tuple[int, int],
+        input_shape: tuple[int, int],
     ):
-        super(_YoloV7Detector, self).__init__()
+        super().__init__()
         self.stride = stride
         self.na = num_anchors
         self.no = m_out_channel // self.na  # number of outputs per anchor
@@ -268,13 +269,13 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         scores = y[..., 4:].reshape(-1, self.na * nx * ny, self.no - 4)
         return xy, wh, scores
 
-    def forward(self, all_x: Tuple[torch.Tensor, ...]):
+    def forward(self, all_x: tuple[torch.Tensor, ...]):
         """
         From the outputs of the feature extraction layers of YoloV7, predict bounding boxes,
         classes, and confidence.
 
         Parameters:
-            all_x: Tuple[torch.Tensor]
+            all_x: tuple[torch.Tensor]
                 Outputs of the feature extraction layers of YoloV7. Typically 3 5D tensors.
 
         Returns:

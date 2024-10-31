@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any, Optional
 
 import torch
 import whisper  # type: ignore
@@ -53,8 +54,8 @@ MELS_AUDIO_LEN = AUDIO_EMB_LEN * 2
 class Whisper(CollectionModel):
     def __init__(
         self,
-        encoder: Callable[[torch.Tensor], List[torch.Tensor]],
-        decoder: Callable[..., Tuple[torch.Tensor, Tuple[torch.Tensor, ...]]],
+        encoder: Callable[[torch.Tensor], list[torch.Tensor]],
+        decoder: Callable[..., tuple[torch.Tensor, tuple[torch.Tensor, ...]]],
         num_decoder_blocks: int,
         attention_dim: int,
         num_heads: int,
@@ -110,7 +111,7 @@ class WhisperEncoderInf(BaseModel):
             ]
         )
 
-    def forward(self, audio: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, audio: torch.Tensor) -> list[torch.Tensor]:
         # Return cross attention key and value cache tensors
         encoder_out = self.encoder(audio)
         k_cache = torch.cat(
@@ -135,7 +136,7 @@ class WhisperEncoderInf(BaseModel):
         return dict(audio=((1, N_MELS, MELS_AUDIO_LEN), "float32"))
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["k_cache", "v_cache"]
 
     @classmethod
@@ -345,7 +346,7 @@ class WhisperDecoderInf(BaseModel):
         return specs
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["logits", "k_cache", "v_cache"]
 
     def _get_input_spec_for_instance(self) -> InputSpec:
@@ -447,8 +448,8 @@ class MHAWrapper(torch.nn.Module):
         self,
         x: torch.Tensor,
         mask: torch.Tensor,
-        kv_cache: Dict[torch.nn.Module, torch.Tensor],
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        kv_cache: dict[torch.nn.Module, torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args:
 
@@ -550,7 +551,7 @@ class ResidualAttentionBlockWrapper(torch.nn.Module):
         self,
         x: torch.Tensor,
         mask: torch.Tensor,
-        kv_cache: Dict[torch.nn.Module, torch.Tensor],
+        kv_cache: dict[torch.nn.Module, torch.Tensor],
     ):
         """
         Args: Same as MHAWrapper

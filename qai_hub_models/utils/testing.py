@@ -4,13 +4,14 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 from unittest import mock
 
 import numpy as np
 import pytest
 
 from qai_hub_models.utils.asset_loaders import always_answer_prompts
+from qai_hub_models.utils.base_model import BaseModel
 
 
 def skip_clone_repo_check(func):
@@ -115,3 +116,26 @@ def mock_first_n(fn: Callable, n: int):
         return fn(*args, **kwargs)
 
     return mock_fn
+
+
+def verify_io_names(model_cls: BaseModel) -> None:
+    """
+    Performs various checks on a model's input and output names.
+    Raises an AssertionError if any checks fail.
+
+    - Checks that the inputs and outputs specified to have the channel
+    last transpose are present in the list of input and output names.
+    - Checks that inputs and output names don't have dashes. The QNN compiler
+    converts dashes in names to underscores, so this would create mismatch between
+    the target model name and the name specified in this codebase.
+    """
+    input_spec = model_cls.get_input_spec()
+    for channel_last_input in model_cls.get_channel_last_inputs():
+        assert channel_last_input in input_spec
+    output_names = model_cls.get_output_names()
+    for channel_last_output in model_cls.get_channel_last_outputs():
+        assert channel_last_output in output_names
+    for output_name in output_names:
+        assert "-" not in output_name, "output name cannot contain `-`"
+    for input_name in input_spec:
+        assert "-" not in input_name, "input name cannot contain `-`"

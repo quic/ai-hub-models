@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Type
+from collections.abc import Callable
 
 from PIL import Image
 
@@ -23,7 +23,7 @@ from qai_hub_models.utils.display import display_or_save_image
 # Run Yolo end-to-end on a sample image.
 # The demo will display a image with the predicted bounding boxes.
 def yolo_detection_demo(
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     model_id: str,
     app_type: Callable[..., YoloObjectDetectionApp],
     default_image: str | CachedWebAsset,

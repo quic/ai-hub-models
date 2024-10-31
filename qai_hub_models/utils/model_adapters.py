@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -48,7 +47,7 @@ class TorchNumpyAdapter:
         assert isinstance(base_model, (torch.jit.ScriptModule, torch.nn.Module))
         self.base_model = base_model
 
-    def __call__(self, *args) -> Tuple[np.ndarray, ...]:
+    def __call__(self, *args) -> tuple[np.ndarray, ...]:
         inp = []
         for t in args:
             if not isinstance(t, np.ndarray):

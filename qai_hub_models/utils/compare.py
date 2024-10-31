@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Union
+from collections.abc import Iterable
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -34,9 +35,9 @@ def _flatten_tuple(out_tuple):
 
 def torch_inference(
     model: BaseModel,
-    sample_inputs: Dict[str, List[np.ndarray]],
+    sample_inputs: dict[str, list[np.ndarray]],
     return_channel_last_output: bool = True,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     Performs inference on a torch model given a set of sample inputs.
 
@@ -50,7 +51,7 @@ def torch_inference(
     Returns:
         List of numpy array outputs,
     """
-    torch_outs: List[List[torch.Tensor]] = []
+    torch_outs: list[list[torch.Tensor]] = []
     input_names = sample_inputs.keys()
     for i in range(len(list(sample_inputs.values())[0])):
         inputs = {}
@@ -157,9 +158,9 @@ METRICS_FUNCTIONS = dict(
 
 
 def generate_comparison_metrics(
-    expected: List[np.ndarray],
-    actual: List[np.ndarray],
-    names: Optional[List[str]] = None,
+    expected: list[np.ndarray],
+    actual: list[np.ndarray],
+    names: Optional[list[str]] = None,
     metrics: str = "psnr",
 ) -> pd.DataFrame:
     """

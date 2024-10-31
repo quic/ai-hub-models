@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 
 from qai_hub_models.models._shared.yolo.app import YoloObjectDetectionApp
@@ -21,5 +19,5 @@ class YoloV8DetectionApp(YoloObjectDetectionApp):
 
     def pre_nms_postprocess(
         self, prediction: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         return yolo_detect_postprocess(prediction)

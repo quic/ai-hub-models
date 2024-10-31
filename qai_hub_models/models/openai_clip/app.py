@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 from PIL.Image import Image
 
@@ -98,8 +96,8 @@ class ClipApp:
 
     @staticmethod
     def get_input_spec(
-        image_size: Tuple[int, int] = (224, 224),
-        text_size: Tuple[int, int] = (3, 77),
+        image_size: tuple[int, int] = (224, 224),
+        text_size: tuple[int, int] = (3, 77),
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #

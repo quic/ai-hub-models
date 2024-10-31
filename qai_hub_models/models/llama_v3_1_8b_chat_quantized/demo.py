@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Type
-
 from qai_hub_models.models._shared.llama3.demo import llama_chat_demo
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_USER_PROMPT,
@@ -23,14 +21,14 @@ from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 
 
 def llama_3_1_chat_demo(
-    model_cls: Type[BaseModel] = Model,
+    model_cls: type[BaseModel] = Model,
     model_id: str = MODEL_ID,
     end_tokens: set = END_TOKENS,
     hf_repo_name: str = HF_REPO_NAME,
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = [TargetRuntime.QNN],
+    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN],
 ):
     llama_chat_demo(
         model_cls=model_cls,

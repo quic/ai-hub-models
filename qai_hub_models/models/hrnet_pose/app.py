@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -80,7 +80,7 @@ class HRNetPoseApp:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         ],
     ):
         self.model = model
@@ -95,8 +95,8 @@ class HRNetPoseApp:
         return self.predict_pose_keypoints(*args, **kwargs)
 
     def preprocess_input(
-        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image]
-    ) -> Tuple[List[np.ndarray], Dict[str, torch.Tensor], torch.Tensor]:
+        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image]
+    ) -> tuple[list[np.ndarray], dict[str, torch.Tensor], torch.Tensor]:
         # Convert from PIL / torch/ etc. to NHWC, RGB numpy frames, which is the required input type.
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
 
@@ -125,9 +125,9 @@ class HRNetPoseApp:
 
     def predict_pose_keypoints(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | List[Image],
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output=False,
-    ) -> np.ndarray | List[Image]:
+    ) -> np.ndarray | list[Image]:
         """
         Predicts pose keypoints for a person in the image.
 
@@ -148,7 +148,7 @@ class HRNetPoseApp:
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
 
             Otherwise, returns:
-                predicted_images: List[PIL.Image]
+                predicted_images: list[PIL.Image]
                     Images with keypoints drawn.
         """
         (NHWC_int_numpy_frames, proc_inputs, x) = self.preprocess_input(

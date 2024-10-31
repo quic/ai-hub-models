@@ -4,8 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List, Tuple
 
 import numpy as np
 import torch
@@ -60,7 +60,7 @@ class SAMQAIHMWrapper(CollectionModel):
 
     # Create a new decoder
     def get_sam_decoder(
-        self, orig_img_size: Tuple[int, int] = (720, 1280), single_mask_mode=True
+        self, orig_img_size: tuple[int, int] = (720, 1280), single_mask_mode=True
     ) -> Callable:
         self.sam_decoder = SegmentAnythingONNXDecoder(
             self,
@@ -146,15 +146,15 @@ class SegmentAnythingEncoder(BaseModel):
         }
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["image_embeddings"]
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["image_embeddings"]
 
     def preprocess_input_image(self, input_image: np.ndarray):
@@ -181,7 +181,7 @@ class SegmentAnythingONNXDecoder(BaseModel):
     def __init__(
         self,
         sam_qaihm_wrapper: SAMQAIHMWrapper,
-        orig_img_size: Tuple[int, int] = (720, 1280),
+        orig_img_size: tuple[int, int] = (720, 1280),
         single_mask_mode: bool = True,
     ) -> None:
         super().__init__()
@@ -272,15 +272,15 @@ class SegmentAnythingONNXDecoder(BaseModel):
         return input_spec
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image_embeddings", "mask_input"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["upscaled_masks", "masks"]
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["upscaled_masks", "scores", "masks"]
 
     @classmethod

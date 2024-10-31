@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from qai_hub_models.models.posenet_mobilenet.app import PosenetApp
 from qai_hub_models.models.posenet_mobilenet.model import (
     MODEL_ASSET_VERSION,
@@ -27,7 +25,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # The demo will display a image with the predicted keypoints.
-def posenet_demo(model_cls: Type[PosenetMobilenet], is_test: bool = False):
+def posenet_demo(model_cls: type[PosenetMobilenet], is_test: bool = False):
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

@@ -19,7 +19,7 @@ class FFNet40SQuantizable(FFNetQuantizable, FFNet40S):
         cls,
         aimet_encodings: str | None = "DEFAULT",
     ) -> FFNet40SQuantizable:
-        return super(FFNet40SQuantizable, cls).from_pretrained(
+        return super().from_pretrained(
             "segmentation_ffnet40S_dBBB_mobile",
             aimet_encodings=aimet_encodings,
         )

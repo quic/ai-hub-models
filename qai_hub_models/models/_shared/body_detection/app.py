@@ -2,7 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Callable, List
+
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -12,36 +13,12 @@ from qai_hub_models.utils.bounding_box_processing import batched_nms, box_xywh_t
 from qai_hub_models.utils.image_processing import resize_pad
 
 
-def preprocess(img: np.ndarray, height: int, width: int):
-    """
-    Preprocess model input.
-
-    Inputs:
-        img: np.ndarray
-            Input image of shape [H, W, C]
-        height: int
-            Model input height.
-        width: int
-            Model input width
-    Outputs:
-        input: torch.Tensor
-            Preprocessed model input. Shape is (1, C, H, W)
-        scale: float
-            Scaling factor of input image and network input image.
-        pad: List[float]
-            Top and left padding size.
-    """
-    img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0) / 255.0
-    input, scale, pad = resize_pad(img, (height, width))
-    return input, scale, pad
-
-
-def decode(output: List[torch.Tensor], thr: float) -> np.ndarray:
+def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
     """
     Decode model output to bounding boxes, class indices and scores.
 
     Inputs:
-        output: List[torch.Tensor]
+        output: list[torch.Tensor]
             Model output.
         thr: float
             Detection threshold. Predictions lower than the thresholds will be discarded.
@@ -87,20 +64,20 @@ def decode(output: List[torch.Tensor], thr: float) -> np.ndarray:
 
 
 def postprocess(
-    output: List[torch.Tensor],
+    output: list[torch.Tensor],
     scale: float,
-    pad: List[int],
+    pad: list[int],
     conf_thr: float,
     iou_thr: float,
 ) -> np.ndarray:
     """
     Post process model output.
     Inputs:
-        output: List[torch.Tensor]
+        output: list[torch.Tensor]
             Multi-scale model output.
         scale: float
             Scaling factor from input image and model input.
-        pad: List[int]
+        pad: list[int]
             Padding sizes from input image and model input.
         conf_thr: float
             Confidence threshold of detections.
@@ -163,7 +140,8 @@ class BodyDetectionApp:
             (cls_id, x1, y1, x2, y2, score)
         """
         img = np.array(load_image(imgfile))
-        input, scale, pad = preprocess(img, height, width)
+        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0)
+        input, scale, pad = resize_pad(img, (height, width))
         output = self.model(input)
         for t, o in enumerate(output):
             output[t] = o.permute(0, 2, 3, 1).detach()

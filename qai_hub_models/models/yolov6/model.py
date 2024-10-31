@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from importlib import reload
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -91,16 +90,16 @@ class YoloV6(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names(include_postprocessing: bool = True) -> List[str]:
+    def get_output_names(include_postprocessing: bool = True) -> list[str]:
         if include_postprocessing:
             return ["boxes", "scores", "class_idx"]
         return ["detector_output"]
 
-    def _get_output_names_for_instance(self) -> List[str]:
+    def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
 

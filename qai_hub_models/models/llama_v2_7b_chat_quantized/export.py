@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import os
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple, cast
+from typing import Any, Optional, cast
 
 import qai_hub as hub
 
@@ -64,7 +65,7 @@ DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24 (Family)"
 
 def export_model(
     device: str = DEFAULT_EXPORT_DEVICE,
-    components: Optional[List[str]] = None,
+    components: Optional[list[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -75,8 +76,8 @@ def export_model(
     profile_options: str = "",
     **additional_model_kwargs,
 ) -> Mapping[
-    str, Tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-] | List[str]:
+    str, tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
+] | list[str]:
     """
     This function accomplishes 6 main tasks:
 
@@ -142,9 +143,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
     hub_device = hub.Device(device)
-    compile_jobs: Dict[str, List[hub.client.CompileJob]] = {}
-    profile_options_per_sub_component: Dict[str, str] = {}
-    link_jobs: Dict[str, hub.client.LinkJob] = {}
+    compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
+    profile_options_per_sub_component: dict[str, str] = {}
+    link_jobs: dict[str, hub.client.LinkJob] = {}
 
     hub_device = hub.Device(device)
     for component_name in components:
@@ -210,7 +211,7 @@ def export_model(
         )
 
     # 4. Profile the model assets on real devices
-    profile_jobs: Dict[str, hub.client.ProfileJob] = {}
+    profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
             hub_model = link_jobs[component_name].get_target_model()
@@ -230,7 +231,7 @@ def export_model(
                 )
 
     # 5. Run inference on-device with sample inputs
-    inference_jobs: Dict[str, hub.client.InferenceJob] = {}
+    inference_jobs: dict[str, hub.client.InferenceJob] = {}
     if not skip_inferencing:
         for component_name in components:
             for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
@@ -268,7 +269,7 @@ def export_model(
             for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
                 profile_job = profile_jobs[sub_component_name]
                 assert profile_job is not None and profile_job.wait().success
-                profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
+                profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
                 print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:

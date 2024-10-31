@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Optional
 
 import numpy as np
 import torch

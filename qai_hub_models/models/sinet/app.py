@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Callable, Tuple
+from collections.abc import Callable
 
 import numpy as np
 import PIL
@@ -58,7 +58,7 @@ class SINetApp:
 
     def predict(
         self, image: Image, raw_output: bool = False, show_face: bool = True
-    ) -> Image | Tuple[np.ndarray, np.ndarray]:
+    ) -> Image | tuple[np.ndarray, np.ndarray]:
         """
         From the provided image or tensor, segment the image
 
@@ -73,7 +73,7 @@ class SINetApp:
                     a tuple of arrays 1x2xHxW of mask predictions per pixel as 0 or 1
 
             Otherwise, returns:
-                segmented_images: List[PIL.Image]
+                segmented_images: list[PIL.Image]
                     Image of face segmented out or background segmented out
         """
 

@@ -6,16 +6,17 @@ import datetime
 import functools
 import re
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Optional
 
 from .task import Task
 from .util import echo
 
-ALL_TASKS: List[str] = []
-PUBLIC_TASKS: List[str] = []
-TASK_DEPENDENCIES: Dict[str, List[str]] = {}
-TASK_DESCRIPTIONS: Dict[str, str] = {}
-SUMMARIZERS: List[str] = []
+ALL_TASKS: list[str] = []
+PUBLIC_TASKS: list[str] = []
+TASK_DEPENDENCIES: dict[str, list[str]] = {}
+TASK_DESCRIPTIONS: dict[str, str] = {}
+SUMMARIZERS: list[str] = []
 
 
 def task(func):
@@ -33,7 +34,7 @@ def public_task(description: str):
     return add_task
 
 
-def depends(deps: List[str]):
+def depends(deps: list[str]):
     def add_dep(func):
         TASK_DEPENDENCIES[func.__name__] = deps
         return func
@@ -68,10 +69,10 @@ class Step:
 class Plan:
     """An ordered list of Tasks to execute."""
 
-    _steps: List[Step]
-    _skips: List[re.Pattern]
+    _steps: list[Step]
+    _skips: list[re.Pattern]
     _plan_duration = Optional[datetime.timedelta]
-    _step_durations: List[Tuple[str, datetime.timedelta]]
+    _step_durations: list[tuple[str, datetime.timedelta]]
 
     def __init__(self) -> None:
         self._steps = []
@@ -173,5 +174,5 @@ class Plan:
         self._skips.append(re.compile(pattern))
 
     @property
-    def steps(self) -> List[str]:
+    def steps(self) -> list[str]:
         return [s.step_id for s in self._steps]

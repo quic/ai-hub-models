@@ -8,7 +8,7 @@ import json
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -222,10 +222,10 @@ def prepare_combined_attention_mask(
 
 
 def get_past_keyval_with_shift(
-    past_key_vals: List[torch.Tensor],
-    new_key_vals: List[torch.Tensor],
+    past_key_vals: list[torch.Tensor],
+    new_key_vals: list[torch.Tensor],
     length: int,
-) -> List[torch.Tensor]:
+) -> list[torch.Tensor]:
     """
     Clip past key value to feed next iteration
     """
@@ -367,7 +367,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         sequence_length: int,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "Llama3Base_Quantized":
+    ) -> Llama3Base_Quantized:
         pass
 
     @staticmethod
@@ -515,11 +515,11 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
             model_input_names[node.name] = node.input
 
         model_names = (
-            set([o for x in model.graph.node for o in x.output])
-            | set([x.name for x in model.graph.input])
-            | set([x.name for x in model.graph.output])
+            {o for x in model.graph.node for o in x.output}
+            | {x.name for x in model.graph.input}
+            | {x.name for x in model.graph.output}
         )
-        model_param_names = set([x.name for x in model.graph.initializer])
+        model_param_names = {x.name for x in model.graph.initializer}
 
         uses_lists = isinstance(encodings["activation_encodings"], list)
         if uses_lists:

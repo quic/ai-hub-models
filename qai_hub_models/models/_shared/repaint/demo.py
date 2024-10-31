@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Type
-
 from qai_hub_models.models._shared.repaint.app import RepaintMaskApp
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
@@ -21,12 +19,12 @@ from qai_hub_models.utils.display import display_or_save_image
 # Run repaint app end-to-end on a sample image.
 # The demo will display the predicted image in a window.
 def repaint_demo(
-    model_type: Type[BaseModel],
+    model_type: type[BaseModel],
     model_id: str,
     default_image: str | CachedWebAsset,
     default_mask: str | CachedWebAsset,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = list(
+    available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
 ):

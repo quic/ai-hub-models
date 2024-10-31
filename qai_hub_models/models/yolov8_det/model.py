@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 import torch
 import torch.nn as nn
 
@@ -182,14 +180,14 @@ class YoloV8Detector(BaseModel):
     @staticmethod
     def get_output_names(
         include_postprocessing: bool = True, split_output: bool = False
-    ) -> List[str]:
+    ) -> list[str]:
         if include_postprocessing:
             return ["boxes", "scores", "class_idx"]
         if split_output:
             return ["boxes", "scores"]
         return ["detector_output"]
 
-    def _get_output_names_for_instance(self) -> List[str]:
+    def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
@@ -198,5 +196,5 @@ class YoloV8Detector(BaseModel):
         return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]

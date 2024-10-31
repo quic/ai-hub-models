@@ -2,14 +2,14 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import torch
 
 # PyTorch trace doesn't capture the input specs. Hence we need an additional
 # InputSpec (name -> (shape, type)) when submitting profiling job to Qualcomm AI Hub.
 # This is a subtype of qai_hub.InputSpecs
-InputSpec = Dict[str, Tuple[Tuple[int, ...], str]]
+InputSpec = dict[str, tuple[tuple[int, ...], str]]
 
 
 def str_to_torch_dtype(s):
@@ -19,7 +19,7 @@ def str_to_torch_dtype(s):
     )[s]
 
 
-def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> List[torch.Tensor]:
+def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> list[torch.Tensor]:
     """Make sample torch inputs from input spec"""
     torch_input = []
     generator = None

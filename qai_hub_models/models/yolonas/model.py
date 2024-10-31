@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import List
 
 import torch
 
@@ -69,8 +68,8 @@ class YoloNAS(BaseModel):
             find_replace_in_repo(
                 repo_root,
                 YOLO_HEAD_FILE,
-                "feats: Tuple[Tensor, ...],\n",
-                "feats: Tuple[Tensor, ...], eval_size: Tuple[Tensor, Tensor],\n",
+                "feats: tuple[Tensor, ...],\n",
+                "feats: tuple[Tensor, ...], eval_size: tuple[Tensor, Tensor],\n",
             )
             find_replace_in_repo(
                 repo_root,
@@ -154,13 +153,13 @@ class YoloNAS(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names(include_postprocessing: bool = True) -> List[str]:
+    def get_output_names(include_postprocessing: bool = True) -> list[str]:
         output_names = ["boxes", "scores"]
         if include_postprocessing:
             output_names.append("class_idx")
         return output_names
 
-    def _get_output_names_for_instance(self) -> List[str]:
+    def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
     def _sample_inputs_impl(
@@ -172,5 +171,5 @@ class YoloNAS(BaseModel):
         return yolo_sample_inputs()
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]

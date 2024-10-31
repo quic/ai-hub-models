@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import torch
 import torch.nn as nn
 from transformers import DetrForObjectDetection
@@ -29,7 +27,7 @@ class DETR(BaseModel):
         model = DetrForObjectDetection.from_pretrained(ckpt_name)
         return cls(model)
 
-    def forward(self, image: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Run DETR on `image` and `mask`, and produce high quality detection results.
 
@@ -60,9 +58,9 @@ class DETR(BaseModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["logits", "boxes"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]

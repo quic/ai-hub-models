@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional
+from typing import Optional
 
 import torch
 from torch import Tensor
@@ -95,9 +95,9 @@ def shifted_window_attention_inf(
     qkv_weight: Tensor,
     proj_weight: Tensor,
     relative_position_bias: Tensor,
-    window_size: List[int],
+    window_size: list[int],
     num_heads: int,
-    shift_size: List[int],
+    shift_size: list[int],
     attention_dropout: float = 0.0,
     dropout: float = 0.0,
     qkv_bias: Optional[Tensor] = None,

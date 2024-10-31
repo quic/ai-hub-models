@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import cv2
 import numpy as np
 import torch
@@ -18,7 +16,7 @@ def batched_nms(
     boxes: torch.Tensor,
     scores: torch.Tensor,
     *gather_additional_args,
-) -> Tuple[List[torch.Tensor], ...]:
+) -> tuple[list[torch.Tensor], ...]:
     """
     Non maximum suppression over several batches.
 
@@ -41,20 +39,20 @@ def batched_nms(
             Should be shape [B, N, ...]
 
     Outputs:
-        boxes_out: List[torch.Tensor]
+        boxes_out: list[torch.Tensor]
             Output boxes. This is list of tensors--one tensor per batch.
             Each tensor is shape [S, 4], where S == number of selected boxes, and 4 == (x1, x2, y1, y2)
 
-        boxes_out: List[torch.Tensor]
+        boxes_out: list[torch.Tensor]
             Output scores. This is list of tensors--one tensor per batch.
             Each tensor is shape [S], where S == number of selected boxes.
 
-        *args : List[torch.Tensor], ...
+        *args : list[torch.Tensor], ...
             "Gathered" additional arguments, if provided.
     """
-    scores_out: List[torch.Tensor] = []
-    boxes_out: List[torch.Tensor] = []
-    args_out: List[List[torch.Tensor]] = (
+    scores_out: list[torch.Tensor] = []
+    boxes_out: list[torch.Tensor] = []
+    args_out: list[list[torch.Tensor]] = (
         [[] for _ in gather_additional_args] if gather_additional_args else []
     )
 
@@ -138,8 +136,8 @@ def compute_box_corners_with_rotation(
 
 
 def compute_box_affine_crop_resize_matrix(
-    box_corners: torch.Tensor, output_image_size: Tuple[int, int]
-) -> List[np.ndarray]:
+    box_corners: torch.Tensor, output_image_size: tuple[int, int]
+) -> list[np.ndarray]:
     """
     Computes the affine transform matrices required to crop, rescale,
     and pad the box described by box_corners to fit into an image of the given size without warping.
@@ -155,7 +153,7 @@ def compute_box_affine_crop_resize_matrix(
             Size of image to which the box should be resized and cropped.
 
     Outputs:
-        affines: List[np.ndarray]
+        affines: list[np.ndarray]
             Computed affine transform matrices. Shape is (2 x 3)
     """
     # Define coordinates for translated image
@@ -165,7 +163,7 @@ def compute_box_affine_crop_resize_matrix(
     )
 
     # Compute affine transformation that will map the square to the point
-    affines: List[np.ndarray] = []
+    affines: list[np.ndarray] = []
     for batch in range(box_corners.shape[0]):
         src = box_corners[batch][..., :3].detach().numpy()
         affines.append(cv2.getAffineTransform(src, network_input_points))

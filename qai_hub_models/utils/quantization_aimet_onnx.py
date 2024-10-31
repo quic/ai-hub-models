@@ -19,8 +19,8 @@ except (ImportError, ModuleNotFoundError):
     )
 
 import os
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
-from typing import Collection, Mapping, Sequence
 
 import torch
 from qai_hub.client import DatasetEntries
@@ -117,7 +117,9 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         return data
 
     def forward(
-        self, *args: Sequence[torch.Tensor], **kwargs: Mapping[str, torch.Tensor]
+        self,
+        *args: Sequence[torch.Tensor],
+        **kwargs: Mapping[str, torch.Tensor],
     ) -> torch.Tensor | Collection[torch.Tensor]:
         """
         QuantSim forward pass with torch.Tensor

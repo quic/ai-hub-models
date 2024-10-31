@@ -7,30 +7,32 @@ from __future__ import annotations
 import functools
 import multiprocessing
 import pprint
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Set, Tuple, Union
+from typing import Any, Union
 
-from qai_hub_models.utils.config_loaders import MODEL_IDS
-from qai_hub_models.utils.scorecard.common import (
+from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
+)
+from qai_hub_models.scorecard.results.chipset_helpers import (
     chipset_marketing_name,
     get_supported_devices,
     supported_chipsets_santized,
-    supported_oses,
 )
-from qai_hub_models.utils.scorecard.job_summary import (
-    CompileJobSummary,
-    ProfileJobSummary,
+from qai_hub_models.scorecard.results.scorecard_job import (
+    CompileScorecardJob,
+    ProfileScorecardJob,
 )
+from qai_hub_models.utils.config_loaders import MODEL_IDS
 
 # Caching this information is helpful because it requires pulling data from hub.
 # Pulling data from hub is slow.
 __REFERENCE_DEVICE_INFO_PER_CHIPSET = {}
 
 
-def get_reference_device_info(device: ScorecardDevice) -> Dict[str, str]:
+def get_reference_device_info(device: ScorecardDevice) -> dict[str, str]:
     chipset = device.chipset
     if chipset not in __REFERENCE_DEVICE_INFO_PER_CHIPSET:
         hub_device = device.reference_device
@@ -59,12 +61,12 @@ def get_reference_device_info(device: ScorecardDevice) -> Dict[str, str]:
 @dataclass
 class DevicePerfSummary:
     device: ScorecardDevice
-    run_per_path: Dict[ScorecardProfilePath, ProfileJobSummary]  # Map<path, Summary>
+    run_per_path: dict[ScorecardProfilePath, ProfileScorecardJob]  # Map<path, Summary>
 
     @staticmethod
-    def from_runs(device: ScorecardDevice, path_runs: List[ProfileJobSummary]):
+    def from_runs(device: ScorecardDevice, path_runs: list[ProfileScorecardJob]):
         # Figure out unique devices in various baselines
-        run_per_path: Dict[ScorecardProfilePath, ProfileJobSummary] = {}
+        run_per_path: dict[ScorecardProfilePath, ProfileScorecardJob] = {}
         for run in path_runs:
             assert run._device == device  # Device should match
             run_per_path[run.path] = run
@@ -75,8 +77,8 @@ class DevicePerfSummary:
         self,
         include_failed_jobs: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
-    ) -> Dict[str, str | Dict[str, str]]:
-        perf_card: Dict[str, str | Dict[str, str]] = {}
+    ) -> dict[str, str | dict[str, str]]:
+        perf_card: dict[str, str | dict[str, str]] = {}
         max_date = None
         for path, run in self.run_per_path.items():
             if (
@@ -108,14 +110,14 @@ class DevicePerfSummary:
 @dataclass
 class ModelPerfSummary:
     model_id: str
-    runs_per_device: Dict[
+    runs_per_device: dict[
         ScorecardDevice, DevicePerfSummary
     ]  # Map<Device Name, Summary>
 
     @staticmethod
-    def from_runs(model_id: str, device_runs: List[ProfileJobSummary]):
+    def from_runs(model_id: str, device_runs: list[ProfileScorecardJob]):
         # Figure out unique devices in various baselines
-        runs_per_device: Dict[ScorecardDevice, List[ProfileJobSummary]] = {}
+        runs_per_device: dict[ScorecardDevice, list[ProfileScorecardJob]] = {}
         for run in device_runs:
             assert run.model_id == model_id  # All should have the same model ID
             list = runs_per_device.get(run._device, [])
@@ -135,7 +137,7 @@ class ModelPerfSummary:
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
-    ) -> List[Dict[str, Union[str, Dict[str, str]]]]:
+    ) -> list[dict[str, Union[str, dict[str, str]]]]:
         perf_card = []
         for summary in self.runs_per_device.values():
             if include_internal_devices or summary.device.public:
@@ -154,14 +156,14 @@ class ModelPerfSummary:
 
 @dataclass
 class PerfSummary:
-    runs_per_model: Dict[str, ModelPerfSummary]  # Map<Model ID, Summary>
+    runs_per_model: dict[str, ModelPerfSummary]  # Map<Model ID, Summary>
 
     @staticmethod
     def from_model_ids(
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         model_ids=MODEL_IDS,
         max_job_wait_secs: int | None = None,
-    ) -> Dict[str, PerfSummary]:
+    ) -> dict[str, PerfSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -169,7 +171,7 @@ class PerfSummary:
             <model_id>_<path>-<device> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         print("Generating Performance Summary for Models")
         pool = multiprocessing.Pool(processes=15)
@@ -188,9 +190,9 @@ class PerfSummary:
     @staticmethod
     def from_model_id(
         model_id: str,
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         max_job_wait_secs: int | None = None,
-    ) -> Tuple[str, PerfSummary]:
+    ) -> tuple[str, PerfSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -198,16 +200,16 @@ class PerfSummary:
             <model_id>_<path>-<device> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         print(f"    {model_id} ")
-        runs = ProfileJobSummary.from_model_id(model_id, job_ids, max_job_wait_secs)
+        runs = ProfileScorecardJob.from_model_id(model_id, job_ids, max_job_wait_secs)
         return model_id, PerfSummary.from_runs(runs)
 
     @staticmethod
-    def from_runs(model_runs: List[ProfileJobSummary]):
+    def from_runs(model_runs: list[ProfileScorecardJob]):
         # Figure out unique models in various baselines
-        runs_per_model: Dict[str, List[ProfileJobSummary]] = {}
+        runs_per_model: dict[str, list[ProfileScorecardJob]] = {}
         for run in model_runs:
             list = runs_per_model.get(run.model_id, [])
             list.append(run)
@@ -220,8 +222,8 @@ class PerfSummary:
             }
         )
 
-    def get_chipsets(self, include_internal_devices: bool = False) -> Set[str]:
-        chips: Set[str] = set()
+    def get_chipsets(self, include_internal_devices: bool = False) -> set[str]:
+        chips: set[str] = set()
         for model_id, model_summary in self.runs_per_model.items():
             for device, device_summary in model_summary.runs_per_device.items():
                 # At least 1 successful run must exist for this chipset
@@ -249,17 +251,16 @@ class PerfSummary:
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
-    ) -> Dict[str, str | List[Any] | Dict[str, Any]]:
-        perf_card: Dict[str, str | List[Any] | Dict[str, Any]] = {}
+    ) -> dict[str, str | list[Any] | dict[str, Any]]:
+        perf_card: dict[str, str | list[Any] | dict[str, Any]] = {}
 
         chips = self.get_chipsets(include_internal_devices)
         perf_card["aggregated"] = dict(
-            supported_oses=supported_oses(),
             supported_devices=get_supported_devices(chips),
             supported_chipsets=supported_chipsets_santized(chips),
         )
 
-        models_list: List[Dict[str, Any]] = []
+        models_list: list[dict[str, Any]] = []
         for model_id, summary in self.runs_per_model.items():
             models_list.append(
                 {
@@ -279,12 +280,12 @@ class PerfSummary:
 @dataclass
 class DeviceCompileSummary:
     device: ScorecardDevice
-    run_per_path: Dict[ScorecardCompilePath, CompileJobSummary]  # Map<path, Summary>
+    run_per_path: dict[ScorecardCompilePath, CompileScorecardJob]  # Map<path, Summary>
 
     @staticmethod
-    def from_runs(device: ScorecardDevice, path_runs: List[CompileJobSummary]):
+    def from_runs(device: ScorecardDevice, path_runs: list[CompileScorecardJob]):
         # Figure out unique devices in various baselines
-        run_per_path: Dict[ScorecardCompilePath, CompileJobSummary] = {}
+        run_per_path: dict[ScorecardCompilePath, CompileScorecardJob] = {}
         for run in path_runs:
             assert run._device == device  # Device should match
             run_per_path[run.path] = run
@@ -295,13 +296,13 @@ class DeviceCompileSummary:
 @dataclass
 class ModelCompileSummary:
     model_id: str
-    runs_per_device: Dict[
+    runs_per_device: dict[
         ScorecardDevice, DeviceCompileSummary
     ]  # Map<Device Name, Summary>
 
     @staticmethod
-    def from_runs(model_id: str, path_runs: List[CompileJobSummary]):
-        runs_per_device: Dict[ScorecardDevice, List[CompileJobSummary]] = {}
+    def from_runs(model_id: str, path_runs: list[CompileScorecardJob]):
+        runs_per_device: dict[ScorecardDevice, list[CompileScorecardJob]] = {}
         for run in path_runs:
             assert run.model_id == model_id  # model id should match
             list = runs_per_device.get(run._device, [])
@@ -318,14 +319,14 @@ class ModelCompileSummary:
 
 @dataclass
 class CompileSummary:
-    runs_per_model: Dict[str, ModelCompileSummary]  # Map<Model ID, Summary>
+    runs_per_model: dict[str, ModelCompileSummary]  # Map<Model ID, Summary>
 
     @staticmethod
     def from_model_ids(
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         model_ids=MODEL_IDS,
         max_job_wait_secs: int | None = None,
-    ) -> Dict[str, CompileSummary]:
+    ) -> dict[str, CompileSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -335,7 +336,7 @@ class CompileSummary:
             <model_id>_<runtime> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         print("Generating Compilation Summary for Models")
         pool = multiprocessing.Pool(processes=15)
@@ -354,9 +355,9 @@ class CompileSummary:
     @staticmethod
     def from_model_id(
         model_id: str,
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         max_job_wait_secs: int | None = None,
-    ) -> Tuple[str, CompileSummary]:
+    ) -> tuple[str, CompileSummary]:
         """
         Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -366,16 +367,16 @@ class CompileSummary:
             <model_id>_<runtime> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         print(f"    {model_id} ")
-        runs = CompileJobSummary.from_model_id(model_id, job_ids, max_job_wait_secs)
+        runs = CompileScorecardJob.from_model_id(model_id, job_ids, max_job_wait_secs)
         return model_id, CompileSummary.from_runs(runs)
 
     @staticmethod
-    def from_runs(model_runs: List[CompileJobSummary]) -> "CompileSummary":
+    def from_runs(model_runs: list[CompileScorecardJob]) -> CompileSummary:
         # Figure out unique models in various baselines
-        runs_per_model: Dict[str, List[CompileJobSummary]] = {}
+        runs_per_model: dict[str, list[CompileScorecardJob]] = {}
         for run in model_runs:
             list = runs_per_model.get(run.model_id, [])
             list.append(run)

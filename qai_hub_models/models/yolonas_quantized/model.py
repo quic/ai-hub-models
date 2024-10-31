@@ -48,7 +48,7 @@ class YoloNASQuantizable(AIMETQuantizableMixin, YoloNAS):
         weights_name: Optional[str] = DEFAULT_WEIGHTS,
         aimet_encodings: str | None = "DEFAULT",
         include_postprocessing: bool = True,
-    ) -> "YoloNASQuantizable":
+    ) -> YoloNASQuantizable:
         """Load YoloNAS from a weightfile created by the source YoloNAS repository."""
         fp16_model = YoloNAS.from_pretrained(
             weights_name,

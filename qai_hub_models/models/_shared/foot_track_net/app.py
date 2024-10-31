@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -12,10 +12,6 @@ import torch
 from PIL import Image
 
 from qai_hub_models.utils.bounding_box_processing import get_iou
-from qai_hub_models.utils.image_processing import (
-    app_to_net_image_inputs,
-    normalize_image_transform,
-)
 
 CLASSNAME_TO_ID_MAP = {"face": 0, "person": 1}
 
@@ -160,7 +156,7 @@ def drawbbox(
         the image after drawing the result
     """
 
-    x, y, r, b = [int(bb + 0.5) for bb in np.array(bbox.box).astype(int)]
+    x, y, r, b = (int(bb + 0.5) for bb in np.array(bbox.box).astype(int))
     # 3DMM adjustment,  reuse the bbox structure
     if bbox.label_prop == 0:
         cx, cy = (r + x) // 2, (b + y) // 2
@@ -227,11 +223,11 @@ def detect_images_multiclass_fb(
 
     kscore, kinds, kcls, kys, kxs = restructure_topk(nmskey, 1000)
 
-    kys = kys.cpu().data.numpy().astype(np.int)
-    kxs = kxs.cpu().data.numpy().astype(np.int)
-    kcls = kcls.cpu().data.numpy().astype(np.int)
+    kys = kys.cpu().data.numpy().astype(np.int32)
+    kxs = kxs.cpu().data.numpy().astype(np.int32)
+    kcls = kcls.cpu().data.numpy().astype(np.int32)
     kscore = kscore.cpu().data.numpy().astype(np.float32)
-    kinds = kinds.cpu().data.numpy().astype(np.int)
+    kinds = kinds.cpu().data.numpy().astype(np.int32)
 
     key = [[], [], [], [], []]  # [ [kys..],  [kxs..], [score..], [class..]]
 
@@ -295,8 +291,15 @@ class FootTrackNet_App:
         * Convert the output to two lists of BBox_landmarks objects for face and body.
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor], if_norm=True):
+        """
+        model: the input model
+        if_norm: if do the image normalization
+        """
         self.model = model
+        self.threshhold = [0.6, 0.7, 0.7]  # threshold for each detector, 0.6 original
+        self.iou_thr = [0.2, 0.5, 0.5]  # iou threshold
+        self.if_norm = if_norm
 
     def predict(self, *args, **kwargs):
         return self.det_image(*args, **kwargs)
@@ -306,8 +309,8 @@ class FootTrackNet_App:
         pixel_values_or_image: torch.Tensor
         | np.ndarray
         | Image.Image
-        | List[Image.Image],
-    ) -> Tuple[List[BBox_landmarks], List[BBox_landmarks]]:
+        | list[Image.Image],
+    ) -> tuple[list[BBox_landmarks], list[BBox_landmarks]]:
         """
         return two lists,  objs_face, objs_person.
         Each list contains the object of BBox_landmarks which contains the bbox and landmark info. Please refer to BBox definition.
@@ -324,14 +327,9 @@ class FootTrackNet_App:
             objs_face: a list of BBox_landmarks for face  list[BBox_landmarks]
             objs_person: a list of BBox_landmarks for person  list[BBox_landmarks]
         """
-        NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
-            pixel_values_or_image
-        )
-        input_transform = normalize_image_transform()
-        NCHW_fp32_torch_frames = input_transform(NCHW_fp32_torch_frames)  # normalize
-        threshhold = [0.6, 0.7, 0.7]  # threshold for each detector
-        iou_thr = [0.2, 0.5, 0.5]  # iou threshold
-        output = self.model(NCHW_fp32_torch_frames)
+        threshhold = self.threshhold
+        iou_thr = self.iou_thr
+        output = self.model(pixel_values_or_image)
 
         heatmap = output[0]
         bbox = output[1]

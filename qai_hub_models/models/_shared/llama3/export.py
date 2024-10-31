@@ -8,8 +8,9 @@ from __future__ import annotations
 import glob
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, cast
+from typing import Any, Optional, cast
 
 import numpy as np
 import qai_hub as hub
@@ -27,10 +28,10 @@ from qai_hub_models.utils.printing import (
 
 
 def export_model(
-    model_cls: Type[Llama3Base_Quantized],
+    model_cls: type[Llama3Base_Quantized],
     model_name: str,
-    components: List[str],
-    sub_components: Dict[str, List[str]],
+    components: list[str],
+    sub_components: dict[str, list[str]],
     num_layers_per_split: int,
     device: str,
     skip_profiling: bool = False,
@@ -44,8 +45,8 @@ def export_model(
     synchronous: bool = False,
     **additional_model_kwargs,
 ) -> Mapping[
-    str, Tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-] | List[str]:
+    str, tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
+] | list[str]:
     """
     In this workflow, two instantiations of the Llama model are exported (AR-1,
     AR-128). AR-<seq_len> refers to a model with input sequence length <seq_len>.
@@ -77,7 +78,7 @@ def export_model(
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
-        sub_components: Dictionary of strings pointing to lists of strings,
+        sub_components: dictionary of strings pointing to lists of strings,
             where each sub-component will be grouped using weight sharing with
             other sub-components to form a component.
         num_layers_per_split: How many layers to include in each model part.
@@ -126,10 +127,10 @@ def export_model(
         ("token", 1),
     ]
 
-    compile_jobs_to_link: Dict[str, List[hub.client.CompileJob]] = {}
-    compile_jobs: Dict[str, hub.client.CompileJob] = {}
-    link_jobs: Dict[str, hub.client.LinkJob] = {}
-    profile_options_per_instantiation: Dict[str, str] = {}
+    compile_jobs_to_link: dict[str, list[hub.client.CompileJob]] = {}
+    compile_jobs: dict[str, hub.client.CompileJob] = {}
+    link_jobs: dict[str, hub.client.LinkJob] = {}
+    profile_options_per_instantiation: dict[str, str] = {}
 
     sub_component_names = {}
     component_from_sub_component_names = {}
@@ -237,7 +238,7 @@ def export_model(
         link_jobs[component_name] = link_job
 
     # 3. Profile the model assets on real devices
-    profile_jobs: Dict[str, hub.client.ProfileJob] = {}
+    profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for instantiation_name, _ in instantiations:
             for sub_component_name in sub_component_names[instantiation_name]:
@@ -263,9 +264,9 @@ def export_model(
                 )
 
     # 4. Run inference on-device with sample inputs
-    inference_jobs: Dict[str, hub.client.InferenceJob] = {}
-    final_device_output_data: Dict[str, Dict[str, np.ndarray]] = {}
-    final_ref_output_data: Dict[str, Dict[str, np.ndarray]] = {}
+    inference_jobs: dict[str, hub.client.InferenceJob] = {}
+    final_device_output_data: dict[str, dict[str, np.ndarray]] = {}
+    final_ref_output_data: dict[str, dict[str, np.ndarray]] = {}
     if not skip_inferencing:
         for instantiation_name, seq_len in instantiations:
             model = model_cls.from_pretrained(sequence_length=seq_len, **model_params)
@@ -332,7 +333,7 @@ def export_model(
             for sub_component_name in sub_component_names[instantiation_name]:
                 profile_job = profile_jobs[sub_component_name]
                 assert profile_job is not None and profile_job.wait().success
-                profile_data: Dict[str, Any] = profile_job.download_profile()  # type: ignore
+                profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
                 print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:

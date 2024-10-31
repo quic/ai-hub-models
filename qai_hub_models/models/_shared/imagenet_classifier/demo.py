@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import List, Type
 
 import torch
 
@@ -39,10 +38,10 @@ IMAGENET_LABELS_ASSET = CachedWebModelAsset(
 # Run Imagenet Classifier end-to-end on a sample image.
 # The demo will print the predicted class to terminal.
 def imagenet_demo(
-    model_cls: Type[ImagenetClassifier],
+    model_cls: type[ImagenetClassifier],
     model_id: str,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = list(
+    available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
 ):

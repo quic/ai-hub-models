@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import PIL.Image
@@ -42,7 +42,11 @@ class DeepLabV3App:
         * Convert the raw output into probabilities using softmax
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor], num_classes: int):
+    def __init__(
+        self,
+        model: Callable[[torch.Tensor], torch.Tensor],
+        num_classes: int,
+    ):
         self.model = model
         self.num_classes = num_classes
 
@@ -59,7 +63,7 @@ class DeepLabV3App:
                     A list of predicted masks.
 
             Otherwise, returns:
-                segmented_images: List[PIL.Image]
+                segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
 

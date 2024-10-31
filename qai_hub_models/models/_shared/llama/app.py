@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import gc
 from abc import abstractmethod
-from typing import Any, Callable, Dict, List, Set, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import qai_hub as hub
 import torch
@@ -34,7 +35,7 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
         self,
         num_splits: int,
         num_past_key_val_heads: int,
-        model_split_map: Dict[int, Tuple[int, int]],
+        model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
     ):
@@ -48,7 +49,7 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
     def __call__(
         self,
         *args: torch.Tensor,
-    ) -> Tuple[torch.Tensor, ...]:
+    ) -> tuple[torch.Tensor, ...]:
         if self.is_token_generator:
             return self.forward_tg(*args)
         return self.forward(*args)
@@ -153,12 +154,12 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
 
     def __init__(
         self,
-        hub_model_ids: List[str],
+        hub_model_ids: list[str],
         hub_device: hub.Device,
         inference_options: str,
         get_model_class: Callable,
         num_past_key_val_heads: int,
-        model_split_map: Dict[int, Tuple[int, int]],
+        model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
     ):
@@ -205,7 +206,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
         models: CollectionModel,
         num_splits: int,
         num_past_key_val_heads: int,
-        model_split_map: Dict[int, Tuple[int, int]],
+        model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
     ):
@@ -246,7 +247,7 @@ class ChatApp:
         get_input_prompt_with_tags: Callable,
         prepare_combined_attention_mask: Callable,
         tokenizer: Any,
-        end_tokens: Set[str],
+        end_tokens: set[str],
         num_past_key_val_heads: int,
     ):
         """

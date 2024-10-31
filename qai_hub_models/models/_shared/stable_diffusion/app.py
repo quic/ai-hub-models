@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import diffusers
 import torch
@@ -76,7 +76,7 @@ class StableDiffusionApp:
         self.time_embedding = time_embedding
         self.channel_last_latent = channel_last_latent
 
-    def _encode_text_prompt(self, prompt: str) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _encode_text_prompt(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Takes a text prompt and returns a tensor with its text embedding.
 
@@ -195,6 +195,9 @@ class StableDiffusionApp:
             guidance_scale=guidance_scale,
             channel_last_latent=self.channel_last_latent,
         )
+        # Decode generated image from latent space
+        if self.channel_last_latent:
+            latents = _make_channel_last_torch(latents)
         image = self.vae_decoder(latents)
         return image
 
@@ -226,7 +229,7 @@ def run_diffusion_steps_on_latents(
     guidance_scale: float = 7.5,
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
-) -> torch.Tensor | Tuple[torch.Tensor, Dict[str, List[torch.Tensor]]]:
+) -> torch.Tensor | tuple[torch.Tensor, dict[str, list[torch.Tensor]]]:
     """
         Parameters
         ----------
@@ -266,7 +269,7 @@ def run_diffusion_steps_on_latents(
         torch.Tensor
             Final latent to be converted to RGB image by VAE decoder.
 
-        Dict[str, List[torch.Tensor]]
+        dict[str, list[torch.Tensor]]
             Intermediate inputs. keys are: ["latent", "time_emb"]. Each list is
             of length `num_steps`. This is useful for calibration.
 
@@ -287,13 +290,6 @@ def run_diffusion_steps_on_latents(
         latents = torch.randn(latents_shape, generator=generator)
 
         latents = latents * scheduler.init_noise_sigma
-
-        # Helper method to go back and forth from channel-first to channel-last
-        def _make_channel_last_torch(input_tensor):
-            return torch.permute(input_tensor, [0, 2, 3, 1])
-
-        def _make_channel_first_torch(input_tensor):
-            return torch.permute(torch.Tensor(input_tensor), [0, 3, 1, 2])
 
         # Export for calibration purpose
         unet_inputs = dict(latent=[], time_emb=[])
@@ -326,10 +322,15 @@ def run_diffusion_steps_on_latents(
                 noise_pred = _make_channel_first_torch(noise_pred)
             latents = scheduler.step(noise_pred, t, latents).prev_sample
 
-            # Decode generated image from latent space
-            if channel_last_latent:
-                latents = _make_channel_last_torch(latents)
-
         if return_all_steps:
             return latents, unet_inputs
         return latents
+
+
+# Helper method to go back and forth from channel-first to channel-last
+def _make_channel_last_torch(input_tensor):
+    return torch.permute(input_tensor, [0, 2, 3, 1])
+
+
+def _make_channel_first_torch(input_tensor):
+    return torch.permute(torch.Tensor(input_tensor), [0, 3, 1, 2])

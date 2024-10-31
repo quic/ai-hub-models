@@ -83,7 +83,7 @@ class ConvNextTinyQuantizableBase(AIMETQuantizableMixin, ConvNextTiny):
         cls,
         weights: str = DEFAULT_WEIGHTS,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "ConvNextTinyQuantizableBase":
+    ) -> ConvNextTinyQuantizableBase:
         """
         Parameters:
           weights:

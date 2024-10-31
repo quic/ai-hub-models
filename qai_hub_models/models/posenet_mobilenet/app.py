@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import cv2
 import numpy as np
@@ -91,7 +91,7 @@ def traverse_to_targ_keypoint(
     scores: np.ndarray,
     offsets: np.ndarray,
     displacements: np.ndarray,
-) -> Tuple[float, np.ndarray]:
+) -> tuple[float, np.ndarray]:
     """
     Given a source keypoint and target_keypoint_id,
         predict the score and coordinates of the target keypoint.
@@ -150,7 +150,7 @@ def decode_pose(
     offsets: np.ndarray,
     displacements_fwd: np.ndarray,
     displacements_bwd: np.ndarray,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Get all keypoint predictions for a pose given a root keypoint with a high score.
 
@@ -264,7 +264,7 @@ def get_instance_score_fast(
 
 def build_part_with_score_torch(
     score_threshold: float, max_vals: torch.Tensor, scores: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Get candidate keypoints to be considered the root for a pose.
     Score for the keypoint must be >= all neighboring scores.
@@ -298,7 +298,7 @@ def decode_multiple_poses(
     score_threshold: float = 0.25,
     nms_radius: int = 20,
     min_pose_score: float = 0.25,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Converts raw model outputs into image with keypoints drawn.
     Can detect multiple poses in the same image, up to `max_pose_detections`.
@@ -418,7 +418,7 @@ def decode_multiple_poses(
 
 def get_adjacent_keypoints(
     keypoint_scores: np.ndarray, keypoint_coords: np.ndarray, score_threshold: float
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     Compute which keypoints should be connected in the image.
 
@@ -508,7 +508,7 @@ class PosenetApp:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
         ],
         input_height: int,
         input_width: int,

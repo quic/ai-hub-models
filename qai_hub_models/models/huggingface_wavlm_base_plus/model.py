@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
 
 import torch
 from transformers import WavLMModel
@@ -51,7 +50,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
         return cls(model, apply_npu_opt)
 
-    def forward(self, input: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Run WAvLM on `input`, and produce feature vector
 
@@ -76,7 +75,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         return {"input": ((batch_size, sample_length), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["feature_vector_1", "feature_vector_2"]
 
     def get_hub_profile_options(

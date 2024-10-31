@@ -2,7 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Any, Callable, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import cv2
 import numpy as np
@@ -33,10 +34,10 @@ class ControlNetApp:
 
     def __init__(
         self,
-        text_encoder: Callable[..., Tuple[torch.Tensor, ...]],
-        vae_decoder: Callable[..., Tuple[torch.Tensor, ...]],
-        unet: Callable[..., Tuple[torch.Tensor, ...]],
-        controlnet: Callable[..., Tuple[torch.Tensor, ...]],
+        text_encoder: Callable[..., tuple[torch.Tensor, ...]],
+        vae_decoder: Callable[..., tuple[torch.Tensor, ...]],
+        unet: Callable[..., tuple[torch.Tensor, ...]],
+        controlnet: Callable[..., tuple[torch.Tensor, ...]],
         tokenizer: Any,
         scheduler: Any,
         time_embedding: Any,

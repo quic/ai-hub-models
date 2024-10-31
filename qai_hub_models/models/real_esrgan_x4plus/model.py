@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
+import sys
 
 import torch
 
@@ -94,15 +94,15 @@ class Real_ESRGAN_x4plus(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["upscaled_image"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["upscaled_image"]
 
 
@@ -124,6 +124,20 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
         MODEL_ID,
         MODEL_ASSET_VERSION,
     ):
+        # -----
+        # Patch torchvision for out of date basicsr package that requires torchvision 1.16
+        # but does not have its requirements set correctly
+        try:
+            # This is not available after torchvision 1.16, it was renamed to "functional"
+            import torchvision.transforms.functional_tensor
+        except ImportError:
+            import torchvision.transforms.functional
+
+            sys.modules[
+                "torchvision.transforms.functional_tensor"
+            ] = torchvision.transforms.functional
+        # ----
+
         # necessary import. `archs` comes from the realesrgan repo.
         from basicsr.archs.rrdbnet_arch import RRDBNet
 

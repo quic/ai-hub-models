@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -66,7 +65,7 @@ class BSD300Dataset(BaseDataset):
     def __len__(self):
         return DATASET_LENGTH
 
-    def __getitem__(self, item) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, item) -> tuple[torch.Tensor, torch.Tensor]:
         # We use the super resolution GT-and-test image preparation from AIMET zoo:
         # https://github.com/quic/aimet-model-zoo/blob/d09d2b0404d10f71a7640a87e9d5e5257b028802/aimet_zoo_torch/quicksrnet/dataloader/utils.py#L51
 

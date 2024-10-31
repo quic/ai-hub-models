@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 import subprocess
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Optional, Union
+from collections.abc import Callable
+from typing import Optional, Union
 
 from .github import end_group, start_group
 from .util import BASH_EXECUTABLE, default_parallelism, echo, have_root
@@ -64,7 +65,7 @@ class Task(ABC):
 
 
 class ListTasksTask(Task):
-    def __init__(self, tasks: List[str]) -> None:
+    def __init__(self, tasks: list[str]) -> None:
         super().__init__(group_name=None)
         self.tasks = tasks
 
@@ -104,12 +105,12 @@ class RunCommandsTask(Task):
     def __init__(
         self,
         group_name: Optional[str],
-        commands: Union[List[str], str],
+        commands: Union[list[str], str],
         as_root: bool = False,
-        env: Optional[Dict[str, str]] = None,
+        env: Optional[dict[str, str]] = None,
         cwd: Optional[str] = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: List[int] = [],
+        ignore_return_codes: list[int] = [],
     ) -> None:
         super().__init__(group_name, raise_on_failure)
         if isinstance(commands, str):
@@ -165,10 +166,10 @@ class RunCommandsWithVenvTask(RunCommandsTask):
         self,
         group_name: Optional[str],
         venv: Optional[str],
-        commands: Union[List[str], str],
-        env: Optional[Dict[str, str]] = None,
+        commands: Union[list[str], str],
+        env: Optional[dict[str, str]] = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: List[int] = [],
+        ignore_return_codes: list[int] = [],
     ) -> None:
         super().__init__(
             group_name,
@@ -193,10 +194,10 @@ class PyTestTask(RunCommandsWithVenvTask):
         group_name: Optional[str],
         venv: Optional[str],
         files_or_dirs: str,
-        ignore: Optional[Union[str, List[str]]] = None,
+        ignore: Optional[Union[str, list[str]]] = None,
         parallel: Optional[Union[bool, int]] = None,
         extra_args: Optional[str] = None,
-        env: Optional[Dict[str, str]] = None,
+        env: Optional[dict[str, str]] = None,
         raise_on_failure: bool = True,
         # Pytest returns code 5 if no tests were run. Set this to true
         # to ignore that return code (count it as "passed")
@@ -245,7 +246,7 @@ class CompositeTask(Task):
     def __init__(
         self,
         group_name: Optional[str],
-        tasks: List[Task],
+        tasks: list[Task],
         continue_after_single_task_failure: bool = False,
         raise_on_failure: bool = True,
         show_subtasks_in_failure_message: bool = True,

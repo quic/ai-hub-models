@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 from qai_hub_models.models.protocols import FromPrecompiledProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BasePrecompiledModel, CollectionModel
@@ -35,7 +33,7 @@ class RiffusionQuantized(FromPrecompiledProtocol, CollectionModel):
         self.vae_decoder = vae_decoder
 
     @classmethod
-    def from_precompiled(cls) -> "RiffusionQuantized":
+    def from_precompiled(cls) -> RiffusionQuantized:
         return RiffusionQuantized(
             text_encoder=ClipVITTextEncoder.from_precompiled(),
             unet=Unet.from_precompiled(),
@@ -52,7 +50,7 @@ class ClipVITTextEncoder(BasePrecompiledModel):
     """
 
     @classmethod
-    def from_precompiled(cls) -> "ClipVITTextEncoder":
+    def from_precompiled(cls) -> ClipVITTextEncoder:
         text_encoder_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, TEXT_ENCODER
         ).fetch()
@@ -63,7 +61,7 @@ class ClipVITTextEncoder(BasePrecompiledModel):
         return {"input_1": ((1, 77), "int32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["embeddings"]
 
 
@@ -76,7 +74,7 @@ class Unet(BasePrecompiledModel):
     """
 
     @classmethod
-    def from_precompiled(cls) -> "Unet":
+    def from_precompiled(cls) -> Unet:
         model_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, UNET_DIFFUSER
         ).fetch()
@@ -91,7 +89,7 @@ class Unet(BasePrecompiledModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["noise"]
 
 
@@ -104,7 +102,7 @@ class VAEDecoder(BasePrecompiledModel):
     """
 
     @classmethod
-    def from_precompiled(cls) -> "VAEDecoder":
+    def from_precompiled(cls) -> VAEDecoder:
         model_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, VAE_DECODER
         ).fetch()
@@ -115,5 +113,5 @@ class VAEDecoder(BasePrecompiledModel):
         return {"input_1": ((1, 64, 64, 4), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["output_image"]

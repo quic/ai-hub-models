@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 import numpy as np
 import qai_hub as hub
@@ -31,7 +31,7 @@ def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
     return f"{rounded_num:.{max(0, num_sig_figs - num_digits)}f}"
 
 
-def get_formatted_size(size: float, units: List[str], unit_step_size: float) -> str:
+def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> str:
     """
     Formats the number according to the units provided. For example:
     format_size(3600, units=["B", "KB", ...], unit_step_size=1024.0)

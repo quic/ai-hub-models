@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import qai_hub as hub
@@ -22,7 +22,7 @@ from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 _INFO_DASH = "-" * 60
 
 
-def print_with_box(data: List[str]) -> None:
+def print_with_box(data: list[str]) -> None:
     """
     Print input list with box around it as follows
     +-----------------------------+
@@ -42,9 +42,9 @@ def print_with_box(data: List[str]) -> None:
 def print_inference_metrics(
     inference_job: Optional[hub.InferenceJob],
     inference_result: DatasetEntries,
-    torch_out: List[np.ndarray],
-    output_names: Optional[List[str]] = None,
-    outputs_to_skip: Optional[List[int]] = None,
+    torch_out: list[np.ndarray],
+    output_names: Optional[list[str]] = None,
+    outputs_to_skip: Optional[list[int]] = None,
     metrics: str = "psnr",
 ) -> None:
     if output_names is None:
@@ -85,7 +85,7 @@ def print_inference_metrics(
 
 def print_profile_metrics_from_job(
     profile_job: hub.ProfileJob,
-    profile_data: Dict[str, Any],
+    profile_data: dict[str, Any],
 ):
     compute_unit_counts = Counter(
         [op.get("compute_unit", "UNK") for op in profile_data["execution_detail"]]
@@ -189,7 +189,7 @@ def print_profile_metrics(
 
 
 def print_on_target_demo_cmd(
-    compile_job: Union[hub.CompileJob, List[hub.CompileJob]],
+    compile_job: Union[hub.CompileJob, list[hub.CompileJob]],
     model_folder: Path,
     device: hub.Device,
 ) -> None:

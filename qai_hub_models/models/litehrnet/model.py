@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import torch
 from mmpose.apis import MMPoseInferencer
 
@@ -42,7 +40,7 @@ class LiteHRNet(BaseModel):
 
     def forward(
         self, image: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Run LiteHRNet on `image`, and produce an upscaled image
 
@@ -92,5 +90,5 @@ class LiteHRNet(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["keypoints", "scores", "heatmaps"]

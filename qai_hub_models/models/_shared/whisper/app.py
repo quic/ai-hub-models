@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Tuple
-
 import numpy as np
 import samplerate
 import torch
@@ -311,8 +309,8 @@ max_initial_timestamp_index = int(max_initial_timestamp / precision)
 
 
 def apply_timestamp_rules(
-    logits: np.ndarray, tokens: List[int]
-) -> Tuple[np.ndarray, float]:
+    logits: np.ndarray, tokens: list[int]
+) -> tuple[np.ndarray, float]:
     """
     When predicting timestamps, there are a few post processing rules /
     heuristics to ensure well-formed timestamps. See in-line comments for details
@@ -415,7 +413,7 @@ def chunk_and_resample_audio(
     audio_sample_rate: int,
     model_sample_rate=SAMPLE_RATE,
     model_chunk_seconds=CHUNK_LENGTH,
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """
     Parameters
     ----------

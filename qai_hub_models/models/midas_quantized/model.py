@@ -51,7 +51,7 @@ class MidasQuantizable(AIMETQuantizableMixin, Midas):
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> "MidasQuantizable":
+    ) -> MidasQuantizable:
         """
         Parameters:
           aimet_encodings:

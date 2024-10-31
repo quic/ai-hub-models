@@ -8,7 +8,7 @@ import os
 import shutil
 from contextlib import ExitStack
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import torch
@@ -94,7 +94,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         model_name: str | None = None,
         external_weights: bool = False,
         bundle_external_weights: bool = False,
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ) -> str:
         """
         Converts the torch module to a zip file containing an

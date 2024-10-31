@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List
-
 import torch
 import torch.nn as nn
 
@@ -62,5 +60,5 @@ class FaceMap_3DMM(BaseModel):
         return {"image": ((1, 3, 128, 128), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["parameters_3dmm"]

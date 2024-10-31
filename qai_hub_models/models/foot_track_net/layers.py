@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-
 import math
 
 import torch
@@ -16,7 +15,7 @@ class SeModule(nn.Module):
     """cutomized squeeze exitationm module"""
 
     def __init__(self, in_size: int, reduction: int = 4):
-        super(SeModule, self).__init__()
+        super().__init__()
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.se = nn.Sequential(
             nn.Conv2d(
@@ -63,7 +62,7 @@ class Block3x3(nn.Module):
         semodule: nn.Module,
         stride: int,
     ):
-        super(Block3x3, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.stride = stride
         self.se = semodule
@@ -124,7 +123,7 @@ class Mbv3SmallFast(nn.Module):
     """
 
     def __init__(self, act: str = "relu", RGB: bool = True):
-        super(Mbv3SmallFast, self).__init__()
+        super().__init__()
         self.keep = [2, 5, 12]
         self.uplayer_shape = [16, 32, 64]
         self.output_channels = 96
@@ -213,7 +212,7 @@ class CBAModule(nn.Module):
         bias: bool = False,
         act: str = "relu",
     ):
-        super(CBAModule, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
         )
@@ -253,7 +252,7 @@ class UpModule(nn.Module):
         mode: str = "UCBA",
         act: str = "relu",
     ):
-        super(UpModule, self).__init__()
+        super().__init__()
         self.mode = mode
 
         if self.mode == "UCBA":
@@ -291,7 +290,7 @@ class ContextModule(nn.Module):
     """single stage headless face detector context module"""
 
     def __init__(self, in_channels: int, act: str = "relu"):
-        super(ContextModule, self).__init__()
+        super().__init__()
 
         block_wide = in_channels // 4
         self.inconv = CBAModule(in_channels, block_wide, 3, 1, padding=1, act=act)
@@ -313,7 +312,7 @@ class ContextModule(nn.Module):
 
 class DetectModule(nn.Module):
     def __init__(self, in_channels: int, act: str = "relu"):
-        super(DetectModule, self).__init__()
+        super().__init__()
 
         self.upconv = CBAModule(in_channels, in_channels // 2, 3, 1, padding=1, act=act)
         self.context = ContextModule(in_channels, act=act)
@@ -335,7 +334,7 @@ class CropLayer(nn.Module):
     """
 
     def __init__(self, crop_set: list):
-        super(CropLayer, self).__init__()
+        super().__init__()
         self.rows_to_crop = -crop_set[0]
         self.cols_to_crop = -crop_set[1]
         assert self.rows_to_crop >= 0
@@ -371,7 +370,7 @@ class HeadModule(nn.Module):
         has_ext: bool = False,
         act: str = "relu",
     ):
-        super(HeadModule, self).__init__()
+        super().__init__()
         self.head = nn.Conv2d(in_channels, out_channels, kernel_size=1)
         self.has_ext = has_ext
 

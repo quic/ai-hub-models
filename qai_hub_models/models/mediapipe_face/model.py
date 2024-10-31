@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import torch
 
@@ -188,7 +188,7 @@ class MediaPipeFace(CollectionModel):
         Construct a mediapipe face model.
 
         Inputs:
-            face_detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]
+            face_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
                 Face detection model. Input is an image, output is
                 [bounding boxes & keypoints, box & kp scores]
 
@@ -239,7 +239,7 @@ class MediaPipeFace(CollectionModel):
 class FaceDetector(BaseModel):
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         anchors: torch.Tensor,
     ):
         super().__init__()
@@ -272,11 +272,11 @@ class FaceDetector(BaseModel):
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["box_coords", "box_scores"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     def _sample_inputs_impl(
@@ -288,7 +288,7 @@ class FaceDetector(BaseModel):
 class FaceLandmarkDetector(BaseModel):
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], Tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
     ):
         super().__init__()
         self.detector = detector
@@ -319,11 +319,11 @@ class FaceLandmarkDetector(BaseModel):
         return {"image": ((batch_size, 3, 192, 192), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["scores", "landmarks"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     def _sample_inputs_impl(

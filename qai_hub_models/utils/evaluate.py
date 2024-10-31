@@ -8,8 +8,9 @@ Utilities for evaluating model accuracy on device.
 
 import os
 import shutil
+from collections.abc import Sized
 from pathlib import Path
-from typing import Any, List, Optional, Sized, Tuple, Union
+from typing import Any, Optional, Union
 
 import h5py
 import numpy as np
@@ -59,10 +60,10 @@ def get_dataset_cache_split_size(dataset_name: str) -> Optional[int]:
 
 def read_dataset_ids(
     dataset_ids_filepath: Union[str, Path]
-) -> Tuple[List[str], List[str]]:
+) -> tuple[list[str], list[str]]:
     input_ids = []
     gt_ids = []
-    with open(dataset_ids_filepath, "r") as f:
+    with open(dataset_ids_filepath) as f:
         for line in f.readlines():
             input_id, gt_id = line.strip().split(" ")
             input_ids.append(input_id)
@@ -103,8 +104,8 @@ def _populate_data_cache_impl(
     dataset: BaseDataset,
     split_size: int,
     seed: int,
-    input_names: List[str],
-    channel_last_input: Optional[List[str]],
+    input_names: list[str],
+    channel_last_input: Optional[list[str]],
     cache_path: Path,
     dataset_ids_filepath: Path,
 ) -> None:
@@ -142,8 +143,8 @@ def _populate_data_cache(
     dataset: BaseDataset,
     split_size: int,
     seed: int,
-    input_names: List[str],
-    channel_last_input: Optional[List[str]],
+    input_names: list[str],
+    channel_last_input: Optional[list[str]],
 ) -> None:
     """
     Creates hub datasets out of the input dataset and stores the same data locally.
@@ -246,7 +247,7 @@ class HubDataset(Dataset):
         self,
         dataset_name: str,
         num_samples: int,
-        channel_last_input: Optional[List[str]],
+        channel_last_input: Optional[list[str]],
     ):
         self.cache_path = get_dataset_cache_filepath(dataset_name)
         self.split_size = get_dataset_cache_split_size(dataset_name)
@@ -311,7 +312,7 @@ def evaluate_on_dataset(
     seed: int = 42,
     profile_options: str = "",
     use_cache: bool = False,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 

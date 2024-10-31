@@ -5,12 +5,14 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
+import sys
+from collections.abc import Iterable
 from tempfile import TemporaryDirectory
-from typing import Iterable, Optional
+from typing import Optional
 
 from .constants import (
     BUILD_ROOT,
+    GLOBAL_REQUIREMENTS_PATH,
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_SRC_ROOT,
     STORE_ROOT_ENV_VAR,
@@ -20,6 +22,7 @@ from .util import (
     can_support_aimet,
     check_code_gen_field,
     get_is_hub_quantized,
+    get_model_python_version_requirements,
     model_needs_aimet,
 )
 from .venv import (
@@ -82,7 +85,23 @@ class PyTestModelTask(CompositeTask):
     ):
         tasks = []
 
-        if model_needs_aimet(model_name) and not can_support_aimet():
+        model_version_reqs = get_model_python_version_requirements(model_name)
+        current_py_version = sys.version_info
+        if model_version_reqs[0] and current_py_version < model_version_reqs[0]:
+            tasks.append(  # greater than this python version
+                RunCommandsTask(
+                    f"Skip Model {model_name}",
+                    f'echo "Skipping Tests For Model {model_name} -- Current Python ({current_py_version}) is too old (must be at least {model_version_reqs[0]})"',
+                )
+            )
+        elif model_version_reqs[1] and current_py_version >= model_version_reqs[1]:
+            tasks.append(  # less than this python version
+                RunCommandsTask(
+                    f"Skip Model {model_name}",
+                    f'echo "Skipping Tests For Model {model_name} -- Current Python ({current_py_version}) is too new (must be less than {model_version_reqs[1]})"',
+                )
+            )
+        elif model_needs_aimet(model_name) and not can_support_aimet():
             tasks.append(
                 RunCommandsTask(
                     f"Skip Model {model_name}",
@@ -91,7 +110,8 @@ class PyTestModelTask(CompositeTask):
             )
         else:
             # Create test environment
-            if not venv:
+            needs_model_venv = venv is None
+            if needs_model_venv:
                 model_venv = os.path.join(BUILD_ROOT, "test", "model_envs", model_name)
                 tasks.append(CreateVenvTask(model_venv, python_executable))
                 # Creates a new environment from scratch
@@ -144,13 +164,13 @@ class PyTestModelTask(CompositeTask):
                 if os.path.exists(model_test) or os.path.exists(generated_model_test):
                     tasks.append(
                         PyTestTask(
-                            group_name=f"Model: {model_name}",
+                            group_name=f"Model Tests: {model_name}",
                             venv=model_venv,
                             files_or_dirs=model_dir,
                             parallel=False,
                             extra_args=" ".join(extras_args),
                             env=env,
-                            raise_on_failure=venv,  # Do not raise on failure if a venv was created, to make sure the venv is removed when the test finishes
+                            raise_on_failure=not needs_model_venv,  # Do not raise on failure if a model venv was created, to make sure the venv is removed when the test finishes
                             ignore_no_tests_return_code=True,
                         )
                     )
@@ -164,7 +184,9 @@ class PyTestModelTask(CompositeTask):
                 )
 
         super().__init__(
-            f"Model Tests: {model_name}",
+            # If a group name is used here, you get two groups per model
+            # printed to console when running these tasks, one of which is empty.
+            None,
             [task for task in tasks],
             continue_after_single_task_failure=True,
             raise_on_failure=raise_on_failure,
@@ -218,12 +240,10 @@ class PyTestModelsTask(CompositeTask):
             # Create Venv
             base_test_venv = os.path.join(BUILD_ROOT, "test", "base_venv")
             tasks.append(CreateVenvTask(base_test_venv, python_executable))
-            tasks.append(
-                SyncLocalQAIHMVenvTask(base_test_venv, ["dev"], include_aimet=False)
-            )
+            tasks.append(SyncLocalQAIHMVenvTask(base_test_venv, ["dev"]))
 
         print(f"Tests to be run for models: {models_for_testing}")
-        global_models = set([])
+        global_models = set()
         if not venv_for_each_model:
             for model_name in models_for_testing:
                 if not check_code_gen_field(
@@ -232,13 +252,12 @@ class PyTestModelsTask(CompositeTask):
                     global_models.add(model_name)
 
             if len(global_models) > 0:
-                globals_path = Path(PY_PACKAGE_SRC_ROOT) / "global_requirements.txt"
                 tasks.append(
                     RunCommandsWithVenvTask(
                         group_name="Install Global Requirements",
                         venv=base_test_venv,
                         commands=[
-                            f'pip install -r "{globals_path}" '
+                            f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" '
                             "-f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html "
                             "--extra-index-url https://test.pypi.org/simple/"
                         ],

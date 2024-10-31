@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import contextlib
-from typing import Callable, List, Optional
+from collections.abc import Callable
+from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -108,7 +109,7 @@ class ClipTextEncoder(BaseModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["text_features"]
 
     @classmethod
@@ -159,7 +160,7 @@ class ClipImageEncoder(BaseModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["image_features"]
 
     @classmethod
@@ -167,7 +168,7 @@ class ClipImageEncoder(BaseModel):
         return Clip.from_pretrained().image_encoder
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
 
@@ -185,7 +186,7 @@ def patched_in_projection_packed():
         v: Tensor,
         w: Tensor,
         b: Optional[Tensor] = None,
-    ) -> List[Tensor]:
+    ) -> list[Tensor]:
         E = q.size(-1)
         if k is v and q is k:
             proj = F.linear(q, w, b)

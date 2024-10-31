@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import sys
-from typing import List, Type
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
 from qai_hub_models.models._shared.super_resolution.model import (
@@ -34,11 +33,11 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Run Super Resolution end-to-end on a sample image.
 # The demo will display both the input image and the higher resolution output.
 def super_resolution_demo(
-    model_cls: Type[BaseModel],
+    model_cls: type[BaseModel],
     model_id: str,
     default_image: str | CachedWebAsset = IMAGE_ADDRESS,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = list(
+    available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
 ):

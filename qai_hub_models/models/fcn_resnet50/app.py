@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import PIL
@@ -60,7 +60,7 @@ class FCN_ResNet50App:
                     A list of predicted masks.
 
             Otherwise, returns:
-                segmented_images: List[PIL.Image]
+                segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
 

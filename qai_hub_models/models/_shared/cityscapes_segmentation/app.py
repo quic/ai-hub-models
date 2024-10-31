@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import os
-from typing import Mapping, Optional, Tuple
+from collections.abc import Mapping
+from typing import Optional
 
 import numpy as np
 import torch
@@ -93,7 +94,7 @@ class CityscapesSegmentationApp:
     def __init__(
         self,
         model: torch.nn.Module,
-        input_specs: Mapping[str, Tuple[Tuple[int, ...], str]],
+        input_specs: Mapping[str, tuple[tuple[int, ...], str]],
     ):
         self.model = model
         self.color_mapping = _load_cityscapes_loader().dataset.color_mapping

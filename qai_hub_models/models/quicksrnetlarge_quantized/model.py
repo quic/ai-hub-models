@@ -46,7 +46,7 @@ class QuickSRNetLargeQuantizable(AIMETQuantizableMixin, QuickSRNetLarge):
         cls,
         aimet_encodings: str | None = "DEFAULT",
         scale_factor: int = DEFAULT_SCALE_FACTOR,
-    ) -> "QuickSRNetLargeQuantizable":
+    ) -> QuickSRNetLargeQuantizable:
         """
         Parameters:
           aimet_encodings:

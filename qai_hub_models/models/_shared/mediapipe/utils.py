@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from functools import partial
-from typing import Any, Tuple
+from typing import Any
 
 import torch
 
@@ -26,11 +26,11 @@ def trace_mediapipe(
     box_detector: torch.nn.Module,
     landmark_input_spec: InputSpec,
     landmark_detector: torch.nn.Module,
-) -> Tuple[Any, Any]:
+) -> tuple[Any, Any]:
     # Convert the models to pytorch traces. Traces can be saved & loaded from disk.
     # With Qualcomm® AI Hub, a pytorch trace can be exported to run efficiently on mobile devices!
     #
-    # Returns: Tuple[Box Detector Trace Object, Landmark Detector Trace Object]
+    # Returns: tuple[Box Detector Trace Object, Landmark Detector Trace Object]
     #
     box_detector_input_shape = detector_input_spec["image"][0]
     box_detector_trace = torch.jit.trace(
@@ -46,7 +46,7 @@ def trace_mediapipe(
 
 
 def decode_preds_from_anchors(
-    box_coords: torch.Tensor, img_size: Tuple[int, int], anchors: torch.Tensor
+    box_coords: torch.Tensor, img_size: tuple[int, int], anchors: torch.Tensor
 ):
     """
     Decode predictions using the provided anchors.
@@ -64,7 +64,7 @@ def decode_preds_from_anchors(
             coordinates. Range must be [0, 1]. Shape is [Batch, Num Anchors, 2, 2]
             where [2, 2] == [[xcenter, ycenter], [w, h]]
 
-        img_size: Tuple(int, int)
+        img_size: tuple(int, int)
             The size of the tensor that was fed to the NETWORK (NOT the original image size).
             H / W is the same order as coordinates.
 
@@ -72,7 +72,7 @@ def decode_preds_from_anchors(
             box anchors. Range must be [0, 1]. Shape is [Batch, Num Anchors, 2, 2],
             where [2, 2] == [[xcenter, ycenter], [w, h]]
 
-        pad: Tuple(int, int)
+        pad: tuple(int, int)
             Padding used during resizing of input image to network input tensor. (w, h)
             This is the absolute # of padding pixels in the network input tensor, NOT in the original image.
 

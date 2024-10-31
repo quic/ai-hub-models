@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 from importlib import reload
-from typing import List
 
 import torch
 from omegaconf import OmegaConf
@@ -92,15 +91,15 @@ class LamaDilated(BaseModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["painted_image"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image", "mask"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["painted_image"]
 
 
@@ -147,7 +146,11 @@ def _load_lama_dilated_source_model_from_weights(weights_name: str) -> torch.nn.
         state = load_torch(weights_url)
         with set_log_level(logging.WARN):
             lama_dilated_model = DefaultInpaintingTrainingModule(config, **kwargs)
+            # Needed for pytorch-lightning to script the module appropriately.
+            lama_dilated_model._jit_is_scripting = True
+
         lama_dilated_model.load_state_dict(state["state_dict"], strict=False)
         lama_dilated_model.on_load_checkpoint(state)
         lama_dilated_model.freeze()
+
         return lama_dilated_model

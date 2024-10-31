@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from importlib import reload
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
 
 import torch
 
@@ -67,7 +67,7 @@ class FFNet(CityscapesSegmentor):
     """Exportable FFNet fuss-free Cityscapes segmentation model."""
 
     @classmethod
-    def from_pretrained(cls: Type[FFNetType], variant_name: str) -> FFNetType:
+    def from_pretrained(cls: type[FFNetType], variant_name: str) -> FFNetType:
         model = _load_ffnet_source_model(variant_name)
 
         return cls(model)

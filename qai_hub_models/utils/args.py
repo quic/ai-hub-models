@@ -12,9 +12,10 @@ import copy
 import inspect
 import os
 import sys
+from collections.abc import Mapping
 from functools import partial
 from pydoc import locate
-from typing import Any, List, Mapping, Optional, Set, Tuple, Type
+from typing import Any, Optional
 
 import qai_hub as hub
 from qai_hub.client import APIException, UserError
@@ -58,7 +59,7 @@ def add_output_dir_arg(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
     return parser
 
 
-def _get_default_runtime(available_runtimes: List[TargetRuntime]):
+def _get_default_runtime(available_runtimes: list[TargetRuntime]):
     if len(available_runtimes) == 0:
         raise RuntimeError("available_runtimes empty, expecting at-least one runtime.")
 
@@ -72,7 +73,7 @@ def _get_default_runtime(available_runtimes: List[TargetRuntime]):
 def add_target_runtime_arg(
     parser: argparse.ArgumentParser,
     help: str,
-    available_target_runtimes: List[TargetRuntime] = list(
+    available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
     default: TargetRuntime = TargetRuntime.TFLITE,
@@ -90,7 +91,7 @@ def add_target_runtime_arg(
 
 def get_on_device_demo_parser(
     parser: argparse.ArgumentParser | None = None,
-    available_target_runtimes: List[TargetRuntime] = list(
+    available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
     add_output_dir: bool = False,
@@ -174,7 +175,7 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
 
 
 def get_model_cli_parser(
-    cls: Type[FromPretrainedTypeVar], parser: argparse.ArgumentParser | None = None
+    cls: type[FromPretrainedTypeVar], parser: argparse.ArgumentParser | None = None
 ) -> argparse.ArgumentParser:
     """
     Generate the argument parser to create this model from an argparse namespace.
@@ -238,7 +239,7 @@ def get_model_cli_parser(
 
 
 def get_model_kwargs(
-    model_cls: Type[FromPretrainedTypeVar], args_dict: Mapping[str, Any]
+    model_cls: type[FromPretrainedTypeVar], args_dict: Mapping[str, Any]
 ) -> Mapping[str, Any]:
     """
     Given a dict with many args, pull out the ones relevant
@@ -254,7 +255,7 @@ def get_model_kwargs(
 
 
 def model_from_cli_args(
-    model_cls: Type[FromPretrainedTypeVar], cli_args: argparse.Namespace
+    model_cls: type[FromPretrainedTypeVar], cli_args: argparse.Namespace
 ) -> FromPretrainedTypeVar:
     """
     Create this model from an argparse namespace.
@@ -279,11 +280,11 @@ def get_hub_device(
 
 
 def demo_model_components_from_cli_args(
-    model_cls: List[Type[FromPretrainedTypeVar]],
+    model_cls: list[type[FromPretrainedTypeVar]],
     model_id: str,
-    components: List[str],
+    components: list[str],
     cli_args: argparse.Namespace,
-) -> Tuple[FromPretrainedTypeVar | OnDeviceModel, ...]:
+) -> tuple[FromPretrainedTypeVar | OnDeviceModel, ...]:
     """
     Similar to demo_model_from_cli_args, but for component models.
 
@@ -311,7 +312,7 @@ def demo_model_components_from_cli_args(
 
 
 def demo_model_from_cli_args(
-    model_cls: Type[FromPretrainedTypeVar],
+    model_cls: type[FromPretrainedTypeVar],
     model_id: str,
     cli_args: argparse.Namespace,
     component: str | None = None,
@@ -362,7 +363,7 @@ def demo_model_from_cli_args(
 
 
 def get_input_spec_kwargs(
-    model: HubModel | Type[HubModel], args_dict: Mapping[str, Any]
+    model: HubModel | type[HubModel], args_dict: Mapping[str, Any]
 ) -> Mapping[str, Any]:
     """
     Given a dict with many args, pull out the ones relevant
@@ -378,7 +379,7 @@ def get_input_spec_kwargs(
 
 
 def get_model_input_spec_parser(
-    model_cls: Type[BaseModel], parser: argparse.ArgumentParser | None = None
+    model_cls: type[BaseModel], parser: argparse.ArgumentParser | None = None
 ) -> argparse.ArgumentParser:
     """
     Generate the argument parser to get this model's input spec from an argparse namespace.
@@ -423,22 +424,20 @@ def input_spec_from_cli_args(
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))
 
 
-def get_qcom_chipsets() -> Set[str]:
+def get_qcom_chipsets() -> set[str]:
     try:
-        return set(
-            [
-                attr[len("chipset:") :]
-                for dev in hub.get_devices()
-                for attr in dev.attributes
-                if attr.startswith("chipset:qualcomm")
-            ]
-        )
+        return {
+            attr[len("chipset:") :]
+            for dev in hub.get_devices()
+            for attr in dev.attributes
+            if attr.startswith("chipset:qualcomm")
+        }
     except (APIException, UserError):
-        return set([])
+        return set()
 
 
 def _evaluate_export_common_parser(
-    model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
+    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     supports_tflite: bool = True,
     supports_qnn: bool = True,
     supports_onnx: bool = True,
@@ -506,8 +505,8 @@ def _evaluate_export_common_parser(
 
 
 def export_parser(
-    model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
-    components: Optional[List[str]] = None,
+    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
+    components: Optional[list[str]] = None,
     supports_tflite: bool = True,
     supports_qnn: bool = True,
     supports_onnx: bool = True,
@@ -617,9 +616,9 @@ def export_parser(
 
 
 def evaluate_parser(
-    model_cls: Type[FromPretrainedTypeVar] | Type[FromPrecompiledTypeVar],
+    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     default_split_size: int,
-    supported_datasets: List[str],
+    supported_datasets: list[str],
     supports_tflite=True,
     supports_qnn=True,
     supports_onnx=True,

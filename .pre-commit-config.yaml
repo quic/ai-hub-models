@@ -58,6 +58,11 @@ repos:
     hooks:
     -   id: shellcheck
         exclude: '\.yml$'
+-   repo: https://github.com/asottile/pyupgrade
+    rev: v3.16.0
+    hooks:
+    -   id: pyupgrade
+        args: ['--py39-plus', '--keep-runtime-typing']
 -   repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:

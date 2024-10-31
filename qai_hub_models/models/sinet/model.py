@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from importlib import reload
-from typing import List
 
 import torch
 
@@ -70,15 +69,15 @@ class SINet(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["mask"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["mask"]
 
 

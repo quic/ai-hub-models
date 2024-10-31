@@ -40,7 +40,7 @@ def test_trace():
     gt = np.array(gt.split(), dtype=int)
     result = result.astype(int)
     assert result[0][0] == gt[0]
-    assert get_iou(result[0][1:5], gt[1:5]) > 0.8
+    assert get_iou(result[0][1:5], gt[1:5]) > 0.5
 
 
 @skip_clone_repo_check

@@ -6,39 +6,26 @@ from __future__ import annotations
 
 import dataclasses
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, fields
 from enum import Enum, unique
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    get_args,
-    get_type_hints,
-)
+from typing import Any, Optional, TypeVar, Union, get_args, get_type_hints
 
 import requests
+from datasets import get_dataset_infos
 from qai_hub.util.session import create_session
 from schema import And
 from schema import Optional as OptionalSchema
 from schema import Schema, SchemaError
 
+from qai_hub_models.scorecard import ScorecardProfilePath
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
 from qai_hub_models.utils.path_helpers import (
     MODELS_PACKAGE_NAME,
     QAIHM_PACKAGE_NAME,
     get_qaihm_models_root,
     get_qaihm_package_root,
-)
-from qai_hub_models.utils.scorecard.common import (
-    ScorecardProfilePath,
-    get_supported_devices,
 )
 
 QAIHM_PACKAGE_ROOT = get_qaihm_package_root()
@@ -122,19 +109,9 @@ HF_AVAILABLE_LICENSES = {
 }
 
 
-def get_all_supported_devices():
-    return get_supported_devices(
-        [
-            "qualcomm-snapdragon-8-elite",
-            "qualcomm-snapdragon-x-elite",
-            "qualcomm-snapdragon-8gen3",
-        ]
-    )
-
-
-def _get_origin(input_type: Type) -> Type:
+def _get_origin(input_type: type) -> type:
     """
-    For nested types like List[str] or Union[str, int], this function will
+    For nested types like list[str] or Union[str, int], this function will
         return the "parent" type like List or Union.
 
     If the input type is not a nested type, the function returns the input_type.
@@ -142,7 +119,7 @@ def _get_origin(input_type: Type) -> Type:
     return getattr(input_type, "__origin__", input_type)
 
 
-def _extract_optional_type(input_type: Type) -> Type:
+def _extract_optional_type(input_type: type) -> type:
     """
     Given an optional type as input, returns the inner type that is wrapped.
 
@@ -158,7 +135,7 @@ def _extract_optional_type(input_type: Type) -> Type:
     return union_args[0]
 
 
-def _constructor_from_type(input_type: Type) -> Union[Type, Callable]:
+def _constructor_from_type(input_type: type) -> Union[type, Callable]:
     """
     Given a type, return the appropriate constructor for that type.
 
@@ -167,9 +144,9 @@ def _constructor_from_type(input_type: Type) -> Union[Type, Callable]:
     For types like List, the constructor is list.
     """
     input_type = _get_origin(input_type)
-    if input_type == List:
+    if input_type == list:
         return list
-    if input_type == Dict:
+    if input_type == dict:
         return dict
     return input_type
 
@@ -197,7 +174,7 @@ class BaseDataClass:
 
     @classmethod
     def from_dict(
-        cls: Type[BaseDataClassTypeVar], val_dict: Dict[str, Any]
+        cls: type[BaseDataClassTypeVar], val_dict: dict[str, Any]
     ) -> BaseDataClassTypeVar:
         kwargs = {field.name: val_dict[field.name] for field in fields(cls)}
         return cls(**kwargs)
@@ -214,7 +191,7 @@ class FORM_FACTOR(Enum):
     XR = 3
 
     @staticmethod
-    def from_string(string: str) -> "FORM_FACTOR":
+    def from_string(string: str) -> FORM_FACTOR:
         return FORM_FACTOR[string.upper()]
 
     def __str__(self):
@@ -231,7 +208,7 @@ class MODEL_DOMAIN(Enum):
     GENERATIVE_AI = 3
 
     @staticmethod
-    def from_string(string: str) -> "MODEL_DOMAIN":
+    def from_string(string: str) -> MODEL_DOMAIN:
         return MODEL_DOMAIN[string.upper().replace(" ", "_")]
 
     def __str__(self):
@@ -248,7 +225,7 @@ class MODEL_TAG(Enum):
     GENERATIVE_AI = 5
 
     @staticmethod
-    def from_string(string: str) -> "MODEL_TAG":
+    def from_string(string: str) -> MODEL_TAG:
         assert "_" not in string
         return MODEL_TAG[string.upper().replace("-", "_")]
 
@@ -259,7 +236,7 @@ class MODEL_TAG(Enum):
         return self.__str__()
 
 
-def is_gen_ai_model(tags: List[MODEL_TAG]) -> bool:
+def is_gen_ai_model(tags: list[MODEL_TAG]) -> bool:
     return MODEL_TAG.LLM in tags or MODEL_TAG.GENERATIVE_AI in tags
 
 
@@ -271,7 +248,7 @@ class MODEL_STATUS(Enum):
     PROPRIETARY = 2
 
     @staticmethod
-    def from_string(string: str) -> "MODEL_STATUS":
+    def from_string(string: str) -> MODEL_STATUS:
         return MODEL_STATUS[string.upper()]
 
     def __str__(self):
@@ -304,7 +281,7 @@ class MODEL_USE_CASE(Enum):
     TEXT_GENERATION = 400
 
     @staticmethod
-    def from_string(string: str) -> "MODEL_USE_CASE":
+    def from_string(string: str) -> MODEL_USE_CASE:
         return MODEL_USE_CASE[string.upper().replace(" ", "_")]
 
     def __str__(self):
@@ -348,13 +325,13 @@ class QAIHMModelPerf:
     class PerformanceDetails:
         job_id: str
         inference_time_microsecs: float
-        peak_memory_bytes: Tuple[int, int]  # min, max
-        compute_unit_counts: Dict[str, int]
+        peak_memory_bytes: tuple[int, int]  # min, max
+        compute_unit_counts: dict[str, int]
         primary_compute_unit: str
         precision: str
 
         @staticmethod
-        def from_dict(device_perf_details: Dict) -> QAIHMModelPerf.PerformanceDetails:
+        def from_dict(device_perf_details: dict) -> QAIHMModelPerf.PerformanceDetails:
             peak_memory = device_perf_details["estimated_peak_memory_range"]
             layer_info = device_perf_details["layer_info"]
             compute_unit_counts = {}
@@ -374,12 +351,12 @@ class QAIHMModelPerf:
 
     @dataclass
     class LLMPerformanceDetails:
-        time_to_first_token_range_secs: Tuple[str, str]  # min, max
+        time_to_first_token_range_secs: tuple[str, str]  # min, max
         tokens_per_second: float
 
         @staticmethod
         def from_dict(
-            device_perf_details: Dict,
+            device_perf_details: dict,
         ) -> QAIHMModelPerf.LLMPerformanceDetails:
             ttftr = device_perf_details["time_to_first_token_range"]
             return QAIHMModelPerf.LLMPerformanceDetails(
@@ -414,7 +391,7 @@ class QAIHMModelPerf:
 
         @staticmethod
         def from_dict(
-            path: ScorecardProfilePath, perf_details_dict: Dict
+            path: ScorecardProfilePath, perf_details_dict: dict
         ) -> QAIHMModelPerf.ProfilePerfDetails:
             perf_details: QAIHMModelPerf.LLMPerformanceDetails | QAIHMModelPerf.PerformanceDetails
             if llm_metrics := perf_details_dict.get("llm_metrics", None):
@@ -443,11 +420,11 @@ class QAIHMModelPerf:
     @dataclass
     class DevicePerfDetails:
         device: QAIHMModelPerf.DeviceDetails
-        details_per_path: Dict[ScorecardProfilePath, QAIHMModelPerf.ProfilePerfDetails]
+        details_per_path: dict[ScorecardProfilePath, QAIHMModelPerf.ProfilePerfDetails]
 
         @staticmethod
         def from_dict(
-            device: QAIHMModelPerf.DeviceDetails, device_runtime_details: Dict
+            device: QAIHMModelPerf.DeviceDetails, device_runtime_details: dict
         ) -> QAIHMModelPerf.DevicePerfDetails:
             details_per_path = {}
             for profile_path in ScorecardProfilePath:
@@ -465,11 +442,11 @@ class QAIHMModelPerf:
     @dataclass
     class ModelPerfDetails:
         model: str
-        details_per_device: Dict[str, QAIHMModelPerf.DevicePerfDetails]
+        details_per_device: dict[str, QAIHMModelPerf.DevicePerfDetails]
 
         @staticmethod
         def from_dict(
-            model: str, model_performance_metrics: List[Dict]
+            model: str, model_performance_metrics: list[dict]
         ) -> QAIHMModelPerf.ModelPerfDetails:
             details_per_device = {}
             for device_perf_details in model_performance_metrics:
@@ -494,7 +471,7 @@ class QAIHMModelPerf:
     def __init__(self, perf_yaml_path, model_name):
         self.model_name = model_name
         self.perf_yaml_path = perf_yaml_path
-        self.per_model_details: Dict[str, QAIHMModelPerf.ModelPerfDetails] = {}
+        self.per_model_details: dict[str, QAIHMModelPerf.ModelPerfDetails] = {}
 
         if os.path.exists(self.perf_yaml_path):
             self.perf_details = load_yaml(self.perf_yaml_path)
@@ -542,22 +519,22 @@ class QAIHMModelCodeGen(BaseDataClass):
     # This can happen when the model outputs many low confidence values that get
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
-    outputs_to_skip_validation: Optional[List[str]] = None
+    outputs_to_skip_validation: Optional[list[str]] = None
 
     # Additional arguments to initialize the model when unit testing export.
     # This is commonly used to test a smaller variant in the unit test.
-    export_test_model_kwargs: Optional[Dict[str, str]] = None
+    export_test_model_kwargs: Optional[dict[str, str]] = None
 
     # Some models are comprised of submodels that should be compiled separately.
     # For example, this is used when there is an encoder/decoder pattern.
     # This is a dict from component name to a python expression that can be evaluated
     # to produce the submodel. The expression can assume the parent model has been
     # initialized and assigned to the variable `model`.
-    components: Optional[Dict[str, Any]] = None
+    components: Optional[dict[str, Any]] = None
 
     # If components is set, this field can specify a subset of components to run
     # by default when invoking `export.py`. If unset, all components are run by default.
-    default_components: Optional[List[str]] = None
+    default_components: Optional[list[str]] = None
 
     # If set, skips
     #  - generating `test_generated.py`
@@ -579,7 +556,7 @@ class QAIHMModelCodeGen(BaseDataClass):
 
     # A list of optimizations from `torch.utils.mobile_optimizer` that will
     # speed up the conversion to torchscript.
-    torchscript_opt: Optional[List[str]] = None
+    torchscript_opt: Optional[list[str]] = None
 
     # A comma separated list of metrics to print in the inference summary of `export.py`.
     inference_metrics: str = "psnr"
@@ -592,7 +569,7 @@ class QAIHMModelCodeGen(BaseDataClass):
 
     # If set, generates an `evaluate.py` file which can be used to evaluate the model
     # on a full dataset. Datasets specified here must be chosen from `qai_hub_models/datasets`.
-    eval_datasets: Optional[List[str]] = None
+    eval_datasets: Optional[list[str]] = None
 
     # If set, quantizes the model using AI Hub quantize job. This also requires setting
     # the `eval_datasets` field. Calibration data will be pulled from the first item
@@ -603,8 +580,14 @@ class QAIHMModelCodeGen(BaseDataClass):
     # newer devices. Some models don't work on 8gen1, so use 8gen3 for those.
     inference_on_8gen3: bool = False
 
+    # The model supports python versions that are at least this version. None == Any version
+    python_version_greater_than_or_equal_to: Optional[str] = None
+
+    # The model supports python versions that are less than this version. None == Any version
+    python_version_less_than: Optional[str] = None
+
     @classmethod
-    def from_model(cls: Type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
+    def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         if not os.path.exists(code_gen_path):
             raise ValueError(f"{model_id} does not exist")
@@ -612,14 +595,14 @@ class QAIHMModelCodeGen(BaseDataClass):
 
     @classmethod
     def from_yaml(
-        cls: Type[QAIHMModelCodeGen], code_gen_path: str | Path | None = None
+        cls: type[QAIHMModelCodeGen], code_gen_path: str | Path | None = None
     ) -> QAIHMModelCodeGen:
         # Load CFG and params
         code_gen_config = QAIHMModelCodeGen.load_code_gen_yaml(code_gen_path)
         return cls.from_dict(code_gen_config)
 
     @staticmethod
-    def load_code_gen_yaml(path: str | Path | None = None) -> Dict[str, Any]:
+    def load_code_gen_yaml(path: str | Path | None = None) -> dict[str, Any]:
         if not path or not os.path.exists(path):
             return QAIHMModelCodeGen.get_schema().validate({})  # Default Schema
         data = load_yaml(path)
@@ -664,20 +647,20 @@ class QAIHMModelInfo(BaseDataClass):
     use_case: MODEL_USE_CASE
 
     # A list of applicable tags to add to the model
-    tags: List[MODEL_TAG]
+    tags: list[MODEL_TAG]
 
     # A list of real-world applicaitons for which this model could be used.
     # This is free-from and almost anything reasonable here is fine.
-    applicable_scenarios: List[str]
+    applicable_scenarios: list[str]
 
     # A list of other similar models in the repo.
     # Typically, any model that performs the same task is fine.
     # If nothing fits, this can be left blank. Limit to 3 models.
-    related_models: List[str]
+    related_models: list[str]
 
     # A list of device types for which this model could be useful.
     # If unsure what to put here, default to `Phone` and `Tablet`.
-    form_factors: List[FORM_FACTOR]
+    form_factors: list[FORM_FACTOR]
 
     # Whether the model has a static image uploaded in S3. All public models must have this.
     has_static_banner: bool
@@ -690,7 +673,7 @@ class QAIHMModelInfo(BaseDataClass):
 
     # A list of datasets for which the model has pre-trained checkpoints
     # available as options in `model.py`. Typically only has one entry.
-    dataset: List[str]
+    dataset: list[str]
 
     # A list of a few technical details about the model.
     #   Model checkpoint: The name of the downloaded model checkpoint file.
@@ -699,7 +682,7 @@ class QAIHMModelInfo(BaseDataClass):
     #   Model size: The file size of the downloaded model asset.
     #       This and `Number of parameters` should be auto-generated by running `python qai_hub_models/scripts/autofill_info_yaml.py -m <model_name>`
     #   Number of output classes: The number of classes the model can classify or annotate.
-    technical_details: Dict[str, str]
+    technical_details: dict[str, str]
 
     # The license type of the original model repo.
     license_type: str
@@ -741,9 +724,9 @@ class QAIHMModelInfo(BaseDataClass):
     model_type_llm: bool = False
 
     # Add per device, download, app and if the model is available for purchase.
-    llm_details: Optional[Dict[str, Any]] = None
+    llm_details: Optional[dict[str, Any]] = None
 
-    def validate(self) -> Tuple[bool, Optional[str]]:
+    def validate(self) -> tuple[bool, Optional[str]]:
         """Returns false with a reason if the info spec for this model is not valid."""
         # Validate ID
         if self.id not in MODEL_IDS:
@@ -871,8 +854,6 @@ class QAIHMModelInfo(BaseDataClass):
                     assert (
                         list(self.llm_details[dev].keys())[0] == "torchscript_onnx_qnn"
                     )
-                    # Check the device is one of the supported devices.
-                    assert dev in get_all_supported_devices()
 
                     if (
                         "model_download_url"
@@ -942,12 +923,20 @@ class QAIHMModelInfo(BaseDataClass):
 
     def get_hugging_face_metadata(self, root: Path = QAIHM_PACKAGE_ROOT):
         # Get the metadata for huggingface model cards.
-        hf_metadata: Dict[str, Union[str, List[str]]] = dict()
+        hf_metadata: dict[str, Union[str, list[str]]] = dict()
         hf_metadata["library_name"] = "pytorch"
         hf_metadata["license"] = self.license_type
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
         if self.dataset != []:
+            for dataset_id in self.dataset:
+                try:
+                    get_dataset_infos(dataset_id)
+                except Exception:
+                    raise ValueError(
+                        f"This dataset {dataset_id} is not a valid HuggingFace Dataset."
+                    )
             hf_metadata["datasets"] = self.dataset
+
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata
 
@@ -981,7 +970,7 @@ class QAIHMModelInfo(BaseDataClass):
         return os.path.exists(self.get_requirements_path(root))
 
     @classmethod
-    def from_model(cls: Type[QAIHMModelInfo], model_id: str) -> QAIHMModelInfo:
+    def from_model(cls: type[QAIHMModelInfo], model_id: str) -> QAIHMModelInfo:
         schema_path = QAIHM_MODELS_ROOT / model_id / "info.yaml"
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         if not os.path.exists(schema_path):
@@ -990,7 +979,7 @@ class QAIHMModelInfo(BaseDataClass):
 
     @classmethod
     def from_yaml(
-        cls: Type[QAIHMModelInfo],
+        cls: type[QAIHMModelInfo],
         info_path: str | Path,
         code_gen_path: str | Path | None = None,
     ) -> QAIHMModelInfo:

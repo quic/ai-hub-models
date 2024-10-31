@@ -16,12 +16,13 @@ import tempfile
 import threading
 import time
 import zipfile
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 from zipfile import ZipFile
 
 import gdown
@@ -74,7 +75,7 @@ def set_log_level(log_level: int):
 
 
 @contextmanager
-def tmp_os_env(env_values: Dict[str, str]):
+def tmp_os_env(env_values: dict[str, str]):
     """
     Creates a context where the os environment variables are replaced with
         the given values. After exiting the context, the previous env is restored.
@@ -130,7 +131,7 @@ def maybe_clone_git_repo(
     commit_hash,
     model_name: str,
     model_version: VersionType,
-    patches: List[str] = [],
+    patches: list[str] = [],
 ) -> Path:
     """Clone (or pull) a repository, save it to disk in a standard location,
     and return the absolute path to the cloned location. Patches can be applied
@@ -227,23 +228,23 @@ def load_torch(pt: PathType) -> Any:
     return _load_file(pt, partial(torch.load, map_location="cpu"))
 
 
-def load_json(json_filepath: PathType) -> Dict:
+def load_json(json_filepath: PathType) -> dict:
     def _load_json_helper(file_path) -> Any:
-        with open(file_path, "r") as json_file:
+        with open(file_path) as json_file:
             return json.load(json_file)
 
     return _load_file(json_filepath, _load_json_helper)
 
 
-def load_yaml(yaml_filepath: PathType) -> Dict:
+def load_yaml(yaml_filepath: PathType) -> dict:
     def _load_yaml_helper(file_path) -> Any:
-        with open(file_path, "r") as yaml_file:
+        with open(file_path) as yaml_file:
             return yaml.safe_load(yaml_file)
 
     return _load_file(yaml_filepath, _load_yaml_helper)
 
 
-def load_h5(h5_filepath: PathType) -> Dict:
+def load_h5(h5_filepath: PathType) -> dict:
     def _load_h5_helper(file_path) -> Any:
         with h5py.File(file_path, "r") as h5f:
             return h5_to_dataset_entries(h5f)
@@ -253,7 +254,7 @@ def load_h5(h5_filepath: PathType) -> Dict:
 
 def load_raw_file(filepath: PathType) -> str:
     def _load_raw_file_helper(file_path) -> Any:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             return f.read()
 
     return _load_file(filepath, _load_raw_file_helper)
@@ -282,7 +283,7 @@ def SourceAsRoot(
     source_repo_commit_hash: str,
     source_repo_name: str,
     source_repo_version: int | str,
-    source_repo_patches: List[str] = [],
+    source_repo_patches: list[str] = [],
     keep_sys_modules: bool = True,
 ):
     """
@@ -337,7 +338,7 @@ def SourceAsRoot(
 
 
 def find_replace_in_repo(
-    repo_path: str, filepaths: Union[str, List[str]], find_str: str, replace_str: str
+    repo_path: str, filepaths: Union[str, list[str]], find_str: str, replace_str: str
 ):
     """
     When loading models from external repos, sometimes small modifications
@@ -1058,7 +1059,7 @@ def zip_model(output_dir_path: str, model_path: str) -> str:
     with zipfile.ZipFile(
         output_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=compresslevel
     ) as f:
-        walk: Iterable[Tuple[str, List[str], List[str]]]
+        walk: Iterable[tuple[str, list[str], list[str]]]
         if os.path.isfile(model_path):
             root_path = os.path.dirname(model_path)
             walk = [(root_path, [], [model_path])]

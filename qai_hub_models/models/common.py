@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Dict, List, Optional
+from typing import Optional
 
 import numpy as np
 import qai_hub as hub
@@ -35,7 +35,7 @@ class SourceModelFormat(Enum):
     TORCHSCRIPT = 1
 
 
-SampleInputsType = Dict[str, List[np.ndarray]]
+SampleInputsType = dict[str, list[np.ndarray]]
 
 
 @dataclass

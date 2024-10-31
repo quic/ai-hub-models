@@ -6,9 +6,10 @@ from __future__ import annotations
 
 import argparse
 import os
+from collections.abc import Mapping
 from importlib import import_module
 from pathlib import Path
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import Any, Optional
 
 import numpy as np
 import qai_hub as hub
@@ -49,8 +50,8 @@ def prepare_compile_zoo_model_to_hub(
     check_trace: bool = True,
     prepare_compile_options_only: bool = False,
     external_onnx_weights: bool = False,
-    output_names: Optional[List[str]] = None,
-) -> Tuple[str | None, str]:
+    output_names: Optional[list[str]] = None,
+) -> tuple[str | None, str]:
     """
     Args:
 
@@ -293,15 +294,15 @@ def compile_model_from_args(
 
 
 def make_hub_dataset_entries(
-    tensors_tuple: Tuple[
+    tensors_tuple: tuple[
         torch.Tensor
         | np.ndarray
-        | List[torch.Tensor | np.ndarray]
-        | Tuple[torch.Tensor | np.ndarray],
+        | list[torch.Tensor | np.ndarray]
+        | tuple[torch.Tensor | np.ndarray],
         ...,
     ],
-    input_names: List[str],
-    channel_last_input: Optional[List[str]] = None,
+    input_names: list[str],
+    channel_last_input: Optional[list[str]] = None,
 ) -> DatasetEntries:
     """
     Given input tensor(s) in either numpy or torch format,
@@ -341,15 +342,15 @@ class AsyncOnDeviceResult:
         self,
         inference_job: hub.InferenceJob,
         target_runtime: TargetRuntime,
-        channel_last_output: List[str],
-        output_names: List[str],
+        channel_last_output: list[str],
+        output_names: list[str],
     ):
         self.inference_job = inference_job
         self.target_runtime = target_runtime
         self.channel_last_output = channel_last_output
         self.output_names = output_names
 
-    def wait(self) -> torch.Tensor | Tuple[torch.Tensor, ...]:
+    def wait(self) -> torch.Tensor | tuple[torch.Tensor, ...]:
         if not self.inference_job.wait().success:
             job_msg = (
                 self.inference_job.get_status().message or "(no job failure message)"
@@ -399,10 +400,10 @@ class AsyncOnDeviceModel:
     def __init__(
         self,
         model: hub.Model,
-        input_names: List[str],
+        input_names: list[str],
         device: hub.Device,
         inference_options: str = "",
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ):
         self.model = model
         self.input_names = input_names
@@ -433,7 +434,7 @@ class AsyncOnDeviceModel:
         self,
         *args: torch.Tensor
         | np.ndarray
-        | List[torch.Tensor | np.ndarray]
+        | list[torch.Tensor | np.ndarray]
         | hub.Dataset
         | DatasetEntries,
     ) -> AsyncOnDeviceResult:
@@ -485,10 +486,10 @@ class OnDeviceModel(ExecutableModelProtocol):
     def __init__(
         self,
         model: hub.Model,
-        input_names: List[str],
+        input_names: list[str],
         device: hub.Device,
         inference_options: str = "",
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ):
         self.async_model = AsyncOnDeviceModel(
             model,
@@ -503,20 +504,20 @@ class OnDeviceModel(ExecutableModelProtocol):
         self,
         *args: torch.Tensor
         | np.ndarray
-        | List[torch.Tensor | np.ndarray]
+        | list[torch.Tensor | np.ndarray]
         | hub.Dataset
         | DatasetEntries,
-    ) -> torch.Tensor | Tuple[torch.Tensor, ...]:
+    ) -> torch.Tensor | tuple[torch.Tensor, ...]:
         return self.forward(*args)
 
     def forward(
         self,
         *args: torch.Tensor
         | np.ndarray
-        | List[torch.Tensor | np.ndarray]
+        | list[torch.Tensor | np.ndarray]
         | hub.Dataset
         | DatasetEntries,
-    ) -> torch.Tensor | Tuple[torch.Tensor, ...]:
+    ) -> torch.Tensor | tuple[torch.Tensor, ...]:
         async_result = self.async_model(*args)
         return async_result.wait()
 
@@ -539,7 +540,7 @@ def get_uploaded_precompiled_model(
     uploaded_model = None
     if not ignore_cached_model:
         try:
-            with open(model_id_path, "r") as model_id_file:
+            with open(model_id_path) as model_id_file:
                 model_id = model_id_file.readline().strip()
             print(f"Using previously uploaded model({model_id}) for {model_component}")
             uploaded_model = hub.get_model(model_id=model_id)

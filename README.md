@@ -51,10 +51,12 @@ and many more.
 
 ## Installation
 
-We currently support **Python >=3.8 and <= 3.10.** We recommend using a Python
+We currently support **Python 3.9, 3.10 (recommended), 3.11, and 3.12.** We recommend using a Python
 virtual environment
 ([miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/) or
 [virtualenv](https://virtualenv.pypa.io/en/latest/)).
+
+*NOTE: Many quantized models are supported only with python 3.10*.
 
 You can setup a virtualenv using:
 ```
@@ -181,7 +183,6 @@ Here is a simplified example of code that can be used to run the entire model
 on a cloud hosted device:
 
 ```python
-from typing import Tuple
 import torch
 import qai_hub as hub
 from qai_hub_models.models.yolov7 import Model as YOLOv7Model
@@ -359,10 +360,14 @@ Qualcomm® AI Hub Models is licensed under BSD-3. See the [LICENSE file](../LICE
 | [DETR-ResNet101-DC5](https://aihub.qualcomm.com/models/detr_resnet101_dc5) | [qai_hub_models.models.detr_resnet101_dc5](qai_hub_models/models/detr_resnet101_dc5/README.md) | ✔️ | ✔️ | ✔️
 | [DETR-ResNet50](https://aihub.qualcomm.com/models/detr_resnet50) | [qai_hub_models.models.detr_resnet50](qai_hub_models/models/detr_resnet50/README.md) | ✔️ | ✔️ | ✔️
 | [DETR-ResNet50-DC5](https://aihub.qualcomm.com/models/detr_resnet50_dc5) | [qai_hub_models.models.detr_resnet50_dc5](qai_hub_models/models/detr_resnet50_dc5/README.md) | ✔️ | ✔️ | ✔️
+| [FaceAttribNet](https://aihub.qualcomm.com/models/face_attrib_net) | [qai_hub_models.models.face_attrib_net](qai_hub_models/models/face_attrib_net/README.md) | ✔️ | ✔️ | ✔️
+| [FootTrackNet_Quantized](https://aihub.qualcomm.com/models/foot_track_net_quantized) | [qai_hub_models.models.foot_track_net_quantized](qai_hub_models/models/foot_track_net_quantized/README.md) | ✔️ | ✔️ | ✔️
+| [Lightweight-Face-Detection](https://aihub.qualcomm.com/models/face_det_lite) | [qai_hub_models.models.face_det_lite](qai_hub_models/models/face_det_lite/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Face-Detection-Quantized](https://aihub.qualcomm.com/models/mediapipe_face_quantized) | [qai_hub_models.models.mediapipe_face_quantized](qai_hub_models/models/mediapipe_face_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) | ✔️ | ✔️ | ✔️
 | [PPE-Detection](https://aihub.qualcomm.com/models/gear_guard_net) | [qai_hub_models.models.gear_guard_net](qai_hub_models/models/gear_guard_net/README.md) | ✔️ | ✔️ | ✔️
+| [PPE-Detection-Quantized](https://aihub.qualcomm.com/models/gear_guard_net_quantized) | [qai_hub_models.models.gear_guard_net_quantized](qai_hub_models/models/gear_guard_net_quantized/README.md) | ✔️ | ✔️ | ✔️
 | [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv11-Detection](https://aihub.qualcomm.com/models/yolov11_det) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) | ✔️ | ✔️ | ✔️
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) | ✔️ | ✔️ | ✔️

@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from qai_hub_models.models.midas.app import MidasApp
 from qai_hub_models.models.midas.model import MODEL_ASSET_VERSION, MODEL_ID, Midas
 from qai_hub_models.utils.args import (
@@ -25,7 +23,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Run Midas end-to-end on a sample image.
 # The demo will display a heatmap of the estimated depth at each point in the image.
-def midas_demo(model_cls: Type[Midas], is_test: bool = False):
+def midas_demo(model_cls: type[Midas], is_test: bool = False):
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

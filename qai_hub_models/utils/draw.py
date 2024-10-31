@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import cv2
 import numpy as np
@@ -14,8 +14,8 @@ import torch
 def draw_points(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
-    color: Tuple[int, int, int] = (0, 0, 0),
-    size: Union[int, List[int]] = 10,
+    color: tuple[int, int, int] = (0, 0, 0),
+    size: Union[int, list[int]] = 10,
 ):
     """
     Draw the given points on the frame.
@@ -31,7 +31,7 @@ def draw_points(
             array (N * 2,) where layout is
                 x1, y1, x2, y2, ...
 
-        color: Tuple[int, int, int]
+        color: tuple[int, int, int]
             Color of drawn points (RGB)
 
         size: int
@@ -60,8 +60,8 @@ def draw_points(
 def draw_connections(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
-    connections: List[Tuple[int, int]],
-    color: Tuple[int, int, int] = (0, 0, 0),
+    connections: list[tuple[int, int]],
+    color: tuple[int, int, int] = (0, 0, 0),
     size: int = 1,
 ):
     """
@@ -119,7 +119,7 @@ def draw_box_from_corners(
             array (8) where layout is
                 x1, y1, x2, y2
 
-        color: Tuple[int, int, int]
+        color: tuple[int, int, int]
             Color of drawn points and connection lines (BGR)
 
         size: int
@@ -135,7 +135,7 @@ def draw_box_from_corners(
 def draw_box_from_xywh(
     frame: np.ndarray,
     box: np.ndarray | torch.Tensor,
-    color: Tuple[int, int, int] = (0, 0, 0),
+    color: tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
 ):
     """
@@ -149,7 +149,7 @@ def draw_box_from_xywh(
             array (4), where layout is
                 [xcenter, ycenter, h, w]
 
-        color: Tuple[int, int, int]
+        color: tuple[int, int, int]
             Color of drawn points and connection lines (RGB)
 
         size: int
@@ -166,9 +166,9 @@ def draw_box_from_xywh(
 
 def draw_box_from_xyxy(
     frame: np.ndarray,
-    top_left: np.ndarray | torch.Tensor | Tuple[int, int],
-    bottom_right: np.ndarray | torch.Tensor | Tuple[int, int],
-    color: Tuple[int, int, int] = (0, 0, 0),
+    top_left: np.ndarray | torch.Tensor | tuple[int, int],
+    bottom_right: np.ndarray | torch.Tensor | tuple[int, int],
+    color: tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
     text: Optional[str] = None,
 ):
@@ -183,7 +183,7 @@ def draw_box_from_xyxy(
             array (4), where layout is
                 [xc, yc, h, w]
 
-        color: Tuple[int, int, int]
+        color: tuple[int, int, int]
             Color of drawn points and connection lines (RGB)
 
         size: int

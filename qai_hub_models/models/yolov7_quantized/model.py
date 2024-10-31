@@ -48,7 +48,7 @@ class YoloV7Quantizable(AIMETQuantizableMixin, YoloV7):
         weights_name: Optional[str] = DEFAULT_WEIGHTS,
         aimet_encodings: str | None = "DEFAULT",
         include_postprocessing: bool = True,
-    ) -> "YoloV7Quantizable":
+    ) -> YoloV7Quantizable:
         """Load YoloV7 from a weightfile created by the source YoloV7 repository."""
         fp16_model = YoloV7.from_pretrained(
             weights_name,

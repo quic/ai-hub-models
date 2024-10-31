@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import List, Type
-
 from qai_hub_models.models._shared.llama.demo import llama_chat_demo
 from qai_hub_models.models.llama_v2_7b_chat_quantized import MODEL_ID, Model
 from qai_hub_models.models.llama_v2_7b_chat_quantized.model import (
@@ -54,7 +52,7 @@ def _get_model_class(split_part: int, is_token_generator: bool = False):
 
 
 def llama_2_chat_demo(
-    model_cls: Type[BaseModel] = Model,
+    model_cls: type[BaseModel] = Model,
     model_id: str = MODEL_ID,
     num_splits: int = NUM_SPLITS,
     num_key_val_heads: int = NUM_KEY_VAL_HEADS,
@@ -64,7 +62,7 @@ def llama_2_chat_demo(
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = [TargetRuntime.QNN],
+    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN],
 ):
     llama_chat_demo(
         model_cls=model_cls,

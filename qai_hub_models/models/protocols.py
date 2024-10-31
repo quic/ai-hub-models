@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, List, Optional, Protocol, Type, TypeVar, runtime_checkable
+from typing import Any, Optional, Protocol, TypeVar, runtime_checkable
 
 from qai_hub.client import DatasetEntries, Device, SourceModel
 
@@ -70,7 +70,7 @@ class HubModelProtocol(Protocol):
 
     @staticmethod
     @abstractmethod
-    def get_output_names(*args, **kwargs) -> List[str]:
+    def get_output_names(*args, **kwargs) -> list[str]:
         """
         List of output names. If there are multiple outputs, the order of the names
             should match the order of tuple returned by the model.
@@ -174,7 +174,7 @@ class FromPretrainedProtocol(Protocol):
     @classmethod
     @abstractmethod
     def from_pretrained(
-        cls: Type[FromPretrainedTypeVar], *args, **kwargs
+        cls: type[FromPretrainedTypeVar], *args, **kwargs
     ) -> FromPretrainedTypeVar:
         """
         Utility function that helps users get up and running with a default
@@ -209,7 +209,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
         external_onnx_weights: bool = False,
-        output_names: Optional[List[str]] = None,
+        output_names: Optional[list[str]] = None,
     ) -> SourceModel:
         ...
 
@@ -241,8 +241,8 @@ class FromPrecompiledProtocol(Protocol):
     @classmethod
     @abstractmethod
     def from_precompiled(
-        cls: Type[FromPrecompiledTypeVar], *args, **kwargs
-    ) -> "FromPrecompiledTypeVar":
+        cls: type[FromPrecompiledTypeVar], *args, **kwargs
+    ) -> FromPrecompiledTypeVar:
         """
         Utility function that helps users get up and running with a default
         precompiled model. While this function may take arguments, all arguments

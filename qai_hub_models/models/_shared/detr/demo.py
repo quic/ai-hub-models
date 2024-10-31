@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 from PIL import Image
 
 from qai_hub_models.models._shared.detr.app import DETRApp
@@ -23,7 +21,7 @@ from qai_hub_models.utils.display import display_or_save_image
 # Run DETR app end-to-end on a sample image.
 # The demo will display the predicted mask in a window.
 def detr_demo(
-    model_cls: Type[BaseModel],
+    model_cls: type[BaseModel],
     model_id: str,
     default_weights: str,
     default_image: str | CachedWebAsset,

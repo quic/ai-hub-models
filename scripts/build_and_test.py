@@ -9,7 +9,8 @@ import logging
 import os
 import sys
 import textwrap
-from typing import Callable, List, Optional
+from collections.abc import Callable
+from typing import Optional
 
 from tasks.changes import (
     REPRESENTATIVE_EXPORT_MODELS,
@@ -36,8 +37,12 @@ from tasks.task import (
     Task,
 )
 from tasks.test import PyTestModelsTask, PyTestScriptsTask, PyTestUtilsTask
-from tasks.util import can_support_aimet, echo, run
-from tasks.venv import CreateVenvTask, SyncLocalQAIHMVenvTask
+from tasks.util import echo, run
+from tasks.venv import (
+    CreateVenvTask,
+    GenerateGlobalRequirementsTask,
+    SyncLocalQAIHMVenvTask,
+)
 
 
 def parse_arguments():
@@ -75,7 +80,7 @@ def parse_arguments():
     parser.add_argument(
         "--python",
         type=str,
-        default="python3.8",
+        default="python3.10",
         help="Python executable path or name (only used when creating the venv).",
     )
 
@@ -117,10 +122,10 @@ class TaskLibrary:
         self.venv_path = venv_path
 
     @staticmethod
-    def to_dot(highlight: List[str] = []) -> str:
-        elements: List[str] = []
+    def to_dot(highlight: list[str] = []) -> str:
+        elements: list[str] = []
         for tsk in ALL_TASKS:
-            task_attrs: List[str] = []
+            task_attrs: list[str] = []
             if tsk in PUBLIC_TASKS:
                 task_attrs.append("style=filled")
             if tsk in highlight:
@@ -215,9 +220,25 @@ class TaskLibrary:
             SyncLocalQAIHMVenvTask(
                 self.venv_path,
                 ["dev"],
-                can_support_aimet(),
             ),
         )
+
+    @public_task("Generate Global Requirements")
+    @depends(["install_deps"])
+    def generate_global_requirements(
+        self, plan: Plan, step_id: str = "generate_global_requirements"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            GenerateGlobalRequirementsTask(
+                venv=self.venv_path,
+            ),
+        )
+
+    @public_task("Model Test Setup")
+    @depends(["install_deps", "generate_global_requirements"])
+    def model_test_setup(self, plan: Plan, step_id: str = "model_test_setup") -> str:
+        return plan.add_step(step_id, NoOpTask())
 
     @task
     def clean_pip(self, plan: Plan) -> str:
@@ -268,7 +289,7 @@ class TaskLibrary:
         )
 
     @public_task("Quantize changed models in preparation for testing all of them.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def quantize_changed_models(
         self, plan: Plan, step_id: str = "quantize_changed_models"
     ) -> str:
@@ -278,7 +299,7 @@ class TaskLibrary:
         )
 
     @public_task("Quantize changed models in preparation for testing all of them.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def quantize_representative_models(
         self, plan: Plan, step_id: str = "quantize_representative_models"
     ) -> str:
@@ -287,7 +308,7 @@ class TaskLibrary:
         )
 
     @public_task("Quantize changed models in preparation for testing all of them.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def quantize_all_models(
         self, plan: Plan, step_id: str = "quantize_all_models"
     ) -> str:
@@ -297,7 +318,7 @@ class TaskLibrary:
     @public_task(
         "Run most tests for only added/modified models in Model Zoo. Includes most tests, uses shared global cache, and uses the same environment for each model."
     )
-    @depends(["install_deps", "quantize_changed_models"])
+    @depends(["model_test_setup", "quantize_changed_models"])
     def test_changed_models(
         self, plan: Plan, step_id: str = "test_changed_models"
     ) -> str:
@@ -318,7 +339,7 @@ class TaskLibrary:
     @public_task(
         "Run all tests for only added/modified models in Model Zoo. Includes all tests, and creates a fresh environment for each model."
     )
-    @depends(["install_deps", "quantize_changed_models"])
+    @depends(["model_test_setup", "quantize_changed_models"])
     def test_changed_models_long(
         self, plan: Plan, step_id: str = "test_changed_models_long"
     ) -> str:
@@ -336,7 +357,12 @@ class TaskLibrary:
         )
 
     @public_task("Run tests for all models in Model Zoo.")
-    @depends(["install_deps", "quantize_representative_models"])
+    @depends(
+        [
+            "model_test_setup",
+            "quantize_representative_models",
+        ]
+    )
     def test_all_models(self, plan: Plan, step_id: str = "test_all_models") -> str:
         # Excludes export tests, and uses the same environment for each model.
         all_models = get_all_models()
@@ -387,28 +413,28 @@ class TaskLibrary:
         )
 
     @public_task("Run Compile jobs for all models in Model Zoo.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def test_compile_all_models(
         self, plan: Plan, step_id: str = "test_compile_all_models"
     ) -> str:
         return plan.add_step(step_id, self._make_hub_scorecard_task(compile=True))
 
     @public_task("Run profile jobs for all models in Model Zoo.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def test_profile_all_models(
         self, plan: Plan, step_id: str = "test_profile_all_models"
     ) -> str:
         return plan.add_step(step_id, self._make_hub_scorecard_task(profile=True))
 
     @public_task("Run quantize jobs for all models in Model Zoo.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def test_quantize_all_models(
         self, plan: Plan, step_id: str = "test_quantize_all_models"
     ) -> str:
         return plan.add_step(step_id, self._make_hub_scorecard_task(quantize=True))
 
     @public_task("Verify all export scripts work e2e.")
-    @depends(["install_deps"])
+    @depends(["model_test_setup"])
     def test_all_export_scripts(
         self, plan: Plan, step_id: str = "test_all_export_scripts"
     ) -> str:
@@ -433,7 +459,7 @@ class TaskLibrary:
         )
 
     @public_task("Run tests for all models in Model Zoo.")
-    @depends(["install_deps", "quantize_all_models"])
+    @depends(["model_test_setup", "quantize_all_models"])
     def test_all_models_long(
         self, plan: Plan, step_id: str = "test_all_models_long"
     ) -> str:
@@ -503,7 +529,7 @@ class TaskLibrary:
 
 
 def plan_from_dependencies(
-    main_tasks: List[str],
+    main_tasks: list[str],
     python_executable: str,
     venv_path: Optional[str],
 ) -> Plan:
@@ -528,7 +554,7 @@ def plan_from_dependencies(
 
     while len(work_list) > 0:
         task_name = work_list.pop()
-        unfulfilled_deps: List[str] = []
+        unfulfilled_deps: list[str] = []
         for dep in TASK_DEPENDENCIES.get(task_name, []):
             if not plan.has_step(dep):
                 unfulfilled_deps.append(dep)
@@ -551,7 +577,7 @@ def plan_from_dependencies(
 
 
 def plan_from_task_list(
-    tasks: List[str],
+    tasks: list[str],
     python_executable: str,
     venv_path: Optional[str],
 ) -> Plan:

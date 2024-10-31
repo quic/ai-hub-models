@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -31,7 +30,7 @@ AOTGAN_SOURCE_PATCHES = [
     )
 ]
 MODEL_ID = __name__.split(".")[-2]
-SUPPORTED_PRETRAINED_MODELS = set(["celebahq", "places2"])
+SUPPORTED_PRETRAINED_MODELS = {"celebahq", "places2"}
 DEFAULT_WEIGHTS = "celebahq"
 MODEL_ASSET_VERSION = 2
 
@@ -125,7 +124,7 @@ class AOTGAN(BaseModel):
         }
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["painted_image"]
 
     def _sample_inputs_impl(
@@ -142,9 +141,9 @@ class AOTGAN(BaseModel):
         return {k: [v.detach().numpy()] for k, v in torch_inputs.items()}
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image", "mask"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["painted_image"]

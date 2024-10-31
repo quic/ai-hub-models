@@ -5,24 +5,25 @@
 import datetime
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, List, Optional, Type, Union, cast
+from typing import Any, Optional, Union, cast
 
 import qai_hub as hub
 
-from qai_hub_models.utils.config_loaders import QAIHMModelCodeGen, QAIHMModelInfo
-from qai_hub_models.utils.scorecard.common import (
+from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
+from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
+from qai_hub_models.utils.config_loaders import QAIHMModelCodeGen, QAIHMModelInfo
 
 
 @dataclass
-class JobSummary:
+class ScorecardJob:
     model_id: str
     job_id: Optional[str]
     _device: ScorecardDevice
-    # Setting for how the JobSummary class should treat a job.
+    # Setting for how the ScorecardJob class should treat a job.
     #  None | Wait an infinite amount of time the job to finish
     #   < 0 | Ignore job if running (treat it as skipped)
     #  >= 0 | Wait this many seconds for the job to finish
@@ -36,8 +37,8 @@ class JobSummary:
 
     @classmethod
     def from_model_id(
-        cls: Type["JobSummary"], model_id: str, job_ids: Dict[str, str]
-    ) -> List:
+        cls: type["ScorecardJob"], model_id: str, job_ids: dict[str, str]
+    ) -> list:
         """
         Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -45,7 +46,7 @@ class JobSummary:
             <model_id>|<runtime>|<device> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         raise NotImplementedError()
 
@@ -114,16 +115,16 @@ class JobSummary:
 
 
 @dataclass
-class CompileJobSummary(JobSummary):
+class CompileScorecardJob(ScorecardJob):
     path: ScorecardCompilePath
 
     @classmethod
     def from_model_id(
-        cls: Type["CompileJobSummary"],
+        cls: type["CompileScorecardJob"],
         model_id: str,
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         max_job_wait_secs=None,
-    ) -> List["CompileJobSummary"]:
+    ) -> list["CompileScorecardJob"]:
         """
         Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -131,7 +132,7 @@ class CompileJobSummary(JobSummary):
             <model_id>|<runtime>|<device> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         model_info = QAIHMModelInfo.from_model(model_id)
         model_code_gen: QAIHMModelCodeGen = model_info.code_gen_config
@@ -149,18 +150,21 @@ class CompileJobSummary(JobSummary):
         path: ScorecardCompilePath
         for path in ScorecardCompilePath.all_enabled():
             for component in components:
-                for device in path.get_test_devices(
-                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization,
-                    only_enabled=True,
-                    include_duplicate_devices=True,
-                    include_any=True,
+                model_requires_fp16 = not (
+                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization
+                )
+                for device in ScorecardDevice.all_devices(
+                    enabled=True,
+                    supports_fp16=model_requires_fp16 or None,
+                    supports_compile_path=path,
                 ):
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,
                             job_id=job_ids.get(
-                                path.get_job_cache_name(
-                                    model=model_id,
+                                get_async_job_cache_name(
+                                    path=path,
+                                    model_id=model_id,
                                     device=device,
                                     component=component,
                                 )
@@ -187,16 +191,16 @@ class CompileJobSummary(JobSummary):
 
 
 @dataclass
-class ProfileJobSummary(JobSummary):
+class ProfileScorecardJob(ScorecardJob):
     path: ScorecardProfilePath
 
     @classmethod
     def from_model_id(
-        cls: Type["ProfileJobSummary"],
+        cls: type["ProfileScorecardJob"],
         model_id: str,
-        job_ids: Dict[str, str],
+        job_ids: dict[str, str],
         max_job_wait_secs=None,
-    ) -> List["ProfileJobSummary"]:
+    ) -> list["ProfileScorecardJob"]:
         """
         Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
         Either:
@@ -204,7 +208,7 @@ class ProfileJobSummary(JobSummary):
             <model_id>|<runtime>|<device> : job_id
 
         Returns models in this format:
-            model_id: List[Summary]
+            model_id: list[Summary]
         """
         model_info = QAIHMModelInfo.from_model(model_id)
         model_code_gen: QAIHMModelCodeGen = model_info.code_gen_config
@@ -222,17 +226,21 @@ class ProfileJobSummary(JobSummary):
         path: ScorecardProfilePath
         for path in ScorecardProfilePath.all_enabled():
             for component in components:
-                for device in path.get_test_devices(
-                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization,
-                    only_enabled=True,
-                    include_duplicate_devices=True,
+                model_requires_fp16 = not (
+                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization
+                )
+                for device in ScorecardDevice.all_devices(
+                    enabled=True,
+                    supports_fp16=model_requires_fp16 or None,
+                    supports_profile_path=path,
                 ):
                     model_runs.append(
                         cls(
                             model_id=component or model_info.name,
                             job_id=job_ids.get(
-                                path.get_job_cache_name(
-                                    model=model_id,
+                                get_async_job_cache_name(
+                                    path=path,
+                                    model_id=model_id,
                                     device=device,
                                     component=component,
                                 ),
@@ -281,7 +289,7 @@ class ProfileJobSummary(JobSummary):
         return cast(hub.ProfileJob, self.job)
 
     @cached_property
-    def profile_results(self) -> Optional[Dict[str, Any]]:
+    def profile_results(self) -> Optional[dict[str, Any]]:
         """Profile results from profile job."""
         if self.job_status == "Passed":
             return self.profile_job.download_profile()  # type: ignore
@@ -352,7 +360,7 @@ class ProfileJobSummary(JobSummary):
         return "CPU"
 
     @cached_property
-    def peak_memory_range(self) -> Dict[str, int]:
+    def peak_memory_range(self) -> dict[str, int]:
         """Get the estimated peak memory range."""
         if self.profile_results is not None:
             low, high = self.profile_results["execution_summary"][
@@ -374,17 +382,17 @@ class ProfileJobSummary(JobSummary):
         return "null"
 
     @cached_property
-    def llm_metrics(self) -> Union[Dict[str, Any], str]:
+    def llm_metrics(self) -> Union[dict[str, Any], str]:
         """Get LLM specific metrics."""
         return "null"
 
     @cached_property
-    def evaluation_metrics(self) -> Union[Dict[str, Any], str]:
+    def evaluation_metrics(self) -> Union[dict[str, Any], str]:
         """Get evaluation_metrics."""
         return "null"
 
     @cached_property
-    def performance_metrics(self) -> Dict[str, Any]:
+    def performance_metrics(self) -> dict[str, Any]:
         metrics = dict(
             inference_time=self.inference_time,
             throughput=self.throughput,

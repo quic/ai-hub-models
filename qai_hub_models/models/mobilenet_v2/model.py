@@ -42,7 +42,7 @@ def _load_mobilenet_v2_source_model() -> torch.nn.Module:
     cfg_path = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, MOBILENETV2_CFG
     ).fetch()
-    with open(cfg_path, "r") as f:
+    with open(cfg_path) as f:
         cfg = json.load(f)
     with SourceAsRoot(
         MOBILENETV2_SOURCE_REPOSITORY,

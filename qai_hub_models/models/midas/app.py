@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List
+from collections.abc import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,7 +33,7 @@ class MidasApp:
         self,
         image: Image.Image,
         raw_output: bool = False,
-    ) -> List[Image.Image] | np.ndarray:
+    ) -> list[Image.Image] | np.ndarray:
         """
         Estimates the depth at each point in an image and produces a heatmap.
 

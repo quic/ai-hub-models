@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Type
-
 import numpy as np
 import torch
 
@@ -19,7 +17,7 @@ from qai_hub_models.utils.image_processing import preprocess_PIL_image
 
 
 def run_test_off_target_numerical(
-    ffnet_cls: Type[BaseModel], variant_name: str, relax_numerics: bool = False
+    ffnet_cls: type[BaseModel], variant_name: str, relax_numerics: bool = False
 ):
     """Verify that raw (numeric) outputs of both (qaism and non-qaism) networks are the same."""
     processed_sample_image = preprocess_PIL_image(

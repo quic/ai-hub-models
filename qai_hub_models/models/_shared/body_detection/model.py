@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 import math
 from copy import deepcopy
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -37,10 +36,10 @@ class Concat(nn.Module):
         super().__init__()
         self.d = dimension
 
-    def forward(self, x: List[torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
         """
         Inputs:
-            x: List[torch.Tensor]
+            x: list[torch.Tensor]
                 List of tensors to be concatenated.
         Output: torch.Tensor
             Concatenated tensor.
@@ -308,14 +307,14 @@ class Detect(nn.Module):
             nn.Conv2d(x, self.num_output * self.num_anchors, 1) for x in ch
         )
 
-    def forward(self, x: List[torch.Tensor]) -> List[torch.Tensor]:
+    def forward(self, x: list[torch.Tensor]) -> list[torch.Tensor]:
         """
         Forward computation of Detect module.
 
         Inputs:
-            x: List[torch.Tensor].
+            x: list[torch.Tensor].
                 Input lisr of tensors.
-        Outputs: List[torch.Tensor].
+        Outputs: list[torch.Tensor].
             Output list of tensors.
         """
         for i in range(self.num_layers):
@@ -323,7 +322,7 @@ class Detect(nn.Module):
         return x
 
 
-def parse_model(cfg: dict, ch: List[int]):
+def parse_model(cfg: dict, ch: list[int]):
     """
     Generate model module from model configuration.
 
@@ -416,7 +415,7 @@ class DoubleBlazeBlock(nn.Module):
             bias: bool.
                 Enable bias in convolution.
         """
-        super(DoubleBlazeBlock, self).__init__()
+        super().__init__()
         self.stride = stride
         assert stride in [1, 2]
         self.use_pooling = self.stride != 1
@@ -501,16 +500,17 @@ class Model(nn.Module):
         super().__init__()
         self.model, self.save = parse_model(deepcopy(model_cfg), ch=[ch])
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         """
         Forward computation of Model.
 
         Inputs:
             x: torch.Tensor.
                 Input image.
-        Outputs: List[torch.Tensor]
+        Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """
+        x = x / 255.0
         y = []
         for m in self.model:
             if m.f != -1:

@@ -2,16 +2,15 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Dict, List, Tuple
 
 from prettytable import PrettyTable
 
 RUNTIMES_TO_COMPARE = ["torchscript_onnx_qnn", "torchscript_onnx_tflite"]
 
 
-class PerformanceSummary:
+class PerformanceDiff:
     """
-    Generates Perf Summary of two 'performance_metrics' from perf.yaml
+    Generates Performance Difference between of two 'performance_metrics' from perf.yaml
 
     Perf summary is generated w.r.t 'perf_buckets' to summarize difference in decreasing order
         - "INF" -> Inference failure toggled.
@@ -31,28 +30,28 @@ class PerformanceSummary:
 
     def __init__(self) -> None:
         # List of new reports being added
-        self.new_perf_report: List[Tuple[str]] = []
+        self.new_perf_report: list[tuple[str]] = []
 
         # Device present in previous run, but missing in new
-        self.missing_devices: List = []
+        self.missing_devices: list = []
 
         # Device + runtime present in previous run, but missing in new
-        self.missing_runtimes: List = []
+        self.missing_runtimes: list = []
 
         # Perf report with no passing job
-        self.empty_perf_report: List[Tuple[str]] = []
+        self.empty_perf_report: list[tuple[str]] = []
 
         # Perf buckets to track
         self.perf_buckets = ["inf", 10, 5, 2, 1.5, 1.3, 1.2, 1.1, 1.05, 1.03]
 
         # Only track PerfSummary for Android
-        self.tracked_oses: List = ["Android"]
+        self.tracked_oses: list = ["Android"]
 
         # Map of perf_bucket -> List of tuple of progression summary entry
-        self.progressions: Dict = {}
+        self.progressions: dict = {}
 
         # Map of perf_bucket -> List of tuple of regression summary entry
-        self.regressions: Dict = {}
+        self.regressions: dict = {}
 
         for each in self.perf_buckets:
             self.progressions[each] = []

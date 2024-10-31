@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, List
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -45,9 +45,9 @@ class DDRNetApp:
         pixel_values_or_image: torch.Tensor
         | np.ndarray
         | Image.Image
-        | List[Image.Image],
+        | list[Image.Image],
         raw_output: bool = False,
-    ) -> List[Image.Image] | np.ndarray:
+    ) -> list[Image.Image] | np.ndarray:
         """
         Return the input image with the segmentation mask overlayed on it.
 
@@ -68,7 +68,7 @@ class DDRNetApp:
                     A list of predicted masks.
 
             Otherwise, returns:
-                segmented_images: List[PIL.Image]
+                segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(

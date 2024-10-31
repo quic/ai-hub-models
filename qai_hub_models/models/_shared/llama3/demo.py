@@ -4,7 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Callable, List, Set, Type
+from collections.abc import Callable
+from typing import Any
 
 from qai_hub_models.models._shared.llama3.app import ChatApp as App
 from qai_hub_models.utils.args import get_model_cli_parser
@@ -19,17 +20,17 @@ DEFAULT_DEVICE = "Samsung Galaxy S24 (Family)"
 
 
 def llama_chat_demo(
-    model_cls: Type[BaseModel],
+    model_cls: type[BaseModel],
     model_id: str,
     get_input_prompt_with_tags: Callable,
     prepare_combined_attention_mask: Callable,
     tokenizer: Any,
-    end_tokens: Set[str],
+    end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str,
     is_test: bool = False,
-    available_target_runtimes: List[TargetRuntime] = [TargetRuntime.QNN],
+    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN],
     bundled_kvcache: bool = True,
 ):
     """

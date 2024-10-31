@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import List
 
 import torch
 
@@ -78,15 +77,15 @@ class Real_ESRGAN_General_x4v3(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> List[str]:
+    def get_output_names() -> list[str]:
         return ["upscaled_image"]
 
     @staticmethod
-    def get_channel_last_inputs() -> List[str]:
+    def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
     @staticmethod
-    def get_channel_last_outputs() -> List[str]:
+    def get_channel_last_outputs() -> list[str]:
         return ["upscaled_image"]
 
 
@@ -135,6 +134,19 @@ def _load_realesrgan_source_model_from_weights(
         # necessary import. `archs` comes from the realesrgan repo.
         # This can be imported only once per session
         if "basicsr.archs.srvgg_arch" not in sys.modules:
+            # -----
+            # Patch torchvision for out of date basicsr package that requires torchvision 1.16
+            # but does not have its requirements set correctly
+            try:
+                # This is not available after torchvision 1.16, it was renamed to "functional"
+                import torchvision.transforms.functional_tensor
+            except ImportError:
+                import torchvision.transforms.functional
+
+                sys.modules[
+                    "torchvision.transforms.functional_tensor"
+                ] = torchvision.transforms.functional
+            # ----
             import realesrgan.archs.srvgg_arch as srvgg_arch
         else:
             srvgg_arch = sys.modules["basicsr.archs.srvgg_arch"]

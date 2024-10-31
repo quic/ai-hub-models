@@ -4,16 +4,16 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Callable, Type
+from collections.abc import Callable
 
 import torch
 
 
 def apply_module_function_recursively(
     module: torch.nn.Module,
-    tgt_cls: Type[torch.nn.Module],
+    tgt_cls: type[torch.nn.Module],
     apply_fn: Callable[torch.nn.Module, torch.nn.Module, str],
-    parent_module: Type[torch.nn.Module] = None,
+    parent_module: type[torch.nn.Module] = None,
 ):
     """
     Recursively calls a function on all modules of a given type.
@@ -31,9 +31,9 @@ def apply_module_function_recursively(
 
 def replace_module_recursively(
     module: torch.nn.Module,
-    tgt_cls: Type[torch.nn.Module],
-    new_cls: Type[torch.nn.Module],
-    parent_module: Type[torch.nn.Module] = None,
+    tgt_cls: type[torch.nn.Module],
+    new_cls: type[torch.nn.Module],
+    parent_module: type[torch.nn.Module] = None,
 ):
     """
     Replace all instances of `tgt_cls` with `new_cls`. If `parent_module` is

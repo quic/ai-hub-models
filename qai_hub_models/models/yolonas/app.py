@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Tuple
-
 import torch
 
 from qai_hub_models.models._shared.yolo.app import YoloObjectDetectionApp
@@ -31,7 +29,7 @@ class YoloNASDetectionApp(YoloObjectDetectionApp):
 
     def pre_nms_postprocess(
         self, *predictions: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Process the output of the YOLO detector for input to NMS.
 

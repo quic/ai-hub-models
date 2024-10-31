@@ -95,7 +95,7 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
     def is_residual_add(nodename, strict):
         if nodes[nodename].op_type != "Add":
             return False
-        a, b = [producers[tensor] for tensor in nodes[nodename].input]
+        a, b = (producers[tensor] for tensor in nodes[nodename].input)
         if a is None or b is None:
             return False
         a = maybe_skip_cast(a)
@@ -106,7 +106,7 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
         return can_visit(end, begin)
 
     def get_add0(add1):
-        a, b = [producers[tensor] for tensor in nodes[add1].input]
+        a, b = (producers[tensor] for tensor in nodes[add1].input)
         a = maybe_skip_cast(a)
         b = maybe_skip_cast(b)
         add0 = a if seq[a] < seq[b] else b
@@ -114,7 +114,7 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
         return add0
 
     def get_layer0_input(add0):
-        a, b = [producers[tensor] for tensor in nodes[add0].input]
+        a, b = (producers[tensor] for tensor in nodes[add0].input)
         return a if seq[a] < seq[b] else b
 
     residual_add_names = [
@@ -157,18 +157,18 @@ def _load_encoding(encodingfile, no_merge=False):
 
 
 def _save_encoding(encodings, encodingfile):
-    with open(encodingfile, "wt") as json_file:
+    with open(encodingfile, "w") as json_file:
         json.dump(encodings, json_file, indent=4, sort_keys=True)
 
 
 def embed_forecast_token_embeddings(onnxmodel, forecast_token_embeddings, base_dir):
 
-    (embedding_table_name,) = [
+    (embedding_table_name,) = (
         node.input[0] for node in onnxmodel.graph.node if node.op_type == "Gather"
-    ]
-    (embedding_table_proto,) = [
+    )
+    (embedding_table_proto,) = (
         i for i in onnxmodel.graph.initializer if i.name == embedding_table_name
-    ]
+    )
     embedding_table = to_array(embedding_table_proto, base_dir=base_dir)
 
     assert (
@@ -252,11 +252,11 @@ def split_onnx_by_names(
             new_encodings = deepcopy(encodings)
 
             activation_names = (
-                set(o for x in submodel.graph.node for o in x.output)
-                | set(x.name for x in submodel.graph.input)
-                | set(x.name for x in submodel.graph.output)
+                {o for x in submodel.graph.node for o in x.output}
+                | {x.name for x in submodel.graph.input}
+                | {x.name for x in submodel.graph.output}
             )
-            param_names = set(x.name for x in submodel.graph.initializer)
+            param_names = {x.name for x in submodel.graph.initializer}
 
             for k in encodings["activation_encodings"]:
                 if k not in activation_names:
@@ -289,13 +289,13 @@ def _get_lm_head_sizes(onnxmodel):
         for node in reversed(onnxmodel.graph.node)
         if node.op_type in ("Conv", "MatMul", "Gemm")
     )
-    (lm_head_weight,) = [
+    (lm_head_weight,) = (
         i for i in onnxmodel.graph.initializer if lm_head_weight_name == i.name
-    ]
+    )
     if len(lm_head_weight.dims) == 2:
         embedding_size, vocab_size = lm_head_weight.dims
     else:
-        (lm_head,) = [i for i in onnxmodel.graph.node if lm_head_weight.name in i.input]
+        (lm_head,) = (i for i in onnxmodel.graph.node if lm_head_weight.name in i.input)
         if lm_head.op_type == "Conv":
             attr_group = [i.i for i in lm_head.attribute if i.name == "group"]
             group = attr_group[0] if len(attr_group) == 1 else 1
@@ -366,8 +366,8 @@ def split_onnx(
     )
 
     # Infer the shape of per-layer tensors
-    (input_ids,) = [i for i in onnxmodel.graph.input if i.name == "input_ids"]
-    batch_size, seq_length = [i.dim_value for i in input_ids.type.tensor_type.shape.dim]
+    (input_ids,) = (i for i in onnxmodel.graph.input if i.name == "input_ids")
+    batch_size, seq_length = (i.dim_value for i in input_ids.type.tensor_type.shape.dim)
 
     embedding_size, vocab_size = _get_lm_head_sizes(onnxmodel)
 
