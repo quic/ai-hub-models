@@ -5,8 +5,7 @@
 
 DeepLabV3 Quantized is designed for semantic segmentation at multiple scales, trained on various datasets. It uses MobileNet as a backbone.
 
-This is based on the implementation of DeepLabV3-Plus-MobileNet-Quantized found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet_quantized).
 

@@ -5,8 +5,7 @@
 
 Real-ESRGAN is a machine learning model that upscales an image with minimal loss in quality. The implementation is a derivative of the Real-ESRGAN-x4plus architecture, a larger and more powerful version compared to the Real-ESRGAN-general-x4v3 architecture.
 
-This is based on the implementation of Real-ESRGAN-x4plus found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/real_esrgan_x4plus).
 

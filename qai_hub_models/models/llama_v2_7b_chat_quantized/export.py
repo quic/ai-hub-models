@@ -306,6 +306,10 @@ def export_model(
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]
     }
 
+    print(
+        "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
+    )
+
 
 def main():
     warnings.filterwarnings("ignore")

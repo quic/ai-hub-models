@@ -5,8 +5,7 @@
 
 Midas is designed for estimating depth at each point in an image.
 
-This is based on the implementation of Midas-V2 found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/midas).
 

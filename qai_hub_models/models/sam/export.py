@@ -252,7 +252,6 @@ def main():
         components=ALL_COMPONENTS,
         supports_qnn=False,
         supports_onnx=False,
-        supports_precompiled_qnn_onnx=False,
     )
     args = parser.parse_args()
     export_model(**vars(args))

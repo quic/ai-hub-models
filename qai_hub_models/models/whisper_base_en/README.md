@@ -5,8 +5,7 @@
 
 OpenAI’s Whisper ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a mean decoded length specified below.
 
-This is based on the implementation of Whisper-Base-En found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/whisper_base_en).
 

@@ -5,8 +5,7 @@
 
 Contrastive Language-Image Pre-Training (CLIP) uses a ViT like transformer to get visual features and a causal language model to get the text features. Both the text and visual features can then be used for a variety of zero-shot learning tasks.
 
-This is based on the implementation of OpenAI-Clip found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/openai_clip).
 

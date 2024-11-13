@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import os
 from enum import Enum
+from typing import Optional
 
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
@@ -14,6 +15,7 @@ class ScorecardProfilePath(Enum):
     QNN = 1
     ONNX = 2
     ONNX_DML_GPU = 3
+    ONNX_DML_NPU = 4
 
     def __str__(self):
         return self.name.lower()
@@ -33,8 +35,23 @@ class ScorecardProfilePath(Enum):
         )
 
     @staticmethod
-    def all_enabled() -> list["ScorecardProfilePath"]:
-        return [x for x in ScorecardProfilePath if x.enabled]
+    def all_profile_paths(
+        enabled: Optional[bool] = None,
+        supports_quantization: Optional[bool] = None,
+    ) -> list["ScorecardProfilePath"]:
+        """
+        Get all profile paths that match the given attributes.
+        If an attribute is None, it is ignored when filtering paths.
+        """
+        return [
+            path
+            for path in ScorecardProfilePath
+            if (enabled is None or path.enabled == enabled)
+            and (
+                supports_quantization is None
+                or path.compile_path.supports_quantization == supports_quantization
+            )
+        ]
 
     @property
     def include_in_perf_yaml(self) -> bool:
@@ -48,7 +65,11 @@ class ScorecardProfilePath(Enum):
     def runtime(self) -> TargetRuntime:
         if self == ScorecardProfilePath.TFLITE:
             return TargetRuntime.TFLITE
-        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_GPU]:
+        if self in [
+            ScorecardProfilePath.ONNX,
+            ScorecardProfilePath.ONNX_DML_GPU,
+            ScorecardProfilePath.ONNX_DML_NPU,
+        ]:
             return TargetRuntime.ONNX
         if self == ScorecardProfilePath.QNN:
             return TargetRuntime.QNN
@@ -58,7 +79,7 @@ class ScorecardProfilePath(Enum):
     def compile_path(self) -> ScorecardCompilePath:
         if self == ScorecardProfilePath.TFLITE:
             return ScorecardCompilePath.TFLITE
-        if self == ScorecardProfilePath.ONNX:
+        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_NPU]:
             return ScorecardCompilePath.ONNX
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return ScorecardCompilePath.ONNX_FP16
@@ -69,5 +90,7 @@ class ScorecardProfilePath(Enum):
     @property
     def profile_options(self) -> str:
         if self == ScorecardProfilePath.ONNX_DML_GPU:
-            return "--compute_unit gpu"
+            return "--onnx_execution_providers directml"
+        elif self == ScorecardProfilePath.ONNX_DML_NPU:
+            return "--onnx_execution_providers directml-npu"
         return ""

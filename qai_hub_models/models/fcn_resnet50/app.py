@@ -67,7 +67,7 @@ class FCN_ResNet50App:
         input_tensor = preprocess_image(image)
         output = self.model(input_tensor)
         output = output[0]
-        predictions = output.argmax(0).byte().cpu().numpy()
+        predictions = output.cpu().numpy()
 
         if raw_output:
             return predictions

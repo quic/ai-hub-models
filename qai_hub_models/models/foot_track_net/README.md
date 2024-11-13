@@ -3,10 +3,9 @@
 
 # [Person-Foot-Detection: Multi-task Human detector](https://aihub.qualcomm.com/models/foot_track_net)
 
-FootTrackNet can detect person and face bounding boxes, head and feet landmark locations and feet visibility.
+Real-time multiple person detection with accurate feet localization optimized for mobile and edge.
 
-This is based on the implementation of Person-Foot-Detection found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/foot_track_net).
 

@@ -63,8 +63,10 @@ if __name__ == "__main__":
 
     model = MODELS[args.model].from_pretrained(aimet_encodings=None)
 
-    image_size = model.get_input_spec()["image"][0][-2:]
-    dataset = VOCSegmentationDataset(image_size=image_size)
+    image_size = model.get_input_spec()["image"][0]
+    dataset = VOCSegmentationDataset(
+        input_height=image_size[-2], input_width=image_size[-1]
+    )
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
     evaluator = model.get_evaluator()

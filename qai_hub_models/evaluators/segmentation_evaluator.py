@@ -18,7 +18,7 @@ class SegmentationOutputEvaluator(BaseEvaluator):
 
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         # This evaluator supports only 1 output tensor at a time.
-        output = output.argmax(1).cpu()
+        output = output.cpu()
         assert gt.shape == output.shape
         self.confusion_matrix += self._generate_matrix(gt, output)
 

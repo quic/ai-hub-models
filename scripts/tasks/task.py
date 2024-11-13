@@ -202,6 +202,7 @@ class PyTestTask(RunCommandsWithVenvTask):
         # Pytest returns code 5 if no tests were run. Set this to true
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
+        include_pytest_cmd_in_status_message: bool = True,
     ) -> None:
         pytest_options = ""
 
@@ -228,6 +229,7 @@ class PyTestTask(RunCommandsWithVenvTask):
         default_options = "-rxXs -p no:warnings --durations-min=0.5 --durations=20"
         command = f"pytest {default_options} {pytest_options} "
 
+        self.include_pytest_cmd_in_status_message = include_pytest_cmd_in_status_message
         super().__init__(
             group_name,
             venv,
@@ -236,6 +238,11 @@ class PyTestTask(RunCommandsWithVenvTask):
             raise_on_failure,
             ignore_return_codes=[5] if ignore_no_tests_return_code else [],
         )
+
+    def get_status_message(self) -> str:
+        if not self.include_pytest_cmd_in_status_message and self.last_result is False:
+            return f"{self.group_name} failed."
+        return super().get_status_message()
 
 
 class CompositeTask(Task):
@@ -276,6 +283,12 @@ class CompositeTask(Task):
         if self.last_result is not None:
             if self.last_result:
                 return f"{self.group_name} succeeded."
+            elif self.group_name is None:
+                all_res = []
+                for task in self.tasks:
+                    if not task.last_result:
+                        all_res.append(task.get_status_message())
+                return "\n".join(all_res)
             else:
                 res = f"{self.group_name} failed."
                 if self.show_subtasks_in_failure_message:

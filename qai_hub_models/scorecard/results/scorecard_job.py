@@ -148,14 +148,14 @@ class CompileScorecardJob(ScorecardJob):
             components.append(None)  # type: ignore
 
         path: ScorecardCompilePath
-        for path in ScorecardCompilePath.all_enabled():
+        for path in ScorecardCompilePath.all_compile_paths(enabled=True):
             for component in components:
                 model_requires_fp16 = not (
                     model_code_gen.is_aimet or model_code_gen.use_hub_quantization
                 )
                 for device in ScorecardDevice.all_devices(
                     enabled=True,
-                    supports_fp16=model_requires_fp16 or None,
+                    supports_fp16_npu=model_requires_fp16 or None,
                     supports_compile_path=path,
                 ):
                     model_runs.append(
@@ -224,14 +224,14 @@ class ProfileScorecardJob(ScorecardJob):
             components.append(None)  # type: ignore
 
         path: ScorecardProfilePath
-        for path in ScorecardProfilePath.all_enabled():
+        for path in ScorecardProfilePath.all_profile_paths(enabled=True):
             for component in components:
                 model_requires_fp16 = not (
                     model_code_gen.is_aimet or model_code_gen.use_hub_quantization
                 )
                 for device in ScorecardDevice.all_devices(
                     enabled=True,
-                    supports_fp16=model_requires_fp16 or None,
+                    supports_fp16_npu=model_requires_fp16 or None,
                     supports_profile_path=path,
                 ):
                     model_runs.append(

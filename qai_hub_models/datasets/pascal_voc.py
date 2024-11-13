@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-
 import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
 
-from qai_hub_models.datasets.common import BaseDataset
+from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 VOC_FOLDER_NAME = "voc"
@@ -29,10 +28,16 @@ class VOCSegmentationDataset(BaseDataset):
         https://host.robots.ox.ac.uk/pascal/VOC/voc2012/
     """
 
-    def __init__(self, split: str = "train", image_size: tuple[int, int] = (224, 224)):
-        BaseDataset.__init__(self, str(VOC_ASSET.path().parent / DEVKIT_FOLDER_NAME))
-        assert split in ["train", "val", "trainval"]
-        self.split = split
+    def __init__(
+        self,
+        split: DatasetSplit = DatasetSplit.TRAIN,
+        input_height: int = 520,
+        input_width: int = 520,
+    ):
+        BaseDataset.__init__(
+            self, str(VOC_ASSET.path().parent / DEVKIT_FOLDER_NAME), split
+        )
+        assert self.split_str in ["train", "val", "trainval"]
 
         base_path = self.dataset_path / "VOC2012"
         image_dir = base_path / "JPEGImages"
@@ -43,7 +48,7 @@ class VOCSegmentationDataset(BaseDataset):
         self.images = []
         self.categories = []
 
-        with open(splits_dir / (split + ".txt")) as f:
+        with open(splits_dir / (self.split_str + ".txt")) as f:
             lines = f.read().splitlines()
 
         for line in lines:
@@ -55,17 +60,20 @@ class VOCSegmentationDataset(BaseDataset):
             self.images.append(image_path)
             self.categories.append(category_path)
 
-        self.image_size = image_size
+        self.input_height = input_height
+        self.input_width = input_width
         self.image_transform = transforms.Compose(
             [
-                transforms.Resize(image_size),
+                transforms.Resize((self.input_height, self.input_width)),
                 transforms.ToTensor(),
             ]
         )
 
     def __getitem__(self, index):
         img = self.image_transform(Image.open(self.images[index]).convert("RGB"))
-        target_img = Image.open(self.categories[index]).resize(self.image_size[::-1])
+        target_img = Image.open(self.categories[index]).resize(
+            (self.input_width, self.input_height)
+        )
         target = torch.from_numpy(np.array(target_img)).float()
         return img, target
 

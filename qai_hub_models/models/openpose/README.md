@@ -5,8 +5,7 @@
 
 OpenPose is a machine learning model that estimates body and hand pose in an image and returns location and confidence for each of 19 joints.
 
-This is based on the implementation of OpenPose found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/openpose).
 

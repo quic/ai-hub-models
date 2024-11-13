@@ -224,7 +224,7 @@ def split_onnx_by_names(
     # 1. split model
     new_model_info = []
     for i, subgraph in enumerate(splitter.split(list_of_output_tensors)):
-        new_basename = f"{modelname}_{i+1}_of_{num_splits}"
+        new_basename = f"{modelname}_{i + 1}_of_{num_splits}"
         input_tensor_names = [i.name for i in subgraph.input]
         output_tensor_names = [i.name for i in subgraph.output]
         new_model_info.append([new_basename, input_tensor_names, output_tensor_names])

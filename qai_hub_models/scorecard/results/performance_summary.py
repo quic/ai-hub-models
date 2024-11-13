@@ -137,10 +137,15 @@ class ModelPerfSummary:
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
     ) -> list[dict[str, Union[str, dict[str, str]]]]:
         perf_card = []
         for summary in self.runs_per_device.values():
-            if include_internal_devices or summary.device.public:
+            if (
+                include_internal_devices
+                or summary.device.public
+                and summary.device.form_factor not in exclude_form_factors
+            ):
                 device_summary = summary.get_perf_card(
                     include_failed_jobs, exclude_paths
                 )
@@ -222,7 +227,11 @@ class PerfSummary:
             }
         )
 
-    def get_chipsets(self, include_internal_devices: bool = False) -> set[str]:
+    def get_chipsets(
+        self,
+        include_internal_devices: bool = False,
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
+    ) -> set[str]:
         chips: set[str] = set()
         for model_id, model_summary in self.runs_per_model.items():
             for device, device_summary in model_summary.runs_per_device.items():
@@ -240,7 +249,11 @@ class PerfSummary:
                     continue
 
                 # Don't include private devices
-                if not include_internal_devices and not device.public:
+                if (
+                    not include_internal_devices
+                    and not device.public
+                    and device.form_factor not in exclude_form_factors
+                ):
                     continue
 
                 chips.add(device.chipset)
@@ -251,10 +264,11 @@ class PerfSummary:
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
     ) -> dict[str, str | list[Any] | dict[str, Any]]:
         perf_card: dict[str, str | list[Any] | dict[str, Any]] = {}
 
-        chips = self.get_chipsets(include_internal_devices)
+        chips = self.get_chipsets(include_internal_devices, exclude_form_factors)
         perf_card["aggregated"] = dict(
             supported_devices=get_supported_devices(chips),
             supported_chipsets=supported_chipsets_santized(chips),
@@ -266,7 +280,10 @@ class PerfSummary:
                 {
                     "name": model_id,
                     "performance_metrics": summary.get_perf_card(
-                        include_failed_jobs, include_internal_devices, exclude_paths
+                        include_failed_jobs,
+                        include_internal_devices,
+                        exclude_paths,
+                        exclude_form_factors,
                     ),
                 }
             )

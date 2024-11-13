@@ -41,13 +41,16 @@ class DeepLabV3Model(BaseModel):
         """
         if self.normalize_input:
             image = normalize_image_torchvision(image)
-        return self.model(image)
+        model_out = self.model(image)
+        if isinstance(model_out, dict):
+            model_out = model_out["out"]
+        return model_out.argmax(1).byte()
 
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        height: int = 513,
-        width: int = 513,
+        height: int = 520,
+        width: int = 520,
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
@@ -62,7 +65,3 @@ class DeepLabV3Model(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["mask"]

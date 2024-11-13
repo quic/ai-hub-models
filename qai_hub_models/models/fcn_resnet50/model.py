@@ -50,13 +50,13 @@ class FCN_ResNet50(BaseModel):
         Returns:
             tensor: 1x21xHxW tensor of class logits per pixel
         """
-        return self.model(normalize_image_torchvision(image))["out"]
+        return self.model(normalize_image_torchvision(image))["out"].argmax(1).byte()
 
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        height: int = 512,
-        width: int = 512,
+        height: int = 520,
+        width: int = 520,
     ) -> InputSpec:
         # Get the input specification ordered (name -> (shape, type)) pairs for this model.
         #
@@ -71,7 +71,3 @@ class FCN_ResNet50(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["mask"]

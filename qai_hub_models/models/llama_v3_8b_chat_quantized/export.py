@@ -34,7 +34,7 @@ def main():
     parser = export_parser(
         model_cls=Model,
         supports_tflite=False,
-        supports_precompiled_qnn_onnx=False,
+        supports_onnx=False,
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     parser.add_argument(

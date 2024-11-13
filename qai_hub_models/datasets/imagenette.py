@@ -7,7 +7,7 @@ import stat
 
 from torchvision.datasets import ImageNet
 
-from qai_hub_models.datasets.common import BaseDataset
+from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
@@ -51,12 +51,14 @@ class ImagenetteDataset(BaseDataset, ImageNet):
     Contains ~4k images spanning 10 of the imagenet classes.
     """
 
-    def __init__(self):
-        BaseDataset.__init__(self, str(IMAGENETTE_ASSET.path(extracted=True)))
+    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN):
+        BaseDataset.__init__(
+            self, str(IMAGENETTE_ASSET.path(extracted=True)), split=split
+        )
         ImageNet.__init__(
             self,
-            root=IMAGENETTE_ASSET.path(),
-            split="val",
+            root=str(IMAGENETTE_ASSET.path()),
+            split=self.split_str,
             transform=IMAGENET_TRANSFORM,
             target_transform=lambda val: IMAGENETTE_CLASS_MAP[val],
         )
@@ -74,7 +76,7 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             return False
 
         # Check val data exists
-        val_data_path = self.dataset_path / "val"
+        val_data_path = self.dataset_path / self.split_str
         if not val_data_path.exists():
             return False
 

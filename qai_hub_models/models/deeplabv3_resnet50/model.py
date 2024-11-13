@@ -56,6 +56,3 @@ class DeepLabV3_ResNet50(DeepLabV3Model):
         ):
             profile_options = profile_options + " --compute_unit gpu"
         return profile_options
-
-    def forward(self, image):
-        return super().forward(image)["out"]

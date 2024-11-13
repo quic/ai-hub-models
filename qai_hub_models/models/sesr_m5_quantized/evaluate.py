@@ -11,20 +11,21 @@ import warnings
 
 import qai_hub as hub
 
-from qai_hub_models.models.facial_lmk import MODEL_ID, Model
+from qai_hub_models.models.sesr_m5_quantized import MODEL_ID, Model
 from qai_hub_models.utils.args import evaluate_parser, get_hub_device, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
-SUPPORTED_DATASETS = ["imagenette", "imagenet"]
+SUPPORTED_DATASETS = ["bsd300"]
 
 
 def main():
     warnings.filterwarnings("ignore")
     parser = evaluate_parser(
         model_cls=Model,
-        default_split_size=2500,
+        default_split_size=100,
         supported_datasets=SUPPORTED_DATASETS,
+        is_hub_quantized=True,
     )
     args = parser.parse_args()
     args.device = None

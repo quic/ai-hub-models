@@ -6,7 +6,7 @@
 
 from .bsd300 import BSD300Dataset
 from .coco import CocoDataset
-from .common import BaseDataset
+from .common import BaseDataset, DatasetSplit
 from .imagenet import ImagenetDataset
 from .imagenette import ImagenetteDataset
 from .pascal_voc import VOCSegmentationDataset
@@ -24,6 +24,6 @@ DATASET_NAME_MAP: dict[str, type[BaseDataset]] = {
 }
 
 
-def get_dataset_from_name(name: str) -> BaseDataset:
+def get_dataset_from_name(name: str, split: DatasetSplit) -> BaseDataset:
     dataset_cls = DATASET_NAME_MAP[name]
-    return dataset_cls()  # type: ignore
+    return dataset_cls(split=split)  # type: ignore

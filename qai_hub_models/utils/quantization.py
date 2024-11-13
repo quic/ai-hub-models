@@ -8,9 +8,9 @@ from typing import Optional
 
 import torch
 from qai_hub.client import DatasetEntries, Device, QuantizeDtype
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
-from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.protocols import HubModelProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
@@ -31,7 +31,7 @@ IMAGE_QUANTIZATION_SAMPLES = CachedWebDatasetAsset(
 
 def make_image_sample_data_loader() -> DataLoader:
     img_tensor = get_image_quantization_samples()
-    tensor_dataset = torch.utils.data.TensorDataset(img_tensor)
+    tensor_dataset = TensorDataset(img_tensor)
     return DataLoader(tensor_dataset, batch_size=32)
 
 
@@ -90,7 +90,9 @@ def get_calibration_data(
     Returns:
         Dataset compatible with the format expected by AI Hub.
     """
-    torch_dataset = sample_dataset(get_dataset_from_name(dataset_name), num_samples)
+    torch_dataset = sample_dataset(
+        get_dataset_from_name(dataset_name, split=DatasetSplit.TRAIN), num_samples
+    )
     torch_samples = tuple(
         [torch_dataset[i][j].unsqueeze(0).numpy() for i in range(len(torch_dataset))]
         for j in range(len(input_spec))

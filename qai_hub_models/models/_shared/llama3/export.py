@@ -347,6 +347,10 @@ def export_model(
                 torch_out,
             )
 
+    print(
+        "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
+    )
+
     return {
         sub_component_name: (
             link_jobs[component_name],

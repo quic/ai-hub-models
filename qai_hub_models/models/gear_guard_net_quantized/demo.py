@@ -4,8 +4,8 @@
 # ---------------------------------------------------------------------
 from qai_hub_models.models._shared.body_detection.app import BodyDetectionApp
 from qai_hub_models.models._shared.body_detection.demo import BodyDetectionDemo
+from qai_hub_models.models.gear_guard_net.model import MODEL_ASSET_VERSION
 from qai_hub_models.models.gear_guard_net_quantized.model import (
-    MODEL_ASSET_VERSION,
     MODEL_ID,
     GearGuardNetQuantizable,
 )

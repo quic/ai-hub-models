@@ -386,6 +386,7 @@ class ModelZooAssetConfig:
         repo_url: str,
         models_website_url: str,
         models_website_relative_path: str,
+        genie_url: str,
     ) -> None:
         self.local_store_path = local_store_path
         self.asset_url = asset_url
@@ -401,6 +402,7 @@ class ModelZooAssetConfig:
         self.repo_url = repo_url
         self.models_website_url = models_website_url
         self.models_website_relative_path = models_website_relative_path
+        self.genie_url = genie_url
 
     def get_hugging_face_url(self, model_name: str) -> str:
         return f"https://huggingface.co/{self.get_huggingface_path(model_name)}"
@@ -525,6 +527,7 @@ class ModelZooAssetConfig:
             asset_cfg["repo_url"],
             asset_cfg["models_website_url"],
             asset_cfg["models_website_relative_path"],
+            asset_cfg["genie_url"],
         )
 
     ASSET_CFG_SCHEMA = Schema(

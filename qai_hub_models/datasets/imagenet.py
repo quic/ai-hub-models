@@ -7,7 +7,7 @@ import subprocess
 
 from torchvision.datasets import ImageNet
 
-from qai_hub_models.datasets.common import BaseDataset
+from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
@@ -40,7 +40,7 @@ class ImagenetDataset(BaseDataset, ImageNet):
     Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/
     """
 
-    def __init__(self):
+    def __init__(self, split: DatasetSplit = DatasetSplit.VAL):
         """
         A direct download link for the validation set is not available.
         Users should download the validation dataset manually and pass the local filepath
@@ -49,16 +49,18 @@ class ImagenetDataset(BaseDataset, ImageNet):
 
         input_data_path: Local filepath to imagenet validation set.
         """
-        BaseDataset.__init__(self, IMAGENET_ASSET.path().parent)
+        if split != DatasetSplit.VAL:
+            raise ValueError("Imagenet dataset currently only supports `val` split")
+        BaseDataset.__init__(self, IMAGENET_ASSET.path().parent, split)
         ImageNet.__init__(
             self,
-            root=self.dataset_path,
-            split="val",
+            root=str(self.dataset_path),
+            split=self.split_str,
             transform=IMAGENET_TRANSFORM,
         )
 
     def _validate_data(self) -> bool:
-        val_path = self.dataset_path / "val"
+        val_path = self.dataset_path / self.split_str
         if not (self.dataset_path / DEVKIT_NAME).exists():
             print("Missing Devkit.")
             return False
@@ -78,7 +80,7 @@ class ImagenetDataset(BaseDataset, ImageNet):
         return True
 
     def _download_data(self) -> None:
-        val_path = self.dataset_path / "val"
+        val_path = self.dataset_path / self.split_str
         os.makedirs(val_path, exist_ok=True)
 
         IMAGENET_ASSET.fetch(extract=True)

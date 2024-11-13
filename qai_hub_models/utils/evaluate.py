@@ -19,8 +19,9 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 from qai_hub.util.dataset_entries_converters import dataset_entries_to_h5
 from torch.utils.data import DataLoader, Dataset, random_split
+from tqdm import tqdm
 
-from qai_hub_models.datasets import BaseDataset, get_dataset_from_name
+from qai_hub_models.datasets import BaseDataset, DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.protocols import EvalModelProtocol
 from qai_hub_models.utils.asset_loaders import (
     get_hub_datasets_path,
@@ -116,18 +117,20 @@ def _populate_data_cache_impl(
     dataloader = DataLoader(dataset, batch_size=split_size, shuffle=True)
     for sample in dataloader:
         model_inputs, ground_truth_values, *_ = sample
-        if isinstance(ground_truth_values, tuple):
+        if isinstance(ground_truth_values, list) or isinstance(
+            ground_truth_values, tuple
+        ):
             output_names = [f"output_{i}" for i in range(len(ground_truth_values))]
+            ground_truth_values = tuple(ground_truth_values)
         else:
             output_names = ["output_0"]
+            ground_truth_values = (ground_truth_values,)
         input_entries = make_hub_dataset_entries(
             (model_inputs.split(1, dim=0),),
             input_names,
             channel_last_input,
         )
-        gt_entries = make_hub_dataset_entries(
-            (ground_truth_values,), output_names, None
-        )
+        gt_entries = make_hub_dataset_entries(ground_truth_values, output_names, None)
         # print(input_entries)
         input_dataset = hub.upload_dataset(input_entries)
         gt_dataset = hub.upload_dataset(gt_entries)
@@ -337,7 +340,7 @@ def evaluate_on_dataset(
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
     _validate_inputs(num_samples)
 
-    source_torch_dataset = get_dataset_from_name(dataset_name)
+    source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
     input_names = list(torch_model.get_input_spec().keys())
     on_device_model = AsyncOnDeviceModel(
         compiled_model, input_names, hub_device, profile_options
@@ -373,9 +376,13 @@ def evaluate_on_dataset(
         else:
             on_device_results.append(on_device_model(model_inputs.split(1, dim=0)))
 
-        for model_input, ground_truth in zip(model_inputs, ground_truth_values):
+        for j, model_input in tqdm(enumerate(model_inputs)):
+            if isinstance(ground_truth_values, torch.Tensor):
+                ground_truth = ground_truth_values[j : j + 1]
+            else:
+                ground_truth = tuple(val[j : j + 1] for val in ground_truth_values)
             torch_output = torch_model(model_input.unsqueeze(0))
-            torch_evaluator.add_batch(torch_output, ground_truth.unsqueeze(0))
+            torch_evaluator.add_batch(torch_output, ground_truth)
         print(
             f"Cumulative torch accuracy on batch {i + 1}/{num_batches}: "
             f"{torch_evaluator.formatted_accuracy()}"

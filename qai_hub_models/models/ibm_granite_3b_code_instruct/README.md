@@ -5,8 +5,7 @@
 
 Granite-3B-Code-Instruct-2K is a 3B parameter model fine tuned from Granite-3B-Code-Base-2K on a combination of permissively licensed instruction data to enhance instruction following capabilities including logical reasoning and problem-solving skills.
 
-This is based on the implementation of IBM-Granite-3B-Code-Instruct found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/ibm_granite_3b_code_instruct).
 

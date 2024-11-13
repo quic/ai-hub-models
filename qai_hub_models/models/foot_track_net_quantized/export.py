@@ -93,7 +93,7 @@ def export_model(
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "foot_track_net_quantized",
-            "FootTrackNet_Quantized",
+            "Person-Foot-Detection-Quantized",
             device or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,

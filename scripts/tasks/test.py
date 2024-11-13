@@ -172,6 +172,7 @@ class PyTestModelTask(CompositeTask):
                             env=env,
                             raise_on_failure=not needs_model_venv,  # Do not raise on failure if a model venv was created, to make sure the venv is removed when the test finishes
                             ignore_no_tests_return_code=True,
+                            include_pytest_cmd_in_status_message=False,
                         )
                     )
 

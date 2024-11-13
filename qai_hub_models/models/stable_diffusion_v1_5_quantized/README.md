@@ -5,8 +5,7 @@
 
 Generates high resolution images from text prompts using a latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising, and VAE based decoder to generate the final image.
 
-This is based on the implementation of Stable-Diffusion-v1.5 found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/stable_diffusion_v1_5_quantized).
 

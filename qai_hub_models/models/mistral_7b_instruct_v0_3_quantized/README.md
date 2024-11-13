@@ -5,8 +5,7 @@
 
 Mistral AI's first open source dense model released September 2023. Mistral-7B-Instruct-v0.3 Large Language Model (LLM) is an instruct fine‑tuned version of the Mistral‑7B‑v0.3. It has an extended vocabulary and supports the v3 Tokenizer, enhancing language understanding and generation. Additionally function calling is enabled.
 
-This is based on the implementation of Mistral-7B-Instruct-v0.3 found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3_quantized).
 

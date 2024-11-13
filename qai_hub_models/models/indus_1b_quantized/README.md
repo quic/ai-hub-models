@@ -5,8 +5,7 @@
 
 Indus is today a 1.2 billion parameter model and has been supervised fine tuned for Hindi and dialects.
 
-This is based on the implementation of IndusQ-1.1B found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/indus_1b_quantized).
 

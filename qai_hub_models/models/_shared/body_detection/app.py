@@ -140,7 +140,7 @@ class BodyDetectionApp:
             (cls_id, x1, y1, x2, y2, score)
         """
         img = np.array(load_image(imgfile))
-        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0)
+        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0) / 255.0
         input, scale, pad = resize_pad(img, (height, width))
         output = self.model(input)
         for t, o in enumerate(output):

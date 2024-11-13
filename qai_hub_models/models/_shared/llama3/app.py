@@ -154,7 +154,7 @@ class ChatApp:
 
                 # Shift attention_mask and position_ids
                 attention_mask = torch.cat(
-                    (attention_mask[:, seq_len:], torch.zeros((1, seq_len))), dim=-1
+                    (attention_mask[:, seq_len:], torch.ones((1, seq_len))), dim=-1
                 )
                 position_ids = (position_ids[:, -1] + 1).reshape(-1, 1)
 

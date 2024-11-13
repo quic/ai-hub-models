@@ -29,7 +29,7 @@ from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
-DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S23 (Family)"
+DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24 (Family)"
 
 
 class ParseEnumAction(argparse.Action):
@@ -38,6 +38,7 @@ class ParseEnumAction(argparse.Action):
         self.enum_type = enum_type
 
     def __call__(self, parser, namespace, values, option_string=None):
+        assert isinstance(values, str)
         setattr(namespace, self.dest, self.enum_type[values.upper().replace("-", "_")])
 
 
@@ -441,7 +442,6 @@ def _evaluate_export_common_parser(
     supports_tflite: bool = True,
     supports_qnn: bool = True,
     supports_onnx: bool = True,
-    supports_precompiled_qnn_onnx: bool = True,
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     is_hub_quantized: bool = False,
@@ -468,7 +468,7 @@ def _evaluate_export_common_parser(
             available_runtimes.append(TargetRuntime.QNN)
         if supports_onnx:
             available_runtimes.append(TargetRuntime.ONNX)
-        if supports_precompiled_qnn_onnx:
+        if supports_qnn:
             available_runtimes.append(TargetRuntime.PRECOMPILED_QNN_ONNX)
 
         default_runtime = _get_default_runtime(available_runtimes)
@@ -510,7 +510,6 @@ def export_parser(
     supports_tflite: bool = True,
     supports_qnn: bool = True,
     supports_onnx: bool = True,
-    supports_precompiled_qnn_onnx: bool = True,
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     default_export_device: str = DEFAULT_EXPORT_DEVICE,
@@ -531,9 +530,6 @@ def export_parser(
         supports_onnx:
             Whether ORT export is supported.
             Default=True.
-        supports_precompiled_qnn_onnx:
-            Whether precompiled ORT (with QNN context binary) export is supported.
-            Default=True.
         default_runtime: Which runtime to use as default if not specified in cli args.
         exporting_compiled_model:
             True when exporting compiled model.
@@ -550,7 +546,6 @@ def export_parser(
         supports_tflite=supports_tflite,
         supports_qnn=supports_qnn,
         supports_onnx=supports_onnx,
-        supports_precompiled_qnn_onnx=supports_precompiled_qnn_onnx,
         default_runtime=default_runtime,
         exporting_compiled_model=exporting_compiled_model,
         is_hub_quantized=is_hub_quantized,

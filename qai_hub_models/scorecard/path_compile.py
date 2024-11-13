@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import os
 from enum import Enum
+from typing import Optional
 
 from qai_hub_models.models.common import TargetRuntime
 
@@ -32,8 +33,23 @@ class ScorecardCompilePath(Enum):
         )
 
     @staticmethod
-    def all_enabled() -> list["ScorecardCompilePath"]:
-        return [x for x in ScorecardCompilePath if x.enabled]
+    def all_compile_paths(
+        enabled: Optional[bool] = None,
+        supports_quantization: Optional[bool] = None,
+    ) -> list["ScorecardCompilePath"]:
+        """
+        Get all compile paths that match the given attributes.
+        If an attribute is None, it is ignored when filtering paths.
+        """
+        return [
+            path
+            for path in ScorecardCompilePath
+            if (enabled is None or path.enabled == enabled)
+            and (
+                supports_quantization is None
+                or path.supports_quantization == supports_quantization
+            )
+        ]
 
     @property
     def runtime(self) -> TargetRuntime:
@@ -44,6 +60,13 @@ class ScorecardCompilePath(Enum):
         if self == ScorecardCompilePath.QNN:
             return TargetRuntime.QNN
         raise NotImplementedError()
+
+    @property
+    def supports_quantization(self) -> bool:
+        if self == ScorecardCompilePath.ONNX_FP16:
+            # Only FP32 models are applicable for this compilation path.
+            return False
+        return True
 
     def get_compile_options(self, model_is_quantized: bool = False) -> str:
         if self == ScorecardCompilePath.ONNX_FP16 and not model_is_quantized:

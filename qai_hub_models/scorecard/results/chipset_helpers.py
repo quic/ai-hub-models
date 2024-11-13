@@ -115,6 +115,8 @@ def get_supported_devices(chips) -> list[str]:
                 device.name
                 for device in hub.get_devices(attributes=f"chipset:{chip}")
                 if "(Family)" not in device.name
+                and "Snapdragon 8 Gen 3 QRD"
+                != device.name  # this is not available to all users
             ]
             supported_devices_for_chip = sorted(set(supported_devices_for_chip))
             __CHIP_SUPPORTED_DEVICES_CACHE[chip] = supported_devices_for_chip

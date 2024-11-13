@@ -29,7 +29,7 @@ class BaseEvaluator(ABC):
     def add_batch(
         self,
         output,  # torch.Tensor | Collection[torch.Tensor]
-        ground_truth,  # torch.Tensor | Collection[torch.Tensor]
+        gt,  # torch.Tensor | Collection[torch.Tensor]
     ) -> None:
         """
         Add a batch of data to this evaluator.

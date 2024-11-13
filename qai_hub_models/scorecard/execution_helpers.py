@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -39,12 +41,15 @@ def get_compile_parameterized_pytest_config(
     """
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
-    path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_enabled()  # type: ignore
+    path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_compile_paths(
+        enabled=True, supports_quantization=model_is_quantized or None
+    )
+
     needs_fp16 = not model_is_quantized
     path_devices_dict = {
         sc_path: ScorecardDevice.all_devices(
             enabled=True,
-            supports_fp16=(True if needs_fp16 else None),
+            supports_fp16_npu=(True if needs_fp16 else None),
             supports_compile_path=sc_path,
         )
         for sc_path in path_list
@@ -59,16 +64,19 @@ def get_compile_parameterized_pytest_config(
 
 def get_profile_parameterized_pytest_config(
     model_is_quantized: bool = False,
-) -> list[tuple["ScorecardProfilePath", ScorecardDevice]]:
+) -> list[tuple[ScorecardProfilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
-    path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_enabled()  # type: ignore
+    path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_profile_paths(
+        enabled=True, supports_quantization=model_is_quantized or None
+    )
     needs_fp16 = not model_is_quantized
+
     path_devices_dict = {
         sc_path: ScorecardDevice.all_devices(
             enabled=True,
-            supports_fp16=(True if needs_fp16 else None),
+            supports_fp16_npu=(True if needs_fp16 else None),
             supports_profile_path=sc_path,
         )
         for sc_path in path_list
@@ -101,6 +109,37 @@ def get_async_job_cache_name(
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")
     )
+
+
+def get_async_job_id(
+    cache: dict[str, str],
+    path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime,
+    model_id: str,
+    device: ScorecardDevice,
+    component: Optional[str] = None,
+    fallback_to_universal_device: bool = False,
+) -> str | None:
+    """
+    Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
+    Returns None if job does not exist.
+
+    parameters:
+        path: Applicable scorecard path
+        model_id: The ID of the QAIHM model being tested
+        device: The targeted device
+        component: The name of the model component being tested, if applicable
+        fallback_to_universal_device: Return a job that ran with the universal device if a job
+                                      using the provided device is not available.
+    """
+    if x := cache.get(get_async_job_cache_name(path, model_id, device, component)):
+        return x
+
+    if fallback_to_universal_device:
+        return cache.get(
+            get_async_job_cache_name(path, model_id, cs_universal, component)
+        )
+
+    return None
 
 
 def _on_staging() -> bool:

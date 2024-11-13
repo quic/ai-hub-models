@@ -5,8 +5,7 @@
 
 SINet is a machine learning model that is designed to segment people from close-up portrait images in real time.
 
-This is based on the implementation of SINet found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/sinet).
 

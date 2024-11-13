@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from enum import Enum
+from enum import Enum, unique
 from functools import cached_property
 from typing import Optional
 
@@ -32,7 +32,7 @@ class ScorecardDevice:
     def all_devices(
         cls,
         enabled: Optional[bool] = None,
-        supports_fp16: Optional[bool] = None,
+        supports_fp16_npu: Optional[bool] = None,
         supports_compile_path: Optional[ScorecardCompilePath] = None,
         supports_profile_path: Optional[ScorecardProfilePath] = None,
     ):
@@ -46,8 +46,8 @@ class ScorecardDevice:
             if (
                 (enabled is None or enabled == device.enabled)
                 and (
-                    supports_fp16 is None
-                    or supports_fp16 == device.supports_fp16_inference
+                    supports_fp16_npu is None
+                    or supports_fp16_npu == device.supports_fp16_npu
                 )
                 and (
                     supports_compile_path is None
@@ -60,12 +60,21 @@ class ScorecardDevice:
             )
         ]
 
+    @unique
     class FormFactor(Enum):
         phone = 0
-        auto = 1
-        xr = 2
-        compute = 3
-        iot = 4
+        tablet = 1
+        auto = 2
+        xr = 3
+        compute = 4
+        iot = 5
+
+        @staticmethod
+        def from_string(string: str) -> "ScorecardDevice.FormFactor":
+            return ScorecardDevice.FormFactor[string.lower()]
+
+        def __str__(self):
+            return self.name
 
     def __init__(
         self,
@@ -75,6 +84,7 @@ class ScorecardDevice:
         disabled_models: list[str] = [],
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
+        supports_fp16_npu: Optional[bool] = None,
         public: bool = True,
     ):
         """
@@ -94,6 +104,8 @@ class ScorecardDevice:
 
             profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
+            supports_fp16_npu: Whether this device supports FP16 on its NPU. If unset, the hexagon version is used as a default heuristic.
+
             public: Whether this device is publicly available.
         """
         if name in ScorecardDevice._registry:
@@ -105,6 +117,7 @@ class ScorecardDevice:
         self.execution_device_name = execution_device_name
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
+        self._supports_fp16_npu = supports_fp16_npu
         self.public = public
 
         ScorecardDevice._registry[name] = self
@@ -150,7 +163,7 @@ class ScorecardDevice:
         Get the "reference" device used by the scorecard for metadata when collating results.
         This is not used by any actual scorecard jobs.
         """
-        if self.reference_device_name:
+        if self.reference_device_name is not None:
             return _get_cached_device(self.reference_device_name)
         raise NotImplementedError(f"No reference device for {self.name}")
 
@@ -160,7 +173,7 @@ class ScorecardDevice:
         Get the "reference" device used by the scorecard for metadata when collating results.
         This is not used by any actual scorecard jobs.
         """
-        if self.execution_device_name:
+        if self.execution_device_name is not None:
             return _get_cached_device(self.execution_device_name)
         raise NotImplementedError(f"No execution device for {self.name}")
 
@@ -210,7 +223,12 @@ class ScorecardDevice:
         raise ValueError(f"Hexagon version not found for device: {self.name}")
 
     @property
-    def supports_fp16_inference(self) -> bool:
+    def supports_fp16_npu(self) -> bool:
+        """
+        Whether this device's NPU supports FP16 inference.
+        """
+        if self._supports_fp16_npu is not None:
+            return self._supports_fp16_npu
         return self.hexagon_version >= 69
 
     @cached_property
@@ -229,11 +247,14 @@ class ScorecardDevice:
 
     @cached_property
     def profile_paths(self) -> list[ScorecardProfilePath]:
-        if self._profile_paths:
+        if self._profile_paths is not None:
             return self._profile_paths
 
         paths: list[ScorecardProfilePath]
-        if self.form_factor == ScorecardDevice.FormFactor.phone:
+        if self.form_factor in [
+            ScorecardDevice.FormFactor.phone,
+            ScorecardDevice.FormFactor.tablet,
+        ]:
             paths = [
                 ScorecardProfilePath.ONNX,
                 ScorecardProfilePath.QNN,
@@ -247,6 +268,7 @@ class ScorecardDevice:
             paths = [
                 ScorecardProfilePath.ONNX,
                 ScorecardProfilePath.ONNX_DML_GPU,
+                ScorecardProfilePath.ONNX_DML_NPU,
                 ScorecardProfilePath.QNN,
             ]
         elif self.form_factor == ScorecardDevice.FormFactor.iot:
@@ -260,7 +282,7 @@ class ScorecardDevice:
 
     @cached_property
     def compile_paths(self) -> list[ScorecardCompilePath]:
-        if self._compile_paths:
+        if self._compile_paths is not None:
             return self._compile_paths
 
         if ScorecardProfilePath.QNN in self.profile_paths:
@@ -375,6 +397,7 @@ cs_auto_lemans_8650 = ScorecardDevice(
 cs_auto_makena_8295 = ScorecardDevice(
     name="cs_auto_makena_8295",
     reference_device_name="SA8295P ADP",
+    supports_fp16_npu=True,
 )
 
 

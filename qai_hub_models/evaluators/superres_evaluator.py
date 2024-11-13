@@ -51,9 +51,9 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
     def reset(self):
         self.psnr_list = []
 
-    def compute_average_psnr(self):
+    def compute_average_psnr(self) -> float:
         average_psnr = np.mean(np.array(self.psnr_list))
-        return average_psnr
+        return float(average_psnr)
 
     def get_accuracy_score(self) -> float:
         return self.compute_average_psnr()

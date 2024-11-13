@@ -2,31 +2,21 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
+from pathlib import Path
 from typing import Union
 
 import torch
+import torch.nn.functional as F
+from fiftyone.core.sample import SampleView
+from PIL import Image
 from torch.utils.data.dataloader import default_collate
-from torchvision.datasets.coco import CocoDetection
 
-from qai_hub_models.datasets.common import BaseDataset
-from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.path_helpers import get_qaihm_package_root
 
 DATASET_ID = "coco"
 DATASET_ASSET_VERSION = 1
-COCO_DATASET = CachedWebDatasetAsset(
-    "http://images.cocodataset.org/zips/val2017.zip",
-    DATASET_ID,
-    DATASET_ASSET_VERSION,
-    "val2017.zip",
-)
-COCO_ANNOTATIONS = CachedWebDatasetAsset(
-    "http://images.cocodataset.org/annotations/annotations_trainval2017.zip",
-    DATASET_ID,
-    DATASET_ASSET_VERSION,
-    "annotations_trainval2017.zip",
-)
 
 
 def collate_fn(batch):
@@ -45,81 +35,130 @@ def collate_fn(batch):
         new_list.append(target)
         return new_list
     except Exception:
-        return [], ([], [], [], [], [])
+        return [], ([], [], [], [], [], [])
 
 
-class CocoDataset(BaseDataset, CocoDetection):
+class CocoDataset(BaseDataset):
     """
-    Class for using the COCODetection dataset published here:
+    Wrapper class around COCO dataset https://cocodataset.org/
 
+    Contains object detection samples and labels spanning 80 classes.
 
-    Contains ~5k images spanning 80 classes.
+    This wrapper supports the train and val splits of the 2017 version.
     """
 
-    def __init__(self, target_image_size: Union[int, tuple[int, int]] = 640):
-        BaseDataset.__init__(self, str(COCO_DATASET.path(extracted=True)))
-        CocoDetection.__init__(
-            self,
-            root=COCO_DATASET.path() / "val2017",
-            annFile=COCO_ANNOTATIONS.path() / "annotations" / "instances_val2017.json",
-        )
+    def __init__(
+        self,
+        target_image_size: Union[int, tuple[int, int]] = 640,
+        split: DatasetSplit = DatasetSplit.TRAIN,
+        max_boxes: int = 100,
+        num_samples: int = 5000,
+    ):
+        """
+        Parameters:
+            target_image_size: The size to which the input images will be resized.
+            split: Whether to use the train or val split of the dataset.
+            max_boxes: The maximum number of boxes for a given sample. Used so that
+                when loading multiple samples in a batch via a dataloader, this will
+                be the tensor dimension.
 
-        categories = self.coco.loadCats(self.coco.getCatIds())
-        categories.sort(key=lambda x: x["id"])
-        self.label_map = {}
+                If a sample has fewer than this many boxes, the tensor of boxes
+                will be zero padded up to this amount.
+
+                If a sample has more than this many boxes, an exception is thrown.
+            num_samples: Number of data samples to download. Needs to be specified
+                during initialization because only as many samples as requested
+                are downloaded.
+        """
+        self.num_samples = num_samples
+
+        # FiftyOne package manages dataset so pass a dummy name for data path
+        BaseDataset.__init__(self, "non_existent_dir", split)
+
         counter = 0
-        for c in categories:
-            self.label_map[c["id"]] = counter
-            counter += 1
+        self.label_map = {}
+        with open(get_qaihm_package_root() / "labels" / "coco_labels.txt") as f:
+            for line in f.readlines():
+                self.label_map[line.strip()] = counter
+                counter += 1
+
         self.target_image_size = (
             target_image_size
             if isinstance(target_image_size, tuple)
             else (target_image_size, target_image_size)
         )
+        self.max_boxes = max_boxes
 
     def __getitem__(self, item):
-        image, target = super().__getitem__(item)
+        """
+        Returns a tuple of input image tensor and label data.
+
+        Label data is a tuple with the following entries:
+          - Image ID within the original dataset
+          - height (in pixels)
+          - width (in pixels)
+          - bounding box data with shape (self.max_boxes, 4)
+            - The 4 should be normalized (x, y, w, h)
+          - labels with shape (self.max_boxes,)
+          - number of actual boxes present
+        """
+        sample = self.dataset[item : item + 1].first()
+        assert isinstance(sample, SampleView)
+        image = Image.open(sample.filepath).convert("RGB")
         width, height = image.size
         boxes = []
         labels = []
-        for annotation in target:
-            bbox = annotation.get("bbox")
-            boxes.append(
-                [
-                    bbox[0] / width,
-                    bbox[1] / height,
-                    (bbox[0] + bbox[2]) / width,
-                    (bbox[1] + bbox[3]) / height,
-                ]
-            )
-            labels.append(self.label_map[annotation.get("category_id")])
+        if sample.ground_truth is not None:
+            for annotation in sample.ground_truth.detections:
+                if annotation.label not in self.label_map:
+                    print(f"Warning: Invalid label {annotation.label}")
+                    continue
+                x, y, w, h = annotation.bounding_box
+                boxes.append([x, y, x + w, y + h])
+                # Convert string label to int idx
+                labels.append(self.label_map[annotation.label])
         boxes = torch.tensor(boxes)
         labels = torch.tensor(labels)
+
+        # Pad the number of boxes to a standard value
+        num_boxes = len(labels)
+        if num_boxes == 0:
+            boxes = torch.zeros((100, 4))
+            labels = torch.zeros(100)
+        elif num_boxes > self.max_boxes:
+            raise ValueError(
+                f"Sample has more boxes than max boxes {self.max_boxes}. "
+                "Re-initialize the dataset with a larger value for max_boxes."
+            )
+        else:
+            boxes = F.pad(boxes, (0, 0, 0, self.max_boxes - num_boxes), value=0)
+            labels = F.pad(labels, (0, self.max_boxes - num_boxes), value=0)
+
         image = image.resize(self.target_image_size)
         image = app_to_net_image_inputs(image)[1].squeeze(0)
         return image, (
-            target[0]["image_id"] if len(target) > 0 else 0,
+            int(Path(sample.filepath).name[:-4]),
             height,
             width,
             boxes,
             labels,
+            torch.tensor([num_boxes]),
         )
 
+    def __len__(self) -> int:
+        return len(self.dataset)
+
     def _validate_data(self) -> bool:
-        # Check validation data exists
-        if not (COCO_DATASET.path() / "val2017").exists():
-            return False
-
-        # Check annotations exist
-        if not COCO_ANNOTATIONS.path().exists():
-            return False
-
-        # Ensure there are 5000 samples
-        if len(os.listdir(COCO_DATASET.path() / "val2017")) < 5000:
-            return False
-
-        return True
+        return hasattr(self, "dataset")
 
     def _download_data(self) -> None:
-        COCO_DATASET.fetch(extract=True)
-        COCO_ANNOTATIONS.fetch(extract=True)
+        setup_fiftyone_env()
+
+        # This is an expensive import, so don't want to unnecessarily import it in
+        # other files that import datasets/__init__.py
+        import fiftyone.zoo as foz
+
+        split_str = "validation" if self.split == DatasetSplit.VAL else "train"
+        self.dataset = foz.load_zoo_dataset(
+            "coco-2017", split=split_str, max_samples=self.num_samples, shuffle=True
+        )

@@ -5,8 +5,7 @@
 
 HuggingFaceWavLMBasePlus is a real time speech processing backbone based on Microsoft's WavLM model.
 
-This is based on the implementation of HuggingFace-WavLM-Base-Plus found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/huggingface_wavlm_base_plus).
 

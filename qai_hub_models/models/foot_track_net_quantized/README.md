@@ -1,12 +1,11 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [FootTrackNet_Quantized: Multi-task Human detector](https://aihub.qualcomm.com/models/foot_track_net_quantized)
+# [Person-Foot-Detection-Quantized: Multi-task Human detector](https://aihub.qualcomm.com/models/foot_track_net_quantized)
 
-FootTrackNet can detect person and face bounding boxes, head and feet landmark locations and feet visibility.
+Real-time multiple person detection with accurate feet localization optimized for mobile and edge.
 
-This is based on the implementation of FootTrackNet_Quantized found
-[here]({source_repo}). This repository contains scripts for optimized on-device
+{source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/foot_track_net_quantized).
 
@@ -46,7 +45,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## License
-* The license for the original implementation of FootTrackNet_Quantized can be found
+* The license for the original implementation of Person-Foot-Detection-Quantized can be found
   [here](https://github.com/qcom-ai-hub/ai-hub-models-internal/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

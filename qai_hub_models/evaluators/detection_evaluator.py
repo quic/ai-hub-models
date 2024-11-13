@@ -33,76 +33,73 @@ class DetectionEvaluator(BaseEvaluator):
         self.scale_x = 1 / image_height
         self.scale_y = 1 / image_width
 
-    def add_batch(
-        self,
-        output: Collection[torch.Tensor],
-        gt: Collection[torch.Tensor],
-    ):
-        # This evaluator supports 1 output tensor at a time.
-        image_id, _, _, bboxes, classes = gt
+    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+        """
+        gt should be a tuple of tensors with the following tensors:
+            - image_ids of shape (batch_size,)
+            - image heights of shape (batch_size,)
+            - image widths of shape (batch_size,)
+            - bounding boxes of shape (batch_size, max_boxes, 4)
+              - The 4 should be normalized (x, y, w, h)
+            - classes of shape (batch_size, max_boxes)
+            - num nonzero boxes for each sample of shape (batch_size,)
+
+        output should be a tuple of tensors with the following tensors:
+            - bounding boxes with shape (batch_size, num_candidate_boxes, 4)
+              - The 4 should be normalized (x, y, w, h)
+            - scores with shape (batch_size, num_candidate_boxes)
+            - class predictions with shape (batch_size, num_candidate_boxes)
+        """
+        image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
         pred_boxes, pred_scores, pred_class_idx = output
 
-        if bboxes.numel() == 0:
-            return
+        for i in range(len(image_ids)):
+            image_id = image_ids[i]
+            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
+            classes = all_classes[i][: all_num_boxes[i].item()]
+            if bboxes.numel() == 0:
+                continue
 
-        # The number of boxes can be variable, so dataloader doesn't like shapes
-        # mismatching across samples in the batch.
-        assert bboxes.shape[0] == 1, "Detection evaluator only supports batch size 1."
-        bboxes = bboxes.squeeze(0)
-        classes = classes.squeeze(0)
-
-        # Seeing memory issues, initentionally deleting these variables to free memory.
-        del gt
-        del output
-
-        # Reuse NMS utility
-        (
-            after_nms_pred_boxes,
-            after_nms_pred_scores,
-            after_nms_pred_class_idx,
-        ) = batched_nms(
-            self.nms_iou_threshold,
-            self.nms_score_threshold,
-            pred_boxes,
-            pred_scores,
-            pred_class_idx,
-        )
-
-        del pred_boxes
-        del pred_scores
-        del pred_class_idx
-
-        # Collect GT and prediction boxes
-        gt_bb_entry = [
-            BoundingBox.of_bbox(image_id, cat, *bbox, 1.0)
-            for cat, bbox in zip(classes.tolist(), bboxes.tolist())
-        ]
-        del classes
-        del bboxes
-
-        pd_bb_entry = [
-            BoundingBox.of_bbox(
-                image_id,
-                pred_cat,
-                pred_bbox[0] * self.scale_x,
-                pred_bbox[1] * self.scale_y,
-                pred_bbox[2] * self.scale_x,
-                pred_bbox[3] * self.scale_y,
-                pred_score,
+            # Reuse NMS utility
+            (
+                after_nms_pred_boxes,
+                after_nms_pred_scores,
+                after_nms_pred_class_idx,
+            ) = batched_nms(
+                self.nms_iou_threshold,
+                self.nms_score_threshold,
+                pred_boxes[i : i + 1],
+                pred_scores[i : i + 1],
+                pred_class_idx[i : i + 1],
             )
-            for pred_cat, pred_score, pred_bbox in zip(
-                after_nms_pred_class_idx[0].tolist(),
-                after_nms_pred_scores[0].tolist(),
-                after_nms_pred_boxes[0].tolist(),
-            )
-        ]
 
-        del after_nms_pred_boxes
-        del after_nms_pred_scores
-        del after_nms_pred_class_idx
+            # Collect GT and prediction boxes
+            gt_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id, cat, bbox[0], bbox[1], bbox[2], bbox[3], 1.0
+                )
+                for cat, bbox in zip(classes.tolist(), bboxes.tolist())
+            ]
 
-        # Compute mean average precision
-        self._update_mAP(gt_bb_entry, pd_bb_entry)
+            pd_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    pred_cat,
+                    pred_bbox[0] * self.scale_x,
+                    pred_bbox[1] * self.scale_y,
+                    pred_bbox[2] * self.scale_x,
+                    pred_bbox[3] * self.scale_y,
+                    pred_score,
+                )
+                for pred_cat, pred_score, pred_bbox in zip(
+                    after_nms_pred_class_idx[0].tolist(),
+                    after_nms_pred_scores[0].tolist(),
+                    after_nms_pred_boxes[0].tolist(),
+                )
+            ]
+
+            # Compute mean average precision
+            self._update_mAP(gt_bb_entry, pd_bb_entry)
 
     def reset(self):
         self.gt_bb = []
@@ -113,8 +110,6 @@ class DetectionEvaluator(BaseEvaluator):
         self.gt_bb += gt_bb_entry
         self.pd_bb += pd_bb_entry
 
-        del gt_bb_entry
-        del pd_bb_entry
         self.results = get_pascal_voc_metrics(
             self.gt_bb, self.pd_bb, self.nms_iou_threshold
         )
@@ -124,4 +119,4 @@ class DetectionEvaluator(BaseEvaluator):
         return self.mAP
 
     def formatted_accuracy(self) -> str:
-        return f"{self.get_accuracy_score()} mAP"
+        return f"{self.get_accuracy_score():.3f} mAP"

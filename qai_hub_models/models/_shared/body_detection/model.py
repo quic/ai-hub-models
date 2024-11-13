@@ -510,7 +510,6 @@ class Model(nn.Module):
         Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """
-        x = x / 255.0
         y = []
         for m in self.model:
             if m.f != -1:

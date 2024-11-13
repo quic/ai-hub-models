@@ -13,13 +13,12 @@ from pathlib import Path
 from typing import Any, Optional, TypeVar, Union, get_args, get_type_hints
 
 import requests
-from datasets import get_dataset_infos
 from qai_hub.util.session import create_session
 from schema import And
 from schema import Optional as OptionalSchema
 from schema import Schema, SchemaError
 
-from qai_hub_models.scorecard import ScorecardProfilePath
+from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
 from qai_hub_models.utils.path_helpers import (
     MODELS_PACKAGE_NAME,
@@ -181,23 +180,6 @@ class BaseDataClass:
 
 
 BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
-
-
-@unique
-class FORM_FACTOR(Enum):
-    PHONE = 0
-    TABLET = 1
-    IOT = 2
-    XR = 3
-
-    @staticmethod
-    def from_string(string: str) -> FORM_FACTOR:
-        return FORM_FACTOR[string.upper()]
-
-    def __str__(self):
-        if self == FORM_FACTOR.IOT:
-            return "IoT"
-        return self.name.title()
 
 
 @unique
@@ -512,6 +494,9 @@ class QAIHMModelCodeGen(BaseDataClass):
     # ideally with a reference to an internal issue.
     onnx_export_failure_reason: str = ""
 
+    # If the default device needs to be overwritten for a model.
+    default_device: str = ""
+
     # Sets the `check_trace` argument on `torch.jit.trace`.
     check_trace: bool = True
 
@@ -634,6 +619,9 @@ class QAIHMModelInfo(BaseDataClass):
     # This should be set to public unless the model has poor accuracy/perf.
     status: MODEL_STATUS
 
+    # Device form factors for which we don't publish performance data.
+    private_perf_form_factors: list[ScorecardDevice.FormFactor]
+
     # A brief catchy headline explaining what the model does and why it may be interesting
     headline: str
 
@@ -660,7 +648,7 @@ class QAIHMModelInfo(BaseDataClass):
 
     # A list of device types for which this model could be useful.
     # If unsure what to put here, default to `Phone` and `Tablet`.
-    form_factors: list[FORM_FACTOR]
+    form_factors: list[ScorecardDevice.FormFactor]
 
     # Whether the model has a static image uploaded in S3. All public models must have this.
     has_static_banner: bool
@@ -813,6 +801,9 @@ class QAIHMModelInfo(BaseDataClass):
             ):
                 return False, "Public models must support at least one export path"
 
+            if not self.has_static_banner:
+                return False, "Public models must have a static asset."
+
         session = create_session()
         if self.has_static_banner:
             static_banner_url = ASSET_CONFIG.get_web_asset_url(
@@ -927,16 +918,6 @@ class QAIHMModelInfo(BaseDataClass):
         hf_metadata["library_name"] = "pytorch"
         hf_metadata["license"] = self.license_type
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
-        if self.dataset != []:
-            for dataset_id in self.dataset:
-                try:
-                    get_dataset_infos(dataset_id)
-                except Exception:
-                    raise ValueError(
-                        f"This dataset {dataset_id} is not a valid HuggingFace Dataset."
-                    )
-            hf_metadata["datasets"] = self.dataset
-
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata
 
@@ -986,11 +967,16 @@ class QAIHMModelInfo(BaseDataClass):
         # Load CFG and params
         data = load_yaml(info_path)
         data["status"] = MODEL_STATUS.from_string(data["status"])
+        data["private_perf_form_factors"] = [
+            ScorecardDevice.FormFactor.from_string(tag)
+            for tag in data.get("private_perf_form_factors", [])
+        ]
+
         data["domain"] = MODEL_DOMAIN.from_string(data["domain"])
         data["use_case"] = MODEL_USE_CASE.from_string(data["use_case"])
         data["tags"] = [MODEL_TAG.from_string(tag) for tag in data["tags"]]
         data["form_factors"] = [
-            FORM_FACTOR.from_string(tag) for tag in data["form_factors"]
+            ScorecardDevice.FormFactor.from_string(tag) for tag in data["form_factors"]
         ]
         data["code_gen_config"] = QAIHMModelCodeGen.from_yaml(code_gen_path)
 
