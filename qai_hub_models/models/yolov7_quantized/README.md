@@ -5,7 +5,7 @@
 
 YoloV7 is a machine learning model that predicts bounding boxes and classes of objects in an image. This model is post-training quantized to int8 using samples from the COCO dataset.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Yolo-v7-Quantized found [here](https://github.com/WongKinYiu/yolov7/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolov7_quantized).
 

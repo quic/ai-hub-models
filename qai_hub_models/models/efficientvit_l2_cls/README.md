@@ -5,7 +5,7 @@
 
 EfficientViT is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of EfficientViT-l2-cls found [here](https://github.com/CVHub520/efficientvit). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/efficientvit_l2_cls).
 

@@ -5,7 +5,7 @@
 
 DETR is a machine learning model that can detect objects (trained on COCO dataset).
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Conditional-DETR-ResNet50 found [here](https://github.com/huggingface/transformers/tree/main/src/transformers/models/conditional_detr). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/conditional_detr_resnet50).
 

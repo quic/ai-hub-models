@@ -5,7 +5,7 @@
 
 EfficientViT is a machine learning model that can segment images from the Cityscape dataset. It has lightweight and hardware-efficient operations and thus delivers significant speedup on diverse hardware platforms
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of EfficientViT-l2-seg found [here](https://github.com/CVHub520/efficientvit). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/efficientvit_l2_seg).
 

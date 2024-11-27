@@ -5,7 +5,7 @@
 
 ESRGAN is a machine learning model that upscales an image with minimal loss in quality.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of ESRGAN found [here](https://github.com/xinntao/ESRGAN/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/esrgan).
 

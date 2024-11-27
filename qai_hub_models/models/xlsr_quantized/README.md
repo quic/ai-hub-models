@@ -5,7 +5,7 @@
 
 XLSR is designed for lightweight real-time upscaling of images.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of XLSR-Quantized found [here](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/xlsr). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/xlsr_quantized).
 

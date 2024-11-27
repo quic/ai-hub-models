@@ -5,7 +5,7 @@
 
 Llama 3 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Llama-v3.2-3B-Chat found [here](https://github.com/meta-llama/llama3/tree/main). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v3_2_3b_chat_quantized).
 

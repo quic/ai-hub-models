@@ -5,7 +5,7 @@
 
 AOT-GAN is a machine learning model that allows to erase and in-paint part of given input image.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of AOT-GAN found [here](https://github.com/researchmm/AOT-GAN-for-Inpainting). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/aotgan).
 

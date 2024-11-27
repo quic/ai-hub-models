@@ -5,7 +5,7 @@
 
 End-to-end text recognition approach with pre-trained image transformer and text transformer models for both image understanding and wordpiece-level text generation.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of TrOCR found [here](https://huggingface.co/microsoft/trocr-small-stage1). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/trocr).
 

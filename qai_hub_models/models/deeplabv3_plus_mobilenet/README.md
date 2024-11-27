@@ -5,7 +5,7 @@
 
 DeepLabV3 is designed for semantic segmentation at multiple scales, trained on the various datasets. It uses MobileNet as a backbone.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of DeepLabV3-Plus-MobileNet found [here](https://github.com/jfzhang95/pytorch-deeplab-xception). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet).
 

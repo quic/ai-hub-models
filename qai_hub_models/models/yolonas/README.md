@@ -5,7 +5,7 @@
 
 YoloNAS is a machine learning model that predicts bounding boxes and classes of objects in an image.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Yolo-NAS found [here](https://github.com/Deci-AI/super-gradients). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolonas).
 

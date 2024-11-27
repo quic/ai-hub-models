@@ -5,7 +5,7 @@
 
 FFNet-40S-Quantized is a "fuss-free network" that segments street scene images with per-pixel classes like road, sidewalk, and pedestrian. Trained on the Cityscapes dataset.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of FFNet-40S-Quantized found [here](https://github.com/Qualcomm-AI-research/FFNet). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/ffnet_40s_quantized).
 

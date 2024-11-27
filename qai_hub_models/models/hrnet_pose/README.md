@@ -5,7 +5,7 @@
 
 HRNet performs pose estimation in high-resolution representations.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of HRNetPose found [here](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/hrnet_posenet). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/hrnet_pose).
 

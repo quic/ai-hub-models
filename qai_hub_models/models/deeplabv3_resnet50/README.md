@@ -5,7 +5,7 @@
 
 DeepLabV3 is designed for semantic segmentation at multiple scales, trained on the COCO dataset. It uses ResNet50 as a backbone.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of DeepLabV3-ResNet50 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/deeplabv3.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/deeplabv3_resnet50).
 

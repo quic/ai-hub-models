@@ -5,7 +5,7 @@
 
 Transformer based encoder-decoder where prompts specify what to segment in an image thereby allowing segmentation without the need for additional training. The image encoder generates embeddings and the lightweight decoder operates on the embeddings for point and mask based image segmentation.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Segment-Anything-Model found [here](https://github.com/facebookresearch/segment-anything). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/sam).
 

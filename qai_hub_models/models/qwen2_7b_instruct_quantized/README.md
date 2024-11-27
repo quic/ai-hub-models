@@ -5,7 +5,7 @@
 
 The Qwen2-7B-Instruct is a state-of-the-art multilingual language model with 7.07 billion parameters, excelling in language understanding, generation, coding, and mathematics. AI Hub provides with four QNN context binaries (shared weights) that can be deployed on Snapdragon 8 Elite with Genie SDK.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Qwen2-7B-Instruct found [here](https://github.com/QwenLM/Qwen2.5). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/qwen2_7b_instruct_quantized).
 

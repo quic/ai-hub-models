@@ -5,7 +5,7 @@
 
 Real-time 3D facial landmark detection optimized for mobile and edge.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Facial-Landmark-Detection found [here](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/facemap_3dmm/model.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/facemap_3dmm).
 

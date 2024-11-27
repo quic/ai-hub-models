@@ -5,7 +5,7 @@
 
 FCN_ResNet50 is a quantized machine learning model that can segment images from the COCO dataset. It uses ResNet50 as a backbone.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of FCN-ResNet50-Quantized found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/fcn.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/fcn_resnet50_quantized).
 

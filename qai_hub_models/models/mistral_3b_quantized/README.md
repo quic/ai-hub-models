@@ -5,7 +5,7 @@
 
 Mistral 3B model is Mistral AI's first generation edge model, optimized for optimal performance on Snapdragon platforms.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Mistral-3B found [here](https://github.com/mistralai/mistral-inference). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/mistral_3b_quantized).
 

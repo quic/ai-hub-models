@@ -5,7 +5,7 @@
 
 Baichuan2-7B is a family of LLMs. It achieves the state-of-the-art performance of its size on standard Chinese and English authoritative benchmarks (C-EVAL/MMLU). 4-bit weights and 16-bit activations making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Baichuan2-PromptProcessor-Quantized's latency and average time per addition token is Baichuan2-TokenGenerator-Quantized's latency.
 
-{source_repo_details}This repository contains scripts for optimized on-device
+This is based on the implementation of Baichuan2-7B found [here](https://github.com/baichuan-inc/Baichuan-7B/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/baichuan2_7b_quantized).
 
