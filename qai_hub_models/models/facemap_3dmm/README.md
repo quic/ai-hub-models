@@ -3,7 +3,7 @@
 
 # [Facial-Landmark-Detection: Facial landmark predictor with 3DMM](https://aihub.qualcomm.com/models/facemap_3dmm)
 
-Facial landmark is a deep learning model that can predict 68 landmarks from a single image. It can also be used as a backbone in building more complex models for specific use cases.
+Real-time 3D facial landmark detection optimized for mobile and edge.
 
 {source_repo_details}This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance

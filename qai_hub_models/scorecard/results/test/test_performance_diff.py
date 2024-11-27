@@ -2,8 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
-
 import ruamel.yaml
 
 from qai_hub_models.scorecard.results.performance_diff import PerformanceDiff
@@ -184,23 +182,3 @@ def test_empty_report():
 
     assert len(perf_diff.empty_perf_report) == 1
     assert perf_diff.empty_perf_report[0] == (MODEL_ID,)
-
-
-def test_e2e_aotgan_perf_diff_no_change():
-    perf_filename = os.path.join(os.path.dirname(__file__), "perf.yaml")
-
-    # Ensure perf.yaml is present, if moved, please make accordingly changes in the script.
-    assert os.path.exists(os.path.join(perf_filename))
-
-    perf_diff = PerformanceDiff()
-    validate_perf_diff_is_empty(perf_diff)
-
-    existing_model_card = read_config(perf_filename)
-    perf_diff.update_summary(
-        "aotgan",
-        previous_report=existing_model_card,
-        new_report=existing_model_card,
-    )
-
-    # Ensure perf summary is empty
-    validate_perf_diff_is_empty(perf_diff)

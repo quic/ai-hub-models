@@ -1,0 +1,45 @@
+name: EfficientViT-l2-seg
+# id must match with the model dir name in qai_hub_models
+id: efficientvit_l2_seg
+status: public
+private_perf_form_factors:
+  - Auto
+headline: Semantic segmentation in higher resuolution.
+domain: Computer Vision
+description: EfficientViT is a machine learning model that can segment images from
+  the Cityscape dataset. It has lightweight and hardware-efficient operations and
+  thus delivers significant speedup on diverse hardware platforms
+use_case: Semantic Segmentation
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/2205.14756
+research_paper_title: 'EfficientViT: Multi-Scale Linear Attention for High-Resolution Dense Prediction'
+license: https://github.com/CVHub520/efficientvit/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/CVHub520/efficientvit
+technical_details:
+  Model checkpoint: l2.pt
+  Input resolution: 2048x1024
+  Number of parameters: 53M
+  Model size: 200 MB
+  Number of output classes: 19
+applicable_scenarios:
+  - Automotive
+  - Autonomous Driving
+  - Camera
+related_models:
+  - ffnet_54s
+  - ffnet_78s
+  - deeplabv3_plus_mobilenet
+  - ddrnet23_slim
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: bsd-3-clause
+deploy_license_type: AI Model Hub License
+dataset:
+  - cityscapes
+labels_file: cityscapes_labels.txt

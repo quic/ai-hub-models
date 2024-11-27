@@ -132,6 +132,20 @@ class ModelPerfSummary:
             },
         )
 
+    def get_universal_assets(self, exclude_paths: Iterable[ScorecardProfilePath] = []):
+        universal_assets = {}
+        for path in ScorecardProfilePath:
+            if not path.compile_path.is_universal or path in exclude_paths:
+                continue
+
+            # Only add a universal asset if at least 1 profile job succeeded.
+            for runs_per_device in self.runs_per_device.values():
+                path_run = runs_per_device.run_per_path.get(path, None)
+                if path_run and path_run.success:
+                    universal_assets[path.long_name] = path_run.job.model.model_id  # type: ignore
+
+        return universal_assets
+
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
@@ -279,6 +293,9 @@ class PerfSummary:
             models_list.append(
                 {
                     "name": model_id,
+                    "universal_assets": summary.get_universal_assets(
+                        exclude_paths=exclude_paths
+                    ),
                     "performance_metrics": summary.get_perf_card(
                         include_failed_jobs,
                         include_internal_devices,

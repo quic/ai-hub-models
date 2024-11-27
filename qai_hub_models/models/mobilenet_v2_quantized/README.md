@@ -41,13 +41,13 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
 * The license for the original implementation of MobileNet-v2-Quantized can be found
-  [here](https://github.com/quic/aimet-model-zoo/blob/develop/LICENSE.pdf).
+  [here](https://github.com/tonylins/pytorch-mobilenet-v2/blob/master/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References
 * [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381)
-* [Source Model Implementation](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/mobilenetv2)
+* [Source Model Implementation](https://github.com/tonylins/pytorch-mobilenet-v2/tree/master)
 
 
 

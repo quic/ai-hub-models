@@ -116,8 +116,9 @@ def export_model(
             component_arg,
         )
 
-    # On-device perf improves with I/O in channel_last format except when using ONNX.
-    use_channel_last_format = target_runtime != TargetRuntime.ONNX
+    # On-device perf improves with I/O in channel_last format for runtimes
+    # that execute natively in channel_last format.
+    use_channel_last_format = target_runtime.channel_last_native_execution
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))

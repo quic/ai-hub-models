@@ -147,6 +147,8 @@ and many more.
 | -- | -- |
 | | |
 | **Image Classification**
+| [Beit](https://aihub.qualcomm.com/models/beit) | [qai_hub_models.models.beit](qai_hub_models/models/beit/README.md) |
+| [ConvNext-Base](https://aihub.qualcomm.com/models/convnext_base) | [qai_hub_models.models.convnext_base](qai_hub_models/models/convnext_base/README.md) |
 | [ConvNext-Tiny](https://aihub.qualcomm.com/models/convnext_tiny) | [qai_hub_models.models.convnext_tiny](qai_hub_models/models/convnext_tiny/README.md) |
 | [ConvNext-Tiny-w8a16-Quantized](https://aihub.qualcomm.com/models/convnext_tiny_w8a16_quantized) | [qai_hub_models.models.convnext_tiny_w8a16_quantized](qai_hub_models/models/convnext_tiny_w8a16_quantized/README.md) |
 | [ConvNext-Tiny-w8a8-Quantized](https://aihub.qualcomm.com/models/convnext_tiny_w8a8_quantized) | [qai_hub_models.models.convnext_tiny_w8a8_quantized](qai_hub_models/models/convnext_tiny_w8a8_quantized/README.md) |
@@ -154,6 +156,7 @@ and many more.
 | [DenseNet-121-Quantized](https://aihub.qualcomm.com/models/densenet121_quantized) | [qai_hub_models.models.densenet121_quantized](qai_hub_models/models/densenet121_quantized/README.md) |
 | [EfficientNet-B0](https://aihub.qualcomm.com/models/efficientnet_b0) | [qai_hub_models.models.efficientnet_b0](qai_hub_models/models/efficientnet_b0/README.md) |
 | [EfficientNet-B4](https://aihub.qualcomm.com/models/efficientnet_b4) | [qai_hub_models.models.efficientnet_b4](qai_hub_models/models/efficientnet_b4/README.md) |
+| [EfficientNet-V2-s](https://aihub.qualcomm.com/models/efficientnet_v2_s) | [qai_hub_models.models.efficientnet_v2_s](qai_hub_models/models/efficientnet_v2_s/README.md) |
 | [EfficientViT-b2-cls](https://aihub.qualcomm.com/models/efficientvit_b2_cls) | [qai_hub_models.models.efficientvit_b2_cls](qai_hub_models/models/efficientvit_b2_cls/README.md) |
 | [EfficientViT-l2-cls](https://aihub.qualcomm.com/models/efficientvit_l2_cls) | [qai_hub_models.models.efficientvit_l2_cls](qai_hub_models/models/efficientvit_l2_cls/README.md) |
 | [GoogLeNet](https://aihub.qualcomm.com/models/googlenet) | [qai_hub_models.models.googlenet](qai_hub_models/models/googlenet/README.md) |
@@ -166,6 +169,7 @@ and many more.
 | [MobileNet-v3-Large](https://aihub.qualcomm.com/models/mobilenet_v3_large) | [qai_hub_models.models.mobilenet_v3_large](qai_hub_models/models/mobilenet_v3_large/README.md) |
 | [MobileNet-v3-Large-Quantized](https://aihub.qualcomm.com/models/mobilenet_v3_large_quantized) | [qai_hub_models.models.mobilenet_v3_large_quantized](qai_hub_models/models/mobilenet_v3_large_quantized/README.md) |
 | [MobileNet-v3-Small](https://aihub.qualcomm.com/models/mobilenet_v3_small) | [qai_hub_models.models.mobilenet_v3_small](qai_hub_models/models/mobilenet_v3_small/README.md) |
+| [Mobile_Vit](https://aihub.qualcomm.com/models/mobile_vit) | [qai_hub_models.models.mobile_vit](qai_hub_models/models/mobile_vit/README.md) |
 | [RegNet](https://aihub.qualcomm.com/models/regnet) | [qai_hub_models.models.regnet](qai_hub_models/models/regnet/README.md) |
 | [RegNetQuantized](https://aihub.qualcomm.com/models/regnet_quantized) | [qai_hub_models.models.regnet_quantized](qai_hub_models/models/regnet_quantized/README.md) |
 | [ResNeXt101](https://aihub.qualcomm.com/models/resnext101) | [qai_hub_models.models.resnext101](qai_hub_models/models/resnext101/README.md) |
@@ -214,6 +218,7 @@ and many more.
 | [DeepLabV3-Plus-MobileNet](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet) | [qai_hub_models.models.deeplabv3_plus_mobilenet](qai_hub_models/models/deeplabv3_plus_mobilenet/README.md) |
 | [DeepLabV3-Plus-MobileNet-Quantized](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet_quantized) | [qai_hub_models.models.deeplabv3_plus_mobilenet_quantized](qai_hub_models/models/deeplabv3_plus_mobilenet_quantized/README.md) |
 | [DeepLabV3-ResNet50](https://aihub.qualcomm.com/models/deeplabv3_resnet50) | [qai_hub_models.models.deeplabv3_resnet50](qai_hub_models/models/deeplabv3_resnet50/README.md) |
+| [EfficientViT-l2-seg](https://aihub.qualcomm.com/models/efficientvit_l2_seg) | [qai_hub_models.models.efficientvit_l2_seg](qai_hub_models/models/efficientvit_l2_seg/README.md) |
 | [FCN-ResNet50](https://aihub.qualcomm.com/models/fcn_resnet50) | [qai_hub_models.models.fcn_resnet50](qai_hub_models/models/fcn_resnet50/README.md) |
 | [FCN-ResNet50-Quantized](https://aihub.qualcomm.com/models/fcn_resnet50_quantized) | [qai_hub_models.models.fcn_resnet50_quantized](qai_hub_models/models/fcn_resnet50_quantized/README.md) |
 | [FFNet-122NS-LowRes](https://aihub.qualcomm.com/models/ffnet_122ns_lowres) | [qai_hub_models.models.ffnet_122ns_lowres](qai_hub_models/models/ffnet_122ns_lowres/README.md) |
@@ -233,6 +238,7 @@ and many more.
 | [YOLOv8-Segmentation](https://aihub.qualcomm.com/models/yolov8_seg) | [qai_hub_models.models.yolov8_seg](qai_hub_models/models/yolov8_seg/README.md) |
 | | |
 | **Object Detection**
+| [Conditional-DETR-ResNet50](https://aihub.qualcomm.com/models/conditional_detr_resnet50) | [qai_hub_models.models.conditional_detr_resnet50](qai_hub_models/models/conditional_detr_resnet50/README.md) |
 | [DETR-ResNet101](https://aihub.qualcomm.com/models/detr_resnet101) | [qai_hub_models.models.detr_resnet101](qai_hub_models/models/detr_resnet101/README.md) |
 | [DETR-ResNet101-DC5](https://aihub.qualcomm.com/models/detr_resnet101_dc5) | [qai_hub_models.models.detr_resnet101_dc5](qai_hub_models/models/detr_resnet101_dc5/README.md) |
 | [DETR-ResNet50](https://aihub.qualcomm.com/models/detr_resnet50) | [qai_hub_models.models.detr_resnet50](qai_hub_models/models/detr_resnet50/README.md) |
@@ -257,6 +263,7 @@ and many more.
 | | |
 | **Pose Estimation**
 | [Facial-Landmark-Detection](https://aihub.qualcomm.com/models/facemap_3dmm) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) |
+| [Facial-Landmark-Detection-Quantized](https://aihub.qualcomm.com/models/facemap_3dmm_quantized) | [qai_hub_models.models.facemap_3dmm_quantized](qai_hub_models/models/facemap_3dmm_quantized/README.md) |
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) |
 | [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) |
 | [LiteHRNet](https://aihub.qualcomm.com/models/litehrnet) | [qai_hub_models.models.litehrnet](qai_hub_models/models/litehrnet/README.md) |
@@ -285,8 +292,8 @@ and many more.
 | Model | README |
 | -- | -- |
 | | |
-| [OpenAI-Clip](https://aihub.qualcomm.com/models/openai_clip) | [qai_hub_models.models.openai_clip](qai_hub_models/models/openai_clip/README.md) |
 | [TrOCR](https://aihub.qualcomm.com/models/trocr) | [qai_hub_models.models.trocr](qai_hub_models/models/trocr/README.md) |
+| [OpenAI-Clip](https://aihub.qualcomm.com/models/openai_clip) | [qai_hub_models.models.openai_clip](qai_hub_models/models/openai_clip/README.md) |
 
 ### Generative Ai
 

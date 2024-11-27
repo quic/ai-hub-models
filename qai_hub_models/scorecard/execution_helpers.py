@@ -117,7 +117,7 @@ def get_async_job_id(
     model_id: str,
     device: ScorecardDevice,
     component: Optional[str] = None,
-    fallback_to_universal_device: bool = False,
+    fallback_to_universal_device: bool | None = None,
 ) -> str | None:
     """
     Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
@@ -133,6 +133,17 @@ def get_async_job_id(
     """
     if x := cache.get(get_async_job_cache_name(path, model_id, device, component)):
         return x
+
+    if fallback_to_universal_device is None:
+        if isinstance(path, ScorecardCompilePath):
+            if path == ScorecardCompilePath.QNN:
+                fallback_to_universal_device = (
+                    device.os == ScorecardDevice.OperatingSystem.ANDROID
+                )
+            else:
+                fallback_to_universal_device = path.is_universal
+        else:
+            fallback_to_universal_device = False
 
     if fallback_to_universal_device:
         return cache.get(

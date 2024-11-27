@@ -36,7 +36,7 @@ from tasks.task import (
     RunCommandsWithVenvTask,
     Task,
 )
-from tasks.test import PyTestModelsTask, PyTestScriptsTask, PyTestUtilsTask
+from tasks.test import PyTestModelsTask, PyTestQAIHMTask
 from tasks.util import echo, run
 from tasks.venv import (
     CreateVenvTask,
@@ -156,8 +156,7 @@ class TaskLibrary:
     @public_task("precheckin")
     @depends(
         [
-            "test_utils",
-            "test_scripts",
+            "test_qaihm",
             "test_changed_models",
         ]
     )
@@ -168,8 +167,7 @@ class TaskLibrary:
     @public_task("precheckin_long")
     @depends(
         [
-            "test_utils",
-            "test_scripts",
+            "test_qaihm",
             "test_changed_models_long",
         ]
     )
@@ -180,8 +178,7 @@ class TaskLibrary:
     @public_task("all_tests")
     @depends(
         [
-            "test_utils",
-            "test_scripts",
+            "test_qaihm",
             "test_all_models",
         ]
     )
@@ -191,8 +188,7 @@ class TaskLibrary:
     @public_task("all_tests_long")
     @depends(
         [
-            "test_utils",
-            "test_scripts",
+            "test_qaihm",
             "test_all_models_long",
         ]
     )
@@ -261,17 +257,12 @@ class TaskLibrary:
 
         return plan.add_step("clean_pip", CleanPipTask(self.venv_path))
 
-    @public_task("Run tests for common utilities.")
+    @public_task("Run tests for all files except models.")
     @depends(["install_deps"])
-    def test_utils(self, plan: Plan, step_id: str = "test_utils") -> str:
-        return plan.add_step(step_id, PyTestUtilsTask(self.venv_path))
-
-    @public_task("Run tests for common scripts.")
-    @depends(["install_deps"])
-    def test_scripts(self, plan: Plan, step_id: str = "test_scripts") -> str:
+    def test_qaihm(self, plan: Plan, step_id: str = "test_qaihm") -> str:
         return plan.add_step(
             step_id,
-            PyTestScriptsTask(self.venv_path),
+            PyTestQAIHMTask(self.venv_path),
         )
 
     def _get_quantize_models_task(self, models) -> PyTestModelsTask:

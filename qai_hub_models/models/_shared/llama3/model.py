@@ -54,6 +54,7 @@ MODEL_ASSET_VERSION = 1
 AIMET_ENCODINGS_PREFIX = "config"
 AIMET_CONFIG = "default_config_llama"
 
+DEFAULT_SEQUENCE_LENGTH = 128
 DEFAULT_CONTEXT_LENGTH = 4096
 
 DATA_DIR = "data"
@@ -364,7 +365,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
     @abstractmethod
     def from_pretrained(
         cls,
-        sequence_length: int,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         aimet_encodings: str | None = "DEFAULT",
     ) -> Llama3Base_Quantized:
@@ -417,7 +418,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
     @staticmethod
     def get_input_spec(
         num_hidden_layers: int,
-        input_seq_length: int,
+        sequence_length: int,
         context_length: int,
         hidden_size: int,
         num_key_value_heads: int,
@@ -425,28 +426,28 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
     ) -> InputSpec:
         embed_dim = hidden_size // num_attention_heads // 2
         input_spec = {
-            "input_ids": ((1, input_seq_length), "int32"),
+            "input_ids": ((1, sequence_length), "int32"),
             "attention_mask": (
-                (1, 1, input_seq_length, context_length),
+                (1, 1, sequence_length, context_length),
                 "float32",
             ),
             # These are half the length of the hidden size per head because
             # each cos/sin are applied to a half-sliced copy of the hidden size
             # and then concatenated.
             "position_ids_cos": (
-                (1, 1, input_seq_length, embed_dim),
+                (1, 1, sequence_length, embed_dim),
                 "float32",
             ),
             "position_ids_sin": (
-                (1, 1, input_seq_length, embed_dim),
+                (1, 1, sequence_length, embed_dim),
                 "float32",
             ),
         }
 
-        # TODO: We could support input_seq_length == CONTEXT_LENGTH, but the
+        # TODO: We could support sequence_length == CONTEXT_LENGTH, but the
         # KV cache input needs to be removed.
         assert (
-            input_seq_length < context_length
+            sequence_length < context_length
         ), "It is currently not supported to set input sequence length to the same as or longer than context length. There should be no KV cache input at all in such case."
 
         for layer in range(num_hidden_layers):
@@ -456,7 +457,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
                     num_key_value_heads,
                     1,
                     embed_dim * 2,
-                    context_length - input_seq_length,
+                    context_length - sequence_length,
                 ),
                 "float32",
             )
@@ -466,7 +467,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
                 (
                     num_key_value_heads,
                     1,
-                    context_length - input_seq_length,
+                    context_length - sequence_length,
                     embed_dim * 2,
                 ),
                 "float32",
@@ -942,12 +943,8 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
     ) -> SampleInputsType:
         if not input_spec:
             input_specs = self.get_input_spec(
-                input_seq_length=self.sequence_length,
-                num_hidden_layers=self.llm_config.num_hidden_layers,
+                sequence_length=self.sequence_length,
                 context_length=self.context_length,
-                hidden_size=self.llm_config.hidden_size,
-                num_attention_heads=self.llm_config.num_attention_heads,
-                num_key_value_heads=self.llm_config.num_key_value_heads,
             )
         input_prompt = DEFAULT_USER_PROMPT
         input_prompt_processed = get_input_prompt_with_tags(

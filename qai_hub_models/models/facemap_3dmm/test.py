@@ -5,13 +5,13 @@
 import numpy as np
 from skimage import io
 
-from qai_hub_models.models.facemap_3dmm.app import FaceMap_3DMMApp
-from qai_hub_models.models.facemap_3dmm.demo import main as demo_main
-from qai_hub_models.models.facemap_3dmm.model import (
+from qai_hub_models.models._shared.facemap_3dmm.app import FaceMap_3DMMApp
+from qai_hub_models.models._shared.facemap_3dmm.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
     FaceMap_3DMM,
 )
+from qai_hub_models.models.facemap_3dmm.demo import main as demo_main
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 INPUT_IMAGE_PATH = str(

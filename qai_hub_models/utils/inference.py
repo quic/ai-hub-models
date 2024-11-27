@@ -344,13 +344,31 @@ class AsyncOnDeviceResult:
         target_runtime: TargetRuntime,
         channel_last_output: list[str],
         output_names: list[str],
+        num_retries: int = 1,
     ):
         self.inference_job = inference_job
         self.target_runtime = target_runtime
         self.channel_last_output = channel_last_output
         self.output_names = output_names
+        self.num_retries = num_retries
 
     def wait(self) -> torch.Tensor | tuple[torch.Tensor, ...]:
+        retries = 0
+        while not self.inference_job.wait().success and retries < self.num_retries:
+            retries += 1
+            msg = self.inference_job.get_status().message
+            print(
+                f"Retrying ({retries}/{self.num_retries}) inference job "
+                + f"({self.inference_job.job_id}) ({msg})"
+            )
+            ijob = hub.submit_inference_job(
+                model=self.inference_job.model,
+                inputs=self.inference_job.inputs,
+                device=self.inference_job.device,
+            )
+            assert isinstance(ijob, hub.InferenceJob)
+            self.inference_job = ijob
+
         if not self.inference_job.wait().success:
             job_msg = (
                 self.inference_job.get_status().message or "(no job failure message)"

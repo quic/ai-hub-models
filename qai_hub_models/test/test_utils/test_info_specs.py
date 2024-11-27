@@ -86,8 +86,8 @@ def test_info_spec():
         ), f"{model_id} config ID does not match the model's folder name"
 
         # Validate spec
-        valid, reason = info_spec.validate()
-        assert valid, f"{model_id} config validation failed: {reason}"
+        reason = info_spec.validate()
+        assert reason is None, f"{model_id} config validation failed: {reason}"
 
 
 def test_qaihm_domain():

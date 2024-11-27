@@ -62,6 +62,15 @@ class ScorecardCompilePath(Enum):
         raise NotImplementedError()
 
     @property
+    def is_universal(self) -> bool:
+        """Whether a single asset produced by this path is applicable to any device."""
+        return self in [
+            ScorecardCompilePath.TFLITE,
+            ScorecardCompilePath.ONNX,
+            ScorecardCompilePath.ONNX_FP16,
+        ]
+
+    @property
     def supports_quantization(self) -> bool:
         if self == ScorecardCompilePath.ONNX_FP16:
             # Only FP32 models are applicable for this compilation path.

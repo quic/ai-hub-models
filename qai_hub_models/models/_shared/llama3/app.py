@@ -88,18 +88,16 @@ class ChatApp:
         output_token = None
         hub_tokens = None
 
-        model = self.model_cls.from_pretrained(sequence_length=128)
-        llm_config = model.llm_config
+        model = self.model_cls.from_pretrained(
+            sequence_length=prompt_sequence_length,
+            context_length=context_length,
+        )
         is_prompt = True
 
         # Process input prompt
         input_specs = self.model_cls.get_input_spec(
-            input_seq_length=prompt_sequence_length,
-            num_hidden_layers=llm_config.num_hidden_layers,
-            context_length=model.context_length,
-            hidden_size=llm_config.hidden_size,
-            num_attention_heads=llm_config.num_attention_heads,
-            num_key_value_heads=llm_config.num_key_value_heads,
+            sequence_length=prompt_sequence_length,
+            context_length=context_length,
         )
 
         # Initialization of KV cache

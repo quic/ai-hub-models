@@ -77,8 +77,8 @@ class ScorecardJob:
         return self._job_status and self._job_status.success  # type: ignore
 
     @cached_property
-    def status_message(self) -> str:
-        return "Skipped" if self.skipped else self._job_status.message  # type: ignore
+    def status_message(self) -> Optional[str]:
+        return None if self.skipped else self._job_status.message  # type: ignore
 
     @cached_property
     def _job_status(self) -> Optional[hub.JobStatus]:
@@ -180,7 +180,8 @@ class CompileScorecardJob(ScorecardJob):
     def __post_init__(self):
         super().__post_init__()
         if not self.skipped:
-            assert isinstance(self.job, hub.CompileJob)
+            if not isinstance(self.job, hub.CompileJob):
+                raise ValueError(f"Job {self.job.job_id}({self.job.name}) is {type(self.job)}. Expected CompileJob")  # type: ignore
 
     @cached_property
     def compile_job(self) -> Optional[hub.CompileJob]:
@@ -257,7 +258,8 @@ class ProfileScorecardJob(ScorecardJob):
     def __post_init__(self):
         super().__post_init__()
         if not self.skipped:
-            assert isinstance(self.job, hub.ProfileJob)
+            if not isinstance(self.job, hub.ProfileJob):
+                raise ValueError(f"Job {self.job.job_id}({self.job.name}) is {type(self.job)}. Expected ProfileJob")  # type: ignore
             if self._job_status.success:  # type: ignore
                 assert self.profile_results
 

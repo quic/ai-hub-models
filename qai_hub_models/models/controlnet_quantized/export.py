@@ -128,10 +128,13 @@ def export_model(
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
     uploaded_models = {}
+    path_for_uploaded_models = {}
     for component_name in components:
-        uploaded_models[component_name] = hub.upload_model(
-            components_dict[component_name].get_target_model_path()
-        )
+        path = components_dict[component_name].get_target_model_path()
+        if path not in path_for_uploaded_models:
+            path_for_uploaded_models[path] = hub.upload_model(path)
+        uploaded_models[component_name] = path_for_uploaded_models[path]
+
     print(
         f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
     )

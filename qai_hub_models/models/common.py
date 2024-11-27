@@ -28,6 +28,18 @@ class TargetRuntime(Enum):
             return f"torchscript_{self.name.lower()}"
         return f"{self.name.lower()}"
 
+    @property
+    def channel_last_native_execution(self):
+        """
+        If true, this runtime natively executes ops in NHWC (channel-last) format.
+        If false, the runtime executes ops in NCHW (channel-first) format.
+        """
+        return self in [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ]
+
 
 @unique
 class SourceModelFormat(Enum):

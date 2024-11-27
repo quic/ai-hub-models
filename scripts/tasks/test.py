@@ -34,30 +34,22 @@ from .venv import (
 )
 
 
-class PyTestUtilsTask(PyTestTask):
+class PyTestQAIHMTask(PyTestTask):
     """
     Pytest utils.
     """
 
     def __init__(self, venv: Optional[str]):
+        all_dirs_except_models = [
+            f"{PY_PACKAGE_SRC_ROOT}/{x}"
+            for x in os.listdir(PY_PACKAGE_SRC_ROOT)
+            if x != "models" and x != "__pycache__"
+        ]
+        all_dirs_except_models = [x for x in all_dirs_except_models if os.path.isdir(x)]
         super().__init__(
-            "Test Utils",
+            "Test QAIHM",
             venv=venv,
-            files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/test/test_utils",
-            parallel=True,
-        )
-
-
-class PyTestScriptsTask(PyTestTask):
-    """
-    Pytest scripts.
-    """
-
-    def __init__(self, venv: Optional[str]):
-        super().__init__(
-            group_name="Test Scripts",
-            venv=venv,
-            files_or_dirs=f"{PY_PACKAGE_SRC_ROOT}/scripts",
+            files_or_dirs=" ".join(all_dirs_except_models),
             parallel=True,
         )
 

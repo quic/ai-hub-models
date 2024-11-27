@@ -10,7 +10,10 @@ import cv2
 import numpy as np
 import torch
 
-from qai_hub_models.models.facemap_3dmm.model import MODEL_ASSET_VERSION, MODEL_ID
+from qai_hub_models.models._shared.facemap_3dmm.model import (
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 
 

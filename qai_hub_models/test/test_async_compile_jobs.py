@@ -5,6 +5,7 @@
 import datetime
 import os
 
+import pytest
 import qai_hub as hub
 
 from qai_hub_models.utils.asset_loaders import load_yaml
@@ -16,9 +17,14 @@ def test_compile_jobs_success():
     finish is too slow. Instead, job ids are written to a file upon submission,
     and success is validated all at once in the end using this test.
     """
-    if os.stat(os.environ["COMPILE_JOBS_FILE"]).st_size == 0:
+    compile_jobs_file = os.environ.get("COMPILE_JOBS_FILE", None)
+    if not compile_jobs_file or not os.path.exists(compile_jobs_file):
+        pytest.skip("No compile jobs file found")
+
+    if os.stat(compile_jobs_file).st_size == 0:
         return
-    job_ids = load_yaml(os.environ["COMPILE_JOBS_FILE"])
+
+    job_ids = load_yaml(compile_jobs_file)
 
     failed_jobs = {}
     timeout_jobs = {}

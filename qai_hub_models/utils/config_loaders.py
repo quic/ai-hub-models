@@ -10,13 +10,14 @@ from collections.abc import Callable
 from dataclasses import dataclass, fields
 from enum import Enum, unique
 from pathlib import Path
+from types import GenericAlias
 from typing import Any, Optional, TypeVar, Union, get_args, get_type_hints
 
 import requests
 from qai_hub.util.session import create_session
 from schema import And
 from schema import Optional as OptionalSchema
-from schema import Schema, SchemaError
+from schema import Schema
 
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
@@ -142,6 +143,8 @@ def _constructor_from_type(input_type: type) -> Union[type, Callable]:
 
     For types like List, the constructor is list.
     """
+    if input_type == GenericAlias:
+        return input_type
     input_type = _get_origin(input_type)
     if input_type == list:
         return list
@@ -166,6 +169,8 @@ class BaseDataClass:
                 ), "Optional fields must have a default set."
             if field.default != dataclasses.MISSING:
                 field_key = OptionalSchema(field.name, default=field.default)
+            elif field.default_factory != dataclasses.MISSING:
+                field_key = OptionalSchema(field.name, default=field.default_factory())
             else:
                 field_key = field.name
             schema_dict[field_key] = _constructor_from_type(field_type)
@@ -175,8 +180,25 @@ class BaseDataClass:
     def from_dict(
         cls: type[BaseDataClassTypeVar], val_dict: dict[str, Any]
     ) -> BaseDataClassTypeVar:
+        # Validate schema
+        val_dict = cls.get_schema().validate(val_dict)
+
+        # Build dataclass
         kwargs = {field.name: val_dict[field.name] for field in fields(cls)}
         return cls(**kwargs)
+
+    def validate(self) -> Optional[str]:
+        """Returns a string reason if the this class is not valid, or None if it is valid"""
+        return None
+
+    @classmethod
+    def from_yaml(
+        cls: type[BaseDataClassTypeVar], path: str | Path
+    ) -> BaseDataClassTypeVar:
+        return cls.from_dict(load_yaml(path))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {field.name: getattr(self, field.name) for field in fields(self)}
 
 
 BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
@@ -184,14 +206,28 @@ BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
 
 @unique
 class MODEL_DOMAIN(Enum):
-    COMPUTER_VISION = 0
-    AUDIO = 1
-    MULTIMODAL = 2
-    GENERATIVE_AI = 3
+    COMPUTER_VISION = 0  # YAML string: Computer Vision
+    AUDIO = 1  # YAML string: Auto
+    MULTIMODAL = 2  # YAML string: Multimodel
+    GENERATIVE_AI = 3  # YAML string: Generative AI
 
     @staticmethod
     def from_string(string: str) -> MODEL_DOMAIN:
-        return MODEL_DOMAIN[string.upper().replace(" ", "_")]
+        # It's quicker to get the domain first via hashmap then verify the string against it.
+        domain = MODEL_DOMAIN[string.upper().replace(" ", "_")]
+
+        # Each string is compared becuase the YAML needs specific capitalization.
+        # The public website takes these strings directly from the YAML and displays them.
+        if domain == MODEL_DOMAIN.GENERATIVE_AI:
+            assert (
+                string == "Generative AI"
+            ), f"Expected 'Generative AI' for Model Domain, but capitalization is wrong: {string}"
+        else:
+            assert (
+                string == domain.name.replace("_", " ").title()
+            ), f"Model Domain should be in Title Case ({string.title()}, but got {string} instead."
+
+        return domain
 
     def __str__(self):
         return self.name.title().replace("_", " ")
@@ -199,16 +235,20 @@ class MODEL_DOMAIN(Enum):
 
 @unique
 class MODEL_TAG(Enum):
-    BACKBONE = 0
-    REAL_TIME = 1
-    FOUNDATION = 2
-    QUANTIZED = 3
-    LLM = 4
-    GENERATIVE_AI = 5
+    BACKBONE = 0  # YAML string: backbone
+    REAL_TIME = 1  # YAML string: real-time
+    FOUNDATION = 2  # YAML string: foundation
+    QUANTIZED = 3  # YAML string: quantized
+    LLM = 4  # YAML string: llm
+    GENERATIVE_AI = 5  # YAML string: generative-ai
 
     @staticmethod
     def from_string(string: str) -> MODEL_TAG:
-        assert "_" not in string
+        # YAML should contain lower case strings that are dash separated.
+        assert (
+            "_" not in string and " " not in string
+        ), f"Multi-Word Model Tags should be split by '-', not ' ' or '_': {string}"
+        assert string == string.lower(), f"Model Tags should be lower case: {string}"
         return MODEL_TAG[string.upper().replace("-", "_")]
 
     def __str__(self) -> str:
@@ -264,7 +304,16 @@ class MODEL_USE_CASE(Enum):
 
     @staticmethod
     def from_string(string: str) -> MODEL_USE_CASE:
-        return MODEL_USE_CASE[string.upper().replace(" ", "_")]
+        # It's quicker to get the use case first via hashmap then verify the string against it.
+        use_case = MODEL_USE_CASE[string.upper().replace(" ", "_")]
+
+        # Each string is compared becuase the YAML needs specific capitalization.
+        # The public website takes these strings directly from the YAML and displays them.
+        assert (
+            string == use_case.name.replace("_", " ").title()
+        ), f"Use Case should be in Title Case: {string}"
+
+        return use_case
 
     def __str__(self):
         return self.name.replace("_", " ").title()
@@ -450,7 +499,7 @@ class QAIHMModelPerf:
                 model=model, details_per_device=details_per_device
             )
 
-    def __init__(self, perf_yaml_path, model_name):
+    def __init__(self, perf_yaml_path: str | Path, model_name: str):
         self.model_name = model_name
         self.perf_yaml_path = perf_yaml_path
         self.per_model_details: dict[str, QAIHMModelPerf.ModelPerfDetails] = {}
@@ -482,6 +531,9 @@ class QAIHMModelCodeGen(BaseDataClass):
     # Whether the model's demo supports running on device with the `--on-device` flag.
     has_on_target_demo: bool = False
 
+    # Should print a statement at the end of export script to point to genie tutorial or not.
+    add_genie_url_to_export: bool = False
+
     # If the model doesn't work on qnn, this should explain why,
     # ideally with a reference to an internal issue.
     qnn_export_failure_reason: str = ""
@@ -494,8 +546,8 @@ class QAIHMModelCodeGen(BaseDataClass):
     # ideally with a reference to an internal issue.
     onnx_export_failure_reason: str = ""
 
-    # If the default device needs to be overwritten for a model.
-    default_device: str = ""
+    # If set, changes the default device when running export.py for the model.
+    default_device: Optional[str] = None
 
     # Sets the `check_trace` argument on `torch.jit.trace`.
     check_trace: bool = True
@@ -578,31 +630,18 @@ class QAIHMModelCodeGen(BaseDataClass):
             raise ValueError(f"{model_id} does not exist")
         return cls.from_yaml(code_gen_path)
 
-    @classmethod
-    def from_yaml(
-        cls: type[QAIHMModelCodeGen], code_gen_path: str | Path | None = None
-    ) -> QAIHMModelCodeGen:
-        # Load CFG and params
-        code_gen_config = QAIHMModelCodeGen.load_code_gen_yaml(code_gen_path)
-        return cls.from_dict(code_gen_config)
+    def validate(self) -> Optional[str]:
+        if self.is_aimet and self.use_hub_quantization:
+            return "Flags is_aimet and use_hub_quantization cannot both be set."
+        if self.use_hub_quantization and not self.eval_datasets:
+            return "Must set eval_datasets if use_hub_quantization is set."
+        return None
 
-    @staticmethod
-    def load_code_gen_yaml(path: str | Path | None = None) -> dict[str, Any]:
+    @classmethod
+    def from_yaml(cls: type[QAIHMModelCodeGen], path: str | Path) -> QAIHMModelCodeGen:
         if not path or not os.path.exists(path):
-            return QAIHMModelCodeGen.get_schema().validate({})  # Default Schema
-        data = load_yaml(path)
-        try:
-            # Validate high level-schema
-            data = QAIHMModelCodeGen.get_schema().validate(data)
-        except SchemaError as e:
-            assert 0, f"{e.code} in {path}"
-        if data["is_aimet"] and data["use_hub_quantization"]:
-            raise ValueError(
-                "Flags is_aimet and use_hub_quantization cannot both be set."
-            )
-        if data["use_hub_quantization"] and len(data["eval_datasets"]) == 0:
-            raise ValueError("Must set eval_datasets if use_hub_quantization is set.")
-        return data
+            return QAIHMModelCodeGen()  # Default Schema
+        return super().from_yaml(path)
 
 
 @dataclass
@@ -711,98 +750,204 @@ class QAIHMModelInfo(BaseDataClass):
     # It is a large language model (LLM) or not.
     model_type_llm: bool = False
 
-    # Add per device, download, app and if the model is available for purchase.
-    llm_details: Optional[dict[str, Any]] = None
+    @dataclass
+    class LLMDetails(BaseDataClass):
+        @unique
+        class CALL_TO_ACTION(Enum):
+            DOWNLOAD = 0
+            VIEW_README = 1
+            CONTACT_FOR_PURCHASE = 2
+            CONTACT_FOR_DOWNLOAD = 3
 
-    def validate(self) -> tuple[bool, Optional[str]]:
+            @staticmethod
+            def from_string(string: str) -> QAIHMModelInfo.LLMDetails.CALL_TO_ACTION:
+                return QAIHMModelInfo.LLMDetails.CALL_TO_ACTION[
+                    string.upper().replace(" ", "_")
+                ]
+
+            def __str__(self):
+                return self.name.title().replace("_", " ")
+
+        @dataclass
+        class LLMDetailDeviceRuntime(BaseDataClass):
+            model_download_url: str
+
+            # If undefined, the global "genie_compatible" parameter in LLMDetails must not be None.
+            genie_compatible: Optional[bool] = None
+
+        call_to_action: QAIHMModelInfo.LLMDetails.CALL_TO_ACTION
+
+        # If undefined, this must be set per-device in the "devices" parameter below.
+        genie_compatible: Optional[bool] = None
+
+        # Dict<Device Name, Dict<Long Runtime Name, LLMDetailDeviceRuntime>
+        devices: Optional[
+            dict[
+                str,
+                dict[
+                    ScorecardProfilePath,
+                    QAIHMModelInfo.LLMDetails.LLMDetailDeviceRuntime,
+                ],
+            ]
+        ] = None
+
+        @classmethod
+        def from_dict(
+            cls: type[QAIHMModelInfo.LLMDetails], val_dict: dict[str, Any]
+        ) -> QAIHMModelInfo.LLMDetails:
+            sanitized_dict: dict[str, Any] = {}
+            sanitized_dict[
+                "call_to_action"
+            ] = QAIHMModelInfo.LLMDetails.CALL_TO_ACTION.from_string(
+                val_dict["call_to_action"]
+            )
+            if genie_compatible := val_dict.get("genie_compatible"):
+                sanitized_dict["genie_compatible"] = genie_compatible
+
+            for key in val_dict:
+                if key in sanitized_dict:
+                    continue
+
+                device_name = key
+                runtime_config_mapping: dict[str, dict[str, str]] = val_dict[
+                    device_name
+                ]
+                assert isinstance(runtime_config_mapping, dict)
+                processed_per_runtime_config_mapping = {}
+                for runtime_name, runtime_config in runtime_config_mapping.items():
+                    assert isinstance(runtime_config, dict)
+                    runtime = None
+                    for path in ScorecardProfilePath:
+                        if path.long_name == runtime_name or path.name == runtime_name:
+                            runtime = path
+                            break
+
+                    if not runtime:
+                        raise ValueError(
+                            f"Unknown runtime specified in LLM details for device {device_name}: {runtime}"
+                        )
+
+                    processed_per_runtime_config_mapping[
+                        runtime
+                    ] = QAIHMModelInfo.LLMDetails.LLMDetailDeviceRuntime.from_dict(
+                        runtime_config
+                    )
+
+                devices_dict = sanitized_dict.get("devices", None)
+                if not devices_dict:
+                    devices_dict = {}
+                    sanitized_dict["devices"] = devices_dict
+
+                devices_dict[device_name] = processed_per_runtime_config_mapping
+
+            return super().from_dict(sanitized_dict)
+
+        def validate(self) -> Optional[str]:
+            if self.genie_compatible is None:
+                if self.devices:
+                    for device_runtime_config_mapping in self.devices.values():
+                        for runtime_detail in device_runtime_config_mapping.values():
+                            if (
+                                self.call_to_action
+                                == QAIHMModelInfo.LLMDetails.CALL_TO_ACTION.CONTACT_FOR_PURCHASE
+                                and runtime_detail.genie_compatible
+                            ):
+                                return "In LLM details, genie_compatible must not be True if the call to action is contact for purchase."
+                            elif runtime_detail.genie_compatible is None:
+                                return "In LLM details, if genie_compatible is None, it must be set for each runtime on each provided device."
+            else:
+                if (
+                    self.call_to_action
+                    == QAIHMModelInfo.LLMDetails.CALL_TO_ACTION.CONTACT_FOR_PURCHASE
+                    and self.genie_compatible
+                ):
+                    return "In LLM details, genie_compatible must not be True if the call to action is contact for purchase."
+
+                if self.devices:
+                    for device_runtime_config_mapping in self.devices.values():
+                        for runtime_detail in device_runtime_config_mapping.values():
+                            if runtime_detail.genie_compatible is not None:
+                                return "In LLM details, if genie_compatible is not None, it cannot be set separately per-device."
+
+            return None
+
+    # Add per device, download, app and if the model is available for purchase.
+    llm_details: Optional[QAIHMModelInfo.LLMDetails] = None
+
+    @property
+    def is_quantized(self) -> bool:
+        return (
+            self.code_gen_config.is_aimet or self.code_gen_config.use_hub_quantization
+        )
+
+    def validate(self) -> Optional[str]:
         """Returns false with a reason if the info spec for this model is not valid."""
         # Validate ID
         if self.id not in MODEL_IDS:
-            return False, f"{self.id} is not a valid QAI Hub Models ID."
+            return f"{self.id} is not a valid QAI Hub Models ID."
         if " " in self.id or "-" in self.id:
-            return False, "Model IDs cannot contain spaces or dashes."
+            return "Model IDs cannot contain spaces or dashes."
         if self.id.lower() != self.id:
-            return False, "Model IDs must be lowercase."
+            return "Model IDs must be lowercase."
 
         # Validate (used as repo name for HF as well)
         if " " in self.name:
-            return False, "Model Name must not have a space."
+            return "Model Name must not have a space."
 
         # Headline should end with period
         if not self.headline.endswith("."):
-            return False, "Model headlines must end with a period."
+            return "Model headlines must end with a period."
 
         # Quantized models must contain quantized tag
         if ("quantized" in self.id) and (MODEL_TAG.QUANTIZED not in self.tags):
-            return False, f"Quantized models must have quantized tag. tags: {self.tags}"
+            return f"Quantized models must have quantized tag. tags: {self.tags}"
         if ("quantized" not in self.id) and (MODEL_TAG.QUANTIZED in self.tags):
-            return (
-                False,
-                f"Models with a quantized tag must have 'quantized' in the id. tags: {self.tags}",
-            )
+            return f"Models with a quantized tag must have 'quantized' in the id. tags: {self.tags}"
 
         # Validate related models are present
         for r_model in self.related_models:
             if r_model not in MODEL_IDS:
-                return False, f"Related model {r_model} is not a valid model ID."
+                return f"Related model {r_model} is not a valid model ID."
             if r_model == self.id:
-                return False, f"Model {r_model} cannot be related to itself."
+                return f"Model {r_model} cannot be related to itself."
 
         # If paper is arxiv, it should be an abs link
         if self.research_paper is not None and self.research_paper.startswith(
             "https://arxiv.org/"
         ):
             if "/abs/" not in self.research_paper:
-                return (
-                    False,
-                    "Arxiv links should be `abs` links, not link directly to pdfs.",
-                )
+                return "Arxiv links should be `abs` links, not link directly to pdfs."
 
         # If license_type does not match the map, return an error
         if self.license_type not in HF_AVAILABLE_LICENSES:
-            return False, f"license can be one of these: {HF_AVAILABLE_LICENSES}"
-
-        if self.model_type_llm and self.llm_details is not None:
-            purchase_required = (
-                self.llm_details.get("call_to_action", "") == "contact_for_purchase"
-            )
-
-        if not self.deploy_license and not purchase_required:
-            return False, "deploy_license cannot be empty"
-        if not self.deploy_license_type and not purchase_required:
-            return False, "deploy_license_type cannot be empty"
+            return f"license can be one of these: {HF_AVAILABLE_LICENSES}"
 
         # Status Reason
         if self.status == MODEL_STATUS.PRIVATE and not self.status_reason:
-            return (
-                False,
-                "Private models must set `status_reason` in info.yaml with a link to the related issue.",
-            )
+            return "Private models must set `status_reason` in info.yaml with a link to the related issue."
+
         if self.status == MODEL_STATUS.PUBLIC and self.status_reason:
-            return (
-                False,
-                "`status_reason` in info.yaml should not be set for public models.",
-            )
+            return "`status_reason` in info.yaml should not be set for public models."
 
         # Labels file
         if self.labels_file is not None:
             if not os.path.exists(ASSET_CONFIG.get_labels_file_path(self.labels_file)):
-                return False, f"Invalid labels file: {self.labels_file}"
+                return f"Invalid labels file: {self.labels_file}"
 
         # Required assets exist
         if self.status == MODEL_STATUS.PUBLIC:
             if not os.path.exists(self.get_package_path() / "info.yaml"):
-                return False, "All public models must have an info.yaml"
+                return "All public models must have an info.yaml"
 
             if (
                 self.code_gen_config.tflite_export_failure_reason
                 and self.code_gen_config.qnn_export_failure_reason
                 and self.code_gen_config.onnx_export_failure_reason
             ):
-                return False, "Public models must support at least one export path"
+                return "Public models must support at least one export path"
 
             if not self.has_static_banner:
-                return False, "Public models must have a static asset."
+                return "Public models must have a static asset."
 
         session = create_session()
         if self.has_static_banner:
@@ -810,80 +955,65 @@ class QAIHMModelInfo(BaseDataClass):
                 self.id, QAIHM_WEB_ASSET.STATIC_IMG
             )
             if session.head(static_banner_url).status_code != requests.codes.ok:
-                return False, f"Static banner is missing at {static_banner_url}"
+                return f"Static banner is missing at {static_banner_url}"
         if self.has_animated_banner:
             animated_banner_url = ASSET_CONFIG.get_web_asset_url(
                 self.id, QAIHM_WEB_ASSET.ANIMATED_MOV
             )
             if session.head(animated_banner_url).status_code != requests.codes.ok:
-                return False, f"Animated banner is missing at {animated_banner_url}"
+                return f"Animated banner is missing at {animated_banner_url}"
 
         expected_qaihm_repo = Path("qai_hub_models") / "models" / self.id
         if expected_qaihm_repo != ASSET_CONFIG.get_qaihm_repo(self.id):
-            return False, "QAIHM repo not pointing to expected relative path"
+            return "QAIHM repo not pointing to expected relative path"
 
         expected_example_use = f"qai_hub_models/models/{self.id}#example--usage"
         if expected_example_use != ASSET_CONFIG.get_example_use(self.id):
-            return False, "Example-usage field not pointing to expected relative path"
+            return "Example-usage field not pointing to expected relative path"
+
+        purchase_required = False
 
         # Check that model_type_llm and llm_details fields
         if self.model_type_llm:
-            assert (
-                self.llm_details is not None
-            ), "All LLMs must have 'llm_details' section."
-            assert (
-                "call_to_action" in self.llm_details
-            ), "All LLMs must have 'call_to_action' in 'llm_details'."
-            assert self.llm_details["call_to_action"] in {
-                "contact_for_purchase",
-                "download",
-                "view_readme",
-                "contact_for_download",
-            }, "All LLMs 'call_to_action' field only allows these values: download, view_readme, contact_for_purchase or contact_for_download."
-            for dev in self.llm_details:
-                if dev not in {"call_to_action", "genie_compatible"}:
-                    assert (
-                        list(self.llm_details[dev].keys())[0] == "torchscript_onnx_qnn"
-                    )
+            if not self.llm_details:
+                return "llm_details must be set if model type is LLM"
 
-                    if (
-                        "model_download_url"
-                        in self.llm_details[dev]["torchscript_onnx_qnn"]
-                    ):
-                        assert (
-                            self.llm_details[dev]["torchscript_onnx_qnn"][
-                                "model_download_url"
-                            ]
-                            is not None
-                        )
-                        version, relative_path = int(
-                            self.llm_details[dev]["torchscript_onnx_qnn"][
-                                "model_download_url"
-                            ].split("/")[0][1:]
-                        ), "/".join(
-                            self.llm_details[dev]["torchscript_onnx_qnn"][
-                                "model_download_url"
-                            ].split("/")[1:]
+            if bad_llm_details := self.llm_details.validate():
+                return bad_llm_details
+
+            purchase_required = (
+                self.llm_details.call_to_action
+                == QAIHMModelInfo.LLMDetails.CALL_TO_ACTION.CONTACT_FOR_PURCHASE
+            )
+
+            # Download URL can only be validated in a scope with a model ID, so this
+            # is validated here rather than on the LLM details class' validator.
+            if self.llm_details.devices:
+                for device_runtime_config_mapping in self.llm_details.devices.values():
+                    for runtime_detail in device_runtime_config_mapping.values():
+                        version = runtime_detail.model_download_url.split("/")[0][1:]
+                        relative_path = "/".join(
+                            runtime_detail.model_download_url.split("/")[1:]
                         )
                         model_download_url = ASSET_CONFIG.get_model_asset_url(
                             self.id, version, relative_path
                         )
-                        # Check if the url exists
                         if (
                             session.head(model_download_url).status_code
                             != requests.codes.ok
                         ):
-                            return (
-                                False,
-                                f"Download URL is missing at {model_download_url}",
-                            )
+                            return f"Download URL is missing at {runtime_detail.model_download_url}"
+        elif self.llm_details:
+            return "Model type must be LLM if llm_details is set"
 
-            if self.llm_details["call_to_action"] == "contact_for_purchase":
-                assert not self.llm_details.get("genie_compatible", False)
-        else:
-            assert self.llm_details is None
+        if not self.deploy_license and not purchase_required:
+            return "deploy_license cannot be empty"
 
-        return True, None
+        if not self.deploy_license_type and not purchase_required:
+            return "deploy_license_type cannot be empty"
+
+        # Check code gen
+        return self.code_gen_config.validate()
 
     def get_package_name(self):
         return f"{QAIHM_PACKAGE_NAME}.{MODELS_PACKAGE_NAME}.{self.id}"
@@ -956,33 +1086,39 @@ class QAIHMModelInfo(BaseDataClass):
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         if not os.path.exists(schema_path):
             raise ValueError(f"{model_id} does not exist")
-        return cls.from_yaml(schema_path, code_gen_path)
+        return cls.from_yaml_and_code_gen(schema_path, code_gen_path)
 
     @classmethod
-    def from_yaml(
-        cls: type[QAIHMModelInfo],
-        info_path: str | Path,
-        code_gen_path: str | Path | None = None,
+    def from_dict(
+        cls: type[QAIHMModelInfo], val_dict: dict[str, Any]
     ) -> QAIHMModelInfo:
-        # Load CFG and params
-        data = load_yaml(info_path)
-        data["status"] = MODEL_STATUS.from_string(data["status"])
-        data["private_perf_form_factors"] = [
+        val_dict["status"] = MODEL_STATUS.from_string(val_dict["status"])
+        val_dict["private_perf_form_factors"] = [
             ScorecardDevice.FormFactor.from_string(tag)
-            for tag in data.get("private_perf_form_factors", [])
+            for tag in val_dict.get("private_perf_form_factors", [])
         ]
-
-        data["domain"] = MODEL_DOMAIN.from_string(data["domain"])
-        data["use_case"] = MODEL_USE_CASE.from_string(data["use_case"])
-        data["tags"] = [MODEL_TAG.from_string(tag) for tag in data["tags"]]
-        data["form_factors"] = [
-            ScorecardDevice.FormFactor.from_string(tag) for tag in data["form_factors"]
+        val_dict["domain"] = MODEL_DOMAIN.from_string(val_dict["domain"])
+        val_dict["use_case"] = MODEL_USE_CASE.from_string(val_dict["use_case"])
+        val_dict["tags"] = [MODEL_TAG.from_string(tag) for tag in val_dict["tags"]]
+        val_dict["form_factors"] = [
+            ScorecardDevice.FormFactor.from_string(tag)
+            for tag in val_dict["form_factors"]
         ]
-        data["code_gen_config"] = QAIHMModelCodeGen.from_yaml(code_gen_path)
+        if llm_details := val_dict.get("llm_details", None):
+            val_dict["llm_details"] = QAIHMModelInfo.LLMDetails.from_dict(llm_details)
 
-        try:
-            # Validate high level-schema
-            data = QAIHMModelInfo.get_schema().validate(data)
-        except SchemaError as e:
-            assert 0, f"{e.code} in {info_path}"
-        return cls.from_dict(data)
+        code_gen_config = val_dict.get("code_gen_config", None)
+        if isinstance(code_gen_config, dict):
+            val_dict["code_gen_config"] = QAIHMModelCodeGen.from_dict(code_gen_config)
+        elif not isinstance(code_gen_config, QAIHMModelCodeGen):
+            raise ValueError("code_gen_config must be dict or QAIHMModelCodeGen")
+
+        return super().from_dict(val_dict)
+
+    @classmethod
+    def from_yaml_and_code_gen(
+        cls: type[QAIHMModelInfo], info_path: str | Path, code_gen_path: str | Path
+    ) -> QAIHMModelInfo:
+        info = load_yaml(info_path)
+        info["code_gen_config"] = QAIHMModelCodeGen.from_yaml(code_gen_path)
+        return cls.from_dict(info)

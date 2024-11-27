@@ -15,7 +15,10 @@ from typing import Any, Optional, cast
 import numpy as np
 import qai_hub as hub
 
-from qai_hub_models.models._shared.llama3.model import Llama3Base_Quantized
+from qai_hub_models.models._shared.llama3.model import (
+    DEFAULT_SEQUENCE_LENGTH,
+    Llama3Base_Quantized,
+)
 from qai_hub_models.models._shared.llama3.split_onnx_utils import utils
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
 from qai_hub_models.utils.asset_loaders import zip_model
@@ -33,7 +36,8 @@ def export_model(
     components: list[str],
     sub_components: dict[str, list[str]],
     num_layers_per_split: int,
-    device: str,
+    device: Optional[str] = None,
+    chipset: Optional[str] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -85,6 +89,7 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: Specify the device in terms of chipset instead.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -107,18 +112,20 @@ def export_model(
     """
     num_splits = len(components)
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    hub_device = hub.Device(name=device)
+    hub_device = hub.Device(
+        name=device if device and not chipset else "",
+        attributes=f"chipset:{chipset}" if chipset else None,
+    )
 
     # Instantiation names and input sequence length
 
     # 1. Initialize PyTorch model
     model_params = get_model_kwargs(model_cls, additional_model_kwargs)
 
-    prompt_sequence_length = 128
-    if "sequence_length" in model_params:
-        if isinstance(model_params["sequence_length"], int):
-            prompt_sequence_length = model_params["sequence_length"]
-        del model_params["sequence_length"]
+    prompt_sequence_length = model_params.pop(
+        "sequence_length", DEFAULT_SEQUENCE_LENGTH
+    )
+    assert isinstance(prompt_sequence_length, int)
 
     # If user specifies sequence length, it will define the prompt
     # generator's sequence length only
@@ -149,12 +156,8 @@ def export_model(
         input_spec = model.get_input_spec(
             **{
                 **get_input_spec_kwargs(model, additional_model_kwargs),
-                "input_seq_length": seq_len,
-                "num_hidden_layers": llm_config.num_hidden_layers,
+                "sequence_length": seq_len,
                 "context_length": model.context_length,
-                "hidden_size": llm_config.hidden_size,
-                "num_attention_heads": llm_config.num_attention_heads,
-                "num_key_value_heads": llm_config.num_key_value_heads,
             },
         )
 

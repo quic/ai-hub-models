@@ -62,16 +62,42 @@ class ScorecardDevice:
 
     @unique
     class FormFactor(Enum):
-        phone = 0
-        tablet = 1
-        auto = 2
-        xr = 3
-        compute = 4
-        iot = 5
+        PHONE = 0  # YAML string: Phone
+        TABLET = 1  # YAML string: Tablet
+        AUTO = 2  # YAML string: Auto
+        XR = 3  # YAML string: XR
+        COMPUTE = 4  # YAML string: Compute
+        IOT = 5  # YAML string: IoT
 
         @staticmethod
         def from_string(string: str) -> "ScorecardDevice.FormFactor":
-            return ScorecardDevice.FormFactor[string.lower()]
+            ff = ScorecardDevice.FormFactor[string.upper()]
+            if ff == ScorecardDevice.FormFactor.XR:
+                assert (
+                    string == "XR"
+                ), f"Form Factor for XR should be 'XR'. Got {string} instead."
+            elif ff == ScorecardDevice.FormFactor.IOT:
+                assert (
+                    string == "IoT"
+                ), f"Form Factor for IoT should be 'IoT'. Got {string} instead."
+            else:
+                assert (
+                    string == string.title()
+                ), f"Form Factor should be Title Case ({string.title()}, but got {string} instead."
+            return ScorecardDevice.FormFactor[string.upper()]
+
+        def __str__(self):
+            return self.name
+
+    @unique
+    class OperatingSystem(Enum):
+        ANDROID = 0
+        WINDOWS = 1
+        LINUX = 2
+
+        @staticmethod
+        def from_string(string: str) -> "ScorecardDevice.OperatingSystem":
+            return ScorecardDevice.OperatingSystem[string.upper()]
 
         def __str__(self):
             return self.name
@@ -104,8 +130,6 @@ class ScorecardDevice:
 
             profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
-            supports_fp16_npu: Whether this device supports FP16 on its NPU. If unset, the hexagon version is used as a default heuristic.
-
             public: Whether this device is publicly available.
         """
         if name in ScorecardDevice._registry:
@@ -117,7 +141,6 @@ class ScorecardDevice:
         self.execution_device_name = execution_device_name
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
-        self._supports_fp16_npu = supports_fp16_npu
         self.public = public
 
         ScorecardDevice._registry[name] = self
@@ -193,13 +216,13 @@ class ScorecardDevice:
         raise ValueError(f"Chipset not found for device: {self.name}")
 
     @cached_property
-    def os(self) -> str:
+    def os(self) -> OperatingSystem:
         """
         The operating system used by this device.
         """
         for attr in self.reference_device.attributes:
             if attr.startswith("os:"):
-                return attr[3:]
+                return ScorecardDevice.OperatingSystem.from_string(attr[3:])
         raise ValueError(f"OS not found for device: {self.name}")
 
     @cached_property
@@ -209,7 +232,7 @@ class ScorecardDevice:
         """
         for attr in self.reference_device.attributes:
             if attr.startswith("format:"):
-                return ScorecardDevice.FormFactor[attr[7:]]
+                return ScorecardDevice.FormFactor[attr[7:].upper()]
         raise ValueError(f"Format not found for device: {self.name}")
 
     @cached_property
@@ -222,14 +245,12 @@ class ScorecardDevice:
                 return int(attr[9:])
         raise ValueError(f"Hexagon version not found for device: {self.name}")
 
-    @property
+    @cached_property
     def supports_fp16_npu(self) -> bool:
         """
         Whether this device's NPU supports FP16 inference.
         """
-        if self._supports_fp16_npu is not None:
-            return self._supports_fp16_npu
-        return self.hexagon_version >= 69
+        return "htp-supports-fp16:true" in self.reference_device.attributes
 
     @cached_property
     def supported_runtimes(self) -> list[TargetRuntime]:
@@ -238,7 +259,7 @@ class ScorecardDevice:
             if attr.startswith("framework:"):
                 rt_name = attr[10:].upper()
                 try:
-                    runtimes.append(TargetRuntime[rt_name.upper()])
+                    runtimes.append(TargetRuntime[rt_name])
                 except KeyError:
                     print(
                         f"WARNING: Unable to determine supported runtime associated with framework {rt_name}"
@@ -252,26 +273,26 @@ class ScorecardDevice:
 
         paths: list[ScorecardProfilePath]
         if self.form_factor in [
-            ScorecardDevice.FormFactor.phone,
-            ScorecardDevice.FormFactor.tablet,
+            ScorecardDevice.FormFactor.PHONE,
+            ScorecardDevice.FormFactor.TABLET,
         ]:
             paths = [
                 ScorecardProfilePath.ONNX,
                 ScorecardProfilePath.QNN,
                 ScorecardProfilePath.TFLITE,
             ]
-        elif self.form_factor == ScorecardDevice.FormFactor.auto:
+        elif self.form_factor == ScorecardDevice.FormFactor.AUTO:
             paths = [ScorecardProfilePath.QNN, ScorecardProfilePath.TFLITE]
-        elif self.form_factor == ScorecardDevice.FormFactor.xr:
+        elif self.form_factor == ScorecardDevice.FormFactor.XR:
             paths = [ScorecardProfilePath.QNN, ScorecardProfilePath.TFLITE]
-        elif self.form_factor == ScorecardDevice.FormFactor.compute:
+        elif self.form_factor == ScorecardDevice.FormFactor.COMPUTE:
             paths = [
                 ScorecardProfilePath.ONNX,
                 ScorecardProfilePath.ONNX_DML_GPU,
                 ScorecardProfilePath.ONNX_DML_NPU,
                 ScorecardProfilePath.QNN,
             ]
-        elif self.form_factor == ScorecardDevice.FormFactor.iot:
+        elif self.form_factor == ScorecardDevice.FormFactor.IOT:
             paths = [ScorecardProfilePath.TFLITE, ScorecardProfilePath.QNN]
         else:
             raise NotImplementedError(
@@ -379,14 +400,19 @@ cs_x_elite = ScorecardDevice(
 ##
 # Auto Chipsets (cs)
 ##
+cs_auto_monaco_7255 = ScorecardDevice(
+    name="cs_auto_monaco_7255",
+    reference_device_name="SA7255P ADP",
+)
+
 cs_auto_lemans_8255 = ScorecardDevice(
     name="cs_auto_lemans_8255",
     reference_device_name="SA8255 (Proxy)",
 )
 
-cs_auto_lemans_8775 = ScorecardDevice(
-    name="cs_auto_lemans_8775",
-    reference_device_name="SA8775 (Proxy)",
+cs_auto_makena_8295 = ScorecardDevice(
+    name="cs_auto_makena_8295",
+    reference_device_name="SA8295P ADP",
 )
 
 cs_auto_lemans_8650 = ScorecardDevice(
@@ -394,10 +420,9 @@ cs_auto_lemans_8650 = ScorecardDevice(
     reference_device_name="SA8650 (Proxy)",
 )
 
-cs_auto_makena_8295 = ScorecardDevice(
-    name="cs_auto_makena_8295",
-    reference_device_name="SA8295P ADP",
-    supports_fp16_npu=True,
+cs_auto_lemans_8775 = ScorecardDevice(
+    name="cs_auto_lemans_8775",
+    reference_device_name="SA8775P ADP",
 )
 
 

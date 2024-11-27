@@ -523,7 +523,6 @@ class ResNet(nn.Module):
         x = self.features(x)
         feature = x.view(x.size(0), -1)
         out = self.output(feature)
-        out[:, 264] = self.sigmoid(out[:, 264])
 
         return out
 

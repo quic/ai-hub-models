@@ -8,6 +8,7 @@ import os
 
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
     Llama3Base_Quantized,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -42,7 +43,7 @@ class Llama3_1_Quantized(Llama3Base_Quantized):
     @classmethod
     def from_pretrained(
         cls,
-        sequence_length: int,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         aimet_encodings: str | None = "DEFAULT",
         huggingface_model_name: str = HF_REPO_NAME,
@@ -92,18 +93,14 @@ class Llama3_1_Quantized(Llama3Base_Quantized):
 
     @staticmethod
     def get_input_spec(
-        num_hidden_layers: int = NUM_LAYERS,
-        input_seq_length: int = 128,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        hidden_size: int = 4096,
-        num_key_value_heads: int = 8,
-        num_attention_heads: int = 32,
     ) -> InputSpec:
         return Llama3Base_Quantized.get_input_spec(
             num_hidden_layers=NUM_LAYERS,
-            input_seq_length=input_seq_length,
+            sequence_length=sequence_length,
             context_length=context_length,
-            hidden_size=hidden_size,
-            num_key_value_heads=num_key_value_heads,
-            num_attention_heads=num_attention_heads,
+            hidden_size=4096,
+            num_key_value_heads=8,
+            num_attention_heads=32,
         )
