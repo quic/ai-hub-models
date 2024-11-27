@@ -46,12 +46,12 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
 * The license for the original implementation of Conditional-DETR-ResNet50 can be found
-  [here](https://arxiv.org/abs/2108.06152).
+  [here](https://github.com/huggingface/transformers/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References
-* [Conditional {DETR} for Fast Training Convergence](Conditional {DETR} for Fast Training Convergence)
+* [Conditional {DETR} for Fast Training Convergence](https://arxiv.org/abs/2108.06152)
 * [Source Model Implementation](https://github.com/huggingface/transformers/tree/main/src/transformers/models/conditional_detr)
 
 

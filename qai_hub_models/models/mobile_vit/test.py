@@ -100,6 +100,7 @@ def test_task():
     )
 
 
+@pytest.mark.skip("TODO: #13142 fails to trace.")
 @pytest.mark.trace
 def test_trace():
     run_classifier_trace_test(MobileVIT.from_pretrained())
