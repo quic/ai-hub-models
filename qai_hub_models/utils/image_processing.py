@@ -83,11 +83,12 @@ def app_to_net_image_inputs(
     return NHWC_int_numpy_frames, NCHW_fp32_torch_frames
 
 
-def preprocess_PIL_image(image: Image) -> torch.Tensor:
+def preprocess_PIL_image(image: Image, to_float: bool = True) -> torch.Tensor:
     """Convert a PIL image into a pyTorch tensor with range [0, 1] and shape NCHW."""
     transform = transforms.Compose([transforms.PILToTensor()])  # bgr image
-    img: torch.Tensor = transform(image)  # type: ignore
-    img = img.float().unsqueeze(0) / 255.0  # int 0 - 255 to float 0.0 - 1.0
+    img: torch.Tensor = transform(image).unsqueeze(0)  # type: ignore
+    if to_float:
+        return img.float() / 255.0  # int 0 - 255 to float 0.0 - 1.0
     return img
 
 
@@ -100,12 +101,15 @@ def preprocess_PIL_image_mask(image_mask: Image) -> torch.Tensor:
     return mask
 
 
-def numpy_image_to_torch(image: np.ndarray) -> torch.Tensor:
+def numpy_image_to_torch(image: np.ndarray, to_float: bool = True) -> torch.Tensor:
     """Convert a Numpy image (dtype uint8, shape [H W C] or [N H W C]) into a pyTorch tensor with range [0, 1] and shape NCHW."""
     image_torch = torch.from_numpy(image)
+
     if len(image.shape) == 3:
         image_torch = image_torch.unsqueeze(0)
-    return image_torch.permute(0, 3, 1, 2).float() / 255.0
+    if to_float:
+        return image_torch.permute(0, 3, 1, 2).float() / 255.0
+    return image_torch.permute(0, 3, 1, 2)
 
 
 def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:

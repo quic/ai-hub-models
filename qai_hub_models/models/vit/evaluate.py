@@ -25,7 +25,6 @@ def main():
         model_cls=Model,
         default_split_size=2500,
         supported_datasets=SUPPORTED_DATASETS,
-        supports_qnn=False,
     )
     args = parser.parse_args()
     args.device = None

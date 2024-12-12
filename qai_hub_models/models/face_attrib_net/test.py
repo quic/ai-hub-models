@@ -2,9 +2,11 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from qai_hub_models.models.face_attrib_net.app import FaceAttribNetApp
-from qai_hub_models.models.face_attrib_net.demo import INPUT_IMAGE_ADDRESS
-from qai_hub_models.models.face_attrib_net.demo import main as demo_main
+from qai_hub_models.models._shared.face_attrib_net.app import FaceAttribNetApp
+from qai_hub_models.models._shared.face_attrib_net.demo import INPUT_IMAGE_ADDRESS
+from qai_hub_models.models._shared.face_attrib_net.demo import (
+    face_attrib_net_demo as demo_main,
+)
 from qai_hub_models.models.face_attrib_net.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
@@ -43,4 +45,4 @@ def test_task():
 
 
 def test_demo():
-    demo_main()
+    demo_main(FaceAttribNet)

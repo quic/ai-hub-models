@@ -31,7 +31,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["CLIPTextEncoder", "CLIPImageEncoder"]
+ALL_COMPONENTS = ["CLIPImageEncoder", "CLIPTextEncoder"]
 
 
 def export_model(
@@ -123,10 +123,10 @@ def export_model(
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
-    if "CLIPTextEncoder" in components:
-        components_dict["CLIPTextEncoder"] = model.text_encoder  # type: ignore
     if "CLIPImageEncoder" in components:
         components_dict["CLIPImageEncoder"] = model.image_encoder  # type: ignore
+    if "CLIPTextEncoder" in components:
+        components_dict["CLIPTextEncoder"] = model.text_encoder  # type: ignore
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():
@@ -238,7 +238,9 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
+    parser = export_parser(
+        model_cls=Model, components=ALL_COMPONENTS, supports_onnx=False
+    )
     args = parser.parse_args()
     export_model(**vars(args))
 

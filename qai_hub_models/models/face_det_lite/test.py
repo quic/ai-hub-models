@@ -2,8 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from qai_hub_models.models._shared.face_detection.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.face_det_lite.app import FaceDetLiteApp
-from qai_hub_models.models.face_det_lite.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.face_det_lite.demo import main as demo_main
 from qai_hub_models.models.face_det_lite.model import (
     MODEL_ASSET_VERSION,
@@ -30,7 +30,7 @@ def test_task():
     output_tensor_oracle = load_json(OUTPUT_IMAGE_ADDRESS)
 
     assert_most_same(
-        str(output_tensor), output_tensor_oracle["bounding obx"], diff_tol=0.01
+        str(output_tensor), output_tensor_oracle["bounding box"], diff_tol=0.01
     )
 
 

@@ -25,10 +25,10 @@ from qai_hub_models.utils.qai_hub_helpers import (
 )
 
 ALL_COMPONENTS = [
+    "ControlNet_Quantized",
     "TextEncoder_Quantized",
     "UNet_Quantized",
     "VAEDecoder_Quantized",
-    "ControlNet_Quantized",
 ]
 DEFAULT_COMPONENTS = [
     "TextEncoder_Quantized",
@@ -116,14 +116,14 @@ def export_model(
     print("Initializing model class")
     model = Model.from_precompiled()
     components_dict: dict[str, BasePrecompiledModel] = {}
+    if "ControlNet_Quantized" in components:
+        components_dict["ControlNet_Quantized"] = model.controlnet  # type: ignore
     if "TextEncoder_Quantized" in components:
         components_dict["TextEncoder_Quantized"] = model.text_encoder  # type: ignore
     if "UNet_Quantized" in components:
         components_dict["UNet_Quantized"] = model.unet  # type: ignore
     if "VAEDecoder_Quantized" in components:
         components_dict["VAEDecoder_Quantized"] = model.vae_decoder  # type: ignore
-    if "ControlNet_Quantized" in components:
-        components_dict["ControlNet_Quantized"] = model.controlnet  # type: ignore
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")

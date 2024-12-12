@@ -4,9 +4,9 @@
 # ---------------------------------------------------------------------
 import argparse
 
-import numpy as np
+import torch
 
-from qai_hub_models.models.sam.app import SAMApp
+from qai_hub_models.models.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models.sam.model import (
     DEFAULT_MODEL_TYPE,
     MODEL_ASSET_VERSION,
@@ -42,7 +42,7 @@ def main(is_test: bool = False):
     parser.add_argument(
         "--point-coordinates",
         type=str,
-        default="500,375;",
+        default="1342,1011;",
         help="Comma separated x and y coordinate. Multiple coordinate separated by `;`."
         " e.g. `x1,y1;x2,y2`. Default: `500,375;`",
     )
@@ -57,15 +57,17 @@ def main(is_test: bool = False):
     coordinates = list(filter(None, args.point_coordinates.split(";")))
 
     # Load Application
-    app = SAMApp(SAMQAIHMWrapper.from_pretrained(model_type=args.model_type))
+    wrapper = SAMQAIHMWrapper.from_pretrained(model_type=args.model_type)
+    app = SAMApp(
+        wrapper.sam.image_encoder.img_size,
+        wrapper.sam.mask_threshold,
+        SAMInputImageLayout[wrapper.sam.image_format],
+        wrapper.encoder_splits,
+        wrapper.decoder,
+    )
 
     # Load Image
     image = load_image(args.image)
-    image_data = np.asarray(image)
-
-    # Prepare SAM for decoder for given input image:
-    # i.e. run SAM encoder to generate and cache image embeddings
-    app.prepare(image_data, single_mask_mode=args.single_mask_mode)
 
     # Point segmentation using decoder
     print("\n** Performing point segmentation **\n")
@@ -86,7 +88,9 @@ def main(is_test: bool = False):
         input_labels.append(1)
 
     # Generate masks with given input points
-    generated_mask, *_ = app.generate_mask_from_points(input_coords, input_labels)
+    generated_mask, *_ = app.predict_mask_from_points(
+        image, torch.Tensor(input_coords), torch.Tensor(input_labels)
+    )
 
     if not is_test:
         show_image(image, generated_mask)

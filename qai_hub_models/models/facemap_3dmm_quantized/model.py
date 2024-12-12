@@ -21,7 +21,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
-DEFAULT_ENCODINGS = "facemap_3dmm_quantized_encodings.json"
+DEFAULT_ENCODINGS = "facemap_3dmm_encodings.json"
 
 
 class FaceMap_3DMMQuantizable(AIMETQuantizableMixin, FaceMap_3DMM):
@@ -62,7 +62,7 @@ class FaceMap_3DMMQuantizable(AIMETQuantizableMixin, FaceMap_3DMM):
             model,
             quant_scheme="tf_enhanced",
             default_param_bw=8,
-            default_output_bw=16,
+            default_output_bw=8,
             config_file=get_default_aimet_config(),
             dummy_input=torch.rand(input_shape),
         )

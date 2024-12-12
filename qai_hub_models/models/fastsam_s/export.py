@@ -43,7 +43,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN,
+    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -208,7 +208,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_tflite=False)
+    parser = export_parser(model_cls=Model)
     args = parser.parse_args()
     export_model(**vars(args))
 

@@ -1,11 +1,11 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [FaceAttribNet: Comprehensive facial analysis by extracting face features](https://aihub.qualcomm.com/models/face_attrib_net)
+# [Facial-Attribute-Detection: Comprehensive facial analysis by extracting face features](https://aihub.qualcomm.com/models/face_attrib_net)
 
 Facial feature extraction and additional attributes including liveness, eyeclose, mask and glasses detection for face recognition.
 
-This is based on the implementation of FaceAttribNet found [here](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/face_attrib_net/model.py). This repository contains scripts for optimized on-device
+This is based on the implementation of Facial-Attribute-Detection found [here](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/face_attrib_net/model.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/face_attrib_net).
 
@@ -40,7 +40,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## License
-* The license for the original implementation of FaceAttribNet can be found
+* The license for the original implementation of Facial-Attribute-Detection can be found
   [here](https://github.com/qcom-ai-hub/ai-hub-models-internal/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

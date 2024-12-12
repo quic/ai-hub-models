@@ -33,7 +33,7 @@ class ScorecardCompilePath(Enum):
         )
 
     @staticmethod
-    def all_compile_paths(
+    def all_paths(
         enabled: Optional[bool] = None,
         supports_quantization: Optional[bool] = None,
     ) -> list["ScorecardCompilePath"]:

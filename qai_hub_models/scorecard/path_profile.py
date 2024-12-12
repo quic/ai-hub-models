@@ -35,7 +35,7 @@ class ScorecardProfilePath(Enum):
         )
 
     @staticmethod
-    def all_profile_paths(
+    def all_paths(
         enabled: Optional[bool] = None,
         supports_quantization: Optional[bool] = None,
     ) -> list["ScorecardProfilePath"]:

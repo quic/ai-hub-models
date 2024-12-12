@@ -31,7 +31,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["WhisperEncoder", "WhisperDecoder"]
+ALL_COMPONENTS = ["WhisperDecoder", "WhisperEncoder"]
 
 
 def export_model(
@@ -123,10 +123,10 @@ def export_model(
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
-    if "WhisperEncoder" in components:
-        components_dict["WhisperEncoder"] = model.encoder  # type: ignore
     if "WhisperDecoder" in components:
         components_dict["WhisperDecoder"] = model.decoder  # type: ignore
+    if "WhisperEncoder" in components:
+        components_dict["WhisperEncoder"] = model.encoder  # type: ignore
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

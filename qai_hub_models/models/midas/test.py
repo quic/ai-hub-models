@@ -5,7 +5,7 @@
 import numpy as np
 import pytest
 
-from qai_hub_models.models.midas.app import MidasApp
+from qai_hub_models.models._shared.depth_estimation.app import DepthEstimationApp
 from qai_hub_models.models.midas.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.midas.demo import main as demo_main
 from qai_hub_models.models.midas.model import MODEL_ASSET_VERSION, MODEL_ID, Midas
@@ -21,7 +21,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 @skip_clone_repo_check
 def test_task():
     (_, _, height, width) = Midas.get_input_spec()["image"][0]
-    app = MidasApp(Midas.from_pretrained(), height, width)
+    app = DepthEstimationApp(Midas.from_pretrained(), height, width)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.estimate_depth(original_image)
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)
@@ -36,7 +36,7 @@ def test_task():
 def test_trace():
     (_, _, height, width) = Midas.get_input_spec()["image"][0]
     traced_model = Midas.from_pretrained().convert_to_torchscript(check_trace=False)
-    app = MidasApp(traced_model, height, width)
+    app = DepthEstimationApp(traced_model, height, width)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.estimate_depth(original_image)
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)

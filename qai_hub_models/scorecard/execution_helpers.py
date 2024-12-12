@@ -41,7 +41,7 @@ def get_compile_parameterized_pytest_config(
     """
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
-    path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_compile_paths(
+    path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_paths(
         enabled=True, supports_quantization=model_is_quantized or None
     )
 
@@ -68,7 +68,7 @@ def get_profile_parameterized_pytest_config(
     """
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
-    path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_profile_paths(
+    path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
         enabled=True, supports_quantization=model_is_quantized or None
     )
     needs_fp16 = not model_is_quantized

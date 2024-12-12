@@ -43,7 +43,7 @@ def has_recommended_memory(required_memory_in_gb: float) -> None:
             "sudo mkswap /local/mnt/swapfile  # Set up a Linux swap area",
             "sudo swapon /local/mnt/swapfile  # Turn the swap on",
             "",
-            "You can update `count` to increase swap space that works for machine."
-            "NOTE: above commands does not persist through reboot.",
+            "You can update `count` to increase swap space that works for machine.",
+            "NOTE: the above commands will not persist through a reboot.",
         ]
         print_with_box(warning_msgs)

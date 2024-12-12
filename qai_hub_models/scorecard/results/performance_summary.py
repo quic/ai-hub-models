@@ -4,12 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import functools
-import multiprocessing
 import pprint
 from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Generic, TypeVar, Union
 
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -23,9 +20,11 @@ from qai_hub_models.scorecard.results.chipset_helpers import (
 )
 from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
+    InferenceScorecardJob,
     ProfileScorecardJob,
+    ScorecardJobTypeVar,
+    ScorecardPathTypeVar,
 )
-from qai_hub_models.utils.config_loaders import MODEL_IDS
 
 # Caching this information is helpful because it requires pulling data from hub.
 # Pulling data from hub is slow.
@@ -58,21 +57,124 @@ def get_reference_device_info(device: ScorecardDevice) -> dict[str, str]:
     return __REFERENCE_DEVICE_INFO_PER_CHIPSET[chipset]
 
 
-@dataclass
-class DevicePerfSummary:
-    device: ScorecardDevice
-    run_per_path: dict[ScorecardProfilePath, ProfileScorecardJob]  # Map<path, Summary>
+class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar]):
+    def __init__(
+        self,
+        device: ScorecardDevice,
+        run_per_path: dict[
+            ScorecardPathTypeVar, ScorecardJobTypeVar
+        ],  # Map<path, Summary>
+    ):
+        self.device = device
+        self.run_per_path: dict[
+            ScorecardPathTypeVar, ScorecardJobTypeVar
+        ] = run_per_path
 
-    @staticmethod
-    def from_runs(device: ScorecardDevice, path_runs: list[ProfileScorecardJob]):
+    @classmethod
+    def from_runs(
+        cls: type[_DeviceSummaryTypeVar],
+        device: ScorecardDevice,
+        path_runs: list[ScorecardJobTypeVar],
+    ):
         # Figure out unique devices in various baselines
-        run_per_path: dict[ScorecardProfilePath, ProfileScorecardJob] = {}
+        run_per_path: dict[ScorecardPathTypeVar, ScorecardJobTypeVar] = {}
         for run in path_runs:
             assert run._device == device  # Device should match
-            run_per_path[run.path] = run
+            run_per_path[run.path] = run  # type: ignore
 
-        return DevicePerfSummary(device, run_per_path)
+        return cls(device, run_per_path)
 
+
+_DeviceSummaryTypeVar = TypeVar("_DeviceSummaryTypeVar", bound=ScorecardDeviceSummary)
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+DeviceSummaryTypeVar = TypeVar(
+    "DeviceSummaryTypeVar",
+    "DevicePerfSummary",
+    "DeviceCompileSummary",
+    "DeviceInferenceSummary",
+)
+
+
+class ScorecardModelSummary(Generic[DeviceSummaryTypeVar, ScorecardJobTypeVar]):
+    device_summary_type: type[DeviceSummaryTypeVar]
+
+    def __init__(
+        self,
+        model_id: str,
+        runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar],
+    ):
+        self.model_id = model_id
+        self.runs_per_device: dict[
+            ScorecardDevice, DeviceSummaryTypeVar
+        ] = runs_per_device
+
+    @classmethod
+    def from_runs(
+        cls: type[_ModelSummaryTypeVar],
+        model_id: str,
+        path_runs: list[ScorecardJobTypeVar],
+    ):
+        runs_per_device: dict[ScorecardDevice, list[ScorecardJobTypeVar]] = {}
+        for run in path_runs:
+            assert run.model_id == model_id  # model id should match
+            list = runs_per_device.get(run._device, [])
+            runs_per_device[run._device] = list
+            list.append(run)
+
+        return cls(
+            model_id,
+            {
+                device: cls.device_summary_type.from_runs(device, runs)
+                for device, runs in runs_per_device.items()
+            },
+        )
+
+
+_ModelSummaryTypeVar = TypeVar("_ModelSummaryTypeVar", bound=ScorecardModelSummary)
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+ModelSummaryTypeVar = TypeVar(
+    "ModelSummaryTypeVar",
+    "ModelPerfSummary",
+    "ModelCompileSummary",
+    "ModelInferenceSummary",
+)
+
+
+class ScorecardSummary(Generic[ModelSummaryTypeVar, ScorecardJobTypeVar]):
+    model_summary_type: type[ModelSummaryTypeVar]
+
+    def __init__(self, runs_per_model: dict[str, ModelSummaryTypeVar]):
+        self.runs_per_model: dict[str, ModelSummaryTypeVar] = runs_per_model
+
+    @classmethod
+    def from_runs(
+        cls: type[_ScorecardSummaryTypeVar], model_runs: list[ScorecardJobTypeVar]
+    ) -> _ScorecardSummaryTypeVar:
+        # Figure out unique models in various baselines
+        runs_per_model: dict[str, list[ScorecardJobTypeVar]] = {}
+        for run in model_runs:
+            list = runs_per_model.get(run.model_id, [])
+            list.append(run)
+            runs_per_model[run.model_id] = list
+
+        return cls(
+            {
+                model_id: cls.model_summary_type.from_runs(model_id, runs)
+                for model_id, runs in runs_per_model.items()
+            }
+        )
+
+
+_ScorecardSummaryTypeVar = TypeVar("_ScorecardSummaryTypeVar", bound=ScorecardSummary)
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+ScorecardSummaryTypeVar = TypeVar(
+    "ScorecardSummaryTypeVar", "CompileSummary", "PerfSummary", "InferenceSummary"
+)
+
+
+class DevicePerfSummary(
+    ScorecardDeviceSummary[ProfileScorecardJob, ScorecardProfilePath]
+):
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
@@ -107,30 +209,8 @@ class DevicePerfSummary:
         return pprint.pformat(self.get_perf_card())
 
 
-@dataclass
-class ModelPerfSummary:
-    model_id: str
-    runs_per_device: dict[
-        ScorecardDevice, DevicePerfSummary
-    ]  # Map<Device Name, Summary>
-
-    @staticmethod
-    def from_runs(model_id: str, device_runs: list[ProfileScorecardJob]):
-        # Figure out unique devices in various baselines
-        runs_per_device: dict[ScorecardDevice, list[ProfileScorecardJob]] = {}
-        for run in device_runs:
-            assert run.model_id == model_id  # All should have the same model ID
-            list = runs_per_device.get(run._device, [])
-            runs_per_device[run._device] = list
-            list.append(run)
-
-        return ModelPerfSummary(
-            model_id,
-            {
-                device: DevicePerfSummary.from_runs(device, runs)
-                for device, runs in runs_per_device.items()
-            },
-        )
+class ModelPerfSummary(ScorecardModelSummary[DevicePerfSummary, ProfileScorecardJob]):
+    device_summary_type = DevicePerfSummary
 
     def get_universal_assets(self, exclude_paths: Iterable[ScorecardProfilePath] = []):
         universal_assets = {}
@@ -142,7 +222,7 @@ class ModelPerfSummary:
             for runs_per_device in self.runs_per_device.values():
                 path_run = runs_per_device.run_per_path.get(path, None)
                 if path_run and path_run.success:
-                    universal_assets[path.long_name] = path_run.job.model.model_id  # type: ignore
+                    universal_assets[path.long_name] = path_run.job.model.model_id
 
         return universal_assets
 
@@ -173,73 +253,8 @@ class ModelPerfSummary:
         return pprint.pformat(self.get_perf_card())
 
 
-@dataclass
-class PerfSummary:
-    runs_per_model: dict[str, ModelPerfSummary]  # Map<Model ID, Summary>
-
-    @staticmethod
-    def from_model_ids(
-        job_ids: dict[str, str],
-        model_ids=MODEL_IDS,
-        max_job_wait_secs: int | None = None,
-    ) -> dict[str, PerfSummary]:
-        """
-        Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>_<path>-<device>_<model_component_id> : job_id
-            <model_id>_<path>-<device> : job_id
-
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        print("Generating Performance Summary for Models")
-        pool = multiprocessing.Pool(processes=15)
-        model_summaries = pool.map(
-            functools.partial(
-                PerfSummary.from_model_id,
-                job_ids=job_ids,
-                max_job_wait_secs=max_job_wait_secs,
-            ),
-            model_ids,
-        )
-        pool.close()
-        print("Finished\n")
-        return {k: v for k, v in model_summaries}
-
-    @staticmethod
-    def from_model_id(
-        model_id: str,
-        job_ids: dict[str, str],
-        max_job_wait_secs: int | None = None,
-    ) -> tuple[str, PerfSummary]:
-        """
-        Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>_<path>-<device>_<model_component_id> : job_id
-            <model_id>_<path>-<device> : job_id
-
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        print(f"    {model_id} ")
-        runs = ProfileScorecardJob.from_model_id(model_id, job_ids, max_job_wait_secs)
-        return model_id, PerfSummary.from_runs(runs)
-
-    @staticmethod
-    def from_runs(model_runs: list[ProfileScorecardJob]):
-        # Figure out unique models in various baselines
-        runs_per_model: dict[str, list[ProfileScorecardJob]] = {}
-        for run in model_runs:
-            list = runs_per_model.get(run.model_id, [])
-            list.append(run)
-            runs_per_model[run.model_id] = list
-
-        return PerfSummary(
-            {
-                model_id: ModelPerfSummary.from_runs(model_id, runs)
-                for model_id, runs in runs_per_model.items()
-            }
-        )
+class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
+    model_summary_type = ModelPerfSummary
 
     def get_chipsets(
         self,
@@ -311,114 +326,33 @@ class PerfSummary:
         return pprint.pformat(self.get_perf_card())
 
 
-@dataclass
-class DeviceCompileSummary:
-    device: ScorecardDevice
-    run_per_path: dict[ScorecardCompilePath, CompileScorecardJob]  # Map<path, Summary>
-
-    @staticmethod
-    def from_runs(device: ScorecardDevice, path_runs: list[CompileScorecardJob]):
-        # Figure out unique devices in various baselines
-        run_per_path: dict[ScorecardCompilePath, CompileScorecardJob] = {}
-        for run in path_runs:
-            assert run._device == device  # Device should match
-            run_per_path[run.path] = run
-
-        return DeviceCompileSummary(device, run_per_path)
+class DeviceCompileSummary(
+    ScorecardDeviceSummary[CompileScorecardJob, ScorecardCompilePath]
+):
+    pass
 
 
-@dataclass
-class ModelCompileSummary:
-    model_id: str
-    runs_per_device: dict[
-        ScorecardDevice, DeviceCompileSummary
-    ]  # Map<Device Name, Summary>
-
-    @staticmethod
-    def from_runs(model_id: str, path_runs: list[CompileScorecardJob]):
-        runs_per_device: dict[ScorecardDevice, list[CompileScorecardJob]] = {}
-        for run in path_runs:
-            assert run.model_id == model_id  # model id should match
-            list = runs_per_device.get(run._device, [])
-            runs_per_device[run._device] = list
-            list.append(run)
-        return ModelCompileSummary(
-            model_id,
-            {
-                device: DeviceCompileSummary.from_runs(device, runs)
-                for device, runs in runs_per_device.items()
-            },
-        )
+class ModelCompileSummary(
+    ScorecardModelSummary[DeviceCompileSummary, CompileScorecardJob]
+):
+    device_summary_type = DeviceCompileSummary
 
 
-@dataclass
-class CompileSummary:
-    runs_per_model: dict[str, ModelCompileSummary]  # Map<Model ID, Summary>
+class CompileSummary(ScorecardSummary[ModelCompileSummary, CompileScorecardJob]):
+    model_summary_type = ModelCompileSummary
 
-    @staticmethod
-    def from_model_ids(
-        job_ids: dict[str, str],
-        model_ids=MODEL_IDS,
-        max_job_wait_secs: int | None = None,
-    ) -> dict[str, CompileSummary]:
-        """
-        Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>_<runtime>-<device>_<model_component_id> : job_id
-            <model_id>_<runtime>-<device> : job_id
-            <model_id>_<runtime>_<model_component_id> : job_id
-            <model_id>_<runtime> : job_id
 
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        print("Generating Compilation Summary for Models")
-        pool = multiprocessing.Pool(processes=15)
-        model_summaries = pool.map(
-            functools.partial(
-                CompileSummary.from_model_id,
-                job_ids=job_ids,
-                max_job_wait_secs=max_job_wait_secs,
-            ),
-            model_ids,
-        )
-        pool.close()
-        print("Finished\n")
-        return {k: v for k, v in model_summaries}
+class DeviceInferenceSummary(
+    ScorecardDeviceSummary[InferenceScorecardJob, ScorecardProfilePath]
+):
+    pass
 
-    @staticmethod
-    def from_model_id(
-        model_id: str,
-        job_ids: dict[str, str],
-        max_job_wait_secs: int | None = None,
-    ) -> tuple[str, CompileSummary]:
-        """
-        Reads jobs for every `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>_<runtime>-<device>_<model_component_id> : job_id
-            <model_id>_<runtime>-<device> : job_id
-            <model_id>_<runtime>_<model_component_id> : job_id
-            <model_id>_<runtime> : job_id
 
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        print(f"    {model_id} ")
-        runs = CompileScorecardJob.from_model_id(model_id, job_ids, max_job_wait_secs)
-        return model_id, CompileSummary.from_runs(runs)
+class ModelInferenceSummary(
+    ScorecardModelSummary[DeviceInferenceSummary, InferenceScorecardJob]
+):
+    device_summary_type = DeviceInferenceSummary
 
-    @staticmethod
-    def from_runs(model_runs: list[CompileScorecardJob]) -> CompileSummary:
-        # Figure out unique models in various baselines
-        runs_per_model: dict[str, list[CompileScorecardJob]] = {}
-        for run in model_runs:
-            list = runs_per_model.get(run.model_id, [])
-            list.append(run)
-            runs_per_model[run.model_id] = list
 
-        return CompileSummary(
-            {
-                model_id: ModelCompileSummary.from_runs(model_id, runs)
-                for model_id, runs in runs_per_model.items()
-            }
-        )
+class InferenceSummary(ScorecardSummary[ModelInferenceSummary, InferenceScorecardJob]):
+    model_summary_type = ModelInferenceSummary

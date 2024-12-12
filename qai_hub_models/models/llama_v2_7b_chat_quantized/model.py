@@ -47,7 +47,7 @@ from transformers import AutoConfig, LlamaTokenizer  # noqa: E402
 
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 8
+MODEL_ASSET_VERSION = 9
 
 # Configs
 AIMET_ENCODINGS_PREFIX = "config"
@@ -302,12 +302,10 @@ def _get_llama_model_with_split(
         model.eval()
 
     # Download quantization config and pre-computed encodings
-    model_encoding_tag = "tg" if is_token_generator else "pp"
     aimet_encodings = str(
         os.path.join(
             AIMET_ENCODINGS_PREFIX,
-            model_encoding_tag,
-            f"llama_{model_encoding_tag}_sha_{split_part - 1}.encodings",
+            f"llama_sha_{split_part - 1}.encodings",
         )
     )
     aimet_encodings = str(

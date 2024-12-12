@@ -31,7 +31,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["TrOCREncoder", "TrOCRDecoder"]
+ALL_COMPONENTS = ["TrOCRDecoder", "TrOCREncoder"]
 
 
 def export_model(
@@ -123,10 +123,10 @@ def export_model(
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
-    if "TrOCREncoder" in components:
-        components_dict["TrOCREncoder"] = model.encoder  # type: ignore
     if "TrOCRDecoder" in components:
         components_dict["TrOCRDecoder"] = model.decoder  # type: ignore
+    if "TrOCREncoder" in components:
+        components_dict["TrOCREncoder"] = model.encoder  # type: ignore
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

@@ -85,13 +85,15 @@ def get_model_python_version_requirements(
     req_less_than, min_version = None, None
     if os.path.exists(info):
         info_data = open(info).read()
-        req_less_than = re.search(r'python_version_less_than:\s*"([\d.]+)"', info_data)
+        req_less_than = re.search(
+            r'python_version_less_than:\s*["\']([\d.]+)["\']', info_data
+        )
         if req_less_than:
             spl = req_less_than.group(1).split(".")
             req_less_than = int(spl[0]), int(spl[1])
 
         min_version = re.search(
-            r'python_version_greater_than_or_equal_to:\s*"([\d.]+)"', info_data
+            r'python_version_greater_than_or_equal_to:\s*["\']([\d.]+)["\']', info_data
         )
         if min_version:
             spl = min_version.group(1).split(".")

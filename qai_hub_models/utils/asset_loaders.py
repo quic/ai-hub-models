@@ -43,7 +43,7 @@ ASSET_BASES_DEFAULT_PATH = os.path.join(
 
 QAIHM_STORE_ROOT = os.environ.get("QAIHM_STORE_ROOT", os.path.expanduser("~"))
 LOCAL_STORE_DEFAULT_PATH = os.path.join(QAIHM_STORE_ROOT, ".qaihm")
-
+EXECUTING_IN_CI_ENVIRONMENT = os.getenv("QAIHM_CI", "0") == "1"
 SOURCE_AS_ROOT_LOCK = threading.Lock()
 
 VersionType = Union[str, int]
@@ -132,6 +132,7 @@ def maybe_clone_git_repo(
     model_name: str,
     model_version: VersionType,
     patches: list[str] = [],
+    ask_to_clone: bool = not EXECUTING_IN_CI_ENVIRONMENT,
 ) -> Path:
     """Clone (or pull) a repository, save it to disk in a standard location,
     and return the absolute path to the cloned location. Patches can be applied
@@ -147,8 +148,12 @@ def maybe_clone_git_repo(
 
     if not os.path.exists(os.path.join(local_path, ".git")):
         # Clone repo
-        should_clone = _query_yes_no(
-            f"{model_name} requires repository {git_file_path} . Ok to clone?",
+        should_clone = (
+            True
+            if not ask_to_clone
+            else _query_yes_no(
+                f"{model_name} requires repository {git_file_path} . Ok to clone?",
+            )
         )
         if should_clone:
             print(f"Cloning {git_file_path} to {local_path}...")
@@ -285,6 +290,7 @@ def SourceAsRoot(
     source_repo_version: int | str,
     source_repo_patches: list[str] = [],
     keep_sys_modules: bool = True,
+    ask_to_clone: bool = not EXECUTING_IN_CI_ENVIRONMENT,
 ):
     """
     Context manager that runs code with:
@@ -301,6 +307,7 @@ def SourceAsRoot(
             source_repo_name,
             source_repo_version,
             patches=source_repo_patches,
+            ask_to_clone=ask_to_clone,
         )
     )
     SOURCE_AS_ROOT_LOCK.acquire()
@@ -972,7 +979,7 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
     `dst_folder` should be relative to the local cache root for qai_hub_models.
     """
     if not os.path.exists(dst_path):
-        print(f"Downloading data at {web_url} to {dst_path}... ", end="")
+        print(f"Downloading data at {web_url} to {dst_path}")
 
         # Streaming, so we can iterate over the response.
         response = requests.get(web_url, stream=True)

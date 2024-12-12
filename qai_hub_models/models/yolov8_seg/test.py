@@ -7,13 +7,11 @@ import pytest
 import torch
 from ultralytics import YOLO as ultralytics_YOLO
 
-from qai_hub_models.models.yolov8_seg.app import YoloV8SegmentationApp
+from qai_hub_models.models._shared.yolo.app import YoloSegmentationApp
+from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
 from qai_hub_models.models.yolov8_seg.demo import IMAGE_ADDRESS, OUTPUT_IMAGE_ADDRESS
 from qai_hub_models.models.yolov8_seg.demo import main as demo_main
-from qai_hub_models.models.yolov8_seg.model import (
-    YoloV8Segmentor,
-    yolov8_segment_postprocess,
-)
+from qai_hub_models.models.yolov8_seg.model import NUM_ClASSES, YoloV8Segmentor
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
 from qai_hub_models.utils.testing import assert_most_close
@@ -25,14 +23,14 @@ def test_task():
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     source_model = ultralytics_YOLO(WEIGHTS).model
     qaihm_model = YoloV8Segmentor.from_pretrained(WEIGHTS)
-    qaihm_app = YoloV8SegmentationApp(qaihm_model)
+    qaihm_app = YoloSegmentationApp(qaihm_model)
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
     processed_sample_image = qaihm_app.preprocess_input(processed_sample_image)
 
     with torch.no_grad():
         # original model output
         source_out = source_model(processed_sample_image)
-        source_out_postprocessed = yolov8_segment_postprocess(source_out[0])
+        source_out_postprocessed = yolo_segment_postprocess(source_out[0], NUM_ClASSES)
         source_out = [*source_out_postprocessed, source_out[1][-1]]
 
         # Qualcomm AI Hub Model output
@@ -49,7 +47,7 @@ def test_trace():
 
     # Collect output via app for traced model
     img = load_image(IMAGE_ADDRESS)
-    app = YoloV8SegmentationApp(trace)
+    app = YoloSegmentationApp(trace)
     out_imgs = app.predict(img)
 
     expected_out = load_image(OUTPUT_IMAGE_ADDRESS)

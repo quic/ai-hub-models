@@ -4,21 +4,31 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from collections.abc import Callable
+import functools
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import torch
 
+from qai_hub_models.models.sam.model_patches import (
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+    SAM_SOURCE_REPO,
+    SAM_SOURCE_REPO_COMMIT,
+    Conv2DInplaceLinearSAMMaskDecoderMLP,
+    Conv2DInplaceLinearSAMTransformerMLPBlock,
+    SAMMaskDecoderMLP,
+    SplitHeadSAMDecoderAttention,
+    SplitHeadSAMEncoderAttention,
+    sam_decoder_predict_masks,
+    window_partition_5d,
+    window_unpartition_5d,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-# This is a fork of https://github.com/facebookresearch/segment-anything
-# with changes to make the SAM decoder traceable
-SAM_SOURCE_REPO = "https://github.com/dmckinnon/segment-anything"
-SAM_SOURCE_REPO_COMMIT = "0bc06e062ca883c2524bfa79061807c535eb0d51"
-MODEL_ID = __name__.split(".")[-2]
 DEFAULT_MODEL_TYPE = "vit_l"
 SMALL_MODEL_TYPE = "vit_b"
 MODEL_REGISTERY = {
@@ -26,91 +36,235 @@ MODEL_REGISTERY = {
     "vit_l": "sam_vit_l_0b3195.pth",  # 308M params
     "vit_h": "sam_vit_h_4b8939.pth",  # 636M params
 }
-MODEL_ASSET_VERSION = 1
+
+with SourceAsRoot(
+    SAM_SOURCE_REPO,
+    SAM_SOURCE_REPO_COMMIT,
+    MODEL_ID,
+    MODEL_ASSET_VERSION,
+):
+    from segment_anything import SamPredictor, sam_model_registry  # noqa: F401
+    from segment_anything.modeling import image_encoder as sam_image_encoder
+    from segment_anything.modeling.image_encoder import Block as SAM_Encoder_Block
+    from segment_anything.modeling.sam import Sam
+    from segment_anything.modeling.transformer import (
+        TwoWayAttentionBlock,
+        TwoWayTransformer,
+    )
+    from segment_anything.utils.onnx import SamOnnxModel
+    from segment_anything.utils.transforms import ResizeLongestSide  # noqa: F401
+
+
+# Patch Encoder to use 5D Window Partition (rather than 6D)
+setattr(sam_image_encoder, "window_partition", window_partition_5d)
+setattr(sam_image_encoder, "window_unpartition", window_unpartition_5d)
 
 
 class SAMQAIHMWrapper(CollectionModel):
     """
-    QAIHM version of segment-anything (https://github.com/dmckinnon/segment-anything)
-
-    QAIHM fork modifies following from parent segment-anything repo:
-        1. window_partition in encoder works on rank-5 tensor instead of rank-6 tensor
-        2. SamOnnxModel accepts `orig_img_size` to use static upsample instead of dynamic upsample
+    "Holding class" for all pieces of SAM.
     """
 
     def __init__(
         self,
-        sam: torch.nn.Module,
-        sam_encoder: Callable,
-        SamOnnxModel,
-        ResizeLongestSide,
-        SamPredictor,
+        sam: Sam,
+        num_encoder_splits: int,
+        single_mask_mode: bool = True,
     ):
         self.sam = sam
-        self.sam_encoder = sam_encoder
-        self.SamOnnxModel = SamOnnxModel
-        self.ResizeLongestSide = ResizeLongestSide
-        self.SamPredictor = SamPredictor
-
-    def get_sam(self) -> torch.nn.Module:
-        return self.sam
-
-    def get_sam_encoder(self) -> Callable:
-        return self.sam_encoder
-
-    # Create a new decoder
-    def get_sam_decoder(
-        self, orig_img_size: tuple[int, int] = (720, 1280), single_mask_mode=True
-    ) -> Callable:
-        self.sam_decoder = SegmentAnythingONNXDecoder(
-            self,
-            single_mask_mode=single_mask_mode,
-            orig_img_size=orig_img_size,
-        )
-        return self.sam_decoder
+        self.encoder_splits = SAMEncoderPart.create_with_splits(sam, num_encoder_splits)
+        self.decoder = SAMDecoder(self.sam, return_single_mask=single_mask_mode)
 
     @classmethod
-    def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAMQAIHMWrapper:
-        with SourceAsRoot(
-            SAM_SOURCE_REPO, SAM_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
-        ):
-            from segment_anything import SamPredictor, sam_model_registry
-            from segment_anything.utils.onnx import SamOnnxModel
-            from segment_anything.utils.transforms import ResizeLongestSide
+    def from_pretrained(
+        cls, model_type: str = SMALL_MODEL_TYPE, num_encoder_splits=5
+    ) -> SAMQAIHMWrapper:
+        sam: Sam = sam_model_registry[model_type](_get_weights_path(model_type))
 
-            sam = sam_model_registry[model_type](_get_weights_path(model_type))
-            sam_encoder = SegmentAnythingEncoder(sam, ResizeLongestSide)
-            return cls(sam, sam_encoder, SamOnnxModel, ResizeLongestSide, SamPredictor)
+        # Normalize pixel_mean and pixel_std for fp ([0, 1]) input
+        sam.pixel_mean = sam.pixel_mean / 255.0  # [0-255] -> [0, 1]
+        sam.pixel_std = sam.pixel_std / 255.0  # [0-255] -> [0, 1]
 
-    def __call__(self, image: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError("Cannot call SAMQAIHMWrapper directly")
+        ###
+        # Patch the graph for compatibility with QNN.
+        #
+        # All below optimizations either optimize for QNN inference speed,
+        # or fix failures that occur when compiling to QNN.
+        ###
+        for block in sam.image_encoder.blocks:
+            assert isinstance(block, SAM_Encoder_Block)
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)  # type: ignore
+            block.attn = SplitHeadSAMEncoderAttention(block.attn)  # type: ignore
+
+        sam.mask_decoder.predict_masks = functools.partial(
+            sam_decoder_predict_masks, sam.mask_decoder
+        )
+        for i in range(0, len(sam.mask_decoder.output_hypernetworks_mlps)):
+            mlp = cast(SAMMaskDecoderMLP, sam.mask_decoder.output_hypernetworks_mlps[i])
+            sam.mask_decoder.output_hypernetworks_mlps[
+                i
+            ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+        sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(sam.mask_decoder.iou_prediction_head)  # type: ignore
+
+        transformer = cast(TwoWayTransformer, sam.mask_decoder.transformer)
+        transformer.final_attn_token_to_image = SplitHeadSAMDecoderAttention(transformer.final_attn_token_to_image)  # type: ignore
+        for block in transformer.layers:
+            assert isinstance(block, TwoWayAttentionBlock)
+            block.self_attn = SplitHeadSAMDecoderAttention(block.self_attn)  # type: ignore
+            block.cross_attn_token_to_image = SplitHeadSAMDecoderAttention(block.cross_attn_token_to_image)  # type: ignore
+            block.cross_attn_image_to_token = SplitHeadSAMDecoderAttention(block.cross_attn_image_to_token)  # type: ignore
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)  # type: ignore
+
+        return cls(sam, num_encoder_splits)
 
 
-class SegmentAnythingEncoder(BaseModel):
-    """Exportable SAM encoder"""
+class SAMEncoderPart(BaseModel):
+    """Exportable SAM encoder that can be split into several parts."""
+
+    @classmethod
+    def create_with_splits(cls, sam: Sam, num_splits: int) -> list[SAMEncoderPart]:
+        """
+        Split the encoder into parts by assigning each an equal portion of N sequential attention blocks.
+
+        Returns num_splits encoders, each with the same number of attention blocks.
+        The encoders will be returned in the order they should be executed.
+
+        The first encoder will contain the image embedding step, and the last encoder will contain the encoder "neck".
+        """
+        encoder_splits = []
+        if num_splits == 0:
+            # Single end-to-end encoder (default constructor)
+            encoder_splits.append(SAMEncoderPart(sam))
+        else:
+            # Split the encoder into several models.
+            # Each model will have a portion of the transformer blocks.
+
+            # Get number of transformer blocks that should be included in each model
+            n_transformer_blocks = len(sam.image_encoder.blocks)
+            block_split_len = n_transformer_blocks // (num_splits + 1)
+
+            # Generate split indices
+            split_idx: list[tuple[int, int]] = []
+            for i in range(0, num_splits + 1):
+                split_idx.append((i * block_split_len, (i + 1) * block_split_len))
+
+            # Add make sure final split if self.num_encoder_splits + 1 is the last transformer block.
+            # This is necessary if self.num_encoder_splits + 1 does not evenly divide n_transformer_blocks
+            split_idx[-1] = (split_idx[-1][0], n_transformer_blocks)
+
+            # Add first encoder. Includes embedding + transformer blocks.
+            encoder_splits.append(
+                SAMEncoderPart(
+                    sam,
+                    include_embedding=True,
+                    include_transformer_blocks=split_idx[0],
+                    include_neck=False,
+                )
+            )
+
+            # Add several encoders consisting of only transformer blocks..
+            for i in range(1, len(split_idx) - 1):
+                encoder_splits.append(
+                    SAMEncoderPart(
+                        sam,
+                        include_embedding=False,
+                        include_transformer_blocks=split_idx[i],
+                        include_neck=False,
+                    )
+                )
+
+            # Add final encoder. Includes transformer blocks + neck.
+            encoder_splits.append(
+                SAMEncoderPart(
+                    sam,
+                    include_embedding=False,
+                    include_transformer_blocks=split_idx[-1],
+                    include_neck=True,
+                )
+            )
+
+        return encoder_splits
 
     def __init__(
         self,
-        sam: torch.nn.Module,
-        ResizeLongestSide: Callable,
+        sam: Sam,
+        include_embedding: bool = True,
+        include_transformer_blocks: tuple[int, int] | None = (0, -1),
+        include_neck=True,
     ) -> None:
         super().__init__()
         self.sam = sam
-        self.transforms = ResizeLongestSide(self.sam.image_encoder.img_size)
+        self.include_embedding = include_embedding
+        self.include_neck = include_neck
+        self.include_transformer_blocks = include_transformer_blocks
 
-    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        if (
+            not include_embedding
+            and not include_transformer_blocks
+            and not include_neck
+        ):
+            raise ValueError("You must include at least 1 slice of the encoder")
+
+    def forward(self, xOrImage: torch.Tensor) -> torch.Tensor:
         """
         Run SAM Image encoder and returns image embeddings
 
         Parameters:
-            image: Pixel values pre-procewindow_partitionssed for encoder consumption.
-                   Range: float[0, 255] normalized via preprocess_input_image
-                   3-channel Color Space: RGB
+            xOrImage:
+                   If self.include_embedding is true:
+                        Raw floating point pixel values for encoder consumption.
+                        3-channel Color Space: RGB, range [0, 1]
+
+                    Otherwise:
+                        An intermediate tensor that is an output of a different "slice" of the encoder.
+                        Shape (batch_size, 64, 64, 768)
 
         Returns:
-            image_embeddings
+            If self.include_neck:
+                image_embeddings
+                Shape (1, 256, 64, 64)
+
+            else:
+                An intermeidate tensor output of this "slice" of the encoder.
+                Shape (batch_size, 64, 64, 768)
         """
-        return self.sam.image_encoder(image)
+        x = xOrImage
+        if self.include_embedding:
+            x = self.sam.preprocess(x)
+            x = self.sam.image_encoder.patch_embed(x)
+            if self.sam.image_encoder.pos_embed is not None:
+                x = x + self.sam.image_encoder.pos_embed
+
+        if self.include_transformer_blocks is not None:
+            for blk in self.sam.image_encoder.blocks[self.include_transformer_blocks[0] : self.include_transformer_blocks[1]]:  # type: ignore
+                x = blk(x)
+
+        if self.include_neck:
+            x = self.sam.image_encoder.neck(x.permute(0, 3, 1, 2))
+
+        return x
+
+    @staticmethod
+    def get_input_spec(
+        batch_size: int = 1,
+        encoder_img_height: int = 1024,  # self.sam.image_encoder.img_size
+        encoder_img_width: int = 1024,  # self.sam.image_encoder.img_size
+        include_embedding: bool = True,
+        embedding_size: int = 768,
+    ) -> InputSpec:
+        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
+        #
+        # This can be used with the qai_hub python API to declare
+        # the model input specification upon submitting a profile job.
+        if include_embedding:
+            return {
+                "image": (
+                    (batch_size, 3, encoder_img_height, encoder_img_width),
+                    "float32",
+                )
+            }
+        else:
+            return {"x": ((batch_size, 64, 64, embedding_size), "float32")}
 
     def _get_input_spec_for_instance(
         self,
@@ -118,44 +272,41 @@ class SegmentAnythingEncoder(BaseModel):
     ) -> InputSpec:
         """
         Override for model.get_input_spec() when called on instances of this class.
-
-        The initializer for BaseModel will automatically override get_input_spec
-        with this function when the class is instantiated.
         """
         return self.__class__.get_input_spec(
             batch_size,
             self.sam.image_encoder.img_size,
             self.sam.image_encoder.img_size,
+            self.include_embedding,
+            self.sam.image_encoder.blocks[0].attn.in_feature,
         )
 
     @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        encoder_img_height: int = 1024,  # self.sam.image_encoder.img_size[0]
-        encoder_img_width: int = 1024,  # self.sam.image_encoder.img_size[1]
-    ) -> InputSpec:
-        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
-        #
-        # This can be used with the qai_hub python API to declare
-        # the model input specification upon submitting a profile job.
-        return {
-            "image": (
-                (batch_size, 3, encoder_img_height, encoder_img_width),
-                "float32",
-            )
-        }
+    def get_channel_last_inputs(include_embedding=True) -> list[str]:
+        return list(
+            SAMEncoderPart.get_input_spec(include_embedding=include_embedding).keys()
+        )
+
+    def _get_channel_last_inputs_for_instance(self) -> list[str]:
+        return self.__class__.get_channel_last_inputs(self.include_embedding)
 
     @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
+    def get_channel_last_outputs(include_neck=True) -> list[str]:
+        return SAMEncoderPart.get_output_names(include_neck)
+
+    def _get_channel_last_outputs_for_instance(self) -> list[str]:
+        return self.__class__.get_channel_last_outputs(self.include_neck)
 
     @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["image_embeddings"]
+    def get_output_names(include_neck=True) -> list[str]:
+        return (
+            ["image_embeddings"]
+            if include_neck
+            else ["intermediate_SAM_encoder_output"]
+        )
 
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["image_embeddings"]
+    def _get_output_names_for_instance(self):
+        return SAMEncoderPart.get_output_names(self.include_neck)
 
     def preprocess_input_image(self, input_image: np.ndarray):
         """Transform input image to work with SAM encoder"""
@@ -171,36 +322,47 @@ class SegmentAnythingEncoder(BaseModel):
         return self.sam.preprocess(transformed_image)
 
     @classmethod
-    def from_pretrained(cls):
-        return SAMQAIHMWrapper.from_pretrained().get_sam_encoder()
+    def from_pretrained(cls, model_type: str = SMALL_MODEL_TYPE):
+        return SAMQAIHMWrapper.from_pretrained(
+            model_type, num_encoder_splits=0
+        ).encoder_splits[0]
 
 
-class SegmentAnythingONNXDecoder(BaseModel):
-    """Exportable SAM decoder"""
+class SAMDecoder(BaseModel):
+    """
+    Adapted from from segment_anything.utils.onnx.SamOnnxModel with modifications.
 
-    def __init__(
-        self,
-        sam_qaihm_wrapper: SAMQAIHMWrapper,
-        orig_img_size: tuple[int, int] = (720, 1280),
-        single_mask_mode: bool = True,
-    ) -> None:
+    This removes output mask resizing. Because this requires a dynamic shape to accomplish
+    in the network, it's better to do this as a postprocessing step rather than in the inference
+    framework itself.
+    """
+
+    def __init__(self, sam: Sam, return_single_mask: bool):
         super().__init__()
-        self.sam = sam_qaihm_wrapper.get_sam()
-        self.sam_decoder = sam_qaihm_wrapper.SamOnnxModel(
-            self.sam, orig_img_size=orig_img_size, return_single_mask=single_mask_mode
-        )
-        self.transforms = sam_qaihm_wrapper.ResizeLongestSide(
-            self.sam.image_encoder.img_size
-        )
+        self.model = sam
+        self.embed_size = self.model.prompt_encoder.image_embedding_size
+        self.img_size = sam.image_encoder.img_size
+        self.return_single_mask = return_single_mask
+
+    def _embed_masks(self, input_mask: torch.Tensor | None) -> torch.Tensor:
+        """
+        Lifted from segment_anything.utils.onnx.SamOnnxModel
+
+        Modified to remove ops based on whether input_mask is set.
+        """
+        if input_mask is not None:
+            return self.model.prompt_encoder.mask_downscaling(input_mask)
+        return torch.zeros(
+            1, 1, *self.embed_size
+        ) + self.model.prompt_encoder.no_mask_embed.weight.reshape(1, -1, 1, 1)
 
     def forward(
         self,
         image_embeddings: torch.Tensor,
         point_coords: torch.Tensor,
         point_labels: torch.Tensor,
-        mask_input: torch.Tensor,
-        has_mask_input: torch.Tensor,
-    ) -> torch.Tensor:
+        mask_input: torch.Tensor | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Run SAM lightweight decoder and return generated mask for given points
 
@@ -212,27 +374,35 @@ class SegmentAnythingONNXDecoder(BaseModel):
             point_labels: torch.Tensor of shape [1, k]
                 Point Labels to select/de-select given point for segmentation
                 e.g. Corresponding value is 1 if this point is to be included, otherwise 0
-            mask_input: torch.Tensor of shape [1, 1, 4 * image_emd_size, 4 * image_emb_size]
-                Input mask to consider for segmentation. If using point based segmentation, set this to torch.zeros()
-            has_mask_input: torch.Tensor of shape [1]
-                If has value [1] then mask_input is used, otherwise no.
-                If using point based segmentation, can set this to [0]
+            mask_input: torch.Tensor of shape [1, 1, 4 * self.embed_size, 4 * self.embed_size]
+                Input mask to consider for segmentation. If using point based segmentation, this is unused.
 
         Returns:
-            upscaled_masks: torch.Tensor of shape [1, k, <input image spatial dims>]
-            score: torch.Tensor of shape [1, k]
             masks: torch.Tensor of shape [1, k, 256, 256]
-                Use this low resolution masks to further slice and upscale for resolutions that Decoder is not intialized to.
+            scores: torch.Tensor of shape [1, k]
 
         Where,
             k = number of points
         """
-        return self.sam_decoder(
-            image_embeddings, point_coords, point_labels, mask_input, has_mask_input
+        sparse_embedding = SamOnnxModel._embed_points(self, point_coords, point_labels)  # type: ignore
+        dense_embedding = self._embed_masks(mask_input)
+
+        masks, scores = sam_decoder_predict_masks(
+            self.model.mask_decoder,
+            image_embeddings=image_embeddings,
+            image_pe=self.model.prompt_encoder.get_dense_pe(),
+            sparse_prompt_embeddings=sparse_embedding,
+            dense_prompt_embeddings=dense_embedding,
         )
 
+        if self.return_single_mask:
+            masks, scores = SamOnnxModel.select_masks(self, masks, scores, point_coords.shape[1])  # type: ignore
+
+        return masks, scores
+
     def _get_input_spec_for_instance(
-        self,
+        self: SAMDecoder,
+        has_mask_input: bool = False,
         num_of_points: int = 1,
     ) -> InputSpec:
         """
@@ -242,14 +412,16 @@ class SegmentAnythingONNXDecoder(BaseModel):
         with this function when the class is instantiated.
         """
         return self.__class__.get_input_spec(
+            has_mask_input,
             num_of_points,
-            self.sam.prompt_encoder.embed_dim,
-            self.sam.prompt_encoder.image_embedding_size[0],
-            self.sam.prompt_encoder.image_embedding_size[1],
+            self.model.prompt_encoder.embed_dim,
+            self.embed_size[0],
+            self.embed_size[1],
         )
 
     @staticmethod
     def get_input_spec(
+        has_mask_input: bool = False,
         num_of_points: int = 1,
         embed_dim: int = 256,
         image_embedding_height: int = 64,
@@ -266,26 +438,30 @@ class SegmentAnythingONNXDecoder(BaseModel):
             "image_embeddings": ((1, embed_dim, *embed_size), "float32"),
             "point_coords": ((1, num_of_points, 2), "float32"),
             "point_labels": ((1, num_of_points), "float32"),
-            "mask_input": ((1, 1, *mask_input_size), "float32"),
-            "has_mask_input": ((1,), "float32"),
         }
+        if has_mask_input:
+            input_spec["mask_input"] = (((1, 1, *mask_input_size), "float32"),)
+            input_spec["has_mask_input"] = (((1,), "float32"),)
         return input_spec
 
     @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image_embeddings", "mask_input"]
+    def get_channel_last_inputs(has_mask_input: bool = False) -> list[str]:
+        out = ["image_embeddings"]
+        if has_mask_input:
+            out.append("mask_input")
+        return out
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
-        return ["upscaled_masks", "masks"]
+        return ["masks"]
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["upscaled_masks", "scores", "masks"]
+        return ["masks", "scores"]
 
     @classmethod
-    def from_pretrained(cls):
-        return SAMQAIHMWrapper.from_pretrained().get_sam_decoder()
+    def from_pretrained(cls, model_type: str = SMALL_MODEL_TYPE):
+        return SAMQAIHMWrapper.from_pretrained(model_type).decoder
 
 
 def _get_weights_path(model_type: str = DEFAULT_MODEL_TYPE) -> Path:

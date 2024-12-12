@@ -29,6 +29,15 @@ class ScorecardDevice:
     _registry: dict[str, "ScorecardDevice"] = {}
 
     @classmethod
+    def get(cls, device_name: str):
+        return [
+            x
+            for x in ScorecardDevice.all_devices()
+            if x.reference_device_name == device_name
+            or x.execution_device_name == device_name
+        ][0]
+
+    @classmethod
     def all_devices(
         cls,
         enabled: Optional[bool] = None,

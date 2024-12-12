@@ -2,100 +2,137 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import datetime
-from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Optional, Union, cast
+from typing import Any, Generic, Optional, TypeVar, Union, cast
 
 import qai_hub as hub
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
-from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
-from qai_hub_models.utils.config_loaders import QAIHMModelCodeGen, QAIHMModelInfo
+
+JobTypeVar = TypeVar("JobTypeVar", hub.ProfileJob, hub.InferenceJob, hub.CompileJob)
+ScorecardPathTypeVar = TypeVar(
+    "ScorecardPathTypeVar", ScorecardCompilePath, ScorecardProfilePath
+)
+
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+ScorecardJobTypeVar = TypeVar(
+    "ScorecardJobTypeVar",
+    "CompileScorecardJob",
+    "ProfileScorecardJob",
+    "InferenceScorecardJob",
+)
 
 
-@dataclass
-class ScorecardJob:
-    model_id: str
-    job_id: Optional[str]
-    _device: ScorecardDevice
-    # Setting for how the ScorecardJob class should treat a job.
-    #  None | Wait an infinite amount of time the job to finish
-    #   < 0 | Ignore job if running (treat it as skipped)
-    #  >= 0 | Wait this many seconds for the job to finish
-    max_job_wait_secs: Optional[int]
+class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
+    job_type_class: type[JobTypeVar]
+
+    def __init__(
+        self,
+        model_id: str,
+        job_id: Optional[str],
+        device: ScorecardDevice,
+        wait_for_job: bool,  # If false, running jobs are treated like they were "skipped".
+        wait_job_secs: Optional[int],  # None == any number of seconds
+        path: ScorecardPathTypeVar,
+    ):
+        self.model_id = model_id
+        self.job_id = job_id
+        self._device = device
+        self.wait_for_job = wait_for_job
+        self.wait_job_secs = wait_job_secs
+        self.path: ScorecardPathTypeVar = path
+        self.__post_init__()
 
     def __post_init__(self):
         assert self.model_id
         # Verify Job Exists
-        if self.job_id and (not self.max_job_wait_secs or self.max_job_wait_secs >= 0):
+        if self.job_id and not self.wait_for_job:
             assert self.job
 
-    @classmethod
-    def from_model_id(
-        cls: type["ScorecardJob"], model_id: str, job_ids: dict[str, str]
-    ) -> list:
-        """
-        Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>|<runtime>|<device>|<model_component_id> : job_id
-            <model_id>|<runtime>|<device> : job_id
-
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        raise NotImplementedError()
+        if not self.skipped and not isinstance(self.job, self.job_type_class):
+            raise ValueError(
+                f"Job {self.job.job_id}({self.job.name}) is {type(self.job)}. Expected {self.job_type_class.__name__}"
+            )
 
     @cached_property
-    def job(self) -> Optional[hub.Job]:
-        """Get the hub.CompileJob object."""
+    def job(self) -> JobTypeVar:
+        """
+        Get the AI Hub Job.
+        Waits for completion if necessary.
+        """
         if not self.job_id:
-            return None
+            raise ValueError("No Job ID")
 
-        job = hub.get_job(self.job_id)
+        job = cast(JobTypeVar, hub.get_job(self.job_id))
         if not job.get_status().finished:
-            if self.max_job_wait_secs and self.max_job_wait_secs < 0:
-                return None
+            if not self.wait_for_job:
+                return job
             else:
-                job.wait(self.max_job_wait_secs)
+                job.wait(self.wait_job_secs)
         return job
 
     @cached_property
     def skipped(self) -> bool:
-        return self.job is None
+        #
+        # Running is treated as skipped.
+        #
+        # Either the class would have waited for this job already,
+        # or the class was told to treat running jobs like they were skipped.
+        #
+        return not self.job_id or self._job_status.running
 
     @cached_property
     def failed(self) -> bool:
-        return self._job_status and self._job_status.failure  # type: ignore
+        return not self.skipped and self._job_status.failure
 
     @cached_property
     def success(self) -> bool:
-        return self._job_status and self._job_status.success  # type: ignore
+        return not self.skipped and self._job_status.success
 
     @cached_property
     def status_message(self) -> Optional[str]:
-        return None if self.skipped else self._job_status.message  # type: ignore
+        return None if self.skipped else self._job_status.message
 
     @cached_property
-    def _job_status(self) -> Optional[hub.JobStatus]:
+    def _job_status(self) -> hub.JobStatus:
         """Get the job status of the profile job."""
-        if not self.skipped:
-            return self.job.get_status()  # type: ignore
-        return None
+        if self.job_id:
+            return self.job.get_status()
+        raise ValueError("Can't get status without a job ID.")
 
     @cached_property
     def job_status(self) -> str:
         """Get the job status of the profile job."""
         if not self.skipped:
-            if self._job_status.success:  # type: ignore
+            if self._job_status.success:
                 return "Passed"
-            elif self._job_status.failure:  # type: ignore
+            elif self._job_status.failure:
                 return "Failed"
         return "Skipped"
+
+    @cached_property
+    def device(self) -> hub.Device:
+        return self.job.device if not self.skipped else self._device.reference_device
+
+    @cached_property
+    def chipset(self) -> str:
+        """Chipset the job was run on."""
+        if self.skipped:
+            return self._device.chipset
+
+        hub_device = self.device
+        for attr in hub_device.attributes:
+            if attr.startswith("chipset:"):
+                return attr.split(":")[1]
+        raise ValueError("No chipset found.")
 
     @cached_property
     def quantized(self) -> str:
@@ -114,193 +151,29 @@ class ScorecardJob:
         return self.job.date
 
 
-@dataclass
-class CompileScorecardJob(ScorecardJob):
-    path: ScorecardCompilePath
+class CompileScorecardJob(ScorecardJob[hub.CompileJob, ScorecardCompilePath]):
+    job_type_class = hub.CompileJob
 
-    @classmethod
-    def from_model_id(
-        cls: type["CompileScorecardJob"],
-        model_id: str,
-        job_ids: dict[str, str],
-        max_job_wait_secs=None,
-    ) -> list["CompileScorecardJob"]:
-        """
-        Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>|<runtime>|<device>|<model_component_id> : job_id
-            <model_id>|<runtime>|<device> : job_id
 
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        model_info = QAIHMModelInfo.from_model(model_id)
-        model_code_gen: QAIHMModelCodeGen = model_info.code_gen_config
-        model_runs = []
-        components = []
-
-        if model_code_gen.components:
-            if model_code_gen.default_components:
-                components = model_code_gen.default_components
-            else:
-                components = list(model_code_gen.components.keys())
-        else:
-            components.append(None)  # type: ignore
-
-        path: ScorecardCompilePath
-        for path in ScorecardCompilePath.all_compile_paths(enabled=True):
-            for component in components:
-                model_requires_fp16 = not (
-                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization
-                )
-                for device in ScorecardDevice.all_devices(
-                    enabled=True,
-                    supports_fp16_npu=model_requires_fp16 or None,
-                    supports_compile_path=path,
-                ):
-                    model_runs.append(
-                        cls(
-                            model_id=component or model_info.name,
-                            job_id=job_ids.get(
-                                get_async_job_cache_name(
-                                    path=path,
-                                    model_id=model_id,
-                                    device=device,
-                                    component=component,
-                                )
-                            ),
-                            path=path,
-                            _device=device,
-                            max_job_wait_secs=max_job_wait_secs,
-                        )
-                    )
-
-        return model_runs
+class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
+    job_type_class = hub.ProfileJob
 
     def __post_init__(self):
         super().__post_init__()
-        if not self.skipped:
-            if not isinstance(self.job, hub.CompileJob):
-                raise ValueError(f"Job {self.job.job_id}({self.job.name}) is {type(self.job)}. Expected CompileJob")  # type: ignore
+        if not self.skipped and self._job_status.success:
+            assert self.profile_results  # Download results immediately
 
     @cached_property
-    def compile_job(self) -> Optional[hub.CompileJob]:
-        """Get the hub.CompileJob object."""
-        if self.job:
-            return None
-        return cast(hub.CompileJob, self.job)
-
-
-@dataclass
-class ProfileScorecardJob(ScorecardJob):
-    path: ScorecardProfilePath
-
-    @classmethod
-    def from_model_id(
-        cls: type["ProfileScorecardJob"],
-        model_id: str,
-        job_ids: dict[str, str],
-        max_job_wait_secs=None,
-    ) -> list["ProfileScorecardJob"]:
-        """
-        Reads jobs for `model_id` from the dictionary and creates summaries for each. `job_ids` format:
-        Either:
-            <model_id>|<runtime>|<device>|<model_component_id> : job_id
-            <model_id>|<runtime>|<device> : job_id
-
-        Returns models in this format:
-            model_id: list[Summary]
-        """
-        model_info = QAIHMModelInfo.from_model(model_id)
-        model_code_gen: QAIHMModelCodeGen = model_info.code_gen_config
-        model_runs = []
-        components = []
-
-        if model_code_gen.components:
-            if model_code_gen.default_components:
-                components = model_code_gen.default_components
-            else:
-                components = list(model_code_gen.components.keys())
-        else:
-            components.append(None)  # type: ignore
-
-        path: ScorecardProfilePath
-        for path in ScorecardProfilePath.all_profile_paths(enabled=True):
-            for component in components:
-                model_requires_fp16 = not (
-                    model_code_gen.is_aimet or model_code_gen.use_hub_quantization
-                )
-                for device in ScorecardDevice.all_devices(
-                    enabled=True,
-                    supports_fp16_npu=model_requires_fp16 or None,
-                    supports_profile_path=path,
-                ):
-                    model_runs.append(
-                        cls(
-                            model_id=component or model_info.name,
-                            job_id=job_ids.get(
-                                get_async_job_cache_name(
-                                    path=path,
-                                    model_id=model_id,
-                                    device=device,
-                                    component=component,
-                                ),
-                                None,
-                            ),
-                            _device=device,
-                            path=path,
-                            max_job_wait_secs=max_job_wait_secs,
-                        )
-                    )
-
-        return model_runs
-
-    def __post_init__(self):
-        super().__post_init__()
-        if not self.skipped:
-            if not isinstance(self.job, hub.ProfileJob):
-                raise ValueError(f"Job {self.job.job_id}({self.job.name}) is {type(self.job)}. Expected ProfileJob")  # type: ignore
-            if self._job_status.success:  # type: ignore
-                assert self.profile_results
-
-    @cached_property
-    def chipset(self) -> str:
-        """Chipset the job was run on."""
-        if not self.job:
-            return self._device.chipset
-
-        hub_device = self.device
-        for attr in hub_device.attributes:
-            if attr.startswith("chipset:"):
-                return attr.split(":")[1]
-        raise ValueError("No chipset found.")
-
-    @cached_property
-    def device(self) -> hub.Device:
-        return (
-            self.job.device
-            if self.job and isinstance(self.job, hub.ProfileJob)
-            else self._device.reference_device
-        )
-
-    @cached_property
-    def profile_job(self) -> Optional[hub.ProfileJob]:
-        """Get the hub.CompileJob object."""
-        if not self.job:
-            return None
-        return cast(hub.ProfileJob, self.job)
-
-    @cached_property
-    def profile_results(self) -> Optional[dict[str, Any]]:
+    def profile_results(self) -> dict[str, Any]:
         """Profile results from profile job."""
-        if self.job_status == "Passed":
-            return self.profile_job.download_profile()  # type: ignore
-        return None
+        if self.success:
+            return self.job.download_profile()  # type: ignore
+        raise ValueError("Can't get profile results if job did not succeed.")
 
     @cached_property
     def inference_time(self) -> Union[float, str]:
         """Get the inference time from the profile job."""
-        if self.profile_results is not None:
+        if self.success:
             return float(
                 self.profile_results["execution_summary"]["estimated_inference_time"]
             )
@@ -326,22 +199,22 @@ class ProfileScorecardJob(ScorecardJob):
         return 0
 
     @cached_property
-    def npu(self) -> Any:
+    def npu(self) -> int:
         """Get number of layers running on NPU."""
-        return self.get_layer_info("NPU") if self.profile_results is not None else 0
+        return self.get_layer_info("NPU") if self.success else 0
 
     @cached_property
-    def gpu(self) -> Any:
+    def gpu(self) -> int:
         """Get number of layers running on GPU."""
-        return self.get_layer_info("GPU") if self.profile_results is not None else 0
+        return self.get_layer_info("GPU") if self.success else 0
 
     @cached_property
-    def cpu(self) -> Any:
+    def cpu(self) -> int:
         """Get number of layers running on CPU."""
-        return self.get_layer_info("CPU") if self.profile_results is not None else 0
+        return self.get_layer_info("CPU") if self.success else 0
 
     @cached_property
-    def total(self) -> Any:
+    def total(self) -> int:
         """Get the total number of layers."""
         return self.npu + self.gpu + self.cpu
 
@@ -364,7 +237,7 @@ class ProfileScorecardJob(ScorecardJob):
     @cached_property
     def peak_memory_range(self) -> dict[str, int]:
         """Get the estimated peak memory range."""
-        if self.profile_results is not None:
+        if self.success:
             low, high = self.profile_results["execution_summary"][
                 "inference_memory_peak_range"
             ]
@@ -374,23 +247,13 @@ class ProfileScorecardJob(ScorecardJob):
     @cached_property
     def precision(self) -> str:
         """Get the precision of the model based on the run."""
-        if self.profile_results is not None:
+        if self.success:
             compute_unit = self.primary_compute_unit
             if compute_unit == "CPU":
                 return "fp32"
             if self.quantized == "Yes":
                 return "int8"
             return "fp16"
-        return "null"
-
-    @cached_property
-    def llm_metrics(self) -> Union[dict[str, Any], str]:
-        """Get LLM specific metrics."""
-        return "null"
-
-    @cached_property
-    def evaluation_metrics(self) -> Union[dict[str, Any], str]:
-        """Get evaluation_metrics."""
         return "null"
 
     @cached_property
@@ -410,8 +273,20 @@ class ProfileScorecardJob(ScorecardJob):
             job_id=self.job_id,
             job_status=self.job_status,
         )
-        if self.llm_metrics != "null":
-            metrics["llm_metrics"] = self.llm_metrics
-        if self.evaluation_metrics != "null":
-            metrics["evaluation_metrics"] = self.evaluation_metrics
         return metrics
+
+
+class InferenceScorecardJob(ScorecardJob[hub.InferenceJob, ScorecardProfilePath]):
+    job_type_class = hub.InferenceJob
+
+    @property
+    def input_dataset(self) -> DatasetEntries:
+        """Input dataset."""
+        return cast(DatasetEntries, self.job.inputs.download())
+
+    @property
+    def output_dataset(self) -> DatasetEntries:
+        """Output dataset."""
+        if not self.success:
+            raise ValueError("Can't get output dataset if job did not succeed.")
+        return cast(DatasetEntries, self.job.download_output_data())

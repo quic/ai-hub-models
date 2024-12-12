@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 import numpy as np
 
-from qai_hub_models.models.midas.app import MidasApp
+from qai_hub_models.models._shared.depth_estimation.app import DepthEstimationApp
 from qai_hub_models.models.midas.demo import INPUT_IMAGE_ADDRESS
 from qai_hub_models.models.midas_quantized.demo import main as demo_main
 from qai_hub_models.models.midas_quantized.model import (
@@ -24,7 +24,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 @skip_clone_repo_check
 def test_task():
     (_, _, height, width) = MidasQuantizable.get_input_spec()["image"][0]
-    app = MidasApp(MidasQuantizable.from_pretrained(), height, width)
+    app = DepthEstimationApp(MidasQuantizable.from_pretrained(), height, width)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.estimate_depth(original_image)
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)

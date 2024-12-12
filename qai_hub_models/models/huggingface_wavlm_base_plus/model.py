@@ -10,7 +10,7 @@ import torch
 from transformers import WavLMModel
 from transformers.models.wavlm.modeling_wavlm import WavLMGroupNormConvLayer
 
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 OPENPOSE_SOURCE_REPOSITORY = (
@@ -77,19 +77,6 @@ class HuggingFaceWavLMBasePlus(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["feature_vector_1", "feature_vector_2"]
-
-    def get_hub_profile_options(
-        self, target_runtime: TargetRuntime, other_profile_options: str = ""
-    ) -> str:
-        profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
-        )
-        if (
-            target_runtime == TargetRuntime.TFLITE
-            and "--compute_unit" not in profile_options
-        ):
-            profile_options = profile_options + " --compute_unit gpu"
-        return profile_options
 
 
 # Modules used to override Huggingface WavLM to be NPU friendly

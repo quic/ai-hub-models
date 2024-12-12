@@ -209,9 +209,7 @@ class FaceDetLiteApp:
         img_tensor = img_tensor[:, :, :, -1]
 
         img_tensor = img_tensor[np.newaxis, ...]
-
-        dets = detect(self.model, img_tensor, threshold=0.5, nms_iou=-1, stride=8)
-
+        dets = detect(self.model, img_tensor, threshold=0.55, nms_iou=-1, stride=8)
         res = []
         for n in range(0, len(dets)):
             xmin, ymin, w, h = dets[n].xywh

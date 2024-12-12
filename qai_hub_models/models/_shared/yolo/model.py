@@ -6,6 +6,7 @@ import torch
 
 from qai_hub_models.models._shared.yolo.utils import (
     box_transform_xywh2xyxy_split_input,
+    get_most_likely_score,
     transform_box_layout_xywh2xyxy,
 )
 
@@ -58,3 +59,44 @@ def yolo_detect_postprocess(
     # should be float32 for the unquantized model.
     class_dtype = torch.uint8 if use_quantized_postprocessing else torch.float32
     return boxes, scores, class_idx.to(class_dtype)
+
+
+def yolo_segment_postprocess(detector_output: torch.Tensor, num_classes: int):
+    """
+    Post processing to break Yolo Segmentation output into multiple, consumable tensors (eg. for NMS).
+        such as bounding boxes, scores, masks and classes.
+
+    Parameters:
+        detector_output: torch.Tensor
+            The output of Yolo Detection model
+            Shape is [batch, k, num_preds]
+                where, k = # of classes + 4
+                k is structured as follows [boxes (4) : # of classes]
+                and boxes are co-ordinates [x_center, y_center, w, h]
+        num_classes: int
+            number of classes
+
+    Returns:
+        boxes: torch.Tensor
+            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
+        scores: torch.Tensor
+            Class scores multiplied by confidence: Shape is [batch, num_preds]
+        masks: torch.Tensor
+            Predicted masks: Shape is [batch, num_preds, 32]
+        class_idx: torch.Tensor
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+    """
+    # Break output into parts
+    detector_output = torch.permute(detector_output, [0, 2, 1])
+    masks_dim = 4 + num_classes
+    boxes = detector_output[:, :, :4]
+    scores = detector_output[:, :, 4:masks_dim]
+    masks = detector_output[:, :, masks_dim:]
+
+    # Convert boxes to (x1, y1, x2, y2)
+    boxes = transform_box_layout_xywh2xyxy(boxes)
+
+    # Get class ID of most likely score.
+    scores, class_idx = get_most_likely_score(scores)
+
+    return boxes, scores, masks, class_idx

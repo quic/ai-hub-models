@@ -14,6 +14,7 @@ from types import GenericAlias
 from typing import Any, Optional, TypeVar, Union, get_args, get_type_hints
 
 import requests
+import yaml
 from qai_hub.util.session import create_session
 from schema import And
 from schema import Optional as OptionalSchema
@@ -197,8 +198,120 @@ class BaseDataClass:
     ) -> BaseDataClassTypeVar:
         return cls.from_dict(load_yaml(path))
 
-    def to_dict(self) -> dict[str, Any]:
-        return {field.name: getattr(self, field.name) for field in fields(self)}
+    def to_dict(
+        self, include_defaults: bool = True, yaml_compatible=False
+    ) -> dict[str, Any]:
+        """
+        Returns this class as a python dictionary.
+
+        parameters:
+            include_defaults : bool
+                If false, dataclass fields will not be included in the dict if set to the fields' default value.
+
+            yaml_compatible : bool
+                Returns a dict in which all Python objects are converted to a YAML-serializable representation.
+        """
+        return self._complete_partial_dict(
+            include_defaults=include_defaults, yaml_compatible=yaml_compatible
+        )
+
+    def _complete_partial_dict(
+        self,
+        partial_yaml_dict: Optional[dict] = None,
+        include_defaults: bool = True,
+        yaml_compatible: bool = False,
+    ):
+        """
+        Fills partial_yaml_dict with all fields of the dataclass that do not exist in the dict.
+
+        parameters:
+            partial_yaml_dict : Optional[dict]
+                The dict to fill. If unset, uses a new empty dict.
+
+            include_defaults : bool
+                If false, dataclass fields will not be included in the dict if set to the fields' default value.
+
+            yaml_compatible : bool
+                Returns a dict in which all Python objects are converted to a YAML-serializable representation.
+
+        discussion:
+            This function should be used after to_dict() processes complex values and adds them to the dict.
+            For example, to_dict() may fill a dict with a special string representation of enum fields.
+            After that, it passes that dict to this func to naively dump all other fields in the class into the dictionary.
+        """
+
+        def _process_dict_field_val(field_val: dict[Any, Any]):
+            out_dict = {}
+            for k, v in field_val.items():
+                out_dict[_process_field_val(k)] = _process_field_val(v)
+            return out_dict
+
+        def _process_list_field_val(field_val: list[Any]):
+            out_list = []
+            for val in field_val:
+                out_list.append(_process_field_val(val))
+            return out_list
+
+        def _process_tuple_field_val(field_val: tuple[Any, ...]):
+            return tuple(_process_list_field_val(list(field_val)))
+
+        def _process_field_val(field_val: Any):
+            if isinstance(field_val, dict):
+                return _process_dict_field_val(field_val)
+            elif isinstance(field_val, list):
+                return _process_list_field_val(field_val)
+            elif isinstance(field_val, tuple):
+                return _process_tuple_field_val(field_val)
+            elif isinstance(field_val, BaseDataClass):
+                return field_val.to_dict(include_defaults)
+            elif yaml_compatible and type(field_val) not in [int, float, bool, str]:
+                return str(field_val)
+            return field_val
+
+        fields = dataclasses.fields(self)
+        yaml_dict = partial_yaml_dict or {}
+        for field in fields:
+            default = field.default if field.default_factory != dataclasses._MISSING_TYPE else field.default_factory()  # type: ignore
+            field_val = getattr(self, field.name)
+            if field.name not in yaml_dict and (
+                include_defaults or field_val != default
+            ):
+                yaml_dict[field.name] = _process_field_val(field_val)
+
+        return yaml_dict
+
+    def to_yaml(
+        self,
+        path: str | Path,
+        write_if_empty: bool = True,
+        delete_if_empty: bool = True,
+    ) -> bool:
+        """
+        Converts this class to a dict and saves that dict to a YAML file.
+
+        parameters:
+            path : str | Path
+                Path to save the file.
+
+            write_if_empty : bool
+                If False, the YAML file will not be written to disk if the dictionary to be saved is empty.
+
+            delete_if_empty: bool
+                If True, an existing YAML file at the given path will be deleted if the dictionary to be saved is empty.
+
+        discussion:
+            Generally, the dictionary to be saved to YAML is empty only if:
+             * all dataclass fields have default values
+             * every field in this dataclass instance is set to its default value
+        """
+        dict = self.to_dict(include_defaults=False, yaml_compatible=True)
+        if not dict and not write_if_empty:
+            if delete_if_empty and os.path.exists(path):
+                os.remove(path)
+            return False
+        with open(path, "w") as yaml_file:
+            yaml.dump(dict, yaml_file)
+        return True
 
 
 BaseDataClassTypeVar = TypeVar("BaseDataClassTypeVar", bound="BaseDataClass")
@@ -536,15 +649,39 @@ class QAIHMModelCodeGen(BaseDataClass):
 
     # If the model doesn't work on qnn, this should explain why,
     # ideally with a reference to an internal issue.
+    #
+    # This field is managed automatically by the scorecard, and should
+    # not be manually edited after a model is first added.
     qnn_export_failure_reason: str = ""
+
+    # If the model should be disabled for qnn for any reason other than
+    # a job failure, this should explain why,
+    # ideally with a reference to an internal issue.
+    qnn_export_disable_reason: str = ""
 
     # If the model doesn't work on tflite, this should explain why,
     # ideally with a reference to an internal issue.
+    #
+    # This field is managed automatically by the scorecard, and should
+    # not be manually edited after a model is first added.
     tflite_export_failure_reason: str = ""
+
+    # If the model should be disabled for tflite for any reason other than
+    # a job failure, this should explain why,
+    # ideally with a reference to an internal issue.
+    tflite_export_disable_reason: str = ""
 
     # If the model doesn't work on onnx, this should explain why,
     # ideally with a reference to an internal issue.
+    #
+    # This field is managed automatically by the scorecard, and should
+    # not be manually edited after a model is first added.
     onnx_export_failure_reason: str = ""
+
+    # If the model should be disabled for onnx for any reason other than
+    # a job failure, this should explain why,
+    # ideally with a reference to an internal issue.
+    onnx_export_disable_reason: str = ""
 
     # If set, changes the default device when running export.py for the model.
     default_device: Optional[str] = None
@@ -556,7 +693,8 @@ class QAIHMModelCodeGen(BaseDataClass):
     # This can happen when the model outputs many low confidence values that get
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
-    outputs_to_skip_validation: Optional[list[str]] = None
+    # dict<output_idx, reason_for_skip>
+    outputs_to_skip_validation: Optional[dict[int, str]] = None
 
     # Additional arguments to initialize the model when unit testing export.
     # This is commonly used to test a smaller variant in the unit test.
@@ -619,9 +757,11 @@ class QAIHMModelCodeGen(BaseDataClass):
 
     # The model supports python versions that are at least this version. None == Any version
     python_version_greater_than_or_equal_to: Optional[str] = None
+    python_version_greater_than_or_equal_to_reason: Optional[str] = None
 
     # The model supports python versions that are less than this version. None == Any version
     python_version_less_than: Optional[str] = None
+    python_version_less_than_reason: Optional[str] = None
 
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
@@ -635,6 +775,26 @@ class QAIHMModelCodeGen(BaseDataClass):
             return "Flags is_aimet and use_hub_quantization cannot both be set."
         if self.use_hub_quantization and not self.eval_datasets:
             return "Must set eval_datasets if use_hub_quantization is set."
+        if (
+            self.python_version_greater_than_or_equal_to is None
+            and self.python_version_greater_than_or_equal_to_reason is not None
+        ):
+            return "python_version_greater_than_or_equal_to_reason is set, but python_version_greater_than_or_equal_to is not."
+        if (
+            self.python_version_greater_than_or_equal_to is not None
+            and self.python_version_greater_than_or_equal_to_reason is None
+        ):
+            return "python_version_greater_than_or_equal_to must have a reason (python_version_greater_than_or_equal_to_reason) set."
+        if (
+            self.python_version_less_than_reason is None
+            and self.python_version_less_than is not None
+        ):
+            return "python_version_less_than must have a reason (python_version_less_than_reason) set."
+        if (
+            self.python_version_less_than_reason is not None
+            and self.python_version_less_than is None
+        ):
+            return "python_version_less_than_reason is set, but python_version_less_than is not."
         return None
 
     @classmethod
@@ -642,6 +802,10 @@ class QAIHMModelCodeGen(BaseDataClass):
         if not path or not os.path.exists(path):
             return QAIHMModelCodeGen()  # Default Schema
         return super().from_yaml(path)
+
+    def to_model_yaml(self, model_id: str):
+        code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
+        self.to_yaml(code_gen_path, write_if_empty=False, delete_if_empty=True)
 
 
 @dataclass
@@ -728,6 +892,9 @@ class QAIHMModelInfo(BaseDataClass):
 
     # A link to the model's license. Most commonly found in the github repo it was cloned from.
     license: Optional[str] = None
+
+    # Whether the model is compatible with the IMSDK Plugin for IOT devices
+    imsdk_supported: bool = False
 
     # A link to the AIHub license, unless the license is more restrictive like GPL.
     # In that case, this should point to the same as the model license.
@@ -940,9 +1107,18 @@ class QAIHMModelInfo(BaseDataClass):
                 return "All public models must have an info.yaml"
 
             if (
-                self.code_gen_config.tflite_export_failure_reason
-                and self.code_gen_config.qnn_export_failure_reason
-                and self.code_gen_config.onnx_export_failure_reason
+                (
+                    self.code_gen_config.tflite_export_failure_reason
+                    or self.code_gen_config.tflite_export_disable_reason
+                )
+                and (
+                    self.code_gen_config.qnn_export_failure_reason
+                    or self.code_gen_config.qnn_export_disable_reason
+                )
+                and (
+                    self.code_gen_config.onnx_export_failure_reason
+                    or self.code_gen_config.onnx_export_disable_reason
+                )
             ):
                 return "Public models must support at least one export path"
 

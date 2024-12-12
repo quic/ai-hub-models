@@ -32,7 +32,15 @@ from qai_hub_models.utils.qai_hub_helpers import (
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["SAMDecoder", "SAMEncoder"]
+ALL_COMPONENTS = [
+    "SAMDecoder",
+    "SAMEncoderPart1",
+    "SAMEncoderPart2",
+    "SAMEncoderPart3",
+    "SAMEncoderPart4",
+    "SAMEncoderPart5",
+    "SAMEncoderPart6",
+]
 
 
 def export_model(
@@ -125,9 +133,19 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "SAMDecoder" in components:
-        components_dict["SAMDecoder"] = model.get_sam_decoder()  # type: ignore
-    if "SAMEncoder" in components:
-        components_dict["SAMEncoder"] = model.get_sam_encoder()  # type: ignore
+        components_dict["SAMDecoder"] = model.decoder  # type: ignore
+    if "SAMEncoderPart1" in components:
+        components_dict["SAMEncoderPart1"] = model.encoder_splits[0]  # type: ignore
+    if "SAMEncoderPart2" in components:
+        components_dict["SAMEncoderPart2"] = model.encoder_splits[1]  # type: ignore
+    if "SAMEncoderPart3" in components:
+        components_dict["SAMEncoderPart3"] = model.encoder_splits[2]  # type: ignore
+    if "SAMEncoderPart4" in components:
+        components_dict["SAMEncoderPart4"] = model.encoder_splits[3]  # type: ignore
+    if "SAMEncoderPart5" in components:
+        components_dict["SAMEncoderPart5"] = model.encoder_splits[4]  # type: ignore
+    if "SAMEncoderPart6" in components:
+        components_dict["SAMEncoderPart6"] = model.encoder_splits[5]  # type: ignore
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():
@@ -248,11 +266,9 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
+    device = "Snapdragon 8 Elite QRD"
     parser = export_parser(
-        model_cls=Model,
-        components=ALL_COMPONENTS,
-        supports_qnn=False,
-        supports_onnx=False,
+        model_cls=Model, default_export_device=device, components=ALL_COMPONENTS
     )
     args = parser.parse_args()
     export_model(**vars(args))
