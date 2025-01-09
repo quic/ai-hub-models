@@ -79,6 +79,9 @@ class ImagenetDataset(BaseDataset, ImageNet):
             return False
         return True
 
+    def __len__(self) -> int:
+        return ImageNet.__len__(self)
+
     def _download_data(self) -> None:
         val_path = self.dataset_path / self.split_str
         os.makedirs(val_path, exist_ok=True)

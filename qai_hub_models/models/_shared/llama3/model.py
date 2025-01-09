@@ -15,10 +15,7 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 from transformers.models.llama import modeling_llama
 
-from qai_hub_models.models._shared.llama.model import (
-    Llama_QuantizedMixin,
-    RopeEmbedding,
-)
+from qai_hub_models.models._shared.llama.model import Llama_QuantizedMixin
 from qai_hub_models.models.common import (
     SampleInputsType,
     SourceModelFormat,
@@ -104,6 +101,51 @@ def onnx_counting(i):
         return ""
     else:
         return f"_{i}"
+
+
+class RopeEmbedding:
+    def __init__(self, head_dim=128, max_length=2048, config=None):
+        self.cos, self.sin = self.precompute(head_dim, max_length, config)
+
+    def precompute(self, head_dim, max_length, config):
+        head_dim = (
+            config.head_dim
+            if hasattr(config, "head_dim")
+            else config.hidden_size // config.num_attention_heads
+        )
+        kwargs = {
+            "max_position_embeddings": config.max_position_embeddings,
+            "base": config.rope_theta,
+            "config": config,
+        }
+
+        if not hasattr(config, "rope_scaling"):
+            setattr(config, "rope_scaling", None)
+
+        rope = modeling_llama.LlamaRotaryEmbedding(dim=head_dim, **kwargs)
+        dummy_x = torch.Tensor([1.0])
+        position_ids = torch.arange(max_length).view(1, -1)
+        if hasattr(rope, "_original_forward"):
+            embeddings = rope._original_forward(dummy_x, position_ids)
+        else:
+            embeddings = rope.forward(dummy_x, position_ids)
+
+        # for adapted llama
+        emb_size = embeddings[0].size(-1) // 2
+        embeddings = [emb[:, :, :emb_size] for emb in embeddings]
+        embeddings = [emb.unsqueeze(0) for emb in embeddings]
+        return embeddings
+
+    def get_embedding(self, position_ids, dtype=torch.float32):
+        """
+        position_ids: [batch_size, sequence_length]
+        return [batch_size, 1, sequence_length, head_sim//2][2]
+        """
+        cos = self.cos[0, 0, :, :]  # [seq_len, dim]
+        sin = self.sin[0, 0, :, :]  # [seq_len, dim]
+        cos = cos[position_ids].unsqueeze(1).to(dtype=dtype)
+        sin = sin[position_ids].unsqueeze(1).to(dtype=dtype)
+        return cos, sin
 
 
 def get_tokenizer(hf_repo_name):
@@ -255,6 +297,9 @@ def monkey_patch_huggingface_llama_modeling():
         return position_ids
 
     # Bypass rotary_emb module
+    modeling_llama.LlamaRotaryEmbedding._original_forward = (
+        modeling_llama.LlamaRotaryEmbedding.forward
+    )
     modeling_llama.LlamaRotaryEmbedding.forward = bypass_RotaryEmbedding
     modeling_llama.apply_rotary_pos_emb = QcLlama_apply_rotary_pos_emb
 
@@ -973,7 +1018,9 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         position_ids = (
             torch.Tensor(position_ids).type(torch.long).reshape(1, self.sequence_length)
         )
-        rope_embedding = RopeEmbedding(max_length=self.context_length)
+        rope_embedding = RopeEmbedding(
+            max_length=self.context_length, config=self.llm_config
+        )
         position_ids_cos, position_ids_sin = rope_embedding.get_embedding(position_ids)
         attention_mask = torch.zeros((1, self.context_length))
         attention_mask[:, -num_tokens:] = 1.0

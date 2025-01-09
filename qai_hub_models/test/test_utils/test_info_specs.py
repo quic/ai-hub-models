@@ -2,13 +2,13 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from qai_hub_models.utils.config_loaders import (
+from qai_hub_models.configs.info_yaml import (
     MODEL_DOMAIN,
-    MODEL_IDS,
     MODEL_TAG,
     MODEL_USE_CASE,
     QAIHMModelInfo,
 )
+from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 HF_PIPELINE_TAGS = {
     "keypoint-detection",

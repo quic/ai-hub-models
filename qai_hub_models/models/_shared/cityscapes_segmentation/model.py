@@ -12,6 +12,7 @@ from qai_hub_models.models._shared.cityscapes_segmentation.evaluator import (
     CityscapesSegmentationEvaluator,
 )
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 # The FFNet repo contains some utility functions for Cityscapes, so the
@@ -51,8 +52,6 @@ CITYSCAPES_LABELS = [
     "motorcycle",
     "bicycle",
 ]
-CITYSCAPES_MEAN = [0.485, 0.456, 0.406]
-CITYSCAPES_STD = [0.229, 0.224, 0.225]
 
 
 class CityscapesSegmentor(BaseModel):
@@ -78,7 +77,7 @@ class CityscapesSegmentor(BaseModel):
             where the modified height and width will be some factor smaller
             than the input image.
         """
-        return self.model(image)
+        return self.model(normalize_image_torchvision(image))
 
     @staticmethod
     def get_input_spec(

@@ -49,6 +49,19 @@ class GenerateGlobalRequirementsTask(RunCommandsWithVenvTask):
         )
 
 
+class DownloadPrivateDatasetsTask(RunCommandsWithVenvTask):
+    # Needed to quantize models relying on data without public download links
+    def __init__(self, venv, env=None, raise_on_failure=True, ignore_return_codes=...):
+        super().__init__(
+            "Download Private Datasets",
+            venv,
+            ["python -m qai_hub_models.scripts.download_private_datasets"],
+            env,
+            raise_on_failure,
+            ignore_return_codes,
+        )
+
+
 class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
     """Sync the provided environment with local QAIHM and the provided extras."""
 

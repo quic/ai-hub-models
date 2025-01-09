@@ -11,7 +11,6 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from qai_hub_models.models.ddrnet23_slim.model import NUM_CLASSES
 from qai_hub_models.utils.draw import create_color_map
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
@@ -19,16 +18,17 @@ from qai_hub_models.utils.image_processing import (
 )
 
 
-class DDRNetApp:
+class SegmentationApp:
     """
-    This class consists of light-weight "app code" that is required to perform end to end inference with DDRNet.
+    This class consists of light-weight "app code" that is required to perform end to end inference for Segmentation.
 
-    The app uses 1 model:
+    The app uses 2 model:
         * DDRNet
+        * Segformer
 
     For a given image input, the app will:
         * pre-process the image (convert to range[0, 1])
-        * Run DDRNet inference
+        * Run inference
         * Convert the output segmentation mask into a visual representation
         * Overlay the segmentation mask onto the image and return it
     """
@@ -77,8 +77,11 @@ class DDRNetApp:
         input_transform = normalize_image_transform()
         NCHW_fp32_torch_frames = input_transform(NCHW_fp32_torch_frames)
 
-        # pred_mask is 8x downsampled
+        # pred_mask is downsampled
         pred_masks = self.model(NCHW_fp32_torch_frames)
+
+        if isinstance(pred_masks, tuple):
+            pred_masks = pred_masks[0]
 
         # Upsample pred mask to original image size
         # Need to upsample in the probability space, not in class labels
@@ -97,7 +100,7 @@ class DDRNetApp:
 
         # Overlay the segmentation mask on the image. alpha=1 is mask only,
         # alpha=0 is image only.
-        color_map = create_color_map(NUM_CLASSES)
+        color_map = create_color_map(pred_mask_img.max().item() + 1)
         out = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
             out.append(

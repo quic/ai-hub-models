@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+import numpy as np
 import torch
 from qai_hub.client import DatasetEntries, Device, QuantizeDtype
 from torch.utils.data import DataLoader, TensorDataset
@@ -16,7 +17,7 @@ from qai_hub_models.models.protocols import HubModelProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
 from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.inference import make_hub_dataset_entries
-from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
 
 DATA_ID = "image_quantziation_samples"
 DATA_VERSION = 1
@@ -90,14 +91,22 @@ def get_calibration_data(
     Returns:
         Dataset compatible with the format expected by AI Hub.
     """
+    batch_size = get_batch_size(input_spec)
+
+    # Round num samples to largest multiple of batch_size less than number requested
+    num_samples = (num_samples // batch_size) * batch_size
     torch_dataset = sample_dataset(
         get_dataset_from_name(dataset_name, split=DatasetSplit.TRAIN), num_samples
     )
-    torch_samples = tuple(
-        [torch_dataset[i][j].unsqueeze(0).numpy() for i in range(len(torch_dataset))]
-        for j in range(len(input_spec))
-    )
-    return make_hub_dataset_entries(torch_samples, list(input_spec.keys()))
+    dataloader = DataLoader(torch_dataset, batch_size=batch_size)
+    inputs: list[list[torch.Tensor | np.ndarray]] = [[] for _ in range(len(input_spec))]
+    for (sample_input, _) in dataloader:
+        if isinstance(sample_input, tuple):
+            for i, tensor in enumerate(sample_input):
+                inputs[i].append(tensor)
+        else:
+            inputs[0].append(sample_input)
+    return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
 
 
 class HubQuantizableMixin(HubModelProtocol):

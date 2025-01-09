@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 import shutil
 from abc import ABC, abstractmethod
+from collections.abc import Sized
 from enum import Enum, unique
 from pathlib import Path
 from typing import final
@@ -29,7 +30,7 @@ class DatasetSplit(Enum):
     TEST = 2
 
 
-class BaseDataset(Dataset, ABC):
+class BaseDataset(Dataset, Sized, ABC):
     """
     Base class to be extended by Datasets used in this repo for quantizing models.
     """

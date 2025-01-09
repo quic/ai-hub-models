@@ -193,6 +193,7 @@ and many more.
 | [VITQuantized](https://aihub.qualcomm.com/models/vit_quantized) | [qai_hub_models.models.vit_quantized](qai_hub_models/models/vit_quantized/README.md) |
 | [WideResNet50](https://aihub.qualcomm.com/models/wideresnet50) | [qai_hub_models.models.wideresnet50](qai_hub_models/models/wideresnet50/README.md) |
 | [WideResNet50-Quantized](https://aihub.qualcomm.com/models/wideresnet50_quantized) | [qai_hub_models.models.wideresnet50_quantized](qai_hub_models/models/wideresnet50_quantized/README.md) |
+| [dla102x](https://aihub.qualcomm.com/models/dla102x) | [qai_hub_models.models.dla102x](qai_hub_models/models/dla102x/README.md) |
 | | |
 | **Image Editing**
 | [AOT-GAN](https://aihub.qualcomm.com/models/aotgan) | [qai_hub_models.models.aotgan](qai_hub_models/models/aotgan/README.md) |
@@ -233,10 +234,16 @@ and many more.
 | [FastSam-X](https://aihub.qualcomm.com/models/fastsam_x) | [qai_hub_models.models.fastsam_x](qai_hub_models/models/fastsam_x/README.md) |
 | [MediaPipe-Selfie-Segmentation](https://aihub.qualcomm.com/models/mediapipe_selfie) | [qai_hub_models.models.mediapipe_selfie](qai_hub_models/models/mediapipe_selfie/README.md) |
 | [SINet](https://aihub.qualcomm.com/models/sinet) | [qai_hub_models.models.sinet](qai_hub_models/models/sinet/README.md) |
+| [Segformer_Base](https://aihub.qualcomm.com/models/segformer_base) | [qai_hub_models.models.segformer_base](qai_hub_models/models/segformer_base/README.md) |
 | [Segment-Anything-Model](https://aihub.qualcomm.com/models/sam) | [qai_hub_models.models.sam](qai_hub_models/models/sam/README.md) |
 | [Unet-Segmentation](https://aihub.qualcomm.com/models/unet_segmentation) | [qai_hub_models.models.unet_segmentation](qai_hub_models/models/unet_segmentation/README.md) |
 | [YOLOv11-Segmentation](https://aihub.qualcomm.com/models/yolov11_seg) | [qai_hub_models.models.yolov11_seg](qai_hub_models/models/yolov11_seg/README.md) |
 | [YOLOv8-Segmentation](https://aihub.qualcomm.com/models/yolov8_seg) | [qai_hub_models.models.yolov8_seg](qai_hub_models/models/yolov8_seg/README.md) |
+| | |
+| **Video Classification**
+| [ResNet-2Plus1D](https://aihub.qualcomm.com/models/resnet_2plus1d) | [qai_hub_models.models.resnet_2plus1d](qai_hub_models/models/resnet_2plus1d/README.md) |
+| [ResNet-3D](https://aihub.qualcomm.com/models/resnet_3d) | [qai_hub_models.models.resnet_3d](qai_hub_models/models/resnet_3d/README.md) |
+| [ResNet-Mixed-Convolution](https://aihub.qualcomm.com/models/resnet_mixed) | [qai_hub_models.models.resnet_mixed](qai_hub_models/models/resnet_mixed/README.md) |
 | | |
 | **Object Detection**
 | [Conditional-DETR-ResNet50](https://aihub.qualcomm.com/models/conditional_detr_resnet50) | [qai_hub_models.models.conditional_detr_resnet50](qai_hub_models/models/conditional_detr_resnet50/README.md) |
@@ -255,6 +262,7 @@ and many more.
 | [PPE-Detection-Quantized](https://aihub.qualcomm.com/models/gear_guard_net_quantized) | [qai_hub_models.models.gear_guard_net_quantized](qai_hub_models/models/gear_guard_net_quantized/README.md) |
 | [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) |
 | [Person-Foot-Detection-Quantized](https://aihub.qualcomm.com/models/foot_track_net_quantized) | [qai_hub_models.models.foot_track_net_quantized](qai_hub_models/models/foot_track_net_quantized/README.md) |
+| [YOLOv10-Detection](https://aihub.qualcomm.com/models/yolov10_det) | [qai_hub_models.models.yolov10_det](qai_hub_models/models/yolov10_det/README.md) |
 | [YOLOv11-Detection](https://aihub.qualcomm.com/models/yolov11_det) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) |
 | [YOLOv8-Detection](https://aihub.qualcomm.com/models/yolov8_det) | [qai_hub_models.models.yolov8_det](qai_hub_models/models/yolov8_det/README.md) |
 | [YOLOv8-Detection-Quantized](https://aihub.qualcomm.com/models/yolov8_det_quantized) | [qai_hub_models.models.yolov8_det_quantized](qai_hub_models/models/yolov8_det_quantized/README.md) |
@@ -290,6 +298,7 @@ and many more.
 | **Speech Recognition**
 | [HuggingFace-WavLM-Base-Plus](https://aihub.qualcomm.com/models/huggingface_wavlm_base_plus) | [qai_hub_models.models.huggingface_wavlm_base_plus](qai_hub_models/models/huggingface_wavlm_base_plus/README.md) |
 | [Whisper-Base-En](https://aihub.qualcomm.com/models/whisper_base_en) | [qai_hub_models.models.whisper_base_en](qai_hub_models/models/whisper_base_en/README.md) |
+| [Whisper-Small-En](https://aihub.qualcomm.com/models/whisper_small_en) | [qai_hub_models.models.whisper_small_en](qai_hub_models/models/whisper_small_en/README.md) |
 | [Whisper-Tiny-En](https://aihub.qualcomm.com/models/whisper_tiny_en) | [qai_hub_models.models.whisper_tiny_en](qai_hub_models/models/whisper_tiny_en/README.md) |
 
 ### Multimodal

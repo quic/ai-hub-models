@@ -1,0 +1,40 @@
+name: Whisper-Small-En
+# id must match with the model dir name in qai_hub_models
+id: whisper_small_en
+status: public
+headline: Automatic speech recognition (ASR) model for English transcription as well
+  as translation.
+domain: Audio
+description: OpenAI’s Whisper ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a mean decoded length specified below.
+use_case: Speech Recognition
+tags:
+  - foundation
+research_paper: https://cdn.openai.com/papers/whisper.pdf
+research_paper_title: Robust Speech Recognition via Large-Scale Weak Supervision
+license: https://github.com/openai/whisper/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/openai/whisper/tree/main
+technical_details:
+  Model checkpoint: small.en
+  Input resolution: 80x3000 (30 seconds audio)
+  Mean decoded sequence length: 112 tokens
+  Number of parameters (WhisperEncoder): 102M
+  Model size (WhisperEncoder): 390 MB
+  Number of parameters (WhisperDecoder): 139M
+  Model size (WhisperDecoder): 531 MB
+applicable_scenarios:
+  - Smart Home
+  - Accessibility
+related_models:
+  - whisper_tiny_en
+  - whisper_base_en
+  - huggingface_wavlm_base_plus
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: mit
+deploy_license_type: AI Model Hub License
+dataset: []

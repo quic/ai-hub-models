@@ -13,9 +13,9 @@ import qai_hub as hub
 import torch
 from qai_hub.client import APIException, UserError
 
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
-from qai_hub_models.utils.config_loaders import QAIHMModelPerf
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
 from qai_hub_models.utils.printing import print_profile_metrics
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401

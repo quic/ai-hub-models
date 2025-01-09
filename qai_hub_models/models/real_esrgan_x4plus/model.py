@@ -73,13 +73,7 @@ class Real_ESRGAN_x4plus(BaseModel):
                    Range: float[0, 1]
                    3-channel Color Space: RGB
         """
-
-        # upscale
-        output = self.model(image)
-
-        output_img = output.squeeze().float().cpu().clamp_(0, 1)
-
-        return output_img
+        return self.model(image).float().clamp(0, 1)
 
     @staticmethod
     def get_input_spec(

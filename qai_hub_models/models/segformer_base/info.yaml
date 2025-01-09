@@ -1,0 +1,43 @@
+name: Segformer_Base
+# id must match with the model dir name in qai_hub_models
+id: segformer_base
+status: public
+headline: Real-time object segmentation.
+domain: Computer Vision
+use_case: Semantic Segmentation
+tags:
+  - real-time
+description: Segformer Base is a machine learning model that predicts masks and classes of objects in an image.
+research_paper: https://arxiv.org/abs/2105.15203
+research_paper_title: "SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers"
+license: https://github.com/huggingface/transformers/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo:
+  https://github.com/huggingface/transformers/tree/main/src/transformers/models/segformer
+technical_details:
+  Model checkpoint: nvidia/segformer-b0-finetuned-ade-512-512
+  Input resolution: 512x512
+  Number of parameters: 3.7M
+  Model size: 14.4 MB
+  Number of output classes: 150
+applicable_scenarios:
+  - Factory Automation
+  - Robotic Navigation
+  - Camera
+related_models:
+  - unet_segmentation
+  - sam
+  - fastsam_x
+  - mediapipe_selfie
+  - yolov8_seg
+  - ddrnet23_slim
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+  - XR
+has_static_banner: true
+has_animated_banner: true
+license_type: apache-2.0
+deploy_license_type: AI Model Hub License
+dataset: []

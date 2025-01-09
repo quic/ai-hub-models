@@ -283,9 +283,13 @@ class SAMEncoderPart(BaseModel):
 
     @staticmethod
     def get_channel_last_inputs(include_embedding=True) -> list[str]:
-        return list(
-            SAMEncoderPart.get_input_spec(include_embedding=include_embedding).keys()
-        )
+        if include_embedding:
+            return list(
+                SAMEncoderPart.get_input_spec(
+                    include_embedding=include_embedding
+                ).keys()
+            )
+        return []
 
     def _get_channel_last_inputs_for_instance(self) -> list[str]:
         return self.__class__.get_channel_last_inputs(self.include_embedding)
@@ -403,7 +407,7 @@ class SAMDecoder(BaseModel):
     def _get_input_spec_for_instance(
         self: SAMDecoder,
         has_mask_input: bool = False,
-        num_of_points: int = 1,
+        num_of_points: int = 2,
     ) -> InputSpec:
         """
         Override for model.get_input_spec() when called on instances of this class.
@@ -422,7 +426,7 @@ class SAMDecoder(BaseModel):
     @staticmethod
     def get_input_spec(
         has_mask_input: bool = False,
-        num_of_points: int = 1,
+        num_of_points: int = 2,
         embed_dim: int = 256,
         image_embedding_height: int = 64,
         image_embedding_width: int = 64,

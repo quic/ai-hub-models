@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/d
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[depth_anything_v2]"
+pip install "qai_hub_models[depth-anything-v2]"
 ```
 
 

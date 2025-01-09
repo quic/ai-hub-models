@@ -14,5 +14,7 @@ class CityscapesSegmentationEvaluator(SegmentationOutputEvaluator):
     """
 
     def add_batch(self, output: Tensor, gt: Tensor):
-        output_match_size = F.interpolate(output, gt.shape[1:3], mode="bilinear")
+        output_match_size = F.interpolate(output, gt.shape[-2:], mode="bilinear")
+        if len(output_match_size.shape) == 4:
+            output_match_size = output_match_size.argmax(1)
         return super().add_batch(output_match_size, gt)

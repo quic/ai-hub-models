@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/q
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[quicksrnetmedium_quantized]"
+pip install "qai_hub_models[quicksrnetmedium-quantized]"
 ```
 
 

@@ -11,9 +11,9 @@ import torch
 
 from qai_hub_models.models._shared.llama3.model import (
     Llama3Base_Quantized,
+    RopeEmbedding,
     get_past_keyval_with_shift,
 )
-from qai_hub_models.models._shared.llama.model import RopeEmbedding
 
 
 def _get_tokens_from_logits(output: torch.Tensor):
@@ -74,11 +74,15 @@ class ChatApp:
             padding="max_length",
             max_length=context_length,
         )
+        if context_length % prompt_sequence_length != 0:
+            raise ValueError(
+                "This script requires the prompt sequence lengths to evenly divide the context length."
+            )
+
         orig_input_ids = input_tokens["input_ids"].type(torch.long)
 
         num_tokens = torch.sum(input_tokens["attention_mask"]).item()
         num_prompt_iterations = math.ceil(num_tokens / prompt_sequence_length)
-        rope_embedding = RopeEmbedding(max_length=context_length)
 
         print(
             f"Will run prompt processor {num_prompt_iterations} time(s) and then token generator."
@@ -91,6 +95,9 @@ class ChatApp:
         model = self.model_cls.from_pretrained(
             sequence_length=prompt_sequence_length,
             context_length=context_length,
+        )
+        rope_embedding = RopeEmbedding(
+            max_length=context_length, config=model.llm_config
         )
         is_prompt = True
 
@@ -123,9 +130,11 @@ class ChatApp:
             if is_prompt:
                 input_ids = orig_input_ids[
                     :,
-                    context_length
-                    - (num_prompt_iterations - i) * seq_len : context_length
-                    - (num_prompt_iterations - i - 1) * seq_len,
+                    max(
+                        0, context_length - (num_prompt_iterations - i) * seq_len
+                    ) : max(
+                        0, context_length - (num_prompt_iterations - i - 1) * seq_len
+                    ),
                 ]
 
                 # non-padded tokens in first prompt

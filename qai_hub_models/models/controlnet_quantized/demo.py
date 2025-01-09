@@ -19,9 +19,10 @@ from qai_hub_models.models.controlnet_quantized.model import (
     Unet,
     VAEDecoder,
 )
-from qai_hub_models.utils.args import DEFAULT_EXPORT_DEVICE, add_output_dir_arg
+from qai_hub_models.utils.args import add_output_dir_arg
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BasePrecompiledModel
+from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.inference import OnDeviceModel, get_uploaded_precompiled_model
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub

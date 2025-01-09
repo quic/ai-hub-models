@@ -29,12 +29,10 @@ ALL_COMPONENTS = [
     "PromptProcessor_Part2",
     "PromptProcessor_Part3",
     "PromptProcessor_Part4",
-    "PromptProcessor_Part5",
     "TokenGenerator_Part1",
     "TokenGenerator_Part2",
     "TokenGenerator_Part3",
     "TokenGenerator_Part4",
-    "TokenGenerator_Part5",
 ]
 DEFAULT_COMPONENTS = [
     "PromptProcessor_Part1",
@@ -95,10 +93,11 @@ def export_model(
     model_name = "qwen2_7b_instruct_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
-        raise ValueError("Device or Chipset must be provided.")
-    hub_device = hub.Device(
-        name=device or "", attributes=f"chipset:{chipset}" if chipset else None
-    )
+        hub_device = hub.Device("Snapdragon 8 Elite QRD")
+    else:
+        hub_device = hub.Device(
+            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
+        )
     component_arg = components
     components = components or DEFAULT_COMPONENTS
     for component_name in components:
@@ -134,8 +133,6 @@ def export_model(
         components_dict["PromptProcessor_Part3"] = model.prompt_processor_part3  # type: ignore
     if "PromptProcessor_Part4" in components:
         components_dict["PromptProcessor_Part4"] = model.prompt_processor_part4  # type: ignore
-    if "PromptProcessor_Part5" in components:
-        components_dict["PromptProcessor_Part5"] = model.prompt_processor_part5  # type: ignore
     if "TokenGenerator_Part1" in components:
         components_dict["TokenGenerator_Part1"] = model.token_generator_part1  # type: ignore
     if "TokenGenerator_Part2" in components:
@@ -144,8 +141,6 @@ def export_model(
         components_dict["TokenGenerator_Part3"] = model.token_generator_part3  # type: ignore
     if "TokenGenerator_Part4" in components:
         components_dict["TokenGenerator_Part4"] = model.token_generator_part4  # type: ignore
-    if "TokenGenerator_Part5" in components:
-        components_dict["TokenGenerator_Part5"] = model.token_generator_part5  # type: ignore
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -183,7 +178,7 @@ def export_model(
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
-            assert profile_job is not None and profile_job.wait().success
+            assert profile_job.wait().success, "Job failed: " + profile_job.url
             profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
             print_profile_metrics_from_job(profile_job, profile_data)
 
@@ -201,12 +196,8 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    device = "Snapdragon 8 Elite QRD"
     parser = export_parser(
-        model_cls=Model,
-        default_export_device=device,
-        components=ALL_COMPONENTS,
-        exporting_compiled_model=True,
+        model_cls=Model, components=ALL_COMPONENTS, exporting_compiled_model=True
     )
     args = parser.parse_args()
     export_model(**vars(args))

@@ -1042,18 +1042,20 @@ def copyfile(src: str, dst: str, num_retries: int = 4):
     return dst
 
 
-def extract_zip_file(filepath_str: str) -> Path:
+def extract_zip_file(filepath_str: str, out_path: Path | None = None) -> Path:
     """
-    Given a local filepath to a zip file, extract its contents into a folder
+    Given a local filepath to a zip file, extract its contents. into a folder
     in the same directory. The directory with the contents will have the same
     name as the .zip file without the `.zip` extention.
 
     Parameters:
         filepath_str: String of the path to the zip file in the local directory.
+        out_path: Path to which contents should be extracted.
     """
     filepath = Path(filepath_str)
     with ZipFile(filepath, "r") as zf:
-        out_path = filepath.parent / filepath.stem
+        if out_path is None:
+            out_path = filepath.parent / filepath.stem
         zf.extractall(path=out_path)
     return out_path
 

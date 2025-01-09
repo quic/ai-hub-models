@@ -61,7 +61,5 @@ class SuperResolutionApp:
 
         # Run prediction
         upscaled_images = self.model(NCHW_fp32_torch_frames)
-        if len(upscaled_images.shape) == 3:
-            upscaled_images = torch.unsqueeze(upscaled_images, 0)
 
         return [torch_tensor_to_PIL_image(img) for img in upscaled_images]

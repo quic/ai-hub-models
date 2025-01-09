@@ -63,6 +63,9 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             target_transform=lambda val: IMAGENETTE_CLASS_MAP[val],
         )
 
+    def __len__(self) -> int:
+        return ImageNet.__len__(self)
+
     def _validate_data(self) -> bool:
         devkit_path = DEVKIT_ASSET.path()
 

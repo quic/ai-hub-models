@@ -234,7 +234,7 @@ def compile_zoo_model_to_hub(
 def compile_model_from_args(
     model_id: str,
     cli_args: argparse.Namespace,
-    model_kwargs: Mapping[str, Any],
+    model_kwargs: dict[str, Any],
     component: str | None = None,
 ) -> hub.Model:
     """
@@ -254,6 +254,8 @@ def compile_model_from_args(
     """
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
+    if hasattr(cli_args, "num_calibration_samples"):
+        model_kwargs["num_calibration_samples"] = cli_args.num_calibration_samples
     if cli_args.chipset:
         device_cli = f"--chipset {cli_args.chipset}"
     else:
@@ -335,6 +337,32 @@ def make_hub_dataset_entries(
     if channel_last_input:
         dataset = transpose_channel_first_to_last(channel_last_input, dataset)
     return dataset
+
+
+def dataset_entries_from_batch(
+    batch,
+    input_names: list[str],
+    channel_last_input: Optional[list[str]],
+) -> tuple[DatasetEntries, DatasetEntries]:
+    """
+    Given a batch from a torch dataloader with the standard (inputs, gt) format,
+
+    return a tuple of DatasetEntries for inputs and gt that can be uploaded to hub.
+    """
+    model_inputs, ground_truth_values, *_ = batch
+    if isinstance(ground_truth_values, list) or isinstance(ground_truth_values, tuple):
+        output_names = [f"output_{i}" for i in range(len(ground_truth_values))]
+        ground_truth_values = tuple(ground_truth_values)
+    else:
+        output_names = ["output_0"]
+        ground_truth_values = (ground_truth_values,)
+    input_entries = make_hub_dataset_entries(
+        (model_inputs.split(1, dim=0),),
+        input_names,
+        channel_last_input,
+    )
+    gt_entries = make_hub_dataset_entries(ground_truth_values, output_names, None)
+    return input_entries, gt_entries
 
 
 class AsyncOnDeviceResult:
@@ -427,9 +455,10 @@ class AsyncOnDeviceModel:
         self.input_names = input_names
         self.device = device
         self.inference_options = inference_options
-        self.output_names = [] if output_names is None else output_names
+
         # Determine whether I/O is channel last
         self.channel_last_input, self.channel_last_output = [], []
+        compile_output_names = None
         if self.model.producer is not None:
             model_options = self.model.producer.options.strip().split()
             for option_num in range(len(model_options)):
@@ -441,6 +470,11 @@ class AsyncOnDeviceModel:
                     self.channel_last_output = (
                         model_options[option_num + 1].strip().split(",")
                     )
+                if model_options[option_num] == "--output_names":
+                    compile_output_names = (
+                        model_options[option_num + 1].strip().split(",")
+                    )
+        self.output_names = output_names or compile_output_names or []
 
     @property
     def target_runtime(self) -> TargetRuntime:

@@ -16,8 +16,6 @@ from PIL import Image as ImageModule
 from PIL.Image import Image
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
-    CITYSCAPES_MEAN,
-    CITYSCAPES_STD,
     FFNET_SOURCE_PATCHES,
     FFNET_SOURCE_REPO_COMMIT,
     FFNET_SOURCE_REPOSITORY,
@@ -65,13 +63,7 @@ def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
 
 
 def preprocess_cityscapes_image(image: Image) -> torch.Tensor:
-    transform = standard_transforms.Compose(
-        [
-            standard_transforms.ToTensor(),
-            standard_transforms.Normalize(CITYSCAPES_MEAN, CITYSCAPES_STD),
-        ]
-    )
-    out_tensor: torch.Tensor = transform(image)  # type: ignore
+    out_tensor: torch.Tensor = standard_transforms.ToTensor()(image)  # type: ignore
     return out_tensor.unsqueeze(0)
 
 

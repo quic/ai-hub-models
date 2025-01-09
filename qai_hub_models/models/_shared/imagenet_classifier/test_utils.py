@@ -68,7 +68,6 @@ def run_imagenet_classifier_test(
     img = load_image(TEST_IMAGENET_IMAGE)
     app = ImagenetClassifierApp(model)
     probabilities = app.predict(img)
-
     expected_output = CachedWebModelAsset.from_asset_store(
         model_name, asset_version, "expected_out.npy"
     )

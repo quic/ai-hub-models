@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/m
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[mediapipe_face_quantized]"
+pip install "qai_hub_models[mediapipe-face-quantized]"
 ```
 
 

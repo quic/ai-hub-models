@@ -43,23 +43,19 @@ class Qwen2_7B_Instruct_Quantized(FromPrecompiledProtocol, CollectionModel):
         prompt_processor_part2,
         prompt_processor_part3,
         prompt_processor_part4,
-        prompt_processor_part5,
         token_generator_part1,
         token_generator_part2,
         token_generator_part3,
         token_generator_part4,
-        token_generator_part5,
     ) -> None:
         self.prompt_processor_part1 = prompt_processor_part1
         self.prompt_processor_part2 = prompt_processor_part2
         self.prompt_processor_part3 = prompt_processor_part3
         self.prompt_processor_part4 = prompt_processor_part4
-        self.prompt_processor_part5 = prompt_processor_part5
         self.token_generator_part1 = token_generator_part1
         self.token_generator_part2 = token_generator_part2
         self.token_generator_part3 = token_generator_part3
         self.token_generator_part4 = token_generator_part4
-        self.token_generator_part5 = token_generator_part5
 
     @classmethod
     def from_precompiled(cls) -> Qwen2_7B_Instruct_Quantized:
@@ -68,12 +64,10 @@ class Qwen2_7B_Instruct_Quantized(FromPrecompiledProtocol, CollectionModel):
             prompt_processor_part2=PromptProcessor_Part2.from_precompiled(),
             prompt_processor_part3=PromptProcessor_Part3.from_precompiled(),
             prompt_processor_part4=PromptProcessor_Part4.from_precompiled(),
-            prompt_processor_part5=PromptProcessor_Part5.from_precompiled(),
             token_generator_part1=TokenGenerator_Part1.from_precompiled(),
             token_generator_part2=TokenGenerator_Part2.from_precompiled(),
             token_generator_part3=TokenGenerator_Part3.from_precompiled(),
             token_generator_part4=TokenGenerator_Part4.from_precompiled(),
-            token_generator_part5=TokenGenerator_Part5.from_precompiled(),
         )
 
 
@@ -104,7 +98,7 @@ class PromptProcessor_Part1(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_1_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_1_of_4"
         )
 
 
@@ -156,7 +150,7 @@ class PromptProcessor_Part2(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_2_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_2_of_4"
         )
 
 
@@ -208,7 +202,7 @@ class PromptProcessor_Part3(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_3_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_3_of_4"
         )
 
 
@@ -260,57 +254,7 @@ class PromptProcessor_Part4(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_4_of_5"
-        )
-
-
-class PromptProcessor_Part5(BasePrecompiledModel):
-    """
-    Prompt Processor Part5 for Qwen2 7B.
-
-    Pre-trained, quantized (int8/int4 weight, float32 activations)
-    and compiled into serialized binary for Qualcomm Snapdragon 8 Elite.
-    """
-
-    @classmethod
-    def from_precompiled(cls) -> PromptProcessor_Part5:
-        return PromptProcessor_Part5(get_cached_asset(part=45))
-
-    @staticmethod
-    def get_input_spec() -> InputSpec:
-        return {
-            "_model_layers_20_Add_1_Add_output_0": ((1, 128, 3584), "uint16"),
-            "past_key_21_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_21_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_23_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_23_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_24_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_24_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_25_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_25_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_26_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_26_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_27_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_27_in": ((4, 1, 3968, 128), "uint8"),
-            "past_key_22_in": ((4, 1, 128, 3968), "uint8"),
-            "past_value_22_in": ((4, 1, 3968, 128), "uint8"),
-            "position_ids_cos": ((1, 1, 128, 64), "uint16"),
-            "position_ids_sin": ((1, 1, 128, 64), "uint16"),
-            "attention_mask": ((1, 1, 128, 4096), "uint16"),
-        }
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=21, end=28).append("logits")
-
-    def get_hub_profile_options(
-        self, target_runtime: TargetRuntime, other_profile_options: str = ""
-    ) -> str:
-        profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
-        )
-        return (
-            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_5_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar128_cl4096_4_of_4"
         )
 
 
@@ -341,7 +285,7 @@ class TokenGenerator_Part1(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_1_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_1_of_4"
         )
 
 
@@ -393,7 +337,7 @@ class TokenGenerator_Part2(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_2_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_2_of_4"
         )
 
 
@@ -445,7 +389,7 @@ class TokenGenerator_Part3(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_3_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_3_of_4"
         )
 
 
@@ -497,55 +441,5 @@ class TokenGenerator_Part4(BasePrecompiledModel):
             target_runtime, other_profile_options
         )
         return (
-            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_4_of_5"
-        )
-
-
-class TokenGenerator_Part5(BasePrecompiledModel):
-    """
-    Token Generator Part5 for Qwen2 7B.
-
-    Pre-trained, quantized (int8/int4 weight, float32 activations)
-    and compiled into serialized binary for Qualcomm Snapdragon 8 Elite.
-    """
-
-    @classmethod
-    def from_precompiled(cls) -> TokenGenerator_Part5:
-        return TokenGenerator_Part5(get_cached_asset(part=5))
-
-    @staticmethod
-    def get_input_spec() -> InputSpec:
-        return {
-            "_model_layers_20_Add_1_Add_output_0": ((1, 1, 3584), "uint16"),
-            "past_key_21_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_21_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_23_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_23_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_24_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_24_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_25_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_25_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_26_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_26_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_27_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_27_in": ((4, 1, 4095, 128), "uint8"),
-            "past_key_22_in": ((4, 1, 128, 4095), "uint8"),
-            "past_value_22_in": ((4, 1, 4095, 128), "uint8"),
-            "position_ids_cos": ((1, 1, 1, 64), "uint16"),
-            "position_ids_sin": ((1, 1, 1, 64), "uint16"),
-            "attention_mask": ((1, 1, 1, 4096), "uint16"),
-        }
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=21, end=28).append("logits")
-
-    def get_hub_profile_options(
-        self, target_runtime: TargetRuntime, other_profile_options: str = ""
-    ) -> str:
-        profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
-        )
-        return (
-            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_5_of_5"
+            profile_options + " --qnn_options context_enable_graphs=ar1_cl4096_4_of_4"
         )

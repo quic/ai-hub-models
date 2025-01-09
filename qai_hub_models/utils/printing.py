@@ -11,12 +11,13 @@ from typing import Any, Optional, Union
 import numpy as np
 import qai_hub as hub
 from prettytable import PrettyTable
-from qai_hub.client import DatasetEntries, SourceModelType
+from qai_hub.client import SourceModelType
+from qai_hub.public_rest_api import DatasetEntries
 from tabulate import tabulate
 
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, bytes_to_mb
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
-from qai_hub_models.utils.config_loaders import QAIHMModelPerf, bytes_to_mb
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
 _INFO_DASH = "-" * 60

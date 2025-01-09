@@ -24,7 +24,12 @@ from qai_hub_models.models.protocols import (
     HubModelProtocol,
     PretrainedHubModelProtocol,
 )
-from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
+from qai_hub_models.utils.input_spec import (
+    InputSpec,
+    broadcast_data_to_multi_batch,
+    get_batch_size,
+    make_torch_inputs,
+)
 from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
 
@@ -114,6 +119,10 @@ class HubModel(HubModelProtocol):
             format transposes.
         """
         sample_inputs = self._sample_inputs_impl(input_spec, **kwargs)
+        if input_spec is not None:
+            batch_size = get_batch_size(input_spec)
+            if batch_size > 1:
+                sample_inputs = broadcast_data_to_multi_batch(input_spec, sample_inputs)
         if use_channel_last_format and self.get_channel_last_inputs():
             return transpose_channel_first_to_last(
                 self.get_channel_last_inputs(), sample_inputs

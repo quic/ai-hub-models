@@ -11,6 +11,7 @@ from typing import Generic, Optional, TypeVar, cast
 
 import ruamel.yaml
 
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
@@ -29,10 +30,9 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     ScorecardJobTypeVar,
     ScorecardPathTypeVar,
 )
-from qai_hub_models.utils.config_loaders import MODEL_IDS, QAIHMModelInfo
-from qai_hub_models.utils.path_helpers import get_qaihm_package_root
+from qai_hub_models.utils.path_helpers import MODEL_IDS, QAIHM_PACKAGE_ROOT
 
-INTERMEDIATES_DIR = get_qaihm_package_root() / "scorecard" / "intermediates"
+INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")

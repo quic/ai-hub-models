@@ -5,6 +5,7 @@
 
 
 from .bsd300 import BSD300Dataset
+from .cityscapes import CityscapesDataset
 from .coco import CocoDataset
 from .common import BaseDataset, DatasetSplit
 from .imagenet import ImagenetDataset
@@ -17,6 +18,7 @@ ALL_DATASETS: list[type[BaseDataset]] = [
     BSD300Dataset,
     ImagenetDataset,
     ImagenetteDataset,
+    CityscapesDataset,
 ]
 
 DATASET_NAME_MAP: dict[str, type[BaseDataset]] = {

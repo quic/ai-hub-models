@@ -7,13 +7,12 @@ from typing import Union
 
 import torch
 import torch.nn.functional as F
-from fiftyone.core.sample import SampleView
 from PIL import Image
 from torch.utils.data.dataloader import default_collate
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
-from qai_hub_models.utils.path_helpers import get_qaihm_package_root
+from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 DATASET_ID = "coco"
 DATASET_ASSET_VERSION = 1
@@ -77,7 +76,7 @@ class CocoDataset(BaseDataset):
 
         counter = 0
         self.label_map = {}
-        with open(get_qaihm_package_root() / "labels" / "coco_labels.txt") as f:
+        with open(QAIHM_PACKAGE_ROOT / "labels" / "coco_labels.txt") as f:
             for line in f.readlines():
                 self.label_map[line.strip()] = counter
                 counter += 1
@@ -102,6 +101,8 @@ class CocoDataset(BaseDataset):
           - labels with shape (self.max_boxes,)
           - number of actual boxes present
         """
+        from fiftyone.core.sample import SampleView
+
         sample = self.dataset[item : item + 1].first()
         assert isinstance(sample, SampleView)
         image = Image.open(sample.filepath).convert("RGB")

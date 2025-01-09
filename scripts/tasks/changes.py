@@ -38,10 +38,15 @@ MANUAL_EDGES = {
         "qai_hub_models/models/xlsr_quantized/model.py",
         "qai_hub_models/models/resnet18_quantized/model.py",
     ],
+    "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/utils/config_loaders.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/models/_configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/models/_configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/models/_configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/models/_configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/models/_configs/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
 }
 
 

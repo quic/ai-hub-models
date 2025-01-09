@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/m
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[mobile_vit]"
+pip install "qai_hub_models[mobile-vit]"
 ```
 
 

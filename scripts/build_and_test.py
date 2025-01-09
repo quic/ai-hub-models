@@ -40,6 +40,7 @@ from tasks.test import PyTestModelsTask, PyTestQAIHMTask
 from tasks.util import echo, run
 from tasks.venv import (
     CreateVenvTask,
+    DownloadPrivateDatasetsTask,
     GenerateGlobalRequirementsTask,
     SyncLocalQAIHMVenvTask,
 )
@@ -231,8 +232,22 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Download Private Datasets")
+    @depends(["install_deps"])
+    def download_private_datasets(
+        self, plan: Plan, step_id: str = "download_private_datasets"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            DownloadPrivateDatasetsTask(
+                venv=self.venv_path,
+            ),
+        )
+
     @public_task("Model Test Setup")
-    @depends(["install_deps", "generate_global_requirements"])
+    @depends(
+        ["install_deps", "generate_global_requirements", "download_private_datasets"]
+    )
     def model_test_setup(self, plan: Plan, step_id: str = "model_test_setup") -> str:
         return plan.add_step(step_id, NoOpTask())
 
@@ -378,7 +393,7 @@ class TaskLibrary:
                 group_name=None,
                 venv=self.venv_path,
                 commands=[
-                    "python qai_hub_models/scripts/generate_perf_yaml.py --gen-csv --gen-perf-summary"
+                    "python qai_hub_models/scripts/generate_perf_yaml.py --gen-csv --gen-perf-summary --sync-code-gen"
                 ],
             ),
         )

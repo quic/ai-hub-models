@@ -95,6 +95,10 @@ class YoloV3(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
+    def get_channel_last_inputs() -> list[str]:
+        return ["image"]
+
+    @staticmethod
     def get_output_names(include_postprocessing: bool = True) -> list[str]:
         if include_postprocessing:
             return ["boxes", "scores", "class_idx"]

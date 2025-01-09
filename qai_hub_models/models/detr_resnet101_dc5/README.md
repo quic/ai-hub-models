@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/d
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[detr_resnet101_dc5]"
+pip install "qai_hub_models[detr-resnet101-dc5]"
 ```
 
 

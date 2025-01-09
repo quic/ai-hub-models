@@ -7,6 +7,8 @@ from __future__ import annotations
 from collections.abc import Collection
 
 import torch
+
+# podm comes from the object-detection-metrics pip package
 from podm.metrics import (  # type: ignore
     BoundingBox,
     MetricPerClass,

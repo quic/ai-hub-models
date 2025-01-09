@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/c
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[convnext_tiny_w8a16_quantized]"
+pip install "qai_hub_models[convnext-tiny-w8a16-quantized]"
 ```
 
 

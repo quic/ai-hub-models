@@ -30,7 +30,10 @@ from qai_hub_models.utils.asset_loaders import (
     qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.inference import AsyncOnDeviceModel, make_hub_dataset_entries
+from qai_hub_models.utils.inference import (
+    AsyncOnDeviceModel,
+    dataset_entries_from_batch,
+)
 from qai_hub_models.utils.qai_hub_helpers import transpose_channel_last_to_first
 
 CACHE_SPLIT_SIZE_FILE = "current_split_size.txt"
@@ -115,23 +118,10 @@ def _populate_data_cache_impl(
     """
     torch.manual_seed(seed)
     dataloader = DataLoader(dataset, batch_size=split_size, shuffle=True)
-    for sample in dataloader:
-        model_inputs, ground_truth_values, *_ = sample
-        if isinstance(ground_truth_values, list) or isinstance(
-            ground_truth_values, tuple
-        ):
-            output_names = [f"output_{i}" for i in range(len(ground_truth_values))]
-            ground_truth_values = tuple(ground_truth_values)
-        else:
-            output_names = ["output_0"]
-            ground_truth_values = (ground_truth_values,)
-        input_entries = make_hub_dataset_entries(
-            (model_inputs.split(1, dim=0),),
-            input_names,
-            channel_last_input,
+    for batch in dataloader:
+        input_entries, gt_entries = dataset_entries_from_batch(
+            batch, input_names, channel_last_input
         )
-        gt_entries = make_hub_dataset_entries(ground_truth_values, output_names, None)
-        # print(input_entries)
         input_dataset = hub.upload_dataset(input_entries)
         gt_dataset = hub.upload_dataset(gt_entries)
         input_data_path = get_dataset_path(cache_path, input_dataset.dataset_id)
@@ -183,7 +173,6 @@ def _populate_data_cache(
     if dataset_ids_valid and get_dataset_cache_split_size(dataset_name) == split_size:
         print("Cached data already present.")
         return
-
     if cache_path.exists():
         shutil.rmtree(cache_path)
 
@@ -315,7 +304,7 @@ def evaluate_on_dataset(
     seed: int = 42,
     profile_options: str = "",
     use_cache: bool = False,
-) -> tuple[str, str]:
+) -> tuple[float, float]:
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
@@ -335,15 +324,16 @@ def evaluate_on_dataset(
             tradeoff of increased initial overhead.
 
     Returns:
-        Tuple of (torch accuracy, on device accuracy) both as formatted strings.
+        Tuple of (torch accuracy, on device accuracy) both as float.
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
     _validate_inputs(num_samples)
 
     source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
     input_names = list(torch_model.get_input_spec().keys())
+    output_names = torch_model.get_output_names()
     on_device_model = AsyncOnDeviceModel(
-        compiled_model, input_names, hub_device, profile_options
+        compiled_model, input_names, hub_device, profile_options, output_names
     )
 
     torch_dataset: Dataset
@@ -403,4 +393,7 @@ def evaluate_on_dataset(
     print("\nFinal accuracy:")
     print(f"torch: {torch_accuracy}")
     print(f"on-device: {on_device_accuracy}")
-    return (torch_accuracy, on_device_accuracy)
+    return (
+        torch_evaluator.get_accuracy_score(),
+        on_device_evaluator.get_accuracy_score(),
+    )

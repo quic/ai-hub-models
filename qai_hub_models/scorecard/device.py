@@ -14,6 +14,7 @@ from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 
 _DEVICE_CACHE: dict[str, hub.Device] = {}
+UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
 
 def _get_cached_device(device_name: str) -> hub.Device:
@@ -44,6 +45,7 @@ class ScorecardDevice:
         supports_fp16_npu: Optional[bool] = None,
         supports_compile_path: Optional[ScorecardCompilePath] = None,
         supports_profile_path: Optional[ScorecardProfilePath] = None,
+        form_factors: Optional[list["ScorecardDevice.FormFactor"]] = None,
     ):
         """
         Get all devices that match the given attributes.
@@ -66,6 +68,7 @@ class ScorecardDevice:
                     supports_profile_path is None
                     or supports_profile_path in device.profile_paths
                 )
+                and (form_factors is None or device.form_factor in form_factors)
             )
         ]
 
@@ -96,7 +99,11 @@ class ScorecardDevice:
             return ScorecardDevice.FormFactor[string.upper()]
 
         def __str__(self):
-            return self.name
+            if self == ScorecardDevice.FormFactor.IOT:
+                return "IoT"
+            elif self == ScorecardDevice.FormFactor.XR:
+                return "XR"
+            return self.name.title()
 
     @unique
     class OperatingSystem(Enum):
@@ -185,7 +192,7 @@ class ScorecardDevice:
         valid_test_devices = os.environ.get("WHITELISTED_PROFILE_TEST_DEVICES", "ALL")
         return (
             valid_test_devices == "ALL"
-            or self.name == "any"
+            or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
             or self.name in valid_test_devices.split(",")
         )
 
@@ -343,7 +350,7 @@ class ScorecardDevice:
 # This device also produces an android-arm64 QNN .so that is used for inference on all Android devices.
 ##
 cs_universal = ScorecardDevice(
-    name="universal",
+    name=UNIVERSAL_DEVICE_SCORECARD_NAME,
     reference_device_name="Samsung Galaxy S23",
     compile_paths=[path for path in ScorecardCompilePath],
     profile_paths=[],

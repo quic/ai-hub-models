@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/l
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[lama_dilated]"
+pip install "qai_hub_models[lama-dilated]"
 ```
 
 

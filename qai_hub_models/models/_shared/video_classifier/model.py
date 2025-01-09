@@ -57,3 +57,7 @@ class KineticsClassifier(BaseModel):
                 "float32",
             )
         }
+
+    @staticmethod
+    def get_output_names():
+        return ["class_probs"]

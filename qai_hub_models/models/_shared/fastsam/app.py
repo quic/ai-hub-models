@@ -49,7 +49,7 @@ class FastSAMApp:
         # See upscale_image.
         return self.segment_image(*args, **kwargs)
 
-    def segment_image(self, image_path: str) -> Results:
+    def segment_image(self, image_path: str) -> tuple[list[Results], FastSAMPrompt]:
         """
         Upscale provided images
 
@@ -67,10 +67,9 @@ class FastSAMApp:
         )
         img = preprocess_PIL_image(resized_image)
         original_image = np.array(original_image)
-        image_path = [image_path]
-        preds = self.model(img)
-        p = ops.non_max_suppression(
-            preds[0],
+        raw_boxes, raw_masks = self.model(img)
+        nms_out = ops.non_max_suppression(
+            raw_boxes,
             self.confidence,
             self.iou_threshold,
             agnostic=False,
@@ -79,7 +78,7 @@ class FastSAMApp:
             classes=None,
         )
 
-        full_box = torch.zeros(p[0].shape[1], device=p[0].device)
+        full_box = torch.zeros(nms_out[0].shape[1], device=nms_out[0].device)
         full_box[2], full_box[3], full_box[4], full_box[6:] = (
             img.shape[3],
             img.shape[2],
@@ -88,17 +87,20 @@ class FastSAMApp:
         )
         full_box = full_box.view(1, -1)
         critical_iou_index = bbox_iou(
-            full_box[0][:4], p[0][:, :4], iou_thres=0.9, image_shape=img.shape[2:]
+            full_box[0][:4], nms_out[0][:, :4], iou_thres=0.9, image_shape=img.shape[2:]
         )
-        if critical_iou_index.numel() != 0:
-            full_box[0][4] = p[0][critical_iou_index][:, 4]
-            full_box[0][6:] = p[0][critical_iou_index][:, 6:]
-            p[0][critical_iou_index] = full_box
+        if (
+            isinstance(critical_iou_index, torch.Tensor)
+            and critical_iou_index.numel() != 0
+        ):
+            full_box[0][4] = nms_out[0][critical_iou_index][:, 4]
+            full_box[0][6:] = nms_out[0][critical_iou_index][:, 6:]
+            nms_out[0][critical_iou_index] = full_box
 
-        results = []
-        for i, pred in enumerate(p):
+        results: list[Results] = []
+        for i, pred in enumerate(nms_out):
             orig_img = original_image
-            img_path = image_path[0][i]
+            img_path = image_path[i]
             # No predictions, no masks
             if not len(pred):
                 masks = None
@@ -108,11 +110,11 @@ class FastSAMApp:
                 )
 
                 masks = ops.process_mask_native(
-                    preds[1][i], pred[:, 6:], pred[:, :4], orig_img.shape[:2]
+                    raw_masks[i], pred[:, 6:], pred[:, :4], orig_img.shape[:2]
                 )  # HWC
             else:
                 masks = ops.process_mask(
-                    preds[1][i], pred[:, 6:], pred[:, :4], img.shape[2:], upsample=True
+                    raw_masks[i], pred[:, 6:], pred[:, :4], img.shape[2:], upsample=True
                 )  # HWC
                 pred[:, :4] = ops.scale_boxes(
                     img.shape[2:], pred[:, :4], orig_img.shape
@@ -126,6 +128,6 @@ class FastSAMApp:
                     masks=masks,
                 )
             )
-        prompt_process = FastSAMPrompt(image_path[0], results, device="cpu")
+        prompt_process = FastSAMPrompt(image_path, results, device="cpu")
         segmented_result = prompt_process.everything_prompt()
         return segmented_result, prompt_process

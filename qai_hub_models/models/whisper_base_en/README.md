@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/w
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[whisper_base_en]"
+pip install "qai_hub_models[whisper-base-en]"
 ```
 
 

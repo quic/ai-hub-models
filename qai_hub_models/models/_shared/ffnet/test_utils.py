@@ -13,7 +13,10 @@ from qai_hub_models.models._shared.cityscapes_segmentation.demo import (
 from qai_hub_models.models._shared.ffnet.model import _load_ffnet_source_model
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.image_processing import (
+    normalize_image_torchvision,
+    preprocess_PIL_image,
+)
 
 
 def run_test_off_target_numerical(
@@ -23,11 +26,12 @@ def run_test_off_target_numerical(
     processed_sample_image = preprocess_PIL_image(
         load_image(TEST_CITYSCAPES_LIKE_IMAGE_ASSET)
     )
+    normalized_image = normalize_image_torchvision(processed_sample_image)
     source_model = _load_ffnet_source_model(variant_name)
     qaism_model = ffnet_cls.from_pretrained()
 
     with torch.no_grad():
-        source_out = source_model(processed_sample_image)
+        source_out = source_model(normalized_image)
         qaism_out = qaism_model(processed_sample_image)
 
         if relax_numerics:

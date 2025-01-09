@@ -95,10 +95,11 @@ def export_model(
     model_name = "baichuan2_7b_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
-        raise ValueError("Device or Chipset must be provided.")
-    hub_device = hub.Device(
-        name=device or "", attributes=f"chipset:{chipset}" if chipset else None
-    )
+        hub_device = hub.Device("Snapdragon 8 Elite QRD")
+    else:
+        hub_device = hub.Device(
+            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
+        )
     component_arg = components
     components = components or DEFAULT_COMPONENTS
     for component_name in components:
@@ -183,7 +184,7 @@ def export_model(
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
-            assert profile_job is not None and profile_job.wait().success
+            assert profile_job.wait().success, "Job failed: " + profile_job.url
             profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
             print_profile_metrics_from_job(profile_job, profile_data)
 
@@ -201,12 +202,8 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    device = "Snapdragon 8 Elite QRD"
     parser = export_parser(
-        model_cls=Model,
-        default_export_device=device,
-        components=ALL_COMPONENTS,
-        exporting_compiled_model=True,
+        model_cls=Model, components=ALL_COMPONENTS, exporting_compiled_model=True
     )
     args = parser.parse_args()
     export_model(**vars(args))

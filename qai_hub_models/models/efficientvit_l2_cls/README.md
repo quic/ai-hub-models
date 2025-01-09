@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/e
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[efficientvit_l2_cls]"
+pip install "qai_hub_models[efficientvit-l2-cls]"
 ```
 
 

@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/r
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[real_esrgan_x4plus]"
+pip install "qai_hub_models[real-esrgan-x4plus]"
 ```
 
 

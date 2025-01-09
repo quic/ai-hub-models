@@ -88,10 +88,11 @@ def export_model(
     model_name = "yolov8_det"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
-        raise ValueError("Device or Chipset must be provided.")
-    hub_device = hub.Device(
-        name=device or "", attributes=f"chipset:{chipset}" if chipset else None
-    )
+        hub_device = hub.Device("Samsung Galaxy S24 (Family)")
+    else:
+        hub_device = hub.Device(
+            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
+        )
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "yolov8_det",
@@ -179,17 +180,17 @@ def export_model(
         target_model.download(str(output_path / model_name))
 
     # 6. Summarizes the results from profiling and inference
-    if not skip_summary and not skip_profiling:
-        assert profile_job is not None and profile_job.wait().success
+    if not skip_summary and profile_job is not None:
+        assert profile_job.wait().success, "Job failed: " + profile_job.url
         profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
         print_profile_metrics_from_job(profile_job, profile_data)
 
-    if not skip_summary and not skip_inferencing:
-        sample_inputs = model.sample_inputs(use_channel_last_format=False)
+    if not skip_summary and inference_job is not None:
+        sample_inputs = model.sample_inputs(input_spec, use_channel_last_format=False)
         torch_out = torch_inference(
             model, sample_inputs, return_channel_last_output=use_channel_last_format
         )
-        assert inference_job is not None and inference_job.wait().success
+        assert inference_job.wait().success, "Job failed: " + inference_job.url
         inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
 
         print_inference_metrics(

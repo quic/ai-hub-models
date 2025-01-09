@@ -34,7 +34,14 @@ class Fast_SAM(BaseModel):
                    Range: float[0, 1]
                    3-channel Color Space: BGR
         Returns:
-
+            Tuple of 2 tensors:
+                boxes:
+                    Shape [batch_size, num_candidate_boxes, box_data]
+                    where box_data is length num_classes + 5 and contains
+                    box coordinates, objectness confidence, and per-class confidence.
+                masks:
+                    Shape [batch_size, h / 4, w / 4, num_classes]
+                    With the probability that each pixel belongs to a given class.
         """
         predictions = self.model(image)
         # Return predictions as a tuple instead of nested tuple.
@@ -62,4 +69,4 @@ class Fast_SAM(BaseModel):
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
-        return ["boxes", "mask"]
+        return ["mask"]

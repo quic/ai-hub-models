@@ -26,7 +26,6 @@ from qai_hub_models.models.protocols import (
     FromPretrainedTypeVar,
 )
 from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
-from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
@@ -95,7 +94,7 @@ def get_on_device_demo_parser(
         TargetRuntime.__members__.values()
     ),
     add_output_dir: bool = False,
-    default_device: str = DEFAULT_EXPORT_DEVICE,
+    default_device: str | None = None,
 ):
     if not parser:
         parser = get_parser()
@@ -511,7 +510,7 @@ def export_parser(
     supports_onnx: bool = True,
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
-    default_export_device: str = DEFAULT_EXPORT_DEVICE,
+    default_export_device: str | None = None,
     is_hub_quantized: bool = False,
 ) -> argparse.ArgumentParser:
     """
