@@ -8,6 +8,9 @@ import sys
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.depth_evaluator import DepthEvaluator
+from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -16,7 +19,6 @@ from qai_hub_models.utils.asset_loaders import (
     tmp_os_env,
     wipe_sys_modules,
 )
-from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -35,7 +37,7 @@ DEFAULT_HEIGHT = 256
 DEFAULT_WIDTH = 256
 
 
-class Midas(BaseModel):
+class Midas(DepthEstimationModel):
     """Exportable Midas depth estimation model."""
 
     def __init__(
@@ -54,7 +56,7 @@ class Midas(BaseModel):
     @classmethod
     def from_pretrained(
         cls,
-        weights: str = DEFAULT_WEIGHTS,
+        weights: str | CachedWebModelAsset = DEFAULT_WEIGHTS,
         height: int = DEFAULT_HEIGHT,
         width: int = DEFAULT_WIDTH,
     ) -> Midas:
@@ -113,8 +115,8 @@ class Midas(BaseModel):
                 from hubconf import MiDaS_small
 
                 model = MiDaS_small(pretrained=False)
-                weights = load_torch(weights)
-                model.load_state_dict(weights)
+                weights_dict = load_torch(weights)
+                model.load_state_dict(weights_dict)
         return cls(model)
 
     @staticmethod
@@ -126,6 +128,9 @@ class Midas(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["depth_estimates"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return DepthEvaluator()
 
     def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
         return self.__class__.get_input_spec(batch_size, self.height, self.width)
@@ -146,11 +151,3 @@ class Midas(BaseModel):
         if self.normalize_input:
             image = normalize_image_torchvision(image)
         return self.model(image)
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["depth_estimates"]

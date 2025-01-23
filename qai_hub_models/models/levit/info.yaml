@@ -1,0 +1,46 @@
+name: LeViT
+# id must match with the model dir name in qai_hub_models
+id: levit
+status: public
+private_perf_form_factors:
+  - Auto
+headline: Imagenet classifier and general purpose backbone.
+domain: Computer Vision
+description: LeViT is a vision transformer model that can classify images from the
+  Imagenet dataset.
+use_case: Image Classification
+tags: []
+research_paper: https://arxiv.org/abs/2104.01136
+research_paper_title: "LeViT: a Vision Transformer in ConvNet's Clothing for Faster
+  Inference"
+license: https://github.com/facebookresearch/LeViT?tab=Apache-2.0-1-ov-file
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/facebookresearch/LeViT
+technical_details:
+  Model checkpoint: LeViT-128S
+  Input resolution: 224x224
+  Number of parameters: 7.82M
+  Model size: 29.9 MB
+applicable_scenarios:
+  - Medical Imaging
+  - Anomaly Detection
+  - Inventory Management
+related_models:
+  - efficientvit_b2_cls
+  - efficientvit_l2_cls
+  - mobilenet_v2_quantized
+  - squeezenet1_1
+  - densenet121
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+  - XR
+has_static_banner: true
+has_animated_banner: true
+license_type: apache-2.0
+deploy_license_type: AI Model Hub License
+dataset:
+  - imagenet-1k
+labels_file: imagenet_labels.txt

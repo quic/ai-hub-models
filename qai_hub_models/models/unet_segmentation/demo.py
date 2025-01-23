@@ -10,24 +10,16 @@ from PIL import Image
 from PIL.Image import fromarray
 
 from qai_hub_models.models.unet_segmentation.app import UNetSegmentationApp
-from qai_hub_models.models.unet_segmentation.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    UNet,
-)
+from qai_hub_models.models.unet_segmentation.model import IMAGE_ADDRESS, MODEL_ID, UNet
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, PathType, load_image
+from qai_hub_models.utils.asset_loaders import PathType, load_image
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.image_processing import pil_resize_pad
-
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "unet_test_image.jpg"
-)
 
 
 # Run unet segmentation app end-to-end on a sample image.

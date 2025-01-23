@@ -59,7 +59,7 @@ class SegmentationOutputEvaluator(BaseEvaluator):
 
     def _generate_matrix(self, gt_image, pre_image):
         mask = (gt_image >= 0) & (gt_image < self.num_classes)
-        label = self.num_classes * gt_image[mask].int() + pre_image[mask]
+        label = self.num_classes * gt_image[mask].int() + pre_image[mask].int()
         count = torch.bincount(label, minlength=self.num_classes**2)
         confusion_matrix = count.reshape(self.num_classes, self.num_classes)
         return confusion_matrix

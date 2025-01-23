@@ -9,8 +9,14 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    SourceAsRoot,
+    load_image,
+)
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 DDRNET_SOURCE_REPOSITORY = "https://github.com/chenjun2hao/DDRNet.pytorch"
@@ -20,6 +26,10 @@ MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "DDRNet23s_imagenet.pth"
 MODEL_ASSET_VERSION = 1
 NUM_CLASSES = 19
+
+INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "test_input_image.png"
+)
 
 
 class DDRNet(BaseModel):
@@ -116,3 +126,12 @@ class DDRNet(BaseModel):
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
         return ["mask"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(INPUT_IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

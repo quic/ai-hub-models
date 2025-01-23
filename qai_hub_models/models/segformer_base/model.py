@@ -4,25 +4,26 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from torch import nn
 from transformers import SegformerForSemanticSegmentation
 
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
 DEFAULT_WEIGHTS = "nvidia/segformer-b0-finetuned-ade-512-512"
+INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "image_512.jpg"
+)
 
 
 class SegformerBase(BaseModel):
     """
     Segformer Base segmentation
     """
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> SegformerBase:
@@ -63,3 +64,12 @@ class SegformerBase(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(INPUT_IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

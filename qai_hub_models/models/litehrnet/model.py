@@ -7,6 +7,8 @@ from __future__ import annotations
 import torch
 from mmpose.apis import MMPoseInferencer
 
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -16,6 +18,10 @@ MODEL_ASSET_VERSION = 1
 # More inferencer architectures for litehrnet can be found here
 # https://github.com/open-mmlab/mmpose/tree/main/configs/body_2d_keypoint/topdown_heatmap/coco
 DEFAULT_INFERENCER_ARCH = "td-hm_litehrnet-18_8xb64-210e_coco-256x192"
+
+SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "sample_hrnet_inputs.npy"
+)
 
 
 class LiteHRNet(BaseModel):
@@ -88,6 +94,11 @@ class LiteHRNet(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         return {"image": ((batch_size, 3, height, width), "float32")}
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        return {"image": [load_numpy(SAMPLE_INPUTS)]}
 
     @staticmethod
     def get_output_names() -> list[str]:

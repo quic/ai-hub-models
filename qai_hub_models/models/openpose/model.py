@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
+    load_image,
     wipe_sys_modules,
 )
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 OPENPOSE_SOURCE_REPOSITORY = "https://github.com/CMU-Perceptual-Computing-Lab/openpose"
@@ -22,6 +25,9 @@ OPENPOSE_PROXY_REPO_COMMIT = "5ee71dc10020403dc3def2bb68f9b77c40337ae2"
 DEFAULT_WEIGHTS = "body_pose_model.pth"
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
+IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "openpose_demo.png"
+)
 
 
 class OpenPose(BaseModel):
@@ -122,6 +128,15 @@ class OpenPose(BaseModel):
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
         return ["paf", "heatmap"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
 
 def _load_openpose_source_model_from_weights(

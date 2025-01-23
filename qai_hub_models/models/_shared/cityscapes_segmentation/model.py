@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import os
 
 import torch
@@ -11,8 +13,13 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models._shared.cityscapes_segmentation.evaluator import (
     CityscapesSegmentationEvaluator,
 )
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import normalize_image_torchvision
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 # The FFNet repo contains some utility functions for Cityscapes, so the
@@ -30,28 +37,12 @@ MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
 CITYSCAPES_NUM_CLASSES = 19
 CITYSCAPES_IGNORE_LABEL = 255
-# Cityscapes has 30 classes, but only 19 are in use
-CITYSCAPES_LABELS = [
-    "road",
-    "sidewalk",
-    "building",
-    "wall",
-    "fence",
-    "pole",
-    "traffic light",
-    "traffic sign",
-    "vegetation",
-    "terrain",
-    "sky",
-    "person",
-    "rider",
-    "car",
-    "truck",
-    "bus",
-    "train",
-    "motorcycle",
-    "bicycle",
-]
+
+# This image showcases the Cityscapes classes (but is not from the dataset)
+TEST_CITYSCAPES_LIKE_IMAGE_NAME = "cityscapes_like_demo_2048x1024.jpg"
+TEST_CITYSCAPES_LIKE_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, TEST_CITYSCAPES_LIKE_IMAGE_NAME
+)
 
 
 class CityscapesSegmentor(BaseModel):
@@ -102,3 +93,12 @@ class CityscapesSegmentor(BaseModel):
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
         return ["mask"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(TEST_CITYSCAPES_LIKE_IMAGE_ASSET)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

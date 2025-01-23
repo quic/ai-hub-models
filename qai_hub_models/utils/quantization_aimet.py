@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
+from contextlib import contextmanager
 
 try:
     import aimet_torch.elementwise_ops as aimet_ops
@@ -54,6 +56,23 @@ from qai_hub_models.models.protocols import (
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
+
+
+@contextmanager
+def redirect_stderr():
+    """
+    Can't use built-in functions like contextlib.redirect_stderr
+    because the stderr is coming from cpp extensions.
+    """
+    with open(os.devnull, "w") as f:
+        original_fd = sys.stderr.fileno()
+        saved_stderr_fd = os.dup(original_fd)
+        try:
+            os.dup2(f.fileno(), original_fd)
+            yield
+        finally:
+            os.dup2(saved_stderr_fd, original_fd)
+            os.close(saved_stderr_fd)
 
 
 def _should_tie_observers(op: torch.nn.Module) -> bool:
@@ -387,14 +406,16 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
 
             onnx_utils.EXPORT_TO_ONNX_DIRECT = self.needs_onnx_direct_aimet_export
 
-            self.quant_sim.export(
-                str(base_path),
-                model_name,
-                tuple(make_torch_inputs(input_spec)),
-                onnx_export_args=dict(
-                    input_names=[name for name in input_spec], output_names=output_names
-                ),
-            )
+            with redirect_stderr():
+                self.quant_sim.export(
+                    str(base_path),
+                    model_name,
+                    tuple(make_torch_inputs(input_spec)),
+                    onnx_export_args=dict(
+                        input_names=[name for name in input_spec],
+                        output_names=output_names,
+                    ),
+                )
 
             onnx_file_path = str(base_path / f"{model_name}.onnx")
             encoding_file_path = str(base_path / f"{model_name}.encodings")

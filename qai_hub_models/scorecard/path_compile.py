@@ -2,9 +2,13 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import os
 from enum import Enum
 from typing import Optional
+
+import qai_hub as hub
 
 from qai_hub_models.models.common import TargetRuntime
 
@@ -27,6 +31,11 @@ class ScorecardCompilePath(Enum):
     @property
     def enabled(self) -> bool:
         valid_test_runtimes = os.environ.get("WHITELISTED_TEST_RUNTIMES", "ALL")
+
+        # DML only enabled if explicitly requested
+        if self == ScorecardCompilePath.ONNX_FP16:
+            return "onnx_dml" in [x.lower() for x in valid_test_runtimes.split(",")]
+
         return valid_test_runtimes == "ALL" or (
             self.runtime.name.lower()
             in [x.lower() for x in valid_test_runtimes.split(",")]
@@ -36,7 +45,7 @@ class ScorecardCompilePath(Enum):
     def all_paths(
         enabled: Optional[bool] = None,
         supports_quantization: Optional[bool] = None,
-    ) -> list["ScorecardCompilePath"]:
+    ) -> list[ScorecardCompilePath]:
         """
         Get all compile paths that match the given attributes.
         If an attribute is None, it is ignored when filtering paths.
@@ -77,7 +86,15 @@ class ScorecardCompilePath(Enum):
             return False
         return True
 
-    def get_compile_options(self, model_is_quantized: bool = False) -> str:
+    def get_compile_options(
+        self,
+        model_is_quantized: bool = False,
+        device: hub.Device | None = None,
+        include_target_runtime: bool = False,
+    ) -> str:
+        out = ""
+        if include_target_runtime:
+            out += self.runtime.get_target_runtime_flag(device)
         if self == ScorecardCompilePath.ONNX_FP16 and not model_is_quantized:
-            return "--quantize_full_type float16 --quantize_io"
-        return ""
+            out = out + " --quantize_full_type float16 --quantize_io"
+        return out.strip()

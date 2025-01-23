@@ -33,6 +33,29 @@ def _flatten_tuple(out_tuple):
     return tuple(flattened_tuple)
 
 
+def _torch_inference_impl(
+    model: BaseModel,
+    sample_inputs: dict[str, list[np.ndarray]],
+) -> list[np.ndarray]:
+    torch_outs: list[list[torch.Tensor]] = []
+    input_names = sample_inputs.keys()
+    for i in range(len(list(sample_inputs.values())[0])):
+        inputs = {}
+        for input_name in input_names:
+            inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i]).to(
+                "cpu"
+            )
+        out = model(*inputs.values())
+        out_tuple = (out,) if isinstance(out, torch.Tensor) else out
+        out_tuple = _flatten_tuple(out_tuple)
+
+        for i, out_val in enumerate(out_tuple):
+            if i == len(torch_outs):
+                torch_outs.append([])
+            torch_outs[i].append(out_val)
+    return [torch.cat(out_list, dim=0).numpy() for out_list in torch_outs]
+
+
 def torch_inference(
     model: BaseModel,
     sample_inputs: dict[str, list[np.ndarray]],
@@ -51,32 +74,18 @@ def torch_inference(
     Returns:
         List of numpy array outputs,
     """
-    torch_outs: list[list[torch.Tensor]] = []
-    input_names = sample_inputs.keys()
-    for i in range(len(list(sample_inputs.values())[0])):
-        inputs = {}
-        for input_name in input_names:
-            inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i]).to(
-                "cpu"
-            )
-        out = model(*inputs.values())
-        out_tuple = (out,) if isinstance(out, torch.Tensor) else out
-        out_tuple = _flatten_tuple(out_tuple)
-
-        for i, out_val in enumerate(out_tuple):
-            if i == len(torch_outs):
-                torch_outs.append([])
-            torch_outs[i].append(out_val)
-    numpy_outputs = [torch.cat(out_list, dim=0).numpy() for out_list in torch_outs]
-    if return_channel_last_output:
-        channel_last_outputs = model.get_channel_last_outputs()
-        for i, (name, np_out) in enumerate(
-            zip(model.get_output_names(), numpy_outputs)
-        ):
-            if name in channel_last_outputs:
-                new_out = transpose_channel_first_to_last([name], {name: [np_out]})
-                numpy_outputs[i] = new_out[name][0]
-    return numpy_outputs
+    numpy_outputs = _torch_inference_impl(model, sample_inputs)
+    if not return_channel_last_output:
+        return numpy_outputs
+    new_outputs = []
+    channel_last_outputs = model.get_channel_last_outputs()
+    for name, np_out in zip(model.get_output_names(), numpy_outputs):
+        if name in channel_last_outputs:
+            new_out = transpose_channel_first_to_last([name], {name: [np_out]})
+            new_outputs.append(new_out[name][0])
+        else:
+            new_outputs.append(np_out)
+    return new_outputs
 
 
 def compute_psnr(

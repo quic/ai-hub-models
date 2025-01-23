@@ -126,7 +126,6 @@ class ScorecardDevice:
         disabled_models: list[str] = [],
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
-        supports_fp16_npu: Optional[bool] = None,
         public: bool = True,
     ):
         """
@@ -138,9 +137,6 @@ class ScorecardDevice:
             execution_device_name: The name of the device to be used by associated Hub jobs.
                                    If not provided, jobs will be submitted with the chipset of the reference device.
                                    Hub will decide what device to use depending on availability.
-
-            disabled_models: AI Hub Model IDs that are not supported by this device.
-                            These models will be ignored by the scorecard in combination with this device.
 
             compile_paths: The set of compile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
@@ -214,7 +210,7 @@ class ScorecardDevice:
         """
         if self.execution_device_name is not None:
             return _get_cached_device(self.execution_device_name)
-        raise NotImplementedError(f"No execution device for {self.name}")
+        return self.reference_device
 
     @cached_property
     def chipset(self) -> str:
@@ -305,7 +301,6 @@ class ScorecardDevice:
             paths = [
                 ScorecardProfilePath.ONNX,
                 ScorecardProfilePath.ONNX_DML_GPU,
-                ScorecardProfilePath.ONNX_DML_NPU,
                 ScorecardProfilePath.QNN,
             ]
         elif self.form_factor == ScorecardDevice.FormFactor.IOT:
@@ -385,16 +380,6 @@ cs_8_elite = ScorecardDevice(
 cs_6490 = ScorecardDevice(
     name="cs_6490",
     reference_device_name="RB3 Gen 2 (Proxy)",
-    disabled_models=[
-        "ConvNext-Tiny-w8a8-Quantized",
-        "ConvNext-Tiny-w8a16-Quantized",
-        "ResNet50Quantized",
-        "RegNetQuantized",
-        "HRNetPoseQuantized",
-        "SESR-M5-Quantized",
-        "Midas-V2-Quantized",
-        "Posenet-Mobilenet-Quantized",
-    ],
 )
 
 cs_8250 = ScorecardDevice(

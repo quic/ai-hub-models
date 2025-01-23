@@ -5,18 +5,26 @@
 from __future__ import annotations
 
 import os
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 from unittest import mock
 
 import numpy as np
+import pandas as pd
 import pytest
 import qai_hub as hub
+from tabulate import tabulate
 from torch.utils.data import DataLoader, Sampler
 
 from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
-from qai_hub_models.utils.asset_loaders import always_answer_prompts, load_yaml
+from qai_hub_models.utils.asset_loaders import (
+    always_answer_prompts,
+    load_yaml,
+    qaihm_temp_dir,
+)
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.evaluate import get_dataset_path
 from qai_hub_models.utils.inference import (
     AsyncOnDeviceResult,
     dataset_entries_from_batch,
@@ -165,41 +173,102 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
         assert "-" not in input_name, "input name cannot contain `-`"
 
 
-# TODO(13311) Change all callsites in test_generated.py to use these
-# functions instead of accessing env vars directly.
 def is_hub_testing_async() -> bool:
     return bool(os.environ.get("TEST_HUB_ASYNC", 0))
 
 
+def should_run_skipped_models() -> bool:
+    return bool(os.environ.get("RUN_ALL_SKIPPED_MODELS", 0))
+
+
+def get_artifacts_dir_opt() -> Path | None:
+    adir = os.environ.get("ARTIFACTS_DIR", None)
+    return Path(adir) if adir else None
+
+
 def get_artifacts_dir() -> Path:
-    assert is_hub_testing_async(), "Must be testing hub async to use artifacts dir."
-    return Path(os.environ["ARTIFACTS_DIR"])
+    adir = get_artifacts_dir_opt()
+    assert (
+        adir
+    ), "Attempted to access artifacts dir, but $ARTIFACTS_DIR cli variable is not set"
+    return Path(adir)
 
 
-def get_artifact_filepath(filename):
-    path = get_artifacts_dir() / filename
+def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
+    path = Path(artifacts_dir or get_artifacts_dir()) / filename
     path.touch()
     return path
 
 
-def get_dataset_ids_file() -> Path:
-    return get_artifact_filepath("dataset_ids.yaml")
+def get_dataset_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("dataset_ids.yaml", artifacts_dir)
+
+
+def get_compile_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("compile-jobs.yaml", artifacts_dir)
+
+
+def get_profile_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("profile-jobs.yaml", artifacts_dir)
+
+
+def get_inference_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("inference-jobs.yaml", artifacts_dir)
+
+
+def get_quantize_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("quantize-jobs.yaml", artifacts_dir)
 
 
 def get_accuracy_file() -> Path:
     filepath = get_artifact_filepath("accuracy.csv")
     if filepath.stat().st_size == 0:
         with open(filepath, "w") as f:
-            f.write("Model,Runtime,Torch Accuracy,Device Accuracy\n")
+            f.write("Model,Runtime,Torch Accuracy,Device Accuracy")
+            for i in range(5):
+                f.write(f",PSNR_{i}")
+            f.write("\n")
     return filepath
 
 
-def get_datasets_cache_dir(has_channel_transpose: bool) -> Path:
+def mock_tabulate_fn(df: pd.DataFrame, **kwargs):
+    psnr_str = ""
+    for i, (_, value) in enumerate(df.iterrows()):
+        psnr_str += f",{value.psnr}"
+        if i == 4:
+            break
+    return psnr_str, tabulate(df, **kwargs)
+
+
+def get_and_sync_datasets_cache_dir(
+    has_channel_transpose: bool, dataset_name: str, split_size: int
+) -> Path:
     folder_name = "hub_datasets"
     if not has_channel_transpose:
         folder_name += "_nt"
-    dir_path = get_artifacts_dir() / folder_name
-    dir_path.mkdir(parents=True, exist_ok=True)
+    dir_path = get_artifacts_dir() / folder_name / dataset_name
+    if dir_path.exists():
+        return dir_path
+    with qaihm_temp_dir() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        dataset_ids = load_yaml(get_dataset_ids_file())
+        input_key, gt_key = get_val_dataset_id_keys(dataset_name, has_channel_transpose)
+        with open(tmp_path / f"split_size_{split_size}.txt", "w") as f:
+            f.write(dataset_ids[input_key] + " " + dataset_ids[gt_key])
+
+        cache_path = tmp_path / "cache"
+        cache_path.mkdir()
+        hub.get_dataset(dataset_ids[input_key]).download(
+            str(get_dataset_path(cache_path, dataset_ids[input_key]))
+        )
+        hub.get_dataset(dataset_ids[gt_key]).download(
+            str(get_dataset_path(cache_path, dataset_ids[gt_key]))
+        )
+        with open(cache_path / "current_split_size.txt", "w") as f:
+            f.write(str(split_size) + "\n")
+
+        dir_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(tmp_path, dir_path)
     return dir_path
 
 
@@ -245,6 +314,25 @@ def get_val_dataset_id_keys(
     return base_name + "input", base_name + "gt"
 
 
+def get_torch_val_dataloader(dataset_name: str, num_samples: int) -> DataLoader:
+    """
+    Creates a torch dataloader with a chunk of validation data from the given dataset.
+
+    The dataset is sampled by taking every N samples for the largest possible N
+    that produces the number of requested samples.
+
+    Parameters:
+        dataset_name: Name of the dataset. Dataset must be registered in
+            qai_hub_models.datasets.__init__.py
+        num_samples: Number of samples to sample from the full dataset.
+    """
+    torch_val_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
+    sampler = EveryNSampler(
+        n=len(torch_val_dataset) // num_samples, num_samples=num_samples
+    )
+    return DataLoader(torch_val_dataset, batch_size=num_samples, sampler=sampler)
+
+
 def get_hub_val_dataset(
     dataset_name: str,
     ids_file: Path,
@@ -278,12 +366,7 @@ def get_hub_val_dataset(
     if dataset_ids and input_key in dataset_ids:
         assert gt_key in dataset_ids
         return hub.get_dataset(dataset_ids[input_key])
-
-    torch_val_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
-    sampler = EveryNSampler(
-        n=len(torch_val_dataset) // num_samples, num_samples=num_samples
-    )
-    dataloader = DataLoader(torch_val_dataset, batch_size=num_samples, sampler=sampler)
+    dataloader = get_torch_val_dataloader(dataset_name, num_samples)
     batch = next(iter(dataloader))
     input_entries, gt_entries = dataset_entries_from_batch(
         batch,

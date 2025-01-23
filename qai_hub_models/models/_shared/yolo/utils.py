@@ -6,10 +6,6 @@ from __future__ import annotations
 
 import torch
 
-from qai_hub_models.models.common import SampleInputsType
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
-
 
 def box_transform_xywh2xyxy_split_input(xy: torch.Tensor, wh: torch.Tensor):
     """
@@ -153,11 +149,3 @@ def get_most_likely_score(scores: torch.Tensor):
         max_scores.append(scores)
         max_indices.append(class_idx.float())
     return torch.cat(max_scores, dim=-1), torch.cat(max_indices, dim=-1)
-
-
-def yolo_sample_inputs() -> SampleInputsType:
-    image_address = CachedWebModelAsset.from_asset_store(
-        "yolov7", 1, "yolov7_demo_640.jpg"
-    )
-    image = load_image(image_address)
-    return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

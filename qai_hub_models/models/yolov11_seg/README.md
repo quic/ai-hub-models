@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[yolov11-seg]"
+pip install "qai-hub-models[yolov11-seg]"
 ```
 
 

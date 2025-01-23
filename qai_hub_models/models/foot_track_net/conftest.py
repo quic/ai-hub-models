@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 # THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY.
 
+import gc
 import inspect
 
 import pytest
@@ -37,3 +38,8 @@ def cached_from_pretrained():
 
         mp.setattr(Model, "from_pretrained", _cached_from_pretrained)
         yield mp
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_gc():
+    gc.collect()

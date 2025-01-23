@@ -296,7 +296,9 @@ class SAMEncoderPart(BaseModel):
 
     @staticmethod
     def get_channel_last_outputs(include_neck=True) -> list[str]:
-        return SAMEncoderPart.get_output_names(include_neck)
+        # Output of encoder parts should not be channel last.
+        # This actually inserts a transpose when one is not needed.
+        return []
 
     def _get_channel_last_outputs_for_instance(self) -> list[str]:
         return self.__class__.get_channel_last_outputs(self.include_neck)

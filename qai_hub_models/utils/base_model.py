@@ -9,7 +9,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Optional
 
-import qai_hub
 import torch
 from qai_hub.client import Device, SourceModel
 
@@ -186,10 +185,12 @@ class BaseModel(
     A pre-trained PyTorch model with helpers for submission to AI Hub.
     """
 
-    def __init__(self):
+    def __init__(self, model: torch.nn.Module | None = None):
         torch.nn.Module.__init__(self)  # Initialize Torch Module
         HubModel.__init__(self)  # Initialize Hub Model
         self.eval()
+        if model is not None:
+            self.model = model
 
     def __setattr__(self, name: str, value: Any) -> None:
         """
@@ -268,41 +269,10 @@ class BaseModel(
         """
         AI Hub compile options recommended for the model.
         """
-        target_runtime_flag = None
+        compile_options = ""
         if "--target_runtime" not in other_compile_options:
-            if target_runtime == TargetRuntime.QNN:
-                if device:
-                    if not device.attributes:
-                        # Only name / os specified
-                        devices = qai_hub.get_devices(device.name, device.os)
-                    elif not device.name:
-                        # Only attribute specified
-                        devices = qai_hub.get_devices(attributes=device.attributes)
-                    else:
-                        devices = [device]
+            compile_options = target_runtime.get_target_runtime_flag(device)
 
-                    for device in devices:
-                        if (
-                            "os:android" not in device.attributes
-                            or "format:iot" in device.attributes
-                            or "format:auto" in device.attributes
-                        ):
-                            target_runtime_flag = "qnn_context_binary"
-                            break
-
-                target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
-            elif target_runtime == TargetRuntime.ONNX:
-                target_runtime_flag = "onnx"
-            elif target_runtime == TargetRuntime.TFLITE:
-                target_runtime_flag = "tflite"
-            elif target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-                target_runtime_flag = "precompiled_qnn_onnx"
-            else:
-                raise NotImplementedError()
-
-        compile_options = (
-            f"--target_runtime {target_runtime_flag}" if target_runtime_flag else ""
-        )
         compile_options += f" --output_names {','.join(self.get_output_names())}"
 
         if target_runtime != TargetRuntime.ONNX:

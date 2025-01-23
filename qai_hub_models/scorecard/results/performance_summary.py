@@ -13,6 +13,7 @@ from qai_hub_models.scorecard import (
     ScorecardDevice,
     ScorecardProfilePath,
 )
+from qai_hub_models.scorecard.device import cs_universal
 from qai_hub_models.scorecard.results.chipset_helpers import (
     chipset_marketing_name,
     get_supported_devices,
@@ -58,13 +59,17 @@ def get_reference_device_info(device: ScorecardDevice) -> dict[str, str]:
 
 
 class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar]):
+    scorecard_job_type: type[ScorecardJobTypeVar]
+
     def __init__(
         self,
+        model_id: str,
         device: ScorecardDevice,
         run_per_path: dict[
             ScorecardPathTypeVar, ScorecardJobTypeVar
         ],  # Map<path, Summary>
     ):
+        self.model_id = model_id
         self.device = device
         self.run_per_path: dict[
             ScorecardPathTypeVar, ScorecardJobTypeVar
@@ -73,6 +78,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar])
     @classmethod
     def from_runs(
         cls: type[_DeviceSummaryTypeVar],
+        model_id: str,
         device: ScorecardDevice,
         path_runs: list[ScorecardJobTypeVar],
     ):
@@ -82,7 +88,16 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar])
             assert run._device == device  # Device should match
             run_per_path[run.path] = run  # type: ignore
 
-        return cls(device, run_per_path)
+        return cls(model_id, device, run_per_path)
+
+    def get_run(self, path: ScorecardPathTypeVar) -> ScorecardJobTypeVar:
+        if x := self.run_per_path.get(path):
+            return x
+
+        # Create a "Skipped" run to return
+        return self.__class__.scorecard_job_type(
+            self.model_id, None, self.device, False, None, path  # type: ignore
+        )
 
 
 _DeviceSummaryTypeVar = TypeVar("_DeviceSummaryTypeVar", bound=ScorecardDeviceSummary)
@@ -95,38 +110,129 @@ DeviceSummaryTypeVar = TypeVar(
 )
 
 
-class ScorecardModelSummary(Generic[DeviceSummaryTypeVar, ScorecardJobTypeVar]):
+class ScorecardModelSummary(
+    Generic[DeviceSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathTypeVar]
+):
     device_summary_type: type[DeviceSummaryTypeVar]
+    scorecard_job_type: type[ScorecardJobTypeVar]
+
+    @property
+    def component_ids(self) -> Iterable[str]:
+        """
+        Components mapped by this summary.
+
+        If there are no model components, returns [model_id].
+        model_id is a valid component name for looking up runs in summaries for models without components.
+        """
+        return self.runs_per_component_device.keys()
+
+    def is_same_model(self, other: ScorecardModelSummary) -> bool:
+        """Returns true if this summary and the provided summary map to the same model definition."""
+        return self.model_id == other.model_id and set(self.component_ids) == set(
+            other.component_ids
+        )
 
     def __init__(
         self,
         model_id: str,
-        runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar],
+        runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None = None,
+        runs_per_component_device: dict[
+            str, dict[ScorecardDevice, DeviceSummaryTypeVar]
+        ]
+        | None = None,
     ):
+        """
+        Create a Summary for a single Scorecard Model.
+
+        Parameters:
+            model_id: str
+                Model ID.
+
+            runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None
+                Set if the model does not have components.
+
+            runs_per_component_device: dict[component_id, dict[ScorecardDevice, DeviceSummaryTypeVar]] | None
+                Set if the model has components.
+        """
+        if (runs_per_device is None) == (runs_per_component_device is None):
+            raise ValueError(
+                "Either runs_per_device or runs_per_component_device must be set, but not both."
+            )
+
         self.model_id = model_id
-        self.runs_per_device: dict[
-            ScorecardDevice, DeviceSummaryTypeVar
-        ] = runs_per_device
+        self.has_components = runs_per_component_device is not None
+        self.runs_per_component_device: dict[
+            str, dict[ScorecardDevice, DeviceSummaryTypeVar]
+        ]
+        if not self.has_components:
+            # To make writing helper functions easier, models without components are stored as map with one entry:
+            #   model_id: runs_per_device
+            assert runs_per_device is not None
+            self.runs_per_component_device = {model_id: runs_per_device}
+        else:
+            assert runs_per_component_device is not None
+            self.runs_per_component_device = runs_per_component_device
 
     @classmethod
     def from_runs(
         cls: type[_ModelSummaryTypeVar],
         model_id: str,
         path_runs: list[ScorecardJobTypeVar],
+        components: list[str] | None = None,
     ):
-        runs_per_device: dict[ScorecardDevice, list[ScorecardJobTypeVar]] = {}
-        for run in path_runs:
-            assert run.model_id == model_id  # model id should match
-            list = runs_per_device.get(run._device, [])
-            runs_per_device[run._device] = list
-            list.append(run)
+        summaries_per_device_component: dict[
+            str, dict[ScorecardDevice, DeviceSummaryTypeVar]
+        ] = {}
+        component_ids = [model_id] if components is None else components
+        for component_id in component_ids:
+            component_dict: dict[ScorecardDevice, list[ScorecardJobTypeVar]] = {}
+            for run in path_runs:
+                if run.model_id == component_id:
+                    job_list = component_dict.get(run._device, list())
+                    component_dict[run._device] = job_list
+                    job_list.append(run)
+            summaries_per_device_component[component_id] = {
+                device: cls.device_summary_type.from_runs(model_id, device, runs)
+                for device, runs in component_dict.items()
+            }
 
-        return cls(
-            model_id,
-            {
-                device: cls.device_summary_type.from_runs(device, runs)
-                for device, runs in runs_per_device.items()
-            },
+        if components is None:
+            return cls(model_id, summaries_per_device_component[model_id])
+        else:
+            return cls(model_id, None, summaries_per_device_component)
+
+    def get_run(
+        self,
+        device: ScorecardDevice,
+        path: ScorecardPathTypeVar,
+        component: str | None = None,
+    ) -> ScorecardJobTypeVar:
+        """
+        Get a scorecard job matching these parameters.
+
+        Parameters:
+            device: ScorecardDevice
+            path: ScorecardPathTypeVar
+            component: str | None
+                To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+        """
+        if component:
+            if not self.has_components and component != self.model_id:
+                raise ValueError(
+                    "Cannot provide component name for models without components."
+                )
+        elif self.has_components:
+            raise ValueError("Must provide component name for models with components.")
+
+        if component_device_map := self.runs_per_component_device.get(
+            component or self.model_id
+        ):
+            if summary := component_device_map.get(device):
+                return summary.get_run(path)  # type: ignore
+
+        # Create a "Skipped" run to return
+        return self.__class__.scorecard_job_type(
+            self.model_id, None, device, False, None, path  # type: ignore
         )
 
 
@@ -140,41 +246,11 @@ ModelSummaryTypeVar = TypeVar(
 )
 
 
-class ScorecardSummary(Generic[ModelSummaryTypeVar, ScorecardJobTypeVar]):
-    model_summary_type: type[ModelSummaryTypeVar]
-
-    def __init__(self, runs_per_model: dict[str, ModelSummaryTypeVar]):
-        self.runs_per_model: dict[str, ModelSummaryTypeVar] = runs_per_model
-
-    @classmethod
-    def from_runs(
-        cls: type[_ScorecardSummaryTypeVar], model_runs: list[ScorecardJobTypeVar]
-    ) -> _ScorecardSummaryTypeVar:
-        # Figure out unique models in various baselines
-        runs_per_model: dict[str, list[ScorecardJobTypeVar]] = {}
-        for run in model_runs:
-            list = runs_per_model.get(run.model_id, [])
-            list.append(run)
-            runs_per_model[run.model_id] = list
-
-        return cls(
-            {
-                model_id: cls.model_summary_type.from_runs(model_id, runs)
-                for model_id, runs in runs_per_model.items()
-            }
-        )
-
-
-_ScorecardSummaryTypeVar = TypeVar("_ScorecardSummaryTypeVar", bound=ScorecardSummary)
-# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
-ScorecardSummaryTypeVar = TypeVar(
-    "ScorecardSummaryTypeVar", "CompileSummary", "PerfSummary", "InferenceSummary"
-)
-
-
 class DevicePerfSummary(
     ScorecardDeviceSummary[ProfileScorecardJob, ScorecardProfilePath]
 ):
+    scorecard_job_type = ProfileScorecardJob
+
     def get_perf_card(
         self,
         include_failed_jobs: bool = True,
@@ -209,61 +285,46 @@ class DevicePerfSummary(
         return pprint.pformat(self.get_perf_card())
 
 
-class ModelPerfSummary(ScorecardModelSummary[DevicePerfSummary, ProfileScorecardJob]):
+class ModelPerfSummary(
+    ScorecardModelSummary[DevicePerfSummary, ProfileScorecardJob, ScorecardProfilePath]
+):
     device_summary_type = DevicePerfSummary
+    scorecard_job_type = ProfileScorecardJob
 
-    def get_universal_assets(self, exclude_paths: Iterable[ScorecardProfilePath] = []):
+    def get_universal_assets(
+        self,
+        exclude_paths: Iterable[ScorecardProfilePath] = [],
+        component: str | None = None,
+    ):
+        assert (
+            component is not None
+        ) == self.has_components or component == self.model_id
+
         universal_assets = {}
         for path in ScorecardProfilePath:
             if not path.compile_path.is_universal or path in exclude_paths:
                 continue
 
             # Only add a universal asset if at least 1 profile job succeeded.
-            for runs_per_device in self.runs_per_device.values():
+            for runs_per_device in self.runs_per_component_device[
+                component or self.model_id
+            ].values():
                 path_run = runs_per_device.run_per_path.get(path, None)
                 if path_run and path_run.success:
                     universal_assets[path.long_name] = path_run.job.model.model_id
 
         return universal_assets
 
-    def get_perf_card(
-        self,
-        include_failed_jobs: bool = True,
-        include_internal_devices: bool = True,
-        exclude_paths: Iterable[ScorecardProfilePath] = [],
-        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
-    ) -> list[dict[str, Union[str, dict[str, str]]]]:
-        perf_card = []
-        for summary in self.runs_per_device.values():
-            if (
-                include_internal_devices
-                or summary.device.public
-                and summary.device.form_factor not in exclude_form_factors
-            ):
-                device_summary = summary.get_perf_card(
-                    include_failed_jobs, exclude_paths
-                )
-
-                # If device had no runs, omit it from the card
-                if len(device_summary) != 0:
-                    perf_card.append(device_summary)
-        return perf_card
-
-    def __repr__(self):
-        return pprint.pformat(self.get_perf_card())
-
-
-class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
-    model_summary_type = ModelPerfSummary
-
     def get_chipsets(
         self,
         include_internal_devices: bool = False,
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
     ) -> set[str]:
-        chips: set[str] = set()
-        for model_id, model_summary in self.runs_per_model.items():
-            for device, device_summary in model_summary.runs_per_device.items():
+        chips_by_component: dict[str, set[str]] = dict()
+        for component_id, summary_by_device in self.runs_per_component_device.items():
+            chips: set[str] = set()
+            chips_by_component[component_id] = chips
+            for device, device_summary in summary_by_device.items():
                 # At least 1 successful run must exist for this chipset
                 success = False
                 for run in device_summary.run_per_path.values():
@@ -271,10 +332,6 @@ class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
                         success = True
                         break
                 if not success:
-                    continue
-
-                # Don't incude disabled models
-                if model_id in device.disabled_models:
                     continue
 
                 # Don't include private devices
@@ -286,7 +343,14 @@ class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
                     continue
 
                 chips.add(device.chipset)
-        return chips
+
+        # Supported chipsets for this model must be supported by all model components
+        out: set[str] = next(iter(chips_by_component.values()))
+        if len(chips_by_component) > 1:
+            for chips in chips_by_component.values():
+                out = out.intersection(chips)
+
+        return out
 
     def get_perf_card(
         self,
@@ -294,6 +358,7 @@ class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
         include_internal_devices: bool = True,
         exclude_paths: Iterable[ScorecardProfilePath] = [],
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
+        model_name: str | None = None,
     ) -> dict[str, str | list[Any] | dict[str, Any]]:
         perf_card: dict[str, str | list[Any] | dict[str, Any]] = {}
 
@@ -303,23 +368,37 @@ class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
             supported_chipsets=supported_chipsets_santized(chips),
         )
 
-        models_list: list[dict[str, Any]] = []
-        for model_id, summary in self.runs_per_model.items():
-            models_list.append(
+        components_list: list[dict[str, Any]] = []
+        for component_id, summary_per_device in self.runs_per_component_device.items():
+            component_perf_card: list[dict[str, Union[str, dict[str, str]]]] = []
+            for summary in summary_per_device.values():
+                if (
+                    include_internal_devices
+                    or summary.device.public
+                    and summary.device.form_factor not in exclude_form_factors
+                ):
+                    device_summary = summary.get_perf_card(
+                        include_failed_jobs, exclude_paths
+                    )
+
+                    # If device had no runs, omit it from the card
+                    if len(device_summary) != 0:
+                        component_perf_card.append(device_summary)
+
+            components_list.append(
                 {
-                    "name": model_id,
-                    "universal_assets": summary.get_universal_assets(
-                        exclude_paths=exclude_paths
+                    "name": component_id
+                    if component_id != self.model_id
+                    else model_name,
+                    "universal_assets": self.get_universal_assets(
+                        exclude_paths=exclude_paths,
+                        component=component_id if self.has_components else None,
                     ),
-                    "performance_metrics": summary.get_perf_card(
-                        include_failed_jobs,
-                        include_internal_devices,
-                        exclude_paths,
-                        exclude_form_factors,
-                    ),
+                    "performance_metrics": component_perf_card,
                 }
             )
-        perf_card["models"] = models_list
+
+        perf_card["models"] = components_list
         return perf_card
 
     def __repr__(self):
@@ -329,30 +408,44 @@ class PerfSummary(ScorecardSummary[ModelPerfSummary, ProfileScorecardJob]):
 class DeviceCompileSummary(
     ScorecardDeviceSummary[CompileScorecardJob, ScorecardCompilePath]
 ):
-    pass
+    scorecard_job_type = CompileScorecardJob
 
 
 class ModelCompileSummary(
-    ScorecardModelSummary[DeviceCompileSummary, CompileScorecardJob]
+    ScorecardModelSummary[
+        DeviceCompileSummary, CompileScorecardJob, ScorecardCompilePath
+    ]
 ):
     device_summary_type = DeviceCompileSummary
+    scorecard_job_type = CompileScorecardJob
 
-
-class CompileSummary(ScorecardSummary[ModelCompileSummary, CompileScorecardJob]):
-    model_summary_type = ModelCompileSummary
+    def get_run(
+        self,
+        device: ScorecardDevice,
+        path: ScorecardCompilePath,
+        component: str | None = None,
+        universal_device_fallback: bool = True,
+    ) -> CompileScorecardJob:
+        run = super().get_run(device, path, component)
+        if (
+            universal_device_fallback
+            and run.skipped
+            and path not in device.compile_paths
+        ):
+            run = super().get_run(cs_universal, path, component)
+        return run
 
 
 class DeviceInferenceSummary(
     ScorecardDeviceSummary[InferenceScorecardJob, ScorecardProfilePath]
 ):
-    pass
+    scorecard_job_type = InferenceScorecardJob
 
 
 class ModelInferenceSummary(
-    ScorecardModelSummary[DeviceInferenceSummary, InferenceScorecardJob]
+    ScorecardModelSummary[
+        DeviceInferenceSummary, InferenceScorecardJob, ScorecardProfilePath
+    ]
 ):
     device_summary_type = DeviceInferenceSummary
-
-
-class InferenceSummary(ScorecardSummary[ModelInferenceSummary, InferenceScorecardJob]):
-    model_summary_type = ModelInferenceSummary
+    scorecard_job_type = InferenceScorecardJob

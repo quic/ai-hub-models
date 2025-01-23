@@ -86,12 +86,14 @@ class OnnxSplitter:
         # Include in-use items and preserve the original order
         new_node = [i for i in self.model.graph.node if id(i) in visited]
         new_initializer = [i for i in self.model.graph.initializer if i.name in use]
-        new_value_info = [i for i in self.model.graph.value_info if i.name in use]
+        new_value_info_incl_io = [
+            i for i in self.model.graph.value_info if i.name in use
+        ]
         new_sparse_initializer = [
             i for i in self.model.graph.sparse_initializer if i.name in use
         ]
 
-        value_info_dict = {i.name: i for i in new_value_info}
+        value_info_dict = {i.name: i for i in new_value_info_incl_io}
         value_info_dict.update({i.name: i for i in self.model.graph.output})
         if additional_input_tensors is not None:
             new_inputs = [
@@ -109,6 +111,11 @@ class OnnxSplitter:
             for i in self.model.graph.output
             if i.name in visited_output_tensors and i.name not in output_tensors
         ]
+
+        io_names = {i.name for i in new_inputs + new_outputs}
+
+        # do not include IO in value_info (this is not proper in ONNX)
+        new_value_info = [i for i in new_value_info_incl_io if i.name not in io_names]
 
         if self.verbose:
             print("new_inputs", [i.name for i in new_inputs])

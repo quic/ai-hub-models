@@ -10,6 +10,7 @@ from importlib import reload
 import torch
 from omegaconf import OmegaConf
 
+from qai_hub_models.models._shared.repaint.model import RepaintModel
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -17,8 +18,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_torch,
     set_log_level,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
 
 LAMA_SOURCE_REPOSITORY = "https://github.com/advimman/lama"
 LAMA_SOURCE_REPO_COMMIT = "7dee0e4a3cf5f73f86a820674bf471454f52b74f"
@@ -28,15 +27,8 @@ DEFAULT_WEIGHTS = "lama-dilated_celeba-hq"
 MODEL_ASSET_VERSION = 1
 
 
-class LamaDilated(BaseModel):
+class LamaDilated(RepaintModel):
     """Exportable LamaDilated inpainting algorithm by Samsung Research."""
-
-    def __init__(
-        self,
-        lama_dilated_model: torch.nn.Module,
-    ) -> None:
-        super().__init__()
-        self.model = lama_dilated_model
 
     @staticmethod
     def from_pretrained(weights_name: str = DEFAULT_WEIGHTS) -> LamaDilated:
@@ -74,33 +66,6 @@ class LamaDilated(BaseModel):
         predicted_image = self.model.generator(masked_img)
         inpainted = mask * predicted_image + (1 - mask) * image
         return inpainted
-
-    @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 512,
-        width: int = 512,
-    ) -> InputSpec:
-        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
-        #
-        # This can be used with the qai_hub python API to declare
-        # the model input specification upon submitting a profile job.
-        return {
-            "image": ((batch_size, 3, height, width), "float32"),
-            "mask": ((batch_size, 1, height, width), "float32"),
-        }
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["painted_image"]
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image", "mask"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["painted_image"]
 
 
 def _get_weightsfile_from_name(weights_name: str):

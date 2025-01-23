@@ -5,12 +5,9 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 from ultralytics import YOLO as ultralytics_YOLO
 
-from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.models._shared.yolo.model import Yolo, yolo_segment_postprocess
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -26,12 +23,8 @@ DEFAULT_WEIGHTS = "yolov8n-seg.pt"
 NUM_ClASSES = 80
 
 
-class YoloV8Segmentor(BaseModel):
+class YoloV8Segmentor(Yolo):
     """Exportable YoloV8 segmentor, end-to-end."""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
@@ -72,24 +65,8 @@ class YoloV8Segmentor(BaseModel):
         return boxes, scores, masks, classes, predictions[1][-1]
 
     @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
-        return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
     def get_output_names() -> list[str]:
         return ["boxes", "scores", "masks", "class_idx", "protos"]
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:

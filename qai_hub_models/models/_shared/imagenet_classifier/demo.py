@@ -11,9 +11,6 @@ from qai_hub_models.models._shared.imagenet_classifier.model import (
     MODEL_ID,
     ImagenetClassifier,
 )
-from qai_hub_models.models._shared.imagenet_classifier.test_utils import (
-    TEST_IMAGENET_IMAGE,
-)
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -32,6 +29,10 @@ IMAGENET_LABELS_ASSET = CachedWebModelAsset(
     MODEL_ID,
     MODEL_ASSET_VERSION,
     "imagenet_labels.json",
+)
+GROUP_NAME = "imagenet_classifier"
+TEST_IMAGENET_IMAGE = CachedWebModelAsset.from_asset_store(
+    GROUP_NAME, MODEL_ASSET_VERSION, "dog.jpg"
 )
 
 

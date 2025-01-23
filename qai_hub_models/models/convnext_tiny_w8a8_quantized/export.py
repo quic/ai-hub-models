@@ -243,7 +243,10 @@ def export_model(
 def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
-        model_cls=Model, supports_tflite=False, is_hub_quantized=True
+        model_cls=Model,
+        supports_tflite=False,
+        supports_onnx=False,
+        is_hub_quantized=True,
     )
     args = parser.parse_args()
     export_model(**vars(args))

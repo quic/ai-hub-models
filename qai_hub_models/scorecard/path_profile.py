@@ -15,7 +15,6 @@ class ScorecardProfilePath(Enum):
     QNN = 1
     ONNX = 2
     ONNX_DML_GPU = 3
-    ONNX_DML_NPU = 4
 
     def __str__(self):
         return self.name.lower()
@@ -29,6 +28,11 @@ class ScorecardProfilePath(Enum):
     @property
     def enabled(self) -> bool:
         valid_test_runtimes = os.environ.get("WHITELISTED_TEST_RUNTIMES", "ALL")
+
+        # DML only enabled if explicitly requested
+        if self == ScorecardProfilePath.ONNX_DML_GPU:
+            return "onnx_dml" in [x.lower() for x in valid_test_runtimes.split(",")]
+
         return valid_test_runtimes == "ALL" or (
             self.runtime.name.lower()
             in [x.lower() for x in valid_test_runtimes.split(",")]
@@ -68,7 +72,6 @@ class ScorecardProfilePath(Enum):
         if self in [
             ScorecardProfilePath.ONNX,
             ScorecardProfilePath.ONNX_DML_GPU,
-            ScorecardProfilePath.ONNX_DML_NPU,
         ]:
             return TargetRuntime.ONNX
         if self == ScorecardProfilePath.QNN:
@@ -79,7 +82,7 @@ class ScorecardProfilePath(Enum):
     def compile_path(self) -> ScorecardCompilePath:
         if self == ScorecardProfilePath.TFLITE:
             return ScorecardCompilePath.TFLITE
-        if self in [ScorecardProfilePath.ONNX, ScorecardProfilePath.ONNX_DML_NPU]:
+        if self == ScorecardProfilePath.ONNX:
             return ScorecardCompilePath.ONNX
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return ScorecardCompilePath.ONNX_FP16
@@ -91,6 +94,4 @@ class ScorecardProfilePath(Enum):
     def profile_options(self) -> str:
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return "--onnx_execution_providers directml"
-        elif self == ScorecardProfilePath.ONNX_DML_NPU:
-            return "--onnx_execution_providers directml-npu"
         return ""

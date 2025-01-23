@@ -7,27 +7,16 @@ from __future__ import annotations
 import sys
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
-from qai_hub_models.models._shared.super_resolution.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-)
+from qai_hub_models.models._shared.super_resolution.model import IMAGE_ADDRESS
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import (
-    CachedWebAsset,
-    CachedWebModelAsset,
-    load_image,
-)
+from qai_hub_models.utils.asset_loaders import CachedWebAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
-
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "super_resolution_input.jpg"
-)
 
 
 # Run Super Resolution end-to-end on a sample image.

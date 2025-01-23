@@ -264,7 +264,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         if expected_example_use != ASSET_CONFIG.get_example_use(self.id):
             return "Example-usage field not pointing to expected relative path"
 
-        purchase_required = False
+        model_is_available = self.status == MODEL_STATUS.PUBLIC
 
         # Check that model_type_llm and llm_details fields
         if self.model_type_llm:
@@ -274,10 +274,11 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if bad_llm_details := self.llm_details.validate():
                 return bad_llm_details
 
-            purchase_required = (
-                self.llm_details.call_to_action
-                == LLM_CALL_TO_ACTION.CONTACT_FOR_PURCHASE
-            )
+            model_is_available = self.llm_details.call_to_action not in [
+                LLM_CALL_TO_ACTION.CONTACT_FOR_PURCHASE,
+                LLM_CALL_TO_ACTION.COMING_SOON,
+                LLM_CALL_TO_ACTION.CONTACT_US,
+            ]
 
             # Download URL can only be validated in a scope with a model ID, so this
             # is validated here rather than on the LLM details class' validator.
@@ -299,10 +300,10 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         elif self.llm_details:
             return "Model type must be LLM if llm_details is set"
 
-        if not self.deploy_license and not purchase_required:
+        if not self.deploy_license and model_is_available:
             return "deploy_license cannot be empty"
 
-        if not self.deploy_license_type and not purchase_required:
+        if not self.deploy_license_type and model_is_available:
             return "deploy_license_type cannot be empty"
 
         # Check code gen

@@ -6,6 +6,12 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.models._shared.video_classifier.utils import (
+    preprocess_video_kinetics_400,
+    read_video_per_second,
+)
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -57,6 +63,19 @@ class KineticsClassifier(BaseModel):
                 "float32",
             )
         }
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        video_address = CachedWebModelAsset.from_asset_store(
+            "resnet_mixed", 1, "surfing_cutback.mp4"
+        )
+        input_tensor = read_video_per_second(str(video_address.fetch()))
+        input_tensor = preprocess_video_kinetics_400(input_tensor).unsqueeze(0)
+        if input_spec:
+            num_frames = input_spec["video"][0][2]
+            input_tensor = input_tensor[:, :, :num_frames]
+        return {"video": [input_tensor.numpy()]}
 
     @staticmethod
     def get_output_names():

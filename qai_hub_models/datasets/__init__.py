@@ -10,6 +10,7 @@ from .coco import CocoDataset
 from .common import BaseDataset, DatasetSplit
 from .imagenet import ImagenetDataset
 from .imagenette import ImagenetteDataset
+from .nyuv2 import NyUv2Dataset
 from .pascal_voc import VOCSegmentationDataset
 
 ALL_DATASETS: list[type[BaseDataset]] = [
@@ -18,6 +19,7 @@ ALL_DATASETS: list[type[BaseDataset]] = [
     BSD300Dataset,
     ImagenetDataset,
     ImagenetteDataset,
+    NyUv2Dataset,
     CityscapesDataset,
 ]
 

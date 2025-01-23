@@ -18,7 +18,7 @@ from pydoc import locate
 from typing import Any, Optional
 
 import qai_hub as hub
-from qai_hub.client import APIException, UserError
+from qai_hub.client import APIException, InternalError, UserError
 
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
@@ -431,7 +431,7 @@ def get_qcom_chipsets() -> set[str]:
             for attr in dev.attributes
             if attr.startswith("chipset:qualcomm")
         }
-    except (APIException, UserError):
+    except (APIException, UserError, InternalError):
         return set()
 
 

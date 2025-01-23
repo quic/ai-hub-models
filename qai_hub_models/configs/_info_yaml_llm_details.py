@@ -18,6 +18,8 @@ class LLM_CALL_TO_ACTION(Enum):
     VIEW_README = 1
     CONTACT_FOR_PURCHASE = 2
     CONTACT_FOR_DOWNLOAD = 3
+    COMING_SOON = 4
+    CONTACT_US = 5
 
     @staticmethod
     def from_string(string: str) -> LLM_CALL_TO_ACTION:

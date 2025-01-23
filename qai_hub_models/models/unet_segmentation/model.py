@@ -8,23 +8,28 @@ from typing import Optional
 
 import torch
 
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_image,
+    load_torch,
+)
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_REPO = "milesial/Pytorch-UNet"
 MODEL_TYPE = "unet_carvana"
 MODEL_ASSET_VERSION = 1
-DEFAULT_WEIGHTS = "unet_carvana_scale1.0_epoch2.pth"
 # from https://github.com/milesial/Pytorch-UNet/releases/download/v3.0/unet_carvana_scale1.0_epoch2.pth
+DEFAULT_WEIGHTS = "unet_carvana_scale1.0_epoch2.pth"
+IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "unet_test_image.jpg"
+)
 
 
 class UNet(BaseModel):
-    def __init__(self, net: torch.nn.Module) -> None:
-        super().__init__()
-        self.net = net
-
     @classmethod
     def from_pretrained(cls, weights: Optional[str] = DEFAULT_WEIGHTS):
         net = torch.hub.load(
@@ -57,7 +62,7 @@ class UNet(BaseModel):
                   Taking the softmax over all channels for a given pixel gives the
                   probability distribution over classes for that pixel.
         """
-        return self.net(image)
+        return self.model(image)
 
     @staticmethod
     def get_input_spec(
@@ -78,3 +83,12 @@ class UNet(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

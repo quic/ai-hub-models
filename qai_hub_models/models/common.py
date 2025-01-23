@@ -40,6 +40,46 @@ class TargetRuntime(Enum):
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ]
 
+    def get_target_runtime_flag(
+        self,
+        device: Optional[hub.Device] = None,
+    ) -> str:
+        """
+        AI Hub job flag for compiling to this runtime.
+        """
+        target_runtime_flag = None
+        if self == TargetRuntime.QNN:
+            if device:
+                if not device.attributes:
+                    # Only name / os specified
+                    devices = hub.get_devices(device.name, device.os)
+                elif not device.name:
+                    # Only attribute specified
+                    devices = hub.get_devices(attributes=device.attributes)
+                else:
+                    devices = [device]
+
+                for device in devices:
+                    if (
+                        "os:android" not in device.attributes
+                        or "format:iot" in device.attributes
+                        or "format:auto" in device.attributes
+                    ):
+                        target_runtime_flag = "qnn_context_binary"
+                        break
+
+            target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
+        elif self == TargetRuntime.ONNX:
+            target_runtime_flag = "onnx"
+        elif self == TargetRuntime.TFLITE:
+            target_runtime_flag = "tflite"
+        elif self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            target_runtime_flag = "precompiled_qnn_onnx"
+        else:
+            raise NotImplementedError()
+
+        return f"--target_runtime {target_runtime_flag}"
+
 
 @unique
 class SourceModelFormat(Enum):

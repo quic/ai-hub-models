@@ -9,13 +9,16 @@ from importlib import reload
 
 import torch
 
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     find_replace_in_repo,
+    load_image,
     load_torch,
 )
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 SINET_SOURCE_REPOSITORY = "https://github.com/clovaai/ext_portrait_segmentation"
@@ -24,6 +27,10 @@ MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
 DEFAULT_WEIGHTS = "SINet.pth"
 NUM_CLASSES = 2
+INPUT_IMAGE_LOCAL_PATH = "sinet_demo.png"
+INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, INPUT_IMAGE_LOCAL_PATH
+)
 
 
 class SINet(BaseModel):
@@ -54,6 +61,13 @@ class SINet(BaseModel):
         Returns:
             tensor: 1x2xHxW tensor of class logits per pixel
         """
+        # These mean and std values were computed using the prescribed training data
+        # and process in https://github.com/clovaai/ext_portrait_segmentation/blob/9bc1bada1cb7bd17a3a80a2964980f4b4befef5b/data/loadData.py#L44
+        mean = torch.Tensor([113.05697, 120.847824, 133.786]) / 255
+        std = torch.Tensor([65.05263, 65.393776, 67.238205])
+        mean = mean.reshape(1, 3, 1, 1)
+        std = std.reshape(1, 3, 1, 1)
+        image = (image - mean) / std
         return self.model(image)
 
     @staticmethod
@@ -79,6 +93,15 @@ class SINet(BaseModel):
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
         return ["mask"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(INPUT_IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
 
 def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):

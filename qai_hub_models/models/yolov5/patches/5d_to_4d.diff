@@ -1,0 +1,50 @@
+diff --git a/models/yolo.py b/models/yolo.py
+index c0dd946e..4e8217d3 100644
+--- a/models/yolo.py
++++ b/models/yolo.py
+@@ -91,6 +91,7 @@ class Detect(nn.Module):
+ 
+     def forward(self, x):
+         """Processes input through YOLOv5 layers, altering shape for detection: `x(bs, 3, ny, nx, 85)`."""
++
+         z = []  # inference output
+         for i in range(self.nl):
+             x[i] = self.m[i](x[i])  # conv
+@@ -98,19 +99,27 @@ class Detect(nn.Module):
+             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+ 
+             if not self.training:  # inference
++                y_all_anchors = []
+                 if self.dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                     self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
+ 
+-                if isinstance(self, Segment):  # (boxes + masks)
+-                    xy, wh, conf, mask = x[i].split((2, 2, self.nc + 1, self.no - self.nc - 5), 4)
+-                    xy = (xy.sigmoid() * 2 + self.grid[i]) * self.stride[i]  # xy
+-                    wh = (wh.sigmoid() * 2) ** 2 * self.anchor_grid[i]  # wh
+-                    y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)
+-                else:  # Detect (boxes only)
+-                    xy, wh, conf = x[i].sigmoid().split((2, 2, self.nc + 1), 4)
+-                    xy = (xy * 2 + self.grid[i]) * self.stride[i]  # xy
+-                    wh = (wh * 2) ** 2 * self.anchor_grid[i]  # wh
+-                    y = torch.cat((xy, wh, conf), 4)
++                for anchor_number in range(self.na):
++                    x_anchor = x[i][:, anchor_number, :,:,:].view(bs,ny,nx,self.no)
++                    grid = self.grid[i][:,anchor_number,::].view(1,ny,nx,2)
++                    anchor_grid = self.anchor_grid[i][:,anchor_number,:,:,:].view(1,ny,nx,2)
++
++                    if isinstance(self, Segment):  # (boxes + masks)
++                        xy, wh, conf, mask = x_anchor.split((2, 2, self.nc + 1, self.no - self.nc - 5), 3)
++                        xy = (xy.sigmoid() * 2 + grid) * self.stride[i]  # xy
++                        wh = (wh.sigmoid() * 2) ** 2 * anchor_grid  # wh
++                        y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)
++                    else:  # Detect (boxes only)
++                        xy, wh, conf = x_anchor.sigmoid().split((2, 2, self.nc + 1), 3)
++                        xy = (xy * 2 + grid) * self.stride[i]  # xy
++                        wh = (wh * 2) ** 2 * anchor_grid  # wh
++                        y = torch.cat((xy, wh, conf), 3)
++                    y_all_anchors.append(y)
++                y = torch.cat(tuple(y_all_anchors), 1)
+                 z.append(y.view(bs, self.na * nx * ny, self.no))
+ 
+         return x if self.training else (torch.cat(z, 1),) if self.export else (torch.cat(z, 1), x)

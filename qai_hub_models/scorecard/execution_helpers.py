@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Callable, Optional
 
 import qai_hub as hub
 
@@ -13,6 +13,42 @@ from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathTypeVar
+
+
+def for_each_scorecard_path_and_device(
+    model_is_quantized: bool,
+    path_type: type[ScorecardPathTypeVar],
+    callback: Callable[[ScorecardPathTypeVar, ScorecardDevice], None],
+    include_paths: list[ScorecardPathTypeVar] | None = None,
+    include_devices: list[ScorecardDevice] | None = None,
+    exclude_paths: list[ScorecardPathTypeVar] | None = None,
+    exclude_devices: list[ScorecardDevice] | None = None,
+):
+    for path in path_type.all_paths(
+        enabled=True, supports_quantization=model_is_quantized or None
+    ):
+        if include_paths and path not in include_paths:
+            continue
+        if exclude_paths and path in exclude_paths:
+            continue
+
+        for device in ScorecardDevice.all_devices(
+            enabled=True,
+            supports_fp16_npu=not model_is_quantized or None,
+            supports_compile_path=path
+            if isinstance(path, ScorecardCompilePath)
+            else None,
+            supports_profile_path=path
+            if isinstance(path, ScorecardProfilePath)
+            else None,
+        ):
+            if include_devices and device not in include_devices:
+                continue
+            if exclude_devices and device in exclude_devices:
+                continue
+
+            callback(path, device)  # type: ignore
 
 
 def pytest_device_idfn(val):

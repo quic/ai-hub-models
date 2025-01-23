@@ -9,6 +9,7 @@ from importlib import reload
 import torch
 import torch.nn as nn
 
+from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -16,8 +17,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_path,
     qaihm_temp_dir,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
 
 YOLOV6_SOURCE_REPOSITORY = "https://github.com/meituan/YOLOv6"
 YOLOV6_SOURCE_REPO_COMMIT = "55d80c317edd0fb5847e599a1802d394f34a3141"
@@ -28,16 +27,13 @@ WEIGHTS_PATH = "https://github.com/meituan/YOLOv6/releases/download/0.4.0/"
 DEFAULT_WEIGHTS = "yolov6n.pt"
 
 
-class YoloV6(BaseModel):
+class YoloV6(Yolo):
     """Exportable YoloV6 bounding box detector, end-to-end."""
 
     def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
         super().__init__()
         self.model = model
         self.include_postprocessing = include_postprocessing
-
-    # All image input spatial dimensions should be a multiple of this stride.
-    STRIDE_MULTIPLE = 32
 
     @classmethod
     def from_pretrained(
@@ -78,18 +74,6 @@ class YoloV6(BaseModel):
         )
 
     @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
-        return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
     def get_output_names(include_postprocessing: bool = True) -> list[str]:
         if include_postprocessing:
             return ["boxes", "scores", "class_idx"]
@@ -97,10 +81,6 @@ class YoloV6(BaseModel):
 
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
 
 
 def _load_yolov6_source_model_from_weights(

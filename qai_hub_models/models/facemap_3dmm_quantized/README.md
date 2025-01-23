@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[facemap-3dmm-quantized]"
+pip install "qai-hub-models[facemap-3dmm-quantized]"
 ```
 
 

@@ -139,8 +139,8 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
         """Quantized models are marked so precision can be correctly recorded."""
         return (
             "Yes"
-            if self.model_id.endswith("Quantized")
-            or self.model_id.endswith("Quantizable")
+            if self.model_id.endswith("quantized")
+            or self.model_id.endswith("quantizable")
             else "No"
         )
 

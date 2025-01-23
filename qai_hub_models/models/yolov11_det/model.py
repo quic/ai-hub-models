@@ -7,16 +7,12 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
-from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
+from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
 from qai_hub_models.utils.asset_loaders import (
     SourceAsRoot,
     find_replace_in_repo,
     wipe_sys_modules,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -33,7 +29,7 @@ SUPPORTED_WEIGHTS = [
 DEFAULT_WEIGHTS = "yolo11n.pt"
 
 
-class YoloV11Detector(BaseModel):
+class YoloV11Detector(Yolo):
     """Exportable Yolo11 bounding box detector, end-to-end."""
 
     def __init__(
@@ -127,18 +123,6 @@ class YoloV11Detector(BaseModel):
         return boxes, scores, classes
 
     @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
-        return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
     def get_output_names(
         include_postprocessing: bool = True, split_output: bool = False
     ) -> list[str]:
@@ -152,10 +136,3 @@ class YoloV11Detector(BaseModel):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
-
-    def get_evaluator(self) -> BaseEvaluator:
-        return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]

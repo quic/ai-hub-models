@@ -8,8 +8,8 @@ from qai_hub_models.models._shared.cityscapes_segmentation.app import (
     CityscapesSegmentationApp,
 )
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
+    TEST_CITYSCAPES_LIKE_IMAGE_ASSET,
+    TEST_CITYSCAPES_LIKE_IMAGE_NAME,
     CityscapesSegmentor,
 )
 from qai_hub_models.utils.args import (
@@ -20,15 +20,9 @@ from qai_hub_models.utils.args import (
     input_spec_from_cli_args,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
-
-# This image showcases the Cityscapes classes (but is not from the dataset)
-TEST_CITYSCAPES_LIKE_IMAGE_NAME = "cityscapes_like_demo_2048x1024.jpg"
-TEST_CITYSCAPES_LIKE_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, TEST_CITYSCAPES_LIKE_IMAGE_NAME
-)
 
 
 # Run Imagenet Classifier end-to-end on a sample image.

@@ -3,20 +3,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.models.openpose.app import OpenPoseApp
-from qai_hub_models.models.openpose.model import MODEL_ASSET_VERSION, MODEL_ID, OpenPose
+from qai_hub_models.models.openpose.model import IMAGE_ADDRESS, MODEL_ID, OpenPose
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
-
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "openpose_demo.png"
-)
 
 
 # Run OpenPose end-to-end on a sample image.

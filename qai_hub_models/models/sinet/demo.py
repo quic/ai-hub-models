@@ -3,20 +3,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.models.sinet.app import SINetApp
-from qai_hub_models.models.sinet.model import MODEL_ASSET_VERSION, MODEL_ID, SINet
+from qai_hub_models.models.sinet.model import INPUT_IMAGE_ADDRESS, MODEL_ID, SINet
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
-
-INPUT_IMAGE_LOCAL_PATH = "sinet_demo.png"
-INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, INPUT_IMAGE_LOCAL_PATH
-)
 
 
 def main(is_test: bool = False):

@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[ffnet-78s]"
+pip install "qai-hub-models[ffnet-78s]"
 ```
 
 

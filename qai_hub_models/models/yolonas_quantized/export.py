@@ -127,7 +127,9 @@ def export_model(
     )
 
     # Trace the model
-    source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
+    source_model = torch.jit.trace(
+        model.to("cpu"), make_torch_inputs(input_spec), check_trace=False
+    )
 
     print(f"Quantizing model {model_name} with {num_calibration_samples} samples.")
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.

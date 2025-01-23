@@ -6,14 +6,9 @@ import numpy as np
 import pytest
 
 from qai_hub_models.models._shared.repaint.app import RepaintMaskApp
+from qai_hub_models.models.aotgan.demo import IMAGE_ADDRESS, MASK_ADDRESS
 from qai_hub_models.models.aotgan.demo import main as demo_main
-from qai_hub_models.models.aotgan.model import (
-    AOTGAN,
-    IMAGE_ADDRESS,
-    MASK_ADDRESS,
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-)
+from qai_hub_models.models.aotgan.model import AOTGAN, MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
 

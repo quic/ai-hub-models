@@ -4,24 +4,26 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import multiprocessing
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Optional, TypeVar, cast
+from typing import Generic, Optional, TypeVar
 
 import ruamel.yaml
 
-from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
-from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
+from qai_hub_models.scorecard.execution_helpers import (
+    for_each_scorecard_path_and_device,
+    get_async_job_cache_name,
+)
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.performance_summary import (
-    CompileSummary,
-    InferenceSummary,
-    PerfSummary,
-    ScorecardSummaryTypeVar,
+    ModelCompileSummary,
+    ModelInferenceSummary,
+    ModelPerfSummary,
+    ModelSummaryTypeVar,
 )
 from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
@@ -30,20 +32,21 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     ScorecardJobTypeVar,
     ScorecardPathTypeVar,
 )
-from qai_hub_models.utils.path_helpers import MODEL_IDS, QAIHM_PACKAGE_ROOT
+from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
+INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
 
 
 class ScorecardJobYaml(
-    Generic[ScorecardJobTypeVar, ScorecardPathTypeVar, ScorecardSummaryTypeVar]
+    Generic[ScorecardJobTypeVar, ScorecardPathTypeVar, ModelSummaryTypeVar]
 ):
     scorecard_job_type: type[ScorecardJobTypeVar]
     scorecard_path_type: type[ScorecardPathTypeVar]
-    scorecard_summary_type: type[ScorecardSummaryTypeVar]
+    scorecard_model_summary_type: type[ModelSummaryTypeVar]
 
     def __init__(self, job_id_mapping: dict[str, str] | None = None):
         self.job_id_mapping = job_id_mapping or dict()
@@ -166,98 +169,61 @@ class ScorecardJobYaml(
             path,  # type: ignore
         )
 
-    def get_jobs_from_model_info(
-        self, model_info: QAIHMModelInfo
+    def get_all_jobs(
+        self,
+        model_id: str,
+        is_quantized: bool,
+        components: Iterable[str] | None = None,
     ) -> list[ScorecardJobTypeVar]:
         """
-        Get all jobs in this YAML related to the model information in the given model info class.
+        Get all jobs in this YAML related to the provided model.
         """
-        components: list[Optional[str]] = []
-        if model_info.code_gen_config.components:
-            if model_info.code_gen_config.default_components:
-                components = cast(
-                    list[Optional[str]], model_info.code_gen_config.default_components
+        model_runs: list[ScorecardJobTypeVar] = []
+        for component in components or [None]:  # type: ignore
+
+            def create_job(path: ScorecardPathTypeVar, device: ScorecardDevice):
+                model_runs.append(
+                    self.get_job(path, model_id, device, component or None)
                 )
-            else:
-                components = list(model_info.code_gen_config.components.keys())
-        else:
-            components.append(None)
 
-        supports_fp16_npu = not (
-            model_info.code_gen_config.is_aimet
-            or model_info.code_gen_config.use_hub_quantization
-        )
-
-        model_runs = []
-        for path in self.scorecard_path_type.all_paths(enabled=True):
-            for component in components:
-                for device in ScorecardDevice.all_devices(
-                    enabled=True,
-                    supports_fp16_npu=supports_fp16_npu or None,
-                    supports_compile_path=path
-                    if isinstance(path, ScorecardCompilePath)
-                    else None,
-                    supports_profile_path=path
-                    if isinstance(path, ScorecardProfilePath)
-                    else None,
-                ):
-                    job = self.get_job(
-                        path, model_info.id, device, component  # type: ignore
-                    )
-                    if not component:
-                        job.model_id = model_info.name
-
-                    model_runs.append(job)
+            for_each_scorecard_path_and_device(
+                is_quantized, self.__class__.scorecard_path_type, create_job
+            )
 
         return model_runs
 
-    def summaries_from_model_ids(
-        self, model_ids: list[str] = MODEL_IDS
-    ) -> dict[str, ScorecardSummaryTypeVar]:
+    def summary_from_model(
+        self,
+        model_id: str,
+        is_quantized: bool,
+        components: Iterable[str] | None = None,
+    ) -> ModelSummaryTypeVar:
         """
-        Create a summary for each set of jobs related to each model id in the provided list.
-
-        Returns models in this format:
-            model_id: list[Summary]
+        Creates a summary of all jobs related to the given model.
         """
-        print(f"Generating {self.scorecard_summary_type.__name__} for Models")
-        pool = multiprocessing.Pool(processes=15)
-        model_summaries = pool.map(
-            self.summary_from_model_id,
-            model_ids,
-        )
-        pool.close()
-        print("Finished\n")
-        return {k: v for k, v in zip(model_ids, model_summaries)}
-
-    def summary_from_model_id(self, model_id: str) -> ScorecardSummaryTypeVar:
-        """
-        Creates a summary of all jobs related to the given model id.
-        """
-        print(f"    {model_id} ")
-        runs = self.get_jobs_from_model_info(QAIHMModelInfo.from_model(model_id))
-        return self.scorecard_summary_type.from_runs(runs)  # type: ignore
+        runs = self.get_all_jobs(model_id, is_quantized, components)
+        return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore
 
 
 class CompileScorecardJobYaml(
-    ScorecardJobYaml[CompileScorecardJob, ScorecardCompilePath, CompileSummary]
+    ScorecardJobYaml[CompileScorecardJob, ScorecardCompilePath, ModelCompileSummary]
 ):
     scorecard_job_type = CompileScorecardJob
     scorecard_path_type = ScorecardCompilePath
-    scorecard_summary_type = CompileSummary
+    scorecard_model_summary_type = ModelCompileSummary
 
 
 class ProfileScorecardJobYaml(
-    ScorecardJobYaml[ProfileScorecardJob, ScorecardProfilePath, PerfSummary]
+    ScorecardJobYaml[ProfileScorecardJob, ScorecardProfilePath, ModelPerfSummary]
 ):
     scorecard_job_type = ProfileScorecardJob
     scorecard_path_type = ScorecardProfilePath
-    scorecard_summary_type = PerfSummary
+    scorecard_model_summary_type = ModelPerfSummary
 
 
 class InferenceScorecardJobYaml(
-    ScorecardJobYaml[InferenceScorecardJob, ScorecardProfilePath, InferenceSummary]
+    ScorecardJobYaml[InferenceScorecardJob, ScorecardProfilePath, ModelInferenceSummary]
 ):
     scorecard_job_type = InferenceScorecardJob
     scorecard_path_type = ScorecardProfilePath
-    scorecard_summary_type = InferenceSummary
+    scorecard_model_summary_type = ModelInferenceSummary

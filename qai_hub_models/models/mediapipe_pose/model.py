@@ -9,6 +9,8 @@ from collections.abc import Callable
 import torch
 
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -122,6 +124,9 @@ class PoseDetector(BaseModel):
         self.anchors = anchors
 
     def forward(self, image: torch.Tensor):
+        import numpy as np
+
+        np.save("build/sample_detector_inputs", image.numpy())
         return self.detector(image)
 
     @classmethod
@@ -154,6 +159,14 @@ class PoseDetector(BaseModel):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        numpy_inputs = CachedWebModelAsset.from_asset_store(
+            MODEL_ID, MODEL_ASSET_VERSION, "sample_detector_inputs.npy"
+        )
+        return {"image": [load_numpy(numpy_inputs)]}
+
 
 class PoseLandmarkDetector(BaseModel):
     def __init__(
@@ -164,6 +177,9 @@ class PoseLandmarkDetector(BaseModel):
         self.detector = detector
 
     def forward(self, image: torch.Tensor):
+        import numpy as np
+
+        np.save("build/sample_landmark_inputs", image.numpy())
         output = self.detector(image)
         return output[0], output[1]
 
@@ -191,3 +207,11 @@ class PoseLandmarkDetector(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        numpy_inputs = CachedWebModelAsset.from_asset_store(
+            MODEL_ID, MODEL_ASSET_VERSION, "sample_landmark_inputs.npy"
+        )
+        return {"image": [load_numpy(numpy_inputs)]}

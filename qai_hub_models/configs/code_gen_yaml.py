@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
@@ -149,6 +150,25 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     python_version_less_than: Optional[str] = None
     python_version_less_than_reason: Optional[str] = None
 
+    @property
+    def component_names(self) -> list[str] | None:
+        if self.default_components:
+            return self.default_components
+        return list(self.components.keys()) if self.components else None
+
+    def supports_runtime(self, runtime: TargetRuntime) -> bool:
+        """
+        Return true if this runtime is supported by this model.
+        Return false if this model has a failure reason set for this runtime.
+        """
+        automated_skip = getattr(
+            self, f"{runtime.name.lower()}_export_failure_reason", None
+        )
+        user_provided_skip = getattr(
+            self, f"{runtime.name.lower()}_export_disable_reason", None
+        )
+        return not automated_skip and not user_provided_skip
+
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
@@ -189,6 +209,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             return QAIHMModelCodeGen()  # Default Schema
         return super().from_yaml(path)
 
-    def to_model_yaml(self, model_id: str):
+    def to_model_yaml(self, model_id: str) -> Path:
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         self.to_yaml(code_gen_path, write_if_empty=False, delete_if_empty=True)
+        return code_gen_path

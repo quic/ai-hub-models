@@ -119,7 +119,9 @@ def export_model(
     )
 
     # Trace the model
-    source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
+    source_model = torch.jit.trace(
+        model.to("cpu"), make_torch_inputs(input_spec), check_trace=False
+    )
 
     # 2. Compiles the model to an asset that can be run on device
     model_compile_options = model.get_hub_compile_options(

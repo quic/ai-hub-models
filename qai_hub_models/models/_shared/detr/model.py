@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 from transformers import DetrForObjectDetection
 
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -17,10 +19,6 @@ MODEL_ASSET_VERSION = 1
 
 class DETR(BaseModel):
     """Exportable DETR model, end-to-end."""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str):
@@ -64,3 +62,15 @@ class DETR(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image_address = CachedWebModelAsset.from_asset_store(
+            "detr_resnet50", 1, "detr_demo_image.jpg"
+        )
+        image = load_image(image_address)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

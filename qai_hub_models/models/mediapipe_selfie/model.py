@@ -7,13 +7,15 @@ from __future__ import annotations
 from tflite import Model
 from torch import nn
 
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.mediapipe_selfie.utils import (
     build_state_dict,
     get_convert,
     get_probable_names,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -27,6 +29,9 @@ MEDIAPIPE_SELFIE_CKPT_MAP = dict(
     ),
 )
 DEFAULT_IMAGE_TYPE = "square"
+IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "selfie.jpg"
+)
 
 
 class DepthwiseConv2d(nn.Module):
@@ -345,3 +350,12 @@ class SelfieSegmentation(BaseModel):
         x = self.sigmoid(self.transpose_conv(x))
 
         return x
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image = load_image(IMAGE_ADDRESS)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}

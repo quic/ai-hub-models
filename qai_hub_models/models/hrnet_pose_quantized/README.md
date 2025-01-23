@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/h
 
 Install the package via pip:
 ```bash
-pip install "qai_hub_models[hrnet-pose-quantized]"
+pip install "qai-hub-models[hrnet-pose-quantized]"
 ```
 
 

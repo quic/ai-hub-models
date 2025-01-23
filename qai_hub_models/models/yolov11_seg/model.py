@@ -5,12 +5,10 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
 
-from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
+from qai_hub_models.models._shared.yolo.model import Yolo, yolo_segment_postprocess
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
-from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.base_model import TargetRuntime
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -29,12 +27,8 @@ DEFAULT_WEIGHTS = "yolo11n-seg.pt"
 NUM_ClASSES = 80
 
 
-class YoloV11Segmentor(BaseModel):
+class YoloV11Segmentor(Yolo):
     """Exportable YoloV11 segmentor, end-to-end."""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
@@ -89,24 +83,8 @@ class YoloV11Segmentor(BaseModel):
         return boxes, scores, masks, classes, predictions[1][-1]
 
     @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
-        return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
     def get_output_names() -> list[str]:
         return ["boxes", "scores", "masks", "class_idx", "protos"]
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""

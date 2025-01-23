@@ -6,10 +6,13 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import torch
 from transformers import WavLMModel
 from transformers.models.wavlm.modeling_wavlm import WavLMGroupNormConvLayer
 
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -23,6 +26,10 @@ MODEL_ASSET_VERSION = 1
 
 DEFAULT_INPUT_VEC_LENGTH = 320000
 DEFAULT_INPUT_LENGTH_SECONDS = 20
+HUGGINGFACE_WAVLM_DATASET = "hf-internal-testing/librispeech_asr_demo"
+SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs.npz"
+)
 
 
 class HuggingFaceWavLMBasePlus(BaseModel):
@@ -77,6 +84,15 @@ class HuggingFaceWavLMBasePlus(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["feature_vector_1", "feature_vector_2"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        audio = load_numpy(SAMPLE_INPUTS)["audio"]
+        if input_spec is not None:
+            length = input_spec["input"][0][1]
+            audio = audio[:length]
+        return {"input": [np.expand_dims(audio, axis=0)]}
 
 
 # Modules used to override Huggingface WavLM to be NPU friendly

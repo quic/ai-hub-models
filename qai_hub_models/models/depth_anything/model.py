@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 import torch
-from torch import nn
 from transformers import AutoModelForDepthEstimation
 
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 MODEL_ID = __name__.split(".")[-2]
@@ -16,12 +15,8 @@ MODEL_ASSET_VERSION = 2
 DEFAULT_WEIGHTS = "LiheYoung/depth-anything-small-hf"
 
 
-class DepthAnything(BaseModel):
+class DepthAnything(DepthEstimationModel):
     """Exportable DepthAnything Depth Estimation, end-to-end."""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> DepthAnything:
@@ -56,11 +51,3 @@ class DepthAnything(BaseModel):
         used to submit profiling job on Qualcomm AI Hub.
         """
         return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["depth"]
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]

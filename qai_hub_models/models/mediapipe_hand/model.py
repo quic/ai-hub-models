@@ -10,11 +10,18 @@ import numpy as np
 import torch
 
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
+
+SAMPLE_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "sample_input.jpeg"
+)
+
 
 # https://github.com/metalwhale/hand_tracking/blob/b2a650d61b4ab917a2367a05b85765b81c0564f2/run.py
 #        8   12  16  20
@@ -158,6 +165,14 @@ class HandDetector(BaseModel):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        numpy_inputs = CachedWebModelAsset.from_asset_store(
+            MODEL_ID, MODEL_ASSET_VERSION, "sample_detector_inputs.npy"
+        )
+        return {"image": [load_numpy(numpy_inputs)]}
+
 
 class HandLandmarkDetector(BaseModel):
     def __init__(
@@ -194,3 +209,11 @@ class HandLandmarkDetector(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        numpy_inputs = CachedWebModelAsset.from_asset_store(
+            MODEL_ID, MODEL_ASSET_VERSION, "sample_landmark_inputs.npy"
+        )
+        return {"image": [load_numpy(numpy_inputs)]}

@@ -8,7 +8,7 @@ from PIL.Image import fromarray
 
 from qai_hub_models.models.mediapipe_selfie.app import SelfieSegmentationApp
 from qai_hub_models.models.mediapipe_selfie.model import (
-    MODEL_ASSET_VERSION,
+    IMAGE_ADDRESS,
     MODEL_ID,
     SelfieSegmentation,
 )
@@ -18,14 +18,10 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
-
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "selfie.jpg"
-)
 
 
 # Run selfie segmentation app end-to-end on a sample image.

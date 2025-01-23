@@ -179,6 +179,7 @@ class RunCommandsWithVenvTask(RunCommandsTask):
             ignore_return_codes=ignore_return_codes,
         )
         self.venv = venv
+        self.commands = ["df -h", "free"] + self.commands
         if self.venv is not None:
             self.commands = [
                 f"source {self.venv}/bin/activate && {command}"
@@ -227,7 +228,7 @@ class PyTestTask(RunCommandsWithVenvTask):
         pytest_options += f" {files_or_dirs}"
 
         default_options = "-rxXs -p no:warnings --durations-min=0.5 --durations=20"
-        command = f"pytest {default_options} {pytest_options} "
+        command = f"/usr/bin/time -v pytest {default_options} {pytest_options} "
 
         self.include_pytest_cmd_in_status_message = include_pytest_cmd_in_status_message
         super().__init__(

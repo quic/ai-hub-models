@@ -7,17 +7,13 @@ from __future__ import annotations
 import os
 
 import torch
-import torch.nn as nn
 
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models._shared.repaint.model import RepaintModel
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
-    load_image,
     wipe_sys_modules,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
 
 AOTGAN_SOURCE_REPOSITORY = "https://github.com/researchmm/AOT-GAN-for-Inpainting/"
 AOTGAN_SOURCE_REPO_COMMIT = "418034627392289bdfc118d62bc49e6abd3bb185"
@@ -34,20 +30,9 @@ SUPPORTED_PRETRAINED_MODELS = {"celebahq", "places2"}
 DEFAULT_WEIGHTS = "celebahq"
 MODEL_ASSET_VERSION = 2
 
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "test_images/test_input_image.png"
-)
-MASK_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "test_images/test_input_mask.png"
-)
 
-
-class AOTGAN(BaseModel):
+class AOTGAN(RepaintModel):
     """Exportable AOTGAN for Image inpainting"""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
@@ -107,43 +92,3 @@ class AOTGAN(BaseModel):
             3-channel color space: RGB
         """
         return self.model(image, mask)
-
-    @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 512,
-        width: int = 512,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
-        """
-        return {
-            "image": ((batch_size, 3, height, width), "float32"),
-            "mask": ((batch_size, 1, height, width), "float32"),
-        }
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["painted_image"]
-
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        """
-        Provides an example image of a man with a mask over the glasses.
-        """
-        from qai_hub_models.models._shared.repaint.app import RepaintMaskApp
-
-        image = load_image(IMAGE_ADDRESS)
-        mask = load_image(MASK_ADDRESS)
-        torch_inputs = RepaintMaskApp.preprocess_inputs(image, mask)
-        return {k: [v.detach().numpy()] for k, v in torch_inputs.items()}
-
-    @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image", "mask"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["painted_image"]

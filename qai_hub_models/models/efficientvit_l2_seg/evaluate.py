@@ -16,14 +16,14 @@ from qai_hub_models.utils.args import evaluate_parser, get_hub_device, get_model
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
-SUPPORTED_DATASETS = ["imagenet"]
+SUPPORTED_DATASETS = ["cityscapes"]
 
 
 def main():
     warnings.filterwarnings("ignore")
     parser = evaluate_parser(
         model_cls=Model,
-        default_split_size=2500,
+        default_split_size=50,
         supported_datasets=SUPPORTED_DATASETS,
         supports_tflite=False,
     )
