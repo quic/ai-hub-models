@@ -298,7 +298,7 @@ class SAMEncoderPart(BaseModel):
     def get_channel_last_outputs(include_neck=True) -> list[str]:
         # Output of encoder parts should not be channel last.
         # This actually inserts a transpose when one is not needed.
-        return []
+        return ["image_embeddings"] if include_neck else []
 
     def _get_channel_last_outputs_for_instance(self) -> list[str]:
         return self.__class__.get_channel_last_outputs(self.include_neck)
