@@ -297,10 +297,11 @@ def monkey_patch_huggingface_llama_modeling():
         return position_ids
 
     # Bypass rotary_emb module
-    modeling_llama.LlamaRotaryEmbedding._original_forward = (
-        modeling_llama.LlamaRotaryEmbedding.forward
-    )
-    modeling_llama.LlamaRotaryEmbedding.forward = bypass_RotaryEmbedding
+    if hasattr(modeling_llama.LlamaRotaryEmbedding, "_original_forward") == False:
+        modeling_llama.LlamaRotaryEmbedding._original_forward = (
+            modeling_llama.LlamaRotaryEmbedding.forward
+        )
+        modeling_llama.LlamaRotaryEmbedding.forward = bypass_RotaryEmbedding
     modeling_llama.apply_rotary_pos_emb = QcLlama_apply_rotary_pos_emb
 
     def LlamaRMSNorm_forward(self, hidden_states):
