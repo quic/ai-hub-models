@@ -194,6 +194,7 @@ def export_model(
         )
 
         # Submit the parts for compilation
+        compiling_jobs = hub.get_job_summaries(type=hub.JobType.COMPILE)
         for i in range(num_splits):
             sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
             component_name = f"part_{i + 1}_of_{num_splits}"
@@ -201,22 +202,31 @@ def export_model(
             full_name = f"{model_name}_{sub_component_name}"
             aimet_path = Path(model_artifact) / (full_name + ".aimet")
 
-            model_compile_options = (
-                model.get_hub_compile_options(target_runtime, compile_options)
-                + f" --qnn_graph_name {sub_component_name}"
-            )
+            submitted_compile_job = None
+            for compiling_job in compiling_jobs:
+                if compiling_job.name == full_name and compiling_job.status.failure == False:
+                    useJob = input(f"The compiling job {compiling_job.url} named {full_name} is already exist, do you want to use it directly? [Y/n]")
+                    if useJob == '' or useJob == 'Y' or useJob == 'y':
+                        submitted_compile_job = hub.get_job(compiling_job.job_id)
+                        break
 
-            # TODO (#12708): Remove this zipping and let the client do it.
-            with tempfile.TemporaryDirectory() as tmpdir:
-                aimet_tmpdir = os.path.join(tmpdir, os.path.basename(aimet_path))
-                os.makedirs(aimet_tmpdir)
-                zipped_model_path = zip_model(aimet_tmpdir, aimet_path)
-                submitted_compile_job = hub.submit_compile_job(
-                    model=zipped_model_path,
-                    device=hub_device,
-                    name=full_name,
-                    options=model_compile_options,
+            if submitted_compile_job == None:
+                model_compile_options = (
+                    model.get_hub_compile_options(target_runtime, compile_options)
+                    + f" --qnn_graph_name {sub_component_name}"
                 )
+
+                # TODO (#12708): Remove this zipping and let the client do it.
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    aimet_tmpdir = os.path.join(tmpdir, os.path.basename(aimet_path))
+                    os.makedirs(aimet_tmpdir)
+                    zipped_model_path = zip_model(aimet_tmpdir, aimet_path)
+                    submitted_compile_job = hub.submit_compile_job(
+                        model=zipped_model_path,
+                        device=hub_device,
+                        name=full_name,
+                        options=model_compile_options,
+                    )
             if synchronous:
                 submitted_compile_job.wait()
             if component_name not in compile_jobs_to_link:
@@ -231,16 +241,26 @@ def export_model(
             component_from_sub_component_names[sub_component_name] = component_name
 
     # 2. Link jobs
+    linking_jobs = hub.get_job_summaries(type=hub.JobType.LINK)
     for component_name, cjobs in compile_jobs_to_link.items():
         models = [cjob.get_target_model() for cjob in cjobs]
-
+        submitted_link_job = None
         full_name = f"{model_name}_{component_name}"
-        link_job = hub.submit_link_job(models, name=full_name)
+        for linking_job in linking_jobs:
+            if linking_job.name == full_name and linking_job.status.failure == False:
+                useJob = input(f"The link job {linking_job.url} named: {full_name} is already exist, do you want to use it directly? [Y/n]")
+                if useJob == '' or useJob == 'Y' or useJob == 'y':
+                    submitted_link_job = hub.get_job(linking_job.job_id)
+                    break
+
+        if submitted_link_job == None:
+            submitted_link_job = hub.submit_link_job(models, name=full_name)
         if synchronous:
-            link_job.wait()
-        link_jobs[component_name] = link_job
+            submitted_link_job.wait()
+        link_jobs[component_name] = submitted_link_job
 
     # 3. Profile the model assets on real devices
+    profiling_jobs = hub.get_job_summaries(type=hub.JobType.PROFILE)
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for instantiation_name, _ in instantiations:
@@ -254,12 +274,22 @@ def export_model(
                     f"Profiling model {instantiation_name} {sub_component_name} on a hosted device."
                 )
                 full_name = f"{model_name}_{sub_component_name}"
-                submitted_profile_job = hub.submit_profile_job(
-                    model=link_jobs[component_name].get_target_model(),
-                    device=hub_device,
-                    name=full_name,
-                    options=profile_options,
-                )
+
+                submitted_profile_job = None
+                for profiling_job in profiling_jobs:
+                    if profiling_job.name == full_name and profiling_job.status.failure == False:
+                        useJob = input(f"The profiling job {profiling_job.url} named {full_name} is already exist, do you want to use it directly? [Y/n]")
+                        if useJob == '' or useJob == 'Y' or useJob == 'y':
+                            submitted_profile_job = hub.get_job(profiling_job.job_id)
+                            break
+
+                if submitted_profile_job == None:
+                    submitted_profile_job = hub.submit_profile_job(
+                        model=link_jobs[component_name].get_target_model(),
+                        device=hub_device,
+                        name=full_name,
+                        options=profile_options,
+                    )
                 if synchronous:
                     submitted_profile_job.wait()
                 profile_jobs[sub_component_name] = cast(
