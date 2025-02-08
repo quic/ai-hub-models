@@ -9,6 +9,7 @@ from importlib import reload
 from typing import Any, Optional
 
 import torch
+import torch.nn.functional as F
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
@@ -216,6 +217,8 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         stride = int(self.stride[i])
         nx, ny = self.h // stride, self.w // stride
         x = x.reshape(-1, self.na, self.no, nx, ny).permute(0, 1, 3, 4, 2).contiguous()
+        # Pad 1 class up to 2 to get NPU residence
+        x = F.pad(x, (0, max(7 - self.no, 0)))
         grid = self._make_grid(nx, ny)
         y = x
 
@@ -229,7 +232,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         wh = (wh * 2) ** 2 * self.__getattr__(f"anchor_grid_{i}").squeeze(2)
         wh = wh.reshape(-1, self.na * nx * ny, 2)
 
-        scores = y[..., 4:].reshape(-1, self.na * nx * ny, self.no - 4)
+        scores = y[..., 4:].reshape(-1, self.na * nx * ny, max(3, self.no - 4))
         return xy, wh, scores
 
     def forward(self, all_x: tuple[torch.Tensor, ...]):

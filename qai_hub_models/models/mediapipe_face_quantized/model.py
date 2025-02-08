@@ -35,7 +35,7 @@ DEFAULT_LANDMARK_DETECTOR_ENCODINGS = "landmark_detector_quantized_encodings.jso
 # The final layers output box confidence logits, most of which are extremely negative.
 # There are also only a few values that will be positive, which are the ones we care about.
 # When calibrating the range, the quantizer clips the range to exclude these positive outliers.
-# The range was manually overriden in the encodings file to be [-128, 127]
+# The range was manually overridden in the encodings file to be [-128, 127]
 DEFAULT_FACE_DETECTOR_ENCODINGS = "face_detector_quantized_encodings.json"
 
 

@@ -16,6 +16,11 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install "qai-hub-models[yolov6]"
+```
+
 
 Once installed, run the following simple CLI demo:
 
