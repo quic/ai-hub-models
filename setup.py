@@ -40,7 +40,8 @@ def get_data_files() -> list[str]:
 # Extras dictionary definition.
 extras_require = {
     "dev": [
-        line.strip() for line in open(qaihm_path / "requirements-dev.txt").readlines()
+        line.split("#")[0].strip()
+        for line in open(qaihm_path / "requirements-dev.txt").readlines()
     ]
 }
 
@@ -48,7 +49,9 @@ extras_require = {
 for model_dir in qaihm_dir.iterdir():
     if not model_dir.is_file() and (model_dir / r_file).exists():
         extra_with_dash = model_dir.name.replace("_", "-")
-        reqs = [line.strip() for line in open(model_dir / r_file).readlines()]
+        reqs = [
+            line.split("#")[0].strip() for line in open(model_dir / r_file).readlines()
+        ]
         extras_require[model_dir.name] = reqs
         extras_require[extra_with_dash] = reqs
 
@@ -67,7 +70,9 @@ setup(
     python_requires=">=3.9, <3.13",
     package_data={"qai_hub_models": get_data_files()},
     include_package_data=True,
-    install_requires=[line.strip() for line in open(requirements_path).readlines()],
+    install_requires=[
+        line.split("#")[0].strip() for line in open(requirements_path).readlines()
+    ],
     extras_require=extras_require,
     license="BSD-3",
 )

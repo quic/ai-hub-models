@@ -12,7 +12,7 @@
     },
     "strict_symmetric": "False",
     "unsigned_symmetric": "False",
-    "per_channel_quantization": "True"
+    "per_channel_quantization": "False"
   },
 
   "params":
@@ -56,6 +56,18 @@
         "min": 0.0,
         "max": 0.99609375
       }
+    },
+    "Conv":
+    {
+        "per_channel_quantization": "True"
+    },
+    "ConvTranspose":
+    {
+        "per_channel_quantization": "True"
+    },
+    "MatMul":
+    {
+        "per_channel_quantization": "True"
     }
   },
 

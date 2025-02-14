@@ -249,11 +249,7 @@ class PyTestModelsTask(CompositeTask):
                     RunCommandsWithVenvTask(
                         group_name="Install Global Requirements",
                         venv=base_test_venv,
-                        commands=[
-                            f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" '
-                            "-f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html "
-                            "--extra-index-url https://test.pypi.org/simple/"
-                        ],
+                        commands=[f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" '],
                     )
                 )
 

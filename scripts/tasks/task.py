@@ -5,6 +5,7 @@
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from sys import platform
 from typing import Optional, Union
 
 from .github import end_group, start_group
@@ -179,7 +180,11 @@ class RunCommandsWithVenvTask(RunCommandsTask):
             ignore_return_codes=ignore_return_codes,
         )
         self.venv = venv
-        self.commands = ["df -h", "free"] + self.commands
+        self.commands = [commands] if isinstance(commands, str) else commands
+        if platform in ["linux", "linux2"]:
+            self.commands.insert(0, "free")
+        if platform in ["darwin", "linux", "linux2"]:
+            self.commands.insert(0, "df -h")
         if self.venv is not None:
             self.commands = [
                 f"source {self.venv}/bin/activate && {command}"

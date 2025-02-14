@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+import numpy as np
 from PIL import Image
 
 from qai_hub_models.models._shared.yolo.app import (
@@ -69,6 +70,7 @@ def yolo_detection_demo(
     print("Model Loaded")
     image = load_image(args.image)
     pred_images = app.predict_boxes_from_image(image)
+    assert isinstance(pred_images[0], np.ndarray)
     out = Image.fromarray(pred_images[0])
     if not is_test:
         display_or_save_image(out, args.output_dir, "yolo_demo_output.png")
@@ -119,6 +121,7 @@ def yolo_segmentation_demo(
 
     image = load_image(args.image)
     image_annotated = app.predict_segmentation_from_image(image)[0]
+    assert isinstance(image_annotated, Image.Image)
 
     if not is_test:
         display_or_save_image(image_annotated, args.output_dir)

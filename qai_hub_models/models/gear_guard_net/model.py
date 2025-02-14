@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -33,7 +35,7 @@ class GearGuardNet(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: str = None) -> nn.Module:
+    def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> nn.Module:
         """
         Load model from pretrained weights.
 
@@ -83,9 +85,10 @@ class GearGuardNet(BaseModel):
             ],
         }
         model = Model(cfg)
-        if checkpoint_path is None:
-            checkpoint_path = DEFAULT_WEIGHTS
-        ckpt = load_torch(checkpoint_path)
+        checkpoint_to_load = (
+            DEFAULT_WEIGHTS if checkpoint_path is None else checkpoint_path
+        )
+        ckpt = load_torch(checkpoint_to_load)
         model.load_state_dict(ckpt)
         model.eval()
         return cls(model)

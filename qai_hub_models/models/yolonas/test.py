@@ -20,7 +20,7 @@ GT_BOXES = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(IMAGE_ADDRESS)
     app = YoloNASDetectionApp(YoloNAS.from_pretrained(), nms_score_threshold=0.7)
     boxes = app.predict_boxes_from_image(image, raw_output=True)[0][0].numpy()
@@ -35,5 +35,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

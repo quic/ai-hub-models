@@ -34,14 +34,14 @@ MIN_MEMORY_RECOMMENDED = 50
 class Llama3_2_Quantized(Llama3Base_Quantized):
     def __init__(self, huggingface_model_name: str = HF_REPO_NAME, *args, **kwargs):
         super().__init__(
-            huggingface_model_name=huggingface_model_name,
+            huggingface_model_name=huggingface_model_name,  # type: ignore
             min_memory_recommended=MIN_MEMORY_RECOMMENDED,
             *args,
             **kwargs,
         )
 
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # type: ignore
         cls,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
@@ -96,7 +96,7 @@ class Llama3_2_Quantized(Llama3Base_Quantized):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
     ) -> InputSpec:
-        return Llama3Base_Quantized.get_input_spec(
+        return Llama3Base_Quantized._get_input_spec(
             num_hidden_layers=NUM_LAYERS,
             sequence_length=sequence_length,
             context_length=context_length,

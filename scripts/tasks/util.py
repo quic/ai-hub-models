@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 from .constants import (
     BASH_EXECUTABLE,
@@ -59,6 +60,22 @@ def check_code_gen_field(model_name: str, field_name: str) -> bool:
             if f"{field_name}: true" in f.read():
                 return True
     return False
+
+
+@functools.cache
+def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
+    """
+    This process does not have the yaml package, so use this primitive way to get code-gen field value.
+    """
+    yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
+    if yaml_path.exists():
+        with open(yaml_path) as f:
+            field = f"{field_name}: "
+            for line in f.readlines():
+                if line.startswith(field):
+                    return line[len(field) : -1].strip("'").strip('"')
+
+    return None
 
 
 def can_support_aimet(platform: str = sys.platform) -> bool:
@@ -165,3 +182,18 @@ def run_with_venv_and_get_output(venv, command):
         )
     else:
         return run_and_get_output(command)
+
+
+def str_to_bool(word: str) -> bool:
+    return word.lower() in ["1", "true", "yes"]
+
+
+def get_env_bool(key: str, default: Optional[bool] = None) -> Optional[bool]:
+    val = os.environ.get(key, None)
+    if val is None:
+        return None
+    return str_to_bool(val)
+
+
+def on_ci() -> bool:
+    return get_env_bool("QAIHM_CI") or False

@@ -1,0 +1,88 @@
+{
+  "defaults":
+  {
+    "ops":
+    {
+      "is_output_quantized": "True"
+    },
+    "params":
+    {
+      "is_quantized": "True",
+      "is_symmetric": "True"
+    },
+    "strict_symmetric": "False",
+    "unsigned_symmetric": "False",
+    "per_channel_quantization": "True"
+  },
+
+  "params":
+  {
+    "bias":
+    {
+      "is_quantized": "False"
+    }
+  },
+
+  "op_type":
+  {
+    "Squeeze":
+    {
+      "is_output_quantized": "True"
+    },
+    "Pad":
+    {
+      "is_output_quantized": "True"
+    },
+    "Mean":
+    {
+      "is_output_quantized": "False"
+    },
+    "Gemm":
+    {
+      "per_channel_quantization": "False"
+    },
+    "Sigmoid":
+    {
+      "encoding_constraints":
+      {
+        "min": 0.0,
+        "max": 0.99609375
+      }
+    },
+    "Softmax":
+    {
+      "encoding_constraints":
+      {
+        "min": 0.0,
+        "max": 0.99609375
+      }
+    }
+  },
+
+  "supergroups":
+  [
+    {
+      "op_list": ["Conv", "Relu"]
+    },
+  {
+      "op_list": ["Conv", "Clip"]
+  },
+    {
+      "op_list": ["Conv", "BatchNormalization", "Relu"]
+    },
+    {
+      "op_list": ["Add", "Relu"]
+    },
+    {
+      "op_list": ["Gemm", "Relu"]
+    }
+  ],
+
+  "model_input":
+  {
+    "is_input_quantized": "True"
+  },
+
+  "model_output":
+  {}
+}

@@ -18,12 +18,14 @@ class YoloV7Quantizable(HubQuantizableMixin, YoloV7):
     @classmethod
     def from_pretrained(
         cls,
-        ckpt_name: str = DEFAULT_WEIGHTS,
+        weights_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
+        split_output: bool = False,
     ) -> YoloV7Quantizable:
         model = super().from_pretrained(
-            ckpt_name,
+            weights_name,
             include_postprocessing=include_postprocessing,
+            split_output=split_output,
         )
         model.class_dtype = torch.uint8
         return model

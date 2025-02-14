@@ -6,9 +6,9 @@ from copy import deepcopy
 
 import numpy as np
 import PIL.Image as Image
-import torch.nn as nn
 
 from qai_hub_models.models._shared.body_detection.app import BodyDetectionApp
+from qai_hub_models.models.protocols import FromPretrainedTypeVar
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -41,9 +41,9 @@ def plot_result(img: np.ndarray, result: np.ndarray):
 
 def BodyDetectionDemo(
     is_test: bool,
-    model_name: nn.Module,
+    model_name: type[FromPretrainedTypeVar],
     model_id: str,
-    app_name: BodyDetectionApp,
+    app_name: type[BodyDetectionApp],
     imgfile: str,
     height: int,
     width: int,
@@ -82,7 +82,7 @@ def BodyDetectionDemo(
     model = demo_model_from_cli_args(model_name, model_id, args)
     validate_on_device_demo_args(args, model_id)
 
-    app = app_name(model)
+    app = app_name(model)  # type: ignore[arg-type]
     result = app.detect(args.image, height, width, conf)
 
     if not is_test:

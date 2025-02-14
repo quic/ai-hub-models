@@ -12,7 +12,7 @@ from qai_hub_models.models.resnet101.demo import main as demo_main
 from qai_hub_models.models.resnet101.model import MODEL_ID, ResNet101
 
 
-def test_task():
+def test_task() -> None:
     run_imagenet_classifier_test(
         ResNet101.from_pretrained(),
         MODEL_ID,
@@ -24,10 +24,10 @@ def test_task():
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(ResNet101.from_pretrained())
 
 
-def test_demo():
+def test_demo() -> None:
     # Verify demo does not crash
     demo_main(is_test=True)

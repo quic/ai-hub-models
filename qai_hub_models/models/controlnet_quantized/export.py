@@ -118,13 +118,13 @@ def export_model(
     model = Model.from_precompiled()
     components_dict: dict[str, BasePrecompiledModel] = {}
     if "ControlNet_Quantized" in components:
-        components_dict["ControlNet_Quantized"] = model.controlnet  # type: ignore
+        components_dict["ControlNet_Quantized"] = model.controlnet
     if "TextEncoder_Quantized" in components:
-        components_dict["TextEncoder_Quantized"] = model.text_encoder  # type: ignore
+        components_dict["TextEncoder_Quantized"] = model.text_encoder
     if "UNet_Quantized" in components:
-        components_dict["UNet_Quantized"] = model.unet  # type: ignore
+        components_dict["UNet_Quantized"] = model.unet
     if "VAEDecoder_Quantized" in components:
-        components_dict["VAEDecoder_Quantized"] = model.vae_decoder  # type: ignore
+        components_dict["VAEDecoder_Quantized"] = model.vae_decoder
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -135,10 +135,9 @@ def export_model(
         if path not in path_for_uploaded_models:
             path_for_uploaded_models[path] = hub.upload_model(path)
         uploaded_models[component_name] = path_for_uploaded_models[path]
-
-    print(
-        f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
-    )
+        print(
+            f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
+        )
 
     # 3. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}

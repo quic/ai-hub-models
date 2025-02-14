@@ -89,7 +89,10 @@ class YoloObjectDetectionApp:
 
     def predict_boxes_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
+        pixel_values_or_image: torch.Tensor
+        | np.ndarray
+        | Image.Image
+        | list[Image.Image],
         raw_output: bool = False,
     ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[
         np.ndarray
@@ -132,7 +135,7 @@ class YoloObjectDetectionApp:
         if self.model_includes_postprocessing:
             pred_boxes, pred_scores, pred_class_idx = self.model(NCHW_fp32_torch_frames)
         else:
-            model_output = self.model(NCHW_fp32_torch_frames)
+            model_output: tuple[torch.Tensor, ...] = self.model(NCHW_fp32_torch_frames)
             if isinstance(model_output, torch.Tensor):
                 model_output = (model_output,)
             pred_boxes, pred_scores, pred_class_idx = self.pre_nms_postprocess(
@@ -211,10 +214,10 @@ class YoloSegmentationApp:
         model: Callable[
             [torch.Tensor],
             tuple[
-                list[torch.Tensor],
-                list[torch.Tensor],
-                list[torch.Tensor],
-                list[torch.Tensor],
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
                 torch.Tensor,
             ],
         ],
@@ -258,7 +261,7 @@ class YoloSegmentationApp:
         self.input_height = input_height
         self.input_width = input_width
 
-    def check_image_size(self, pixel_values: torch.Tensor) -> None:
+    def check_image_size(self, pixel_values: torch.Tensor) -> bool:
         """
         Verify image size is valid model input.
         """
@@ -274,7 +277,10 @@ class YoloSegmentationApp:
 
     def predict_segmentation_from_image(
         self,
-        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
+        pixel_values_or_image: torch.Tensor
+        | np.ndarray
+        | Image.Image
+        | list[Image.Image],
         raw_output: bool = False,
     ) -> tuple[
         list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]

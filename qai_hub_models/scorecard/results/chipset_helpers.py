@@ -87,7 +87,7 @@ def chipset_marketing_name(chipset) -> str:
     # qcs6490 -> QCS6490
     # sa8775p -> SA8775P
     chip = re.sub(
-        r"(Qcs|Sa)(\w+)", lambda m: f"{m.group(1).upper()}{m.group(2).upper()}", chip
+        r"(Qcs|Sa)\s*(\w+)", lambda m: f"{m.group(1).upper()}{m.group(2).upper()}", chip
     )
 
     return chip

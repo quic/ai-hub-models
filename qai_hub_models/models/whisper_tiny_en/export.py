@@ -125,9 +125,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "WhisperDecoder" in components:
-        components_dict["WhisperDecoder"] = model.decoder  # type: ignore
+        components_dict["WhisperDecoder"] = model.decoder
     if "WhisperEncoder" in components:
-        components_dict["WhisperEncoder"] = model.encoder  # type: ignore
+        components_dict["WhisperEncoder"] = model.encoder
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

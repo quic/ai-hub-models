@@ -17,7 +17,11 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
-from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, qaihm_temp_dir
+from qai_hub_models.utils.asset_loaders import (
+    ModelZooAssetConfig,
+    VersionType,
+    qaihm_temp_dir,
+)
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import (
@@ -577,7 +581,7 @@ class OnDeviceModel(ExecutableModelProtocol):
 def get_uploaded_precompiled_model(
     model_path: str,
     model_name: str,
-    model_version: str,
+    model_version: VersionType,
     model_component: str,
     ignore_cached_model: bool = False,
 ):

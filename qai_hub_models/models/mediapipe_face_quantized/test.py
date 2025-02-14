@@ -33,7 +33,7 @@ def test_face_app():
     result = app.predict_landmarks_from_image(input, raw_output=True)
     landmarks = result[3][0]
     coords, conf = np.split(landmarks, [2], axis=2)
-    np.testing.assert_allclose(coords, expected_coords, atol=15)
+    np.testing.assert_allclose(coords, expected_coords, rtol=0.03, atol=15)
     np.testing.assert_allclose(conf, expected_conf, atol=0.05)
 
 

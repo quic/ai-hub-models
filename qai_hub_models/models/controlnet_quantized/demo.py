@@ -168,10 +168,10 @@ def main(is_test: bool = False):
 
     # Load Application
     app = ControlNetApp(
-        text_encoder=text_encoder,
-        vae_decoder=vae_decoder,
-        unet=unet,
-        controlnet=controlnet,
+        text_encoder=text_encoder,  # type: ignore[arg-type]
+        vae_decoder=vae_decoder,  # type: ignore[arg-type]
+        unet=unet,  # type: ignore[arg-type]
+        controlnet=controlnet,  # type: ignore[arg-type]
         tokenizer=tokenizer,
         scheduler=scheduler,
         time_embedding=embedding,

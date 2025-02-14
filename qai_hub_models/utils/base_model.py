@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import torch
-from qai_hub.client import Device, SourceModel
+from qai_hub.client import Device
 
 from qai_hub_models.models.common import (
     SampleInputsType,
@@ -20,6 +20,7 @@ from qai_hub_models.models.common import (
 from qai_hub_models.models.protocols import (
     ExecutableModelProtocol,
     FromPrecompiledProtocol,
+    FromPretrainedProtocol,
     HubModelProtocol,
     PretrainedHubModelProtocol,
 )
@@ -37,6 +38,8 @@ class CollectionModel:
     Model that glues together several BaseModels
     """
 
+
+class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
     pass
 
 
@@ -241,7 +244,7 @@ class BaseModel(
         check_trace: bool = True,
         external_onnx_weights: bool = False,
         output_names: Optional[list[str]] = None,
-    ) -> SourceModel:
+    ) -> Optional[str]:
         """
         Convert to a AI Hub source model appropriate for the export method.
         """

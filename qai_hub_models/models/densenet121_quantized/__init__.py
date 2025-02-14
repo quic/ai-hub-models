@@ -7,4 +7,4 @@ from qai_hub_models.models._shared.imagenet_classifier.app import (  # noqa: F40
 )
 
 from .model import MODEL_ID  # noqa: F401
-from .model import ConvNextTinyW8A8Quantizable as Model  # noqa: F401
+from .model import DenseNetQuantizable as Model  # noqa: F401

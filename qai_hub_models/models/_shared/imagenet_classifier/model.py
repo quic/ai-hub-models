@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
 import torch
@@ -114,14 +114,6 @@ class ImagenetClassifier(BaseModel):
     def get_output_names() -> list[str]:
         return ["class_logits"]
 
-    @classmethod
-    def from_pretrained(
-        cls,
-        weights: Optional[str] = None,
-    ) -> ImagenetClassifier:
-        net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
-        return cls(net)
-
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> dict[str, list[np.ndarray]]:
@@ -132,3 +124,24 @@ class ImagenetClassifier(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image_tensor"]
+
+
+class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
+    model_builder: Callable
+    DEFAULT_WEIGHTS: str
+
+    def __init__(
+        self,
+        net: torch.nn.Module,
+        transform_input: bool = False,
+        normalize_input: bool = True,
+    ) -> None:
+        super().__init__(net, transform_input, normalize_input)
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        weights: Optional[str] = None,
+    ) -> ImagenetClassifier:
+        net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
+        return cls(net)

@@ -5,17 +5,21 @@
 from __future__ import annotations
 
 import os
+import time
+import zipfile
+from os import PathLike
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import numpy as np
+import onnx
 import qai_hub as hub
 import torch
 from qai_hub.client import APIException, UserError
 
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import TargetRuntime
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, qaihm_temp_dir
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
 from qai_hub_models.utils.printing import print_profile_metrics
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401
@@ -144,3 +148,116 @@ def export_without_hub_access(
 
 def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
     return tensor.cpu().detach().numpy()
+
+
+def get_hub_endpoint():
+    # The deployment endpoint is the subdomain of AIHub that is used by the config.
+    # e.g. for blah endpoint, returns https://blah.aihub.qualcomm.com
+    return hub.hub._global_client.config.api_url
+
+
+def export_torch_to_onnx_zip(
+    torch_model: torch.nn.Module,
+    f: str | PathLike,
+    example_input: tuple[torch.Tensor, ...],
+    input_names: list[str] | None = None,
+    output_names: list[str] | None = None,
+    onnx_transforms: Optional[Callable[[onnx.ModelProto], onnx.ModelProto]] = None,
+) -> str:
+    """
+    Export a torch model to ONNX, possibly as zip if model size exceeds 2GB,
+    to conform to the input spec of AI Hub. Export as regular ONNX file if
+    <2GB
+
+    Parameters:
+      torch_model: The torch.nn.Module to export.
+      f: The base filename that must end in ".onnx". For external data export, the final output
+         will be f+".zip", otherwise just f.
+      example_input: A tuple of example input tensors for the export.
+      input_names: Optional list of input names.
+      output_names: Optional list of output names.
+      onnx_transforms: If defined, run this on the exported ONNX before
+      zipping.
+
+    Returns:
+      The path to the exported file (either a .onnx or .onnx.zip file).
+    """
+    f = Path(f)
+    if not f.name.endswith(".onnx"):
+        raise ValueError(f"File name {f.name} must end with '.onnx'.")
+
+    # Estimate total weight size (parameters and buffers) in bytes.
+    # state_dict includes buffers etc, while model_parametrs include only
+    # learnable params.
+    total_bytes = 0
+    for tensor in torch_model.state_dict().values():
+        # Some tensors may not have a defined element_size() (e.g. non-numeric); skip them.
+        if hasattr(tensor, "numel") and hasattr(tensor, "element_size"):
+            total_bytes += tensor.numel() * tensor.element_size()
+    threshold_bytes = 2 * 1024**3  # 2GB threshold
+
+    if total_bytes < threshold_bytes:
+        # If model size is under 2GB, export as a single ONNX file.
+        start_time = time.time()
+        torch.onnx.export(
+            torch_model,
+            example_input,
+            str(f),
+            input_names=input_names,
+            output_names=output_names,
+        )
+        export_time = time.time() - start_time
+        print(f"ONNX exported to {f} in {export_time:.1f} seconds)")
+        return str(f)
+    else:
+        # Otherwise, export with external data and package into a zip file.
+        with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
+            tmpdir1 = Path(tmpdir1)
+            tmpdir2 = Path(tmpdir2)
+            export_path = tmpdir1 / f.name
+
+            start_time = time.time()
+            torch.onnx.export(
+                torch_model,
+                example_input,
+                str(export_path),
+                input_names=input_names,
+                output_names=output_names,
+            )
+            export_time = time.time() - start_time
+            print(f"torch.onnx.export finished in {export_time:.1f} seconds")
+
+            onnx_model = onnx.load(str(export_path))
+
+            if onnx_transforms is not None:
+                transform_start_time = time.time()
+                print("Running onnx2onnx transforms...")
+                onnx_model = onnx_transforms(onnx_model)
+                transform_time = time.time() - transform_start_time
+                print(f"ONNX transform finished in {transform_time:.1f} seconds")
+
+            save_start_time = time.time()
+            export_path2 = tmpdir2 / f.name
+            onnx.save_model(
+                onnx_model,
+                str(export_path2),
+                save_as_external_data=True,
+                all_tensors_to_one_file=True,
+                # Weight file name must end with .data per Hub requirement
+                location="weight.data",
+            )
+            save_time = time.time() - save_start_time
+            print(f"onnx.save_model finished in {save_time:.1f} seconds")
+
+            zip_start_time = time.time()
+            zip_path = f.with_name(f.name + ".zip")
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for file_path in tmpdir2.iterdir():
+                    arcname = f.name + "/" + file_path.name
+                    zip_file.write(file_path, arcname=arcname)
+            zip_time = time.time() - zip_start_time
+            print(f"zipping onnx finished in {zip_time:.1f} seconds")
+
+            print(f"ONNX with external data saved to {zip_path}")
+
+            return str(zip_path)

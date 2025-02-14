@@ -9,7 +9,6 @@ from PIL.Image import Image
 class MobileVITApp:
     """
     Encapsulates the logic for running inference on a MobileVIT model.
-
     """
 
     def __init__(self, model):

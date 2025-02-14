@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import torch
 import torchvision.models as tv_models
 
 from qai_hub_models.models._shared.imagenet_classifier.test_utils import (  # noqa: F401
@@ -15,7 +16,7 @@ from qai_hub_models.models.swin_tiny.model import MODEL_ID, SwinTiny
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 
-def test_numerical(imagenet_sample_torch):
+def test_numerical(imagenet_sample_torch: torch.Tensor) -> None:
     # Ensure that the optimized SwinTiny matches the original one numerically
     x = imagenet_sample_torch
     model_opt = SwinTiny.from_pretrained().eval()
@@ -28,16 +29,16 @@ def test_numerical(imagenet_sample_torch):
     )
 
 
-def test_task():
+def test_task() -> None:
     run_imagenet_classifier_test(
         SwinTiny.from_pretrained(), MODEL_ID, probability_threshold=0.53
     )
 
 
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(SwinTiny.from_pretrained())
 
 
-def test_demo():
+def test_demo() -> None:
     # Verify demo does not crash
     demo_main(is_test=True)

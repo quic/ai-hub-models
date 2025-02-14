@@ -128,25 +128,25 @@ def export_model(
     model = Model.from_precompiled()
     components_dict: dict[str, BasePrecompiledModel] = {}
     if "PromptProcessor_Part1" in components:
-        components_dict["PromptProcessor_Part1"] = model.prompt_processor_part1  # type: ignore
+        components_dict["PromptProcessor_Part1"] = model.prompt_processor_part1
     if "PromptProcessor_Part2" in components:
-        components_dict["PromptProcessor_Part2"] = model.prompt_processor_part2  # type: ignore
+        components_dict["PromptProcessor_Part2"] = model.prompt_processor_part2
     if "PromptProcessor_Part3" in components:
-        components_dict["PromptProcessor_Part3"] = model.prompt_processor_part3  # type: ignore
+        components_dict["PromptProcessor_Part3"] = model.prompt_processor_part3
     if "PromptProcessor_Part4" in components:
-        components_dict["PromptProcessor_Part4"] = model.prompt_processor_part4  # type: ignore
+        components_dict["PromptProcessor_Part4"] = model.prompt_processor_part4
     if "PromptProcessor_Part5" in components:
-        components_dict["PromptProcessor_Part5"] = model.prompt_processor_part5  # type: ignore
+        components_dict["PromptProcessor_Part5"] = model.prompt_processor_part5
     if "TokenGenerator_Part1" in components:
-        components_dict["TokenGenerator_Part1"] = model.token_generator_part1  # type: ignore
+        components_dict["TokenGenerator_Part1"] = model.token_generator_part1
     if "TokenGenerator_Part2" in components:
-        components_dict["TokenGenerator_Part2"] = model.token_generator_part2  # type: ignore
+        components_dict["TokenGenerator_Part2"] = model.token_generator_part2
     if "TokenGenerator_Part3" in components:
-        components_dict["TokenGenerator_Part3"] = model.token_generator_part3  # type: ignore
+        components_dict["TokenGenerator_Part3"] = model.token_generator_part3
     if "TokenGenerator_Part4" in components:
-        components_dict["TokenGenerator_Part4"] = model.token_generator_part4  # type: ignore
+        components_dict["TokenGenerator_Part4"] = model.token_generator_part4
     if "TokenGenerator_Part5" in components:
-        components_dict["TokenGenerator_Part5"] = model.token_generator_part5  # type: ignore
+        components_dict["TokenGenerator_Part5"] = model.token_generator_part5
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -157,10 +157,9 @@ def export_model(
         if path not in path_for_uploaded_models:
             path_for_uploaded_models[path] = hub.upload_model(path)
         uploaded_models[component_name] = path_for_uploaded_models[path]
-
-    print(
-        f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
-    )
+        print(
+            f"The {component_name} model is saved here: {components_dict[component_name].get_target_model_path()}"
+        )
 
     # 3. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}

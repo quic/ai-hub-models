@@ -13,10 +13,11 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models._shared.llama.model import (
+    Llama2PretrainedCollectionModel,
     RopeEmbedding,
     get_past_keyval_with_shift,
 )
-from qai_hub_models.utils.base_model import CollectionModel
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.inference import ExecutableModelProtocol, OnDeviceModel
 from qai_hub_models.utils.model_adapters import suppress_warnings
 
@@ -26,7 +27,7 @@ def _get_tokens_from_logits(output: torch.Tensor):
     return torch.multinomial(probs, num_samples=1).squeeze(1)
 
 
-class LlamaModelPipelineBase(ExecutableModelProtocol):
+class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
     """
     Llama Pipeline to execute model splits one after another
     """
@@ -61,6 +62,7 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
     ):
+        out = None
         past_key_values = []
         for i in range(1, self.num_splits + 1):
             with suppress_warnings():
@@ -77,6 +79,7 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
                 past_key_values.extend(list(torch.split(each, 1, dim=1)))
 
         # Return logits + past_key_values
+        assert out is not None
         return tuple((out[0], *past_key_values))
 
     def forward_tg(
@@ -89,6 +92,7 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
     ):
         past_key_values_new = []
         start_past_key_offset = 0
+        out = None
         for i in range(1, self.num_splits + 1):
             with suppress_warnings():
                 model = self.load_model_part(i)
@@ -140,10 +144,11 @@ class LlamaModelPipelineBase(ExecutableModelProtocol):
             start_past_key_offset = end_past_key_offset
 
         # Return logits + past_key_values
+        assert out is not None
         return tuple((out[0], *past_key_values_new))
 
     @abstractmethod
-    def load_model_part(self, model_part: int):
+    def load_model_part(self, model_part: int) -> BaseModel:
         pass
 
 
@@ -203,7 +208,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
 
     def __init__(
         self,
-        models: CollectionModel,
+        models: Llama2PretrainedCollectionModel,
         num_splits: int,
         num_past_key_val_heads: int,
         model_split_map: dict[int, tuple[int, int]],
@@ -287,11 +292,11 @@ class ChatApp:
             max_length=max_seq_len,
         )
         input_ids = input_tokens["input_ids"].type(torch.long)
-        num_tokens = torch.sum(input_tokens["attention_mask"]).item()
+        num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         padding_size = max_seq_len - num_tokens
-        position_ids = [0] * (padding_size) + list(range(0, num_tokens))
+        position_ids_lst = [0] * (padding_size) + list(range(0, num_tokens))
         position_ids = (
-            torch.Tensor(position_ids).type(torch.long).reshape(1, max_seq_len)
+            torch.Tensor(position_ids_lst).type(torch.long).reshape(1, max_seq_len)
         )
         attention_mask = input_tokens["attention_mask"].type(torch.float32)
         cm_attention_masks = self.prepare_combined_attention_mask(

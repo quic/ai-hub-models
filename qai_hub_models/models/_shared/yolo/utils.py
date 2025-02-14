@@ -147,5 +147,6 @@ def get_most_likely_score(scores: torch.Tensor):
     for split in score_splits:
         scores, class_idx = torch.max(split, -1, keepdim=False)
         max_scores.append(scores)
-        max_indices.append(class_idx.float())
+        # class_idx needs to be int to make evaluation code work
+        max_indices.append(class_idx.int())
     return torch.cat(max_scores, dim=-1), torch.cat(max_indices, dim=-1)

@@ -20,7 +20,7 @@ WEIGHTS = "yolo11n-seg.pt"
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     qaihm_model = YoloV11Segmentor.from_pretrained(WEIGHTS)
     qaihm_app = YoloSegmentationApp(qaihm_model)
@@ -43,7 +43,7 @@ def test_task():
 
 @skip_clone_repo_check
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     net = YoloV11Segmentor.from_pretrained(WEIGHTS)
     input_spec = net.get_input_spec()
     trace = net.convert_to_torchscript(input_spec, check_trace=False)
@@ -64,6 +64,6 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     # Run demo and verify it does not crash
     demo_main(is_test=True)

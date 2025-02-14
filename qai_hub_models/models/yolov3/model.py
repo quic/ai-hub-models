@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from importlib import reload
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -36,8 +35,8 @@ class YoloV3(Yolo):
     @classmethod
     def from_pretrained(
         cls,
-        weights_name: Optional[str] = DEFAULT_WEIGHTS,
-        include_postprocessing: Optional[bool] = True,
+        weights_name: str = DEFAULT_WEIGHTS,
+        include_postprocessing: bool = True,
     ):
         """Load YoloV3 from a weightfile created by the source YoloV3 repository."""
         checkpoint_path = CachedWebModelAsset.from_asset_store(

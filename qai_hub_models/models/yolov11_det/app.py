@@ -7,7 +7,6 @@ from __future__ import annotations
 import torch
 
 from qai_hub_models.models._shared.yolo.app import YoloObjectDetectionApp
-from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 
 
 class YoloV11DetectionApp(YoloObjectDetectionApp):
@@ -16,8 +15,3 @@ class YoloV11DetectionApp(YoloObjectDetectionApp):
         YoloV11 does not check for spatial dim shapes for input image
         """
         pass
-
-    def pre_nms_postprocess(
-        self, prediction: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return yolo_detect_postprocess(prediction)

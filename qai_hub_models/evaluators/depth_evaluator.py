@@ -27,7 +27,6 @@ class DepthEvaluator(BaseEvaluator):
         )
         output = output.squeeze(1)
 
-        print(gt.shape, output.shape)
         assert gt.shape == output.shape
         # max depth is 10 in toolbox_nyu_depth_v2
         max_depth = 10.0

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from importlib import reload
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -43,7 +43,7 @@ class YoloV7(Yolo):
     @classmethod
     def from_pretrained(
         cls,
-        weights_name: Optional[str] = DEFAULT_WEIGHTS,
+        weights_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
     ):

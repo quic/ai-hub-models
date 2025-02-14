@@ -14,7 +14,7 @@ from qai_hub_models.utils.base_model import (
     TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.llm_helper import get_kv_cache_names
+from qai_hub_models.utils.llm_helpers import get_kv_cache_names
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
@@ -30,9 +30,9 @@ def get_cached_asset(part: int) -> str:
 def _get_output_names(start: int, end: int) -> list[str]:
     out_names = get_kv_cache_names(start, end)
     return (
-        out_names.append(f"_model_layers_{end - 1}_Add_1_Add_output_0")
+        out_names + [f"_model_layers_{end - 1}_Add_1_Add_output_0"]
         if end != 28
-        else "logits"
+        else ["logits"]
     )
 
 
@@ -48,16 +48,16 @@ class Baichuan2_7B_Quantized(FromPrecompiledProtocol, CollectionModel):
 
     def __init__(
         self,
-        prompt_processor_part1,
-        prompt_processor_part2,
-        prompt_processor_part3,
-        prompt_processor_part4,
-        prompt_processor_part5,
-        token_generator_part1,
-        token_generator_part2,
-        token_generator_part3,
-        token_generator_part4,
-        token_generator_part5,
+        prompt_processor_part1: BasePrecompiledModel,
+        prompt_processor_part2: BasePrecompiledModel,
+        prompt_processor_part3: BasePrecompiledModel,
+        prompt_processor_part4: BasePrecompiledModel,
+        prompt_processor_part5: BasePrecompiledModel,
+        token_generator_part1: BasePrecompiledModel,
+        token_generator_part2: BasePrecompiledModel,
+        token_generator_part3: BasePrecompiledModel,
+        token_generator_part4: BasePrecompiledModel,
+        token_generator_part5: BasePrecompiledModel,
     ) -> None:
         self.prompt_processor_part1 = prompt_processor_part1
         self.prompt_processor_part2 = prompt_processor_part2

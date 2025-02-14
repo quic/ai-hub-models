@@ -7,18 +7,21 @@ import json
 import os
 import re
 import shutil
+from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-import numpy as np
 import onnx
-from onnx.numpy_helper import from_array, to_array
+
+from qai_hub_models.utils.asset_loaders import PathLike
 
 from .split_onnx import OnnxSplitter, save_model
 
 
-def _target_name(name, deco_digit=True, using_qairt_workflow=False):
+def _target_name(
+    name: str, deco_digit: bool = True, using_qairt_workflow: bool = False
+) -> str:
     name = f"_{name}" if deco_digit and name.isdigit() else name
     # name = name.replace('.', '_')
     if not using_qairt_workflow:
@@ -27,8 +30,11 @@ def _target_name(name, deco_digit=True, using_qairt_workflow=False):
 
 
 def get_onnx_input_output_names(
-    onnxfile, onnxmodel=None, deco_digit=True, using_qairt_workflow=False
-):
+    onnxfile: PathLike,
+    onnxmodel: Optional[onnx.ModelProto] = None,
+    deco_digit: bool = True,
+    using_qairt_workflow: bool = False,
+) -> tuple[list[str], list[str]]:
     onnxmodel = _load_model(onnxfile) if onnxmodel is None else onnxmodel
     input_names = [
         _target_name(
@@ -45,7 +51,11 @@ def get_onnx_input_output_names(
     return input_names, output_names
 
 
-def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
+def get_split_tensors(
+    onnxfile: PathLike,
+    onnxmodel: Optional[onnx.ModelProto] = None,
+    include_first_input: bool = True,
+) -> list[str]:
     """
     Model topology
             │ ←─────────  layers[0]  ────────────→ │       │ ←─────────  layers[-1]  ─────────────→ │
@@ -57,19 +67,25 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
             valid splitting points
     """
 
-    def get_nodes():
+    def get_nodes() -> tuple[
+        dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]
+    ]:
         model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
         nodes = {i.name: i for i in model.graph.node}
         seq = {i.name: idx for idx, i in enumerate(model.graph.node)}
-        producers = collections.defaultdict(lambda: None)
+        producers: collections.defaultdict[
+            str, Optional[str]
+        ] = collections.defaultdict(lambda: None)
         producers.update({i.output[0]: i.name for i in model.graph.node})
         return nodes, seq, producers
 
     nodes, seq, producers = get_nodes()
 
-    def maybe_skip_cast(a):
+    def maybe_skip_cast(a: str) -> str:
         if nodes[a].op_type == "Cast":
-            return producers[nodes[a].input[0]]
+            input = producers[nodes[a].input[0]]
+            assert input is not None
+            return input
         else:
             return a
 
@@ -88,7 +104,7 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
                 if producers[tensor] is not None
             ]
             for name in next_nodes:
-                if name not in visited and seq[name] >= seq[dst]:
+                if name is not None and name not in visited and seq[name] >= seq[dst]:
                     stack.append(name)
         return False
 
@@ -105,16 +121,20 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
             return False
         return can_visit(end, begin)
 
-    def get_add0(add1):
+    def get_add0(add1: str) -> str:
         a, b = (producers[tensor] for tensor in nodes[add1].input)
+        assert a is not None
+        assert b is not None
         a = maybe_skip_cast(a)
         b = maybe_skip_cast(b)
         add0 = a if seq[a] < seq[b] else b
         assert is_residual_add(add0, strict=False)
         return add0
 
-    def get_layer0_input(add0):
+    def get_layer0_input(add0: str) -> str:
         a, b = (producers[tensor] for tensor in nodes[add0].input)
+        assert a is not None
+        assert b is not None
         return a if seq[a] < seq[b] else b
 
     residual_add_names = [
@@ -125,7 +145,7 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
         add0 = get_add0(residual_add_names[0])
         residual_add_names.insert(0, add0)
 
-    output_tensors = []
+    output_tensors: list[str] = []
     if include_first_input:
         layer0_input = get_layer0_input(residual_add_names[0])
         output_tensors.append(nodes[layer0_input].output[0])
@@ -136,15 +156,20 @@ def get_split_tensors(onnxfile, onnxmodel=None, include_first_input=True):
     return output_tensors
 
 
-def _load_model(onnxfile, load_external_data=False, model_cache={}):
+def _load_model(
+    onnxfile: PathLike,
+    load_external_data=False,
+    model_cache: dict[str, onnx.ModelProto] = {},
+) -> onnx.ModelProto:
+    cache_key = str(onnxfile)
     if onnxfile not in model_cache:
-        model_cache[onnxfile] = onnx.load(
-            onnxfile, load_external_data=load_external_data
+        model_cache[cache_key] = onnx.load(
+            str(onnxfile), load_external_data=load_external_data
         )
-    return model_cache[onnxfile]
+    return model_cache[cache_key]
 
 
-def _load_encoding(encodingfile, no_merge=False):
+def _load_encoding(encodingfile: Optional[PathLike], no_merge: bool = False) -> Any:
     all = {}
     if encodingfile is not None:
         with open(encodingfile) as json_file:
@@ -156,43 +181,19 @@ def _load_encoding(encodingfile, no_merge=False):
     return all
 
 
-def _save_encoding(encodings, encodingfile):
+def _save_encoding(encodings: Any, encodingfile: PathLike) -> None:
     with open(encodingfile, "w") as json_file:
         json.dump(encodings, json_file, indent=4, sort_keys=True)
 
 
-def embed_forecast_token_embeddings(onnxmodel, forecast_token_embeddings, base_dir):
-
-    (embedding_table_name,) = (
-        node.input[0] for node in onnxmodel.graph.node if node.op_type == "Gather"
-    )
-    (embedding_table_proto,) = (
-        i for i in onnxmodel.graph.initializer if i.name == embedding_table_name
-    )
-    embedding_table = to_array(embedding_table_proto, base_dir=base_dir)
-
-    assert (
-        embedding_table.shape[1] == forecast_token_embeddings.shape[1]
-    ), "Mismatching token embedding size"
-    new_embedding_table = np.concatenate(
-        (embedding_table, forecast_token_embeddings), axis=0
-    )
-    onnxmodel.graph.initializer.remove(embedding_table_proto)
-    onnxmodel.graph.initializer.append(
-        from_array(new_embedding_table, embedding_table_proto.name)
-    )
-
-
 def split_onnx_by_names(
-    onnxfile,
-    modelname,
-    pickle_filedir,
+    onnxfile: PathLike,
+    modelname: str,
     *list_of_output_tensors,
-    output_dir=".",
-    onnxmodel=None,
-    encoding_file=None,
-    using_qairt_workflow=False,
-):
+    output_dir: PathLike = ".",
+    onnxmodel: Optional[onnx.ModelProto] = None,
+    encoding_file: Optional[PathLike] = None,
+) -> None:
     encodings = None
     uses_lists = None
     if encoding_file is not None:
@@ -208,7 +209,6 @@ def split_onnx_by_names(
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-    onnx_to_artifacts_map = dict()
     onnxmodel = (
         _load_model(onnxfile, load_external_data=False)
         if onnxmodel is None
@@ -218,7 +218,7 @@ def split_onnx_by_names(
     base_dir = os.path.dirname(onnxfile)
     using_external_data = OnnxSplitter.is_using_external_data(onnxmodel)
 
-    list_of_output_tensors = [i.split(",") for i in list_of_output_tensors]
+    list_of_output_tensors = tuple([i.split(",") for i in list_of_output_tensors])
     num_splits = len(list_of_output_tensors) + 1
 
     # 1. split model
@@ -279,10 +279,8 @@ def split_onnx_by_names(
             with open(new_encodings_path, "w") as write_file:
                 json.dump(new_encodings, write_file, indent=4, sort_keys=True)
 
-    return onnx_to_artifacts_map
 
-
-def _get_lm_head_sizes(onnxmodel):
+def _get_lm_head_sizes(onnxmodel: onnx.ModelProto) -> tuple[int, int]:
     "Get dimensions of the LM head : embedding_size, vocab_size"
     lm_head_weight_name = next(
         node.input[1]
@@ -310,7 +308,11 @@ def _get_lm_head_sizes(onnxmodel):
     return embedding_size, vocab_size
 
 
-def fill_input_encodings_of_split(onnxmodel, encodingfile, output_tensor_list):
+def fill_input_encodings_of_split(
+    onnxmodel: onnx.ModelProto,
+    encodingfile: Optional[PathLike],
+    output_tensor_list: list[str],
+) -> None:
 
     changed = False
     encodings = _load_encoding(encodingfile, no_merge=True)
@@ -331,7 +333,7 @@ def fill_input_encodings_of_split(onnxmodel, encodingfile, output_tensor_list):
                 enc_act[split_tensor] = input_encoding
                 changed = True
 
-    if changed:
+    if encodingfile is not None and changed:
         backup = f"{encodingfile}.bak"
         if not os.path.exists(backup):
             shutil.move(encodingfile, backup)
@@ -339,16 +341,15 @@ def fill_input_encodings_of_split(onnxmodel, encodingfile, output_tensor_list):
 
 
 def split_onnx(
-    onnxfile,
-    modelname,
-    pickle_filedir,
-    num_splits,
+    onnxfile: PathLike,
+    modelname: str,
+    num_splits: int,
     num_layers_per_split: Optional[int] = None,
-    output_dir="./",
-    split_embedding=False,
-    encoding_file=None,
-    using_qairt_workflow=False,
-):
+    output_dir: PathLike = ".",
+    split_embedding: bool = False,
+    encoding_file: Optional[PathLike] = None,
+    using_qairt_workflow: bool = False,
+) -> None:
     def _is_cache(layer, name):
         return re.search(f"past_(key|value)_{layer}_", name) is not None
 
@@ -408,13 +409,11 @@ def split_onnx(
     assert (
         num_splits == len(names_to_split) + 1
     ), f"Failed to split into {num_splits} pieces!"
-    return split_onnx_by_names(
+    split_onnx_by_names(
         onnxfile,
         modelname,
-        pickle_filedir,
         *names_to_split,
         output_dir=output_dir,
         onnxmodel=onnxmodel,
         encoding_file=encoding_file,
-        using_qairt_workflow=using_qairt_workflow,
     )

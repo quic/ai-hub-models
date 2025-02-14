@@ -25,7 +25,7 @@ GROUND_TRUTH_RESULT = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     app = BodyDetectionApp(GearGuardNet.from_pretrained())
     result = app.detect(INPUT_IMAGE_ADDRESS, 320, 192, 0.9)
     assert len(result) == 2
@@ -33,16 +33,16 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     app = BodyDetectionApp(GearGuardNet.from_pretrained().convert_to_torchscript())
     result = app.detect(INPUT_IMAGE_ADDRESS, 320, 192, 0.9)
     gt = load_raw_file(GROUND_TRUTH_RESULT)
-    gt = np.array(gt.split(), dtype=int)
+    expected = np.array(gt.split(), dtype=int)
     result = result.astype(int)
     assert result[0][0] == gt[0]
-    assert get_iou(result[0][1:5], gt[1:5]) > 0.5
+    assert get_iou(result[0][1:5], expected[1:5]) > 0.5
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

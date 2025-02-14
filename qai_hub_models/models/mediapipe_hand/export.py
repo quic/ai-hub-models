@@ -125,9 +125,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "MediaPipeHandDetector" in components:
-        components_dict["MediaPipeHandDetector"] = model.hand_detector  # type: ignore
+        components_dict["MediaPipeHandDetector"] = model.hand_detector
     if "MediaPipeHandLandmarkDetector" in components:
-        components_dict["MediaPipeHandLandmarkDetector"] = model.hand_landmark_detector  # type: ignore
+        components_dict["MediaPipeHandLandmarkDetector"] = model.hand_landmark_detector
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

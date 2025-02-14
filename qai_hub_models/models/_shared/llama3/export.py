@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import glob
 import os
-import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Optional, cast
 
 import numpy as np
 import qai_hub as hub
+from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_SEQUENCE_LENGTH,
@@ -21,9 +21,9 @@ from qai_hub_models.models._shared.llama3.model import (
 )
 from qai_hub_models.models._shared.llama3.split_onnx_utils import utils
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
-from qai_hub_models.utils.asset_loaders import zip_model
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
@@ -33,6 +33,7 @@ from qai_hub_models.utils.printing import (
 def export_model(
     model_cls: type[Llama3Base_Quantized],
     model_name: str,
+    model_asset_version: int,
     components: list[str],
     sub_components: dict[str, list[str]],
     num_layers_per_split: int,
@@ -47,9 +48,10 @@ def export_model(
     compile_options: str = "",
     profile_options: str = "",
     synchronous: bool = False,
+    model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
 ) -> Mapping[
-    str, tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
+    str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
 ] | list[str]:
     """
     In this workflow, two instantiations of the Llama model are exported (AR-1,
@@ -114,13 +116,13 @@ def export_model(
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     hub_device = hub.Device(
         name=device if device and not chipset else "",
-        attributes=f"chipset:{chipset}" if chipset else None,
+        attributes=f"chipset:{chipset}" if chipset else [],
     )
 
     # Instantiation names and input sequence length
 
     # 1. Initialize PyTorch model
-    model_params = get_model_kwargs(model_cls, additional_model_kwargs)
+    model_params = dict(get_model_kwargs(model_cls, additional_model_kwargs))
 
     prompt_sequence_length = model_params.pop(
         "sequence_length", DEFAULT_SEQUENCE_LENGTH
@@ -139,7 +141,7 @@ def export_model(
     link_jobs: dict[str, hub.client.LinkJob] = {}
     profile_options_per_instantiation: dict[str, str] = {}
 
-    sub_component_names = {}
+    sub_component_names: dict[str, list[str]] = {}
     component_from_sub_component_names = {}
 
     for instantiation_name, seq_len in instantiations:
@@ -170,6 +172,7 @@ def export_model(
             external_onnx_weights=True,
             output_names=model.get_output_names(llm_config.num_hidden_layers),
         )
+        assert source_model is not None
         source_model_path = Path(source_model)
 
         input_onnx_path = glob.glob((source_model_path / "*.onnx").as_posix())[0]
@@ -184,7 +187,6 @@ def export_model(
         utils.split_onnx(
             onnxfile=input_onnx_path,
             modelname=full_name,
-            pickle_filedir=None,
             num_splits=num_splits,
             num_layers_per_split=num_layers_per_split,
             output_dir=model_artifact,
@@ -206,17 +208,24 @@ def export_model(
                 + f" --qnn_graph_name {sub_component_name}"
             )
 
-            # TODO (#12708): Remove this zipping and let the client do it.
-            with tempfile.TemporaryDirectory() as tmpdir:
-                aimet_tmpdir = os.path.join(tmpdir, os.path.basename(aimet_path))
-                os.makedirs(aimet_tmpdir)
-                zipped_model_path = zip_model(aimet_tmpdir, aimet_path)
-                submitted_compile_job = hub.submit_compile_job(
-                    model=zipped_model_path,
-                    device=hub_device,
-                    name=full_name,
-                    options=model_compile_options,
-                )
+            current_model = get_or_create_cached_model(
+                model_name=model_name,
+                model_asset_version=model_asset_version,
+                cache_name=sub_component_name,
+                cache_mode=model_cache_mode,
+                model_path=str(aimet_path),
+                additional_keys={
+                    "context_length": str(model.context_length),
+                    "sequence_length": str(seq_len),
+                },
+            )
+
+            submitted_compile_job = hub.submit_compile_job(
+                model=current_model,
+                device=hub_device,
+                name=full_name,
+                options=model_compile_options,
+            )
             if synchronous:
                 submitted_compile_job.wait()
             if component_name not in compile_jobs_to_link:
@@ -232,7 +241,7 @@ def export_model(
 
     # 2. Link jobs
     for component_name, cjobs in compile_jobs_to_link.items():
-        models = [cjob.get_target_model() for cjob in cjobs]
+        models = [cast(hub.Model, cjob.get_target_model()) for cjob in cjobs]
 
         full_name = f"{model_name}_{component_name}"
         link_job = hub.submit_link_job(models, name=full_name)
@@ -268,13 +277,13 @@ def export_model(
 
     # 4. Run inference on-device with sample inputs
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
-    final_device_output_data: dict[str, dict[str, np.ndarray]] = {}
-    final_ref_output_data: dict[str, dict[str, np.ndarray]] = {}
+    final_device_output_data: dict[str, DatasetEntries] = {}
+    final_ref_output_data: dict[str, list[np.ndarray]] = {}
     if not skip_inferencing:
         for instantiation_name, seq_len in instantiations:
             model = model_cls.from_pretrained(sequence_length=seq_len, **model_params)
             full_model_sample_inputs = model.sample_inputs()
-            output_data = {}
+            output_data: DatasetEntries = {}
             for sub_component_name in sub_component_names[instantiation_name]:
                 component_name = component_from_sub_component_names[sub_component_name]
                 print(
@@ -308,7 +317,9 @@ def export_model(
                 )
                 if synchronous:
                     submitted_inference_job.wait()
-                output_data = submitted_inference_job.download_output_data()
+                    output_data = cast(
+                        DatasetEntries, submitted_inference_job.download_output_data()
+                    )
                 inference_jobs[sub_component_name] = cast(
                     hub.client.InferenceJob, submitted_inference_job
                 )

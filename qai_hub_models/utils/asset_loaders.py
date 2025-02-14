@@ -29,8 +29,8 @@ import gdown
 import h5py
 import numpy as np
 import requests
+import ruamel.yaml
 import torch
-import yaml
 from git import Repo
 from PIL import Image
 from qai_hub.util.dataset_entries_converters import h5_to_dataset_entries
@@ -46,6 +46,7 @@ LOCAL_STORE_DEFAULT_PATH = os.path.join(QAIHM_STORE_ROOT, ".qaihm")
 EXECUTING_IN_CI_ENVIRONMENT = os.getenv("QAIHM_CI", "0") == "1"
 SOURCE_AS_ROOT_LOCK = threading.Lock()
 
+PathLike = Union[os.PathLike, str]
 VersionType = Union[str, int]
 
 # If non-None, always enter this for yes (True)/no (False) prompts
@@ -244,7 +245,7 @@ def load_json(json_filepath: PathType) -> dict:
 def load_yaml(yaml_filepath: PathType) -> dict:
     def _load_yaml_helper(file_path) -> Any:
         with open(file_path) as yaml_file:
-            return yaml.safe_load(yaml_file)
+            return ruamel.yaml.YAML(typ="safe", pure=True).load(yaml_file)
 
     return _load_file(yaml_filepath, _load_yaml_helper)
 
@@ -1061,7 +1062,7 @@ def extract_zip_file(filepath_str: str, out_path: Path | None = None) -> Path:
 
 
 # TODO (#12708): Remove this and rely on client
-def zip_model(output_dir_path: str, model_path: str) -> str:
+def zip_model(output_dir_path: PathLike, model_path: PathLike) -> str:
     model_path = os.path.realpath(model_path)
     package_name = os.path.basename(model_path)
     compresslevel = 1

@@ -46,7 +46,7 @@ def main():
         args.num_samples,
         args.seed,
         args.profile_options,
-        args.use_cache,
+        args.use_dataset_cache,
     )
 
 

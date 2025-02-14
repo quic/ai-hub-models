@@ -21,6 +21,7 @@ from qai_hub_models.configs._info_yaml_enums import (
 )
 from qai_hub_models.configs._info_yaml_llm_details import LLM_CALL_TO_ACTION, LLMDetails
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET, load_yaml
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -223,20 +224,15 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if not os.path.exists(self.get_package_path() / "info.yaml"):
                 return "All public models must have an info.yaml"
 
-            if (
-                (
-                    self.code_gen_config.tflite_export_failure_reason
-                    or self.code_gen_config.tflite_export_disable_reason
+            supports_at_least_1_runtime = False
+            for runtime in TargetRuntime:
+                supports_at_least_1_runtime = self.code_gen_config.supports_runtime(
+                    runtime
                 )
-                and (
-                    self.code_gen_config.qnn_export_failure_reason
-                    or self.code_gen_config.qnn_export_disable_reason
-                )
-                and (
-                    self.code_gen_config.onnx_export_failure_reason
-                    or self.code_gen_config.onnx_export_disable_reason
-                )
-            ):
+                if supports_at_least_1_runtime:
+                    break
+
+            if not supports_at_least_1_runtime:
                 return "Public models must support at least one export path"
 
             if not self.has_static_banner:

@@ -125,9 +125,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "CLIPImageEncoder" in components:
-        components_dict["CLIPImageEncoder"] = model.image_encoder  # type: ignore
+        components_dict["CLIPImageEncoder"] = model.image_encoder
     if "CLIPTextEncoder" in components:
-        components_dict["CLIPTextEncoder"] = model.text_encoder  # type: ignore
+        components_dict["CLIPTextEncoder"] = model.text_encoder
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

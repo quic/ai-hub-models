@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.depth_evaluator import DepthEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
@@ -35,3 +37,6 @@ class DepthEstimationModel(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return DepthEvaluator()

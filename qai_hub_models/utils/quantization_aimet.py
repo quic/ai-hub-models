@@ -463,7 +463,7 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime,
+        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         """

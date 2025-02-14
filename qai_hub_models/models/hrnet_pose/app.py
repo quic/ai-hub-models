@@ -8,12 +8,17 @@ from collections.abc import Callable
 
 import numpy as np
 import torch
-from mmpose.apis import MMPoseInferencer
 from mmpose.codecs.utils import refine_keypoints
 from PIL.Image import Image, fromarray
 
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
+
+try:
+    from mmpose.apis import MMPoseInferencer
+except ImportError as e:
+    print_mmcv_import_failure_and_exit(e, "hrnet_pose", "MMPose")
 
 # More inferencer architectures for litehrnet can be found at
 # https://github.com/open-mmlab/mmpose/tree/main/configs/body_2d_keypoint/topdown_heatmap/coco

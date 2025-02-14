@@ -12,6 +12,7 @@ from qai_hub.client import DatasetEntries
 
 from qai_hub_models.models._shared.llama.model import (
     DEFAULT_INPUT_SEQ_LEN,
+    Llama2PretrainedCollectionModel,
     Llama_QuantizedMixin,
     RopeEmbedding,
     get_hidden_layer_range_from_split,
@@ -21,12 +22,12 @@ from qai_hub_models.models._shared.llama.model import (
     make_torch_compatible_past_key_values,
     save_input_cached_data,
 )
-from qai_hub_models.models.llama_v2_7b_chat_quantized.modeling_llama import (
+from qai_hub_models.models.llama_v2_7b_chat_quantized.modeling_llama import (  # type: ignore
     LlamaForCausalLM,
     LlamaModel,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import CollectionModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.huggingface import (
     ensure_has_required_transformer,
     has_model_access,
@@ -195,7 +196,8 @@ class Llama2Wrapper(torch.nn.Module):
         self.total_hidden_layers = hidden_layers_end - hidden_layers_start
 
         print("Loading model")
-        self.model = LlamaForCausalLM.from_pretrained(HF_REPO_NAME, config=config)
+        self.model: LlamaForCausalLM = LlamaForCausalLM.from_pretrained(HF_REPO_NAME, config=config)  # type: ignore
+        assert isinstance(self.model, LlamaForCausalLM)
 
         if (
             hidden_layers_start < 0
@@ -209,7 +211,7 @@ class Llama2Wrapper(torch.nn.Module):
             )
 
         # Reduce # of hidden layers as per split
-        self.model.model.layers = self.model.model.layers[
+        self.model.model.layers = self.model.model.layers[  # type: ignore
             hidden_layers_start:hidden_layers_end
         ]
 
@@ -316,7 +318,7 @@ def _get_llama_model_with_split(
     return model, aimet_encodings
 
 
-class Llama2_Quantized(CollectionModel):
+class Llama2_Quantized(Llama2PretrainedCollectionModel):
     def __init__(self, max_position_embeddings: int) -> None:
         super().__init__()
         self.max_position_embeddings = max_position_embeddings
@@ -327,7 +329,7 @@ class Llama2_Quantized(CollectionModel):
     ) -> Llama2_Quantized:
         return Llama2_Quantized(max_position_embeddings=max_position_embeddings)
 
-    def load_model_part(self, split_part):
+    def load_model_part(self, split_part: str) -> BaseModel:
         if split_part == "PromptProcessor_1_Quantized":
             return Llama2_PromptProcessor_1_Quantized.from_pretrained(
                 max_position_embeddings=self.max_position_embeddings
@@ -407,7 +409,7 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -435,7 +437,7 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         input_tokens = tokenizer(
             prompt, return_tensors="pt", padding="max_length", max_length=input_seq_len
         )
-        tokens = torch.sum(input_tokens["attention_mask"]).item()
+        tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         position_ids = [0] * (input_seq_len - tokens) + list(range(0, tokens))
 
         inputs = {}
@@ -525,7 +527,7 @@ class Llama2_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -630,7 +632,7 @@ class Llama2_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -735,7 +737,7 @@ class Llama2_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -875,7 +877,7 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=1, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -907,7 +909,7 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         input_tokens = tokenizer(
             prompt, return_tensors="pt", padding="max_length", max_length=input_seq_len
         )
-        num_tokens = torch.sum(input_tokens["attention_mask"]).item()
+        num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
 
         # Get last input id
         input_ids = inputs["input_ids"][:, -1].reshape(-1, 1).type(torch.int32)
@@ -1066,7 +1068,7 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=2, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -1224,7 +1226,7 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=3, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,
@@ -1382,7 +1384,7 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         layers_start, layers_end = get_hidden_layer_range_from_split(
             split_part=4, model_split_map=MODEL_SPLIT_MAP
         )
-        return Llama_QuantizedMixin.get_output_names(
+        return Llama_QuantizedMixin._get_output_names(
             start=layers_start,
             end=layers_end,
             past_key_val_heads=NUM_KEY_VAL_HEADS,

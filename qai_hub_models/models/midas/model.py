@@ -8,8 +8,6 @@ import sys
 
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.depth_evaluator import DepthEvaluator
 from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -124,16 +122,6 @@ class Midas(DepthEstimationModel):
         batch_size: int = 1, height: int = DEFAULT_HEIGHT, width: int = DEFAULT_WIDTH
     ) -> InputSpec:
         return {"image": ((batch_size, 3, height, width), "float32")}
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["depth_estimates"]
-
-    def get_evaluator(self) -> BaseEvaluator:
-        return DepthEvaluator()
-
-    def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
-        return self.__class__.get_input_spec(batch_size, self.height, self.width)
 
     def forward(self, image):
         """

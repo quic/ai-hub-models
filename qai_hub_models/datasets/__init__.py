@@ -11,6 +11,7 @@ from .common import BaseDataset, DatasetSplit
 from .imagenet import ImagenetDataset
 from .imagenette import ImagenetteDataset
 from .nyuv2 import NyUv2Dataset
+from .nyuv2x518 import NyUv2x518Dataset
 from .pascal_voc import VOCSegmentationDataset
 
 ALL_DATASETS: list[type[BaseDataset]] = [
@@ -20,6 +21,7 @@ ALL_DATASETS: list[type[BaseDataset]] = [
     ImagenetDataset,
     ImagenetteDataset,
     NyUv2Dataset,
+    NyUv2x518Dataset,
     CityscapesDataset,
 ]
 

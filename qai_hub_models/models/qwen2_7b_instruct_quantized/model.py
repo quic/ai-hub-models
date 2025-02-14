@@ -39,14 +39,14 @@ class Qwen2_7B_Instruct_Quantized(FromPrecompiledProtocol, CollectionModel):
 
     def __init__(
         self,
-        prompt_processor_part1,
-        prompt_processor_part2,
-        prompt_processor_part3,
-        prompt_processor_part4,
-        token_generator_part1,
-        token_generator_part2,
-        token_generator_part3,
-        token_generator_part4,
+        prompt_processor_part1: BasePrecompiledModel,
+        prompt_processor_part2: BasePrecompiledModel,
+        prompt_processor_part3: BasePrecompiledModel,
+        prompt_processor_part4: BasePrecompiledModel,
+        token_generator_part1: BasePrecompiledModel,
+        token_generator_part2: BasePrecompiledModel,
+        token_generator_part3: BasePrecompiledModel,
+        token_generator_part4: BasePrecompiledModel,
     ) -> None:
         self.prompt_processor_part1 = prompt_processor_part1
         self.prompt_processor_part2 = prompt_processor_part2
@@ -139,9 +139,9 @@ class PromptProcessor_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=7).append(
+        return get_kv_cache_names(start=0, end=7) + [
             "_model_layers_6_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -191,9 +191,9 @@ class PromptProcessor_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=7, end=14).append(
+        return get_kv_cache_names(start=7, end=14) + [
             "_model_layers_13_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -243,9 +243,9 @@ class PromptProcessor_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=14, end=21).append(
+        return get_kv_cache_names(start=14, end=21) + [
             "_model_layers_20_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -326,9 +326,9 @@ class TokenGenerator_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=7).append(
+        return get_kv_cache_names(start=0, end=7) + [
             "_model_layers_6_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -378,9 +378,9 @@ class TokenGenerator_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=7, end=14).append(
+        return get_kv_cache_names(start=7, end=14) + [
             "_model_layers_13_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -430,9 +430,9 @@ class TokenGenerator_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=14, end=21).append(
+        return get_kv_cache_names(start=14, end=21) + [
             "_model_layers_20_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""

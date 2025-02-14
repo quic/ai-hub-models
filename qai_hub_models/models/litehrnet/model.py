@@ -5,12 +5,18 @@
 from __future__ import annotations
 
 import torch
-from mmpose.apis import MMPoseInferencer
 
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
+
+try:
+    from mmpose.apis import MMPoseInferencer
+except ImportError as e:
+    print_mmcv_import_failure_and_exit(e, "litehrnet", "MMPose")
+
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1

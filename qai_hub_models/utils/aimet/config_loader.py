@@ -16,6 +16,11 @@ def get_default_aimet_config_legacy_v2() -> str:
     return str(path.resolve())
 
 
+def get_default_aimet_config_legacy_v3() -> str:
+    path = Path(__file__).parent / "default_config_legacy_v3.json"
+    return str(path.resolve())
+
+
 def get_default_aimet_config() -> str:
     path = Path(__file__).parent / "default_config.json"
     return str(path.resolve())

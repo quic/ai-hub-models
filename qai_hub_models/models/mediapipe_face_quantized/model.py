@@ -28,7 +28,7 @@ from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 DEFAULT_LANDMARK_DETECTOR_ENCODINGS = "landmark_detector_quantized_encodings.json"
 
 # This encodings file contains manual overrides.

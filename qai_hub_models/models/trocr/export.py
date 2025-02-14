@@ -125,9 +125,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "TrOCRDecoder" in components:
-        components_dict["TrOCRDecoder"] = model.decoder  # type: ignore
+        components_dict["TrOCRDecoder"] = model.decoder
     if "TrOCREncoder" in components:
-        components_dict["TrOCREncoder"] = model.encoder  # type: ignore
+        components_dict["TrOCREncoder"] = model.encoder
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():

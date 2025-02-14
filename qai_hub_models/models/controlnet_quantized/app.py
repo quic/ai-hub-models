@@ -81,7 +81,7 @@ class ControlNetApp:
 
         return emb
 
-    def _make_canny_image(self, input_image: Image):
+    def _make_canny_image(self, input_image: Image.Image):
         image = np.asarray(input_image)
 
         # Get edges for input with Canny Edge Detection
@@ -144,7 +144,7 @@ class ControlNetApp:
     def generate_image(
         self,
         prompt: str,
-        input_image: Image,
+        input_image: Image.Image,
         num_steps: int = 5,
         seed: int = 0,
         guidance_scale: float = 7.5,

@@ -92,7 +92,7 @@ class ScorecardJobYaml(
             get_async_job_cache_name(
                 path,
                 model_id,
-                device,
+                device.mirror_device or device,
                 component,
             )
         ):
@@ -187,7 +187,10 @@ class ScorecardJobYaml(
                 )
 
             for_each_scorecard_path_and_device(
-                is_quantized, self.__class__.scorecard_path_type, create_job
+                is_quantized,
+                self.__class__.scorecard_path_type,
+                create_job,
+                include_mirror_devices=True,
             )
 
         return model_runs

@@ -2,17 +2,21 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import math
 from typing import Any, Optional
 
 import torch
 from torch import nn
-from transformers.cache_utils import DynamicCache
+from transformers.cache_utils import Cache, DynamicCache
 from transformers.models.llama.modeling_llama import LlamaAttention
 
 
 # Copied from transformers.models.llama.modeling_llama.repeat_kv
-def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
+def repeat_kv(
+    hidden_states: torch.Tensor | list[torch.Tensor], n_rep: int
+) -> torch.Tensor | list[torch.Tensor]:
     """
     This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
     num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
@@ -29,7 +33,9 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
-def _apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
+def _apply_rope_single(
+    x: torch.Tensor, rope_vals: tuple[torch.Tensor, torch.Tensor]
+) -> torch.Tensor:
     """
     Based on FacebookResearch's llama, provided by Carl
     """
@@ -48,9 +54,16 @@ def _apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
     return x
 
 
-def QcLlama_apply_rotary_pos_emb(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
-    query_states = _apply_rope_single(q, [cos, sin])
-    key_states = _apply_rope_single(k, [cos, sin])
+def QcLlama_apply_rotary_pos_emb(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    cos: torch.Tensor,
+    sin: torch.Tensor,
+    position_ids: Optional[list[int]] = None,
+    unsqueeze_dim: int = 1,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    query_states = _apply_rope_single(q, (cos, sin))
+    key_states = _apply_rope_single(k, (cos, sin))
     return query_states, key_states
 
 
@@ -63,8 +76,8 @@ class SHADynamicCacheNewValueOnly(DynamicCache):
 
     def update(
         self,
-        key_states: list[torch.Tensor],
-        value_states: list[torch.Tensor],
+        key_states: torch.Tensor,
+        value_states: torch.Tensor,
         layer_idx: int,
         cache_kwargs: Optional[dict[str, Any]] = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -87,6 +100,8 @@ class SHADynamicCacheNewValueOnly(DynamicCache):
 
     def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
         """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+        if layer_idx is None:
+            layer_idx = 0
         if len(self.key_cache) <= layer_idx:
             return 0
         # [0] added to get shape since the outermost is list
@@ -157,7 +172,11 @@ class SHALlamaAttention(LlamaAttention):
                 del self.o_proj
 
             self.forward_mha = self.forward
-            self.forward = self.forward_sha
+
+            # pyright doesn't like that self.forward_sha doesn't take kwargs
+            self.forward = (
+                self.forward_sha
+            )  # pyright: ignore[reportAttributeAccessIssue]
 
         for i in range(self.num_heads):
             self.q_proj_sha[i].weight.data.copy_(
@@ -181,14 +200,14 @@ class SHALlamaAttention(LlamaAttention):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[tuple[torch.Tensor]] = None,
+        past_key_value: Optional[Cache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[
             tuple[torch.Tensor, torch.Tensor]
         ] = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[Cache]]:
 
         bsz, q_len, _ = hidden_states.size()
 
@@ -229,8 +248,13 @@ class SHALlamaAttention(LlamaAttention):
             transposed_key_states = [
                 key_state.transpose(2, 3) for key_state in key_states
             ]
+            # Technically, this isn't what Cache expects. It stores tensors, not lists
+            # of tensors.
             past_key_value.update(
-                transposed_key_states, value_states, self.layer_idx, cache_kwargs
+                transposed_key_states,
+                value_states,
+                self.layer_idx,
+                cache_kwargs,  # pyright: ignore[reportArgumentType]
             )
 
             # Now concate the key/value states
@@ -277,13 +301,12 @@ class SHALlamaAttention(LlamaAttention):
                 f" {attn_output[0].size()}"
             )
 
-        attn_output = torch.cat(attn_output, dim=3)
-        attn_output = attn_output.permute(0, 3, 1, 2)
-        attn_output = self.o_proj_conv(attn_output)
-        attn_output = attn_output.transpose(1, 3)
-        attn_output = attn_output.reshape(bsz, q_len, self.hidden_size)
+        attn_output_return: torch.Tensor = torch.cat(attn_output, dim=3)
+        attn_output_return = attn_output_return.permute(0, 3, 1, 2)
+        attn_output_return = self.o_proj_conv(attn_output_return)
+        attn_output_return = attn_output_return.transpose(1, 3)
+        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size)
 
-        if not output_attentions:
-            attn_weights = None
+        attn_weights_return = attn_weights if output_attentions else None
 
-        return attn_output, attn_weights, past_key_value
+        return attn_output_return, attn_weights_return, past_key_value

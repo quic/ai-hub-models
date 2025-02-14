@@ -12,6 +12,7 @@ import textwrap
 from collections.abc import Callable
 from typing import Optional
 
+from tasks.aws import ValidateAwsCredentialsTask
 from tasks.changes import (
     REPRESENTATIVE_EXPORT_MODELS,
     get_all_models,
@@ -197,6 +198,13 @@ class TaskLibrary:
         return plan.add_step("all_tests_long", NoOpTask())
 
     @task
+    @depends(["install_deps"])
+    def validate_aws_credentials(
+        self, plan: Plan, step_id: str = "validate_aws_credentials"
+    ) -> str:
+        return plan.add_step(step_id, ValidateAwsCredentialsTask(self.venv_path))
+
+    @task
     def create_venv(self, plan: Plan, step_id: str = "create_venv") -> str:
         return plan.add_step(
             step_id,
@@ -233,7 +241,7 @@ class TaskLibrary:
         )
 
     @public_task("Download Private Datasets")
-    @depends(["install_deps"])
+    @depends(["install_deps", "validate_aws_credentials"])
     def download_private_datasets(
         self, plan: Plan, step_id: str = "download_private_datasets"
     ) -> str:
@@ -320,6 +328,30 @@ class TaskLibrary:
     ) -> str:
         all_models = get_all_models()
         return plan.add_step(step_id, self._get_quantize_models_task(all_models))
+
+    @public_task(
+        "Print a list of all models that would be tested as part of `test_changed_models`."
+    )
+    def list_changed_models(self, plan: Plan) -> str:
+        class PrintChangedModelsTask(Task):
+            def __init__(self, group_name: str | None = None) -> None:
+                super().__init__(group_name)
+
+            def does_work(self) -> bool:
+                return False
+
+            def run_task(self) -> bool:
+                models_to_run_tests, models_to_test_export = get_models_to_test()
+                print(f"Models to run tests ({len(models_to_run_tests)})")
+                for model in models_to_run_tests:
+                    print(f"   {model}")
+                print("")
+                print(f"Models to test export ({len(models_to_test_export)})")
+                for model in models_to_test_export:
+                    print(f"   {model}")
+                return True
+
+        return plan.add_step("print_changed_models", PrintChangedModelsTask())
 
     @public_task(
         "Run most tests for only added/modified models in Model Zoo. Includes most tests, uses shared global cache, and uses the same environment for each model."

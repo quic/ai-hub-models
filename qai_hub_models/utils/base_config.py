@@ -12,7 +12,7 @@ from pathlib import Path
 from types import GenericAlias
 from typing import Any, Optional, TypeVar, Union, get_args, get_type_hints
 
-import yaml
+import ruamel.yaml
 from schema import And
 from schema import Optional as OptionalSchema
 from schema import Schema
@@ -195,7 +195,7 @@ class BaseQAIHMConfig:
             elif isinstance(field_val, tuple):
                 return _process_tuple_field_val(field_val)
             elif isinstance(field_val, BaseQAIHMConfig):
-                return field_val.to_dict(include_defaults)
+                return field_val.to_dict(include_defaults, yaml_compatible)
             elif yaml_compatible and type(field_val) not in [int, float, bool, str]:
                 return str(field_val)
             return field_val
@@ -242,7 +242,7 @@ class BaseQAIHMConfig:
                 os.remove(path)
             return False
         with open(path, "w") as yaml_file:
-            yaml.dump(dict, yaml_file)
+            ruamel.yaml.YAML().dump(dict, yaml_file)
         return True
 
 

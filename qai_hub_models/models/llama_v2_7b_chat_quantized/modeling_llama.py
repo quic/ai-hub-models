@@ -1,3 +1,4 @@
+# type: ignore
 # ---------------------------------------------------------------------
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -858,7 +859,7 @@ class LlamaModel(LlamaPreTrainedModel):
         inputs_embeds,
         past_key_values_length,
         mask_neg=-100.0,
-    ):
+    ) -> torch.Tensor:
         # create causal mask
         # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
         combined_attention_mask = None

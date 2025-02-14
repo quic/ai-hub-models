@@ -1,0 +1,48 @@
+name: HRNET_W48_OCR
+# id must match with the model dir name in qai_hub_models
+id: hrnet_w48_ocr
+status: public
+private_perf_form_factors:
+  - Auto
+headline: Semantic segmentation in higher resuolution.
+domain: Computer Vision
+description: HRNET_W48_OCR is a machine learning model that can segment images from
+  the Cityscape dataset. It has lightweight and hardware-efficient operations and
+  thus delivers significant speedup on diverse hardware platforms
+use_case: Semantic Segmentation
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/1909.11065
+research_paper_title: 'Segmentation Transformer: Object-Contextual Representations
+  for Semantic Segmentation'
+license: https://github.com/HRNet/HRNet-Semantic-Segmentation/blob/HRNet-OCR/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/HRNet/HRNet-Semantic-Segmentation
+technical_details:
+  Model checkpoint: hrnet_ocr_cs_8162_torch11.pth
+  Input resolution: 2048x1024
+  Number of output classes: 19
+  Number of parameters: 70.3M
+  Model size: 268 MB
+applicable_scenarios:
+  - Automotive
+  - Autonomous Driving
+  - Camera
+related_models:
+  - ffnet_54s
+  - ffnet_78s
+  - deeplabv3_plus_mobilenet
+  - ddrnet23_slim
+  - efficientvit_l2_seg
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: bsd-3-clause
+deploy_license_type: AI Model Hub License
+dataset:
+  - cityscapes
+labels_file: cityscapes_labels.txt

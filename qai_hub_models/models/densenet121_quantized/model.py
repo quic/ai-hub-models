@@ -4,11 +4,11 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from qai_hub_models.models.convnext_tiny.model import ConvNextTiny
+from qai_hub_models.models.densenet121.model import DenseNet
 from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class ConvNextTinyW8A8Quantizable(HubQuantizableMixin, ConvNextTiny):
+class DenseNetQuantizable(HubQuantizableMixin, DenseNet):
     pass

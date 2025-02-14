@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import os
 import pickle
+from abc import abstractmethod
+from pathlib import Path
 from typing import Optional
 
 import torch
@@ -17,11 +19,25 @@ from qai_hub_models.models.common import (
     TargetRuntime,
 )
 from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.asset_loaders import (
+    ASSET_CONFIG,
+    CachedWebModelAsset,
+    VersionType,
+)
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    PretrainedCollectionModel,
+    TargetRuntime,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 DEFAULT_INPUT_SEQ_LEN = 1024
+
+
+class Llama2PretrainedCollectionModel(PretrainedCollectionModel):
+    @abstractmethod
+    def load_model_part(self, split_part: str) -> BaseModel:
+        ...
 
 
 def get_hidden_layer_range_from_split(split_part: int, model_split_map: dict):
@@ -62,7 +78,7 @@ def save_input_cached_data(
     data_dir: str,
     model_name: str,
     model_id: str,
-    model_asset_version: str,
+    model_asset_version: VersionType,
     model_type: str = "pp",
     input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
 ):
@@ -90,13 +106,14 @@ def load_input_cached_data(
     data_dir: str,
     model_name: str,
     model_id: str,
-    model_asset_version: str,
+    model_asset_version: VersionType,
     model_type: str = "pp",
     input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
 ):
     data_path = (
         f"{data_dir}/{input_seq_len}/{model_name}_{split_part}_{model_type}_inputs.pkl"
     )
+    inputs_pkl_path: Optional[Path] = None
     try:
 
         # Load local data path if already generated
@@ -107,6 +124,7 @@ def load_input_cached_data(
         )
 
         # If local data path not found, fetch from server if available
+        assert inputs_pkl_path is not None
         if not os.path.exists(inputs_pkl_path):
             inputs_pkl_path = CachedWebModelAsset.from_asset_store(
                 model_id,
@@ -118,7 +136,7 @@ def load_input_cached_data(
             return pickle.load(f)
     except Exception:
         # Delete intermediate data file if error occurs
-        if os.path.exists(inputs_pkl_path):
+        if inputs_pkl_path is not None and os.path.exists(inputs_pkl_path):
             os.remove(inputs_pkl_path)
         print(
             f"Unable to load cached data for {data_path}, creating data using PyTorch models."
@@ -263,7 +281,7 @@ class RopeEmbedding:
 
 
 class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
-    def __init__(self, model, encoding_path, is_token_generator=False):
+    def __init__(self, model: torch.nn.Module, encoding_path, is_token_generator=False):
         AimetEncodingLoaderMixin.__init__(self, model, encoding_path)
         BaseModel.__init__(self)
         self.model = model
@@ -311,7 +329,7 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         return options
 
     @staticmethod
-    def get_output_names(
+    def _get_output_names(
         start: int = 0,
         end: int = 8,
         past_key_val_heads: int = 32,
@@ -336,9 +354,10 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         self, input_spec: Optional[InputSpec] = None
     ) -> SampleInputsType:
         data = self.get_calibration_data(input_spec=input_spec)
+        assert data is not None
         for key, val in data.items():
-            data[key] = [val.detach().numpy()]
-        return data
+            data[key] = [val.detach().numpy()]  # type: ignore
+        return dict(data)
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime

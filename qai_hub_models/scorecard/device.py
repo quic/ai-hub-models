@@ -46,6 +46,7 @@ class ScorecardDevice:
         supports_compile_path: Optional[ScorecardCompilePath] = None,
         supports_profile_path: Optional[ScorecardProfilePath] = None,
         form_factors: Optional[list["ScorecardDevice.FormFactor"]] = None,
+        is_mirror: Optional[bool] = None,
     ):
         """
         Get all devices that match the given attributes.
@@ -69,6 +70,7 @@ class ScorecardDevice:
                     or supports_profile_path in device.profile_paths
                 )
                 and (form_factors is None or device.form_factor in form_factors)
+                and (is_mirror is None or bool(device.mirror_device) == is_mirror)
             )
         ]
 
@@ -126,6 +128,7 @@ class ScorecardDevice:
         disabled_models: list[str] = [],
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
+        mirror_device: "Optional[ScorecardDevice]" = None,
         public: bool = True,
     ):
         """
@@ -142,17 +145,36 @@ class ScorecardDevice:
 
             profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
+            mirror_device: If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
+
             public: Whether this device is publicly available.
         """
         if name in ScorecardDevice._registry:
             raise ValueError("Device " + name + "already registered.")
 
+        if mirror_device:
+            assert (
+                not compile_paths
+            ), "Compile paths should not be set, mirror devices will use the mirror device settings."
+            assert (
+                not profile_paths
+            ), "Profile paths should not be set, mirror devices will use the mirror device settings."
+            assert (
+                not disabled_models
+            ), "Disabled models should not be set, mirror devices will use the mirror device settings."
+            assert (
+                not execution_device_name
+            ), "Execution device is not applicable when mirroring results of a different device."
+
         self.name = name
-        self.disabled_models = disabled_models
+        self.disabled_models: list[str] = (
+            mirror_device.disabled_models if mirror_device else disabled_models
+        )
         self.reference_device_name = reference_device_name
         self.execution_device_name = execution_device_name
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
+        self.mirror_device: Optional[ScorecardDevice] = mirror_device
         self.public = public
 
         ScorecardDevice._registry[name] = self
@@ -262,10 +284,16 @@ class ScorecardDevice:
         """
         Whether this device's NPU supports FP16 inference.
         """
+        if self.mirror_device:
+            return self.mirror_device.supports_fp16_npu
+
         return "htp-supports-fp16:true" in self.reference_device.attributes
 
     @cached_property
     def supported_runtimes(self) -> list[TargetRuntime]:
+        if self.mirror_device:
+            return self.mirror_device.supported_runtimes
+
         runtimes = []
         for attr in self.reference_device.attributes:
             if attr.startswith("framework:"):
@@ -280,6 +308,9 @@ class ScorecardDevice:
 
     @cached_property
     def profile_paths(self) -> list[ScorecardProfilePath]:
+        if self.mirror_device:
+            return self.mirror_device.profile_paths
+
         if self._profile_paths is not None:
             return self._profile_paths
 
@@ -314,6 +345,9 @@ class ScorecardDevice:
 
     @cached_property
     def compile_paths(self) -> list[ScorecardCompilePath]:
+        if self.mirror_device:
+            return self.mirror_device.compile_paths
+
         if self._compile_paths is not None:
             return self._compile_paths
 
@@ -347,7 +381,11 @@ class ScorecardDevice:
 cs_universal = ScorecardDevice(
     name=UNIVERSAL_DEVICE_SCORECARD_NAME,
     reference_device_name="Samsung Galaxy S23",
-    compile_paths=[path for path in ScorecardCompilePath],
+    compile_paths=[
+        ScorecardCompilePath.TFLITE,
+        ScorecardCompilePath.ONNX,
+        ScorecardCompilePath.ONNX_FP16,
+    ],
     profile_paths=[],
 )
 
@@ -359,35 +397,17 @@ cs_8_gen_2 = ScorecardDevice(
     name="cs_8_gen_2",
     reference_device_name="Samsung Galaxy S23",
     execution_device_name="Samsung Galaxy S23 (Family)",
-    compile_paths=[],  # Compiled assets are always identical to those generated for cs_universal
 )
 
 cs_8_gen_3 = ScorecardDevice(
     name="cs_8_gen_3",
     reference_device_name="Samsung Galaxy S24",
     execution_device_name="Samsung Galaxy S24 (Family)",
-    compile_paths=[],  # Compiled assets are always identical to those generated for cs_universal
 )
 
 cs_8_elite = ScorecardDevice(
     name="cs_8_elite", reference_device_name="Snapdragon 8 Elite QRD"
 )
-
-
-##
-# IoT Chipsets (cs)
-##
-cs_6490 = ScorecardDevice(
-    name="cs_6490",
-    reference_device_name="RB3 Gen 2 (Proxy)",
-)
-
-cs_8250 = ScorecardDevice(
-    name="cs_8250",
-    reference_device_name="RB5 (Proxy)",
-)
-
-cs_8550 = ScorecardDevice(name="cs_8550", reference_device_name="QCS8550 (Proxy)")
 
 
 ##
@@ -424,6 +444,35 @@ cs_auto_lemans_8650 = ScorecardDevice(
 cs_auto_lemans_8775 = ScorecardDevice(
     name="cs_auto_lemans_8775",
     reference_device_name="SA8775P ADP",
+)
+
+
+##
+# IoT Chipsets (cs)
+##
+cs_6490 = ScorecardDevice(
+    name="cs_6490",
+    reference_device_name="RB3 Gen 2 (Proxy)",
+)
+
+cs_8250 = ScorecardDevice(
+    name="cs_8250",
+    reference_device_name="RB5 (Proxy)",
+)
+
+cs_8275 = ScorecardDevice(
+    name="cs_8275",
+    reference_device_name="QCS8275 (Proxy)",
+    mirror_device=cs_auto_monaco_7255,
+)
+
+cs_8550 = ScorecardDevice(name="cs_8550", reference_device_name="QCS8550 (Proxy)")
+
+
+cs_9075 = ScorecardDevice(
+    name="cs_9075",
+    reference_device_name="QCS9075 (Proxy)",
+    mirror_device=cs_auto_lemans_8775,
 )
 
 

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
 
 from qai_hub.client import DatasetEntries, Device, SourceModel
 
@@ -129,7 +129,7 @@ class QuantizableModelProtocol(Protocol):
     @abstractmethod
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime,
+        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         """
@@ -138,13 +138,16 @@ class QuantizableModelProtocol(Protocol):
         ...
 
 
-class ExecutableModelProtocol(Protocol):
+T = TypeVar("T", covariant=True)
+
+
+class ExecutableModelProtocol(Generic[T], Protocol):
     """
     Classes follow this protocol if they are executable.
     """
 
     @abstractmethod
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> T:
         """
         Execute the model and return its output.
         """

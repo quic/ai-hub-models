@@ -10,6 +10,7 @@ from collections.abc import Iterable
 
 from .constants import PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_MODELS_ROOT, REPO_ROOT
 from .task import RunCommandsTask, RunCommandsWithVenvTask
+from .util import get_code_gen_str_field
 
 
 class CreateVenvTask(RunCommandsTask):
@@ -69,15 +70,18 @@ class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
         self,
         venv_path: str | None,
         extras: Iterable[str] = [],
+        flags: str | None = None,
+        pre_install: str | None = None,
     ) -> None:
         extras_str = f"[{','.join(extras)}]" if extras else ""
+        commands = [
+            f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" ' + (flags or "")
+        ]
+        if pre_install:
+            commands.insert(0, f"pip install {pre_install}")
+
         super().__init__(
-            group_name=f"Install QAIHM{extras_str}",
-            venv=venv_path,
-            commands=[
-                f'pip install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" '
-                "-f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html ",
-            ],
+            group_name=f"Install QAIHM{extras_str}", venv=venv_path, commands=commands
         )
 
 
@@ -101,6 +105,8 @@ class SyncModelVenvTask(SyncLocalQAIHMVenvTask):
         super().__init__(
             venv_path,
             extras,
+            get_code_gen_str_field(model_name, "pip_install_flags"),
+            get_code_gen_str_field(model_name, "pip_pre_build_reqs"),
         )
 
 
@@ -112,10 +118,14 @@ class SyncModelRequirementsVenvTask(RunCommandsWithVenvTask):
         requirements_txt = os.path.join(
             PY_PACKAGE_MODELS_ROOT, model_name, "requirements.txt"
         )
+        extra_flags = get_code_gen_str_field(model_name, "pip_install_flags")
+        pre_install = get_code_gen_str_field(model_name, "pip_pre_build_reqs")
         if os.path.exists(requirements_txt):
             commands = [
-                f'pip install {"--force-reinstall" if pip_force_install else None} -r "{requirements_txt}" -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html'
+                f'pip install {"--force-reinstall" if pip_force_install else None} -r "{requirements_txt}" {extra_flags or ""}'
             ]
+            if pre_install:
+                commands.insert(0, f"pip install {pre_install}")
         else:
             commands = []
 

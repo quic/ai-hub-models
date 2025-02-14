@@ -12,15 +12,19 @@ import qai_hub as hub
 from qai_hub_models.models._shared.llama.app import ChatApp as App
 from qai_hub_models.models._shared.llama.app import (
     LlamaModelPipeline,
+    LlamaModelPipelineBase,
     OnDeviceLlamaModelPipeline,
 )
-from qai_hub_models.models._shared.llama.model import DEFAULT_INPUT_SEQ_LEN
+from qai_hub_models.models._shared.llama.model import (
+    DEFAULT_INPUT_SEQ_LEN,
+    Llama2PretrainedCollectionModel,
+)
 from qai_hub_models.utils.args import (
     get_model_cli_parser,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.huggingface import has_model_access
 
 # Max output tokens to generate
@@ -32,7 +36,7 @@ DEFAULT_USER_PROMPT = "Hi! What is 2+3?"
 
 
 def llama_chat_demo(
-    model_cls: type[BaseModel],
+    model_cls: type[Llama2PretrainedCollectionModel],
     model_id: str,
     get_model_class: Callable,
     get_input_prompt_with_tags: Callable,
@@ -122,14 +126,14 @@ We are actively working on to improve UX and reduce turn-around time for these m
         print(f"{'-' * 85}\n")
 
     if not args.on_device:
-        prompt_processor = LlamaModelPipeline(
+        prompt_processor: LlamaModelPipelineBase = LlamaModelPipeline(
             model_cls.from_pretrained(),
             num_splits=num_splits,
             num_past_key_val_heads=num_key_val_heads,
             model_split_map=model_split_map,
             is_bundled_kvcache=bundled_kvcache,
         )
-        token_generator = LlamaModelPipeline(
+        token_generator: LlamaModelPipelineBase = LlamaModelPipeline(
             model_cls.from_pretrained(),
             num_splits=num_splits,
             num_past_key_val_heads=num_key_val_heads,

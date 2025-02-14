@@ -31,7 +31,7 @@ OUTPUT_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
 
 # Verify that the output from Torch is as expected.
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     app = CityscapesSegmentationApp(
         EfficientViT.from_pretrained(), EfficientViT.get_input_spec()
     )
@@ -49,7 +49,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     app = CityscapesSegmentationApp(
         EfficientViT.from_pretrained().convert_to_torchscript(),
         EfficientViT.get_input_spec(),
@@ -67,5 +67,5 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

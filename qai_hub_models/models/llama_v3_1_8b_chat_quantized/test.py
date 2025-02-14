@@ -9,6 +9,6 @@ from qai_hub_models.models.llama_v3_1_8b_chat_quantized.demo import llama_3_1_ch
 
 @pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")
 @pytest.mark.slow_cloud
-def test_demo():
+def test_demo() -> None:
     # Run demo and verify it does not crash
     llama_3_1_chat_demo(is_test=True)

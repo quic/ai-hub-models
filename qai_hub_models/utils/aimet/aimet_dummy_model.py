@@ -70,7 +70,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
       - Export Torch model to ONNX and load pre-computed encodings
     """
 
-    def __init__(self, model, aimet_encodings: str):
+    def __init__(self, model: torch.nn.Module, aimet_encodings: str):
         super().__init__()
         self.model = model
         self.aimet_encodings = aimet_encodings
@@ -185,8 +185,10 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         """
         return True
 
-    def _adapt_aimet_encodings(self, src_encodings, dst_encodings, onnx_model_path):
+    def _adapt_aimet_encodings(
+        self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
+    ) -> None:
         """
         Overridable file that adapts the AIMET encodings.
         """
-        shutil.copyfile(src=src_encodings, dst=dst_encodings)
+        shutil.copyfile(src=src_encodings_path, dst=dst_encodings_path)

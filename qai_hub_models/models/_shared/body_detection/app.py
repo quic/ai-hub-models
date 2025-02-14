@@ -102,11 +102,11 @@ def postprocess(
         result_final.append(
             torch.concat([torch.zeros_like(scores[0]) + c, boxes[0], scores[0]], 1)
         )
-    result_final = torch.concat(result_final).numpy()
-    result_final[:, 1:5] = (
-        (result_final[:, 1:5] - np.array([pad[0], pad[1], pad[0], pad[1]])) / scale
+    result_final_arr = torch.concat(result_final).numpy()
+    result_final_arr[:, 1:5] = (
+        (result_final_arr[:, 1:5] - np.array([pad[0], pad[1], pad[0], pad[1]])) / scale
     ).round()
-    return result_final
+    return result_final_arr
 
 
 class BodyDetectionApp:

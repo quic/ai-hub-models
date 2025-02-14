@@ -19,7 +19,7 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     # source model
     source_model = _load_yolov5_source_model_from_weights(DEFAULT_WEIGHTS)
 
@@ -41,5 +41,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

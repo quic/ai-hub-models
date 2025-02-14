@@ -210,6 +210,7 @@ class ResultsSpreadsheet(list):
             ScorecardProfilePath,
             create_entry,
             exclude_devices=[cs_universal],
+            include_mirror_devices=True,
         )
 
         return entries

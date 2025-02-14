@@ -14,7 +14,7 @@ class YoloV8DetectorQuantizable(HubQuantizableMixin, YoloV8Detector):
     """Exportable quantizable YoloV8 bounding box detector."""
 
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # type: ignore[override]
         cls,
         ckpt_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,

@@ -159,7 +159,8 @@ class CocoDataset(BaseDataset):
         # other files that import datasets/__init__.py
         import fiftyone.zoo as foz
 
+        # Sorting by filepath ensures a deterministic ordering every time this is called
         split_str = "validation" if self.split == DatasetSplit.VAL else "train"
         self.dataset = foz.load_zoo_dataset(
             "coco-2017", split=split_str, max_samples=self.num_samples, shuffle=True
-        )
+        ).sort_by("filepath")

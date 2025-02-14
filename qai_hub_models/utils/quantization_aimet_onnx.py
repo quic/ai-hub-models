@@ -154,6 +154,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
         base_dir = Path(f"{model_name}.aimet")
 
+        print(f"Exporting quantized {self.__class__.__name__} to {zip_path}")
         with qaihm_temp_dir() as tmpdir:
             base_path = Path(tmpdir) / base_dir
             os.makedirs(base_path)

@@ -30,10 +30,12 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
     if cityscapes_path is None:
         # Allow a loader without data. There are useful auxiliary functions.
-        cityscapes_path = ASSET_CONFIG.get_local_store_model_path(
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-            "cityscapes_dummy",
+        cityscapes_path = str(
+            ASSET_CONFIG.get_local_store_model_path(
+                MODEL_ID,
+                MODEL_ASSET_VERSION,
+                "cityscapes_dummy",
+            )
         )
 
         os.makedirs(
@@ -89,7 +91,7 @@ class CityscapesSegmentationApp:
         input_specs: Mapping[str, tuple[tuple[int, ...], str]],
     ):
         self.model = model
-        self.color_mapping = _load_cityscapes_loader().dataset.color_mapping
+        self.color_mapping = _load_cityscapes_loader().dataset.color_mapping  # type: ignore[attr-defined]
         (_, _, self.model_height, self.model_width) = input_specs["image"][0]
 
     def predict(self, image: Image, raw_output: bool = False) -> Image | np.ndarray:

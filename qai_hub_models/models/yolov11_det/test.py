@@ -29,7 +29,7 @@ WEIGHTS = "yolo11n.pt"
 
 
 @skip_clone_repo_check
-def test_numerical():
+def test_numerical() -> None:
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     import ultralytics
 
@@ -54,7 +54,7 @@ def test_numerical():
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     image = load_image(IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     app = YoloV11DetectionApp(YoloV11Detector.from_pretrained(WEIGHTS))
@@ -62,5 +62,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

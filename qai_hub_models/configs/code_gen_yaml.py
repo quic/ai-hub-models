@@ -38,37 +38,53 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # ideally with a reference to an internal issue.
     #
     # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added.
+    # not be manually edited after a model is first added. If the model
+    # begins to work again, this will be removed automatically by scorecard.
     qnn_export_failure_reason: str = ""
 
     # If the model should be disabled for qnn for any reason other than
     # a job failure, this should explain why,
-    # ideally with a reference to an internal issue.
-    qnn_export_disable_reason: str = ""
+    #
+    # This requires a filed issue because it isn't auto-removed
+    # when a model begins to work again.
+    qnn_export_disable_issue: str = ""
+
+    # If the model times out, we can't run it in testing or scorecard.
+    #
+    # This requires a filed issue because it isn't auto-removed
+    # when a model begins to work again.
+    qnn_export_timeout_issue: str = ""
 
     # If the model doesn't work on tflite, this should explain why,
     # ideally with a reference to an internal issue.
     #
     # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added.
+    # not be manually edited after a model is first added. If the model
+    # begins to work again, this will be removed automatically by scorecard.
     tflite_export_failure_reason: str = ""
 
     # If the model should be disabled for tflite for any reason other than
-    # a job failure, this should explain why,
-    # ideally with a reference to an internal issue.
-    tflite_export_disable_reason: str = ""
+    # a job failure, this should explain why.
+    #
+    # This requires a filed issue because it isn't auto-removed
+    # when a model begins to work again.
+
+    tflite_export_disable_issue: str = ""
 
     # If the model doesn't work on onnx, this should explain why,
     # ideally with a reference to an internal issue.
     #
     # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added.
+    # not be manually edited after a model is first added. If the model
+    # begins to work again, this will be removed automatically by scorecard.
     onnx_export_failure_reason: str = ""
 
     # If the model should be disabled for onnx for any reason other than
-    # a job failure, this should explain why,
-    # ideally with a reference to an internal issue.
-    onnx_export_disable_reason: str = ""
+    # a job failure, this should explain why.
+    #
+    # This requires a filed issue because it isn't auto-removed
+    # when a model begins to work again.
+    onnx_export_disable_issue: str = ""
 
     # If set, changes the default device when running export.py for the model.
     default_device: str = DEFAULT_EXPORT_DEVICE
@@ -116,6 +132,20 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # When this is not possible, set this field to indicate an inconsistency.
     global_requirements_incompatible: bool = False
 
+    # Requirements that must be pre-installed before installing the general model requirements.
+    #
+    # Eg. for example, `pip install qai_hub_models[model]` won't work,
+    # but `pip install package_a package_b ...; pip install qai_hub_models[model]` does work.
+    #
+    # This setting defines what "package_a package_b ..." is.
+    #
+    # This is required when a package needs to be built from source by pip but
+    # doesn't have its requirements set up correctly.
+    pip_pre_build_reqs: Optional[str] = None
+
+    # If extra flags are needed when `pip install`ing for this model, provide them here
+    pip_install_flags: Optional[str] = None
+
     # A list of optimizations from `torch.utils.mobile_optimizer` that will
     # speed up the conversion to torchscript.
     torchscript_opt: Optional[list[str]] = None
@@ -161,13 +191,19 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         Return true if this runtime is supported by this model.
         Return false if this model has a failure reason set for this runtime.
         """
+        if runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            runtime = (
+                TargetRuntime.QNN
+            )  # QNN Support is a proxy for precompiled QNN ONNX.
+
         automated_skip = getattr(
             self, f"{runtime.name.lower()}_export_failure_reason", None
         )
         user_provided_skip = getattr(
-            self, f"{runtime.name.lower()}_export_disable_reason", None
+            self, f"{runtime.name.lower()}_export_disable_issue", None
         )
-        return not automated_skip and not user_provided_skip
+        timeout = getattr(self, f"{runtime.name.lower()}_export_timeout_issue", None)
+        return not automated_skip and not user_provided_skip and not timeout
 
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
@@ -201,6 +237,26 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             and self.python_version_less_than is None
         ):
             return "python_version_less_than_reason is set, but python_version_less_than is not."
+        if self.pip_install_flags and not self.global_requirements_incompatible:
+            return "If pip_install_flags is set, global_requirements_incompatible must also be true."
+        if self.pip_pre_build_reqs and not self.global_requirements_incompatible:
+            return "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
+
+        for runtime in TargetRuntime:
+            disable_field_name = f"{runtime.name.lower()}_export_disable_issue"
+            user_provided_skip = getattr(self, disable_field_name, None)
+
+            timeout_field_name = f"{runtime.name.lower()}_export_timeout_issue"
+            timeout = getattr(self, timeout_field_name, None)
+
+            issue_link = "https://github.com/qcom-ai-hub/tetracode/issues/"
+            for field_name, field_val in (
+                (disable_field_name, user_provided_skip),
+                (timeout_field_name, timeout),
+            ):
+                if field_val and issue_link not in field_val:
+                    return f"{field_name} must include a full link to an issue (expected format: `{issue_link}/1234` )"
+
         return None
 
     @classmethod

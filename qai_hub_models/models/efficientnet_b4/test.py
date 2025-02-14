@@ -16,17 +16,17 @@ from qai_hub_models.models.efficientnet_b4.model import (
 )
 
 
-def test_task():
+def test_task() -> None:
     run_imagenet_classifier_test(
         EfficientNetB4.from_pretrained(), MODEL_ID, asset_version=MODEL_ASSET_VERSION
     )
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(EfficientNetB4.from_pretrained())
 
 
-def test_demo():
+def test_demo() -> None:
     # Verify demo does not crash
     demo_main(is_test=True)

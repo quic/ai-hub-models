@@ -1,0 +1,59 @@
+name: Phi-3.5-mini-instruct
+id: phi_3_5_mini_instruct_quantized
+status: public
+headline: State-of-the-art large language model useful on a variety of language
+  understanding and generation tasks.
+domain: Generative AI
+description: Phi-3.5-mini is a lightweight, state-of-the-art open model built upon datasets used for Phi-3 - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data. The model belongs to the Phi-3 model family and supports 128K token context length. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning, proximal policy optimization, and direct preference optimization to ensure precise instruction adherence and robust safety measures.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2404.14219
+research_paper_title: "Phi-3 Technical Report: A Highly Capable Language Model Locally on Your Phone"
+license: https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/LICENSE
+deploy_license: https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE
+source_repo: https://huggingface.co/microsoft/Phi-3.5-mini-instruct
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Context length: 4096
+  Number of parameters:
+  Precision: w4a16 + w8a16 (few layers)
+  Num of key-value heads: 8
+  Information about the model parts: Prompt Processor and Token Generator are split into 4 parts each. Each corresponding Prompt Processor and Token Generator part share weights.
+  Prompt processor model size: 2.16 GB
+  Token generator model size: 2.16 GB
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Supported languages: English, Arabic, Chinese, Dutch, French, German, Italian, Russian, Spanish, Ukranian
+  Minimum QNN SDK version required: 2.28.2
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: true
+license_type: 'mit'
+deploy_license_type: 'mit'
+dataset: []
+model_type_llm: true
+llm_details:
+  call_to_action: 'download'
+  Snapdragon 8 Elite QRD:
+    torchscript_onnx_qnn:
+      model_download_url: v1/snapdragon_8_elite/models.zip
+      genie_compatible: true
+  Snapdragon X Elite CRD:
+    torchscript_onnx_qnn:
+      model_download_url: v1/snapdragon_x_elite/models.zip
+      genie_compatible: true
+  Samsung Galaxy S24:
+    torchscript_onnx_qnn:
+      model_download_url: v1/snapdragon_8_gen_3/models.zip
+      genie_compatible: true

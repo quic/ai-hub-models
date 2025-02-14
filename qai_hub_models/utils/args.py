@@ -27,6 +27,7 @@ from qai_hub_models.models.protocols import (
 )
 from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
+from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
@@ -690,9 +691,24 @@ def evaluate_parser(
         help="A compiled hub model id.",
     )
     parser.add_argument(
-        "--use-cache",
+        "--use-dataset-cache",
         action="store_true",
         help="If set, will store hub dataset ids in a local file and re-use "
         "for subsequent evaluations on the same dataset.",
+    )
+    return parser
+
+
+def enable_model_caching(parser):
+    parser.add_argument(
+        "--model-cache-mode",
+        type=str,
+        default=CacheMode.ENABLE,
+        action=partial(ParseEnumAction, enum_type=CacheMode),
+        choices=[cm.name.lower() for cm in list(CacheMode.__members__.values())],
+        help="Cache uploaded AI Hub model during export."
+        " If enable, caches uploaded model i.e. re-uses uploaded AI Hub model from cache. "
+        " If disable, disables caching i.e. no reading from and write to cache."
+        " If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.",
     )
     return parser

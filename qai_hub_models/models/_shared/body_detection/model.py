@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import math
 from copy import deepcopy
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -47,25 +48,29 @@ class Concat(nn.Module):
         return torch.cat(x, self.d)
 
 
-def autopad(kernel_size: int, p=None) -> int:
+def autopad(
+    kernel_size: Union[int, tuple[int, int]],
+    p: Optional[Union[int, tuple[int, int]]] = None,
+) -> Union[int, tuple[int, int]]:
     """
     Compute padding size from kernel size.
 
     Input:
         kernel_size: int
             Kernel size.
-        p: bool | int
+        p: int | tuple[int, int]
             Padding size.
     Outputs: int
         Padding size
     """
-    if p is None:
-        p = (
-            kernel_size // 2
-            if isinstance(kernel_size, int)
-            else [x // 2 for x in kernel_size]
-        )
-    return p
+    if p is not None:
+        return p
+    if isinstance(kernel_size, int):
+        return kernel_size // 2
+    assert 2 == len(kernel_size)
+    # pyright and mypy complain that we're returning tuple[int, ...], but we've just asserted
+    # that it's length two so we should be safe to ignore the error.
+    return tuple([x // 2 for x in kernel_size])  # type: ignore[return-value]
 
 
 class FusedConvBatchNorm(nn.Module):
@@ -345,7 +350,9 @@ def parse_model(cfg: dict, ch: list[int]):
     )
     num_anchors = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors
     num_outputs = num_anchors * (nc + 5)
-    layers, save, c2 = [], [], ch[-1]
+    layers = []
+    save: list[int] = []
+    c2 = ch[-1]
     for i, (f, n, m, args) in enumerate(cfg["backbone"] + cfg["head"]):
         m = eval(m) if isinstance(m, str) else m
         for j, a in enumerate(args):
@@ -510,7 +517,7 @@ class Model(nn.Module):
         Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """
-        y = []
+        y: list[Optional[int]] = []
         for m in self.model:
             if m.f != -1:
                 x = (

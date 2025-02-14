@@ -39,14 +39,14 @@ class Mistral_7B_Instruct_v0_3_Quantized(FromPrecompiledProtocol, CollectionMode
 
     def __init__(
         self,
-        prompt_processor_part1,
-        prompt_processor_part2,
-        prompt_processor_part3,
-        prompt_processor_part4,
-        token_generator_part1,
-        token_generator_part2,
-        token_generator_part3,
-        token_generator_part4,
+        prompt_processor_part1: BasePrecompiledModel,
+        prompt_processor_part2: BasePrecompiledModel,
+        prompt_processor_part3: BasePrecompiledModel,
+        prompt_processor_part4: BasePrecompiledModel,
+        token_generator_part1: BasePrecompiledModel,
+        token_generator_part2: BasePrecompiledModel,
+        token_generator_part3: BasePrecompiledModel,
+        token_generator_part4: BasePrecompiledModel,
     ) -> None:
         self.prompt_processor_part1 = prompt_processor_part1
         self.prompt_processor_part2 = prompt_processor_part2
@@ -110,9 +110,9 @@ class PromptProcessor_Part1(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=8).append(
+        return get_kv_cache_names(start=0, end=8) + [
             "_model_layers_7_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -164,9 +164,9 @@ class PromptProcessor_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=8, end=16).append(
+        return get_kv_cache_names(start=8, end=16) + [
             "_model_layers_15_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -218,9 +218,9 @@ class PromptProcessor_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=16, end=24).append(
+        return get_kv_cache_names(start=16, end=24) + [
             "_model_layers_23_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -272,7 +272,7 @@ class PromptProcessor_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=24, end=32).append("logits")
+        return get_kv_cache_names(start=24, end=32) + ["logits"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -324,9 +324,9 @@ class TokenGenerator_Part1(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=8).append(
+        return get_kv_cache_names(start=0, end=8) + [
             "_model_layers_7_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -378,9 +378,9 @@ class TokenGenerator_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=8, end=16).append(
+        return get_kv_cache_names(start=8, end=16) + [
             "_model_layers_15_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -432,9 +432,9 @@ class TokenGenerator_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=16, end=24).append(
+        return get_kv_cache_names(start=16, end=24) + [
             "_model_layers_23_Add_1_Add_output_0"
-        )
+        ]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -486,7 +486,7 @@ class TokenGenerator_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=24, end=32).append("logits")
+        return get_kv_cache_names(start=24, end=32) + ["logits"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""

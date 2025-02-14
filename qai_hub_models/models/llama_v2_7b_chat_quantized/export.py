@@ -14,13 +14,20 @@ from typing import Any, Optional, cast
 import qai_hub as hub
 
 from qai_hub_models.models.llama_v2_7b_chat_quantized import Model
+from qai_hub_models.models.llama_v2_7b_chat_quantized.model import (
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+)
+from qai_hub_models.utils import model_cache
 from qai_hub_models.utils.args import (
+    enable_model_caching,
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
 )
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_on_target_demo_cmd,
@@ -61,10 +68,14 @@ ALL_SUB_COMPONENTS = {
 }
 
 DEFAULT_EXPORT_DEVICE = "Samsung Galaxy S24 (Family)"
+BASE_NAME = "llama_v2_7b_chat_quantized"
 
 
 def export_model(
-    device: str = DEFAULT_EXPORT_DEVICE,
+    device: Optional[str] = None,
+    chipset: Optional[str] = None,
+    model_name: str = MODEL_ID,
+    model_asset_version: int = MODEL_ASSET_VERSION,
     components: Optional[list[str]] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -74,9 +85,10 @@ def export_model(
     target_runtime: TargetRuntime = TargetRuntime.QNN,
     compile_options: str = "",
     profile_options: str = "",
+    model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
 ) -> Mapping[
-    str, tuple[hub.CompileJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
+    str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
 ] | list[str]:
     """
     This function accomplishes 6 main tasks:
@@ -94,6 +106,7 @@ def export_model(
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
+        chipset: Specify the device in terms of chipset instead.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
@@ -112,11 +125,11 @@ def export_model(
 
     Returns:
         A Mapping from component_name to a 3-tuple of:
-            * A CompileJob object containing metadata about the compile job submitted to hub.
+            * A LinkJob object containing metadata about the link job submitted to hub.
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
-    model_name = "llama_v2_7b_chat_quantized"
+    model_name = BASE_NAME
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     component_arg = components
     components = components or DEFAULT_COMPONENTS
@@ -127,7 +140,7 @@ def export_model(
         return export_without_hub_access(
             "llama_v2_7b_chat_quantized",
             "Llama-v2-7B-Chat",
-            device,
+            device or "",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -142,12 +155,14 @@ def export_model(
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
-    hub_device = hub.Device(device)
+    hub_device = hub.Device(
+        name=device if device and not chipset else "",
+        attributes=f"chipset:{chipset}" if chipset else [],
+    )
     compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
     profile_options_per_sub_component: dict[str, str] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}
 
-    hub_device = hub.Device(device)
     for component_name in components:
         compile_jobs[component_name] = []
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
@@ -159,12 +174,26 @@ def export_model(
                 **get_input_spec_kwargs(component, additional_model_kwargs)
             )
 
+            # Create source .aimet model
             source_model = component.convert_to_hub_source_model(
                 target_runtime,
                 output_path,
                 input_spec,
                 external_onnx_weights=True,
                 output_names=component.get_output_names(),
+            )
+
+            seq_length, context_length = input_spec["attention_mask"][0][-2:]
+            current_model = model_cache.get_or_create_cached_model(
+                model_name=model_name,
+                model_asset_version=model_asset_version,
+                cache_name=sub_component_name,
+                cache_mode=model_cache_mode,
+                model_path=str(source_model),
+                additional_keys={
+                    "context_length": str(context_length),
+                    "sequence_length": str(seq_length),
+                },
             )
 
             if target_runtime == TargetRuntime.TFLITE:
@@ -180,13 +209,14 @@ def export_model(
             )
             print(f"Optimizing model {sub_component_name} to run on-device")
             submitted_compile_job = hub.submit_compile_job(
-                model=source_model,
+                model=current_model,
                 input_specs=input_spec,
                 device=hub_device,
                 name=f"{model_name}_{sub_component_name}",
                 calibration_data=quant_calibration_data,
                 options=model_compile_options,
             )
+            assert isinstance(submitted_compile_job, hub.CompileJob)
 
             profile_options_per_sub_component[
                 sub_component_name
@@ -203,7 +233,11 @@ def export_model(
                 raise RuntimeError(
                     f"Compile job failed for {component_name}. Please re-run export script for failed component."
                 )
-            models.append(compile_job.get_target_model())
+            target_model = compile_job.get_target_model()
+            assert (
+                target_model is not None
+            ), "Compile job did not produce a target model."
+            models.append(target_model)
 
         # Link Prompt processor and Token generator
         link_jobs[component_name] = hub.submit_link_job(
@@ -259,8 +293,9 @@ def export_model(
     # 6. Download the model assets to a local file
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
-        for component_name, compile_job in link_jobs.items():
-            target_model: hub.Model = compile_job.get_target_model()  # type: ignore
+        for component_name, link_job in link_jobs.items():
+            target_model = link_job.get_target_model()
+            assert target_model is not None, "Link job did not produce a target model."
             target_model.download(str(output_path / f"{component_name}.bin"))
 
     # 7. Summarize the results from profiling and inference
@@ -296,6 +331,10 @@ def export_model(
             link_jobs.values(), Path(__file__).parent.resolve(), hub_device
         )
 
+    print(
+        "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
+    )
+
     return {
         component_name: (
             link_jobs[component_name],
@@ -306,12 +345,8 @@ def export_model(
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]
     }
 
-    print(
-        "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
-    )
 
-
-def main():
+def main(argv: Optional[list[str]] = None):
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,
@@ -320,8 +355,11 @@ def main():
         supports_onnx=False,
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
-    args = parser.parse_args()
-    export_model(**vars(args))
+    parser = enable_model_caching(parser)
+    args = parser.parse_args(argv)
+    export_model(
+        model_name=MODEL_ID, model_asset_version=MODEL_ASSET_VERSION, **vars(args)
+    )
 
 
 if __name__ == "__main__":

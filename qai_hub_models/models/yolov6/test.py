@@ -22,7 +22,7 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     model_path = f"{WEIGHTS_PATH}{DEFAULT_WEIGHTS}"
     asset = CachedWebModelAsset(
         model_path, MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
@@ -47,5 +47,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

@@ -8,12 +8,12 @@ import json
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
 from qai_hub.public_rest_api import DatasetEntries
-from transformers.models.llama import modeling_llama
+from transformers.models.llama import LlamaConfig, modeling_llama
 
 from qai_hub_models.models._shared.llama.model import Llama_QuantizedMixin
 from qai_hub_models.models.common import (
@@ -42,7 +42,11 @@ MIN_TRANFORMER_VERSION = "4.45.0"
 # TODO: 10761 remove transformer version check once AIMET
 # transformer restriction is uplifted.
 ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
-from transformers import AutoConfig, AutoTokenizer  # noqa: E402
+from transformers import (  # noqa: E402
+    AutoConfig,
+    AutoTokenizer,
+    PreTrainedTokenizerBase,
+)
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -76,7 +80,7 @@ def get_input_prompt_with_tags(
     previous_history: str = "",
     system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     user_input_prompt: str = DEFAULT_USER_PROMPT,
-):
+) -> str:
     """
     Get prompt to set context and initialize prompt-processor
     """
@@ -95,7 +99,7 @@ def get_input_prompt_with_tags(
     return prompt
 
 
-def onnx_counting(i):
+def onnx_counting(i: int) -> str:
     # Softmax, Softmax_1, Softmax_2, ...
     if i == 0:
         return ""
@@ -104,10 +108,17 @@ def onnx_counting(i):
 
 
 class RopeEmbedding:
-    def __init__(self, head_dim=128, max_length=2048, config=None):
+    def __init__(
+        self,
+        head_dim: int = 128,
+        max_length: int = 2048,
+        config: LlamaConfig = LlamaConfig(),
+    ) -> None:
         self.cos, self.sin = self.precompute(head_dim, max_length, config)
 
-    def precompute(self, head_dim, max_length, config):
+    def precompute(
+        self, head_dim: int, max_length: int, config: LlamaConfig
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         head_dim = (
             config.head_dim
             if hasattr(config, "head_dim")
@@ -134,9 +145,11 @@ class RopeEmbedding:
         emb_size = embeddings[0].size(-1) // 2
         embeddings = [emb[:, :, :emb_size] for emb in embeddings]
         embeddings = [emb.unsqueeze(0) for emb in embeddings]
-        return embeddings
+        return embeddings  # pyright: ignore [reportReturnType]
 
-    def get_embedding(self, position_ids, dtype=torch.float32):
+    def get_embedding(
+        self, position_ids: list[int], dtype: torch.dtype = torch.float32
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         position_ids: [batch_size, sequence_length]
         return [batch_size, 1, sequence_length, head_sim//2][2]
@@ -148,7 +161,7 @@ class RopeEmbedding:
         return cos, sin
 
 
-def get_tokenizer(hf_repo_name):
+def get_tokenizer(hf_repo_name: str) -> PreTrainedTokenizerBase:
     """
     Tokenizer to use for Llama3
     """
@@ -161,8 +174,12 @@ def get_tokenizer(hf_repo_name):
 
 
 def prepare_decoder_attention_mask(
-    attention_mask, input_shape, inputs_embeds, past_key_values_length, mask_neg=-50.0
-):
+    attention_mask: Optional[torch.Tensor],
+    input_shape: torch.Size,
+    inputs_embeds: torch.Tensor,
+    past_key_values_length: int,
+    mask_neg: float = -50.0,
+) -> torch.Tensor:
     # Copied from transformers.models.bart.modeling_bart._make_causal_mask
     def _make_causal_mask(
         input_ids_shape: torch.Size,
@@ -170,14 +187,16 @@ def prepare_decoder_attention_mask(
         device: torch.device,
         past_key_values_length: int = 0,
         mask_neg: float = -50.0,
-    ):
+    ) -> torch.Tensor:
         """
         Make causal mask used for bi-directional self-attention.
         """
         bsz, tgt_len = input_ids_shape[0], input_ids_shape[1]
         # mask = torch.full((tgt_len, tgt_len), torch.tensor(torch.finfo(dtype).min, device=device), device=device)
-        mask = torch.full(
-            (tgt_len, tgt_len), torch.tensor(mask_neg, device=device), device=device
+        mask = torch.full(  # pyright: ignore [reportCallIssue]
+            (tgt_len, tgt_len),
+            torch.tensor(mask_neg, device=device),
+            device=device,  # pyright: ignore [reportArgumentType]
         )
         mask_cond = torch.arange(mask.size(-1), device=device)
         mask.masked_fill_(mask_cond < (mask_cond + 1).view(mask.size(-1), 1), 0)
@@ -202,8 +221,8 @@ def prepare_decoder_attention_mask(
         mask: torch.Tensor,
         dtype: torch.dtype,
         mask_neg: float = -50.0,
-        tgt_len: int = None,
-    ):
+        tgt_len: Optional[int] = None,
+    ) -> torch.Tensor:
         """
         Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`.
         """
@@ -247,16 +266,17 @@ def prepare_decoder_attention_mask(
             else expanded_attn_mask + combined_attention_mask
         )
 
+    assert combined_attention_mask is not None
     return combined_attention_mask
 
 
 def prepare_combined_attention_mask(
-    attention_mask,
-    input_shape,
-    past_key_values_length,
+    attention_mask: Optional[torch.Tensor],
+    input_shape: torch.Size,
+    past_key_values_length: int,
     mask_neg=-50.0,
     dtype=torch.float32,
-):
+) -> torch.Tensor:
     dummy_embedding = torch.tensor((1.0,)).to(torch.float32)
     new_mask = prepare_decoder_attention_mask(
         attention_mask, input_shape, dummy_embedding, past_key_values_length, mask_neg
@@ -298,13 +318,13 @@ def monkey_patch_huggingface_llama_modeling():
 
     # Bypass rotary_emb module
     if not hasattr(modeling_llama.LlamaRotaryEmbedding, "_original_forward"):
-        modeling_llama.LlamaRotaryEmbedding._original_forward = (
+        modeling_llama.LlamaRotaryEmbedding._original_forward = (  # pyright: ignore [reportAttributeAccessIssue]
             modeling_llama.LlamaRotaryEmbedding.forward
         )
         modeling_llama.LlamaRotaryEmbedding.forward = bypass_RotaryEmbedding
     modeling_llama.apply_rotary_pos_emb = QcLlama_apply_rotary_pos_emb
 
-    def LlamaRMSNorm_forward(self, hidden_states):
+    def LlamaRMSNorm_forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         # Raise to rank 4
         hidden_states = hidden_states.unsqueeze(0)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
@@ -388,7 +408,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         self.context_length = context_length
         self.tokenizer = get_tokenizer(self.huggingface_model_name)
 
-    def _llm_config(self, _make_small_for_debugging: bool = False):
+    def _llm_config(self, _make_small_for_debugging: bool = False) -> LlamaConfig:
         """
         Construct and return a HuggingFace LLM config.
         """
@@ -408,6 +428,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
 
         return llm_config
 
+    @classmethod
     @abstractmethod
     def from_pretrained(
         cls,
@@ -418,7 +439,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         pass
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int):
+    def get_output_names(num_hidden_layers: int) -> list[str]:
         output_names = ["logits"]
         for layer in range(num_hidden_layers):
             output_names.append(f"past_key_{layer}_out")
@@ -427,19 +448,24 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
 
     def forward(
         self,
-        input_ids,
-        attention_mask,
-        position_ids_cos,
-        position_ids_sin,
-        *past_key_values,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids_cos: torch.Tensor,
+        position_ids_sin: torch.Tensor,
+        *past_key_values: torch.Tensor,
     ):
         kv_cache = SHADynamicCacheNewValueOnly()
+        assert isinstance(self.llm_config.num_key_value_heads, int)
         for layer_idx, (k, v) in enumerate(
             zip(past_key_values[::2], past_key_values[1::2])
         ):
             k_split = [k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)]
             v_split = [v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)]
-            kv_cache.update(k_split, v_split, layer_idx, {})
+
+            # kv_cache doesn't report supporting lists of tensors, but it seems to work
+            kv_cache.update(
+                k_split, v_split, layer_idx, {}
+            )  # pyright: ignore [reportArgumentType]
 
         out = self.model(
             input_ids=input_ids,
@@ -462,7 +488,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         return None
 
     @staticmethod
-    def get_input_spec(
+    def _get_input_spec(
         num_hidden_layers: int,
         sequence_length: int,
         context_length: int,
@@ -543,8 +569,8 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         return None
 
     def _adapt_aimet_encodings(
-        self, src_encodings_path, dst_encodings_path, onnx_model_path
-    ):
+        self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
+    ) -> None:
         """
         Adapt encodings from AIMET Pro to vanilla onnx export.
 
@@ -920,7 +946,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         for key in zero_keys:
             if uses_lists:
                 # aimet format 1.0
-                zero_entry = {
+                zero_entry: Any = {
                     "bw": 16,
                     "dtype": "INT",
                     "enc_type": "PER_TENSOR",
@@ -988,7 +1014,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         if not input_spec:
-            input_specs = self.get_input_spec(
+            input_spec = self.get_input_spec(
                 sequence_length=self.sequence_length,
                 context_length=self.context_length,
             )
@@ -1002,10 +1028,15 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
             padding="max_length",
             max_length=self.context_length,
         )
-        num_tokens = min(
-            torch.sum(input_tokens["attention_mask"]).item(), self.sequence_length
+        num_tokens = int(
+            min(
+                torch.sum(input_tokens["attention_mask"]).item(),
+                self.sequence_length,  # pyright: ignore [reportArgumentType]
+            )
         )
-        input_ids = input_tokens["input_ids"].type(torch.int32)[
+        input_ids = input_tokens["input_ids"].type(
+            torch.int32
+        )[  # pyright: ignore [reportAttributeAccessIssue]
             :, -self.sequence_length :
         ]
 
@@ -1027,7 +1058,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         attention_mask[:, -num_tokens:] = 1.0
         cm_attention_masks = prepare_combined_attention_mask(
             attention_mask=attention_mask,
-            input_shape=(1, self.sequence_length),
+            input_shape=torch.Size([1, self.sequence_length]),
             past_key_values_length=self.context_length - self.sequence_length,
         )
 
@@ -1039,7 +1070,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         }
 
         # Populate the rest with zeros (KV cache input)
-        for k, (shape, _) in input_specs.items():
+        for k, (shape, _) in input_spec.items():
             if k.startswith("past_"):
                 input_dict[k] = [np.zeros(shape, dtype=np.float32)]
 

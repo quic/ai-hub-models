@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, TypeVar, Union
 
 import numpy as np
 import qai_hub as hub
@@ -65,17 +66,17 @@ def print_inference_metrics(
             return f"{x:.4g}"
         return x
 
-    formatted_df = df_eval.applymap(custom_float_format)
+    formatted_df = df_eval.applymap(custom_float_format)  # type: ignore
 
     print(
         "\nComparing on-device vs. local-cpu inference"
         + (f" for {inference_job.name.title()}." if inference_job is not None else "")
     )
-    print(tabulate(formatted_df, headers="keys", tablefmt="grid"))  # type: ignore
+    print(tabulate(formatted_df, headers="keys", tablefmt="grid"))
     print()
 
     # Print explainers for each eval metric
-    for m in df_eval.columns.drop("shape"):  # type: ignore
+    for m in df_eval.columns.drop("shape"):
         print(f"- {m}:", METRICS_FUNCTIONS[m][1])
 
     if inference_job is not None:
@@ -189,8 +190,11 @@ def print_profile_metrics(
     print(get_profile_metrics(device, runtime, perf_details))
 
 
+DemoJobT = TypeVar("DemoJobT", hub.CompileJob, hub.LinkJob)
+
+
 def print_on_target_demo_cmd(
-    compile_job: Union[hub.CompileJob, list[hub.CompileJob]],
+    compile_job: Union[DemoJobT, Iterable[DemoJobT]],
     model_folder: Path,
     device: hub.Device,
 ) -> None:
@@ -198,7 +202,7 @@ def print_on_target_demo_cmd(
     Outputs a command that will run a model's demo script via inference job.
     """
     model_folder = model_folder.resolve()
-    if isinstance(compile_job, hub.CompileJob):
+    if not isinstance(compile_job, Iterable):
         compile_job = [compile_job]
 
     target_model_id = []
@@ -222,3 +226,23 @@ def print_on_target_demo_cmd(
         print(f"--chipset {device.attributes[len('chipset:'):]}\n")
     else:
         print(f'--device "{device.name}"\n')
+
+
+def print_mmcv_import_failure_and_exit(e: ImportError, model_id: str, mm_variant: str):
+    print(
+        f"""
+------
+
+ImportError: {str(e)}
+
+{mm_variant} failed to import. You probably have the wrong variant of MMCV installed.
+This can happen if you `pip install qai-hub-models[{model_id}]` without providing an index for pip to use to find MMCV.
+
+To fix this, install the variant of MMCV compatible with your torch version:
+    1. pip uninstall mmcv # You need to manually uninstall first. This is important.
+    2. Follow instructions at https://mmcv.readthedocs.io/en/latest/get_started/installation.html#install-with-pip
+
+------
+"""
+    )
+    exit(1)

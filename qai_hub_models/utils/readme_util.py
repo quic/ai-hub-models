@@ -71,11 +71,11 @@ def _get_licenses(
 """
 
 
-def _get_package_instructions(model_id: str):
+def _get_package_instructions(model_id: str, pip_install_flags: str | None):
     # Use dashes in model name to avoid an issue where older pip versions may not install modules correctly.
     return f"""
 Install the package via pip:
 ```bash
-pip install \"qai-hub-models[{model_id.replace("_", "-")}]\"
+pip install \"qai-hub-models[{model_id.replace("_", "-")}]\"{f' {pip_install_flags}' if pip_install_flags else ''}
 ```
 """

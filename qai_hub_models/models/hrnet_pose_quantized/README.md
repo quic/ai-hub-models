@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/h
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[hrnet-pose-quantized]"
+pip install "qai-hub-models[hrnet-pose-quantized]" torch==2.1.2 -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.1/index.html
 ```
 
 

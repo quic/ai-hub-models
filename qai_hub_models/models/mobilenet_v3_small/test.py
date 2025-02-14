@@ -12,15 +12,15 @@ from qai_hub_models.models.mobilenet_v3_small.demo import main as demo_main
 from qai_hub_models.models.mobilenet_v3_small.model import MODEL_ID, MobileNetV3Small
 
 
-def test_task():
+def test_task() -> None:
     run_imagenet_classifier_test(MobileNetV3Small.from_pretrained(), MODEL_ID)
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     run_imagenet_classifier_trace_test(MobileNetV3Small.from_pretrained())
 
 
-def test_demo():
+def test_demo() -> None:
     # Verify demo does not crash
     demo_main(is_test=True)

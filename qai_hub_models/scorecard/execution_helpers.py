@@ -24,6 +24,7 @@ def for_each_scorecard_path_and_device(
     include_devices: list[ScorecardDevice] | None = None,
     exclude_paths: list[ScorecardPathTypeVar] | None = None,
     exclude_devices: list[ScorecardDevice] | None = None,
+    include_mirror_devices: bool = False,
 ):
     for path in path_type.all_paths(
         enabled=True, supports_quantization=model_is_quantized or None
@@ -42,6 +43,7 @@ def for_each_scorecard_path_and_device(
             supports_profile_path=path
             if isinstance(path, ScorecardProfilePath)
             else None,
+            is_mirror=None if include_mirror_devices else False,
         ):
             if include_devices and device not in include_devices:
                 continue
@@ -87,6 +89,7 @@ def get_compile_parameterized_pytest_config(
             enabled=True,
             supports_fp16_npu=(True if needs_fp16 else None),
             supports_compile_path=sc_path,
+            is_mirror=False,
         )
         for sc_path in path_list
     }
@@ -114,6 +117,7 @@ def get_profile_parameterized_pytest_config(
             enabled=True,
             supports_fp16_npu=(True if needs_fp16 else None),
             supports_profile_path=sc_path,
+            is_mirror=False,
         )
         for sc_path in path_list
     }

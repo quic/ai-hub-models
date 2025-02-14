@@ -10,10 +10,11 @@ import warnings
 from qai_hub_models.models._shared.llama3.export import export_model
 from qai_hub_models.models.llama_v3_8b_chat_quantized import MODEL_ID, Model
 from qai_hub_models.models.llama_v3_8b_chat_quantized.model import (
+    MODEL_ASSET_VERSION,
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
 )
-from qai_hub_models.utils.args import export_parser
+from qai_hub_models.utils.args import enable_model_caching, export_parser
 
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
 
@@ -42,10 +43,12 @@ def main():
         action="store_true",
         help="Wait for each command to finish before submitting new.",
     )
+    parser = enable_model_caching(parser)
     args = parser.parse_args()
     export_model(
         model_cls=Model,
         model_name=MODEL_ID,
+        model_asset_version=MODEL_ASSET_VERSION,
         components=ALL_COMPONENTS,
         sub_components=ALL_SUB_COMPONENTS,
         num_layers_per_split=NUM_LAYERS_PER_SPLIT,

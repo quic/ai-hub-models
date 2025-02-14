@@ -13,7 +13,6 @@ from qai_hub_models.utils.asset_loaders import (
     find_replace_in_repo,
     wipe_sys_modules,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
 
 MODEL_ASSET_VERSION = 2
 MODEL_ID = __name__.split(".")[-2]
@@ -144,23 +143,3 @@ class YoloV10Detector(Yolo):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
-
-
-def get_hub_profile_options(
-    self, target_runtime: TargetRuntime, other_profile_options: str = ""
-) -> str:
-    """
-    Accuracy on ONNX & QNN runtime is not regained in NPU
-    Issue: https://github.com/qcom-ai-hub/tetracode/issues/13108
-
-    """
-    profile_options = super().get_hub_profile_options(
-        target_runtime, other_profile_options
-    )
-    if (
-        target_runtime == TargetRuntime.ONNX  # unable to regain the accuracy
-        or target_runtime == TargetRuntime.QNN  # unable to regain the accuracy
-        and "--compute_unit" not in profile_options
-    ):
-        profile_options = profile_options + " --compute_unit cpu"
-    return profile_options

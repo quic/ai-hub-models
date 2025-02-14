@@ -36,7 +36,7 @@ def imagenet_sample_torch() -> torch.Tensor:
 
     - Preprocessed (normalized etc) image as torch.Tensor with shape [1, 3, 224, 224]
     """
-    img = load_image(TEST_IMAGENET_IMAGE, "imagenet_classifier")
+    img = load_image(TEST_IMAGENET_IMAGE, desc="imagenet_classifier")
     return preprocess_image(img)
 
 

@@ -10,12 +10,9 @@ from importlib import reload
 import torch
 import torch.nn as nn
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
+from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 YOLOV5_SOURCE_REPOSITORY = "https://github.com/ultralytics/yolov5"
@@ -29,19 +26,13 @@ DEFAULT_WEIGHTS = "yolov5m.pt"
 MODEL_ASSET_VERSION = 1
 
 
-class YoloV5(BaseModel):
+class YoloV5(Yolo):
     """Exportable YoloV5 bounding box detector, end-to-end."""
 
     def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
         super().__init__()
         self.model = model
         self.include_postprocessing = include_postprocessing
-
-    # All image input spatial dimensions should be a multiple of this stride.
-    STRIDE_MULTIPLE = 32
-
-    def get_evaluator(self) -> BaseEvaluator:
-        return DetectionEvaluator(*self.get_input_spec()["image"][0][2:])
 
     @classmethod
     def from_pretrained(
@@ -58,19 +49,6 @@ class YoloV5(BaseModel):
 
         boxes, scores, class_idx = detect_postprocess(output)
         return boxes, scores, class_idx if self.include_postprocessing else results
-
-    @staticmethod
-    def get_input_spec(
-        batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
-    ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub. Default resolution is 2048x1024
-        so this expects an image where width is twice the height.
-        """
-        return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
     def get_output_names(include_postprocessing: bool = True) -> list[str]:

@@ -10,7 +10,6 @@ import inspect
 import pytest
 
 from qai_hub_models.models.convnext_tiny_w8a16_quantized import Model
-from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 # Instantiate the model only once for all tests.
@@ -23,7 +22,6 @@ def cached_from_pretrained():
         from_pretrained = Model.from_pretrained
         sig = inspect.signature(from_pretrained)
 
-        @skip_clone_repo_check
         def _cached_from_pretrained(*args, **kwargs):
             cache_key = str(args) + str(kwargs)
             model = pretrained_cache.get(cache_key, None)

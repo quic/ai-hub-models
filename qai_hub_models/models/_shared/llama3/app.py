@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import gc
 import math
 from collections.abc import Callable
@@ -81,7 +83,7 @@ class ChatApp:
 
         orig_input_ids = input_tokens["input_ids"].type(torch.long)
 
-        num_tokens = torch.sum(input_tokens["attention_mask"]).item()
+        num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         num_prompt_iterations = math.ceil(num_tokens / prompt_sequence_length)
 
         print(
@@ -90,7 +92,7 @@ class ChatApp:
 
         # Collect output prompt to summarize later
         output_token = None
-        hub_tokens = None
+        hub_tokens: torch.Tensor | None = None
 
         model = self.model_cls.from_pretrained(
             sequence_length=prompt_sequence_length,
@@ -114,6 +116,8 @@ class ChatApp:
             if k.startswith("past_")
         ]
 
+        position_ids: torch.Tensor | None = None
+        attention_mask: torch.Tensor | None = None
         for i in range(num_prompt_iterations + max_output_tokens - 1):
             if i < num_prompt_iterations:
                 seq_len = prompt_sequence_length
@@ -142,11 +146,11 @@ class ChatApp:
                 padding_size0 = seq_len - first_prompt
                 padding_size = padding_size0 if i == 0 else 0
                 offset = 0 if i == 0 else first_prompt + (i - 1) * seq_len
-                position_ids = [0] * (padding_size) + list(
+                position_ids_lst = [0] * (padding_size) + list(
                     range(offset, offset + seq_len - padding_size)
                 )
                 position_ids = (
-                    torch.Tensor(position_ids).type(torch.long).reshape(1, seq_len)
+                    torch.Tensor(position_ids_lst).type(torch.long).reshape(1, seq_len)
                 )
                 position_ids = (
                     torch.Tensor(position_ids).type(torch.long).reshape(1, seq_len)
@@ -157,12 +161,15 @@ class ChatApp:
                 attention_mask = torch.zeros((1, context_length))
                 attention_mask[:, context_length - (first_prompt + i * seq_len) :] = 1.0
             else:
+                assert output_token is not None
                 input_ids = output_token.reshape(-1, 1).type(torch.int32)
 
                 # Shift attention_mask and position_ids
+                assert attention_mask is not None
                 attention_mask = torch.cat(
                     (attention_mask[:, seq_len:], torch.ones((1, seq_len))), dim=-1
                 )
+                assert position_ids is not None
                 position_ids = (position_ids[:, -1] + 1).reshape(-1, 1)
 
                 position_ids = torch.Tensor(position_ids).type(torch.long).reshape(1, 1)
@@ -204,6 +211,7 @@ class ChatApp:
             if is_prompt:
                 hub_tokens = output_token
             else:
+                assert hub_tokens is not None
                 hub_tokens = torch.cat((hub_tokens, output_token), dim=-1)
 
             if is_prediction:

@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 import os
 
+from PIL.Image import Image
+
 from qai_hub_models.models._shared.cityscapes_segmentation.app import (
     CityscapesSegmentationApp,
 )
@@ -55,11 +57,12 @@ def cityscapes_segmentation_demo(
 
     inference_model = demo_model_from_cli_args(model_type, model_id, args)
     input_spec = input_spec_from_cli_args(inference_model, args)
-    app = CityscapesSegmentationApp(inference_model, input_spec)
+    app = CityscapesSegmentationApp(inference_model, input_spec)  # type: ignore[arg-type]
 
     # Run app
     orig_image = load_image(image)
     image_annotated = app.predict(orig_image)
+    assert isinstance(image_annotated, Image)
 
     if not is_test:
         display_or_save_image(
