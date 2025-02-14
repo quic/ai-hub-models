@@ -77,12 +77,12 @@ class Yolo2DDetection(YoloV3):
 
 
 class VGG3DDetection(BaseModel):
-    def __init__(self, model: torch.nn.Module) -> None:
+    def __init__(self, model) -> None:
         super().__init__()
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_url: str = DEFAULT_VGG_WEIGHTS_URL) -> VGG3DDetection:  # type: ignore[override]
+    def from_pretrained(cls, ckpt_url: str = DEFAULT_VGG_WEIGHTS_URL) -> DeepBox:
         with SourceAsRoot(
             DEEPBOX_SOURCE_REPOSITORY,
             DEEPBOX_SOURCE_REPO_COMMIT,

@@ -5,9 +5,9 @@
 from __future__ import annotations
 
 import os
+from typing import Callable
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from PIL import Image
 
@@ -16,8 +16,6 @@ from qai_hub_models.models.deepbox.model import (
     DEEPBOX_SOURCE_REPOSITORY,
     MODEL_ASSET_VERSION,
     MODEL_ID,
-    VGG3DDetection,
-    Yolo2DDetection,
 )
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
 from qai_hub_models.utils.bounding_box_processing import batched_nms
@@ -58,8 +56,13 @@ class DeepBoxApp:
 
     def __init__(
         self,
-        bbox2D_dectector: Yolo2DDetection,
-        bbox3D_dectector: VGG3DDetection,
+        bbox2D_dectector: Callable[
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        ],
+        bbox3D_dectector: Callable[
+            [np.array, torch.Tensor, torch.Tensor],
+            tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[list]],
+        ],
         nms_score_threshold: float = 0.5,
         nms_iou_threshold: float = 0.3,
     ):
@@ -92,19 +95,21 @@ class DeepBoxApp:
 
     def detect_image(
         self,
-        image: Image.Image,
+        image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
-    ) -> tuple[
-        list[npt.NDArray[np.float64]],
-        list[np.float64],
-        list[npt.NDArray[np.float32]],
-        list[list[np.float64]],
-    ] | Image.Image:
+    ) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[list]] | list[
+        Image.Image
+    ]:
         """
         From the provided image or tensor, predict the 3d bounding boxes & classes of objects detected within.
 
         Parameters:
-            image: PIL image
+            pixel_values_or_image: torch.Tensor
+                PIL image
+                or
+                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+                or
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
 
         Returns:
             if raw_output is False, returns
@@ -127,22 +132,20 @@ class DeepBoxApp:
         (H_resized, W_resized) = self.yolo.get_input_spec()["image"][0][-2:]
         image_resized = image.resize((W_resized, H_resized))
 
-        raw_pred_boxes, pred_scores, pred_class_idx = self.detect_2d_bboxes(
-            image_resized
-        )
+        pred_boxes, pred_scores, pred_class_idx = self.detect_2d_bboxes(image_resized)
 
         # Converting output floating point box coordinates to the input image's coordinate space
         height_scale = H / H_resized
         width_scale = W / W_resized
-        pred_boxes = raw_pred_boxes[0]
+        pred_boxes = pred_boxes[0]
         pred_boxes[:, (0, 2)] = pred_boxes[:, (0, 2)] * width_scale
         pred_boxes[:, (1, 3)] = pred_boxes[:, (1, 3)] * height_scale
 
         # Detect 3d bboxes for each objects detected
-        proj_matrixes: list[npt.NDArray[np.float64]] = []
-        orients: list[np.float64] = []
-        dims: list[npt.NDArray[np.float32]] = []
-        locations: list[list[np.float64]] = []
+        locations = []
+        proj_matrixes = []
+        orients = []
+        dims = []
         for i in range(pred_scores[0].shape[0]):
             output = self.detect_3d_bboxes(
                 numpy_image, pred_boxes[i], pred_class_idx[0][i]
@@ -160,9 +163,7 @@ class DeepBoxApp:
         img = Image.fromarray(numpy_image)
         return img
 
-    def detect_2d_bboxes(
-        self, image_resized: Image.Image
-    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]:
+    def detect_2d_bboxes(self, image_resized):
         _, NCHW_fp32_torch_frames = app_to_net_image_inputs(image_resized)
 
         pred_boxes, pred_scores, pred_class_idx = self.yolo(NCHW_fp32_torch_frames)
@@ -177,14 +178,7 @@ class DeepBoxApp:
 
         return pred_boxes, pred_scores, pred_class_idx
 
-    def detect_3d_bboxes(
-        self,
-        numpy_image: np.ndarray,
-        pred_boxes: torch.Tensor,
-        pred_class_idx: torch.Tensor,
-    ) -> tuple[
-        npt.NDArray[np.float64], np.float64, npt.NDArray[np.float32], list[np.float64]
-    ] | None:
+    def detect_3d_bboxes(self, numpy_image, pred_boxes, pred_class_idx):
         averages = ClassAverages.ClassAverages()
         angle_bins = Dataset.generate_bins(2)
 

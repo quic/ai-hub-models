@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import torch
 from PIL import Image
 from torchvision import transforms
@@ -48,7 +46,7 @@ class DepthEstimationApp:
         self,
         image: Image.Image,
         raw_output: bool = False,
-    ) -> Image.Image | npt.NDArray[np.float32]:
+    ) -> list[Image.Image] | np.ndarray:
         """
         Estimates the depth at each point in an image and produces a heatmap.
 
@@ -68,7 +66,7 @@ class DepthEstimationApp:
         image_tensor = transforms.ToTensor()(resized_image).unsqueeze(0)
         prediction = self.model(image_tensor)
         prediction = undo_resize_pad(prediction, image.size, scale, padding)
-        numpy_output = cast(npt.NDArray[np.float32], prediction.squeeze().cpu().numpy())
+        numpy_output = prediction.squeeze().cpu().numpy()
         if raw_output:
             return numpy_output
         heatmap = plt.cm.plasma(numpy_output / numpy_output.max())[..., :3]

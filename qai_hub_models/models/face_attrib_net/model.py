@@ -48,14 +48,11 @@ class FaceAttribNet(BaseModel):
             mask=True,
         )
 
-        # "actual" because we completely ignore the method parameter
-        actual_checkpoint_path = CachedWebModelAsset.from_asset_store(
+        checkpoint_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         )
 
-        faceattribnet_model.load_state_dict(
-            load_torch(actual_checkpoint_path)["model_state"]
-        )
+        faceattribnet_model.load_state_dict(load_torch(checkpoint_path)["model_state"])
         faceattribnet_model.to(torch.device("cpu"))
         return cls(faceattribnet_model)
 

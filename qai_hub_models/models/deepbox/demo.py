@@ -2,13 +2,11 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-
-from PIL import Image
-
 from qai_hub_models.models.deepbox.app import DeepBoxApp
 from qai_hub_models.models.deepbox.model import MODEL_ASSET_VERSION, MODEL_ID, DeepBox
 from qai_hub_models.utils.args import get_model_cli_parser, get_on_device_demo_parser
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
 INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -17,7 +15,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def deepbox_demo(
-    model_type: type[DeepBox],
+    model_type: type[BaseModel],
     default_image: CachedWebModelAsset,
     is_test: bool = False,
 ):
@@ -39,13 +37,12 @@ def deepbox_demo(
     image = load_image(args.image)
 
     output = app.detect_image(image)
-    assert isinstance(output, Image.Image)
 
     if not is_test:
         display_or_save_image(output, args.output_dir)
 
 
-def main(is_test: bool = False) -> None:
+def main(is_test: bool = False):
     deepbox_demo(DeepBox, INPUT_IMAGE_ADDRESS, is_test)
 
 

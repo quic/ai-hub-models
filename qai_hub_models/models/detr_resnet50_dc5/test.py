@@ -18,7 +18,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def test_task() -> None:
+def test_task():
     net = DETRResNet50DC5.from_pretrained(DEFAULT_WEIGHTS)
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
@@ -26,12 +26,12 @@ def test_task() -> None:
 
 
 @pytest.mark.trace
-def test_trace() -> None:
+def test_trace():
     net = DETRResNet50DC5.from_pretrained(DEFAULT_WEIGHTS).convert_to_torchscript()
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
     assert set(list(label.numpy())) == {75, 63, 17}
 
 
-def test_demo() -> None:
+def test_demo():
     demo_main(is_test=True)

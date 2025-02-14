@@ -7,7 +7,6 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import numpy as np
-import numpy.typing as npt
 import torch
 from PIL import Image
 
@@ -35,7 +34,7 @@ class FaceAttribNetApp:
     def run_inference_on_image(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image.Image,
-    ) -> list[npt.NDArray[np.float32]]:
+    ) -> list[Image.Image] | np.ndarray:
         """
         Return the corresponding output by running inference on input image.
 
@@ -60,19 +59,17 @@ class FaceAttribNetApp:
         img = pixel_values_or_image
 
         if isinstance(img, Image.Image):
-            img_array = np.asarray(img)
+            img = np.asarray(img)
         elif isinstance(img, np.ndarray):
-            img_array = img
+            img = img
         else:
-            raise RuntimeError("Invalid format")
+            assert 0, "Invalid format"
 
-        img_array = img_array.astype("float32") / 255  # image normalization
-        img_array = img_array[np.newaxis, ...]
-        img_tensor = torch.Tensor(img_array)
+        img = img.astype("float32") / 255  # image normalization
+        img = img[np.newaxis, ...]
+        img_tensor = torch.Tensor(img)
         img_tensor = img_tensor.permute(0, 3, 1, 2)  # convert NHWC to NCHW
         pred_res = self.model(img_tensor)
 
-        pred_res_list: list[npt.NDArray[np.float32]] = [
-            np.squeeze(out.detach().numpy()) for out in pred_res
-        ]
-        return pred_res_list
+        pred_res = [np.squeeze(out.detach().numpy()) for out in pred_res]
+        return pred_res

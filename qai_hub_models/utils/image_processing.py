@@ -10,7 +10,6 @@ from collections.abc import Callable
 
 import cv2
 import numpy as np
-import numpy.typing as npt
 import torch
 import torchvision.transforms as transforms
 from PIL.Image import Image
@@ -30,7 +29,7 @@ IMAGENET_TRANSFORM = transforms.Compose(
 
 def app_to_net_image_inputs(
     pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
-) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor]:
+) -> tuple[list[np.ndarray], torch.Tensor]:
     """
     Convert the provided images to application inputs.
     ~~This does not change channel order. RGB stays RGB, BGR stays BGR, etc~~

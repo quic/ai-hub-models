@@ -42,11 +42,11 @@ class FaceDetLite_model(BaseModel):
     def from_pretrained(cls, checkpoint_path: str | None = None):
         """Load FaceDetLite from a weightfile created by the source FaceDetLite repository."""
 
-        checkpoint_to_load = CachedWebModelAsset.from_asset_store(
+        checkpoint_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         )
         FaceDetLite_model = FaceDetLite()
-        FaceDetLite_model.load_state_dict(load_torch(checkpoint_to_load)["model_state"])
+        FaceDetLite_model.load_state_dict(load_torch(checkpoint_path)["model_state"])
         FaceDetLite_model.to(torch.device("cpu"))
 
         return cls(FaceDetLite_model)
