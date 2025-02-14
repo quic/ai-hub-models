@@ -17,7 +17,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     input = load_image(
         INPUT_IMAGE_ADDRESS,
     )
@@ -30,5 +30,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

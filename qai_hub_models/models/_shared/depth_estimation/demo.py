@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from PIL import Image
+
 from qai_hub_models.models._shared.depth_estimation.app import DepthEstimationApp
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
@@ -41,6 +43,7 @@ def depth_estimation_demo(
 
     app = DepthEstimationApp(model, height, width)
     heatmap_image = app.estimate_depth(image)
+    assert isinstance(heatmap_image, Image.Image)
 
     if not is_test:
         # Resize / unpad annotated image

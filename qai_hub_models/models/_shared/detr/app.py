@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import Optional
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from PIL.Image import Image, Resampling
 
@@ -47,7 +48,7 @@ class DETRApp:
         image: Image,
         default_weights: str,
         threshold: float = 0.9,
-    ) -> np.ndarray:
+    ) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         From the provided image or tensor, generate the segmented mask.
 
@@ -98,20 +99,21 @@ class DETRApp:
         scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1).to(boxes.device)
         boxes = boxes * scale_fct[:, None, :]
 
-        for s, l, b in zip(scores, labels, boxes):
-            score = s[s > threshold]
-            label = l[s > threshold]
-            box = b[s > threshold]
+        labels = labels[scores > threshold]
+        boxes = boxes[scores > threshold]
+        scores = scores[scores > threshold]
 
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(image)
-        for p, (xmin, ymin, xmax, ymax), l in zip(score, box.tolist(), label):
+        for p, (xmin, ymin, xmax, ymax), l in zip(
+            scores.tolist(), boxes.tolist(), labels.tolist()
+        ):
             draw_box_from_xyxy(
                 NHWC_int_numpy_frames[0],
                 (int(xmin), int(ymin)),
                 (int(xmax), int(ymax)),
                 color=(0, 255, 0),
                 size=2,
-                text=f"{LABEL_MAP[l.item()]}: {p.item():0.2f}",
+                text=f"{LABEL_MAP[l]}: {p:0.2f}",
             )
 
-        return NHWC_int_numpy_frames, score, label, box
+        return NHWC_int_numpy_frames, scores, labels, boxes
