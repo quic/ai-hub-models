@@ -16,6 +16,16 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 ## Example & Usage
 
+Before installing, make sure you are running Python 3.10
+```bash
+python --version
+```
+
+Install the requirements via pip:
+
+```bash
+pip install scikit-image
+```
 
 Once installed, run the following simple CLI demo:
 
