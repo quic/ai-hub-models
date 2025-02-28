@@ -279,7 +279,6 @@ and many more.
 | [Yolo-v7-Quantized](https://aihub.qualcomm.com/models/yolov7_quantized) | [qai_hub_models.models.yolov7_quantized](qai_hub_models/models/yolov7_quantized/README.md) |
 | | |
 | **Pose Estimation**
-| [Facial-Landmark-Detection](https://aihub.qualcomm.com/models/facemap_3dmm) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) |
 | [Facial-Landmark-Detection-Quantized](https://aihub.qualcomm.com/models/facemap_3dmm_quantized) | [qai_hub_models.models.facemap_3dmm_quantized](qai_hub_models/models/facemap_3dmm_quantized/README.md) |
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) |
 | [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) |
