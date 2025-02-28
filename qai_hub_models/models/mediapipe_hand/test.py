@@ -24,7 +24,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_hand_app():
+def test_hand_app() -> None:
     input = load_image(
         INPUT_IMAGE_ADDRESS,
     )
@@ -32,11 +32,11 @@ def test_hand_app():
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
     app = MediaPipeHandApp(MediaPipeHand.from_pretrained())
-    assert np.allclose(
-        app.predict_landmarks_from_image(input)[0], np.asarray(expected_output)
-    )
+    actual_output = app.predict_landmarks_from_image(input)[0]
+    assert isinstance(actual_output, np.ndarray)
+    assert np.allclose(actual_output, np.asarray(expected_output))
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

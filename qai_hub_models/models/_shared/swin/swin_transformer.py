@@ -13,7 +13,7 @@ from torch.nn import functional as F
 from torchvision.models.swin_transformer import ShiftedWindowAttention
 
 
-def split_linear_input(x, weight, bias, max_channel):
+def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Tensor:
     num_chunks = int(-(-x.size(-1) // max_channel))  # Ceiling division
     if num_chunks == 1:
         return F.linear(x, weight, bias)
@@ -30,7 +30,9 @@ def split_linear_input(x, weight, bias, max_channel):
     return output
 
 
-def split_linear(x, weight, bias, max_channel=512):
+def split_linear(
+    x: Tensor, weight: Tensor, bias: Tensor, max_channel: int = 512
+) -> Tensor:
     """
     Split linear input and output channels to have no more than `max_channel`
     """
@@ -155,6 +157,7 @@ def shifted_window_attention_inf(
     q_weight, k_weight, v_weight = torch.split(
         qkv_weight, qkv_weight.shape[0] // 3, dim=0
     )
+    assert qkv_bias is not None
     q_bias, k_bias, v_bias = torch.split(qkv_bias, qkv_bias.shape[0] // 3, dim=0)
     if q_weight.shape[0] > 512:
         # Improve GPU residency with smaller fully connected layers

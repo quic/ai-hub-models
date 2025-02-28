@@ -425,7 +425,7 @@ class TaskLibrary:
                 group_name=None,
                 venv=self.venv_path,
                 commands=[
-                    "python qai_hub_models/scripts/generate_perf_yaml.py --gen-csv --gen-perf-summary --sync-code-gen"
+                    "python qai_hub_models/scripts/collect_scorecard_results.py --gen-csv --gen-perf-summary --sync-code-gen"
                 ],
             ),
         )

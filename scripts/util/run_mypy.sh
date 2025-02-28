@@ -11,16 +11,19 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 set_strict_mode
 
-
 cd "$(dirname "$0")/../.."
 
+# Uncomment "echo"s below to debug
+
 venv="${VENV_PATH:-qaihm-dev}"
-echo "Activating venv in ${venv}"
+# echo "Activating venv in ${venv}"
 source "${venv}/bin/activate"
 
-paths=(qai_hub_models)
-for path in "${paths[@]}"; do
-    pathToCheck="${path}"
-    echo "Running mypy on ${pathToCheck}"
-    mypy --ignore-missing-imports --warn-unused-configs --config-file="${REPO_ROOT}/mypy.ini" "${pathToCheck}"
-done
+if [ "$#" -eq 0 ]; then
+  mypy_files=(qai_hub_models)
+else
+  mypy_files=("$@")
+fi
+
+# echo "Checking ${mypy_files[*]}"
+mypy --ignore-missing-imports --warn-unused-configs --config-file="${REPO_ROOT}/mypy.ini" "${mypy_files[@]}"

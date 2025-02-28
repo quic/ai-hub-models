@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import numpy as np
+import torch
 
 from qai_hub_models.models.mediapipe_face.app import MediaPipeFaceApp
 from qai_hub_models.models.mediapipe_face.demo import INPUT_IMAGE_ADDRESS
@@ -25,18 +26,19 @@ GT_LANDMARKS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_face_app():
+def test_face_app() -> None:
     input = load_image(INPUT_IMAGE_ADDRESS)
     expected_output = load_numpy(GT_LANDMARKS)
     expected_coords, expected_conf = np.split(expected_output, [2], axis=2)
     app = MediaPipeFaceApp(MediaPipeFaceQuantizable.from_pretrained())
     result = app.predict_landmarks_from_image(input, raw_output=True)
     landmarks = result[3][0]
+    assert isinstance(landmarks, torch.Tensor)
     coords, conf = np.split(landmarks, [2], axis=2)
     np.testing.assert_allclose(coords, expected_coords, rtol=0.03, atol=15)
     np.testing.assert_allclose(conf, expected_conf, atol=0.05)
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

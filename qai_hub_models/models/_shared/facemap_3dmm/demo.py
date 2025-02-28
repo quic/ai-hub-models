@@ -23,8 +23,11 @@ from qai_hub_models.utils.args import (
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.display import display_or_save_image
 
-INPUT_IMAGE_PATH = str(
-    CachedWebModelAsset.from_asset_store(MODEL_ID, MODEL_ASSET_VERSION, "face_img.jpg")
+INPUT_IMAGE_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "face_img.jpg"
+)
+INPUT_FBOX_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "face_img_fbox.txt"
 )
 
 
@@ -41,7 +44,7 @@ def main(
     parser.add_argument(
         "--image",
         type=str,
-        default=INPUT_IMAGE_PATH,
+        default=str(INPUT_IMAGE_PATH.fetch()),
         help="image file path or URL",
     )
     args = parser.parse_args([] if is_test else None)
@@ -49,7 +52,6 @@ def main(
     validate_on_device_demo_args(args, model_id)
 
     # Load image
-    (_, _, height, width) = FaceMap_3DMM.get_input_spec()["image"][0]
     image = io.imread(args.image)
 
     print("Model Loaded")
@@ -57,23 +59,27 @@ def main(
     app = FaceMap_3DMMApp(model)
 
     # Get face bounding box info (from file or face detector)
-    fbox = np.loadtxt(INPUT_IMAGE_PATH.replace(".jpg", "_fbox.txt"))
-    x0, x1, y0, y1 = int(fbox[0]), int(fbox[1]), int(fbox[2]), int(fbox[3])
+    fbox = np.loadtxt(INPUT_FBOX_PATH.fetch())
+    x0, x1, y0, y1 = (
+        np.int32(fbox[0]),
+        np.int32(fbox[1]),
+        np.int32(fbox[2]),
+        np.int32(fbox[3]),
+    )
 
     lmk, output = app.landmark_prediction(image, x0, x1, y0, y1)
 
     if not is_test:
         # Annotated lmk
         np.savetxt(
-            "qai_hub_models/models/facemap_3dmm/demo_output_lmk.txt",
+            "build/demo_output_lmk.txt",
             lmk.detach().numpy(),
         )
 
         # Annotated image
         display_or_save_image(
             Image.fromarray(cv2.cvtColor(output, cv2.COLOR_BGR2RGB)),
-            "qai_hub_models/models/facemap_3dmm",
-            "demo_output_img.png",
+            filename="demo_output_img.png",
         )
 
 

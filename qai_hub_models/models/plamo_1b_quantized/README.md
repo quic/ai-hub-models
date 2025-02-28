@@ -45,5 +45,3 @@ This model may not be used for or in connection with any of the following applic
 - Recommender systems of social media platforms;
 - Scraping of facial images (from the internet or otherwise); and/or
 - Subliminal manipulation
-
-

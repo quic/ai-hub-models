@@ -74,6 +74,7 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
     if args.image:
         image = load_image(args.image).convert("RGB")
         pred_image = app.predict_landmarks_from_image(image)
+        assert isinstance(pred_image[0], np.ndarray)
         out_image = Image.fromarray(pred_image[0], "RGB")
         if not is_test:
             display_or_save_image(out_image, args.output_dir)

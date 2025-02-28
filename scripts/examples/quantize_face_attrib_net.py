@@ -14,6 +14,12 @@ from torchvision.transforms import Compose, Resize, ToTensor
 from qai_hub_models.models.face_attrib_net_quantized.model import (
     FaceAttribNetQuantizable,
 )
+from qai_hub_models.models.facemap_3dmm_quantized.model import FaceMap_3DMMQuantizable
+
+MODELS = {
+    "face_attrib_net": FaceAttribNetQuantizable,
+    "facemap_3dmm": FaceMap_3DMMQuantizable,
+}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -33,6 +39,14 @@ if __name__ == "__main__":
         help="Manual seed to ensure reproducibility for quantization.",
     )
     parser.add_argument(
+        "--model",
+        "-m",
+        type=str,
+        choices=list(MODELS.keys()),
+        required=False,
+        help="Name of the model to quantize.",
+    )
+    parser.add_argument(
         "--dataset-dir",
         type=str,
         required=True,
@@ -46,7 +60,7 @@ if __name__ == "__main__":
 
     image_files = [Path(args.dataset_dir) / fp for fp in image_files[: args.num_iter]]
 
-    model = FaceAttribNetQuantizable.from_pretrained(aimet_encodings=None)
+    model = MODELS[args.model].from_pretrained(aimet_encodings=None)
 
     dataset = ImageFolder(
         args.dataset_dir,
@@ -56,6 +70,6 @@ if __name__ == "__main__":
     model.quantize(dataloader, args.num_iter, data_has_gt=True)
     output_path = args.output_dir or str(Path() / "build")
     model.quant_sim.save_encodings_to_json(
-        output_path, "face_attrib_net_quantized_encodings"
+        output_path, f"{args.model}_quantized_encodings"
     )
-    print(f"Wrote {output_path}/face_attrib_net_quantized_encodings.json\n")
+    print(f"Wrote {output_path}/{args.model}_quantized_encodings.json\n")

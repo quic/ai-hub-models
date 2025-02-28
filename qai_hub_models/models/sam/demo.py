@@ -54,7 +54,7 @@ def main(is_test: bool = False):
     )
     args = parser.parse_args(["--model-type", SMALL_MODEL_TYPE] if is_test else None)
 
-    coordinates = list(filter(None, args.point_coordinates.split(";")))
+    coordinates: list[str] = list(filter(None, args.point_coordinates.split(";")))
 
     # Load Application
     wrapper = SAMQAIHMWrapper.from_pretrained(model_type=args.model_type)

@@ -10,7 +10,6 @@ import inspect
 import pytest
 
 from qai_hub_models.models.hrnet_pose_quantized import Model
-from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
 # Instantiate the model only once for all tests.
@@ -19,22 +18,21 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 @pytest.fixture(scope="module", autouse=True)
 def cached_from_pretrained():
     with pytest.MonkeyPatch.context() as mp:
-        pretrained_cache = {}
+        pretrained_cache: dict[str, Model] = {}
         from_pretrained = Model.from_pretrained
         sig = inspect.signature(from_pretrained)
 
-        @skip_clone_repo_check
         def _cached_from_pretrained(*args, **kwargs):
             cache_key = str(args) + str(kwargs)
             model = pretrained_cache.get(cache_key, None)
             if model:
                 return model
             else:
-                model = from_pretrained(*args, **kwargs)
-                pretrained_cache[cache_key] = model
-                return model
+                non_none_model = from_pretrained(*args, **kwargs)
+                pretrained_cache[cache_key] = non_none_model
+                return non_none_model
 
-        _cached_from_pretrained.__signature__ = sig
+        _cached_from_pretrained.__signature__ = sig  # type: ignore[attr-defined]
 
         mp.setattr(Model, "from_pretrained", _cached_from_pretrained)
         yield mp

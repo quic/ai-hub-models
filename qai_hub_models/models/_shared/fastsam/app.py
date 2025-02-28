@@ -66,7 +66,7 @@ class FastSAMApp:
             (self.model_image_input_shape[0], self.model_image_input_shape[1])
         )
         img = preprocess_PIL_image(resized_image)
-        original_image = np.array(original_image)
+        original_image_arr = np.array(original_image)
         raw_boxes, raw_masks = self.model(img)
         nms_out = ops.non_max_suppression(
             raw_boxes,
@@ -99,7 +99,7 @@ class FastSAMApp:
 
         results: list[Results] = []
         for i, pred in enumerate(nms_out):
-            orig_img = original_image
+            orig_img = original_image_arr
             img_path = image_path[i]
             # No predictions, no masks
             if not len(pred):

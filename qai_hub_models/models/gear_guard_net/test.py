@@ -39,7 +39,7 @@ def test_trace() -> None:
     gt = load_raw_file(GROUND_TRUTH_RESULT)
     expected = np.array(gt.split(), dtype=int)
     result = result.astype(int)
-    assert result[0][0] == gt[0]
+    assert result[0][0] == expected[0]
     assert get_iou(result[0][1:5], expected[1:5]) > 0.5
 
 

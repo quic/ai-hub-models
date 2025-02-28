@@ -23,21 +23,25 @@ from qai_hub_models.scorecard.results.performance_summary import (
     ModelCompileSummary,
     ModelInferenceSummary,
     ModelPerfSummary,
+    ModelQuantizeSummary,
     ModelSummaryTypeVar,
 )
 from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
     InferenceScorecardJob,
     ProfileScorecardJob,
+    QuantizeScorecardJob,
     ScorecardJobTypeVar,
     ScorecardPathTypeVar,
 )
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
+QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
+DATASETS_BASE = INTERMEDIATES_DIR / "dataset-ids.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
 
 
@@ -64,9 +68,28 @@ class ScorecardJobYaml(
             return cls(yaml.load(file))
 
     def to_file(self, path: str | Path) -> None:
-        yaml = ruamel.yaml.YAML()
-        with open(path, "w") as file:
-            yaml.dump(self.job_id_mapping, file)
+        if len(self.job_id_mapping) > 0:
+            with open(path, "w") as yaml_file:
+                ruamel.yaml.YAML().dump(self.job_id_mapping, yaml_file)
+        else:
+            # If the dict is empty, ruamel dumps "{}" (which is not YAML) and breaks the file
+            Path(path).touch()
+
+    def clear_jobs(self, model_id: str | None = None):
+        if not model_id:
+            self.job_id_mapping.clear()
+        else:
+            # find jobs to delete
+            # catch "model", ignore "model_quantized"
+            keys_to_delete = [
+                key
+                for key in self.job_id_mapping
+                if (model_id in key and f"{model_id}_quantized" not in key)
+            ]
+
+            # Delete keys
+            for key in keys_to_delete:
+                del self.job_id_mapping[key]
 
     def get_job_id(
         self,
@@ -206,6 +229,61 @@ class ScorecardJobYaml(
         """
         runs = self.get_all_jobs(model_id, is_quantized, components)
         return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore
+
+
+class QuantizeScorecardJobYaml(
+    ScorecardJobYaml[QuantizeScorecardJob, ScorecardCompilePath, ModelQuantizeSummary]
+):
+    scorecard_job_type = QuantizeScorecardJob
+    scorecard_path_type = ScorecardCompilePath
+    scorecard_model_summary_type = ModelQuantizeSummary
+
+    def get_job_id(
+        self,
+        path: ScorecardPathTypeVar | TargetRuntime,
+        model_id: str,
+        device: ScorecardDevice,
+        component: Optional[str] = None,
+        fallback_to_universal_device: bool = False,
+    ) -> str | None:
+        return self.job_id_mapping.get(
+            get_async_job_cache_name(None, model_id, cs_universal, component)
+        )
+
+    def set_job_id(
+        self,
+        job_id,
+        path: ScorecardPathTypeVar | TargetRuntime,
+        model_id: str,
+        device: ScorecardDevice,
+        component: Optional[str] = None,
+    ) -> None:
+        self.job_id_mapping[
+            get_async_job_cache_name(None, model_id, cs_universal, component)
+        ] = job_id
+
+    def get_all_jobs(
+        self,
+        model_id: str,
+        is_quantized: bool,
+        components: Iterable[str] | None = None,
+    ) -> list[QuantizeScorecardJob]:
+        model_runs: list[QuantizeScorecardJob] = []
+        for component in components or [None]:  # type: ignore
+
+            def create_job(path: ScorecardCompilePath, device: ScorecardDevice):
+                model_runs.append(
+                    self.get_job(path, model_id, device, component or None)
+                )
+
+            for_each_scorecard_path_and_device(
+                is_quantized,
+                self.__class__.scorecard_path_type,
+                create_job,
+                include_paths=[ScorecardCompilePath.ONNX],
+                include_devices=[cs_universal],
+            )
+        return model_runs
 
 
 class CompileScorecardJobYaml(

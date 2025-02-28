@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -120,7 +121,9 @@ class TrOCRApp:
         eos_token_id_tensor = np.array([self.eos_token_id], dtype=np.int32)
 
         # Run encoder
-        kv_cache_cross_attn = self.encoder(pixel_values)
+        kv_cache_cross_attn = cast(
+            KVCacheNp, self.encoder(torch.from_numpy(pixel_values))
+        )
 
         # Initial KV Cache
         initial_attn_cache = get_empty_attn_cache(
@@ -154,7 +157,7 @@ class TrOCRApp:
             # Get next tokens. Shape: [batch_size]
             outputs = self.decoder(input_ids, decode_pos, *kv_cache)
             next_tokens = outputs[0]
-            kv_cache_attn = outputs[1:]
+            kv_cache_attn = cast(tuple[np.ndarray, ...], outputs[1:])
 
             # Finished sentences should have padding token appended instead of the prediction.
             next_tokens = next_tokens * unfinished_sequences + self.pad_token_id * (
@@ -179,7 +182,7 @@ class TrOCRApp:
 
             # Re-construct kv cache with new sequence.
             # kv_cache are inserted from the back. Clip 1 from the front
-            kv_cache_attn = [v[:, :, 1:] for v in kv_cache_attn]
+            kv_cache_attn = tuple([v[:, :, 1:] for v in kv_cache_attn])
             kv_cache = combine_kv_caches(kv_cache_cross_attn, kv_cache_attn)
             decode_pos += 1
 
@@ -208,7 +211,7 @@ def combine_kv_caches(
             len(tuple) == 4 * number of source model decoder layers.
     """
     # Construct remaining kv cache with a new empty sequence.
-    kv_cache = [None] * len(kv_cache_cross_attn) * 2
+    kv_cache: list[Any] = [None] * len(kv_cache_cross_attn) * 2
 
     # Combine KV Cache.
     for i in range(0, len(kv_cache_cross_attn) // 2):
@@ -219,7 +222,7 @@ def combine_kv_caches(
 
     none_list = [v for v in kv_cache if v is None]
     assert len(none_list) == 0
-    return (*kv_cache,)
+    return (*kv_cache,)  # type: ignore[arg-type]
 
 
 def get_empty_attn_cache(

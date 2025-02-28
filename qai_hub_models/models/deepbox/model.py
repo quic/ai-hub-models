@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.yolov3.model import YoloV3
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -15,14 +16,15 @@ from qai_hub_models.utils.asset_loaders import (
     load_torch,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 3
 DEEPBOX_SOURCE_REPOSITORY = "https://github.com/skhadem/3D-BoundingBox.git"
 DEEPBOX_SOURCE_REPO_COMMIT = "40ba3b60fd550ff33d5c1b307212dad80149e525"
 
-DEFAULT_VGG_WEIGHTS_URL = (
-    "https://huggingface.co/ludolara/3D-BoundingBox/resolve/main/epoch_10.pkl"
+VGG_WEIGHTS_ASSET = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "epoch_10.pkl"
 )
 DEFAULT_YOLO_WEIGHTS = "yolov3-tiny.pt"
 
@@ -53,10 +55,10 @@ class DeepBox(CollectionModel):
     def from_pretrained(
         cls,
         yolo_ckpt: str = DEFAULT_YOLO_WEIGHTS,
-        vgg_ckpt_url: str = DEFAULT_VGG_WEIGHTS_URL,
+        vgg_ckpt_path: str = "DEFAULT",
     ) -> DeepBox:
         yolo = Yolo2DDetection.from_pretrained(yolo_ckpt)
-        vgg_net = VGG3DDetection.from_pretrained(vgg_ckpt_url)
+        vgg_net = VGG3DDetection.from_pretrained(vgg_ckpt_path)
         return cls(yolo, vgg_net)
 
 
@@ -75,26 +77,27 @@ class Yolo2DDetection(YoloV3):
         """
         return {"image": ((batch_size, 3, height, width), "float32")}
 
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        return super()._sample_inputs_impl(input_spec or self.get_input_spec())
+
 
 class VGG3DDetection(BaseModel):
-    def __init__(self, model) -> None:
+    def __init__(self, model: torch.nn.Module) -> None:
         super().__init__()
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_url: str = DEFAULT_VGG_WEIGHTS_URL) -> DeepBox:
+    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:  # type: ignore[override]
         with SourceAsRoot(
             DEEPBOX_SOURCE_REPOSITORY,
             DEEPBOX_SOURCE_REPO_COMMIT,
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ) as repo_path:
-            ckpt_path = CachedWebModelAsset(
-                ckpt_url,
-                MODEL_ID,
-                MODEL_ASSET_VERSION,
-                "skhadem_3D-BoundingBox_git/weights/epoch_10.pkl",
-            ).fetch()
+            if ckpt_path == "DEFAULT":
+                ckpt_path = str(VGG_WEIGHTS_ASSET.fetch())
 
             find_replace_in_repo(
                 repo_path,

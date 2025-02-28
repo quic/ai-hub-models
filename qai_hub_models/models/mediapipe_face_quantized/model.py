@@ -41,7 +41,7 @@ DEFAULT_FACE_DETECTOR_ENCODINGS = "face_detector_quantized_encodings.json"
 
 class MediaPipeFaceQuantizable(MediaPipeFace):
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # type: ignore[override]
         cls,
         face_detector_encodings: str | None = "DEFAULT",
         landmark_detector_encodings: str | None = "DEFAULT",
@@ -60,7 +60,7 @@ class FaceDetectorQuantizable(AIMETQuantizableMixin, FaceDetector):
         AIMETQuantizableMixin.__init__(self, detector)
 
     @classmethod
-    def from_pretrained(cls, aimet_encodings: str | None = "DEFAULT"):
+    def from_pretrained(cls, aimet_encodings: str | None = "DEFAULT"):  # type: ignore[override]
         fp16_model = FaceDetector.from_pretrained()
         input_shape = cls.get_input_spec()["image"][0]
         model = prepare_model(fp16_model)
@@ -77,11 +77,14 @@ class FaceDetectorQuantizable(AIMETQuantizableMixin, FaceDetector):
         constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
-            if aimet_encodings == "DEFAULT":
-                aimet_encodings = CachedWebModelAsset.from_asset_store(
+            aimet_encodings_to_load = (
+                aimet_encodings
+                if aimet_encodings != "DEFAULT"
+                else CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_FACE_DETECTOR_ENCODINGS
                 ).fetch()
-            load_encodings_to_sim(sim, aimet_encodings)
+            )
+            load_encodings_to_sim(sim, str(aimet_encodings_to_load))
 
         return cls(sim, fp16_model.anchors)
 
@@ -92,7 +95,7 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
         AIMETQuantizableMixin.__init__(self, detector)
 
     @classmethod
-    def from_pretrained(cls, aimet_encodings: str | None = "DEFAULT"):
+    def from_pretrained(cls, aimet_encodings: str | None = "DEFAULT"):  # type: ignore[override]
         fp16_model = FaceLandmarkDetector.from_pretrained()
         input_shape = cls.get_input_spec()["image"][0]
         model = prepare_model(fp16_model)
@@ -109,10 +112,13 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
         constrain_quantized_inputs_to_image_range(sim)
 
         if aimet_encodings:
-            if aimet_encodings == "DEFAULT":
-                aimet_encodings = CachedWebModelAsset.from_asset_store(
+            aimet_encodings_to_load = (
+                aimet_encodings
+                if aimet_encodings != "DEFAULT"
+                else CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_LANDMARK_DETECTOR_ENCODINGS
                 ).fetch()
-            load_encodings_to_sim(sim, aimet_encodings)
+            )
+            load_encodings_to_sim(sim, str(aimet_encodings_to_load))
 
         return cls(sim)

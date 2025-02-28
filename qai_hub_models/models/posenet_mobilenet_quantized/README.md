@@ -16,6 +16,11 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/p
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install "qai-hub-models[posenet-mobilenet-quantized]"
+```
+
 
 Once installed, run the following simple CLI demo:
 
@@ -54,5 +59,3 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
 * For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
-
-

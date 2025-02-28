@@ -40,7 +40,7 @@ class StableDiffusionApp:
         unet: ExecutableModelProtocol,
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
-        time_embedding: diffusers.embeddings.TimeEmbedding,
+        time_embedding: diffusers.embeddings.TimeEmbedding,  # type: ignore[name-defined]
         channel_last_latent: bool,
     ):
         """
@@ -123,6 +123,7 @@ class StableDiffusionApp:
                     uncond_input.input_ids.int(),
                 ]
             )
+            assert isinstance(embeddings, torch.Tensor)
             cond_embeddings, uncond_embeddings = torch.split(embeddings, 1, 0)
         else:
             cond_embeddings = self.text_encoder(text_input.input_ids.type(torch.int32))
@@ -203,16 +204,16 @@ class StableDiffusionApp:
 
 
 def get_time_embedding(
-    time_embedding: diffusers.embeddings.TimeEmbedding, timestep: int
+    time_embedding: diffusers.embeddings.TimeEmbedding, timestep: int  # type: ignore[name-defined]
 ) -> torch.Tensor:
     """
     Since these time embeddings aren't dependent on prompt, they can be
     pre-computed (for a pre-defined set of timesteps) in deployment and
     skip these computation. We include them in demo for better clarity.
     """
-    timestep = torch.tensor([timestep])
+    timestep_tensor = torch.tensor([timestep])
     # TODO: pull 320 from UNet block output dim
-    t_emb = get_timestep_embedding(timestep, 320, True, 0)
+    t_emb = get_timestep_embedding(timestep_tensor, 320, True, 0)
     emb = time_embedding(t_emb)
 
     return emb
@@ -221,7 +222,7 @@ def get_time_embedding(
 def run_diffusion_steps_on_latents(
     unet: ExecutableModelProtocol,
     scheduler: diffusers.DPMSolverMultistepScheduler,
-    time_embedding: diffusers.embeddings.TimeEmbedding,
+    time_embedding: diffusers.embeddings.TimeEmbedding,  # type: ignore[name-defined]
     cond_embeddings: torch.Tensor,
     uncond_embeddings: torch.Tensor,
     num_steps: int = 20,
@@ -280,8 +281,8 @@ def run_diffusion_steps_on_latents(
     - Full evaluation (quantsim, tetra inference job etc)
     """
     with torch.no_grad():
-        scheduler.set_timesteps(num_steps)
-        scheduler.config.prediction_type = "epsilon"
+        scheduler.set_timesteps(num_steps)  # type: ignore[attr-defined]
+        scheduler.config.prediction_type = "epsilon"  # type: ignore[attr-defined]
 
         # Channel last input
         latents_shape = (1, 4, OUT_H // 8, OUT_W // 8)
@@ -289,15 +290,15 @@ def run_diffusion_steps_on_latents(
         generator = torch.manual_seed(seed)
         latents = torch.randn(latents_shape, generator=generator)
 
-        latents = latents * scheduler.init_noise_sigma
+        latents = latents * scheduler.init_noise_sigma  # type: ignore[attr-defined]
 
         # Export for calibration purpose
-        unet_inputs = dict(latent=[], time_emb=[])
+        unet_inputs: dict[str, list[torch.Tensor]] = dict(latent=[], time_emb=[])
 
-        for i, t in enumerate(scheduler.timesteps):
+        for i, t in enumerate(scheduler.timesteps):  # type: ignore[attr-defined]
             print(f"\nStep: {i + 1}\n{'-' * 10}")
             time_emb = get_time_embedding(time_embedding, t)
-            latent_model_input = scheduler.scale_model_input(latents, t)
+            latent_model_input = scheduler.scale_model_input(latents, t)  # type: ignore[attr-defined]
             if channel_last_latent:
                 latent_model_input = _make_channel_last_torch(latent_model_input)
             unet_inputs["latent"].append(latent_model_input)
@@ -320,7 +321,7 @@ def run_diffusion_steps_on_latents(
 
             if channel_last_latent:
                 noise_pred = _make_channel_first_torch(noise_pred)
-            latents = scheduler.step(noise_pred, t, latents).prev_sample
+            latents = scheduler.step(noise_pred, t, latents).prev_sample  # type: ignore[attr-defined]
 
         if return_all_steps:
             return latents, unet_inputs

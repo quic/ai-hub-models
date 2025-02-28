@@ -26,7 +26,7 @@ def validate_scale_factor(scale_factor: int) -> None:
     """Only these scales have pre-trained checkpoints available."""
     valid_scales = [2, 3, 4]
     assert scale_factor in valid_scales, "`scale_factor` must be in : " + ", ".join(
-        valid_scales
+        [str(s) for s in valid_scales]
     )
 
 

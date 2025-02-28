@@ -10,6 +10,7 @@ from collections.abc import Callable
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import torch
 import torchvision.transforms as transforms
 from PIL.Image import Image
@@ -29,7 +30,8 @@ IMAGENET_TRANSFORM = transforms.Compose(
 
 def app_to_net_image_inputs(
     pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
-) -> tuple[list[np.ndarray], torch.Tensor]:
+    to_float: bool = True,
+) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor]:
     """
     Convert the provided images to application inputs.
     ~~This does not change channel order. RGB stays RGB, BGR stays BGR, etc~~
@@ -44,8 +46,9 @@ def app_to_net_image_inputs(
             or
             pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR or grayscale channel layout
 
-        dst_size: (height, width)
-            Size to which the image should be reshaped.
+        to_float: bool (default=True)
+            Whether to denormalize images to [0,1] (fp32) or keep as uint8.
+
 
     Returns:
         NHWC_int_numpy_frames: list[numpy.ndarray]
@@ -65,7 +68,7 @@ def app_to_net_image_inputs(
         fp32_frames = []
         for image in pixel_values_or_image:
             NHWC_int_numpy_frames.append(np.array(image.convert("RGB")))
-            fp32_frames.append(preprocess_PIL_image(image))
+            fp32_frames.append(preprocess_PIL_image(image, to_float=to_float))
         NCHW_fp32_torch_frames = torch.cat(fp32_frames)
     elif isinstance(pixel_values_or_image, torch.Tensor):
         NCHW_fp32_torch_frames = pixel_values_or_image
@@ -384,3 +387,104 @@ def compute_vector_rotation(
         )
         - offset_rads
     )
+
+
+def compute_affine_transform(
+    center: list[int],
+    scale: list[float],
+    rot: int,
+    output_size: list[int],
+    shift: list[float] = [0.0, 0.0],
+    inv: bool = False,
+) -> np.ndarray:
+    """
+    Get the affine transformation matrix.
+
+    Inputs:
+        center: list of int [2,]
+            center for image height and width respectively
+        scale: list of float [2,]
+            scale for image height and width respectively
+        rot: int
+            rotation for image
+        output_size: list of int [2,]
+            output size for image height and width respectively
+        shift: list of float [2,]
+            shift for image height and width respectively
+        inv: bool
+            if False, get affine transform for source image size to output image size,
+            otherwise get affine transform for output image size to source image size.
+
+    Outputs:
+        affine: np.ndarray
+            affine transform for transformation, the shape is(2,3)
+    """
+    scale_tmp = np.array(scale) * 200.0
+    src_w = scale_tmp[0]
+    dst_w = output_size[0]
+    dst_h = output_size[1]
+
+    # get directions
+    rot_rad = np.pi * rot / 180
+    src_point = np.array([0, src_w * -0.5], np.float32)
+    src_dir = get_dir(src_point, rot_rad)
+    dst_dir = np.array([0, dst_w * -0.5], np.float32)
+
+    src = np.zeros((3, 2), dtype=np.float32)
+    dst = np.zeros((3, 2), dtype=np.float32)
+    src[0, :] = center + scale_tmp * shift
+    src[1, :] = center + src_dir + scale_tmp * shift
+    dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
+    dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5]) + dst_dir
+
+    src[2:, :] = get_3rd_point(src[0, :], src[1, :])
+    dst[2:, :] = get_3rd_point(dst[0, :], dst[1, :])
+
+    if inv:
+        affine = cv2.getAffineTransform(dst, src)
+    else:
+        affine = cv2.getAffineTransform(src, dst)
+
+    return affine
+
+
+def get_dir(src_point: np.ndarray, rot_rad: float) -> np.ndarray:
+    """
+    Get the direction of source point based on rotation.
+
+    Inputs:
+        src_point: np.ndarray
+            the point with shape [2,]
+        rot_rad: float
+            the rotation radian
+
+    Outputs:
+        src_result: np.ndarray
+          the point after rotation with shape [2,]
+    """
+    sn, cs = np.sin(rot_rad), np.cos(rot_rad)
+
+    src_result = np.array([0.0, 0.0], np.float32)
+    src_result[0] = src_point[0] * cs - src_point[1] * sn
+    src_result[1] = src_point[0] * sn + src_point[1] * cs
+
+    return src_result
+
+
+def get_3rd_point(point_x: np.ndarray, point_y: np.ndarray) -> np.ndarray:
+    """
+    Gets the 3rd point from two points
+
+    Inputs:
+        point_x: np.ndarray
+            the point with shape is (2,)
+        point_y: np.ndarray
+            the point with shape is (2,)
+
+    Outputs:
+        point_z: np.ndarray
+            the point with shape is (2,)
+    """
+    direct = point_x - point_y
+    point_z = point_y + np.array([-direct[1], direct[0]], dtype=np.float32)
+    return point_z

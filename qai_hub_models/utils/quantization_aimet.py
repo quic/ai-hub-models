@@ -504,4 +504,4 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
             so should be safe to disable gradients during forward pass.
         """
         with torch.no_grad():
-            return super().__call__(*args, **kwargs)
+            return super().__call__(*args, **kwargs)  # type: ignore[misc]

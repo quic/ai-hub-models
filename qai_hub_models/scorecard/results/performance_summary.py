@@ -23,6 +23,7 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     CompileScorecardJob,
     InferenceScorecardJob,
     ProfileScorecardJob,
+    QuantizeScorecardJob,
     ScorecardJobTypeVar,
     ScorecardPathTypeVar,
 )
@@ -105,6 +106,7 @@ _DeviceSummaryTypeVar = TypeVar("_DeviceSummaryTypeVar", bound=ScorecardDeviceSu
 DeviceSummaryTypeVar = TypeVar(
     "DeviceSummaryTypeVar",
     "DevicePerfSummary",
+    "DeviceQuantizeSummary",
     "DeviceCompileSummary",
     "DeviceInferenceSummary",
 )
@@ -241,6 +243,7 @@ _ModelSummaryTypeVar = TypeVar("_ModelSummaryTypeVar", bound=ScorecardModelSumma
 ModelSummaryTypeVar = TypeVar(
     "ModelSummaryTypeVar",
     "ModelPerfSummary",
+    "ModelQuantizeSummary",
     "ModelCompileSummary",
     "ModelInferenceSummary",
 )
@@ -405,10 +408,36 @@ class ModelPerfSummary(
         return pprint.pformat(self.get_perf_card())
 
 
+class DeviceQuantizeSummary(
+    ScorecardDeviceSummary[QuantizeScorecardJob, ScorecardCompilePath]
+):
+    scorecard_job_type = QuantizeScorecardJob
+
+    def get_run(self, path: ScorecardCompilePath) -> QuantizeScorecardJob:
+        return super().get_run(ScorecardCompilePath.ONNX)
+
+
 class DeviceCompileSummary(
     ScorecardDeviceSummary[CompileScorecardJob, ScorecardCompilePath]
 ):
     scorecard_job_type = CompileScorecardJob
+
+
+class ModelQuantizeSummary(
+    ScorecardModelSummary[
+        DeviceQuantizeSummary, QuantizeScorecardJob, ScorecardCompilePath
+    ]
+):
+    device_summary_type = DeviceQuantizeSummary
+    scorecard_job_type = QuantizeScorecardJob
+
+    def get_run(
+        self,
+        device: ScorecardDevice,
+        path: ScorecardCompilePath,
+        component: str | None = None,
+    ) -> QuantizeScorecardJob:
+        return super().get_run(cs_universal, ScorecardCompilePath.ONNX, component)
 
 
 class ModelCompileSummary(

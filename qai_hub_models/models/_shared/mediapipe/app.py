@@ -391,7 +391,7 @@ class MediaPipeApp:
                 Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
                 The order of points is  (top left point, bottom left point, top right point, bottom right point)
         """
-        batched_selected_roi = []
+        batched_selected_roi: list[torch.Tensor | None] = []
         for boxes, keypoints in zip(batched_selected_boxes, batched_selected_keypoints):
             if boxes is None or keypoints is None:
                 batched_selected_roi.append(None)

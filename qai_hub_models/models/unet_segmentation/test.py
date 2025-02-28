@@ -20,7 +20,7 @@ OUTPUT_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def test_task():
+def test_task() -> None:
     net = UNet.from_pretrained()
 
     img = load_image(IMAGE_ADDRESS)
@@ -32,5 +32,5 @@ def test_task():
     np.testing.assert_allclose(np.array(img), np.array(expected_out))
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

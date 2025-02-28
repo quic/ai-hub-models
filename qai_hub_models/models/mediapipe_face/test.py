@@ -23,7 +23,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Because we have not made a modification to the pytorch source network,
 # no numerical tests are included for the model; only for the app.
 @skip_clone_repo_check
-def test_face_app():
+def test_face_app() -> None:
     input = load_image(
         INPUT_IMAGE_ADDRESS,
     )
@@ -31,11 +31,11 @@ def test_face_app():
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
     app = MediaPipeFaceApp(MediaPipeFace.from_pretrained())
-    assert np.allclose(
-        app.predict_landmarks_from_image(input)[0], np.asarray(expected_output)
-    )
+    actual_output = app.predict_landmarks_from_image(input)[0]
+    assert isinstance(actual_output, np.ndarray)
+    assert np.allclose(actual_output, np.asarray(expected_output))
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

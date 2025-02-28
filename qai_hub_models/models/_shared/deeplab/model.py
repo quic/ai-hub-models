@@ -33,7 +33,7 @@ class DeepLabV3Model(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return SegmentationOutputEvaluator(NUM_CLASSES)
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run DeepLabV3_Plus_Mobilenet on `image`, and produce a tensor of classes for segmentation
 

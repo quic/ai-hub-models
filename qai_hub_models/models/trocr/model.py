@@ -145,7 +145,7 @@ class TrOCREncoder(BaseModel):
         return self.__class__.get_output_names(len(self.decoder.model.decoder.layers))
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls):  # type: ignore[override]
         return TrOCR.from_pretrained().encoder
 
     @staticmethod
@@ -334,5 +334,5 @@ class TrOCRDecoder(BaseModel):
         )
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls):  # type: ignore[override]
         return TrOCR.from_pretrained().decoder

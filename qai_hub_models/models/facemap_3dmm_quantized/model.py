@@ -20,8 +20,8 @@ from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
-DEFAULT_ENCODINGS = "facemap_3dmm_encodings.json"
+MODEL_ASSET_VERSION = 2
+DEFAULT_ENCODINGS = "facemap_3dmm_quantized_encodings.json"
 
 
 class FaceMap_3DMMQuantizable(AIMETQuantizableMixin, FaceMap_3DMM):

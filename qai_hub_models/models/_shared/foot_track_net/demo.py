@@ -32,7 +32,7 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def undo_resize_pad_BBox(bbox: BBox_landmarks, scale: float, padding: list):
+def undo_resize_pad_BBox(bbox: BBox_landmarks, scale: float, padding: tuple[int, int]):
     """
     undo the resize and pad in place of the BBox_landmarks object.
     operation in place to replace the inner coordinates
@@ -42,7 +42,7 @@ def undo_resize_pad_BBox(bbox: BBox_landmarks, scale: float, padding: list):
     Return:
         None.
     """
-    if bbox.haslandmark:
+    if bbox.landmark is not None:
         for lmk in bbox.landmark:
             lmk[0] = (lmk[0] - padding[0]) / scale
             lmk[1] = (lmk[1] - padding[1]) / scale
@@ -50,8 +50,6 @@ def undo_resize_pad_BBox(bbox: BBox_landmarks, scale: float, padding: list):
     bbox.y = (bbox.y - padding[1]) / scale
     bbox.r = (bbox.r - padding[0]) / scale
     bbox.b = (bbox.b - padding[1]) / scale
-
-    return
 
 
 def demo(model_cls: type[FootTrackNet], is_test: bool = False):
@@ -76,7 +74,8 @@ def demo(model_cls: type[FootTrackNet], is_test: bool = False):
     image, scale, padding = resize_pad(img, (height, width))
 
     print("Model Loaded")
-    app = FootTrackNet_App(model)
+    # OnDeviceModel is underspecified for this usage
+    app = FootTrackNet_App(model)  # pyright: ignore[reportArgumentType]
     objs_face, objs_person = app.det_image(image)
     objs = objs_face + objs_person
 
@@ -88,7 +87,7 @@ def demo(model_cls: type[FootTrackNet], is_test: bool = False):
     for obj in objs:
         undo_resize_pad_BBox(obj, scale, padding)
         color = color_maps[int(obj.label)]
-        color = [int(e) for e in color]
+        color = [float(e) for e in color]
         vis = obj.vis
         img_out = drawbbox(
             img_out,

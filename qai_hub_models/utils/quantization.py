@@ -16,8 +16,8 @@ from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.protocols import HubModelProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
 from qai_hub_models.utils.evaluate import sample_dataset
-from qai_hub_models.utils.inference import make_hub_dataset_entries
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 DATA_ID = "image_quantziation_samples"
 DATA_VERSION = 1

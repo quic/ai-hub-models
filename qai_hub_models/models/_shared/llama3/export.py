@@ -114,10 +114,26 @@ def export_model(
     """
     num_splits = len(components)
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    hub_device = hub.Device(
+    hub_devices = hub.get_devices(
         name=device if device and not chipset else "",
         attributes=f"chipset:{chipset}" if chipset else [],
     )
+
+    # Pick a device
+    hub_device = hub_devices[-1]
+
+    # Check that the hexagon version supports weight sharing
+    # TODO (#13929): Use weight sharing attribute
+    hexagon_versions = [
+        int(x[len("hexagon:v") :])
+        for x in hub_device.attributes
+        if x.startswith("hexagon:")
+    ]
+    assert len(hexagon_versions) == 1
+    if hexagon_versions[0] < 73:
+        raise ValueError(
+            "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
+        )
 
     # Instantiation names and input sequence length
 
@@ -262,9 +278,14 @@ def export_model(
                 print(
                     f"Profiling model {instantiation_name} {sub_component_name} on a hosted device."
                 )
+                link_job = link_jobs[component_name]
+                if not link_job.wait().success:
+                    raise RuntimeError(
+                        f"Link job {link_job.job_id} failed. Please go to {link_job.url} and consult the error log."
+                    )
                 full_name = f"{model_name}_{sub_component_name}"
                 submitted_profile_job = hub.submit_profile_job(
-                    model=link_jobs[component_name].get_target_model(),
+                    model=link_job.get_target_model(),
                     device=hub_device,
                     name=full_name,
                     options=profile_options,
@@ -336,7 +357,8 @@ def export_model(
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
         for component_name, link_job in link_jobs.items():
-            target_model: hub.Model = link_job.get_target_model()  # type: ignore
+            target_model = link_job.get_target_model()
+            assert target_model is not None
             target_model.download(
                 str(output_path / f"{model_name}_{component_name}.bin")
             )
@@ -347,7 +369,7 @@ def export_model(
             for sub_component_name in sub_component_names[instantiation_name]:
                 profile_job = profile_jobs[sub_component_name]
                 assert profile_job is not None and profile_job.wait().success
-                profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
+                profile_data: dict[str, Any] = profile_job.download_profile()
                 print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:

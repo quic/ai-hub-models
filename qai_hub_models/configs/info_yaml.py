@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import requests
 from qai_hub.util.session import create_session
@@ -61,9 +61,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     # This should be set to public unless the model has poor accuracy/perf.
     status: MODEL_STATUS
 
-    # Device form factors for which we don't publish performance data.
-    private_perf_form_factors: list[ScorecardDevice.FormFactor]
-
     # A brief catchy headline explaining what the model does and why it may be interesting
     headline: str
 
@@ -116,6 +113,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     # The license type of the original model repo.
     license_type: str
+
+    # Device form factors for which we don't publish performance data.
+    private_perf_form_factors: Optional[list[ScorecardDevice.FormFactor]] = None
 
     # Some models are made by company
     model_maker_id: Optional[str] = None
@@ -381,33 +381,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         if not os.path.exists(schema_path):
             raise ValueError(f"{model_id} does not exist")
         return cls.from_yaml_and_code_gen(schema_path, code_gen_path)
-
-    @classmethod
-    def from_dict(
-        cls: type[QAIHMModelInfo], val_dict: dict[str, Any]
-    ) -> QAIHMModelInfo:
-        val_dict["status"] = MODEL_STATUS.from_string(val_dict["status"])
-        val_dict["private_perf_form_factors"] = [
-            ScorecardDevice.FormFactor.from_string(tag)
-            for tag in val_dict.get("private_perf_form_factors", [])
-        ]
-        val_dict["domain"] = MODEL_DOMAIN.from_string(val_dict["domain"])
-        val_dict["use_case"] = MODEL_USE_CASE.from_string(val_dict["use_case"])
-        val_dict["tags"] = [MODEL_TAG.from_string(tag) for tag in val_dict["tags"]]
-        val_dict["form_factors"] = [
-            ScorecardDevice.FormFactor.from_string(tag)
-            for tag in val_dict["form_factors"]
-        ]
-        if llm_details := val_dict.get("llm_details", None):
-            val_dict["llm_details"] = LLMDetails.from_dict(llm_details)
-
-        code_gen_config = val_dict.get("code_gen_config", None)
-        if isinstance(code_gen_config, dict):
-            val_dict["code_gen_config"] = QAIHMModelCodeGen.from_dict(code_gen_config)
-        elif not isinstance(code_gen_config, QAIHMModelCodeGen):
-            raise ValueError("code_gen_config must be dict or QAIHMModelCodeGen")
-
-        return super().from_dict(val_dict)
 
     @classmethod
     def from_yaml_and_code_gen(

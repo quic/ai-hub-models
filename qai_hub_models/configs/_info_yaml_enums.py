@@ -4,7 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from enum import Enum, unique
+from enum import unique
+
+from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
 HF_AVAILABLE_LICENSES = {
     "apache-2.0",
@@ -79,7 +81,7 @@ HF_AVAILABLE_LICENSES = {
 
 
 @unique
-class MODEL_DOMAIN(Enum):
+class MODEL_DOMAIN(ParseableQAIHMEnum):
     COMPUTER_VISION = 0  # YAML string: Computer Vision
     AUDIO = 1  # YAML string: Auto
     MULTIMODAL = 2  # YAML string: Multimodel
@@ -108,7 +110,7 @@ class MODEL_DOMAIN(Enum):
 
 
 @unique
-class MODEL_TAG(Enum):
+class MODEL_TAG(ParseableQAIHMEnum):
     BACKBONE = 0  # YAML string: backbone
     REAL_TIME = 1  # YAML string: real-time
     FOUNDATION = 2  # YAML string: foundation
@@ -133,7 +135,7 @@ class MODEL_TAG(Enum):
 
 
 @unique
-class MODEL_STATUS(Enum):
+class MODEL_STATUS(ParseableQAIHMEnum):
     PUBLIC = 0
     PRIVATE = 1
     # proprietary models are released only internally
@@ -148,7 +150,7 @@ class MODEL_STATUS(Enum):
 
 
 @unique
-class MODEL_USE_CASE(Enum):
+class MODEL_USE_CASE(ParseableQAIHMEnum):
     # Image: 100 - 199
     IMAGE_CLASSIFICATION = 100
     IMAGE_EDITING = 101

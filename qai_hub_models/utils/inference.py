@@ -24,13 +24,9 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.qai_hub_helpers import (
-    _AIHUB_NAME,
-    tensor_to_numpy,
-    transpose_channel_first_to_last,
-    transpose_channel_last_to_first,
-)
+from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, make_hub_dataset_entries
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
+from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
 
 try:
     from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
@@ -238,7 +234,7 @@ def compile_zoo_model_to_hub(
 def compile_model_from_args(
     model_id: str,
     cli_args: argparse.Namespace,
-    model_kwargs: dict[str, Any],
+    model_kwargs: Mapping[str, Any],
     component: str | None = None,
 ) -> hub.Model:
     """
@@ -256,10 +252,11 @@ def compile_model_from_args(
     components.
 
     """
+    model_kwargs_dict = dict(model_kwargs)
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
     if hasattr(cli_args, "num_calibration_samples"):
-        model_kwargs["num_calibration_samples"] = cli_args.num_calibration_samples
+        model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
     if cli_args.chipset:
         device_cli = f"--chipset {cli_args.chipset}"
     else:
@@ -281,7 +278,7 @@ def compile_model_from_args(
         skip_downloading=True,
         skip_summary=True,
         target_runtime=cli_args.target_runtime,
-        **model_kwargs,
+        **model_kwargs_dict,
         **component_kwargs,
     )
 
@@ -297,50 +294,6 @@ def compile_model_from_args(
     target_model = export_output.compile_job.get_target_model()
     assert target_model is not None
     return target_model
-
-
-def make_hub_dataset_entries(
-    tensors_tuple: tuple[
-        torch.Tensor
-        | np.ndarray
-        | list[torch.Tensor | np.ndarray]
-        | tuple[torch.Tensor | np.ndarray],
-        ...,
-    ],
-    input_names: list[str],
-    channel_last_input: Optional[list[str]] = None,
-) -> DatasetEntries:
-    """
-    Given input tensor(s) in either numpy or torch format,
-        convert to hub DatasetEntries format.
-
-    Parameters:
-        tensors: Tensor data in numpy or torch.Tensor format.
-        input_names: List of input names.
-        channel_last_input: Comma-separated list of input names to transpose channel.
-    """
-    dataset = {}
-    assert len(tensors_tuple) == len(
-        input_names
-    ), "Number of elements in tensors_tuple must match number of inputs"
-    for name, inputs in zip(input_names, tensors_tuple):
-        if not isinstance(inputs, (list, tuple)):
-            inputs = [inputs]  # type: ignore
-
-        converted_inputs = []
-        for curr_input in inputs:
-            if isinstance(curr_input, torch.Tensor):
-                curr_input = tensor_to_numpy(curr_input)
-            assert isinstance(curr_input, np.ndarray)
-            if curr_input.dtype == np.int64:
-                curr_input = curr_input.astype(np.int32)
-            converted_inputs.append(curr_input)
-        dataset[name] = converted_inputs
-
-    # Transpose dataset I/O if necessary to fit with the on-device model format
-    if channel_last_input:
-        dataset = transpose_channel_first_to_last(channel_last_input, dataset)
-    return dataset
 
 
 def dataset_entries_from_batch(

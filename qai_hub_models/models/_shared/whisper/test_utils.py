@@ -14,6 +14,7 @@ from qai_hub_models.models._shared.whisper.model import MEAN_DECODE_LEN, Whisper
 
 def load_sample_audio_input(app: WhisperApp) -> tuple[np.ndarray, np.ndarray, int]:
     audio, sample_rate = load_demo_audio()
+    assert app.mel_filter is not None
     return (
         audio,
         log_mel_spectrogram(
@@ -94,6 +95,7 @@ def run_test_transcribe(whisper_version):
             language="en", without_timestamps=False, fp16=False
         )
         results = model.decode(torch.from_numpy(mel_input).float(), options)
+        assert isinstance(results, list)
         text_orig = results[0].text
 
     # Perform transcription

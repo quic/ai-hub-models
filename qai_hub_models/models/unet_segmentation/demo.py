@@ -43,7 +43,8 @@ def unet_demo(
     validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image & model
-    model = demo_model_from_cli_args(UNet, MODEL_ID, args)
+    # demo_model_from_cli_args might return an OnDeviceModel
+    model = demo_model_from_cli_args(UNet, MODEL_ID, args)  # type: ignore[assignment]
     print("Model loaded from pre-trained weights.")
     (_, _, height, width) = UNet.get_input_spec()["image"][0]
     orig_image = load_image(

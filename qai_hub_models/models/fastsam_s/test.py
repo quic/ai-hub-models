@@ -13,11 +13,11 @@ from qai_hub_models.models.fastsam_s.model import DEFAULT_WEIGHTS, FastSAM_S
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
 
 
-def test_task():
+def test_task() -> None:
     image_path = INPUT_IMAGE.fetch()
     image = Image.open(image_path)
     image = preprocess_PIL_image(image)
-    app = FastSAMApp(FastSAM_S.from_pretrained())
+    app = FastSAMApp(FastSAM_S.from_pretrained())  # type: ignore[call-arg]
     result, _ = app.segment_image(str(image_path))
 
     model = FastSAM(DEFAULT_WEIGHTS)
@@ -27,8 +27,9 @@ def test_task():
     prompt = FastSAMPrompt(image_path, everything_results, device="cpu")
     predictions = prompt.everything_prompt()
 
+    assert result[0].masks is not None
     assert np.allclose(result[0].masks.data, predictions[0].masks.data)
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

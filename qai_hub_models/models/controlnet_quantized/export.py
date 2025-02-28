@@ -118,13 +118,13 @@ def export_model(
     model = Model.from_precompiled()
     components_dict: dict[str, BasePrecompiledModel] = {}
     if "ControlNet_Quantized" in components:
-        components_dict["ControlNet_Quantized"] = model.controlnet
+        components_dict["ControlNet_Quantized"] = model.controlnet  # type: ignore[assignment]
     if "TextEncoder_Quantized" in components:
-        components_dict["TextEncoder_Quantized"] = model.text_encoder
+        components_dict["TextEncoder_Quantized"] = model.text_encoder  # type: ignore[assignment]
     if "UNet_Quantized" in components:
-        components_dict["UNet_Quantized"] = model.unet
+        components_dict["UNet_Quantized"] = model.unet  # type: ignore[assignment]
     if "VAEDecoder_Quantized" in components:
-        components_dict["VAEDecoder_Quantized"] = model.vae_decoder
+        components_dict["VAEDecoder_Quantized"] = model.vae_decoder  # type: ignore[assignment]
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -162,7 +162,7 @@ def export_model(
         for component_name in components:
             profile_job = profile_jobs[component_name]
             assert profile_job.wait().success, "Job failed: " + profile_job.url
-            profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
+            profile_data: dict[str, Any] = profile_job.download_profile()
             print_profile_metrics_from_job(profile_job, profile_data)
 
     return {

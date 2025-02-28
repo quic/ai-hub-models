@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Optional
+from typing import Any, Callable, Optional, cast
 
 import torch
 from torch import nn
@@ -171,7 +171,24 @@ class SHALlamaAttention(LlamaAttention):
                 self.o_proj_conv.weight.data.copy_(self.o_proj.weight[:, :, None, None])
                 del self.o_proj
 
-            self.forward_mha = self.forward
+            self.forward_mha = cast(  # type: ignore[misc]
+                Callable[
+                    [
+                        torch.Tensor,
+                        torch.Tensor | None,
+                        torch.LongTensor | None,
+                        Cache | None,
+                        bool,
+                        bool,
+                        torch.LongTensor | None,
+                        Any,
+                    ],
+                    tuple[
+                        torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None
+                    ],
+                ],
+                self.forward,  # type: ignore[has-type]
+            )
 
             # pyright doesn't like that self.forward_sha doesn't take kwargs
             self.forward = (

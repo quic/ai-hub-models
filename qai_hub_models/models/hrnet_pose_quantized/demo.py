@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from qai_hub_models.models.hrnet_pose.app import HRNetPoseApp
+from qai_hub_models.models.hrnet_pose.demo import IMAGE_ADDRESS
 from qai_hub_models.models.hrnet_pose_quantized.model import (
-    MODEL_ASSET_VERSION,
     MODEL_ID,
     HRNetPoseQuantizable,
 )
@@ -14,12 +14,8 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
-
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "hrnet_pose_demo.png"
-)
 
 
 # The demo will display a image with the predicted keypoints.

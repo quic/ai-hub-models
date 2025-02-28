@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from PIL.Image import Image
+
 from qai_hub_models.models.fcn_resnet50.app import FCN_ResNet50App
 from qai_hub_models.models.fcn_resnet50.model import (
     MODEL_ASSET_VERSION,
@@ -50,8 +52,10 @@ def fcn_resnet50_demo(model_cls: type[FCN_ResNet50], is_test: bool = False):
     image, scale, padding = pil_resize_pad(orig_image, (height, width))
     input_image = image.convert("RGB")
 
-    app = FCN_ResNet50App(model)
+    # OnDeviceModel has little type info
+    app = FCN_ResNet50App(model)  # type: ignore[arg-type]
     output = app.predict(input_image, False)
+    assert isinstance(output, Image)
 
     if not is_test:
         # Resize / unpad annotated image

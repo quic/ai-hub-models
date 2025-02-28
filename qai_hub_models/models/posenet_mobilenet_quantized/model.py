@@ -45,7 +45,7 @@ class PosenetMobilenetQuantizable(AIMETQuantizableMixin, PosenetMobilenet):
         AIMETQuantizableMixin.__init__(self, model)
 
     @classmethod
-    def from_pretrained(
+    def from_pretrained(  # type: ignore[override]
         cls, aimet_encodings: str | None = "DEFAULT"
     ) -> PosenetMobilenetQuantizable:
         model = PosenetMobilenet.from_pretrained()

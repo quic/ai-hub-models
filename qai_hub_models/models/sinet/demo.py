@@ -2,6 +2,9 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
+from PIL.Image import Image
+
 from qai_hub_models.models.sinet.app import SINetApp
 from qai_hub_models.models.sinet.model import INPUT_IMAGE_ADDRESS, MODEL_ID, SINet
 from qai_hub_models.utils.args import (
@@ -31,9 +34,10 @@ def main(is_test: bool = False):
     # load image and model
     image = load_image(args.image)
     input_image = image.convert("RGB")
-    app = SINetApp(model)
+    app = SINetApp(model)  # type: ignore[arg-type]
     output = app.predict(input_image, False, False)
     if not is_test:
+        assert isinstance(output, Image)
         display_or_save_image(output, args.output_dir, "sinet_demo_output.png")
 
 

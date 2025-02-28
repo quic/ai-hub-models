@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
 from qai_hub_models.models._shared.mediapipe.app import MediaPipeApp
@@ -54,8 +56,13 @@ class MediaPipePoseApp(MediaPipeApp):
             model.pose_detector,
             model.pose_detector.anchors,
             model.pose_landmark_detector,
-            model.pose_detector.get_input_spec()["image"][0][-2:],
-            model.pose_landmark_detector.get_input_spec()["image"][0][-2:],
+            cast(
+                tuple[int, int], model.pose_detector.get_input_spec()["image"][0][-2:]
+            ),
+            cast(
+                tuple[int, int],
+                model.pose_landmark_detector.get_input_spec()["image"][0][-2:],
+            ),
             POSE_KEYPOINT_INDEX_START,
             POSE_KEYPOINT_INDEX_END,
             ROTATION_VECTOR_OFFSET_RADS,
@@ -79,7 +86,7 @@ class MediaPipePoseApp(MediaPipeApp):
         The MediaPipe pose pipeline computes the ROI not from the detector bounding box,
         but from specific detected keypoints. This override implements that behavior.
         """
-        batched_selected_roi = []
+        batched_selected_roi: list[torch.Tensor | None] = []
         for boxes, keypoints in zip(batched_selected_boxes, batched_selected_keypoints):
             if boxes is None or keypoints is None:
                 batched_selected_roi.append(None)

@@ -33,7 +33,7 @@ OUTPUT_RST_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Verify that the output from Torch is as expected. bbox, landmark, visibility
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
 
     # error tolerance
     diff_tol = 0.1
@@ -53,6 +53,7 @@ def test_task():
         rst = json.load(f)
 
     # extract the key detection result
+    assert objs_person[0].landmark is not None
     persons_landmark = np.array(
         [
             [
@@ -62,6 +63,7 @@ def test_task():
             ]
         ]
     )
+    assert objs_person[0].vis is not None
     persons_visibility = np.array([[objs_person[0].vis[15], objs_person[0].vis[16]]])
 
     # assert, face_bbox, person_bbox, person_landmark and person_landmark_visibility
@@ -97,7 +99,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     # error tolerance
     diff_tol = 0.1
     atol = 5
@@ -114,6 +116,7 @@ def test_trace():
         rst = json.load(f)
 
     # extract the key detection result
+    assert objs_person[0].landmark is not None
     persons_landmark = np.array(
         [
             [
@@ -124,6 +127,7 @@ def test_trace():
         ]
     )
 
+    assert objs_person[0].vis is not None
     persons_visibility = np.array([[objs_person[0].vis[15], objs_person[0].vis[16]]])
 
     # assert, face_bbox, person_bbox, person_landmark and person_landmark_visibility
@@ -158,5 +162,5 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

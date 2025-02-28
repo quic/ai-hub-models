@@ -438,16 +438,16 @@ class SAMDecoder(BaseModel):
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
         embed_size = (image_embedding_height, image_embedding_width)
-        mask_input_size = [4 * x for x in embed_size]
+        mask_input_size = tuple([4 * x for x in embed_size])
 
-        input_spec = {
+        input_spec: InputSpec = {
             "image_embeddings": ((1, embed_dim, *embed_size), "float32"),
             "point_coords": ((1, num_of_points, 2), "float32"),
             "point_labels": ((1, num_of_points), "float32"),
         }
         if has_mask_input:
-            input_spec["mask_input"] = (((1, 1, *mask_input_size), "float32"),)
-            input_spec["has_mask_input"] = (((1,), "float32"),)
+            input_spec["mask_input"] = ((1, 1, *mask_input_size), "float32")
+            input_spec["has_mask_input"] = ((1,), "float32")
         return input_spec
 
     @staticmethod

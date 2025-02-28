@@ -15,7 +15,6 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_json,
 )
-from qai_hub_models.utils.testing import assert_most_same
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "outputs.json"
@@ -23,16 +22,14 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # Verify that the output from Torch is as expected.
-def test_task():
+def test_task() -> None:
     app = FaceDetLiteApp(FaceDetLite_model.from_pretrained())
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_tensor = app.run_inference_on_image(original_image)
-    output_tensor_oracle = load_json(OUTPUT_IMAGE_ADDRESS)
+    output_tensor_oracle: dict[str, str] = load_json(OUTPUT_IMAGE_ADDRESS)
 
-    assert_most_same(
-        str(output_tensor), output_tensor_oracle["bounding box"], diff_tol=0.01
-    )
+    assert str(output_tensor) == output_tensor_oracle["bounding box"]
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main()

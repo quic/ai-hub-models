@@ -352,7 +352,7 @@ class HeadBlock(nn.Module):
         self.conv = Conv2dBlock(
             1, chan, 3, padding=1, stride=1, group=1, norm="bn", activ=activ_type
         )
-        self.bran1 = [
+        bran1_block = [
             Conv2dBlock(
                 chan,
                 chan,
@@ -381,9 +381,9 @@ class HeadBlock(nn.Module):
             ),
         ]
 
-        self.bran1 = nn.Sequential(*self.bran1)
+        self.bran1 = nn.Sequential(*bran1_block)
 
-        self.bran2 = [
+        bran2_block = [
             Conv2dBlock(
                 chan,
                 chan,
@@ -398,7 +398,7 @@ class HeadBlock(nn.Module):
                 chan, chan, 1, padding=0, stride=1, group=1, norm="bn", activ="none"
             ),
         ]
-        self.bran2 = nn.Sequential(*self.bran2)
+        self.bran2 = nn.Sequential(*bran2_block)
 
         if activ_type == "prelu":
             self.activ = nn.PReLU()
@@ -447,7 +447,7 @@ class DownsampleBlock(nn.Module):
             ),
         )
 
-        self.bran2 = [
+        bran2_block = [
             Conv2dBlock(
                 chan,
                 4 * chan,
@@ -490,7 +490,7 @@ class DownsampleBlock(nn.Module):
             ),
         ]
 
-        self.bran2 = nn.Sequential(*self.bran2)
+        self.bran2 = nn.Sequential(*bran2_block)
 
         if activ_type == "prelu":
             self.activ = nn.PReLU()
@@ -514,7 +514,7 @@ class NormalBlock(nn.Module):
         assert (
             chan % group_size == 0
         ), f"chan {chan:d} cannot be divided by group_size {group_size:d}"
-        self.model = [
+        model_block = [
             Conv2dBlock(
                 chan,
                 2 * chan,
@@ -550,7 +550,7 @@ class NormalBlock(nn.Module):
             ),
         ]
 
-        self.model = nn.Sequential(*self.model)
+        self.model = nn.Sequential(*model_block)
 
         if activ_type == "prelu":
             self.activ = nn.PReLU()

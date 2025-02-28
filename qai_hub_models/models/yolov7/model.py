@@ -122,7 +122,7 @@ class YoloV7(Yolo):
                 return detector_output
             return torch.cat(detector_output, -1)
 
-        return detect_postprocess_split_input(
+        return detect_postprocess_split_input(  # type: ignore[misc]
             *detector_output, class_dtype=self.class_dtype
         )
 
@@ -217,6 +217,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         stride = int(self.stride[i])
         nx, ny = self.h // stride, self.w // stride
         x = x.reshape(-1, self.na, self.no, nx, ny).permute(0, 1, 3, 4, 2).contiguous()
+        # TODO(13933) Revert once QNN issues with ReduceMax are fixed
         # Pad 1 class up to 2 to get NPU residence
         x = F.pad(x, (0, max(7 - self.no, 0)))
         grid = self._make_grid(nx, ny)
@@ -232,6 +233,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         wh = (wh * 2) ** 2 * self.__getattr__(f"anchor_grid_{i}").squeeze(2)
         wh = wh.reshape(-1, self.na * nx * ny, 2)
 
+        # TODO(13933) Revert max operation once QNN issues with ReduceMax are fixed
         scores = y[..., 4:].reshape(-1, self.na * nx * ny, max(3, self.no - 4))
         return xy, wh, scores
 

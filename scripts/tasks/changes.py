@@ -13,6 +13,7 @@ from .constants import (
     PY_PACKAGE_RELATIVE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_SRC_ROOT,
     REPO_ROOT,
+    STATIC_MDOELS_ROOT,
 )
 from .github import on_github
 from .util import new_cd, run, run_and_get_output
@@ -306,14 +307,17 @@ def get_all_models() -> set[str]:
         if os.path.exists(os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")):
             model_names.add(model_name)
 
+    bench_dir = os.getenv("QAIHM_BENCH_TEST_DIR", STATIC_MDOELS_ROOT)
+    static_models = {x[:-5] for x in os.listdir(bench_dir) if x.endswith(".yaml")}
+
     # Select a subset of models based on user input
     allowed_models = os.environ.get("QAIHM_TEST_MODELS", None)
     if allowed_models and allowed_models.upper() != "ALL":
-        allowed_models = allowed_models.split(",")
+        allowed_models = set(allowed_models.split(",")) - static_models
         for model in allowed_models:
             if model not in model_names:
                 raise ValueError(f"Unknown model selected: {model}")
-        model_names = set(allowed_models)
+        model_names = allowed_models
 
     return model_names
 

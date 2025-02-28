@@ -5,15 +5,15 @@
 from __future__ import annotations
 
 import os
-from enum import Enum
 from typing import Optional
 
 import qai_hub as hub
 
 from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
 
-class ScorecardCompilePath(Enum):
+class ScorecardCompilePath(ParseableQAIHMEnum):
     TFLITE = 0
     QNN = 1
     ONNX = 2
@@ -30,7 +30,7 @@ class ScorecardCompilePath(Enum):
 
     @property
     def enabled(self) -> bool:
-        valid_test_runtimes = os.environ.get("WHITELISTED_TEST_RUNTIMES", "ALL")
+        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
 
         # DML only enabled if explicitly requested
         if self == ScorecardCompilePath.ONNX_FP16:
@@ -98,3 +98,12 @@ class ScorecardCompilePath(Enum):
         if self == ScorecardCompilePath.ONNX_FP16 and not model_is_quantized:
             out = out + " --quantize_full_type float16 --quantize_io"
         return out.strip()
+
+    @staticmethod
+    def from_string(string: str) -> ScorecardCompilePath:
+        for path in ScorecardCompilePath:
+            if path.long_name == string or path.name == string:
+                return path
+        raise ValueError(
+            "Unable to map name {runtime_name} to a valid scorecard compile path"
+        )

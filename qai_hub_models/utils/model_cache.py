@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -16,7 +15,7 @@ from onnx import __version__ as onnx_version
 from torch import __version__ as torch_version
 
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
-from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.base_config import BaseQAIHMConfig, ParseableQAIHMEnum
 from qai_hub_models.utils.qai_hub_helpers import get_hub_endpoint
 
 DEFAULT_CACHE_NAME = "model_cache.yaml"
@@ -24,14 +23,14 @@ HUB_MODEL_ID_KEY = "hub_model_id"
 ASSET_CONFIG = ModelZooAssetConfig.from_cfg()
 
 
-class CacheMode(Enum):
+class CacheMode(ParseableQAIHMEnum):
     ENABLE = "enable"
     DISABLE = "disable"
     OVERWRITE = "overwrite"
 
     @staticmethod
-    def from_string(cache_mode: str) -> CacheMode:
-        return CacheMode[cache_mode.upper()]
+    def from_string(string: str) -> CacheMode:
+        return CacheMode[string.upper()]
 
 
 """
@@ -109,24 +108,6 @@ class Cache(BaseQAIHMConfig):
     """
 
     cache: list[KeyValue]
-
-    @classmethod
-    def from_dict(cls, val_dict) -> Cache:
-        if val_dict is None:
-            raise RuntimeError("Invalid schema. Input dictionary empty.")
-
-        if "cache" not in val_dict:
-            raise RuntimeError(
-                "Invalid input dictionary for Cache, expecting 'cache' entry."
-            )
-
-        cache = []
-        for cache_entry in val_dict["cache"]:
-            if "key" not in cache_entry or "val" not in cache_entry:
-                raise RuntimeError("'key' or 'val' not found in cache entry.")
-            cache.append(KeyValue(cache_entry["key"], cache_entry["val"]))
-
-        return cls(cache)
 
     def contains(self, key: dict[str, str]) -> bool:
         return self.get_item(key) is not None

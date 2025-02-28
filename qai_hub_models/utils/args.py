@@ -26,6 +26,7 @@ from qai_hub_models.models.protocols import (
     FromPretrainedTypeVar,
 )
 from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
+from qai_hub_models.utils.evaluate import DEFAULT_NUM_EVAL_SAMPLES
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
@@ -618,6 +619,7 @@ def evaluate_parser(
     supports_onnx=True,
     default_runtime=TargetRuntime.TFLITE,
     is_hub_quantized: bool = False,
+    default_num_samples: int = DEFAULT_NUM_EVAL_SAMPLES,
 ) -> argparse.ArgumentParser:
     """
     Arg parser to be used in evaluate scripts.
@@ -640,6 +642,7 @@ def evaluate_parser(
             Default = False.
         default_runtime: Which runtime to use as default if not specified in cli args.
         is_hub_quantized: Whether the model is quantized via the hub quantize job.
+        default_num_samples: Number of samples to evaluate by default.
 
     Returns:
         Arg parser object.
@@ -668,21 +671,22 @@ def evaluate_parser(
     parser.add_argument(
         "--dataset-name",
         type=str,
-        default=supported_datasets[0],
+        default=supported_datasets[-1],
         choices=supported_datasets,
         help="Name of the dataset to use for evaluation.",
     )
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=100,
+        default=default_num_samples,
         help="Number of samples to run. If set to -1, will run on full dataset.",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        default=42,
-        help="Random seed to use when shuffling the data.",
+        default=None,
+        help="Random seed to use when shuffling the data. "
+        "If not set, samples data deterministically.",
     )
     parser.add_argument(
         "--hub-model-id",
@@ -696,6 +700,13 @@ def evaluate_parser(
         help="If set, will store hub dataset ids in a local file and re-use "
         "for subsequent evaluations on the same dataset.",
     )
+    if is_hub_quantized:
+        parser.add_argument(
+            "--compute-quant-cpu-accuracy",
+            action="store_true",
+            help="If flag is set, computes the accuracy "
+            "of the quantized onnx model on the CPU.",
+        )
     return parser
 
 

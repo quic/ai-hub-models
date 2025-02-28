@@ -113,7 +113,7 @@ class ClipTextEncoder(BaseModel):
         return ["text_features"]
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls):  # type: ignore[reportIncompatibleMethodOverride]
         return Clip.from_pretrained().text_encoder
 
 
@@ -164,7 +164,7 @@ class ClipImageEncoder(BaseModel):
         return ["image_features"]
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls):  # type: ignore[reportIncompatibleMethodOverride]
         return Clip.from_pretrained().image_encoder
 
     @staticmethod
@@ -186,7 +186,7 @@ def patched_in_projection_packed():
         v: Tensor,
         w: Tensor,
         b: Optional[Tensor] = None,
-    ) -> list[Tensor]:
+    ) -> tuple[Tensor, Tensor, Tensor]:
         E = q.size(-1)
         if k is v and q is k:
             proj = F.linear(q, w, b)

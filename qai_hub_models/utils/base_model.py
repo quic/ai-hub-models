@@ -52,13 +52,13 @@ class HubModel(HubModelProtocol):
         # If a child class implements _get_input_spec_for_instance(),
         # then calling `get_input_spec` on the instance will redirect to it.
         if self._get_input_spec_for_instance.__module__ != __name__:
-            self.get_input_spec = self._get_input_spec_for_instance
+            self.get_input_spec = self._get_input_spec_for_instance  # type: ignore[method-assign]
         if self._get_output_names_for_instance.__module__ != __name__:
-            self.get_output_names = self._get_output_names_for_instance
+            self.get_output_names = self._get_output_names_for_instance  # type: ignore[method-assign]
         if self._get_channel_last_inputs_for_instance.__module__ != __name__:
-            self.get_channel_last_inputs = self._get_channel_last_inputs_for_instance
+            self.get_channel_last_inputs = self._get_channel_last_inputs_for_instance  # type: ignore[method-assign]
         if self._get_channel_last_outputs_for_instance.__module__ != __name__:
-            self.get_channel_last_outputs = self._get_channel_last_outputs_for_instance
+            self.get_channel_last_outputs = self._get_channel_last_outputs_for_instance  # type: ignore[method-assign]
 
     def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
         """

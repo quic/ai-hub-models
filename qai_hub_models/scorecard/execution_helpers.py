@@ -130,7 +130,7 @@ def get_profile_parameterized_pytest_config(
 
 
 def get_async_job_cache_name(
-    path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime,
+    path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None,
     model_id: str,
     device: ScorecardDevice,
     component: Optional[str] = None,
@@ -145,7 +145,8 @@ def get_async_job_cache_name(
         component: The name of the model component being tested, if applicable
     """
     return (
-        f"{model_id}_{path.name}"
+        f"{model_id}"
+        + ("_" + path.name if path else "")
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")
     )

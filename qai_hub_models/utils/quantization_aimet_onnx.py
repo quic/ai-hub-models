@@ -19,7 +19,7 @@ except (ImportError, ModuleNotFoundError):
     )
 
 import os
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Collection
 from pathlib import Path
 
 import torch
@@ -35,6 +35,7 @@ from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
 
 
 class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
@@ -118,25 +119,13 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     def forward(
         self,
-        *args: Sequence[torch.Tensor],
-        **kwargs: Mapping[str, torch.Tensor],
+        *args: torch.Tensor,
+        **kwargs: torch.Tensor,
     ) -> torch.Tensor | Collection[torch.Tensor]:
         """
         QuantSim forward pass with torch.Tensor
         """
-        input_dict = {
-            name: arg.numpy()  # type: ignore
-            for name, arg in zip(self.input_names, args)
-        }
-        input_dict.update(
-            {name: tensor.numpy() for name, tensor in kwargs.items()}  # type: ignore
-        )
-        output_np = self.quant_sim.session.run(None, input_dict)
-        output_tensors = [torch.from_numpy(out) for out in output_np]
-
-        if len(output_tensors) == 1:
-            return output_tensors[0]
-        return output_tensors
+        return mock_torch_onnx_inference(self.quant_sim.session, *args, **kwargs)
 
     def convert_to_onnx_and_aimet_encodings(
         self,

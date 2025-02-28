@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 import math
 
@@ -58,8 +59,8 @@ class Block3x3(nn.Module):
         in_size: int,
         expand_size: int,
         out_size: int,
-        nolinear: str,
-        semodule: nn.Module,
+        nolinear: nn.Module,
+        semodule: nn.Module | None,
         stride: int,
     ):
         super().__init__()
@@ -386,6 +387,7 @@ class HeadModule(nn.Module):
 
     def init_normal(self, std: float, bias: float):
         nn.init.normal_(self.head.weight, std=std)
+        assert self.head.bias is not None
         nn.init.constant_(self.head.bias, bias)
 
     def forward(self, x: torch.Tensor):

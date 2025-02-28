@@ -24,6 +24,7 @@ from .util import (
     get_is_hub_quantized,
     get_model_python_version_requirements,
     model_needs_aimet,
+    on_ci,
 )
 from .venv import (
     CreateVenvTask,
@@ -217,14 +218,15 @@ class PyTestModelsTask(CompositeTask):
 
         # Whether or not export tests will be run asynchronously
         # (submit all jobs for all models at once, rather than one model at a time).
-        test_hub_async: bool = os.environ.get("TEST_HUB_ASYNC", 0)
+        test_hub_async: bool = os.environ.get("QAIHM_TEST_HUB_ASYNC", 0)
 
-        if test_hub_async and run_export_compile:
+        if test_hub_async and run_export_compile and not on_ci():
             # Clean previous (cached) compile test jobs.
+            filename = {os.environ["COMPILE_JOBS_FILE"]}
             tasks.append(
                 RunCommandsTask(
                     "Delete stored compile jobs from past test runs.",
-                    f"> {os.environ['COMPILE_JOBS_FILE']}",
+                    f'if [ -f "{filename}" ]; then rm "{filename}"; fi',
                 )
             )
 
@@ -249,7 +251,11 @@ class PyTestModelsTask(CompositeTask):
                     RunCommandsWithVenvTask(
                         group_name="Install Global Requirements",
                         venv=base_test_venv,
-                        commands=[f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" '],
+                        commands=[
+                            f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" ',
+                            # TODO(13985): rever this hack once aimet-torch is upgrade
+                            "pip install onnxruntime==1.19.2",
+                        ],
                     )
                 )
 

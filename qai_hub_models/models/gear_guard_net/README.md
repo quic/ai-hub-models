@@ -41,7 +41,7 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 ## License
 * The license for the original implementation of PPE-Detection can be found
-  [here](https://github.com/qcom-ai-hub/ai-hub-models-internal/blob/main/LICENSE).
+  [here](https://github.com/quic/ai-hub-models/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
@@ -54,5 +54,3 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 ## Community
 * Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
 * For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).
-
-

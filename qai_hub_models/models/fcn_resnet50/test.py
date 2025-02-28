@@ -22,7 +22,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def _test_impl(app: FCN_ResNet50App):
+def _test_impl(app: FCN_ResNet50App) -> None:
     image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = load_image(OUTPUT_IMAGE_ADDRESS)
     app_output_image = app.predict(image, False)
@@ -36,16 +36,16 @@ def _test_impl(app: FCN_ResNet50App):
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained()))
 
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     _test_impl(FCN_ResNet50App(FCN_ResNet50.from_pretrained().convert_to_torchscript()))
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

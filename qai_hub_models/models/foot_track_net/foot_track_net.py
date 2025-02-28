@@ -90,7 +90,7 @@ class FTNet(nn.Module):
         self.landmark = HeadModule(wide, 2 * n_lmk, has_ext=has_ext)
         self.landmark_vis = HeadModule(wide, n_lmk, has_ext=has_ext)
 
-    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
         """
         x: N,C,H,W (1,3,480,640) tensor of input image
         return: 4 tensors including

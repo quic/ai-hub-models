@@ -38,8 +38,8 @@ class WhisperApp:
         n_fft: int = N_FFT,
         hop_length: int = HOP_LENGTH,
     ):
-        decoder = whisper.decoder.to("cpu")
-        encoder = whisper.encoder.to("cpu")
+        decoder = whisper.decoder.to("cpu")  # type: ignore[attr-defined]
+        encoder = whisper.encoder.to("cpu")  # type: ignore[attr-defined]
         self.num_decoder_blocks = whisper.num_decoder_blocks
         self.num_decoder_heads = whisper.num_decoder_heads
         self.attention_dim = whisper.attention_dim
@@ -96,8 +96,9 @@ class WhisperApp:
             import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
 
             audio, audio_sample_rate = a2n.audio_from_file(audio)
-        else:
-            assert audio_sample_rate is not None
+
+        assert audio_sample_rate is not None
+        assert isinstance(audio, np.ndarray)
 
         return " ".join(
             self._transcribe_single_chunk(x)
@@ -119,6 +120,7 @@ class WhisperApp:
 
         - transcribed texts
         """
+        assert self.mel_filter is not None
         mel_input = log_mel_spectrogram(
             self.mel_filter, audio, self.max_audio_samples, self.n_fft, self.hop_length
         )
@@ -171,6 +173,7 @@ class WhisperApp:
             logits[NON_SPEECH_TOKENS] = -np.inf
 
             logits, logprobs = apply_timestamp_rules(logits, decoded_tokens)
+            assert isinstance(logprobs, np.ndarray)
 
             if i == 0:
                 # detect no_speech
@@ -310,7 +313,7 @@ max_initial_timestamp_index = int(max_initial_timestamp / precision)
 
 def apply_timestamp_rules(
     logits: np.ndarray, tokens: list[int]
-) -> tuple[np.ndarray, float]:
+) -> tuple[np.ndarray, float | np.ndarray]:
     """
     When predicting timestamps, there are a few post processing rules /
     heuristics to ensure well-formed timestamps. See in-line comments for details

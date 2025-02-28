@@ -389,7 +389,6 @@ class SplitHeadSAMDecoderAttention(nn.Module):
         self.kproj = torch.nn.ModuleList()
         self.vproj = torch.nn.ModuleList()
         self.out_proj = attention_block.out_proj
-        self.out_projs = []
         for i in range(attention_block.num_heads):
             for projList, merged_layer in [
                 (self.qproj, attention_block.q_proj),

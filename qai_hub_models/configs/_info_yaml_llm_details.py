@@ -4,16 +4,16 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import Enum, unique
+from dataclasses import dataclass, fields
+from enum import unique
 from typing import Any, Optional
 
 from qai_hub_models.scorecard import ScorecardProfilePath
-from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.base_config import BaseQAIHMConfig, ParseableQAIHMEnum
 
 
 @unique
-class LLM_CALL_TO_ACTION(Enum):
+class LLM_CALL_TO_ACTION(ParseableQAIHMEnum):
     DOWNLOAD = 0
     VIEW_README = 1
     CONTACT_FOR_PURCHASE = 2
@@ -65,46 +65,22 @@ class LLMDetails(BaseQAIHMConfig):
 
     @classmethod
     def from_dict(cls: type[LLMDetails], val_dict: dict[str, Any]) -> LLMDetails:
-        sanitized_dict: dict[str, Any] = {}
-        sanitized_dict["call_to_action"] = LLM_CALL_TO_ACTION.from_string(
-            val_dict["call_to_action"]
-        )
-        if genie_compatible := val_dict.get("genie_compatible"):
-            sanitized_dict["genie_compatible"] = genie_compatible
+        dict_to_parse = val_dict
+        if "devices" not in dict_to_parse:
+            # The structure of this dict may be in an different format if loaded from YAML.
+            # In the YAML, devices are stored at the "top level", rather than inside a "devices" namespace.
+            #
+            # We construct a valid input dict by stuffing all of the "devices" into the appropriate namespace.
+            dict_to_parse = {
+                k: v
+                for k, v in val_dict.items()
+                if k in [x.name for x in fields(LLMDetails)]
+            }
+            dict_to_parse["devices"] = {
+                k: v for k, v in val_dict.items() if k not in dict_to_parse
+            }
 
-        for key in val_dict:
-            if key in sanitized_dict:
-                continue
-
-            device_name = key
-            runtime_config_mapping: dict[str, dict[str, str]] = val_dict[device_name]
-            assert isinstance(runtime_config_mapping, dict)
-            processed_per_runtime_config_mapping = {}
-            for runtime_name, runtime_config in runtime_config_mapping.items():
-                assert isinstance(runtime_config, dict)
-                runtime = None
-                for path in ScorecardProfilePath:
-                    if path.long_name == runtime_name or path.name == runtime_name:
-                        runtime = path
-                        break
-
-                if not runtime:
-                    raise ValueError(
-                        f"Unknown runtime specified in LLM details for device {device_name}: {runtime}"
-                    )
-
-                processed_per_runtime_config_mapping[
-                    runtime
-                ] = LLMDeviceRuntimeDetails.from_dict(runtime_config)
-
-            devices_dict = sanitized_dict.get("devices", None)
-            if not devices_dict:
-                devices_dict = {}
-                sanitized_dict["devices"] = devices_dict
-
-            devices_dict[device_name] = processed_per_runtime_config_mapping
-
-        return super().from_dict(sanitized_dict)
+        return super().from_dict(dict_to_parse)
 
     def validate(self) -> Optional[str]:
         if self.genie_compatible is None:

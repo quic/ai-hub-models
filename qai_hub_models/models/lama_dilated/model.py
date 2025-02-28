@@ -103,8 +103,8 @@ def _load_lama_dilated_source_model_from_weights(weights_name: str) -> torch.nn.
         )
 
         # Pass config as needed to create the module for tracing.
-        config = load_json(config_url)
-        config = OmegaConf.create(config)
+        config_json = load_json(config_url)
+        config = OmegaConf.create(config_json)
         kwargs = dict(config.training_model)
         kwargs.pop("kind")
         kwargs["use_ddp"] = True

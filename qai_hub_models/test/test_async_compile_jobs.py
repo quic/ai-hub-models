@@ -37,7 +37,7 @@ def test_compile_jobs_success():
             timediff = datetime.datetime.now() - job.date
             if timediff < timemax:
                 try:
-                    job = job.wait((timemax - timediff).total_seconds())
+                    job.wait(int((timemax - timediff).total_seconds()))
                 except TimeoutError:
                     timeout_jobs[name] = job_id
             else:

@@ -22,7 +22,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def test_task():
+def test_task() -> None:
     net = ConditionalDETRResNet50.from_pretrained()
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
@@ -35,7 +35,7 @@ def test_cli_from_pretrained():
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     net = ConditionalDETRResNet50.from_pretrained()
     input_spec = net.get_input_spec()
     trace = net.convert_to_torchscript(input_spec)
@@ -45,6 +45,6 @@ def test_trace():
     assert set(list(label.numpy())) == EXPECTED_OUTPUT
 
 
-def test_demo():
+def test_demo() -> None:
     # Run demo and verify it does not crash
     demo_main(is_test=True)

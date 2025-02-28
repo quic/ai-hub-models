@@ -17,7 +17,9 @@ from qai_hub_models.scorecard import (
     ScorecardProfilePath,
 )
 
-JobTypeVar = TypeVar("JobTypeVar", hub.ProfileJob, hub.InferenceJob, hub.CompileJob)
+JobTypeVar = TypeVar(
+    "JobTypeVar", hub.ProfileJob, hub.InferenceJob, hub.CompileJob, hub.QuantizeJob
+)
 ScorecardPathTypeVar = TypeVar(
     "ScorecardPathTypeVar", ScorecardCompilePath, ScorecardProfilePath
 )
@@ -25,6 +27,7 @@ ScorecardPathTypeVar = TypeVar(
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 ScorecardJobTypeVar = TypeVar(
     "ScorecardJobTypeVar",
+    "QuantizeScorecardJob",
     "CompileScorecardJob",
     "ProfileScorecardJob",
     "InferenceScorecardJob",
@@ -120,7 +123,9 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
 
     @cached_property
     def device(self) -> hub.Device:
-        return self.job.device if not self.skipped else self._device.reference_device
+        if not self.skipped and not isinstance(self.job, hub.QuantizeJob):
+            return self.job.device
+        return self._device.reference_device
 
     @cached_property
     def chipset(self) -> str:
@@ -151,6 +156,10 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
         return self.job.date
 
 
+class QuantizeScorecardJob(ScorecardJob[hub.QuantizeJob, ScorecardCompilePath]):
+    job_type_class = hub.QuantizeJob
+
+
 class CompileScorecardJob(ScorecardJob[hub.CompileJob, ScorecardCompilePath]):
     job_type_class = hub.CompileJob
 
@@ -167,7 +176,7 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
     def profile_results(self) -> dict[str, Any]:
         """Profile results from profile job."""
         if self.success:
-            return self.job.download_profile()  # type: ignore
+            return self.job.download_profile()
         raise ValueError("Can't get profile results if job did not succeed.")
 
     @cached_property
@@ -183,7 +192,7 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
     def throughput(self) -> Union[float, str]:
         """Get the throughput from the profile job."""
         if not isinstance(self.inference_time, str):
-            return 1000000 / self.inference_time  # type: ignore
+            return 1000000 / float(self.inference_time)
         return "null"
 
     def get_layer_info(self, unit: str) -> int:

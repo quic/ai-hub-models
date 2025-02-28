@@ -89,7 +89,7 @@ def run_classifier_trace_test(
     assert_most_close(probabilities.numpy(), trace_probs.numpy(), diff_tol, rtol, atol)
 
 
-def test_task():
+def test_task() -> None:
     run_classifier_test(
         MobileVIT.from_pretrained(),
         MODEL_ID,
@@ -102,10 +102,10 @@ def test_task():
 
 @pytest.mark.skip("TODO: #13142 fails to trace.")
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     run_classifier_trace_test(MobileVIT.from_pretrained())
 
 
-def test_demo():
+def test_demo() -> None:
     # Verify demo does not crash
     demo_main(is_test=True)

@@ -8,9 +8,9 @@ from collections.abc import Callable
 
 import numpy as np
 import torch
-from mmpose.codecs.utils import refine_keypoints
 from PIL.Image import Image, fromarray
 
+from qai_hub_models.evaluators.utils.pose import get_final_preds
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
@@ -84,9 +84,7 @@ class HRNetPoseApp:
 
     def __init__(
         self,
-        model: Callable[
-            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-        ],
+        model: Callable[[torch.Tensor], torch.Tensor],
     ):
         self.model = model
         # Use mmpose inferencer for example preprocessing
@@ -164,9 +162,6 @@ class HRNetPoseApp:
         heatmaps = self.model(x)
         heatmaps = heatmaps.detach().numpy()
 
-        # create predictions from heatmap
-        pred_kps, scores = get_max_preds(heatmaps)
-
         # Coordinates are relative to the cropped bbox, not the original image.
         # We need to grab the box center and scale to transform the coordinates
         # back to the original image.
@@ -174,31 +169,10 @@ class HRNetPoseApp:
         center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
         scale = proc_inputs["data_samples"][0].gt_instances.bbox_scales[0]
 
-        # Refine keypoints.
-        # Move 1px towards the "second maximum".
-        #
-        # A key insight here is because this is a heatmap, the second maximum should be adjacent to the maximum.
-        # It's accounting for if the "real" pixel is in-between the first and second maxima in a heatmap "hot spot",
-        # considering the heatmap is lower resolution than the input image to the model (this is the cropped bbox image,
-        # not the entire image provided by the user).
-        #
-        # There could theoretically be a second maximum somewhere completely different in the frame.
-        # That said, moving your keypoint in that direction would not assist the keypoint prediction,
-        # since the "second maximum" refers to a different prediction area entirely.
-        keypoints = refine_keypoints(pred_kps, np.squeeze(heatmaps))
-
-        # Multiply by the downscaling factor of model output. In other words, the predicted heatmap is
-        # 1/16 the size of the network input image (or 1/4 in each dimension). Therefore, for this model,
-        # the scaling factor is 4x. Multiplying by 4 will place the predicted keypoints in the coordinate
-        # space of the cropped input network image.
-        scale_factor = np.array([4.0, 4.0])
-        keypoints = keypoints * scale_factor
-
-        # The keypoints predicted by the network are relative to the cropped image for each bounding box, not
-        # the original image. Use the predicted bounding box center and scale to map the predicted coordinates
-        # back to the original input image provided by the user.
-        input_size = proc_inputs["data_samples"][0].metainfo["input_size"]
-        keypoints = keypoints / input_size * scale + center - 0.5 * scale
+        # create predictions from heatmap
+        keypoints, scores = get_final_preds(
+            heatmaps, np.array([center]), np.array([scale]) / 200
+        )
         keypoints = np.round(keypoints).astype(np.int32)
         if raw_output:
             return keypoints

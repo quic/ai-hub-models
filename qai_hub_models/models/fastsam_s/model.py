@@ -16,4 +16,6 @@ class FastSAM_S(Fast_SAM):
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
-        return Fast_SAM.from_pretrained.__func__(FastSAM_S, ckpt_name)
+        # It seems that we're using __func__ directly to ensure that the
+        # returned object is a FastSAM_S rather than a FastSAM.
+        return Fast_SAM.from_pretrained.__func__(FastSAM_S, ckpt_name)  # type: ignore[attr-defined]

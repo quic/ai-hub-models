@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import ruamel.yaml
 
 from qai_hub_models.scorecard.results.performance_diff import PerformanceDiff
 
@@ -41,14 +40,6 @@ def get_basic_speedup_report(
             },
         ]
     }
-
-
-def read_config(config_path):
-    yaml = ruamel.yaml.YAML()
-    yaml.preserve_quotes = True
-    yaml.preserve_yaml_order = True
-    with open(config_path) as file:
-        return yaml.load(file)
 
 
 def validate_perf_diff_is_empty(perf_diff):

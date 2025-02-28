@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import os
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
@@ -246,3 +247,89 @@ To fix this, install the variant of MMCV compatible with your torch version:
 """
     )
     exit(1)
+
+
+def print_file_tree_changes(
+    base_dir: str,
+    files_unmodified: list[str],
+    files_added: list[str] = [],
+    files_removed: list[str] = [],
+) -> list[str]:
+    """
+    Given a set of absolute paths, prints the file tree with modifications highlighted.
+
+    Parameters:
+        base_dir: str
+            The "top level" directory in which all files live.
+
+        files_unmodified: list[str]
+            ABSOLUTE paths to files in base_dir that are not modified.
+
+        files_added: list[str]
+            ABSOLUTE paths to files in base_dir that will be added.
+
+        files_unmodified: list[str]
+            ABSOLUTE paths to files in base_dir that will be removed.
+
+    Returns:
+        list[str]
+            Output lines (return value mainly used for unit testing)
+
+    Raises:
+        AssertionError
+            If any file path is not contained within base_dir.
+    """
+    changed = len(files_added) > 0 or len(files_removed) > 0
+    outlines = [f"--- File Tree {'Changes' if changed else ' (Unchanged)'} ---"]
+
+    # Get all files
+    all_files_set = set(files_unmodified)
+    all_files_set.update(files_removed)
+    all_files_set.update(files_added)
+    all_files = sorted(all_files_set)
+
+    # Collect starting level
+    if base_dir.endswith("/"):
+        base_dir = base_dir[:-1]
+    base_level = base_dir.count(os.sep)
+    last_level = base_level
+    last_folder = None
+    outlines.append(base_dir)
+
+    for file in all_files:
+        assert file.startswith(base_dir)
+
+        level = file.count(os.sep)
+        indent = file.count(os.sep) - base_level - 1
+        folder = os.path.dirname(file)
+
+        # If the level increases, or the folder name changes at the same level,
+        # this is a new folder. Print the folder name.
+        if (
+            level > last_level or (level == last_level and last_folder != folder)
+        ) and folder != base_dir:
+            outlines.append("")
+            outlines.append(f"{' ' * 4 * (indent)}{os.path.basename(folder)}/")
+        elif level == last_level - 1:
+            # pop back to previous folder, presumably to list more regular files
+            outlines.append("")
+
+        last_folder = folder
+        last_level = level
+
+        # Print file
+        addl_info = ""
+        added = file in files_added
+        removed = file in files_removed
+        if added and removed:
+            addl_info = "-+ "
+        elif added:
+            addl_info = "+ "
+        elif removed:
+            addl_info = "- "
+        outlines.append(f"{' ' * 4 * (indent + 1)}{addl_info}{os.path.basename(file)}")
+
+    for line in outlines:
+        print(line)
+
+    return outlines

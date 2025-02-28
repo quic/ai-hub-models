@@ -29,7 +29,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 # Verify that the output from Torch is as expected.
-def test_task():
+def test_task() -> None:
     app = FaceAttribNetApp(FaceAttribNetQuantizable.from_pretrained())
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_tensor = app.run_inference_on_image(original_image)
@@ -54,5 +54,5 @@ def test_task():
     print("Unit test is done")
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(FaceAttribNetQuantizable)

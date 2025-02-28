@@ -24,6 +24,7 @@ def main():
     parser = evaluate_parser(
         model_cls=Model,
         default_split_size=250,
+        default_num_samples=100,
         supported_datasets=SUPPORTED_DATASETS,
         is_hub_quantized=True,
     )
@@ -48,6 +49,7 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        args.compute_quant_cpu_accuracy,
     )
 
 

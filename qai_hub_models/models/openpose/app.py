@@ -7,7 +7,10 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import numpy.typing as npt
 import PIL
+import PIL.Image
+import PIL.ImageDraw
 import torch
 import torch.nn.functional as F
 from PIL.Image import Image
@@ -76,15 +79,15 @@ def getKeypointsFromPredictions(
         .detach()
         .numpy()
     )
-    heatmap = (
+    heatmap_np = (
         F.interpolate(heatmap, size=target_size, mode="bicubic", align_corners=False)
         .detach()
         .numpy()
     )
 
     # reshape for post processing
-    heatmap = np.transpose(heatmap.squeeze(), (1, 2, 0))
-    paf = np.transpose(upsampled_paf.squeeze(), (1, 2, 0))
+    heatmap_np = np.transpose(heatmap_np.squeeze(), (1, 2, 0))
+    paf_np = np.transpose(upsampled_paf.squeeze(), (1, 2, 0))
 
     """
     The following post-processing code comes from the pytorch openpose repo, at
@@ -97,7 +100,7 @@ def getKeypointsFromPredictions(
     thre2 = 0.05
 
     for part in range(18):
-        map_ori = heatmap[:, :, part]
+        map_ori = heatmap_np[:, :, part]
         one_heatmap = gaussian_filter(map_ori, sigma=3)
 
         map_left = np.zeros(one_heatmap.shape)
@@ -175,12 +178,12 @@ def getKeypointsFromPredictions(
         [45, 46],
     ]
 
-    connection_all = []
+    connection_all: list[npt.NDArray[np.float64]] = []
     special_k = []
     mid_num = 10
 
     for k in range(len(mapIdx)):
-        score_mid = paf[:, :, [x - 19 for x in mapIdx[k]]]
+        score_mid = paf_np[:, :, [x - 19 for x in mapIdx[k]]]
         candA = all_peaks[limbSeq[k][0] - 1]
         candB = all_peaks[limbSeq[k][1] - 1]
         nA = len(candA)
@@ -259,7 +262,7 @@ def getKeypointsFromPredictions(
             connection_all.append(connection)
         else:
             special_k.append(k)
-            connection_all.append([])
+            connection_all.append(np.array([], dtype=np.float64))
 
     # last number in each row is the total parts number of that person
     # the second last number in each row is the score of the overall configuration

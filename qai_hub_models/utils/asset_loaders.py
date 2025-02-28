@@ -927,7 +927,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
         web_store_path = asset_config.get_dataset_asset_url(
             dataset_id, dataset_version, filename
         )
-        return CachedWebModelAsset(
+        return CachedWebDatasetAsset(
             web_store_path,
             dataset_id,
             dataset_version,
@@ -963,7 +963,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
 
             asset_config: Asset config to use to save this file.
         """
-        return CachedWebModelAsset(
+        return CachedWebDatasetAsset(
             f"https://drive.google.com/uc?id={gdrive_file_id}",
             model_id,
             model_asset_version,

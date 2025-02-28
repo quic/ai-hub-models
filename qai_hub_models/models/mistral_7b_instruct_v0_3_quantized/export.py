@@ -126,21 +126,21 @@ def export_model(
     model = Model.from_precompiled()
     components_dict: dict[str, BasePrecompiledModel] = {}
     if "PromptProcessor_Part1" in components:
-        components_dict["PromptProcessor_Part1"] = model.prompt_processor_part1
+        components_dict["PromptProcessor_Part1"] = model.prompt_processor_part1  # type: ignore[assignment]
     if "PromptProcessor_Part2" in components:
-        components_dict["PromptProcessor_Part2"] = model.prompt_processor_part2
+        components_dict["PromptProcessor_Part2"] = model.prompt_processor_part2  # type: ignore[assignment]
     if "PromptProcessor_Part3" in components:
-        components_dict["PromptProcessor_Part3"] = model.prompt_processor_part3
+        components_dict["PromptProcessor_Part3"] = model.prompt_processor_part3  # type: ignore[assignment]
     if "PromptProcessor_Part4" in components:
-        components_dict["PromptProcessor_Part4"] = model.prompt_processor_part4
+        components_dict["PromptProcessor_Part4"] = model.prompt_processor_part4  # type: ignore[assignment]
     if "TokenGenerator_Part1" in components:
-        components_dict["TokenGenerator_Part1"] = model.token_generator_part1
+        components_dict["TokenGenerator_Part1"] = model.token_generator_part1  # type: ignore[assignment]
     if "TokenGenerator_Part2" in components:
-        components_dict["TokenGenerator_Part2"] = model.token_generator_part2
+        components_dict["TokenGenerator_Part2"] = model.token_generator_part2  # type: ignore[assignment]
     if "TokenGenerator_Part3" in components:
-        components_dict["TokenGenerator_Part3"] = model.token_generator_part3
+        components_dict["TokenGenerator_Part3"] = model.token_generator_part3  # type: ignore[assignment]
     if "TokenGenerator_Part4" in components:
-        components_dict["TokenGenerator_Part4"] = model.token_generator_part4
+        components_dict["TokenGenerator_Part4"] = model.token_generator_part4  # type: ignore[assignment]
 
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
@@ -178,7 +178,7 @@ def export_model(
         for component_name in components:
             profile_job = profile_jobs[component_name]
             assert profile_job.wait().success, "Job failed: " + profile_job.url
-            profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
+            profile_data: dict[str, Any] = profile_job.download_profile()
             print_profile_metrics_from_job(profile_job, profile_data)
 
     print(

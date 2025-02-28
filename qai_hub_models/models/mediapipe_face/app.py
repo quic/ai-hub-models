@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import cast
+
 from qai_hub_models.models._shared.mediapipe.app import MediaPipeApp
 from qai_hub_models.models.mediapipe_face.model import (
     DETECT_DSCALE,
@@ -48,8 +50,13 @@ class MediaPipeFaceApp(MediaPipeApp):
             model.face_detector,
             model.face_detector.anchors,
             model.face_landmark_detector,
-            model.face_detector.get_input_spec()["image"][0][-2:],
-            model.face_landmark_detector.get_input_spec()["image"][0][-2:],
+            cast(
+                tuple[int, int], model.face_detector.get_input_spec()["image"][0][-2:]
+            ),
+            cast(
+                tuple[int, int],
+                model.face_landmark_detector.get_input_spec()["image"][0][-2:],
+            ),
             RIGHT_EYE_KEYPOINT_INDEX,
             LEFT_EYE_KEYPOINT_INDEX,
             ROTATION_VECTOR_OFFSET_RADS,

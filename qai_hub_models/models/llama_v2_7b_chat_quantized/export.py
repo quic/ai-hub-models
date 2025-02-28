@@ -304,7 +304,7 @@ def export_model(
             for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
                 profile_job = profile_jobs[sub_component_name]
                 assert profile_job is not None and profile_job.wait().success
-                profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
+                profile_data: dict[str, Any] = profile_job.download_profile()
                 print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
@@ -318,7 +318,8 @@ def export_model(
                 sample_inputs = component.sample_inputs()
                 torch_out = torch_inference(component, sample_inputs)
                 assert inference_job is not None and inference_job.wait().success
-                inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
+                inference_result = inference_job.download_output_data()
+                assert inference_result is not None
                 print_inference_metrics(
                     inference_job,
                     inference_result,

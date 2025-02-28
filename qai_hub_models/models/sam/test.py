@@ -23,7 +23,7 @@ from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
 
 
-def test_e2e_numerical():
+def test_e2e_numerical() -> None:
     """Verify our driver produces the correct segmentation as source PyTorch model"""
     model_type = SMALL_MODEL_TYPE
 
@@ -120,5 +120,5 @@ def test_e2e_numerical():
     )
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

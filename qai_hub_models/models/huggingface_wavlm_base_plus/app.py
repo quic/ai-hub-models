@@ -51,8 +51,8 @@ class HuggingFaceWavLMBasePlusApp:
 
         # preprocess audio
         input_len = int(DEFAULT_INPUT_LENGTH_SECONDS * sampling_rate)
-        x = input[:input_len]
-        x = torch.from_numpy(x).float()
+        x_arr = input[:input_len]
+        x = torch.from_numpy(x_arr).float()
         x = torch.nn.functional.pad(
             x, (0, input_len - x.shape[0]), mode="constant", value=0
         )

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from enum import Enum, unique
+from enum import unique
 from functools import cached_property
 from typing import Optional
 
@@ -12,6 +12,7 @@ import qai_hub as hub
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
+from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
 _DEVICE_CACHE: dict[str, hub.Device] = {}
 UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
@@ -75,7 +76,7 @@ class ScorecardDevice:
         ]
 
     @unique
-    class FormFactor(Enum):
+    class FormFactor(ParseableQAIHMEnum):
         PHONE = 0  # YAML string: Phone
         TABLET = 1  # YAML string: Tablet
         AUTO = 2  # YAML string: Auto
@@ -108,7 +109,7 @@ class ScorecardDevice:
             return self.name.title()
 
     @unique
-    class OperatingSystem(Enum):
+    class OperatingSystem(ParseableQAIHMEnum):
         ANDROID = 0
         WINDOWS = 1
         LINUX = 2
@@ -207,7 +208,7 @@ class ScorecardDevice:
         Whether the scorecard should include this scorecard device.
         This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
         """
-        valid_test_devices = os.environ.get("WHITELISTED_PROFILE_TEST_DEVICES", "ALL")
+        valid_test_devices = os.environ.get("QAIHM_TEST_DEVICES", "ALL")
         return (
             valid_test_devices == "ALL"
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME

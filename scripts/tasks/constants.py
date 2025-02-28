@@ -53,6 +53,9 @@ PY_PACKAGE_LOCAL_CACHE = os.environ.get(
 PY_PACKAGE_MODELS_ROOT = os.path.join(
     PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_RELATIVE_MODELS_ROOT
 )
+STATIC_MDOELS_ROOT = os.path.join(
+    PY_PACKAGE_SRC_ROOT, "scorecard", "internal", "models"
+)
 
 # Requirements Path
 GLOBAL_REQUIREMENTS_PATH = os.path.join(PY_PACKAGE_SRC_ROOT, "global_requirements.txt")

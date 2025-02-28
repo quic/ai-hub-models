@@ -16,6 +16,7 @@ from transformers import CLIPTokenizer
 
 from qai_hub_models.models._shared.stable_diffusion.app import StableDiffusionApp
 from qai_hub_models.utils.args import add_output_dir_arg
+from qai_hub_models.utils.asset_loaders import VersionType
 from qai_hub_models.utils.base_model import BasePrecompiledModel
 from qai_hub_models.utils.display import display_or_save_image
 from qai_hub_models.utils.inference import OnDeviceModel, get_uploaded_precompiled_model
@@ -27,7 +28,7 @@ DEFAULT_DEVICE_NAME = "Samsung Galaxy S23 Ultra"
 
 def _get_on_device_model(
     model_id: str,
-    model_asset_version: str,
+    model_asset_version: VersionType,
     input_model: BasePrecompiledModel,
     model_name: str,
     ignore_cached_model: bool = False,
@@ -54,13 +55,13 @@ def _get_on_device_model(
 # AI-generated image based on the description in the prompt.
 def stable_diffusion_demo(
     model_id: str,
-    model_asset_version: str,
+    model_asset_version: VersionType,
     text_encoder: BasePrecompiledModel,
     unet: BasePrecompiledModel,
     vae_decoder: BasePrecompiledModel,
     tokenizer: CLIPTokenizer | Any,
     scheduler: DPMSolverMultistepScheduler,
-    time_embedding: diffusers.embeddings.TimeEmbedding,
+    time_embedding: diffusers.embeddings.TimeEmbedding,  # type: ignore[name-defined]
     channel_last_latent: bool = True,
     is_test: bool = False,
 ):

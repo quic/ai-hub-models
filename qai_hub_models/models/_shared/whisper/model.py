@@ -111,7 +111,7 @@ class WhisperEncoderInf(BaseModel):
             ]
         )
 
-    def forward(self, audio: torch.Tensor) -> list[torch.Tensor]:
+    def forward(self, audio: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         # Return cross attention key and value cache tensors
         encoder_out = self.encoder(audio)
         k_cache = torch.cat(

@@ -141,5 +141,5 @@ if __name__ == "__main__":
     print(f"profile job: {profile_job}")
 
     assert profile_job.wait().success, "Job failed: " + profile_job.url
-    profile_data = profile_job.download_profile()  # type: ignore
+    profile_data = profile_job.download_profile()
     print_profile_metrics_from_job(profile_job, profile_data)

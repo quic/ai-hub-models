@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -55,8 +57,8 @@ class Block3x3(nn.Module):
         in_size: int,
         expand_size: int,
         out_size: int,
-        nolinear: str,
-        semodule: nn.Module,
+        nolinear: nn.Module,
+        semodule: nn.Module | None,
         stride: int,
     ):
         super().__init__()

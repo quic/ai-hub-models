@@ -10,13 +10,13 @@ from qai_hub_models.models.whisper_tiny_en.demo import main as demo_main
 from qai_hub_models.models.whisper_tiny_en.model import WHISPER_VERSION
 
 
-def test_numerics():
+def test_numerics() -> None:
     run_test_wrapper_numerics(WHISPER_VERSION)
 
 
-def test_transcribe():
+def test_transcribe() -> None:
     run_test_transcribe(WHISPER_VERSION)
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

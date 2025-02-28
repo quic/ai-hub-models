@@ -70,4 +70,4 @@ class YoloV8Segmentor(Yolo):
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
-        return ["masks"]
+        return ["protos"]

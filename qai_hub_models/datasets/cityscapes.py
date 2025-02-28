@@ -116,9 +116,10 @@ class CityscapesDataset(BaseDataset):
             "so users need to manually download it by following these steps: \n"
             "1. Go to https://www.cityscapes-dataset.com/ and make an account\n"
             "2. Go to https://www.cityscapes-dataset.com/downloads/ and download "
-            "`leftImg8bit_trainvaltest.zip` and `gt_trainvaltest.zip`\n"
-            "3. Pass the filepaths to these two files to the init function of this class. "
-            "This should only be needed the first time you run this on the machine."
+            "`leftImg8bit_trainvaltest.zip` and `gtFine_trainvaltest.zip`\n"
+            "3. Run `python -m qai_hub_models.datasets.configure_dataset "
+            "--dataset cityscapes --files /path/to/leftImg8bit_trainvaltest.zip "
+            "/path/to/gtFine_trainvaltest.zip`"
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             IMAGES_DIR_NAME + ".zip"

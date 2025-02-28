@@ -3,16 +3,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 # Implementation of a class that splits a larger onnx graph into smaller subgraphs
+from __future__ import annotations
 
 import collections
 import os
+from collections.abc import Iterable, Iterator
 
 import onnx
 from onnx.external_data_helper import uses_external_data
 
 
 class OnnxSplitter:
-    def __init__(self, onnxmodel, verbose=False):
+    def __init__(self, onnxmodel: onnx.ModelProto, verbose=False):
         self.model = onnxmodel
         self.verbose = verbose
         self.graph_inputs = {i.name for i in self.model.graph.input}
@@ -26,16 +28,16 @@ class OnnxSplitter:
 
     def partition_subgraph(
         self,
-        name,  # name of the ONNX graph
-        output_tensors,  # list of new output tensors to include
-        additional_input_tensors=None,
+        name: str,  # name of the ONNX graph
+        output_tensors: Iterable[str],  # list of new output tensors to include
+        additional_input_tensors: Iterable[str] | None = None,
     ):
         """
         Partition a graph with input and output tensors
         - Captures all nodes that required to compute the given output_tensors
         """
 
-        def upstream(nodeid):
+        def upstream(nodeid: int) -> list[int]:
             return [
                 self.producer[i]
                 for i in self.node[nodeid].input
@@ -78,7 +80,7 @@ class OnnxSplitter:
                 if producerid not in visited:
                     q.append(producerid)
 
-        use = set()
+        use: set[str] = set()
         for nodeid in visited:
             use.update(self.node[nodeid].input)
             use.update(self.node[nodeid].output)
@@ -132,9 +134,12 @@ class OnnxSplitter:
         )
         return new_graph
 
-    def split(self, list_of_intermediate_output_tensors):
+    def split(
+        self, list_of_intermediate_output_tensors: Iterable[str]
+    ) -> Iterator[onnx.GraphProto]:
         count = 0
-        additional_input_tensors, covered_output_tensors = [], set()
+        additional_input_tensors: list[str] = []
+        covered_output_tensors: set[str] = set()
         for i, output_tensors in enumerate(list_of_intermediate_output_tensors):
             count += 1
             graphname = f"{self.model.graph.name}_split{count}"
@@ -161,7 +166,7 @@ class OnnxSplitter:
         yield lastgraph
 
     @classmethod
-    def get_all_tensors(cls, graph):
+    def get_all_tensors(cls, graph: onnx.GraphProto):
         yield from graph.initializer
         for node in graph.node:
             for attribute in node.attribute:
@@ -175,7 +180,7 @@ class OnnxSplitter:
                 yield from attribute.tensors
 
     @classmethod
-    def is_using_external_data(cls, onnxmodel):
+    def is_using_external_data(cls, onnxmodel: onnx.ModelProto):
         for tensor in cls.get_all_tensors(onnxmodel.graph):
             if uses_external_data(tensor):
                 return True
@@ -190,48 +195,15 @@ def save_model(model, newonnxfile, using_external_data=False):
         kwargs["save_as_external_data"] = True
         kwargs["all_tensors_to_one_file"] = True
         kwargs["location"] = location
-        if os.path.exists(os.path.join(dirname, kwargs["location"])):
-            os.unlink(os.path.join(dirname, kwargs["location"]))
+        if os.path.exists(os.path.join(dirname, str(kwargs["location"]))):
+            os.unlink(os.path.join(dirname, str(kwargs["location"])))
 
-    onnx.save(model, newonnxfile, **kwargs)
-
-
-def split_onnx_by_names(
-    onnxfile, list_of_output_tensors, output_dir=".", verbose=False
-):
-    if verbose:
-        print(f"Loading {onnxfile}")
-    onnxmodel = onnx.load(onnxfile, load_external_data=False)
-    splitter = OnnxSplitter(onnxmodel, verbose=verbose)
-    using_external_data = OnnxSplitter.is_using_external_data(onnxmodel)
-
-    list_of_output_tensors = [i.split(",") for i in list_of_output_tensors]
-    num_splits = len(list_of_output_tensors) + 1
-
-    # 1. split model
-    new_model_info = []
-    for i, subgraph in enumerate(splitter.split(list_of_output_tensors)):
-        new_basename = f"{os.path.basename(onnxfile)}_{i + 1}_of_{num_splits}"
-        input_tensors = [i.name for i in subgraph.input]
-        new_model_info.append([new_basename, input_tensors])
-
-        submodel = onnx.helper.make_model(
-            subgraph, opset_imports=onnxmodel.opset_import
-        )
-        if (
-            not using_external_data
-            and submodel.ByteSize() < onnx.checker.MAXIMUM_PROTOBUF
-        ):
-            onnx.checker.check_model(submodel)
-
-        if using_external_data:
-            if verbose:
-                print(f"Loading external data from {os.path.dirname(onnxfile)}")
-            onnx.load_external_data_for_model(
-                submodel, base_dir=os.path.dirname(onnxfile)
-            )
-
-        newonnxfile = f"{output_dir}/{new_basename}.onnx"
-        if verbose:
-            print(f"Saving {newonnxfile}")
-        save_model(submodel, newonnxfile, using_external_data)
+    # Older ONNX versions treat `location` parameter relative to cwd and not
+    # the model file. To avoid inconsistent behavior across ONNX versions, we
+    # align cwd and the model directory.
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(os.path.dirname(newonnxfile))
+        onnx.save(model, os.path.basename(newonnxfile), **kwargs)  # type: ignore[arg-type]
+    finally:
+        os.chdir(old_cwd)

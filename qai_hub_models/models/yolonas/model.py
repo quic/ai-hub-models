@@ -10,13 +10,13 @@ import sys
 import torch
 
 from qai_hub_models.models._shared.yolo.model import Yolo
-from qai_hub_models.utils.asset_loaders import SourceAsRoot
+from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
 
 SOURCE_REPOSITORY = "https://github.com/Deci-AI/super-gradients/"
-SOURCE_REPO_COMMIT = "00a1f86da1a5bfdbbac44bfeda177de9439f4c73"
+SOURCE_REPO_COMMIT = "e0ccacf8868ffa1296fa4f8407c03d2bc227312c"
 MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "yolo_nas_s"
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 
 class YoloNAS(Yolo):
@@ -44,7 +44,13 @@ class YoloNAS(Yolo):
             SOURCE_REPO_COMMIT,
             MODEL_ID,
             MODEL_ASSET_VERSION,
-        ):
+        ) as repo_path:
+            find_replace_in_repo(
+                repo_path,
+                "src/super_gradients/training/utils/checkpoint_utils.py",
+                "https://sghub.deci.ai/models/",
+                "https://sg-hub-nv.s3.amazonaws.com/models/",
+            )
             os.chdir("src")
             sys.path.append(".")
 

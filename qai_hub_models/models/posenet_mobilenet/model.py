@@ -62,6 +62,9 @@ class PosenetMobilenet(BaseModel):
 
             return cls(model)
 
+    # Caution: adding typehints to this method's parameter or return will trigger a
+    # bug in torch that leads to the following exception:
+    # AttributeError: 'str' object has no attribute '__name__'. Did you mean: '__ne__'?
     def forward(self, image):
         """
         Image inputs are expected to be in RGB format in the range [0, 1].

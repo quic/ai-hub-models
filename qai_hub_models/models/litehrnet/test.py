@@ -36,7 +36,7 @@ EXPECTED_KEYPOINTS = np.array(
 )
 
 
-def _test_impl(app: LiteHRNetApp):
+def _test_impl(app: LiteHRNetApp) -> None:
     image = load_image(IMAGE_ADDRESS)
     keypoints = app.predict_pose_keypoints(image, True)
 
@@ -48,16 +48,16 @@ def _test_impl(app: LiteHRNetApp):
     )
 
 
-def test_task():
+def test_task() -> None:
     litehrnet = LiteHRNet.from_pretrained()
     _test_impl(LiteHRNetApp(litehrnet, litehrnet.inferencer))
 
 
 @pytest.mark.trace
-def test_trace():
+def test_trace() -> None:
     litehrnet = LiteHRNet.from_pretrained()
     _test_impl(LiteHRNetApp(litehrnet.convert_to_torchscript(), litehrnet.inferencer))
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

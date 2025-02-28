@@ -20,9 +20,7 @@ import pytest
 import qai_hub as hub
 from qai_hub.client import SourceModelType
 from tabulate import tabulate
-from torch.utils.data import DataLoader, Sampler
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import (
     always_answer_prompts,
@@ -30,7 +28,7 @@ from qai_hub_models.utils.asset_loaders import (
     qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.evaluate import get_dataset_path
+from qai_hub_models.utils.evaluate import get_dataset_path, get_torch_val_dataloader
 from qai_hub_models.utils.inference import (
     AsyncOnDeviceResult,
     dataset_entries_from_batch,
@@ -183,15 +181,15 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
 
 
 def is_hub_testing_async() -> bool:
-    return bool(os.environ.get("TEST_HUB_ASYNC", 0))
+    return bool(os.environ.get("QAIHM_TEST_HUB_ASYNC", 0))
 
 
 def should_run_skipped_models() -> bool:
-    return bool(os.environ.get("RUN_ALL_SKIPPED_MODELS", 0))
+    return bool(os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0))
 
 
 def get_artifacts_dir_opt() -> Path | None:
-    adir = os.environ.get("ARTIFACTS_DIR", None)
+    adir = os.environ.get("QAIHM_TEST_ARTIFACTS_DIR", None)
     return Path(adir) if adir else None
 
 
@@ -199,18 +197,20 @@ def get_artifacts_dir() -> Path:
     adir = get_artifacts_dir_opt()
     assert (
         adir
-    ), "Attempted to access artifacts dir, but $ARTIFACTS_DIR cli variable is not set"
+    ), "Attempted to access artifacts dir, but $QAIHM_TEST_ARTIFACTS_DIR cli variable is not set"
     return Path(adir)
 
 
 def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
-    path = Path(artifacts_dir or get_artifacts_dir()) / filename
+    dir = Path(artifacts_dir or get_artifacts_dir())
+    os.makedirs(dir, exist_ok=True)
+    path = dir / filename
     path.touch()
     return path
 
 
 def get_dataset_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("dataset_ids.yaml", artifacts_dir)
+    return get_artifact_filepath("dataset-ids.yaml", artifacts_dir)
 
 
 def get_compile_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
@@ -309,20 +309,6 @@ def mock_get_calibration_data(
     return hub_dataset
 
 
-class EveryNSampler(Sampler):
-    """Samples every N samples deterministically from a torch dataset."""
-
-    def __init__(self, n: int, num_samples: int):
-        self.n = n
-        self.num_samples = num_samples
-
-    def __iter__(self):
-        return iter(range(0, self.num_samples * self.n, self.n))
-
-    def __len__(self):
-        return self.num_samples
-
-
 def get_val_dataset_id_keys(
     dataset_name: str, apply_channel_transpose: bool
 ) -> tuple[str, str]:
@@ -330,25 +316,6 @@ def get_val_dataset_id_keys(
     if not apply_channel_transpose:
         base_name += "nt_"  # no transpose
     return base_name + "input", base_name + "gt"
-
-
-def get_torch_val_dataloader(dataset_name: str, num_samples: int) -> DataLoader:
-    """
-    Creates a torch dataloader with a chunk of validation data from the given dataset.
-
-    The dataset is sampled by taking every N samples for the largest possible N
-    that produces the number of requested samples.
-
-    Parameters:
-        dataset_name: Name of the dataset. Dataset must be registered in
-            qai_hub_models.datasets.__init__.py
-        num_samples: Number of samples to sample from the full dataset.
-    """
-    torch_val_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
-    sampler = EveryNSampler(
-        n=len(torch_val_dataset) // num_samples, num_samples=num_samples
-    )
-    return DataLoader(torch_val_dataset, batch_size=num_samples, sampler=sampler)
 
 
 def write_accuracy(

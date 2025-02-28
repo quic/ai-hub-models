@@ -24,6 +24,7 @@ def main():
     parser = evaluate_parser(
         model_cls=Model,
         default_split_size=50,
+        default_num_samples=50,
         supported_datasets=SUPPORTED_DATASETS,
     )
     args = parser.parse_args()

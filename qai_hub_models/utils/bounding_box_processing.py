@@ -175,12 +175,13 @@ def box_xywh_to_xyxy(box_cwh: torch.Tensor) -> torch.Tensor:
     Convert center, W, H to top left / bottom right bounding box values.
 
     Inputs:
-        box_xy: torch.Tensor
+        box_cwh: torch.Tensor
             Bounding box. Shape is [B, 2, 2]
             [[xc, yc], [w, h]] * Batch
 
-    Outputs: torch.Tensor
-        Output format is [[x0, y0], [x1, y1]]
+    Outputs:
+        box_xy: torch.Tensor
+            Bounding box. Output format is [[x0, y0], [x1, y1]]
     """
     # Convert Xc, Yc, W, H to min and max bounding box values.
     x_center = box_cwh[..., 0, 0]
@@ -227,6 +228,33 @@ def box_xyxy_to_xywh(
     out[..., 0, 1] = y0 + out[..., 1, 1] / 2  # yc
 
     return out
+
+
+def box_xywh_to_cs(box_cwh: list, aspect_ratio: float) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Convert bbox to center-scale format while maintaining aspect ratio.
+    Inputs:
+        box_cwh: List
+            Bounding box. Shape is [4,]
+            [xc, yc, w, h]
+        aspect_ratio: float
+            ratio between width and height
+
+    Outputs:
+        center: np.ndarray
+            center for bbox. Shape is [2,]
+        scale: np.ndarray
+            scale for bbox. Shape is [2,]
+    """
+    x, y, w, h = box_cwh
+    center = np.array([x + w * 0.5, y + h * 0.5], dtype=np.float32)
+
+    if w > aspect_ratio * h:
+        h = w / aspect_ratio
+    elif w < aspect_ratio * h:
+        w = h * aspect_ratio
+    scale = np.array([w / 200.0, h / 200.0], dtype=np.float32) * 1.25
+    return center, scale
 
 
 def apply_directional_box_offset(

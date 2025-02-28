@@ -226,7 +226,7 @@ def within_nms_radius_fast(
     """
     if not pose_coords.shape[0]:
         return False
-    return np.any(np.sum((pose_coords - point) ** 2, axis=1) <= nms_radius**2)
+    return bool(np.any(np.sum((pose_coords - point) ** 2, axis=1) <= nms_radius**2))
 
 
 def get_instance_score_fast(
@@ -508,7 +508,8 @@ class PosenetApp:
     def __init__(
         self,
         model: Callable[
-            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         input_height: int,
         input_width: int,
@@ -525,7 +526,7 @@ class PosenetApp:
         self,
         image: Image.Image,
         raw_output: bool = False,
-    ) -> np.ndarray | Image.Image:
+    ) -> Image.Image | tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Predicts up to 17 pose keypoints for up to 10 people in the image.
 

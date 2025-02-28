@@ -19,16 +19,16 @@ class BBox:
     def __init__(
         self,
         label: str,
-        xyrb: list,
+        xyrb: list[int],
         score: float = 0,
-        landmark: list = None,
+        landmark: list | None = None,
         rotate: bool = False,
     ):
         """
         A bounding box plus landmarks structure to hold the hierarchical result.
         parameters:
             label:str the class label
-            xyrb: 4 array or list for bbox left, top,  right bottom coordinates
+            xyrb: 4 list for bbox left, top,  right bottom coordinates
             score:the score of the deteciton
             landmark: 10x2 the landmark of the joints [[x1,y1], [x2,y2]...]
         """
@@ -56,27 +56,27 @@ class BBox:
         )
 
     @property
-    def width(self):
+    def width(self) -> int:
         return self.r - self.x + 1
 
     @property
-    def height(self):
+    def height(self) -> int:
         return self.b - self.y + 1
 
     @property
-    def box(self):
+    def box(self) -> list[int]:
         return [self.x, self.y, self.r, self.b]
 
-    @property
-    def box(self, newvalue):
+    @box.setter
+    def box(self, newvalue: list[int]) -> None:
         self.x, self.y, self.r, self.b = newvalue
 
     @property
-    def haslandmark(self):
+    def haslandmark(self) -> bool:
         return self.landmark is not None
 
     @property
-    def xywh(self):
+    def xywh(self) -> list[int]:
         return [self.x, self.y, self.width, self.height]
 
 
@@ -115,7 +115,7 @@ def detect(
     threshold: float = 0.2,
     nms_iou: float = 0.2,
     stride: int = 8,
-) -> list:
+) -> list[BBox]:
     hm, box, landmark = model(image)
     hm = hm.sigmoid()
     hm_pool = F.max_pool2d(hm, 3, 1, 1)
@@ -138,12 +138,14 @@ def detect(
             break
 
         x, y, r, b = box[0, :, cy, cx].cpu().data.numpy()
-        xyrb = (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride
+        xyrb: list[int] = (
+            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride
+        ).tolist()
         x5y5 = landmark[0, :, cy, cx].cpu().data.numpy()
         x5y5 = (x5y5 + ([cx] * 5 + [cy] * 5)) * stride
 
         box_landmark = list(zip(x5y5[:5], x5y5[5:]))
-        objs.append(BBox(0, xyrb=xyrb, score=score, landmark=box_landmark))
+        objs.append(BBox("0", xyrb=xyrb, score=score, landmark=box_landmark))
 
     if nms_iou != -1:
         return nms(objs, iou=nms_iou)
@@ -175,7 +177,7 @@ class FaceDetLiteApp:
         | np.ndarray
         | Image.Image
         | list[Image.Image],
-    ) -> list[Image.Image] | np.ndarray:
+    ) -> list[list[int | float]]:
         """
         Return the corresponding output by running inference on input image.
 
@@ -197,15 +199,15 @@ class FaceDetLiteApp:
         img = pixel_values_or_image
 
         if isinstance(img, Image.Image):
-            img = np.asarray(img)
+            img_array = np.asarray(img)
         elif isinstance(img, np.ndarray):
-            img = img
+            img_array = img
         else:
-            assert 0, "Invalid format"
+            raise RuntimeError("Invalid format")
 
-        img = (img.astype("float32") / 255.0 - 0.442) / 0.280
-        img = img[np.newaxis, ...]
-        img_tensor = torch.Tensor(img)
+        img_array = (img_array.astype("float32") / 255.0 - 0.442) / 0.280
+        img_array = img_array[np.newaxis, ...]
+        img_tensor = torch.Tensor(img_array)
         img_tensor = img_tensor[:, :, :, -1]
 
         img_tensor = img_tensor[np.newaxis, ...]

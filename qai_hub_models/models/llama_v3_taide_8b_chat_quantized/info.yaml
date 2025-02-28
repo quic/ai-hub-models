@@ -1,0 +1,59 @@
+name: Llama3-TAIDE-LX-8B-Chat-Alpha1
+id: llama_v3_taide_8b_chat_quantized
+status: public
+headline: State-of-the-art large language model useful on a variety of language
+  understanding and generation tasks.
+domain: Generative AI
+description: The Llama3-TAIDE-LX-8B-Chat-Alpha1 LLM model is based on Meta's released LLaMA3-8b model,
+  fine-tuned on Traditional Chinese data, and enhanced for office tasks and multi-turn dialogue
+  capabilities through instruction tuning.
+  The TAIDE model is incorporating text and training materials from various fields in Taiwan to enhance
+  the model's ability to respond in Traditional Chinese and perform specific tasks such as automatic
+  summarization, writing emails, articles, and translating between Chinese and English.
+use_case: Text Generation
+tags:
+  - llm
+  - generative-ai
+  - quantized
+research_paper: https://ai.meta.com/blog/meta-llama-3/
+research_paper_title: "LLaMA: Open and Efficient Foundation Language Models"
+license: https://en.taide.tw/download.html
+source_repo: https://huggingface.co/taide/Llama3-TAIDE-LX-8B-Chat-Alpha1
+technical_details:
+  Input sequence length for Prompt Processor: 128
+  Context length: 4096
+  Number of parameters: 8B
+  Model size: 4.8GB
+  Precision: w4a16 + w8a16 (few layers)
+  Num of key-value heads: 8
+  Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
+  Prompt processor input: 128 tokens + position embeddings + attention mask + KV cache inputs
+  Prompt processor output: 128 output tokens + KV cache outputs
+  Model-2 (Token Generator): Llama-TokenGenerator-Quantized
+  Token generator input: 1 input token + position embeddings + attention mask + KV cache inputs
+  Token generator output: 1 output token + KV cache outputs
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.7
+  Supported languages: English, Traditional Chinese
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token.
+applicable_scenarios:
+  - Dialogue
+  - Content Generation
+  - Customer Support
+related_models:
+  - llama_v3_8b_chat_quantized
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: true
+license_type: llama3
+deploy_license: https://en.taide.tw/download.html
+deploy_license_type: llama3
+dataset: []
+restrict_model_sharing: true
+model_type_llm: true
+llm_details:
+  call_to_action: 'view_readme'
+  genie_compatible: true

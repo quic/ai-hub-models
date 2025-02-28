@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -108,7 +108,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # This is a dict from component name to a python expression that can be evaluated
     # to produce the submodel. The expression can assume the parent model has been
     # initialized and assigned to the variable `model`.
-    components: Optional[dict[str, Any]] = None
+    components: Optional[dict[str, str]] = None
 
     # If components is set, this field can specify a subset of components to run
     # by default when invoking `export.py`. If unset, all components are run by default.
@@ -191,11 +191,16 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         Return true if this runtime is supported by this model.
         Return false if this model has a failure reason set for this runtime.
         """
+        return not bool(self.runtime_failure_reason(runtime))
+
+    def runtime_failure_reason(self, runtime: TargetRuntime) -> str | None:
+        """
+        Return the reason a model failed or None if the model did not fail.
+        """
         if runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
             runtime = (
                 TargetRuntime.QNN
             )  # QNN Support is a proxy for precompiled QNN ONNX.
-
         automated_skip = getattr(
             self, f"{runtime.name.lower()}_export_failure_reason", None
         )
@@ -203,7 +208,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             self, f"{runtime.name.lower()}_export_disable_issue", None
         )
         timeout = getattr(self, f"{runtime.name.lower()}_export_timeout_issue", None)
-        return not automated_skip and not user_provided_skip and not timeout
+        return user_provided_skip or timeout or automated_skip
 
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:

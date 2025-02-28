@@ -28,6 +28,7 @@ def trocr_app(source_huggingface_model: VisionEncoderDecoderModel) -> TrOCRApp:
     # Load Huggingface source
     source_model = source_huggingface_model
     io_processor = TrOCRProcessor.from_pretrained(HUGGINGFACE_TROCR_MODEL)
+    assert isinstance(io_processor, TrOCRProcessor)
 
     # Load Application
     return TrOCRApp(TrOCR.from_source_model(source_model, io_processor))
@@ -63,5 +64,5 @@ def test_task(
     assert np.allclose(source_out, qaihm_out)
 
 
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)

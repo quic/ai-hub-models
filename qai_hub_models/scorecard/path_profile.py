@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import os
-from enum import Enum
 from typing import Optional
 
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
+from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
 
-class ScorecardProfilePath(Enum):
+class ScorecardProfilePath(ParseableQAIHMEnum):
     TFLITE = 0
     QNN = 1
     ONNX = 2
@@ -27,7 +27,7 @@ class ScorecardProfilePath(Enum):
 
     @property
     def enabled(self) -> bool:
-        valid_test_runtimes = os.environ.get("WHITELISTED_TEST_RUNTIMES", "ALL")
+        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
 
         # DML only enabled if explicitly requested
         if self == ScorecardProfilePath.ONNX_DML_GPU:
@@ -95,3 +95,12 @@ class ScorecardProfilePath(Enum):
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return "--onnx_execution_providers directml"
         return ""
+
+    @staticmethod
+    def from_string(string: str) -> "ScorecardProfilePath":
+        for path in ScorecardProfilePath:
+            if path.long_name == string or path.name == string:
+                return path
+        raise ValueError(
+            "Unable to map name {runtime_name} to a valid scorecard profile path"
+        )

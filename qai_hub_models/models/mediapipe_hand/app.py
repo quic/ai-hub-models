@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import cast
+
 import cv2
 import numpy as np
 import torch
@@ -62,8 +64,13 @@ class MediaPipeHandApp(MediaPipeApp):
             model.hand_detector,
             model.hand_detector.anchors,
             model.hand_landmark_detector,
-            model.hand_detector.get_input_spec()["image"][0][-2:],
-            model.hand_landmark_detector.get_input_spec()["image"][0][-2:],
+            cast(
+                tuple[int, int], model.hand_detector.get_input_spec()["image"][0][-2:]
+            ),
+            cast(
+                tuple[int, int],
+                model.hand_landmark_detector.get_input_spec()["image"][0][-2:],
+            ),
             WRIST_CENTER_KEYPOINT_INDEX,
             MIDDLE_FINDER_KEYPOINT_INDEX,
             ROTATION_VECTOR_OFFSET_RADS,
@@ -76,7 +83,7 @@ class MediaPipeHandApp(MediaPipeApp):
             HAND_LANDMARK_CONNECTIONS,
         )
 
-    def predict_landmarks_from_image(
+    def predict_landmarks_from_image(  # type: ignore[override]
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
@@ -114,7 +121,7 @@ class MediaPipeHandApp(MediaPipeApp):
         """
         return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore
 
-    def _draw_predictions(
+    def _draw_predictions(  # type: ignore[override]
         self,
         NHWC_int_numpy_frames: list[np.ndarray],
         batched_selected_boxes: list[torch.Tensor | None],
@@ -144,7 +151,7 @@ class MediaPipeHandApp(MediaPipeApp):
             if ld is not None and irh is not None:
                 self._draw_landmarks(image, ld, irh)
 
-    def _draw_landmarks(
+    def _draw_landmarks(  # type: ignore[override]
         self,
         NHWC_int_numpy_frame: np.ndarray,
         landmarks: torch.Tensor,
@@ -167,7 +174,7 @@ class MediaPipeHandApp(MediaPipeApp):
                     2,
                 )
 
-    def _run_landmark_detector(
+    def _run_landmark_detector(  # type: ignore[override]
         self,
         NHWC_int_numpy_frames: list[np.ndarray],
         batched_roi_4corners: list[torch.Tensor | None],
@@ -205,9 +212,7 @@ class MediaPipeHandApp(MediaPipeApp):
             )
 
             # Compute hand landmarks.
-            ld_scores, lr, landmarks = self.landmark_detector(  # type: ignore
-                keypoint_net_inputs
-            )
+            ld_scores, lr, landmarks = self.landmark_detector(keypoint_net_inputs)
 
             # Convert [0-1] ranged values of landmarks to integer pixel space.
             landmarks[:, :, 0] *= self.landmark_input_dims[0]

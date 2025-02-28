@@ -125,9 +125,9 @@ def export_model(
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
     components_dict: dict[str, BaseModel] = {}
     if "WhisperDecoder" in components:
-        components_dict["WhisperDecoder"] = model.decoder
+        components_dict["WhisperDecoder"] = model.decoder  # type: ignore[assignment]
     if "WhisperEncoder" in components:
-        components_dict["WhisperEncoder"] = model.encoder
+        components_dict["WhisperEncoder"] = model.encoder  # type: ignore[assignment]
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name, component in components_dict.items():
@@ -200,7 +200,8 @@ def export_model(
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
         for component_name, compile_job in compile_jobs.items():
-            target_model: hub.Model = compile_job.get_target_model()  # type: ignore
+            target_model = compile_job.get_target_model()
+            assert target_model is not None
             target_model.download(str(output_path / component_name))
 
     # 6. Summarizes the results from profiling and inference
@@ -208,7 +209,7 @@ def export_model(
         for component_name in components:
             profile_job = profile_jobs[component_name]
             assert profile_job.wait().success, "Job failed: " + profile_job.url
-            profile_data: dict[str, Any] = profile_job.download_profile()  # type: ignore
+            profile_data: dict[str, Any] = profile_job.download_profile()
             print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
@@ -221,7 +222,8 @@ def export_model(
                 return_channel_last_output=use_channel_last_format,
             )
             assert inference_job.wait().success, "Job failed: " + inference_job.url
-            inference_result: hub.client.DatasetEntries = inference_job.download_output_data()  # type: ignore
+            inference_result = inference_job.download_output_data()
+            assert inference_result is not None
 
             print_inference_metrics(
                 inference_job, inference_result, torch_out, component.get_output_names()

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+import torch.nn.functional as F
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
@@ -59,6 +60,10 @@ def yolo_detect_postprocess(
         boxes = box_transform_xywh2xyxy_split_input(boxes[..., 0:2], boxes[..., 2:4])
     else:
         boxes = transform_box_layout_xywh2xyxy(boxes)
+
+    # TODO(13933) Revert once QNN issues with ReduceMax are fixed
+    if scores.shape[-1] == 1:
+        scores = F.pad(scores, (0, 1))
 
     # Get class ID of most likely score.
     scores, class_idx = torch.max(scores, -1, keepdim=False)

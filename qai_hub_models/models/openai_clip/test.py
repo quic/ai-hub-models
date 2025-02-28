@@ -17,7 +17,7 @@ TEXT = "pyramid in desert"
 
 
 @skip_clone_repo_check
-def test_prediction():
+def test_prediction() -> None:
     """Verify our driver produces the correct score given image and text pair."""
     source_clip_model = Clip.from_pretrained()
     clip_app = ClipApp(source_clip_model)
@@ -27,7 +27,7 @@ def test_prediction():
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     """Verify that raw (numeric) outputs of both networks are the same."""
     source_clip_model = Clip.from_pretrained()
     clip_app = ClipApp(source_clip_model)
@@ -48,5 +48,5 @@ def test_task():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     demo_main(is_test=True)
