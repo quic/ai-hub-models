@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.wideresnet50.model import WideResNet50
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class WideResNet50Quantizable(HubQuantizableMixin, WideResNet50):
+class WideResNet50Quantizable(WideResNet50):
     pass

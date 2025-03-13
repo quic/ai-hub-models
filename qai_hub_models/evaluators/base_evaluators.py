@@ -162,14 +162,20 @@ def _for_each_batch(
                     inputs = inputs.to(torch_device)
                     outputs = model(inputs)
                 else:
-                    inputs = [input.to(torch_device) for input in inputs]
+                    inputs = [
+                        input.to(  # pyright: ignore[reportAttributeAccessIssue]
+                            torch_device
+                        )
+                        for input in inputs
+                    ]
                     outputs = model(*inputs)
 
                 if data_has_gt:
                     if isinstance(ground_truth, torch.Tensor):
                         ground_truth = ground_truth.to("cpu")
                     else:
-                        ground_truth = [gt.to("cpu") for gt in ground_truth]  # type: ignore
+                        assert ground_truth is not None
+                        ground_truth = [gt.to("cpu") for gt in ground_truth]
 
                 if callback:
                     if data_has_gt:

@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     SourceAsRoot,
     find_replace_in_repo,
@@ -136,3 +137,6 @@ class YoloV11Detector(Yolo):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"

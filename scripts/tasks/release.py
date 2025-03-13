@@ -272,7 +272,7 @@ class PublishWheelTask(CompositeTask):
                 env=os.environ,
                 commands=[
                     "pip install twine",
-                    f"twine upload --repository-url {pypi} {os.path.join(_get_wheel_dir(), '*.whl')}",
+                    f"twine upload --verbose --repository-url {pypi} {os.path.join(_get_wheel_dir(), '*.whl')}",
                 ],
             )
         )

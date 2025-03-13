@@ -16,6 +16,11 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/p
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install "qai-hub-models[posenet-mobilenet]"
+```
+
 
 Once installed, run the following simple CLI demo:
 

@@ -26,6 +26,7 @@ from qai_hub.client import DatasetEntries, Device, SourceModel
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
 from qai_hub_models.models.common import (
+    Precision,
     SampleInputsType,
     SourceModelFormat,
     TargetRuntime,
@@ -219,6 +220,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
@@ -232,6 +234,12 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
     ) -> SourceModelFormat:
         """
         Source model format preferred for conversion on AI Hub.
+        """
+        ...
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        """
+        AI Hub quantize options recommended for the model.
         """
         ...
 

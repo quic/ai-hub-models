@@ -52,7 +52,10 @@ class DDRNet(BaseModel):
             if bad_init_file.exists():
                 bad_init_file.unlink()
 
-            from lib.models.ddrnet_23_slim import BasicBlock, DualResNet  # type: ignore
+            from lib.models.ddrnet_23_slim import (  # type: ignore[import-not-found]
+                BasicBlock,
+                DualResNet,
+            )
 
             ddrnetslim_model = DualResNet(
                 BasicBlock,
@@ -65,13 +68,16 @@ class DDRNet(BaseModel):
                 augment=False,
             )
 
-            if not checkpoint_path:
-                checkpoint_path = CachedWebModelAsset.from_asset_store(
+            checkpoint_to_load = (
+                checkpoint_path
+                if checkpoint_path
+                else CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
                 ).fetch()
+            )
 
             pretrained_dict = torch.load(
-                checkpoint_path, map_location=torch.device("cpu")
+                checkpoint_to_load, map_location=torch.device("cpu")
             )
             if "state_dict" in pretrained_dict:
                 pretrained_dict = pretrained_dict["state_dict"]

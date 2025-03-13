@@ -107,14 +107,15 @@ def compute_psnr(
         b = output_b.detach().float().numpy().flatten()
     else:
         b = output_b.flatten().astype(np.float32)
-    if data_range is None:
-        data_range = np.abs(b).max()
+
     sumdeltasq = 0.0
     sumdeltasq = ((a - b) * (a - b)).sum()
     sumdeltasq /= b.size
     sumdeltasq = np.sqrt(sumdeltasq)
 
-    return 20 * np.log10((data_range + eps) / (sumdeltasq + eps2))
+    data_range_est = data_range if data_range is not None else np.abs(b).max()
+
+    return 20 * np.log10((data_range_est + eps) / (sumdeltasq + eps2))
 
 
 def compute_relative_error(expected: np.ndarray, actual: np.ndarray) -> np.ndarray:
@@ -197,10 +198,12 @@ def generate_comparison_metrics(
         if names
         else pd.RangeIndex(stop=len(expected))
     )
-    df_res = pd.DataFrame(None, columns=["shape"] + metrics_ls, index=idx)  # type: ignore
+    df_res = pd.DataFrame(None, columns=["shape"] + metrics_ls, index=idx)
     for i, (expected_arr, actual_arr) in enumerate(zip(expected, actual)):
         loc = i if not names else names[i]
-        df_res.loc[loc, "shape"] = expected_arr.shape
+        df_res.loc[
+            loc, "shape"
+        ] = expected_arr.shape  # pyright: ignore[reportArgumentType,reportCallIssue]
         for m in metrics_ls:
-            df_res.loc[loc, m] = METRICS_FUNCTIONS[m][0](expected_arr, actual_arr)  # type: ignore
+            df_res.loc[loc, m] = METRICS_FUNCTIONS[m][0](expected_arr, actual_arr)  # type: ignore[operator]
     return df_res

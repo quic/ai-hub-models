@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.googlenet.model import GoogLeNet
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class GoogLeNetQuantizable(HubQuantizableMixin, GoogLeNet):
+class GoogLeNetQuantizable(GoogLeNet):
     pass

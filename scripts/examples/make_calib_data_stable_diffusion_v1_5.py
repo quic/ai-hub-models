@@ -8,10 +8,10 @@ from pathlib import Path
 
 from diffusers import DPMSolverMultistepScheduler
 
-from qai_hub_models.models.stable_diffusion_v1_5_ao_quantized import (
+from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized import (
     make_calib_data_unet_vae,
 )
-from qai_hub_models.models.stable_diffusion_v1_5_ao_quantized.model import (
+from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized.model import (
     make_text_encoder_hf_model,
     make_time_embedding_hf_model,
     make_unet_hf_model,
@@ -19,7 +19,7 @@ from qai_hub_models.models.stable_diffusion_v1_5_ao_quantized.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
-MODEL_ID = "stable_diffusion_v1_5_ao_quantized"
+MODEL_ID = "stable_diffusion_v1_5_w8a16_quantized"
 MODEL_ASSET_VERSION = 3
 
 PROMPT_PATH = CachedWebModelAsset.from_asset_store(

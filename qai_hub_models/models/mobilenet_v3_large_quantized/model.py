@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.mobilenet_v3_large.model import MobileNetV3Large
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class MobileNetV3LargeQuantizable(HubQuantizableMixin, MobileNetV3Large):
+class MobileNetV3LargeQuantizable(MobileNetV3Large):
     pass

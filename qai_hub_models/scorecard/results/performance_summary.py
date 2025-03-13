@@ -87,7 +87,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar])
         run_per_path: dict[ScorecardPathTypeVar, ScorecardJobTypeVar] = {}
         for run in path_runs:
             assert run._device == device  # Device should match
-            run_per_path[run.path] = run  # type: ignore
+            run_per_path[run.path] = run  # type: ignore[index]
 
         return cls(model_id, device, run_per_path)
 
@@ -97,7 +97,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar])
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, None, self.device, False, None, path  # type: ignore
+            self.model_id, None, self.device, False, None, path  # type: ignore[arg-type]
         )
 
 
@@ -230,11 +230,11 @@ class ScorecardModelSummary(
             component or self.model_id
         ):
             if summary := component_device_map.get(device):
-                return summary.get_run(path)  # type: ignore
+                return summary.get_run(path)  # type: ignore[arg-type,return-value]
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, None, device, False, None, path  # type: ignore
+            self.model_id, None, device, False, None, path  # type: ignore[arg-type]
         )
 
 

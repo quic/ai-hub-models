@@ -32,7 +32,7 @@ from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.protocols import PretrainedHubModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
@@ -167,6 +167,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         return zip_path
 
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        """
+        AI Hub quantize options recommended for the model.
+        """
+        return ""
+
 
 def run_onnx_inference(
     session: ort.InferenceSession,
@@ -176,6 +182,7 @@ def run_onnx_inference(
     input_names = [input.name for input in session.get_inputs()]
 
     total = num_samples or len(dataloader)
+    assert dataloader.batch_size is not None
     for i, batch in tqdm(enumerate(dataloader), total=total):
         if num_samples and i * dataloader.batch_size >= num_samples:
             break

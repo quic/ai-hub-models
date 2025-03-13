@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.quicksrnetsmall.model import QuickSRNetSmall
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class QuickSRNetSmallQuantizable(HubQuantizableMixin, QuickSRNetSmall):
+class QuickSRNetSmallQuantizable(QuickSRNetSmall):
     pass

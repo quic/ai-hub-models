@@ -15,7 +15,7 @@ from typing import Any, Optional, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import ExportResult, TargetRuntime
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.mediapipe_face_quantized import Model
 from qai_hub_models.utils.args import export_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
@@ -138,7 +138,7 @@ def export_model(
 
         # 2. Compiles the model to an asset that can be run on device
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options, hub_device
+            target_runtime, Precision.w8a8, compile_options, hub_device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
@@ -240,9 +240,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(
-        model_cls=Model, components=ALL_COMPONENTS, supports_qnn=False
-    )
+    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
     args = parser.parse_args()
     export_model(**vars(args))
 

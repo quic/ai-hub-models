@@ -86,7 +86,8 @@ def tmp_os_env(env_values: dict[str, str]):
         os.environ.update(env_values)
         yield
     finally:
-        os.environ = previous_env  # type: ignore
+        os.environ.clear()
+        os.environ.update(previous_env)
 
 
 def _query_yes_no(question, default="yes"):
@@ -800,7 +801,7 @@ class CachedWebModelAsset(CachedWebAsset):
         self.model_id = model_id
         self.model_version = model_asset_version
 
-    @staticmethod  # type: ignore
+    @staticmethod
     def from_asset_store(
         model_id: str,
         model_asset_version: str | int,
@@ -837,7 +838,7 @@ class CachedWebModelAsset(CachedWebAsset):
             num_retries,
         )
 
-    @staticmethod  # type: ignore
+    @staticmethod
     def from_google_drive(
         gdrive_file_id: str,
         model_id: str,
@@ -904,7 +905,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
         self.dataset_id = dataset_id
         self.dataset_version = dataset_version
 
-    @staticmethod  # type: ignore
+    @staticmethod
     def from_asset_store(
         dataset_id: str,
         dataset_version: str | int,
@@ -937,7 +938,7 @@ class CachedWebDatasetAsset(CachedWebAsset):
             num_retries,
         )
 
-    @staticmethod  # type: ignore
+    @staticmethod
     def from_google_drive(
         gdrive_file_id: str,
         model_id: str,
@@ -1105,14 +1106,10 @@ def callback_with_retry(
         try:
             return callback(*args, **kwargs)
         except Exception as error:
-            error_msg = (
-                f"Error: {error.message}"  # type: ignore
-                if hasattr(error, "message")
-                else f"Error: {str(error)}"
-            )
+            error_msg = f"Error: {getattr(error, 'message', str(error))}"
             print(error_msg)
             if hasattr(error, "status_code"):
-                print(f"Status code: {error.status_code}")  # type: ignore
+                print(f"Status code: {getattr(error, 'status_code')}")
             time.sleep(10)
             return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
 

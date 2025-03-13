@@ -15,8 +15,9 @@ from typing import Any, Optional, cast
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.common import ExportResult, TargetRuntime
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.ffnet_40s_quantized import Model
+from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
@@ -33,7 +34,6 @@ from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
-from qai_hub_models.utils.quantization import get_calibration_data
 
 
 def export_model(
@@ -138,22 +138,23 @@ def export_model(
         name=model_name,
         options="--target_runtime onnx",
     )
+    calibration_data = quantization_utils.get_calibration_data(
+        input_spec, "cityscapes", num_calibration_samples
+    )
     quantize_job = hub.submit_quantize_job(
         model=onnx_compile_job.get_target_model(),
-        calibration_data=get_calibration_data(
-            input_spec, "cityscapes", num_calibration_samples
-        ),
-        weights_dtype=model.get_weights_dtype(),
-        activations_dtype=model.get_activations_dtype(),
+        calibration_data=calibration_data,
+        weights_dtype=Precision.w8a8.weights_type,  # type: ignore[arg-type]
+        activations_dtype=Precision.w8a8.activations_type,  # type: ignore[arg-type]
         name=model_name,
-        options=model.get_quantize_options(),
+        options=model.get_hub_quantize_options(Precision.w8a8),
     )
     if skip_compiling:
         return ExportResult(quantize_job=quantize_job)
 
     # 3. Compiles the model to an asset that can be run on device
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options, hub_device
+        target_runtime, Precision.w8a8, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(

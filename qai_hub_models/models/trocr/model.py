@@ -64,22 +64,34 @@ class TrOCR(CollectionModel):
             hf_trocr_model, return_dict=False
         )
         io_processor = TrOCRProcessor.from_pretrained(hf_trocr_model)
-        return TrOCR.from_source_model(source_model, io_processor)  # type: ignore
+
+        assert isinstance(source_model, VisionEncoderDecoderModel)
+        assert isinstance(io_processor, TrOCRProcessor)
+        return TrOCR.from_source_model(source_model, io_processor)
 
     @staticmethod
     def from_source_model(
         source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
     ) -> TrOCR:
-        encoder = TrOCREncoder(source_model.encoder, source_model.decoder)  # type: ignore
-        decoder = TrOCRDecoder(source_model.decoder)  # type: ignore
+        assert source_model.encoder is not None
+        encoder = TrOCREncoder(
+            source_model.encoder, source_model.decoder
+        )  # pyright: ignore[reportArgumentType]
+        decoder = TrOCRDecoder(
+            source_model.decoder
+        )  # pyright: ignore[reportArgumentType]
+        assert source_model.generation_config is not None
         return TrOCR(
             encoder,
             decoder,
             io_processor,
-            source_model.generation_config.pad_token_id,  # type: ignore
-            source_model.generation_config.eos_token_id,  # type: ignore
-            (source_model.generation_config.decoder_start_token_id or source_model.generation_config.bos_token_id),  # type: ignore
-            source_model.generation_config.max_length,  # type: ignore
+            source_model.generation_config.pad_token_id,
+            source_model.generation_config.eos_token_id,
+            (
+                source_model.generation_config.decoder_start_token_id
+                or source_model.generation_config.bos_token_id
+            ),
+            source_model.generation_config.max_length,
         )
 
 
@@ -90,7 +102,9 @@ class TrOCREncoder(BaseModel):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.cross_attn_kv_shape: Callable = decoder.model.decoder.layers[0].encoder_attn._shape  # type: ignore
+        self.cross_attn_kv_shape: Callable = decoder.model.decoder.layers[
+            0
+        ].encoder_attn._shape
 
     def forward(
         self,
@@ -111,7 +125,7 @@ class TrOCREncoder(BaseModel):
         kv_cache = []
         batch_size = encoder_hidden_states.shape[0]
         for layer in self.decoder.model.decoder.layers:
-            layer_attn: TrOCRAttention = layer.encoder_attn  # type: ignore
+            layer_attn: TrOCRAttention = layer.encoder_attn
             key_states = self.cross_attn_kv_shape(
                 layer_attn.k_proj(encoder_hidden_states), -1, batch_size
             )
@@ -145,7 +159,7 @@ class TrOCREncoder(BaseModel):
         return self.__class__.get_output_names(len(self.decoder.model.decoder.layers))
 
     @classmethod
-    def from_pretrained(cls):  # type: ignore[override]
+    def from_pretrained(cls):
         return TrOCR.from_pretrained().encoder
 
     @staticmethod
@@ -167,10 +181,10 @@ class TrOCRDecoder(BaseModel):
         # Delete unused layers that exist only to generate initial KV cache.
         self.num_decoder_layers = len(self.decoder.model.decoder.layers)
         for layer in self.decoder.model.decoder.layers:
-            layer_attn: TrOCRAttention = layer.encoder_attn  # type: ignore
-            layer_attn.k_proj = None  # type: ignore
-            layer_attn.v_proj = None  # type: ignore
-        self.max_position_embeddings: int = self.decoder.config.max_position_embeddings  # type: ignore
+            layer_attn: TrOCRAttention = layer.encoder_attn
+            layer_attn.k_proj = None  # pyright: ignore[reportAttributeAccessIssue]
+            layer_attn.v_proj = None  # pyright: ignore[reportAttributeAccessIssue]
+        self.max_position_embeddings: int = self.decoder.config.max_position_embeddings
         self.decoder_attention_heads: int = decoder.config.decoder_attention_heads
         self.embeddings_per_head: int = (
             decoder.config.d_model // decoder.config.decoder_attention_heads
@@ -238,7 +252,6 @@ class TrOCRDecoder(BaseModel):
             if len(curr_tuple) == 4:
                 kv_cache.append((*curr_tuple,))
                 curr_tuple = []
-        kv_cache = (*kv_cache,)  # type: ignore
         attn_mask = self.attn_mask(index)
         # (tgt_len,) -> (batch, 1, tgt_len, src_len)
 
@@ -249,7 +262,7 @@ class TrOCRDecoder(BaseModel):
             encoder_hidden_states=encoder_hidden_states,
             return_dict=False,
             use_cache=True,
-            past_key_values=kv_cache,
+            past_key_values=tuple(kv_cache),
         )
 
         # KV Cache conversion to export-friendly format (tuple of tensors)
@@ -334,5 +347,5 @@ class TrOCRDecoder(BaseModel):
         )
 
     @classmethod
-    def from_pretrained(cls):  # type: ignore[override]
+    def from_pretrained(cls):
         return TrOCR.from_pretrained().decoder

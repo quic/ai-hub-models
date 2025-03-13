@@ -23,12 +23,12 @@ class FootTrackNetEvaluator(DetectionEvaluator):
         image_height: int,
         image_width: int,
     ):
-        self.threshhold = [0.6, 0.7, 0.7]
+        self.threshhold = [0.1, 0.1, 0.1]
         self.iou_thr = [0.2, 0.5, 0.5]
         self.scale_x = 1 / image_width
         self.scale_y = 1 / image_height
         DetectionEvaluator.__init__(
-            self, image_height, image_width, self.threshhold[0], self.iou_thr[0]
+            self, image_height, image_width, self.threshhold[0], 0.5
         )
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
@@ -49,9 +49,19 @@ class FootTrackNetEvaluator(DetectionEvaluator):
             - class predictions with shape (batch_size, num_candidate_boxes)
         """
         image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
-        face_result, person_result = postprocess(output, self.threshhold, self.iou_thr)
+        output = list(output)
 
         for i in range(len(image_ids)):
+            output_i = [
+                output[0][i : i + 1],
+                output[1][i : i + 1],
+                output[2][i : i + 1],
+                output[3][i : i + 1],
+            ]
+            face_result, person_result = postprocess(
+                output_i, self.threshhold, self.iou_thr
+            )
+
             image_id = image_ids[i]
             bboxes = all_bboxes[i][: all_num_boxes[i].item()]
             classes = all_classes[i][: all_num_boxes[i].item()]
@@ -80,10 +90,10 @@ class FootTrackNetEvaluator(DetectionEvaluator):
                     BoundingBox.of_bbox(
                         image_id,
                         0,
-                        float(item.x) * self.scale_x,
-                        float(item.y) * self.scale_y,
-                        float(item.r) * self.scale_x,
-                        float(item.b) * self.scale_y,
+                        float(item.x),
+                        float(item.y),
+                        float(item.r),
+                        float(item.b),
                         item.score,
                     )
                 )
@@ -93,10 +103,10 @@ class FootTrackNetEvaluator(DetectionEvaluator):
                     BoundingBox.of_bbox(
                         image_id,
                         1,
-                        float(item.x) * self.scale_x,
-                        float(item.y) * self.scale_y,
-                        float(item.r) * self.scale_x,
-                        float(item.b) * self.scale_y,
+                        float(item.x),
+                        float(item.y),
+                        float(item.r),
+                        float(item.b),
                         item.score,
                     )
                 )

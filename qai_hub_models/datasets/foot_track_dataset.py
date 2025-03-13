@@ -67,10 +67,10 @@ class FootTrackDataset(BaseDataset):
         for label in labels_gt:
             boxes.append(
                 [
-                    label[1] * self.scale_width,
-                    label[2] * self.scale_height,
-                    label[3] * self.scale_width,
-                    label[4] * self.scale_height,
+                    label[1],
+                    label[2],
+                    label[3],
+                    label[4],
                 ]
             )
             labels.append(label[0])

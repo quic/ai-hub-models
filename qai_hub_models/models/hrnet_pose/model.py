@@ -12,7 +12,7 @@ import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.pose_evaluator import (
-    CocoWholeBodyPoseEvaluator,
+    CocoBodyPoseEvaluator,
     MPIIPoseEvaluator,
 )
 from qai_hub_models.models.common import SampleInputsType
@@ -119,8 +119,8 @@ class HRNetPose(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["heatmaps"]
 
-    def get_evaluator(self) -> BaseEvaluator | None:
+    def get_evaluator(self) -> BaseEvaluator:
         if self.variant == "mpii":
             return MPIIPoseEvaluator()
         else:
-            return CocoWholeBodyPoseEvaluator()
+            return CocoBodyPoseEvaluator()

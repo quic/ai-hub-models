@@ -83,7 +83,7 @@ class MediaPipeHandApp(MediaPipeApp):
             HAND_LANDMARK_CONNECTIONS,
         )
 
-    def predict_landmarks_from_image(  # type: ignore[override]
+    def predict_landmarks_from_image(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
         raw_output: bool = False,
@@ -119,9 +119,11 @@ class MediaPipeHandApp(MediaPipeApp):
                         ...
                     ]
         """
-        return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore
+        return super().predict_landmarks_from_image(
+            pixel_values_or_image, raw_output
+        )  # pyright: ignore[reportReturnType]
 
-    def _draw_predictions(  # type: ignore[override]
+    def _draw_predictions(
         self,
         NHWC_int_numpy_frames: list[np.ndarray],
         batched_selected_boxes: list[torch.Tensor | None],
@@ -151,7 +153,7 @@ class MediaPipeHandApp(MediaPipeApp):
             if ld is not None and irh is not None:
                 self._draw_landmarks(image, ld, irh)
 
-    def _draw_landmarks(  # type: ignore[override]
+    def _draw_landmarks(
         self,
         NHWC_int_numpy_frame: np.ndarray,
         landmarks: torch.Tensor,
@@ -174,7 +176,7 @@ class MediaPipeHandApp(MediaPipeApp):
                     2,
                 )
 
-    def _run_landmark_detector(  # type: ignore[override]
+    def _run_landmark_detector(
         self,
         NHWC_int_numpy_frames: list[np.ndarray],
         batched_roi_4corners: list[torch.Tensor | None],

@@ -51,7 +51,6 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## References
-* [None](None)
 * [Source Model Implementation](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/foot_track_net/model.py)
 
 

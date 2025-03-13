@@ -159,12 +159,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     # Add per device, download, app and if the model is available for purchase.
     llm_details: Optional[LLMDetails] = None
 
-    @property
-    def is_quantized(self) -> bool:
-        return (
-            self.code_gen_config.is_aimet or self.code_gen_config.use_hub_quantization
-        )
-
     def validate(self) -> Optional[str]:
         """Returns false with a reason if the info spec for this model is not valid."""
         # Validate ID
@@ -377,15 +371,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     @classmethod
     def from_model(cls: type[QAIHMModelInfo], model_id: str) -> QAIHMModelInfo:
         schema_path = QAIHM_MODELS_ROOT / model_id / "info.yaml"
-        code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"
         if not os.path.exists(schema_path):
             raise ValueError(f"{model_id} does not exist")
-        return cls.from_yaml_and_code_gen(schema_path, code_gen_path)
 
-    @classmethod
-    def from_yaml_and_code_gen(
-        cls: type[QAIHMModelInfo], info_path: str | Path, code_gen_path: str | Path
-    ) -> QAIHMModelInfo:
-        info = load_yaml(info_path)
-        info["code_gen_config"] = QAIHMModelCodeGen.from_yaml(code_gen_path)
+        info = load_yaml(schema_path)
+        info["code_gen_config"] = QAIHMModelCodeGen.from_model(model_id)
         return cls.from_dict(info)

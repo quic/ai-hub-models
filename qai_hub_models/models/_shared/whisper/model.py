@@ -8,11 +8,16 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 import torch
-import whisper  # type: ignore
+import whisper
 from qai_hub.client import Device
 
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, CollectionModel, TargetRuntime
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    CollectionModel,
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = "whisper_asr_shared"
@@ -79,7 +84,7 @@ class Whisper(CollectionModel):
         num_decoder_blocks = len(decoder.blocks)
         attention_dim = decoder.attention_dim
         num_heads = decoder.num_heads
-        return cls(encoder, decoder, num_decoder_blocks, attention_dim, num_heads)  # type: ignore
+        return cls(encoder, decoder, num_decoder_blocks, attention_dim, num_heads)
 
 
 class WhisperEncoderInf(BaseModel):
@@ -159,13 +164,17 @@ class WhisperEncoderInf(BaseModel):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options, device
+            target_runtime, precision, other_compile_options, device
         )
-        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+        if precision == Precision.float and target_runtime in {
+            TargetRuntime.QNN,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        }:
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )
@@ -305,10 +314,7 @@ class WhisperDecoderInf(BaseModel):
 
         x = self.ln(x)
         logits = (
-            x
-            @ torch.transpose(
-                self.token_embedding.weight.to(x.dtype), 0, 1  # type: ignore
-            )
+            x @ torch.transpose(self.token_embedding.weight.to(x.dtype), 0, 1)
         ).float()
         logits = self.logits(x).float()
 
@@ -322,7 +328,7 @@ class WhisperDecoderInf(BaseModel):
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.
         """
-        specs = dict(
+        specs: InputSpec = dict(
             x=((1, 1), "int32"),
             index=((1, 1), "int32"),
             k_cache_cross=(
@@ -361,13 +367,17 @@ class WhisperDecoderInf(BaseModel):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options, device
+            target_runtime, precision, other_compile_options, device
         )
-        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+        if precision == Precision.float and target_runtime in {
+            TargetRuntime.QNN,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        }:
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )

@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.hrnet_pose.model import HRNetPose
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class HRNetPoseQuantizable(HubQuantizableMixin, HRNetPose):
+class HRNetPoseQuantizable(HRNetPose):
     pass

@@ -152,9 +152,6 @@ class ChatApp:
                 position_ids = (
                     torch.Tensor(position_ids_lst).type(torch.long).reshape(1, seq_len)
                 )
-                position_ids = (
-                    torch.Tensor(position_ids).type(torch.long).reshape(1, seq_len)
-                )
                 position_ids_cos, position_ids_sin = rope_embedding.get_embedding(
                     position_ids
                 )

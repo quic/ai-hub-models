@@ -9,7 +9,7 @@ from typing import Optional
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
 
@@ -44,7 +44,7 @@ class ScorecardCompilePath(ParseableQAIHMEnum):
     @staticmethod
     def all_paths(
         enabled: Optional[bool] = None,
-        supports_quantization: Optional[bool] = None,
+        supports_precision: Optional[Precision] = None,
     ) -> list[ScorecardCompilePath]:
         """
         Get all compile paths that match the given attributes.
@@ -55,8 +55,8 @@ class ScorecardCompilePath(ParseableQAIHMEnum):
             for path in ScorecardCompilePath
             if (enabled is None or path.enabled == enabled)
             and (
-                supports_quantization is None
-                or path.supports_quantization == supports_quantization
+                supports_precision is None
+                or path.supports_precision(supports_precision)
             )
         ]
 
@@ -79,23 +79,31 @@ class ScorecardCompilePath(ParseableQAIHMEnum):
             ScorecardCompilePath.ONNX_FP16,
         ]
 
-    @property
-    def supports_quantization(self) -> bool:
+    def supports_precision(self, precision: Precision) -> bool:
+        if precision == Precision.float:
+            return True
         if self == ScorecardCompilePath.ONNX_FP16:
             # Only FP32 models are applicable for this compilation path.
-            return False
-        return True
+            return precision.has_float_activations
+        if self == ScorecardCompilePath.QNN:
+            # QNN support for quantization schemes is broad
+            return True
+        # ONNX and TFLite struggle with any QDQ scheme that isn't INT8
+        return (
+            precision.activations_type == hub.QuantizeDtype.INT8
+            and precision.weights_type == hub.QuantizeDtype.INT8
+        )
 
     def get_compile_options(
         self,
-        model_is_quantized: bool = False,
+        precision: Precision = Precision.float,
         device: hub.Device | None = None,
         include_target_runtime: bool = False,
     ) -> str:
         out = ""
         if include_target_runtime:
             out += self.runtime.get_target_runtime_flag(device)
-        if self == ScorecardCompilePath.ONNX_FP16 and not model_is_quantized:
+        if self == ScorecardCompilePath.ONNX_FP16 and precision:
             out = out + " --quantize_full_type float16 --quantize_io"
         return out.strip()
 

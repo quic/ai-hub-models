@@ -18,9 +18,11 @@ IMAGE_TEXT = 'industrial " Mr. Brown commented icity., letus have a'
 
 @pytest.fixture(scope="module")
 def source_huggingface_model() -> VisionEncoderDecoderModel:
-    return VisionEncoderDecoderModel.from_pretrained(
+    model = VisionEncoderDecoderModel.from_pretrained(
         HUGGINGFACE_TROCR_MODEL, return_dict=False
-    )  # type: ignore
+    )
+    assert isinstance(model, VisionEncoderDecoderModel)
+    return model
 
 
 @pytest.fixture(scope="module")

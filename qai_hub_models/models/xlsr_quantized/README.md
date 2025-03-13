@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/x
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[xlsr-quantized]"
+pip install qai-hub-models
 ```
 
 

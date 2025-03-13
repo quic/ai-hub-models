@@ -9,7 +9,7 @@ from sys import platform
 from typing import Optional, Union
 
 from .github import end_group, start_group
-from .util import BASH_EXECUTABLE, default_parallelism, echo, have_root
+from .util import BASH_EXECUTABLE, debug_mode, default_parallelism, echo, have_root
 
 
 class Task(ABC):
@@ -181,9 +181,9 @@ class RunCommandsWithVenvTask(RunCommandsTask):
         )
         self.venv = venv
         self.commands = [commands] if isinstance(commands, str) else commands
-        if platform in ["linux", "linux2"]:
+        if debug_mode() and platform in ["linux", "linux2"]:
             self.commands.insert(0, "free")
-        if platform in ["darwin", "linux", "linux2"]:
+        if debug_mode() and platform in ["darwin", "linux", "linux2"]:
             self.commands.insert(0, "df -h")
         if self.venv is not None:
             self.commands = [
@@ -233,7 +233,16 @@ class PyTestTask(RunCommandsWithVenvTask):
         pytest_options += f" {files_or_dirs}"
 
         default_options = "-rxXs -p no:warnings --durations-min=0.5 --durations=20"
-        command = f"/usr/bin/time -v pytest {default_options} {pytest_options} "
+        if debug_mode():
+            if platform in ["linux", "linux2"]:
+                pytest = "/usr/bin/time -v pytest"
+            elif platform == "darwin":
+                pytest = "/usr/bin/time pytest"
+            else:
+                pytest = "pytest"
+        else:
+            pytest = "pytest"
+        command = f"{pytest} {default_options} {pytest_options} "
 
         self.include_pytest_cmd_in_status_message = include_pytest_cmd_in_status_message
         super().__init__(

@@ -13,6 +13,7 @@ from typing import Any, Optional
 import numpy as np
 import torch
 from qai_hub.public_rest_api import DatasetEntries
+from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig, modeling_llama
 
 from qai_hub_models.models._shared.llama.model import Llama_QuantizedMixin
@@ -310,8 +311,13 @@ def get_past_keyval_with_shift(
     return ret
 
 
-def monkey_patch_huggingface_llama_modeling():
-    modeling_llama.LLAMA_ATTENTION_CLASSES["eager"] = SHALlamaAttention
+def monkey_patch_huggingface_llama_modeling(
+    skip_optimizations: list[str] | None = None,
+):
+    if skip_optimizations and "sha_attention" in skip_optimizations:
+        print("Skip sha_attention optimization")
+    else:
+        modeling_llama.LLAMA_ATTENTION_CLASSES["eager"] = SHALlamaAttention
 
     def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
         return position_ids
@@ -331,7 +337,10 @@ def monkey_patch_huggingface_llama_modeling():
         hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
         return (hidden_states * self.weight).squeeze(0)
 
-    modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
+    if skip_optimizations and "rank4_rms_norm" in skip_optimizations:
+        print("Skip rank4_rms_norm optimization")
+    else:
+        modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
 
 
 class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
@@ -344,6 +353,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         context_length: int,
         load_pretrained: bool = True,
         _make_small_for_debugging: bool = False,  # construct a small and incorrect network
+        _skip_optimizations: list[str] | None = None,
     ):
         """
         This is an abstract base class of all Llama 3 models.
@@ -364,10 +374,13 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
             Total context length (in tokens).
         load_pretrained:
             Load a pre-trained model as opposed to a randomly initialized.
+        _skip_optimizations:
+            Turn off one or more of {sha_attention, rank4_rms_norm}
         """
 
         # from transformers.models.llama import modeling_llama
         self.huggingface_model_name = huggingface_model_name
+        self.skip_optimizations = _skip_optimizations
 
         # Ensure User has access to model,
         # otherwise point to instructions to get access and error out.
@@ -382,7 +395,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         )
 
         # TODO: Make this into a context manager
-        monkey_patch_huggingface_llama_modeling()
+        monkey_patch_huggingface_llama_modeling(skip_optimizations=_skip_optimizations)
 
         if load_pretrained:
             model = modeling_llama.LlamaForCausalLM.from_pretrained(
@@ -426,6 +439,9 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         llm_config._attn_implementation = "eager"
         llm_config._attn_implementation_internal = "eager"
 
+        # Force use_cache=true for all LLMs
+        llm_config.use_cache = True
+
         return llm_config
 
     @classmethod
@@ -454,18 +470,40 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         position_ids_sin: torch.Tensor,
         *past_key_values: torch.Tensor,
     ):
-        kv_cache = SHADynamicCacheNewValueOnly()
         assert isinstance(self.llm_config.num_key_value_heads, int)
-        for layer_idx, (k, v) in enumerate(
-            zip(past_key_values[::2], past_key_values[1::2])
-        ):
-            k_split = [k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)]
-            v_split = [v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)]
+        if self.skip_optimizations and "sha_attention" in self.skip_optimizations:
+            kv_cache = DynamicCache()
+            for layer_idx, (k, v) in enumerate(
+                zip(past_key_values[::2], past_key_values[1::2])
+            ):
+                k_split = [
+                    k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                v_split = [
+                    v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                k = torch.cat(k_split, axis=1).permute(0, 1, 3, 2)
+                v = torch.cat(v_split, axis=1)
 
-            # kv_cache doesn't report supporting lists of tensors, but it seems to work
-            kv_cache.update(
-                k_split, v_split, layer_idx, {}
-            )  # pyright: ignore [reportArgumentType]
+                kv_cache.update(
+                    k, v, layer_idx, {}
+                )  # pyright: ignore [reportArgumentType]
+        else:
+            kv_cache = SHADynamicCacheNewValueOnly()
+            for layer_idx, (k, v) in enumerate(
+                zip(past_key_values[::2], past_key_values[1::2])
+            ):
+                k_split = [
+                    k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                v_split = [
+                    v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+
+                # kv_cache doesn't report supporting lists of tensors, but it seems to work
+                kv_cache.update(
+                    k_split, v_split, layer_idx, {}
+                )  # pyright: ignore [reportArgumentType]
 
         out = self.model(
             input_ids=input_ids,
@@ -477,8 +515,13 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         out_cache = out["past_key_values"]
         flat_output_past_key_values = []
         for layer in range(len(out_cache)):
-            k = torch.cat(out_cache.key_cache[layer], dim=0)
-            v = torch.cat(out_cache.value_cache[layer], dim=0)
+            if self.skip_optimizations and "sha_attention" in self.skip_optimizations:
+                k = out_cache.key_cache[layer][:, :, -128:, :].permute(1, 0, 3, 2)
+                v = out_cache.value_cache[layer][:, :, -128:, :].permute(1, 0, 2, 3)
+            else:
+
+                k = torch.cat(out_cache.key_cache[layer], dim=0)
+                v = torch.cat(out_cache.value_cache[layer], dim=0)
             flat_output_past_key_values += [k, v]
 
         return [out["logits"]] + flat_output_past_key_values
@@ -1030,13 +1073,17 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         )
         num_tokens = int(
             min(
-                torch.sum(input_tokens["attention_mask"]).item(),
-                self.sequence_length,  # pyright: ignore [reportArgumentType]
+                torch.sum(
+                    input_tokens["attention_mask"]
+                ).item(),  # pyright: ignore [reportArgumentType]
+                self.sequence_length,
             )
         )
-        input_ids = input_tokens["input_ids"].type(
+        input_ids = input_tokens[
+            "input_ids"
+        ].type(  # pyright: ignore [reportAttributeAccessIssue]
             torch.int32
-        )[  # pyright: ignore [reportAttributeAccessIssue]
+        )[
             :, -self.sequence_length :
         ]
 

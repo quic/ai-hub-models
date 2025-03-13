@@ -9,11 +9,7 @@ from collections.abc import Collection
 import torch
 
 # podm comes from the object-detection-metrics pip package
-from podm.metrics import (  # type: ignore
-    BoundingBox,
-    MetricPerClass,
-    get_pascal_voc_metrics,
-)
+from podm.metrics import BoundingBox, MetricPerClass, get_pascal_voc_metrics
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.utils.bounding_box_processing import batched_nms

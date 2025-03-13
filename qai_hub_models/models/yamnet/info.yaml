@@ -1,0 +1,36 @@
+name: YamNet
+# id must match with the model dir name in qai_hub_models
+id: yamnet
+status: public
+headline: Audio Event classification Model.
+domain: Audio
+use_case: Audio Classification
+description: An audio event classifier trained on the AudioSet dataset to predict
+  audio events from the AudioSet ontology employing the Mobilenet_v1 depthwise-separable
+  convolution architecture.
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/1704.04861
+research_paper_title: MobileNets Efficient Convolutional Neural Networks for Mobile
+  Vision Applications
+license: https://github.com/w-hc/torch_audioset/blob/master/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/w-hc/torch_audioset
+technical_details:
+  Model checkpoint: yamnet.pth
+  Input resolution: 1x1x96x64
+  Number of parameters: 3.73M
+  Model size: 14.2 MB
+applicable_scenarios:
+  - Audio Recognition
+related_models: []
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: false
+license_type: mit
+deploy_license_type: AI Model Hub License
+dataset: [AudioSet-YouTube corpus]

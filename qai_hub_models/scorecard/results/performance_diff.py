@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 from prettytable import PrettyTable
 
@@ -42,7 +43,18 @@ class PerformanceDiff:
         self.empty_perf_report: list[tuple[str]] = []
 
         # Perf buckets to track
-        self.perf_buckets = ["inf", 10, 5, 2, 1.5, 1.3, 1.2, 1.1, 1.05, 1.03]
+        self.perf_buckets: list[float | str] = [
+            "inf",
+            10,
+            5,
+            2,
+            1.5,
+            1.3,
+            1.2,
+            1.1,
+            1.05,
+            1.03,
+        ]
 
         # Only track PerfSummary for Android
         self.tracked_oses: list = ["Android"]
@@ -153,7 +165,7 @@ class PerformanceDiff:
                     )
 
                     for bucket in self.perf_buckets[1:]:
-                        if bucket <= speedup:  # type: ignore
+                        if float(bucket) <= speedup:
                             summary = (
                                 model_id,
                                 runtime_type,

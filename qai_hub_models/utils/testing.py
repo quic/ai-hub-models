@@ -35,6 +35,18 @@ from qai_hub_models.utils.inference import (
 )
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.quantization import get_calibration_data
+from qai_hub_models.utils.testing_async_utils import (  # noqa: F401
+    append_line_to_file,
+    get_artifact_filepath,
+    get_artifacts_dir,
+    get_artifacts_dir_opt,
+    get_compile_job_ids_file,
+    get_dataset_ids_file,
+    get_inference_job_ids_file,
+    get_profile_job_ids_file,
+    get_quantize_job_ids_file,
+    is_hub_testing_async,
+)
 
 # If a model has many outputs, how many of them to store PSNR for
 MAX_PSNR_VALUES = 10
@@ -180,53 +192,8 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
         assert "-" not in input_name, "input name cannot contain `-`"
 
 
-def is_hub_testing_async() -> bool:
-    return bool(os.environ.get("QAIHM_TEST_HUB_ASYNC", 0))
-
-
 def should_run_skipped_models() -> bool:
     return bool(os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0))
-
-
-def get_artifacts_dir_opt() -> Path | None:
-    adir = os.environ.get("QAIHM_TEST_ARTIFACTS_DIR", None)
-    return Path(adir) if adir else None
-
-
-def get_artifacts_dir() -> Path:
-    adir = get_artifacts_dir_opt()
-    assert (
-        adir
-    ), "Attempted to access artifacts dir, but $QAIHM_TEST_ARTIFACTS_DIR cli variable is not set"
-    return Path(adir)
-
-
-def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
-    dir = Path(artifacts_dir or get_artifacts_dir())
-    os.makedirs(dir, exist_ok=True)
-    path = dir / filename
-    path.touch()
-    return path
-
-
-def get_dataset_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("dataset-ids.yaml", artifacts_dir)
-
-
-def get_compile_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("compile-jobs.yaml", artifacts_dir)
-
-
-def get_profile_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("profile-jobs.yaml", artifacts_dir)
-
-
-def get_inference_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("inference-jobs.yaml", artifacts_dir)
-
-
-def get_quantize_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("quantize-jobs.yaml", artifacts_dir)
 
 
 def get_job_date(artifacts_dir: os.PathLike | str | None = None) -> str:
@@ -255,7 +222,7 @@ def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
     psnr_values = []
     for i, (_, value) in enumerate(df.iterrows()):
         psnr_values.append(value.psnr)
-    return psnr_values, tabulate(df, **kwargs)  # type: ignore
+    return psnr_values, tabulate(df, **kwargs)  # pyright: ignore[reportArgumentType]
 
 
 def get_and_sync_datasets_cache_dir(
@@ -288,11 +255,6 @@ def get_and_sync_datasets_cache_dir(
         dir_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(tmp_path, dir_path)
     return dir_path
-
-
-def append_line_to_file(path: Path, line: str) -> None:
-    with open(path, "a") as f:
-        f.write(line + "\n")
 
 
 def mock_get_calibration_data(

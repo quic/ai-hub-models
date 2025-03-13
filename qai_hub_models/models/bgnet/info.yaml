@@ -1,0 +1,39 @@
+name: BGNet
+# id must match with the model dir name in qai_hub_models
+id: bgnet
+status: public
+headline: Segment images in real-time on device.
+domain: Computer Vision
+description: BGNet or Boundary-Guided Network, is a model designed for camouflaged
+  object detection. It leverages edge semantics to enhance the representation learning
+  process, making it more effective at identifying objects that blend into their surroundings
+use_case: Semantic Segmentation
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/2207.00794
+research_paper_title: 'BGNet: Boundary-Guided Camouflaged Object Detection (IJCAI
+  2022)'
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/thograce/bgnet
+technical_details:
+  Model checkpoint: BGNet
+  Input resolution: 416x416
+  Number of parameters: 77.8M
+  Model size: 297 MB
+applicable_scenarios:
+  - Self-driving cars
+related_models:
+  - unet_segmentation
+  - fcn_resnet50
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: other
+deploy_license_type: AI Model Hub License
+dataset:
+  - CAMO,CHAMELEON,COD10K,NC4K
+restrict_model_sharing: true

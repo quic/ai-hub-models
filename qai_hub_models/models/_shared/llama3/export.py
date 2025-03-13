@@ -21,7 +21,7 @@ from qai_hub_models.models._shared.llama3.model import (
 )
 from qai_hub_models.models._shared.llama3.split_onnx_utils import utils
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
 from qai_hub_models.utils.printing import (
@@ -220,7 +220,9 @@ def export_model(
             aimet_path = Path(model_artifact) / (full_name + ".aimet")
 
             model_compile_options = (
-                model.get_hub_compile_options(target_runtime, compile_options)
+                model.get_hub_compile_options(
+                    target_runtime, Precision.w8a16, compile_options
+                )
                 + f" --qnn_graph_name {sub_component_name}"
             )
 

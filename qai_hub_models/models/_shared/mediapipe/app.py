@@ -492,9 +492,7 @@ class MediaPipeApp:
             )
 
             # Compute landmarks.
-            ld_scores, landmarks = self.landmark_detector(  # type: ignore
-                keypoint_net_inputs
-            )
+            ld_scores, landmarks = self.landmark_detector(keypoint_net_inputs)
 
             # Convert [0-1] ranged values of landmarks to integer pixel space.
             landmarks[:, :, 0] *= self.landmark_input_dims[0]

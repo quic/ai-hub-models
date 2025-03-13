@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.yolov7.model import DEFAULT_WEIGHTS, YoloV7
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class YoloV7Quantizable(HubQuantizableMixin, YoloV7):
+class YoloV7Quantizable(YoloV7):
     """Exportable quantizable YoloV7 bounding box detector."""
 
     @classmethod
@@ -30,5 +30,5 @@ class YoloV7Quantizable(HubQuantizableMixin, YoloV7):
         model.class_dtype = torch.uint8
         return model
 
-    def get_quantize_options(self) -> str:
+    def get_hub_quantize_options(self, precision: Precision) -> str:
         return "--range_scheme min_max"

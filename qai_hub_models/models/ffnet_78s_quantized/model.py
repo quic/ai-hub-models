@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.ffnet_78s.model import FFNet78S
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class FFNet78SQuantizable(HubQuantizableMixin, FFNet78S):
+class FFNet78SQuantizable(FFNet78S):
     pass

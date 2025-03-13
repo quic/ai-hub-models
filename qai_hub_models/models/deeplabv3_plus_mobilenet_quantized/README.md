@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/d
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[deeplabv3-plus-mobilenet-quantized]"
+pip install qai-hub-models
 ```
 
 

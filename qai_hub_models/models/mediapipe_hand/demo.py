@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import argparse
+from typing import cast
 
 import numpy as np
 from PIL import Image
@@ -79,7 +80,7 @@ def main(is_test: bool = False):
     else:
 
         def frame_processor(frame: np.ndarray) -> np.ndarray:
-            return app.predict_landmarks_from_image(frame)[0]  # type: ignore
+            return cast(np.ndarray, app.predict_landmarks_from_image(frame)[0])
 
         capture_and_display_processed_frames(
             frame_processor, "QAIHM Mediapipe Hand Demo", args.camera

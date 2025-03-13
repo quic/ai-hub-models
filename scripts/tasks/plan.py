@@ -124,7 +124,7 @@ class Plan:
             return
 
         step_id_lens = [len(s) for s, d in self._step_durations]
-        max_step_id_len = functools.reduce(lambda a, b: a if a > b else b, step_id_lens)  # type: ignore
+        max_step_id_len = functools.reduce(lambda a, b: a if a > b else b, step_id_lens)
         print(f"{'Step':^{max_step_id_len}} {'Duration':^14}")
         print(f"{'-':-^{max_step_id_len}} {'-':-^14}")
         for step_id, duration in self._step_durations:

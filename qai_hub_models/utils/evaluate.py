@@ -41,7 +41,7 @@ from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
 from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
 
 CACHE_SPLIT_SIZE_FILE = "current_split_size.txt"
-DEFAULT_NUM_EVAL_SAMPLES = 100
+DEFAULT_NUM_EVAL_SAMPLES = 1000
 
 
 def get_dataset_path(cache_path: Path, dataset_id: str) -> Path:
@@ -172,9 +172,14 @@ def _validate_dataset_ids_path(path: Path) -> bool:
     return True
 
 
-def _validate_inputs(num_batches: int) -> None:
-    if num_batches < 1 and num_batches != -1:
-        raise ValueError("num_batches must be positive or -1.")
+def _validate_inputs(num_samples: int, dataset: BaseDataset) -> None:
+    if num_samples < 1 and num_samples != -1:
+        raise ValueError("num_samples must be positive or -1.")
+
+    if num_samples > len(dataset):
+        raise ValueError(
+            f"Requested {num_samples} samples when dataset only has {len(dataset)}."
+        )
 
 
 def _populate_data_cache_impl(
@@ -378,7 +383,8 @@ def evaluate_on_dataset(
     profile_options: str = "",
     use_cache: bool = False,
     compute_quant_cpu_accuracy: bool = False,
-) -> tuple[float, Optional[float], float]:
+    skip_device_accuracy: bool = False,
+) -> tuple[float, Optional[float], Optional[float]]:
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
@@ -399,6 +405,7 @@ def evaluate_on_dataset(
             tradeoff of increased initial overhead.
         compute_quant_cpu_accuracy: If the compiled model came from a quantize job,
             and this option is set, computes the quantized ONNX accuracy on the CPU.
+        skip_device_accuracy: If set, skips on-device accuracy checks.
 
     Returns:
         Tuple of (torch accuracy, quant cpu accuracy, on device accuracy) all as float.
@@ -406,9 +413,9 @@ def evaluate_on_dataset(
         If quant cpu accuracy was not computed, its value in the tuple will be None.
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
-    _validate_inputs(num_samples)
-
     source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
+
+    _validate_inputs(num_samples, source_torch_dataset)
     input_names = list(torch_model.get_input_spec().keys())
     output_names = torch_model.get_output_names()
     on_device_model = AsyncOnDeviceModel(
@@ -454,11 +461,12 @@ def evaluate_on_dataset(
         if use_cache:
             assert isinstance(dataloader.dataset, HubDataset)
             hub_dataset = hub.get_dataset(dataloader.dataset.input_ids[i])
-            on_device_results.append(on_device_model(hub_dataset))
-        else:
+            if not skip_device_accuracy:
+                on_device_results.append(on_device_model(hub_dataset))
+        elif not skip_device_accuracy:
             on_device_results.append(on_device_model(model_inputs.split(1, dim=0)))
 
-        for j, model_input in tqdm(enumerate(model_inputs)):
+        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
             if isinstance(ground_truth_values, torch.Tensor):
                 ground_truth = ground_truth_values[j : j + 1]
             else:
@@ -482,25 +490,28 @@ def evaluate_on_dataset(
             f"{torch_evaluator.formatted_accuracy()}"
         )
 
-    for i, sample in enumerate(dataloader):
-        on_device_values = on_device_results[i].wait()
-        _, ground_truth_values, *_ = sample
-        on_device_evaluator.add_batch(on_device_values, ground_truth_values)
-        print(
-            f"Cumulative on device accuracy on batch {i + 1}/{num_batches}: "
-            f"{on_device_evaluator.formatted_accuracy()}"
-        )
+    if not skip_device_accuracy:
+        for i, sample in enumerate(dataloader):
+            on_device_values = on_device_results[i].wait()
+            _, ground_truth_values, *_ = sample
+            on_device_evaluator.add_batch(on_device_values, ground_truth_values)
+            print(
+                f"Cumulative on device accuracy on batch {i + 1}/{num_batches}: "
+                f"{on_device_evaluator.formatted_accuracy()}"
+            )
     torch_accuracy = torch_evaluator.formatted_accuracy()
-    on_device_accuracy = on_device_evaluator.formatted_accuracy()
+    on_device_accuracy = None
     quant_cpu_acc = None
     print("\nFinal accuracy:")
     print(f"torch: {torch_accuracy}")
     if quant_cpu_evaluator is not None:
         quant_cpu_acc = quant_cpu_evaluator.get_accuracy_score()
         print(f"quant cpu: {quant_cpu_evaluator.formatted_accuracy()}")
-    print(f"on-device: {on_device_accuracy}")
+    if not skip_device_accuracy:
+        on_device_accuracy = on_device_evaluator.get_accuracy_score()
+        print(f"on-device: {on_device_evaluator.formatted_accuracy()}")
     return (
         torch_evaluator.get_accuracy_score(),
         quant_cpu_acc,
-        on_device_evaluator.get_accuracy_score(),
+        on_device_accuracy,
     )

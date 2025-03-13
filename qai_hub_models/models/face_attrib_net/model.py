@@ -7,6 +7,8 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.face_attrib_evaluator import FaceAttribNetEvaluator
 from qai_hub_models.models._shared.face_attrib_net.model import FaceNet
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
 from qai_hub_models.utils.base_model import BaseModel
@@ -88,3 +90,10 @@ class FaceAttribNet(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return OUT_NAMES
+
+    @staticmethod
+    def get_channel_last_inputs() -> list[str]:
+        return ["image"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return FaceAttribNetEvaluator()

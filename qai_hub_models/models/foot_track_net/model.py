@@ -8,7 +8,9 @@ import torch
 import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.foot_track_evaluator import FootTrackNetEvaluator
+from qai_hub_models.evaluators.coco_foot_track_evaluator import (
+    CocoFootTrackNetEvaluator,
+)
 from qai_hub_models.models.foot_track_net.foot_track_net import FTNet
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
@@ -103,4 +105,4 @@ class FootTrackNet(BaseModel):
         return ["heatmap", "bbox", "landmark", "landmark_visibility"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        return FootTrackNetEvaluator(*self.get_input_spec()["image"][0][2:])
+        return CocoFootTrackNetEvaluator()

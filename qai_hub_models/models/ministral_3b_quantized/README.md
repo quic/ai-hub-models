@@ -20,7 +20,6 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 
 ## References
-* [None](None)
 * [Source Model Implementation](https://github.com/mistralai/mistral-inference)
 
 

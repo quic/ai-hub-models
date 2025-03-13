@@ -4,6 +4,9 @@
 # ---------------------------------------------------------------------
 import torch
 import torchvision.io
+from torchvision import transforms
+
+from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 
 def normalize(video: torch.Tensor):
@@ -17,6 +20,21 @@ def normalize(video: torch.Tensor):
                and transposed so the shape is Channel x Number of frames x HW.
     """
     return video.permute(3, 0, 1, 2).to(torch.float32) / 255
+
+
+def sample_video(video: torch.Tensor, num_frames: int):
+    """
+    Samples the number of frames in the video to the number requested.
+
+    Parameters:
+        video: A [B, C, Number of frames, H, W] video.
+        num_frames: Number of frames to sample video down to.
+
+    Returns:
+        video: Video tensor sampled to the appropriate number of frames.
+    """
+    frame_rate = video.shape[0] // num_frames
+    return video[: frame_rate * num_frames : frame_rate]
 
 
 def resize(video: torch.Tensor, size: tuple[int, int]):
@@ -67,7 +85,7 @@ def normalize_base(
 
     Returns:
         video: Normalized based on provided mean and scale.
-               The operaion is done per channle.
+               The operation is done per channel.
 
     """
     shape = (-1,) + (1,) * (video.dim() - 1)
@@ -94,18 +112,51 @@ def preprocess_video_kinetics_400(input_video: torch.Tensor):
     """
     Preprocess the input video correctly for video classification inference.
 
+    This is specific to torchvision models that take input of size 112.
+
+    Sourced from: https://github.com/pytorch/vision/tree/main/references/video_classification
+
     Parameters:
         input_video: Raw input tensor
 
     Returns:
         video: Normalized, resized, cropped and normalized by channel for input model.
-               This preprocessing is dd
-
     """
-    mean = [0.43216, 0.394666, 0.37645]
-    std = [0.22803, 0.22145, 0.216989]
     input_video = normalize(input_video)
     input_video = resize(input_video, (128, 171))
     input_video = crop(input_video, (112, 112))
-    input_video = normalize_base(input_video, mean=mean, std=std)
     return input_video
+
+
+def preprocess_video_224(input_video: torch.Tensor):
+    """
+    Preprocess the input video correctly for video classification inference.
+
+    This is specific to models like video_mae which take inputs of size 224.
+
+    Sourced from: https://github.com/MCG-NJU/VideoMAE/blob/14ef8d856287c94ef1f985fe30f958eb4ec2c55d/kinetics.py#L56
+
+    Parameters:
+        input_video: Raw input tensor
+
+    Returns:
+        video: Normalized, resized, cropped and normalized by channel for input model.
+    """
+    input_video = normalize(input_video)
+    transform = transforms.Compose(
+        [
+            transforms.Resize(320),
+            transforms.CenterCrop((224, 224)),
+        ]
+    )
+    return transform(input_video)
+
+
+def get_class_name_kinetics_400() -> list[str]:
+    """
+    Return the list of class names in the correct order, where the class index
+    within this list corresponds to logit at the same index of the model output.
+    """
+    labels_path = QAIHM_PACKAGE_ROOT / "labels" / "kinetics400_labels.txt"
+    with open(labels_path) as f:
+        return [line.strip() for line in f.readlines()]

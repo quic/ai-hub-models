@@ -68,9 +68,10 @@ class PyTestModelTask(CompositeTask):
         | None = None,  # If None, creates a fresh venv for each model instead of using 1 venv for all models.
         use_shared_cache=False,  # If True, uses a shared cache rather than the global QAIHM cache.
         run_general: bool = True,
+        run_quantize: bool = False,
         run_compile: bool = True,
         run_profile: bool = False,
-        run_quantize: bool = False,
+        run_inference: bool = False,
         run_export: bool = False,
         run_trace: bool = True,
         install_deps: bool = True,
@@ -80,7 +81,14 @@ class PyTestModelTask(CompositeTask):
 
         model_version_reqs = get_model_python_version_requirements(model_name)
         current_py_version = sys.version_info
-        if model_version_reqs[0] and current_py_version < model_version_reqs[0]:
+        if check_code_gen_field(model_name, "skip_hub_tests_and_scorecard"):
+            tasks.append(  # greater than this python version
+                RunCommandsTask(
+                    f"Skip Model {model_name}",
+                    f'echo "Skipping Tests For Model {model_name} -- skip_hub_tests_and_scorecard is set in code gen"',
+                )
+            )
+        elif model_version_reqs[0] and current_py_version < model_version_reqs[0]:
             tasks.append(  # greater than this python version
                 RunCommandsTask(
                     f"Skip Model {model_name}",
@@ -132,6 +140,7 @@ class PyTestModelTask(CompositeTask):
                 test_flags.append("compile")
             if run_profile:
                 test_flags.append("profile")
+            if run_inference:
                 test_flags.append("inference")
             if run_quantize:
                 test_flags.append("quantize")
@@ -203,9 +212,10 @@ class PyTestModelsTask(CompositeTask):
         use_shared_cache: bool = False,  # Use the global QAIHM cache rather than a temporary one for tests.
         skip_standard_unit_test: bool = False,
         test_trace: bool = True,
-        run_export_compile: bool = True,
         run_export_quantize: bool = False,
+        run_export_compile: bool = True,
         run_export_profile: bool = False,
+        run_export_inference: bool = False,
         run_full_export: bool = False,
         exit_after_single_model_failure=False,
         raise_on_failure=True,
@@ -287,9 +297,10 @@ class PyTestModelsTask(CompositeTask):
                     install_deps=not is_global_model,
                     run_trace=test_trace,
                     run_general=not skip_standard_unit_test,
+                    run_quantize=run_export_quantize and model_name in export_models,
                     run_compile=run_export_compile and model_name in export_models,
                     run_profile=run_export_profile and model_name in export_models,
-                    run_quantize=run_export_quantize and model_name in export_models,
+                    run_inference=run_export_inference and model_name in export_models,
                     run_export=run_full_export and model_name in export_models,
                     # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                     raise_on_failure=False,

@@ -17,7 +17,7 @@ import piqaro.onnx
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.stable_diffusion_v1_5_ao_quantized.model import (
+from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized.model import (
     TextEncoderQuantizable,
     UnetQuantizable,
     VaeDecoderQuantizable,
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     )
     os.makedirs(output_dir, exist_ok=True)
     output_path_onnx = os.path.join(
-        output_dir, f"sd1.5_{args.component}_{args.opt}.onnx"
+        output_dir, f"sd1_5_{args.component}_{args.opt}.onnx"
     )
     onnx_transforms = None
     if args.opt == "piqaro_onnx":
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         model=zip_path,
         input_specs=input_spec,
         device=hub_device,
-        name=f"sd1.5_{args.component}_{args.opt}",
+        name=f"sd1_5_{args.component}_{args.opt}",
         options=compile_options,
     )
     print(f"compile job: {compile_job}")
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     profile_job = hub.submit_profile_job(
         model=compile_job.get_target_model(),
         device=hub_device,
-        name=f"sd1.5_{args.component}_{args.opt}",
+        name=f"sd1_5_{args.component}_{args.opt}",
     )
     print(f"profile job: {profile_job}")
 

@@ -10,7 +10,7 @@ from typing import Union
 
 import numpy as np
 import qai_hub as hub
-from tflite import Model as TFModel  # type: ignore
+from tflite import Model as TFModel
 
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 
@@ -84,14 +84,17 @@ def get_tflite_unique_parameters(
     buffers_counted = set()
     for i in range(model.SubgraphsLength()):
         graph = model.Subgraphs(i)
+        assert graph is not None
         for j in range(graph.TensorsLength()):
             tensor = graph.Tensors(j)
+            assert tensor is not None
             buf_index = tensor.Buffer()
 
             buffer = model.Buffers(buf_index)
+            assert buffer is not None
             if not buffer.DataIsNone():
                 if buf_index not in buffers_counted:
-                    parameter_cnt += np.prod(tensor.ShapeAsNumpy())
+                    parameter_cnt += int(np.prod(tensor.ShapeAsNumpy()))
                     buffers_counted.add(buf_index)
 
     if not as_str:
@@ -107,7 +110,7 @@ def get_model_size_mb(hub_model: hub.Model) -> float:
     with qaihm_temp_dir() as tmp_dir:
         download_path = Path(tmp_dir) / "model"
         # Download the model into the temporary directory
-        hub_model.download(download_path)  # type: ignore
+        hub_model.download(str(download_path))
         size_mb = get_disk_size(download_path, unit="MB")
         return size_mb
 
@@ -132,5 +135,5 @@ def get_disk_size(path: str | Path, unit: str = "byte") -> float:
         total_size = os.path.getsize(path)
 
     if unit == "MB":
-        total_size /= 2**20  # type: ignore
+        return total_size / 2**20
     return total_size

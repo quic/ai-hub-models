@@ -216,11 +216,13 @@ class EasyOCRApp:
         batch_size: int,
     ):
         if RECOGNIZER_ARGS["allowlist"]:
+            assert isinstance(RECOGNIZER_ARGS["allowlist"], str)
             ignore_char = "".join(
-                set(self.character) - set(RECOGNIZER_ARGS["allowlist"])  # type: ignore
+                set(self.character) - set(RECOGNIZER_ARGS["allowlist"])
             )
         elif RECOGNIZER_ARGS["blocklist"]:
-            ignore_char = "".join(set(RECOGNIZER_ARGS["blocklist"]))  # type: ignore
+            assert isinstance(RECOGNIZER_ARGS["blocklist"], str)
+            ignore_char = "".join(set(RECOGNIZER_ARGS["blocklist"]))
         else:
             ignore_char = "".join(set(self.character) - set(self.lang_char))
 
@@ -246,7 +248,7 @@ class EasyOCRApp:
             result = []
             for bbox in horizontal_list:
                 h_list = [bbox]
-                f_list = []  # type: ignore
+                f_list: list[list[int]] = []
                 image_list, max_width = get_image_list(
                     h_list, f_list, img_cv_grey, model_height=self.imgH
                 )
@@ -286,7 +288,7 @@ class EasyOCRApp:
                 result = set_result_with_confidence(
                     [
                         result[image_len * i : image_len * (i + 1)]
-                        for i in range(len(RECOGNIZER_ARGS["rotation_info"]) + 1)  # type: ignore
+                        for i in range(len(RECOGNIZER_ARGS["rotation_info"]) + 1)  # type: ignore[arg-type]
                     ]
                 )
         return result
@@ -325,7 +327,7 @@ class EasyOCRApp:
         low_confident_idx = [
             i
             for i, item in enumerate(result1)
-            if (item[1] < RECOGNIZER_ARGS["contrast_ths"])  # type: ignore
+            if (item[1] < RECOGNIZER_ARGS["contrast_ths"])
         ]
 
         result2 = []

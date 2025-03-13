@@ -13,15 +13,18 @@ from pathlib import Path
 from typing import Any, Optional, cast
 
 import qai_hub as hub
+import torch
 
-from qai_hub_models.models.common import ExportResult, TargetRuntime
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.facemap_3dmm_quantized import Model
+from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
 )
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_on_target_demo_cmd,
@@ -36,6 +39,8 @@ from qai_hub_models.utils.qai_hub_helpers import (
 def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
+    num_calibration_samples: int = 100,
+    skip_compiling: bool = False,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -50,13 +55,14 @@ def export_model(
     This function executes the following recipe:
 
         1. Instantiates a PyTorch model and converts it to a traced TorchScript format
-        2. Compiles the model to an asset that can be run on device
-        3. Profiles the model performance on a real device
-        4. Inferences the model on sample inputs
-        5. Downloads the model asset to the local directory
-        6. Summarizes the results from profiling and inference
+        2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
+        3. Compiles the model to an asset that can be run on device
+        4. Profiles the model performance on a real device
+        5. Inferences the model on sample inputs
+        6. Downloads the model asset to the local directory
+        7. Summarizes the results from profiling and inference
 
-    Each of the last 4 steps can be optionally skipped using the input options.
+    Each of the last 5 steps can be optionally skipped using the input options.
 
     Parameters:
         device: Device for which to export the model.
@@ -64,6 +70,9 @@ def export_model(
             Defaults to DEFAULT_DEVICE if not specified.
         chipset: If set, will choose a random device with this chipset.
             Overrides the `device` argument.
+        num_calibration_samples: The number of calibration data samples
+            to use for quantization.
+        skip_compiling: If set, skips compiling model to format that can run on device.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -79,9 +88,10 @@ def export_model(
 
     Returns:
         A struct of:
-            * A CompileJob object containing metadata about the compile job submitted to hub.
+            * A CompileJob object containing metadata about the compile job submitted to hub (None if compiling skipped).
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+            * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
     model_name = "facemap_3dmm_quantized"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
@@ -117,26 +127,46 @@ def export_model(
     )
 
     # Trace the model
-    source_model = model.convert_to_hub_source_model(
-        target_runtime, output_path, input_spec
-    )
+    source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
-    # 2. Compiles the model to an asset that can be run on device
-    model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options, hub_device
-    )
-    print(f"Optimizing model {model_name} to run on-device")
-    submitted_compile_job = hub.submit_compile_job(
+    print(f"Quantizing model {model_name} with {num_calibration_samples} samples.")
+    # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
+    onnx_compile_job = hub.submit_compile_job(
         model=source_model,
         input_specs=input_spec,
         device=hub_device,
         name=model_name,
-        calibration_data=model.get_calibration_data(target_runtime),
+        options="--target_runtime onnx",
+    )
+    calibration_data = quantization_utils.get_calibration_data(
+        input_spec, "coco_face", num_calibration_samples
+    )
+    quantize_job = hub.submit_quantize_job(
+        model=onnx_compile_job.get_target_model(),
+        calibration_data=calibration_data,
+        weights_dtype=Precision.w8a8.weights_type,  # type: ignore[arg-type]
+        activations_dtype=Precision.w8a8.activations_type,  # type: ignore[arg-type]
+        name=model_name,
+        options=model.get_hub_quantize_options(Precision.w8a8),
+    )
+    if skip_compiling:
+        return ExportResult(quantize_job=quantize_job)
+
+    # 3. Compiles the model to an asset that can be run on device
+    model_compile_options = model.get_hub_compile_options(
+        target_runtime, Precision.w8a8, compile_options, hub_device
+    )
+    print(f"Optimizing model {model_name} to run on-device")
+    submitted_compile_job = hub.submit_compile_job(
+        model=quantize_job.get_target_model(),
+        input_specs=input_spec,
+        device=hub_device,
+        name=model_name,
         options=model_compile_options,
     )
     compile_job = cast(hub.client.CompileJob, submitted_compile_job)
 
-    # 3. Profiles the model performance on a real device
+    # 4. Profiles the model performance on a real device
     profile_job: Optional[hub.client.ProfileJob] = None
     if not skip_profiling:
         profile_options_all = model.get_hub_profile_options(
@@ -151,7 +181,7 @@ def export_model(
         )
         profile_job = cast(hub.client.ProfileJob, submitted_profile_job)
 
-    # 4. Inferences the model on sample inputs
+    # 5. Inferences the model on sample inputs
     inference_job: Optional[hub.client.InferenceJob] = None
     if not skip_inferencing:
         profile_options_all = model.get_hub_profile_options(
@@ -172,14 +202,14 @@ def export_model(
         )
         inference_job = cast(hub.client.InferenceJob, submitted_inference_job)
 
-    # 5. Downloads the model asset to the local directory
+    # 6. Downloads the model asset to the local directory
     if not skip_downloading:
         os.makedirs(output_path, exist_ok=True)
         target_model = compile_job.get_target_model()
         assert target_model is not None
         target_model.download(str(output_path / model_name))
 
-    # 6. Summarizes the results from profiling and inference
+    # 7. Summarizes the results from profiling and inference
     if not skip_summary and profile_job is not None:
         assert profile_job.wait().success, "Job failed: " + profile_job.url
         profile_data: dict[str, Any] = profile_job.download_profile()
@@ -205,12 +235,13 @@ def export_model(
         compile_job=compile_job,
         inference_job=inference_job,
         profile_job=profile_job,
+        quantize_job=quantize_job,
     )
 
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_qnn=False)
+    parser = export_parser(model_cls=Model, is_hub_quantized=True)
     args = parser.parse_args()
     export_model(**vars(args))
 

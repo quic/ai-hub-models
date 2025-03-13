@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.resnet18.model import ResNet18
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class ResNet18Quantizable(HubQuantizableMixin, ResNet18):
+class ResNet18Quantizable(ResNet18):
     pass

@@ -28,7 +28,7 @@ def preprocess_image(image: Image) -> torch.Tensor:
     Returns:
         torch tensor to be directly passed to the model.
     """
-    out_tensor: torch.Tensor = transforms.ToTensor()(image)  # type: ignore
+    out_tensor: torch.Tensor = transforms.ToTensor()(image)
     return out_tensor.unsqueeze(0)
 
 

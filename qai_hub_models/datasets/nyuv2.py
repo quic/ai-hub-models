@@ -39,7 +39,7 @@ class NyUv2Dataset(BaseDataset):
         input_height: int = 256,
         input_width: int = 256,
         split: DatasetSplit = DatasetSplit.TRAIN,
-        num_samples: int = 100,
+        num_samples: int = -1,
         source_dataset_file: str | None = None,
     ):
         self.num_samples = num_samples

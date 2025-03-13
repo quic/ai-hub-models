@@ -98,7 +98,7 @@ def draw_connections(
         for (i, j) in connections
     ]
     cv2.polylines(
-        frame, np.array(point_pairs), isClosed=False, color=color, thickness=size  # type: ignore
+        frame, np.array(point_pairs), isClosed=False, color=color, thickness=size  # type: ignore[call-overload]
     )
 
 

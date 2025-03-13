@@ -17,7 +17,7 @@ import qai_hub as hub
 import torch
 from torch.utils import mobile_optimizer
 
-from qai_hub_models.models.common import ExportResult, TargetRuntime
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.sam import Model
 from qai_hub_models.utils.args import export_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
@@ -52,7 +52,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    target_runtime: TargetRuntime = TargetRuntime.ONNX,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -168,7 +168,7 @@ def export_model(
 
         # 2. Compiles the model to an asset that can be run on device
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, compile_options, hub_device
+            target_runtime, Precision.float, compile_options, hub_device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
@@ -269,7 +269,12 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, components=ALL_COMPONENTS)
+    parser = export_parser(
+        model_cls=Model,
+        components=ALL_COMPONENTS,
+        supports_tflite=False,
+        supports_qnn=False,
+    )
     args = parser.parse_args()
     export_model(**vars(args))
 

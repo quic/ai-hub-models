@@ -93,8 +93,8 @@ class SAMQAIHMWrapper(CollectionModel):
         ###
         for block in sam.image_encoder.blocks:
             assert isinstance(block, SAM_Encoder_Block)
-            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)  # type: ignore
-            block.attn = SplitHeadSAMEncoderAttention(block.attn)  # type: ignore
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
+            block.attn = SplitHeadSAMEncoderAttention(block.attn)
 
         sam.mask_decoder.predict_masks = functools.partial(
             sam_decoder_predict_masks, sam.mask_decoder
@@ -104,16 +104,24 @@ class SAMQAIHMWrapper(CollectionModel):
             sam.mask_decoder.output_hypernetworks_mlps[
                 i
             ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
-        sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(sam.mask_decoder.iou_prediction_head)  # type: ignore
+        sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(
+            sam.mask_decoder.iou_prediction_head
+        )
 
         transformer = cast(TwoWayTransformer, sam.mask_decoder.transformer)
-        transformer.final_attn_token_to_image = SplitHeadSAMDecoderAttention(transformer.final_attn_token_to_image)  # type: ignore
+        transformer.final_attn_token_to_image = SplitHeadSAMDecoderAttention(
+            transformer.final_attn_token_to_image
+        )
         for block in transformer.layers:
             assert isinstance(block, TwoWayAttentionBlock)
-            block.self_attn = SplitHeadSAMDecoderAttention(block.self_attn)  # type: ignore
-            block.cross_attn_token_to_image = SplitHeadSAMDecoderAttention(block.cross_attn_token_to_image)  # type: ignore
-            block.cross_attn_image_to_token = SplitHeadSAMDecoderAttention(block.cross_attn_image_to_token)  # type: ignore
-            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)  # type: ignore
+            block.self_attn = SplitHeadSAMDecoderAttention(block.self_attn)
+            block.cross_attn_token_to_image = SplitHeadSAMDecoderAttention(
+                block.cross_attn_token_to_image
+            )
+            block.cross_attn_image_to_token = SplitHeadSAMDecoderAttention(
+                block.cross_attn_image_to_token
+            )
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
 
         return cls(sam, num_encoder_splits)
 
@@ -236,7 +244,9 @@ class SAMEncoderPart(BaseModel):
                 x = x + self.sam.image_encoder.pos_embed
 
         if self.include_transformer_blocks is not None:
-            for blk in self.sam.image_encoder.blocks[self.include_transformer_blocks[0] : self.include_transformer_blocks[1]]:  # type: ignore
+            for blk in self.sam.image_encoder.blocks[
+                self.include_transformer_blocks[0] : self.include_transformer_blocks[1]
+            ]:
                 x = blk(x)
 
         if self.include_neck:
@@ -390,7 +400,7 @@ class SAMDecoder(BaseModel):
         Where,
             k = number of points
         """
-        sparse_embedding = SamOnnxModel._embed_points(self, point_coords, point_labels)  # type: ignore
+        sparse_embedding = SamOnnxModel._embed_points(self, point_coords, point_labels)
         dense_embedding = self._embed_masks(mask_input)
 
         masks, scores = sam_decoder_predict_masks(
@@ -402,7 +412,9 @@ class SAMDecoder(BaseModel):
         )
 
         if self.return_single_mask:
-            masks, scores = SamOnnxModel.select_masks(self, masks, scores, point_coords.shape[1])  # type: ignore
+            masks, scores = SamOnnxModel.select_masks(
+                self, masks, scores, point_coords.shape[1]
+            )
 
         return masks, scores
 

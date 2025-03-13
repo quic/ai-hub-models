@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import time
 import zipfile
 from os import PathLike
@@ -162,32 +163,32 @@ def export_torch_to_onnx_zip(
     input_names: list[str] | None = None,
     output_names: list[str] | None = None,
     onnx_transforms: Optional[Callable[[onnx.ModelProto], onnx.ModelProto]] = None,
+    skip_zip: bool = False,
 ) -> str:
     """
     Export a torch model to ONNX, possibly as zip if model size exceeds 2GB,
     to conform to the input spec of AI Hub. Export as regular ONNX file if
-    <2GB
+    <2GB.
 
     Parameters:
       torch_model: The torch.nn.Module to export.
-      f: The base filename that must end in ".onnx". For external data export, the final output
-         will be f+".zip", otherwise just f.
+      f: The base filename. For models <2GB, this must end in ".onnx".
+         For models >=2GB with skip_zip True, this must NOT end in ".onnx" (treated as a directory name).
+         Otherwise, for models >=2GB with skip_zip False, the final output will be f+".zip".
       example_input: A tuple of example input tensors for the export.
       input_names: Optional list of input names.
       output_names: Optional list of output names.
-      onnx_transforms: If defined, run this on the exported ONNX before
-      zipping.
+      onnx_transforms: If defined, run this on the exported ONNX before packaging.
+      skip_zip: True to suppress zipping even for models >2GB.
 
     Returns:
-      The path to the exported file (either a .onnx or .onnx.zip file).
+      The path to the exported file (either a .onnx file, a .onnx.zip file,
+      or a directory if skip_zip is True and model size is >2GB).
     """
     f = Path(f)
-    if not f.name.endswith(".onnx"):
-        raise ValueError(f"File name {f.name} must end with '.onnx'.")
 
     # Estimate total weight size (parameters and buffers) in bytes.
-    # state_dict includes buffers etc, while model_parametrs include only
-    # learnable params.
+    # state_dict includes buffers etc, while model.parameters include only learnable params.
     total_bytes = 0
     for tensor in torch_model.state_dict().values():
         # Some tensors may not have a defined element_size() (e.g. non-numeric); skip them.
@@ -196,7 +197,11 @@ def export_torch_to_onnx_zip(
     threshold_bytes = 2 * 1024**3  # 2GB threshold
 
     if total_bytes < threshold_bytes:
-        # If model size is under 2GB, export as a single ONNX file.
+        # For models under 2GB, export as a single ONNX file.
+        if not f.name.endswith(".onnx"):
+            raise ValueError(
+                f"File name {f.name} must end with '.onnx' for models under 2GB."
+            )
         start_time = time.time()
         torch.onnx.export(
             torch_model,
@@ -206,14 +211,30 @@ def export_torch_to_onnx_zip(
             output_names=output_names,
         )
         export_time = time.time() - start_time
-        print(f"ONNX exported to {f} in {export_time:.1f} seconds)")
+        print(f"ONNX exported to {f} in {export_time:.1f} seconds")
         return str(f)
     else:
-        # Otherwise, export with external data and package into a zip file.
+        # For models >=2GB, handle external data export.
+        if skip_zip:
+            # When skipping zip for large models, f should be a directory name, not ending with ".onnx".
+            if f.name.endswith(".onnx"):
+                raise ValueError(
+                    "When skip_zip is True and model size >2GB, the file name must not end with '.onnx'."
+                )
+        else:
+            # If not skipping zip, f must end in .onnx because it will be used as base for the zip file.
+            if not f.name.endswith(".onnx"):
+                raise ValueError(
+                    "File name must end with '.onnx' when zipping is enabled for models >2GB."
+                )
+
+        # Export with external data using two temporary directories.
         with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
             tmpdir1 = Path(tmpdir1)
             tmpdir2 = Path(tmpdir2)
-            export_path = tmpdir1 / f.name
+            export_path = (
+                tmpdir1 / f.with_suffix(".onnx").name
+            )  # use .onnx extension for export
 
             start_time = time.time()
             torch.onnx.export(
@@ -236,30 +257,47 @@ def export_torch_to_onnx_zip(
                 print(f"ONNX transform finished in {transform_time:.1f} seconds")
 
             save_start_time = time.time()
-            export_path2 = tmpdir2 / f.name
+            # .onnx and .data must have the same base name per hub requirement
+            export_path2 = tmpdir2 / "model.onnx"
             onnx.save_model(
                 onnx_model,
                 str(export_path2),
                 save_as_external_data=True,
                 all_tensors_to_one_file=True,
                 # Weight file name must end with .data per Hub requirement
-                location="weight.data",
+                location="model.data",
             )
             save_time = time.time() - save_start_time
             print(f"onnx.save_model finished in {save_time:.1f} seconds")
 
-            zip_start_time = time.time()
-            zip_path = f.with_name(f.name + ".zip")
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                for file_path in tmpdir2.iterdir():
-                    arcname = f.name + "/" + file_path.name
-                    zip_file.write(file_path, arcname=arcname)
-            zip_time = time.time() - zip_start_time
-            print(f"zipping onnx finished in {zip_time:.1f} seconds")
+            if skip_zip:
+                # Instead of creating a zip, create a directory.
+                out_dir = (
+                    f  # f is expected to be a directory name already (without .onnx)
+                )
+                out_dir.mkdir(parents=True, exist_ok=True)
 
-            print(f"ONNX with external data saved to {zip_path}")
+                # Copy the ONNX file to the directory.
+                shutil.copy(export_path2, out_dir / "model.onnx")
+                # Copy the external data file to the directory.
+                external_data_path = export_path2.parent / "model.data"
+                shutil.copy(external_data_path, out_dir / "model.data")
 
-            return str(zip_path)
+                print(f"ONNX with external data saved to directory {out_dir}")
+                return str(out_dir)
+            else:
+                # Package the files into a zip.
+                zip_start_time = time.time()
+                zip_path = f.with_name(f.name + ".zip")
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                    for file_path in tmpdir2.iterdir():
+                        # In the zip, files are placed under a folder named after the base name.
+                        arcname = f.with_suffix("").name + "/" + file_path.name
+                        zip_file.write(file_path, arcname=arcname)
+                zip_time = time.time() - zip_start_time
+                print(f"zipping onnx finished in {zip_time:.1f} seconds")
+                print(f"ONNX with external data saved to {zip_path}")
+                return str(zip_path)
 
 
 def make_hub_dataset_entries(
@@ -287,11 +325,10 @@ def make_hub_dataset_entries(
         input_names
     ), "Number of elements in tensors_tuple must match number of inputs"
     for name, inputs in zip(input_names, tensors_tuple):
-        if not isinstance(inputs, (list, tuple)):
-            inputs = [inputs]  # type: ignore
+        input_seq = inputs if isinstance(inputs, (list, tuple)) else [inputs]
 
         converted_inputs = []
-        for curr_input in inputs:
+        for curr_input in input_seq:
             if isinstance(curr_input, torch.Tensor):
                 curr_input = tensor_to_numpy(curr_input)
             assert isinstance(curr_input, np.ndarray)

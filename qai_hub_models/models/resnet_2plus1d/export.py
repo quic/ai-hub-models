@@ -15,7 +15,7 @@ from typing import Any, Optional, cast
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.common import ExportResult, TargetRuntime
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.resnet_2plus1d import Model
 from qai_hub_models.utils.args import (
     export_parser,
@@ -122,7 +122,7 @@ def export_model(
 
     # 2. Compiles the model to an asset that can be run on device
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, compile_options, hub_device
+        target_runtime, Precision.float, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -205,7 +205,7 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_qnn=False)
+    parser = export_parser(model_cls=Model)
     args = parser.parse_args()
     export_model(**vars(args))
 

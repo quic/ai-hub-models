@@ -26,6 +26,7 @@ def detr_demo(
     default_weights: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
+    threshold: float = 0.9,
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
@@ -50,7 +51,7 @@ def detr_demo(
     # Run app to scores, labels and boxes
     img = load_image(args.image)
     app = DETRApp(detr, h, w)
-    pred_images, _, _, _ = app.predict(img, default_weights)
+    pred_images, _, _, _ = app.predict(img, default_weights, threshold=threshold)
     pred_image = Image.fromarray(pred_images[0])
 
     # Show the predicted boxes, scores and class names on the image.

@@ -7,8 +7,8 @@ from __future__ import annotations
 import numpy as np
 import samplerate
 import torch
-import whisper  # type: ignore
-from scipy import special as scipy_special  # type: ignore
+import whisper
+from scipy import special as scipy_special
 
 from qai_hub_models.models._shared.whisper.model import (
     CHUNK_LENGTH,

@@ -1,0 +1,38 @@
+name: DeformableDETR
+# id must match with the model dir name in qai_hub_models
+id: deformable_detr
+status: public
+tags: []
+headline: Transformer based object detector with ResNet-50 backbone.
+domain: Computer Vision
+description: Deformable DETR is a machine learning model that can detect objects (trained on COCO dataset).
+use_case: Object Detection
+research_paper: https://arxiv.org/abs/2010.04159
+research_paper_title: "Deformable DETR: Deformable Transformers for End-to-End Object Detection"
+license: https://github.com/facebookresearch/detr/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/fundamentalvision/Deformable-DETR
+technical_details:
+  Model checkpoint: deformable-detr
+  Input resolution: 480x480
+  Number of parameters: 40M
+  Model size: 160 MB
+applicable_scenarios:
+  - Factory Automation
+  - Robotic Navigation
+  - Camera
+related_models:
+  - detr_resnet101
+  - detr_resnet101_dc5
+  - detr_resnet50
+  - detr_resnet50_dc5
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: apache-2.0
+deploy_license_type: AI Model Hub License
+dataset:
+  - detection-datasets/coco

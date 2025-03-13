@@ -4,18 +4,20 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import numpy as np
 import torch
 from pycocotools.cocoeval import COCOeval
 
-from qai_hub_models.datasets.cocowholebody import CocoWholeBodyDataset
+from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.utils.pose import get_final_preds
+from qai_hub_models.utils.printing import suppress_stdout
 
 
-class CocoWholeBodyPoseEvaluator(BaseEvaluator):
+class CocoBodyPoseEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
     def __init__(self, in_vis_thre=0.2):
@@ -23,15 +25,17 @@ class CocoWholeBodyPoseEvaluator(BaseEvaluator):
         Args:
             coco_gt: COCO ground truth dataset.
         """
-        self.predictions = []
+        self.reset()
         self.in_vis_thre = in_vis_thre
-        self.coco_gt = CocoWholeBodyDataset().cocoGt
+        self.coco_gt = CocoBodyDataset().cocoGt
 
     def reset(self):
         """Resets the collected predictions."""
         self.predictions = []
 
-    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
+    def add_batch(
+        self, output: tuple[torch.Tensor] | torch.Tensor, gt: list[torch.Tensor]
+    ):
         """
         Collects model predictions in COCO format, handling both single and batched keypoints.
 
@@ -39,6 +43,8 @@ class CocoWholeBodyPoseEvaluator(BaseEvaluator):
             output: Raw model outputs (heatmaps).
             gt_data: Ground truth data from dataset containing (image_id, category_id, area, center, scale, keypoints, bbox).
         """
+        if isinstance(output, tuple):
+            output = output[0]
         batch_size = output.shape[0]
 
         # Extract batched ground truth values
@@ -91,20 +97,17 @@ class CocoWholeBodyPoseEvaluator(BaseEvaluator):
         Returns:
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
+        pred_image_ids = [p["image_id"] for p in self.predictions]
 
-        valid_image_ids = set(self.coco_gt.getImgIds())
-        pred_image_ids = {p["image_id"] for p in self.predictions}
-
-        if len(valid_image_ids & pred_image_ids) == 0:
-            print("Warning: No matching image IDs between predictions and COCO GT!")
-            return {"AP": 0.0, "AP@.5": 0.0}
-
-        coco_dt = self.coco_gt.loadRes(self.predictions)
-        coco_eval = COCOeval(self.coco_gt, coco_dt, "keypoints")
-        coco_eval.params.useSegm = None
-        coco_eval.evaluate()
-        coco_eval.accumulate()
-        coco_eval.summarize()
+        res = copy.deepcopy(self.predictions)
+        with suppress_stdout():
+            coco_dt = self.coco_gt.loadRes(res)
+            coco_eval = COCOeval(self.coco_gt, coco_dt, "keypoints")
+            coco_eval.params.useSegm = None
+            coco_eval.params.imgIds = pred_image_ids
+            coco_eval.evaluate()
+            coco_eval.accumulate()
+            coco_eval.summarize()
 
         return {"AP": coco_eval.stats[0], "AP@.5": coco_eval.stats[1]}
 

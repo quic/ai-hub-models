@@ -1,0 +1,36 @@
+name: Simple-Bev
+# id must match with the model dir name in qai_hub_models
+id: simple_bev_cam
+status: public
+headline: Construct a bird’s eye view from sensors mounted on a vehicle.
+domain: Computer Vision
+description: Simple_bev is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle. It uses the ResNet-101 as the backbone and segnet as a segmentation model for specific use cases.
+use_case: Image Generation
+tags: []
+research_paper: https://arxiv.org/abs/2206.07959
+research_paper_title: 'Simple-BEV: What Really Matters for Multi-Sensor BEV Perception?'
+
+license: "https://github.com/aharley/simple_bev/blob/main/LICENSE"
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo:
+  https://github.com/aharley/simple_bev/blob/main/nets/segnet.py
+technical_details:
+  Model checkpoint: model-000025000.pth
+  Input resolution: 448 x 800
+  Number of parameters: 42M
+  Model size: 505 MB
+applicable_scenarios:
+  - Scenario detection
+related_models:
+  - unet_segmentation
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: bsd-3-clause
+deploy_license_type: AI Model Hub License
+dataset:
+  - nuscene

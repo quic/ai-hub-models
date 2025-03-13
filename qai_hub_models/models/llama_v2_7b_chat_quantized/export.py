@@ -13,6 +13,7 @@ from typing import Any, Optional, cast
 
 import qai_hub as hub
 
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.llama_v2_7b_chat_quantized import Model
 from qai_hub_models.models.llama_v2_7b_chat_quantized.model import (
     MODEL_ASSET_VERSION,
@@ -205,7 +206,7 @@ def export_model(
 
             # 2. Compile the models to an on-device asset
             model_compile_options = component.get_hub_compile_options(
-                target_runtime, compile_options
+                target_runtime, Precision.w8a16, compile_options
             )
             print(f"Optimizing model {sub_component_name} to run on-device")
             submitted_compile_job = hub.submit_compile_job(

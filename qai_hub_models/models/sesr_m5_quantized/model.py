@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.sesr_m5.model import SESR_M5
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class SESR_M5Quantizable(HubQuantizableMixin, SESR_M5):
+class SESR_M5Quantizable(SESR_M5):
     pass

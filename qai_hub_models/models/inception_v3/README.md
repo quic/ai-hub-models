@@ -16,6 +16,11 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/i
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install qai-hub-models
+```
+
 
 Once installed, run the following simple CLI demo:
 

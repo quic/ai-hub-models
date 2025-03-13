@@ -37,7 +37,7 @@ def test_transpose_case3():
     inp = dict(a=[array])
     result = transpose_channel_first_to_last(["a"], inp)
     assert list(result.keys())[0] == "a"
-    assert result["a"][0].shape == (4, 3, 5, 6, 2)
+    assert result["a"][0].shape == (4, 2, 5, 6, 3)
     result = transpose_channel_last_to_first(["a"], result)
     assert inp["a"][0].shape == result["a"][0].shape
     assert np.allclose(inp["a"][0], result["a"][0])

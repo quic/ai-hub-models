@@ -431,7 +431,11 @@ class TaskLibrary:
         )
 
     def _make_hub_scorecard_task(
-        self, compile: bool = False, profile: bool = False, quantize: bool = False
+        self,
+        quantize: bool = False,
+        compile: bool = False,
+        profile: bool = False,
+        inference: bool = False,
     ) -> PyTestModelsTask:
         all_models = get_all_models()
         return PyTestModelsTask(
@@ -441,9 +445,10 @@ class TaskLibrary:
             self.venv_path,
             venv_for_each_model=False,
             use_shared_cache=True,
+            run_export_quantize=quantize,
             run_export_compile=compile,
             run_export_profile=profile,
-            run_export_quantize=quantize,
+            run_export_inference=inference,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
             skip_standard_unit_test=True,
@@ -463,6 +468,22 @@ class TaskLibrary:
         self, plan: Plan, step_id: str = "test_profile_all_models"
     ) -> str:
         return plan.add_step(step_id, self._make_hub_scorecard_task(profile=True))
+
+    @public_task("Run inference jobs for all models in Model Zoo.")
+    @depends(["model_test_setup"])
+    def test_inference_all_models(
+        self, plan: Plan, step_id: str = "test_inference_all_models"
+    ) -> str:
+        return plan.add_step(step_id, self._make_hub_scorecard_task(inference=True))
+
+    @public_task("Run profile and inference jobs for all models in Model Zoo.")
+    @depends(["model_test_setup"])
+    def test_profile_inference_all_models(
+        self, plan: Plan, step_id: str = "test_profile_inference_all_models"
+    ) -> str:
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(profile=True, inference=True)
+        )
 
     @public_task("Run quantize jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])

@@ -69,7 +69,7 @@ def demo(model_cls: type[FootTrackNet], is_test: bool = False):
     (_, _, height, width) = model_cls.get_input_spec()["image"][0]
 
     orig_image = np.array(load_image(args.image))
-
+    orig_image = orig_image.astype(np.float32)
     img = torch.from_numpy(orig_image).permute(2, 0, 1).unsqueeze_(0)
     image, scale, padding = resize_pad(img, (height, width))
 
@@ -98,6 +98,7 @@ def demo(model_cls: type[FootTrackNet], is_test: bool = False):
             joint_to_visualize=jt_vis,
             visibility_thresh=vis_thr,
         )
+    img_out = img_out.astype(np.uint8)
     img_out_PIL = Image.fromarray(img_out[:, :, ::-1])
 
     if not is_test:

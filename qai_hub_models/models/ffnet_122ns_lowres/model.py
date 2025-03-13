@@ -11,5 +11,5 @@ MODEL_ID = __name__.split(".")[-2]
 
 class FFNet122NSLowRes(FFNetLowRes):
     @classmethod
-    def from_pretrained(cls) -> FFNet122NSLowRes:  # type: ignore
+    def from_pretrained(cls) -> FFNet122NSLowRes:
         return super().from_pretrained("segmentation_ffnet122NS_CCC_mobile_pre_down")

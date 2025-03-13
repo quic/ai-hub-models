@@ -8,7 +8,10 @@ from typing import Any
 
 import torchvision.models as tv_models
 
-from qai_hub_models.models._shared.video_classifier.model import KineticsClassifier
+from qai_hub_models.models._shared.video_classifier.model import (
+    KineticsClassifier,
+    SimpleAvgPool,
+)
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -16,9 +19,11 @@ DEFAULT_WEIGHTS = tv_models.video.R2Plus1D_18_Weights.DEFAULT
 
 
 class ResNet2Plus1D(KineticsClassifier):
-    @staticmethod
+    @classmethod
     def from_pretrained(
+        cls,
         weights: Any = DEFAULT_WEIGHTS,
     ) -> ResNet2Plus1D:
         net = tv_models.video.r2plus1d_18(weights)
-        return ResNet2Plus1D(net)
+        net.avgpool = SimpleAvgPool()
+        return cls(net)

@@ -8,12 +8,10 @@ from typing import Optional
 
 import numpy as np
 import torch
-from qai_hub.client import DatasetEntries, Device, QuantizeDtype
+from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader, TensorDataset
 
 from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
-from qai_hub_models.models.common import TargetRuntime
-from qai_hub_models.models.protocols import HubModelProtocol
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
 from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
@@ -107,42 +105,3 @@ def get_calibration_data(
         else:
             inputs[0].append(sample_input)
     return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
-
-
-class HubQuantizableMixin(HubModelProtocol):
-    """
-    Mixin to attach to model classes that will be quantized using AI Hub quantize job.
-    """
-
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        quantization_flags = " --quantize_io"
-        if target_runtime == TargetRuntime.TFLITE:
-            # uint8 is the easiest I/O type for integration purposes,
-            # especially for image applications. Images are always
-            # uint8 RGB when coming from disk or a camera.
-            #
-            # Uint8 has not been thoroughly tested with other paths,
-            # so it is enabled only for TF Lite today.
-            quantization_flags += " --quantize_io_type uint8"
-        return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, other_compile_options, device
-            )
-            + quantization_flags
-        )
-
-    def get_quantize_options(self) -> str:
-        return ""
-
-    @staticmethod
-    def get_weights_dtype() -> QuantizeDtype:
-        return QuantizeDtype.INT8
-
-    @staticmethod
-    def get_activations_dtype() -> QuantizeDtype:
-        return QuantizeDtype.INT8

@@ -9,7 +9,7 @@ from typing import Callable, Optional
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
@@ -26,8 +26,10 @@ def for_each_scorecard_path_and_device(
     exclude_devices: list[ScorecardDevice] | None = None,
     include_mirror_devices: bool = False,
 ):
+
     for path in path_type.all_paths(
-        enabled=True, supports_quantization=model_is_quantized or None
+        enabled=True,
+        supports_precision=(Precision.w8a8 if model_is_quantized else Precision.float),
     ):
         if include_paths and path not in include_paths:
             continue
@@ -36,7 +38,9 @@ def for_each_scorecard_path_and_device(
 
         for device in ScorecardDevice.all_devices(
             enabled=True,
-            supports_fp16_npu=not model_is_quantized or None,
+            npu_supports_precision=(
+                Precision.w8a8 if model_is_quantized else Precision.float
+            ),
             supports_compile_path=path
             if isinstance(path, ScorecardCompilePath)
             else None,
@@ -50,7 +54,7 @@ def for_each_scorecard_path_and_device(
             if exclude_devices and device in exclude_devices:
                 continue
 
-            callback(path, device)  # type: ignore
+            callback(path, device)  # pyright: ignore[reportArgumentType]
 
 
 def pytest_device_idfn(val):
@@ -71,62 +75,109 @@ def pytest_device_idfn(val):
     """
     if isinstance(val, ScorecardDevice):
         return val.name
+    if isinstance(val, Precision):
+        return str(val)
 
 
 def get_compile_parameterized_pytest_config(
-    model_is_quantized: bool = False,
-) -> list[tuple[ScorecardCompilePath, ScorecardDevice]]:
+    precisions: list[Precision] = [Precision.float],
+) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
-    path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_paths(
-        enabled=True, supports_quantization=model_is_quantized or None
-    )
+    ret: list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]] = []
 
-    needs_fp16 = not model_is_quantized
-    path_devices_dict = {
-        sc_path: ScorecardDevice.all_devices(
-            enabled=True,
-            supports_fp16_npu=(True if needs_fp16 else None),
-            supports_compile_path=sc_path,
-            is_mirror=False,
+    for precision in precisions:
+        path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_paths(
+            enabled=True, supports_precision=precision
         )
-        for sc_path in path_list
-    }
 
-    return [
-        (path, device)
-        for path, path_enabled_devices in path_devices_dict.items()
-        for device in path_enabled_devices
-    ]
+        path_devices_dict = {
+            sc_path: ScorecardDevice.all_devices(
+                enabled=True,
+                npu_supports_precision=precision,
+                supports_compile_path=sc_path,
+                is_mirror=False,
+            )
+            for sc_path in path_list
+        }
+
+        ret.extend(
+            [
+                (precision, path, device)
+                for path, path_enabled_devices in path_devices_dict.items()
+                for device in path_enabled_devices
+            ]
+        )
+
+    return ret
 
 
 def get_profile_parameterized_pytest_config(
-    model_is_quantized: bool = False,
-) -> list[tuple[ScorecardProfilePath, ScorecardDevice]]:
+    precisions: list[Precision] = [Precision.float],
+) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
-    path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
-        enabled=True, supports_quantization=model_is_quantized or None
-    )
-    needs_fp16 = not model_is_quantized
+    ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
 
-    path_devices_dict = {
-        sc_path: ScorecardDevice.all_devices(
-            enabled=True,
-            supports_fp16_npu=(True if needs_fp16 else None),
-            supports_profile_path=sc_path,
-            is_mirror=False,
+    for precision in precisions:
+        path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
+            enabled=True, supports_precision=precision
         )
-        for sc_path in path_list
-    }
 
-    return [
-        (path, device)
-        for path, path_enabled_devices in path_devices_dict.items()
-        for device in path_enabled_devices
-    ]
+        path_devices_dict = {
+            sc_path: ScorecardDevice.all_devices(
+                enabled=True,
+                npu_supports_precision=precision,
+                supports_profile_path=sc_path,
+                is_mirror=False,
+            )
+            for sc_path in path_list
+        }
+
+        ret.extend(
+            [
+                (precision, path, device)
+                for path, path_enabled_devices in path_devices_dict.items()
+                for device in path_enabled_devices
+            ]
+        )
+
+    return ret
+
+
+def get_evaluation_parameterized_pytest_config(
+    precisions: list[Precision] = [Precision.float],
+    device: ScorecardDevice = cs_universal,
+) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
+    """
+    Get a pytest parameterization list of all enabled (device, profile path) pairs.
+    """
+    ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
+
+    for precision in precisions:
+        path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
+            enabled=True, supports_precision=precision
+        )
+
+        if not device.npu_supports_precision(precision):
+            raise ValueError(
+                f"Invalid evaluation config: {device.name} does not support quantization spec {precision}"
+            )
+
+        path_devices_dict = (
+            {sc_path: [device] for sc_path in path_list} if device.enabled else {}
+        )
+        ret.extend(
+            [
+                (precision, path, device)
+                for path, path_enabled_devices in path_devices_dict.items()
+                for device in path_enabled_devices
+            ]
+        )
+
+    return ret
 
 
 def get_async_job_cache_name(
@@ -150,48 +201,6 @@ def get_async_job_cache_name(
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")
     )
-
-
-def get_async_job_id(
-    cache: dict[str, str],
-    path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime,
-    model_id: str,
-    device: ScorecardDevice,
-    component: Optional[str] = None,
-    fallback_to_universal_device: bool | None = None,
-) -> str | None:
-    """
-    Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
-    Returns None if job does not exist.
-
-    parameters:
-        path: Applicable scorecard path
-        model_id: The ID of the QAIHM model being tested
-        device: The targeted device
-        component: The name of the model component being tested, if applicable
-        fallback_to_universal_device: Return a job that ran with the universal device if a job
-                                      using the provided device is not available.
-    """
-    if x := cache.get(get_async_job_cache_name(path, model_id, device, component)):
-        return x
-
-    if fallback_to_universal_device is None:
-        if isinstance(path, ScorecardCompilePath):
-            if path == ScorecardCompilePath.QNN:
-                fallback_to_universal_device = (
-                    device.os == ScorecardDevice.OperatingSystem.ANDROID
-                )
-            else:
-                fallback_to_universal_device = path.is_universal
-        else:
-            fallback_to_universal_device = False
-
-    if fallback_to_universal_device:
-        return cache.get(
-            get_async_job_cache_name(path, model_id, cs_universal, component)
-        )
-
-    return None
 
 
 def _on_staging() -> bool:

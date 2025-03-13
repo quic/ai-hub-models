@@ -27,7 +27,8 @@ def preprocess_image(image: Image, normalize: bool = False) -> torch.Tensor:
     Returns:
         torch tensor to be directly passed to the model.
     """
-    out_tensor: torch.Tensor = IMAGENET_TRANSFORM(image)  # type: ignore
+    out_tensor = IMAGENET_TRANSFORM(image)
+    assert isinstance(out_tensor, torch.Tensor)
     if normalize:
         out_tensor = normalize_image_transform()(out_tensor)
 

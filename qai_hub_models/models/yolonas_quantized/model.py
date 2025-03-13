@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.yolonas.model import DEFAULT_WEIGHTS, YoloNAS
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class YoloNASQuantizable(HubQuantizableMixin, YoloNAS):
+class YoloNASQuantizable(YoloNAS):
     """Exportable quantizable YoloNAS bounding box detector."""
 
     @classmethod
@@ -28,5 +28,5 @@ class YoloNASQuantizable(HubQuantizableMixin, YoloNAS):
         model.class_dtype = torch.uint8
         return model
 
-    def get_quantize_options(self) -> str:
+    def get_hub_quantize_options(self, precision: Precision) -> str:
         return "--range_scheme min_max"

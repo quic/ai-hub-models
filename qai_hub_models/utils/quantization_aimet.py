@@ -13,14 +13,19 @@ import sys
 from contextlib import contextmanager
 
 try:
-    import aimet_torch.elementwise_ops as aimet_ops
+    import aimet_torch.nn.modules.custom as aimet_ops
+    from aimet_common import quantsim
     from aimet_common.connected_graph.operation import Op as AimetOp
     from aimet_common.connected_graph.product import Product as AimetProduct
-    from aimet_common.utils import AimetLogger  # type: ignore
+    from aimet_common.utils import AimetLogger
     from aimet_torch import onnx_utils
-    from aimet_torch.qc_quantize_op import QcQuantizeWrapper
-    from aimet_torch.quantsim import QuantizationSimModel
-    from aimet_torch.tensor_quantizer import StaticGridPerTensorQuantizer
+    from aimet_torch.v1.qc_quantize_op import QcQuantizeOpMode, QcQuantizeWrapper
+    from aimet_torch.v1.quantsim import QuantizationSimModel
+    from aimet_torch.v1.tensor_quantizer import StaticGridPerTensorQuantizer
+
+    # TODO: Temporarily falling back to 0.6.1 encoding format since
+    # the new default encoding schema (1.0.0) is not supported in AI Hub yet.
+    quantsim.encoding_version = "0.6.1"
 
     # Suppress aimet info logs within zoo
     if not os.environ.get("SHOW_AIMET_LOGS"):
@@ -36,6 +41,7 @@ except (ImportError, ModuleNotFoundError) as e:
     )
 
 import shutil
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Optional
 from zipfile import ZipFile
@@ -48,7 +54,7 @@ from qai_hub.client import DatasetEntries, Device
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader, _for_each_batch
 from qai_hub_models.models._shared.common import apply_module_function_recursively
-from qai_hub_models.models.common import SourceModelFormat, TargetRuntime
+from qai_hub_models.models.common import Precision, SourceModelFormat, TargetRuntime
 from qai_hub_models.models.protocols import (
     PretrainedHubModelProtocol,
     QuantizableModelProtocol,
@@ -339,6 +345,25 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         # Compute the new encodings.
         self.quant_sim.compute_encodings(batched_forward, [data, num_samples, device])
 
+    def load_encodings(
+        self,
+        encodings: Mapping | str | os.PathLike,
+        strict: bool = True,
+        partial: bool = True,
+        requires_grad: bool | None = None,
+        allow_overwrite: bool | None = True,
+    ):
+        for _, module in self.quant_sim.quant_wrappers():
+            module.set_mode(QcQuantizeOpMode.ACTIVE)
+
+        self.quant_sim.load_encodings(
+            encodings=encodings,
+            strict=strict,
+            partial=partial,
+            requires_grad=requires_grad,
+            allow_overwrite=allow_overwrite,
+        )
+
     def convert_to_torchscript_and_aimet_encodings(
         self,
         output_dir: str | Path,
@@ -474,21 +499,25 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        quantization_flags = " --quantize_io"
-        if target_runtime == TargetRuntime.TFLITE:
-            # uint8 is the easiest I/O type for integration purposes,
-            # especially for image applications. Images are always
-            # uint8 RGB when coming from disk or a camera.
-            #
-            # Uint8 has not been thoroughly tested with other paths,
-            # so it is enabled only for TF Lite today.
-            quantization_flags += " --quantize_io_type uint8"
+        quantization_flags = ""
+        if precision.activations_type is not None:
+            quantization_flags = " --quantize_io"
+            if target_runtime == TargetRuntime.TFLITE:
+                # uint8 is the easiest I/O type for integration purposes,
+                # especially for image applications. Images are always
+                # uint8 RGB when coming from disk or a camera.
+                #
+                # Uint8 has not been thoroughly tested with other paths,
+                # so it is enabled only for TF Lite today.
+                quantization_flags += " --quantize_io_type uint8"
+
         return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, other_compile_options, device
+            super().get_hub_compile_options(  # type: ignore[safe-super]
+                target_runtime, precision, other_compile_options, device
             )
             + quantization_flags
         )
@@ -505,3 +534,9 @@ class AIMETQuantizableMixin(PretrainedHubModelProtocol, QuantizableModelProtocol
         """
         with torch.no_grad():
             return super().__call__(*args, **kwargs)  # type: ignore[misc]
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        """
+        AI Hub quantize options recommended for the model.
+        """
+        return ""

@@ -10,6 +10,8 @@ from pathlib import Path
 import torch.nn as nn
 import torch.nn.functional as F
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -99,3 +101,6 @@ class PosenetMobilenet(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return CocoBodyPoseEvaluator()

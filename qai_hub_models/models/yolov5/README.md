@@ -51,7 +51,6 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## References
-* [None](None)
 * [Source Model Implementation](https://github.com/ultralytics/yolov5)
 
 

@@ -166,6 +166,7 @@ class MODEL_USE_CASE(ParseableQAIHMEnum):
     # Audio: 200 - 299
     SPEECH_RECOGNITION = 200
     AUDIO_ENHANCEMENT = 201
+    AUDIO_CLASSIFICATION = 202
 
     # Video: 300 - 399
     VIDEO_CLASSIFICATION = 300
@@ -206,4 +207,6 @@ class MODEL_USE_CASE(ParseableQAIHMEnum):
             return "unconditional-image-generation"
         if self.name == "SPEECH_RECOGNITION":
             return "automatic-speech-recognition"
+        if self.name == "AUDIO_CLASSIFICATION":
+            return "audio-classification"
         return self.name.replace("_", "-").lower()

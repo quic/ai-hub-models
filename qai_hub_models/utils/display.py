@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from PIL.Image import Image
-from PIL.ImageShow import IPythonViewer, _viewers  # type: ignore
+from PIL.ImageShow import IPythonViewer, _viewers  # type: ignore[attr-defined]
 
 ALWAYS_DISPLAY_VAR = "QAIHM_ALWAYS_DISPLAY_OUTPUT"
 

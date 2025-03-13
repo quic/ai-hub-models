@@ -13,6 +13,7 @@ import torch
 from qai_hub.client import Device
 
 from qai_hub_models.models.common import (
+    Precision,
     SampleInputsType,
     SourceModelFormat,
     TargetRuntime,
@@ -251,7 +252,7 @@ class BaseModel(
         # Local import to prevent circular dependency
         from qai_hub_models.utils.inference import prepare_compile_zoo_model_to_hub
 
-        source_model, _ = prepare_compile_zoo_model_to_hub(
+        source_model = prepare_compile_zoo_model_to_hub(
             self,
             source_model_format=self.preferred_hub_source_model_format(target_runtime),
             target_runtime=target_runtime,
@@ -266,6 +267,7 @@ class BaseModel(
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
@@ -288,6 +290,17 @@ class BaseModel(
                     f" --force_channel_last_output {channel_last_outputs}"
                 )
 
+        if precision.activations_type is not None:
+            compile_options += " --quantize_io"
+            if target_runtime == TargetRuntime.TFLITE:
+                # uint8 is the easiest I/O type for integration purposes,
+                # especially for image applications. Images are always
+                # uint8 RGB when coming from disk or a camera.
+                #
+                # Uint8 has not been thoroughly tested with other paths,
+                # so it is enabled only for TF Lite today.
+                compile_options += " --quantize_io_type uint8"
+
         if other_compile_options != "":
             return compile_options + " " + other_compile_options
 
@@ -300,6 +313,15 @@ class BaseModel(
         Source model format preferred for conversion on AI Hub.
         """
         return SourceModelFormat.TORCHSCRIPT
+
+    def get_unsupported_reason(
+        self, target_runtime: TargetRuntime, device: Device
+    ) -> None | str:
+        """
+        Report the reason if any combination of runtime and device isn't
+        supported.
+        """
+        return None
 
 
 class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):
@@ -314,3 +336,12 @@ class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):
     def get_target_model_path(self) -> str:
         """Get the path to the compiled asset for this model on disk."""
         return self.target_model_path
+
+    def get_unsupported_reason(
+        self, target_runtime: TargetRuntime, device: Device
+    ) -> None | str:
+        """
+        Report the reason if any combination of runtime and device isn't
+        supported.
+        """
+        return None

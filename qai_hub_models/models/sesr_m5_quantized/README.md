@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/s
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[sesr-m5-quantized]"
+pip install qai-hub-models
 ```
 
 

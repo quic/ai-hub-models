@@ -5,12 +5,11 @@
 from __future__ import annotations
 
 from qai_hub_models.models.yolov8_det.model import DEFAULT_WEIGHTS, YoloV8Detector
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class YoloV8DetectorQuantizable(HubQuantizableMixin, YoloV8Detector):
+class YoloV8DetectorQuantizable(YoloV8Detector):
     """Exportable quantizable YoloV8 bounding box detector."""
 
     @classmethod
@@ -27,6 +26,3 @@ class YoloV8DetectorQuantizable(HubQuantizableMixin, YoloV8Detector):
             split_output=split_output,
             use_quantized_postprocessing=True,
         )
-
-    def get_quantize_options(self) -> str:
-        return "--range_scheme min_max"

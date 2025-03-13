@@ -85,11 +85,19 @@ def can_support_aimet(platform: str = sys.platform) -> bool:
 
 
 def get_is_hub_quantized(model_name) -> bool:
-    return check_code_gen_field(model_name.lower(), "use_hub_quantization")
+    # TODO(#13765): change this when we remove the quantized model folders
+    return (
+        "quantized" in model_name.lower()
+        and not check_code_gen_field(model_name, "is_precompiled")
+        and not check_code_gen_field(model_name, "is_aimet")
+    )
 
 
 def model_needs_aimet(model_name: str) -> bool:
-    return "quantized" in model_name.lower() and not get_is_hub_quantized(model_name)
+    # TODO(#13765): change this when we remove the quantized model folders
+    return "quantized" in model_name.lower() and check_code_gen_field(
+        model_name, "is_aimet"
+    )
 
 
 def get_model_python_version_requirements(
@@ -197,3 +205,7 @@ def get_env_bool(key: str, default: Optional[bool] = None) -> Optional[bool]:
 
 def on_ci() -> bool:
     return get_env_bool("QAIHM_CI") or False
+
+
+def debug_mode() -> bool:
+    return get_env_bool("DEBUG_MODE") or False

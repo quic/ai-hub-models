@@ -77,7 +77,7 @@ class EasyOCRDetector(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.detector)  # type: ignore
+        return cls(ocr_reader.detector)  # pyright: ignore[reportArgumentType]
 
     def forward(self, image: torch.Tensor):
         """
@@ -129,7 +129,7 @@ class EasyOCRRecognizer(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.recognizer)  # type: ignore
+        return cls(ocr_reader.recognizer)  # pyright: ignore[reportArgumentType]
 
     def forward(self, image: torch.Tensor):
         """

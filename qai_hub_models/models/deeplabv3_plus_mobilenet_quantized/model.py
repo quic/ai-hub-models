@@ -8,10 +8,9 @@ from qai_hub_models.models.deeplabv3_plus_mobilenet.model import (  # noqa: F401
     MODEL_ASSET_VERSION,
     DeepLabV3PlusMobilenet,
 )
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class DeepLabV3PlusMobilenetQuantizable(HubQuantizableMixin, DeepLabV3PlusMobilenet):
+class DeepLabV3PlusMobilenetQuantizable(DeepLabV3PlusMobilenet):
     pass

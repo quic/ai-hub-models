@@ -7,8 +7,9 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Literal, Optional, TypeVar, overload
 
+import qai_hub as hub
 import ruamel.yaml
 
 from qai_hub_models.models.common import TargetRuntime
@@ -37,6 +38,7 @@ from qai_hub_models.scorecard.results.scorecard_job import (
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
+
 QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
@@ -67,11 +69,11 @@ class ScorecardJobYaml(
         with open(config_path) as file:
             return cls(yaml.load(file))
 
-    def to_file(self, path: str | Path) -> None:
+    def to_file(self, path: str | Path, append: bool = False) -> None:
         if len(self.job_id_mapping) > 0:
-            with open(path, "w") as yaml_file:
+            with open(path, "a" if append else "w") as yaml_file:
                 ruamel.yaml.YAML().dump(self.job_id_mapping, yaml_file)
-        else:
+        elif not append:
             # If the dict is empty, ruamel dumps "{}" (which is not YAML) and breaks the file
             Path(path).touch()
 
@@ -171,6 +173,8 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         component: Optional[str] = None,
+        wait_for_job: bool = True,
+        wait_for_max_job_duration: Optional[int] = None,
     ) -> ScorecardJobTypeVar:
         """
         Get the scorecard job from the YAML associated with these parameters.
@@ -179,6 +183,9 @@ class ScorecardJobYaml(
             path: Applicable scorecard path
             model_id: The ID of the QAIHM model being tested
             device: The targeted device
+            wait_for_job:  If false, running jobs are treated like they were "skipped"
+            wait_job_secs: Wait a set number of seconds for a job to finish
+            wait_for_max_job_duration: Allow the job this many seconds after creation to complete
             component: The name of the model component being tested, if applicable
         """
         return self.scorecard_job_type(
@@ -187,9 +194,9 @@ class ScorecardJobYaml(
                 path, model_id, device, component, fallback_to_universal_device=True
             ),
             device,
-            True,
-            None,
-            path,  # type: ignore
+            wait_for_job,
+            wait_for_max_job_duration,
+            path,  # type: ignore[arg-type]
         )
 
     def get_all_jobs(
@@ -202,7 +209,7 @@ class ScorecardJobYaml(
         Get all jobs in this YAML related to the provided model.
         """
         model_runs: list[ScorecardJobTypeVar] = []
-        for component in components or [None]:  # type: ignore
+        for component in components or [None]:  # type: ignore[list-item]
 
             def create_job(path: ScorecardPathTypeVar, device: ScorecardDevice):
                 model_runs.append(
@@ -228,7 +235,7 @@ class ScorecardJobYaml(
         Creates a summary of all jobs related to the given model.
         """
         runs = self.get_all_jobs(model_id, is_quantized, components)
-        return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore
+        return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore[arg-type]
 
 
 class QuantizeScorecardJobYaml(
@@ -308,3 +315,108 @@ class InferenceScorecardJobYaml(
     scorecard_job_type = InferenceScorecardJob
     scorecard_path_type = ScorecardProfilePath
     scorecard_model_summary_type = ModelInferenceSummary
+
+
+@overload
+def get_scorecard_job_yaml(
+    job_type: Literal[hub.JobType.COMPILE], path: str | Path | None = None
+) -> CompileScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml(
+    job_type: Literal[hub.JobType.PROFILE], path: str | Path | None = None
+) -> ProfileScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml(
+    job_type: Literal[hub.JobType.INFERENCE], path: str | Path | None = None
+) -> InferenceScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml(
+    job_type: Literal[hub.JobType.QUANTIZE], path: str | Path | None = None
+) -> QuantizeScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml(
+    job_type: hub.JobType, path: str | Path | None = None
+) -> ScorecardJobYaml:
+    ...
+
+
+def get_scorecard_job_yaml(
+    job_type: hub.JobType, path: str | Path | None = None
+) -> ScorecardJobYaml:
+    """
+    Loads the appropriate Scorecard job cache for the type of the given job.
+    """
+    if job_type == hub.JobType.COMPILE:
+        return (
+            CompileScorecardJobYaml()
+            if not path
+            else CompileScorecardJobYaml.from_file(path)
+        )
+    elif job_type == hub.JobType.PROFILE:
+        return (
+            ProfileScorecardJobYaml()
+            if not path
+            else ProfileScorecardJobYaml.from_file(path)
+        )
+    elif job_type == hub.JobType.INFERENCE:
+        return (
+            InferenceScorecardJobYaml()
+            if not path
+            else InferenceScorecardJobYaml.from_file(path)
+        )
+    elif job_type == hub.JobType.QUANTIZE:
+        return (
+            QuantizeScorecardJobYaml()
+            if not path
+            else QuantizeScorecardJobYaml.from_file(path)
+        )
+    else:
+        raise NotImplementedError(
+            f"No file for storing test jobs of type {job_type.display_name}"
+        )
+
+
+@overload
+def get_scorecard_job_yaml_from_job(
+    job: hub.CompileJob, path: str | Path | None = None
+) -> CompileScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml_from_job(
+    job: hub.ProfileJob, path: str | Path | None = None
+) -> ProfileScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml_from_job(
+    job: hub.InferenceJob, path: str | Path | None = None
+) -> InferenceScorecardJobYaml:
+    ...
+
+
+@overload
+def get_scorecard_job_yaml_from_job(
+    job: hub.QuantizeJob, path: str | Path | None = None
+) -> QuantizeScorecardJobYaml:
+    ...
+
+
+def get_scorecard_job_yaml_from_job(
+    job: hub.Job, path: str | Path | None = None
+) -> ScorecardJobYaml:
+    return get_scorecard_job_yaml(job._job_type, path)

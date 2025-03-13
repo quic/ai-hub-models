@@ -9,6 +9,7 @@ import sys
 import torch
 
 from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -139,3 +140,6 @@ class Midas(DepthEstimationModel):
         if self.normalize_input:
             image = normalize_image_torchvision(image)
         return self.model(image)
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"

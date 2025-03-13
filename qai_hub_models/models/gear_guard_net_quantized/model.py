@@ -13,7 +13,7 @@ from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 import torch
 from aimet_torch.batch_norm_fold import fold_all_batch_norms
 from aimet_torch.model_preparer import prepare_model
-from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
+from aimet_torch.v1.quantsim import QuantizationSimModel
 
 from qai_hub_models.models.gear_guard_net.model import GearGuardNet
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
@@ -67,11 +67,20 @@ class GearGuardNetQuantizable(AIMETQuantizableMixin, GearGuardNet):
             dummy_input=torch.rand(input_shape),
         )
 
+        final_model = cls(sim)
+
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_ENCODINGS
                 ).fetch()
-            load_encodings_to_sim(sim, aimet_encodings)
 
-        return cls(sim)
+            final_model.load_encodings(
+                str(aimet_encodings),
+                strict=False,
+                partial=False,
+                requires_grad=None,
+                allow_overwrite=None,
+            )
+
+        return final_model

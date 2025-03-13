@@ -369,6 +369,10 @@ class BaseQAIHMConfig:
                 f"Field {field_name} of type {field_type} cannot support parsing values of tyoe {type(field_val)}. Only int and str can be parsed."
             )
 
+        # from_string
+        if isinstance(field_val, str) and hasattr(field_type, "from_string"):
+            return field_type.from_string(field_val)
+
         raise NotImplementedError(
             f"Field {field_name} of type {field_type} cannot be parsed. You should override BaseQAIHMConfig::_parse_field_from_concrete_type to parse this field."
         )
@@ -461,7 +465,11 @@ class BaseQAIHMConfig:
         fields = dataclasses.fields(self)
         yaml_dict = partial_yaml_dict or {}
         for field in fields:
-            default = field.default if isinstance(field.default_factory, dataclasses._MISSING_TYPE) else field.default_factory()  # type: ignore
+            default = (
+                field.default
+                if isinstance(field.default_factory, dataclasses._MISSING_TYPE)
+                else field.default_factory()
+            )
             field_val = getattr(self, field.name)
             if field.name not in yaml_dict and (
                 include_defaults or field_val != default
@@ -501,7 +509,11 @@ class BaseQAIHMConfig:
             return False
         if len(dict) > 0:
             with open(path, "w") as yaml_file:
-                ruamel.yaml.YAML().dump(dict, yaml_file)
+                yaml = ruamel.yaml.YAML()
+                # build_and_test.py uses simplistic YAML readers that can't read strings on multiple lines.
+                # Make sure strings aren't dumped to multiple lines in the YAML.
+                yaml.width = 4096
+                yaml.dump(dict, yaml_file)
         else:
             # If the dict is empty, ruamel dumps "{}" (which is not YAML) and breaks the file
             Path(path).touch()

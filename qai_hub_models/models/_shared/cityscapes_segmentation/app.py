@@ -65,7 +65,7 @@ def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
 
 
 def preprocess_cityscapes_image(image: Image) -> torch.Tensor:
-    out_tensor: torch.Tensor = standard_transforms.ToTensor()(image)  # type: ignore
+    out_tensor: torch.Tensor = standard_transforms.ToTensor()(image)
     return out_tensor.unsqueeze(0)
 
 

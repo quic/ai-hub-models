@@ -8,6 +8,7 @@ import torch
 from transformers import AutoModelForDepthEstimation
 
 from qai_hub_models.models._shared.depth_estimation.model import DepthEstimationModel
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 MODEL_ID = __name__.split(".")[-2]
@@ -51,3 +52,6 @@ class DepthAnythingV2(DepthEstimationModel):
         used to submit profiling job on Qualcomm AI Hub.
         """
         return {"image": ((batch_size, 3, height, width), "float32")}
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"

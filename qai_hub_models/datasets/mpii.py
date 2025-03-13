@@ -65,7 +65,7 @@ class MPIIDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 256,
         input_width: int = 192,
-        num_samples: int = 100,
+        num_samples: int = -1,
     ):
 
         BaseDataset.__init__(

@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.inception_v3.model import InceptionNetV3
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class InceptionNetV3Quantizable(HubQuantizableMixin, InceptionNetV3):
+class InceptionNetV3Quantizable(InceptionNetV3):
     pass

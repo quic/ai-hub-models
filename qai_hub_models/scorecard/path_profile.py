@@ -5,7 +5,7 @@
 import os
 from typing import Optional
 
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.utils.base_config import ParseableQAIHMEnum
 
@@ -41,7 +41,7 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
     @staticmethod
     def all_paths(
         enabled: Optional[bool] = None,
-        supports_quantization: Optional[bool] = None,
+        supports_precision: Optional[Precision] = None,
     ) -> list["ScorecardProfilePath"]:
         """
         Get all profile paths that match the given attributes.
@@ -52,8 +52,8 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
             for path in ScorecardProfilePath
             if (enabled is None or path.enabled == enabled)
             and (
-                supports_quantization is None
-                or path.compile_path.supports_quantization == supports_quantization
+                supports_precision is None
+                or path.compile_path.supports_precision(supports_precision)
             )
         ]
 

@@ -1,0 +1,280 @@
+diff --git a/nets/segnet.py b/nets/segnet.py
+index df4f45f..2b4c1e4 100644
+--- a/nets/segnet.py
++++ b/nets/segnet.py
+@@ -11,7 +11,7 @@ import utils.misc
+ import utils.basic
+ 
+ from torchvision.models.resnet import resnet18
+-from efficientnet_pytorch import EfficientNet
++#from efficientnet_pytorch import EfficientNet
+ 
+ EPS = 1e-4
+ 
+@@ -160,7 +160,8 @@ class Encoder_res101(nn.Module):
+     def __init__(self, C):
+         super().__init__()
+         self.C = C
+-        resnet = torchvision.models.resnet101(pretrained=True)
++        
++        resnet = torchvision.models.resnet101(weights=torchvision.models.ResNet101_Weights.DEFAULT) #(pretrained=True)
+         self.backbone = nn.Sequential(*list(resnet.children())[:-4])
+         self.layer3 = resnet.layer3
+ 
+@@ -170,6 +171,7 @@ class Encoder_res101(nn.Module):
+     def forward(self, x):
+         x1 = self.backbone(x)
+         x2 = self.layer3(x1)
++         
+         x = self.upsampling_layer(x2, x1)
+         x = self.depth_layer(x)
+ 
+@@ -269,15 +271,11 @@ class Encoder_eff(nn.Module):
+ 
+         # Head
+         endpoints['reduction_{}'.format(len(endpoints) + 1)] = x
+-
+         if self.downsample == 16:
+             input_1, input_2 = endpoints['reduction_5'], endpoints['reduction_4']
+         elif self.downsample == 8:
+             input_1, input_2 = endpoints['reduction_4'], endpoints['reduction_3']
+-        # print('input_1', input_1.shape)
+-        # print('input_2', input_2.shape)
+-        x = self.upsampling_layer(input_1, input_2)
+-        # print('x', x.shape)
++        x = self.upsampling_layer(input_1, input_2)       
+         return x
+ 
+     def forward(self, x):
+@@ -306,8 +304,8 @@ class Segnet(nn.Module):
+         self.latent_dim = latent_dim
+         self.encoder_type = encoder_type
+ 
+-        self.mean = torch.as_tensor([0.485, 0.456, 0.406]).reshape(1,3,1,1).float().cuda()
+-        self.std = torch.as_tensor([0.229, 0.224, 0.225]).reshape(1,3,1,1).float().cuda()
++        self.mean = torch.as_tensor([0.485, 0.456, 0.406]).reshape(1,3,1,1).float().cpu()
++        self.std = torch.as_tensor([0.229, 0.224, 0.225]).reshape(1,3,1,1).float().cpu()
+         
+         # Encoder
+         self.feat2d_dim = feat2d_dim = latent_dim
+@@ -394,10 +392,12 @@ class Segnet(nn.Module):
+         pix_T_cams_ = __p(pix_T_cams)
+         cam0_T_camXs_ = __p(cam0_T_camXs)
+         camXs_T_cam0_ = utils.geom.safe_inverse(cam0_T_camXs_)
++     
+ 
+         # rgb encoder
+         device = rgb_camXs_.device
+         rgb_camXs_ = (rgb_camXs_ + 0.5 - self.mean.to(device)) / self.std.to(device)
++     
+         if self.rand_flip:
+             B0, _, _, _ = rgb_camXs_.shape
+             self.rgb_flip_index = np.random.choice([0,1], B0).astype(bool)
+@@ -406,10 +406,11 @@ class Segnet(nn.Module):
+         if self.rand_flip:
+             feat_camXs_[self.rgb_flip_index] = torch.flip(feat_camXs_[self.rgb_flip_index], [-1])
+         _, C, Hf, Wf = feat_camXs_.shape
+-
++       
+         sy = Hf/float(H)
+         sx = Wf/float(W)
+         Z, Y, X = self.Z, self.Y, self.X
++        
+ 
+         # unproject image feature to 3d grid
+         featpix_T_cams_ = utils.geom.scale_intrinsics(pix_T_cams_, sx, sy)
+@@ -417,49 +418,59 @@ class Segnet(nn.Module):
+             xyz_camA = self.xyz_camA.to(feat_camXs_.device).repeat(B*S,1,1)
+         else:
+             xyz_camA = None
+-        feat_mems_ = vox_util.unproject_image_to_mem(
++        mask_scale = False 
++        feat_mems = vox_util.unproject_image_to_mem(
+             feat_camXs_,
+             utils.basic.matmul2(featpix_T_cams_, camXs_T_cam0_),
+             camXs_T_cam0_, Z, Y, X,
+-            xyz_camA=xyz_camA)
+-        feat_mems = __u(feat_mems_) # B, S, C, Z, Y, X
++            xyz_camA=xyz_camA,mask_scale=mask_scale, S=S)
++        # feat_mem : 6 128 1600 200  N:cam number, channel, Y * Z ,X        
++        feat_mem = torch.mean(feat_mems, dim=0, keepdim=True)
++        #feat_mems = __u(feat_mems_) # B, S, C, Z, Y, X
+ 
+-        mask_mems = (torch.abs(feat_mems) > 0).float()
+-        feat_mem = utils.basic.reduce_masked_mean(feat_mems, mask_mems, dim=1) # B, C, Z, Y, X
++        #mask_mems = (torch.abs(feat_mems) > 0).float()
++        #feat_mem = utils.basic.reduce_masked_mean(feat_mems, mask_mems, dim=1) # B, C, Z, Y, X
+ 
+         if self.rand_flip:
+             self.bev_flip1_index = np.random.choice([0,1], B).astype(bool)
+             self.bev_flip2_index = np.random.choice([0,1], B).astype(bool)
+             feat_mem[self.bev_flip1_index] = torch.flip(feat_mem[self.bev_flip1_index], [-1])
+-            feat_mem[self.bev_flip2_index] = torch.flip(feat_mem[self.bev_flip2_index], [-3])
+-
++            feat_mem[self.bev_flip2_index] = torch.flip(feat_mem[self.bev_flip2_index], [-2]) #-3
++            
+             if rad_occ_mem0 is not None:
+                 rad_occ_mem0[self.bev_flip1_index] = torch.flip(rad_occ_mem0[self.bev_flip1_index], [-1])
+                 rad_occ_mem0[self.bev_flip2_index] = torch.flip(rad_occ_mem0[self.bev_flip2_index], [-3])
++                
++        #2 lines below added 
++        # feat_bev = feat_bev_.reshape(1,C*Y,Z,X)
++        feat_bev_ = torch.split(feat_mem, Z, dim=2)       
++        feat_bev_ = torch.cat(feat_bev_, dim=1)
++     
++      
+ 
+         # bev compressing
+         if self.use_radar:
+             assert(rad_occ_mem0 is not None)
+             if not self.use_metaradar:
+-                feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
++                #feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
+                 rad_bev = torch.sum(rad_occ_mem0, 3).clamp(0,1) # squish the vertical dim
+                 feat_bev_ = torch.cat([feat_bev_, rad_bev], dim=1)
+-                feat_bev = self.bev_compressor(feat_bev_)
++                feat_bev = self.bev_compressor(feat_bev_)               
+             else:
+-                feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
++                #feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
+                 rad_bev_ = rad_occ_mem0.permute(0, 1, 3, 2, 4).reshape(B, 16*Y, Z, X)
+                 feat_bev_ = torch.cat([feat_bev_, rad_bev_], dim=1)
+-                feat_bev = self.bev_compressor(feat_bev_)
++                feat_bev = self.bev_compressor(feat_bev_)                
+         elif self.use_lidar:
+             assert(rad_occ_mem0 is not None)
+-            feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
++            #feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
+             rad_bev_ = rad_occ_mem0.permute(0, 1, 3, 2, 4).reshape(B, Y, Z, X)
+             feat_bev_ = torch.cat([feat_bev_, rad_bev_], dim=1)
+             feat_bev = self.bev_compressor(feat_bev_)
+         else: # rgb only
+             if self.do_rgbcompress:
+-                feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)
+-                feat_bev = self.bev_compressor(feat_bev_)
++                # feat_bev_ = feat_mem.permute(0, 1, 3, 2, 4).reshape(B, self.feat2d_dim*Y, Z, X)               
++                feat_bev = self.bev_compressor(feat_bev_)                
+             else:
+                 feat_bev = torch.sum(feat_mem, dim=3)
+ 
+diff --git a/saverloader.py b/saverloader.py
+index 27c1c9a..1340eff 100644
+--- a/saverloader.py
++++ b/saverloader.py
+@@ -32,6 +32,8 @@ def load(ckpt_dir, model, optimizer=None, scheduler=None, model_ema=None, step=0
+         print('-- note this function no longer appends "saved_checkpoints/" before the ckpt_dir --')
+     else:
+         ckpt_names = os.listdir(ckpt_dir)
++        print(ckpt_names)
++        
+         steps = [int((i.split('-')[1]).split('.')[0]) for i in ckpt_names]
+         if len(ckpt_names) > 0:
+             if step==0:
+diff --git a/utils/basic.py b/utils/basic.py
+index 8842e3f..48e5180 100644
+--- a/utils/basic.py
++++ b/utils/basic.py
+@@ -97,7 +97,7 @@ def meshgrid2d(B, Y, X, stack=False, norm=False, device='cuda'):
+     else:
+         return grid_y, grid_x
+     
+-def meshgrid3d(B, Z, Y, X, stack=False, norm=False, device='cuda'):
++def meshgrid3d(B, Z, Y, X, stack=False, norm=False, device='cpu'):
+     # returns a meshgrid sized B x Z x Y x X
+ 
+     grid_z = torch.linspace(0.0, Z-1, Z, device=device)
+@@ -124,7 +124,7 @@ def meshgrid3d(B, Z, Y, X, stack=False, norm=False, device='cuda'):
+     else:
+         return grid_z, grid_y, grid_x
+ 
+-def gridcloud3d(B, Z, Y, X, norm=False, device='cuda'):
++def gridcloud3d(B, Z, Y, X, norm=False, device='cpu'):
+     # we want to sample for each location in the grid
+     grid_z, grid_y, grid_x = meshgrid3d(B, Z, Y, X, norm=norm, device=device)
+     x = torch.reshape(grid_x, [B, -1])
+diff --git a/utils/vox.py b/utils/vox.py
+index 82af002..b328fe7 100644
+--- a/utils/vox.py
++++ b/utils/vox.py
+@@ -288,7 +288,8 @@ class Vox_util(object):
+         # B x C x Z x Y x X
+         return feat_voxels
+ 
+-    def unproject_image_to_mem(self, rgb_camB, pixB_T_camA, camB_T_camA, Z, Y, X, assert_cube=False, xyz_camA=None):
++    def unproject_image_to_mem(self, rgb_camB, pixB_T_camA, camB_T_camA, Z, Y, X, assert_cube=False, xyz_camA=None, mask_scale=False, S=6):
++       
+         # rgb_camB is B x C x H x W
+         # pixB_T_camA is B x 4 x 4
+ 
+@@ -298,15 +299,15 @@ class Vox_util(object):
+         # this puts each C-dim pixel in the rgb_camB
+         # along a ray in the voxelgrid
+         B, C, H, W = list(rgb_camB.shape)
++        
+ 
+         if xyz_camA is None:
+             xyz_memA = utils.basic.gridcloud3d(B, Z, Y, X, norm=False, device=pixB_T_camA.device)
+             xyz_camA = self.Mem2Ref(xyz_memA, Z, Y, X, assert_cube=assert_cube)
+-
+         xyz_camB = utils.geom.apply_4x4(camB_T_camA, xyz_camA)
+         z = xyz_camB[:,:,2]
++        xyz_pixB = utils.geom.apply_4x4(pixB_T_camA, xyz_camA)     
+ 
+-        xyz_pixB = utils.geom.apply_4x4(pixB_T_camA, xyz_camA)
+         normalizer = torch.unsqueeze(xyz_pixB[:,:,2], 2)
+         EPS=1e-6
+         # z = xyz_pixB[:,:,2]
+@@ -320,26 +321,36 @@ class Vox_util(object):
+         y_valid = (y>-0.5).bool() & (y<float(H-0.5)).bool()
+         z_valid = (z>0.0).bool()
+         valid_mem = (x_valid & y_valid & z_valid).reshape(B, 1, Z, Y, X).float()
+-
+-        if (0):
+-            # handwritten version
+-            values = torch.zeros([B, C, Z*Y*X], dtype=torch.float32)
+-            for b in list(range(B)):
+-                values[b] = utils.samp.bilinear_sample_single(rgb_camB[b], x_pixB[b], y_pixB[b])
++        
++        # native pytorch version
++        y_pixB, x_pixB = utils.basic.normalize_grid2d(y, x, H, W)
++        # z_pixB = torch.zeros_like(x)
++        xyz_pixB = torch.stack([x_pixB, y_pixB], axis=2) # [6, 320000, 2]
++        # rgb_camB_ = rgb_camB.unsqueeze(2)
++        xyz_pixB = torch.reshape(xyz_pixB, [B, Z, Y, X, 2]).permute(0, 2, 1, 3, 4).reshape(B, Y * Z, X, 2)
++        valid_mem = valid_mem.permute(0, 1, 3, 2, 4).reshape(B, 1, Y * Z, X)
++        values = F.grid_sample(rgb_camB, xyz_pixB, mode='nearest', align_corners=False)  # ([6, 128, 1600, 200])
++       
++        
++        if torch.onnx.is_in_onnx_export() or B == 6:
++            # this is ready for mask_scale being merged into mul weights
++            mask_valid = torch.sum(valid_mem, dim=0, keepdim=True)
++            mask_valid = torch.where(mask_valid == 0, torch.tensor(6).to(mask_valid), mask_valid)
++            mask_valid = torch.div(S, mask_valid)
++            valid_mem_ = valid_mem * mask_valid
++            values = values * valid_mem_ if mask_scale else values                     
+         else:
+-            # native pytorch version
+-            y_pixB, x_pixB = utils.basic.normalize_grid2d(y, x, H, W)
+-            # since we want a 3d output, we need 5d tensors
+-            z_pixB = torch.zeros_like(x)
+-            xyz_pixB = torch.stack([x_pixB, y_pixB, z_pixB], axis=2)
+-            rgb_camB = rgb_camB.unsqueeze(2)
+-            xyz_pixB = torch.reshape(xyz_pixB, [B, Z, Y, X, 3])
+-            values = F.grid_sample(rgb_camB, xyz_pixB, align_corners=False)
+-
+-        values = torch.reshape(values, (B, C, Z, Y, X))
+-        values = values * valid_mem
++            # this is ready for mask_scale being merged into mul weights
++            valid_mem = valid_mem.reshape(B // S, S, 1, Y * Z, X)
++            values = values.reshape(B // S, S, C, Y * Z, X)
++            mask_valid = torch.sum(valid_mem, dim=0, keepdim=True)
++            mask_valid = torch.where(mask_valid == 0, torch.tensor(6).to(mask_valid), mask_valid)
++            mask_valid = torch.div(S, mask_valid)
++            valid_mem_ = valid_mem * mask_valid
++            values = values * valid_mem_ if mask_scale else values           
+         return values
+ 
++
+     def warp_tiled_to_mem(self, rgb_tileB, pixB_T_camA, camB_T_camA, Z, Y, X, DMIN, DMAX, assert_cube=False):
+         # rgb_tileB is B,C,D,H,W
+         # pixB_T_camA is B,4,4

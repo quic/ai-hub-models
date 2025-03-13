@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.regnet.model import RegNet
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class RegNetQuantizable(HubQuantizableMixin, RegNet):
+class RegNetQuantizable(RegNet):
     pass

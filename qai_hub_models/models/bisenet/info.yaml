@@ -1,0 +1,41 @@
+name: BiseNet
+# id must match with the model dir name in qai_hub_models
+id: bisenet
+status: public
+headline: Segment images or video by class in real-time on device.
+domain: Computer Vision
+description: BiSeNet (Bilateral Segmentation Network) is a novel architecture designed
+  for real-time semantic segmentation. It addresses the challenge of balancing spatial
+  resolution and receptive field by employing a Spatial Path to preserve high-resolution
+  features and a context path to capture sufficient receptive field.
+use_case: Semantic Segmentation
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/1808.00897
+research_paper_title: BiSeNet Bilateral Segmentation Network for Real-time Semantic
+  Segmentation
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/ooooverflow/BiSeNet
+technical_details:
+  Model checkpoint: best_dice_loss_miou_0.655.pth
+  Inference latency: RealTime
+  Input resolution: 720x960
+  Number of parameters: 12.0M
+  Model size: 45.7 MB
+
+applicable_scenarios:
+  - Self-driving cars
+related_models:
+  - unet_segmentation
+  - fcn_resnet50
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: other
+deploy_license_type: AI Model Hub License
+dataset:
+  - CamVid

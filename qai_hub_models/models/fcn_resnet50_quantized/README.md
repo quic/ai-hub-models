@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[fcn-resnet50-quantized]"
+pip install qai-hub-models
 ```
 
 

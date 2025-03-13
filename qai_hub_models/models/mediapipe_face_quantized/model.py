@@ -17,7 +17,7 @@ from qai_hub_models.utils.quantization_aimet import (
 import torch
 from aimet_torch.cross_layer_equalization import equalize_model
 from aimet_torch.model_preparer import prepare_model
-from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
+from aimet_torch.v1.quantsim import QuantizationSimModel
 
 from qai_hub_models.models.mediapipe_face.model import (
     FaceDetector,
@@ -76,6 +76,8 @@ class FaceDetectorQuantizable(AIMETQuantizableMixin, FaceDetector):
         tie_observers(sim)
         constrain_quantized_inputs_to_image_range(sim)
 
+        final_model = cls(sim, fp16_model.anchors)
+
         if aimet_encodings:
             aimet_encodings_to_load = (
                 aimet_encodings
@@ -84,9 +86,16 @@ class FaceDetectorQuantizable(AIMETQuantizableMixin, FaceDetector):
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_FACE_DETECTOR_ENCODINGS
                 ).fetch()
             )
-            load_encodings_to_sim(sim, str(aimet_encodings_to_load))
 
-        return cls(sim, fp16_model.anchors)
+            final_model.load_encodings(
+                str(aimet_encodings_to_load),
+                strict=False,
+                partial=False,
+                requires_grad=None,
+                allow_overwrite=None,
+            )
+
+        return final_model
 
 
 class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetector):
@@ -111,6 +120,8 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
         tie_observers(sim)
         constrain_quantized_inputs_to_image_range(sim)
 
+        final_model = cls(sim)
+
         if aimet_encodings:
             aimet_encodings_to_load = (
                 aimet_encodings
@@ -119,6 +130,13 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_LANDMARK_DETECTOR_ENCODINGS
                 ).fetch()
             )
-            load_encodings_to_sim(sim, str(aimet_encodings_to_load))
 
-        return cls(sim)
+            final_model.load_encodings(
+                str(aimet_encodings_to_load),
+                strict=False,
+                partial=False,
+                requires_grad=None,
+                allow_overwrite=None,
+            )
+
+        return final_model

@@ -18,6 +18,7 @@ def kinetics_classifier_demo(
     model_type: type[KineticsClassifier],
     default_video: str | CachedWebAsset,
     is_test: bool = False,
+    app_cls: type[KineticsClassifierApp] = KineticsClassifierApp,
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_type)
@@ -30,7 +31,7 @@ def kinetics_classifier_demo(
 
     # Load image & model
     model = model_from_cli_args(model_type, args)
-    app = KineticsClassifierApp(model)
+    app = app_cls(model)
     print("Model Loaded")
     with qaihm_temp_dir() as tmpdir:
         dst_path = load_path(args.video, tmpdir)

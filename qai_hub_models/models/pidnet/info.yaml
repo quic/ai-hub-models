@@ -1,0 +1,42 @@
+name: PidNet
+# id must match with the model dir name in qai_hub_models
+id: pidnet
+status: public
+headline: Segment images or video by class in real-time on device.
+domain: Computer Vision
+description: PIDNet (Proportional-Integral-Derivative Network) is a real-time semantic
+  segmentation model based on  PID controllers
+use_case: Semantic Segmentation
+tags:
+  - real-time
+research_paper: https://arxiv.org/abs/2206.02066
+research_paper_title: PIDNet A Real-time Semantic Segmentation Network Inspired from
+  PID Controller Segmentation of Road Scenes
+license: https://github.com/XuJiacong/PIDNet/blob/main/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/XuJiacong/PIDNet
+technical_details:
+  Model checkpoint: PIDNet_S_Cityscapes_val.pt
+  Inference latency: RealTime
+  Input resolution: 1024x2048
+  Number of output classes: 19
+  Number of parameters: 7.62M
+  Model size: 29.1 MB
+applicable_scenarios:
+  - autonomous driving,medical imaging
+related_models:
+  - ffnet_40s
+  - ffnet_78s
+  - fcn_resnet50
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: true
+has_animated_banner: true
+license_type: mit
+deploy_license_type: AI Model Hub License
+dataset:
+  - cityscapes
+labels_file: cityscapes_labels.txt

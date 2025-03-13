@@ -88,8 +88,8 @@ def app_to_net_image_inputs(
 
 def preprocess_PIL_image(image: Image, to_float: bool = True) -> torch.Tensor:
     """Convert a PIL image into a pyTorch tensor with range [0, 1] and shape NCHW."""
-    transform = transforms.Compose([transforms.PILToTensor()])  # bgr image
-    img: torch.Tensor = transform(image).unsqueeze(0)  # type: ignore
+    transform = transforms.PILToTensor()  # bgr image
+    img = transform(image).unsqueeze(0)
     if to_float:
         return img.float() / 255.0  # int 0 - 255 to float 0.0 - 1.0
     return img
@@ -97,7 +97,7 @@ def preprocess_PIL_image(image: Image, to_float: bool = True) -> torch.Tensor:
 
 def preprocess_PIL_image_mask(image_mask: Image) -> torch.Tensor:
     """Convert a PIL mask image into a pyTorch tensor with values 0. or 1."""
-    transform = transforms.Compose([transforms.PILToTensor()])
+    transform = transforms.PILToTensor()
     mask = transform(image_mask.convert("L"))
     mask = mask.unsqueeze(0).float()
     mask = (mask > 1.0) * 1.0
@@ -125,7 +125,9 @@ def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:
 
 
 def normalize_image_torchvision(
-    image_tensor: torch.Tensor, image_tensor_has_batch=True
+    image_tensor: torch.Tensor,
+    image_tensor_has_batch: bool = True,
+    is_video: bool = False,
 ) -> torch.Tensor:
     """
     Normalizes according to standard torchvision constants.
@@ -139,6 +141,8 @@ def normalize_image_torchvision(
     shape = [-1, 1, 1]
     if image_tensor_has_batch:
         shape.insert(0, 1)
+    if is_video:
+        shape.append(1)
     mean = torch.Tensor([0.485, 0.456, 0.406]).reshape(*shape)
     std = torch.Tensor([[0.229, 0.224, 0.225]]).reshape(*shape)
     return (image_tensor - mean) / std

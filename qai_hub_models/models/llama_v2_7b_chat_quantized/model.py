@@ -8,7 +8,6 @@ import os
 from typing import Optional
 
 import torch
-from qai_hub.client import DatasetEntries
 
 from qai_hub_models.models._shared.llama.model import (
     DEFAULT_INPUT_SEQ_LEN,
@@ -22,7 +21,7 @@ from qai_hub_models.models._shared.llama.model import (
     make_torch_compatible_past_key_values,
     save_input_cached_data,
 )
-from qai_hub_models.models.llama_v2_7b_chat_quantized.modeling_llama import (  # type: ignore
+from qai_hub_models.models.llama_v2_7b_chat_quantized.modeling_llama import (  # type: ignore[attr-defined]
     LlamaForCausalLM,
     LlamaModel,
 )
@@ -196,7 +195,7 @@ class Llama2Wrapper(torch.nn.Module):
         self.total_hidden_layers = hidden_layers_end - hidden_layers_start
 
         print("Loading model")
-        self.model: LlamaForCausalLM = LlamaForCausalLM.from_pretrained(HF_REPO_NAME, config=config)  # type: ignore
+        self.model = LlamaForCausalLM.from_pretrained(HF_REPO_NAME, config=config)
         assert isinstance(self.model, LlamaForCausalLM)
 
         if (
@@ -211,9 +210,11 @@ class Llama2Wrapper(torch.nn.Module):
             )
 
         # Reduce # of hidden layers as per split
-        self.model.model.layers = self.model.model.layers[  # type: ignore
-            hidden_layers_start:hidden_layers_end
-        ]
+        self.model.model.layers = (
+            self.model.model.layers[  # pyright: ignore[reportAttributeAccessIssue]
+                hidden_layers_start:hidden_layers_end
+            ]
+        )
 
         # Apply model conversion
         # Convert MHA to SHA
@@ -416,7 +417,9 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=1,
             data_dir=DATA_DIR,
@@ -440,7 +443,7 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         position_ids = [0] * (input_seq_len - tokens) + list(range(0, tokens))
 
-        inputs = {}
+        inputs: dict[str, torch.Tensor] = {}
         inputs["input_ids"] = input_tokens["input_ids"].type(torch.int32)
         inputs["attention_mask"] = prepare_combined_attention_mask(
             input_tokens["attention_mask"], input_tokens["attention_mask"].shape
@@ -468,7 +471,7 @@ class Llama2_PromptProcessor_1_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model and input spec.
         """
@@ -534,7 +537,9 @@ class Llama2_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=2,
             data_dir=DATA_DIR,
@@ -573,7 +578,7 @@ class Llama2_PromptProcessor_2_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -639,7 +644,9 @@ class Llama2_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=3,
             data_dir=DATA_DIR,
@@ -678,7 +685,7 @@ class Llama2_PromptProcessor_3_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -745,7 +752,9 @@ class Llama2_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=4,
             data_dir=DATA_DIR,
@@ -783,7 +792,7 @@ class Llama2_PromptProcessor_4_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -884,7 +893,9 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=1,
             data_dir=DATA_DIR,
@@ -975,7 +986,7 @@ class Llama2_TokenGenerator_1_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -1075,7 +1086,9 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=2,
             data_dir=DATA_DIR,
@@ -1134,7 +1147,7 @@ class Llama2_TokenGenerator_2_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -1233,7 +1246,9 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=3,
             data_dir=DATA_DIR,
@@ -1292,7 +1307,7 @@ class Llama2_TokenGenerator_3_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """
@@ -1392,7 +1407,9 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         )
 
     @staticmethod
-    def get_model_data(input_seq_len: int = DEFAULT_INPUT_SEQ_LEN):
+    def get_model_data(
+        input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
+    ) -> dict[str, torch.Tensor]:
         data = load_input_cached_data(
             split_part=4,
             data_dir=DATA_DIR,
@@ -1451,7 +1468,7 @@ class Llama2_TokenGenerator_4_Quantized(Llama_QuantizedMixin):
         self,
         target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
-    ) -> DatasetEntries | None:
+    ) -> dict[str, torch.Tensor] | None:
         """
         Calibration dataset for this model.
         """

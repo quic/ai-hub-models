@@ -16,6 +16,11 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 ## Example & Usage
 
+Install the package via pip:
+```bash
+pip install qai-hub-models
+```
+
 
 Once installed, run the following simple CLI demo:
 
@@ -46,7 +51,6 @@ script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## References
-* [None](None)
 * [Source Model Implementation](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/face_det_lite/model.py)
 
 

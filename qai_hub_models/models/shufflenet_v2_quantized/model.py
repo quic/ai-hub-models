@@ -5,10 +5,9 @@
 from __future__ import annotations
 
 from qai_hub_models.models.shufflenet_v2.model import ShufflenetV2
-from qai_hub_models.utils.quantization import HubQuantizableMixin
 
 MODEL_ID = __name__.split(".")[-2]
 
 
-class ShufflenetV2Quantizable(HubQuantizableMixin, ShufflenetV2):
+class ShufflenetV2Quantizable(ShufflenetV2):
     pass

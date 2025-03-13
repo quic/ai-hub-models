@@ -39,6 +39,9 @@ MANUAL_EDGES = {
         "qai_hub_models/models/xlsr_quantized/model.py",
         "qai_hub_models/models/resnet18_quantized/model.py",
     ],
+    "qai_hub_models/datasets/__init__.py": [
+        "qai_hub_models/models/yolov7_quantized/model.py"
+    ],
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
@@ -304,7 +307,9 @@ def get_all_models() -> set[str]:
     """
     model_names: set[str] = set()
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
-        if os.path.exists(os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "model.py")):
+        if os.path.exists(
+            os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "info.yaml")
+        ):
             model_names.add(model_name)
 
     bench_dir = os.getenv("QAIHM_BENCH_TEST_DIR", STATIC_MDOELS_ROOT)

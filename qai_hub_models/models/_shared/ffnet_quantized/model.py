@@ -19,7 +19,7 @@ from typing import TypeVar
 import torch
 from aimet_torch.batch_norm_fold import fold_all_batch_norms
 from aimet_torch.model_preparer import prepare_model
-from aimet_torch.quantsim import QuantizationSimModel, load_encodings_to_sim
+from aimet_torch.v1.quantsim import QuantizationSimModel
 
 from qai_hub_models.models._shared.ffnet.model import FFNet
 
@@ -73,9 +73,18 @@ class FFNetQuantizable(AIMETQuantizableMixin, FFNet):
         )
         constrain_quantized_inputs_to_image_range(sim)
 
+        final_model = cls(sim)
+
         if aimet_encodings:
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = cls.default_aimet_encodings()
-            load_encodings_to_sim(sim, aimet_encodings)
 
-        return cls(sim)
+            final_model.load_encodings(
+                aimet_encodings,
+                strict=False,
+                partial=False,
+                requires_grad=None,
+                allow_overwrite=None,
+            )
+
+        return final_model

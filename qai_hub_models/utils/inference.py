@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, ValuesView
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Optional
@@ -17,11 +17,7 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
-from qai_hub_models.utils.asset_loaders import (
-    ModelZooAssetConfig,
-    VersionType,
-    qaihm_temp_dir,
-)
+from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, VersionType
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, make_hub_dataset_entries
@@ -31,14 +27,12 @@ from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_fir
 try:
     from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 except NotImplementedError:
-    AIMETQuantizableMixin = None  # type: ignore
+    AIMETQuantizableMixin = None  # type: ignore[assignment,misc]
 
 try:
     from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
 except NotImplementedError:
-    AIMETOnnxQuantizableMixin = None  # type: ignore
-
-from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
+    AIMETOnnxQuantizableMixin = None  # type: ignore[assignment,misc]
 
 
 def prepare_compile_zoo_model_to_hub(
@@ -48,10 +42,9 @@ def prepare_compile_zoo_model_to_hub(
     output_path: str | Path = "",
     input_spec: InputSpec | None = None,
     check_trace: bool = True,
-    prepare_compile_options_only: bool = False,
     external_onnx_weights: bool = False,
     output_names: Optional[list[str]] = None,
-) -> tuple[str | None, str]:
+) -> str | None:
     """
     Args:
 
@@ -92,21 +85,14 @@ def prepare_compile_zoo_model_to_hub(
     Path to source model that can be used directly with hub.upload_model or
     hub.submit_compile_job.
     """
-    is_aimet_torch = (
-        AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin)
-    ) or isinstance(model, AimetEncodingLoaderMixin)
-    is_aimet_onnx = AIMETOnnxQuantizableMixin is not None and isinstance(
-        model, AIMETOnnxQuantizableMixin
-    )
-
     model_name = model.__class__.__name__
-
-    compilation_options = model.get_hub_compile_options(target_runtime)
 
     if output_names is None:
         output_names = []
 
-    if is_aimet_onnx:
+    if AIMETOnnxQuantizableMixin is not None and isinstance(
+        model, AIMETOnnxQuantizableMixin
+    ):
 
         def export_model_func():
             print("Exporting model to ONNX with AIMET encodings")
@@ -115,7 +101,7 @@ def prepare_compile_zoo_model_to_hub(
                 model_name=model_name,
             )
 
-    elif is_aimet_torch:
+    elif AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin):
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():
@@ -147,7 +133,7 @@ def prepare_compile_zoo_model_to_hub(
 
             def export_model_func():
                 print("Converting model to Torchscript and generating AIMET encodings")
-                exported_model = model.convert_to_torchscript_and_aimet_encodings(  # type: ignore
+                exported_model = model.convert_to_torchscript_and_aimet_encodings(
                     output_path,
                     model_name=model_name,
                     input_spec=input_spec,
@@ -165,70 +151,7 @@ def prepare_compile_zoo_model_to_hub(
             torch.jit.save(traced_model, model_path)
             return model_path
 
-        if (
-            target_runtime == TargetRuntime.TFLITE
-            and source_model_format == SourceModelFormat.ONNX
-        ):
-            pass  # default is good
-
-    if prepare_compile_options_only:
-        return None, compilation_options
-    else:
-        return export_model_func(), compilation_options
-
-
-def compile_zoo_model_to_hub(
-    model: BaseModel,
-    device: hub.Device,
-    source_model_format: SourceModelFormat,
-    target_runtime: TargetRuntime,
-    calibration_data: DatasetEntries | None = None,
-    input_spec: InputSpec | None = None,
-    inference_options: str = "",
-    check_trace: bool = True,
-) -> OnDeviceModel:
-    """
-    Similar to `prepare_compile_zoo_model_to_hub`, but also performs the
-    compilation on AI Hub and construct a OnDeviceModel object.
-    """
-
-    if input_spec is None:
-        input_spec = model.get_input_spec()
-
-    model_name = model.__class__.__name__
-
-    with qaihm_temp_dir() as tmp_dir:
-        assert tmp_dir is not None
-        source_model, compilation_options = prepare_compile_zoo_model_to_hub(
-            model=model,
-            source_model_format=source_model_format,
-            target_runtime=target_runtime,
-            output_path=tmp_dir,
-            check_trace=check_trace,
-        )
-
-        compile_job = hub.submit_compile_job(
-            model=source_model,
-            input_specs=input_spec,
-            device=device,
-            name=f"{model_name}_{source_model_format.name}_{target_runtime.name}",
-            options=compilation_options,
-            calibration_data=calibration_data,
-        )
-    assert isinstance(compile_job, hub.CompileJob)
-    if not compile_job.wait().success:
-        job_msg = compile_job.get_status().message or "(no job failure message)"
-        raise ValueError(f"Compile job {compile_job} failed: {job_msg}")
-
-    hub_model = compile_job.get_target_model()
-    assert hub_model is not None
-    input_names = list(model.get_input_spec().keys())
-    return OnDeviceModel(
-        hub_model,
-        input_names,
-        device,
-        inference_options=inference_options,
-    )
+    return export_model_func()
 
 
 def compile_model_from_args(
@@ -257,10 +180,12 @@ def compile_model_from_args(
     export_module = import_module(export_file)
     if hasattr(cli_args, "num_calibration_samples"):
         model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
+    device = getattr(cli_args, "device", None)
     if cli_args.chipset:
         device_cli = f"--chipset {cli_args.chipset}"
     else:
-        device_cli = f"--device {cli_args.device}"
+        assert device is not None
+        device_cli = f"--device {device}"
     model_name = model_id + (f".{component}" if component else "")
     print(f"Compiling on-device model asset for {model_name}.")
     print(
@@ -271,7 +196,7 @@ def compile_model_from_args(
     if component is not None:
         component_kwargs = {"components": [component]}
     export_output = export_module.export_model(
-        device=cli_args.device,
+        device=device,
         chipset=cli_args.chipset,
         skip_profiling=True,
         skip_inferencing=True,
@@ -363,16 +288,19 @@ class AsyncOnDeviceResult:
         output_ds_handle = self.inference_job.get_output_dataset()
         assert output_ds_handle is not None
         output_dataset = output_ds_handle.download()
+        assert not isinstance(output_dataset, str)
 
         if self.channel_last_output:
             output_dataset = transpose_channel_last_to_first(
                 self.channel_last_output,
-                output_dataset,  # type: ignore
-            )  # type: ignore
+                output_dataset,
+            )
 
-        outputs = output_dataset.values()  # type: ignore
+        outputs: ValuesView[list[np.ndarray]] | list[
+            list[np.ndarray]
+        ] = output_dataset.values()
         if len(self.output_names) > 0:
-            outputs = [output_dataset[out_name] for out_name in self.output_names]  # type: ignore
+            outputs = [output_dataset[out_name] for out_name in self.output_names]
 
         output_torch = [
             torch.from_numpy(np.concatenate(output, axis=0)) for output in outputs
@@ -456,7 +384,9 @@ class AsyncOnDeviceModel:
             dataset = args[0]
         else:
             tensors = tuple(args)
-            dataset_entries = make_hub_dataset_entries(tensors, self.input_names, self.channel_last_input)  # type: ignore
+            dataset_entries = make_hub_dataset_entries(
+                tensors, self.input_names, self.channel_last_input
+            )
             dataset = hub.upload_dataset(dataset_entries)
 
         inference_job = hub.submit_inference_job(

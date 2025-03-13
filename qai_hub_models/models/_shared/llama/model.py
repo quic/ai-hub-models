@@ -8,7 +8,7 @@ import os
 import pickle
 from abc import abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 from qai_hub.client import Device
@@ -26,6 +26,7 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_model import (
     BaseModel,
+    Precision,
     PretrainedCollectionModel,
     TargetRuntime,
 )
@@ -109,7 +110,7 @@ def load_input_cached_data(
     model_asset_version: VersionType,
     model_type: str = "pp",
     input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
-):
+) -> dict[str, torch.Tensor] | None:
     data_path = (
         f"{data_dir}/{input_seq_len}/{model_name}_{split_part}_{model_type}_inputs.pkl"
     )
@@ -295,9 +296,11 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
+        assert precision == Precision.w8a16, "Only w8a16 precision is supported"
         graph_name = self.get_qnn_graph_name()
         if (
             target_runtime != TargetRuntime.QNN
@@ -353,11 +356,18 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
     def _sample_inputs_impl(
         self, input_spec: Optional[InputSpec] = None
     ) -> SampleInputsType:
-        data = self.get_calibration_data(input_spec=input_spec)
-        assert data is not None
+        # According to QuantizableModelProtocol, self.get_calibration_data is supposed to
+        # return a DatasetEntries, i.e., something like dict[str, list[torch.Tensor]].
+        # Unfortunately, it actually returns dict[str, torch.Tensor] and users might have
+        # inputs in this format pickled locally. Too bad. The cast is correct and this
+        # method appears to exist only to correct this earlier error.
+        data = cast(
+            dict[str, torch.Tensor], self.get_calibration_data(input_spec=input_spec)
+        )
+        patched_inputs: SampleInputsType = {}
         for key, val in data.items():
-            data[key] = [val.detach().numpy()]  # type: ignore
-        return dict(data)
+            patched_inputs[key] = [val.detach().numpy()]
+        return patched_inputs
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
 from qai_hub_models.models._shared.video_classifier.utils import (
     preprocess_video_kinetics_400,
     read_video_per_second,
@@ -15,7 +17,24 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-DEFAULT_VIDEO_DIM = 112
+MODEL_ID = "video_classifier"
+MODEL_ASSET_VERSION = 1
+
+INPUT_VIDEO_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "surfing_cutback.mp4"
+)
+
+
+class SimpleAvgPool(torch.nn.Module):
+    """
+    Replacement for Global Average Pool that's numerically equivalent to the one used
+    in the torchvision models. It operates in rank 3 instead of rank 5 which makes it
+    more NPU friendly.
+    """
+
+    def forward(self, tensor: torch.Tensor) -> torch.Tensor:
+        shape = tensor.shape
+        return tensor.reshape(shape[0], shape[1], -1).mean(dim=2, keepdim=False)
 
 
 class KineticsClassifier(BaseModel):
@@ -23,31 +42,26 @@ class KineticsClassifier(BaseModel):
     Base class for all Kinetics Classifier models within QAI Hub Models.
     """
 
-    def __init__(self, net: torch.nn.Module):
-        """
-        Basic initializer which takes in a pretrained classifier network.
-        Subclasses can choose to implement their own __init__ and forward methods.
-        """
-        super().__init__()
-        self.net = net
+    def __init__(self, model: torch.nn.Module):
+        super().__init__(model)
+        self.mean = torch.Tensor([0.43216, 0.394666, 0.37645]).reshape(1, 3, 1, 1, 1)
+        self.std = torch.Tensor([0.22803, 0.22145, 0.216989]).reshape(1, 3, 1, 1, 1)
 
     def forward(self, video: torch.Tensor):
         """
         Predict class probabilities for an input `video`.
 
         Parameters:
-            video: A [C, Number of frames, H, W] video.
-                   Assumes video has been resized and normalized as implemented
-                   in the preprocess_image function in video_preprocessing.py file.
-                   Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
+            video: A [B, C, Number of frames, H, W] video.
+                   Assumes video has been resized and normalized to range [0, 1]
                    3-channel Color Space: RGB
 
         Returns:
             A [1, 400] where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """
-        return self.net(video)
+        video = (video - self.mean) / self.std
+        return self.model(video)
 
     @staticmethod
     def get_input_spec(
@@ -59,7 +73,7 @@ class KineticsClassifier(BaseModel):
         """
         return {
             "video": (
-                (1, 3, num_frames, DEFAULT_VIDEO_DIM, DEFAULT_VIDEO_DIM),
+                (1, 3, num_frames, 112, 112),
                 "float32",
             )
         }
@@ -67,10 +81,7 @@ class KineticsClassifier(BaseModel):
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        video_address = CachedWebModelAsset.from_asset_store(
-            "resnet_mixed", 1, "surfing_cutback.mp4"
-        )
-        input_tensor = read_video_per_second(str(video_address.fetch()))
+        input_tensor = read_video_per_second(str(INPUT_VIDEO_PATH.fetch()))
         input_tensor = preprocess_video_kinetics_400(input_tensor).unsqueeze(0)
         if input_spec:
             num_frames = input_spec["video"][0][2]
@@ -80,3 +91,10 @@ class KineticsClassifier(BaseModel):
     @staticmethod
     def get_output_names():
         return ["class_probs"]
+
+    @staticmethod
+    def get_channel_last_inputs() -> list[str]:
+        return ["video"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return ClassificationEvaluator(num_classes=400)

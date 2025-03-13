@@ -16,6 +16,6 @@ class NyUv2x518Dataset(NyUv2Dataset):
         input_height: int = 518,
         input_width: int = 518,
         split: DatasetSplit = DatasetSplit.TRAIN,
-        num_samples: int = 100,
+        num_samples: int = -1,
     ):
         super().__init__(input_height, input_width, split, num_samples)

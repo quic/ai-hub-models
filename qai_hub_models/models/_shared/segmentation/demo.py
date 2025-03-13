@@ -12,6 +12,7 @@ from qai_hub_models.utils.args import (
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
+from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 
 def segmentation_demo(
@@ -35,7 +36,7 @@ def segmentation_demo(
 
     (_, _, height, width) = model_type.get_input_spec()["image"][0]
     orig_image = load_image(args.image)
-    image = orig_image.resize((height, width))
+    image, scale, padding = pil_resize_pad(orig_image, (height, width))
 
     app = SegmentationApp(model)
     print("Model Loaded")
@@ -43,5 +44,6 @@ def segmentation_demo(
     output = app.segment_image(image)[0]
 
     if not is_test:
-        image_annotated = output.resize(orig_image.size)
+        # Resize / unpad annotated image
+        image_annotated = pil_undo_resize_pad(output, orig_image.size, scale, padding)
         display_or_save_image(image_annotated, args.output_dir)

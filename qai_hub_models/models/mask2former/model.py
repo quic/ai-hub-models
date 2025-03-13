@@ -14,7 +14,7 @@ from qai_hub.client import Device
 from torch import nn
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -100,11 +100,12 @@ class Mask2Former(BaseModel):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
+        precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
-            target_runtime, other_compile_options, device
+            target_runtime, precision, other_compile_options, device
         )
         options = " --truncate_64bit_tensors True"
 

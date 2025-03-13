@@ -9,7 +9,7 @@ from typing import Optional
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import ParseableQAIHMEnum
@@ -43,7 +43,7 @@ class ScorecardDevice:
     def all_devices(
         cls,
         enabled: Optional[bool] = None,
-        supports_fp16_npu: Optional[bool] = None,
+        npu_supports_precision: Optional[Precision] = None,
         supports_compile_path: Optional[ScorecardCompilePath] = None,
         supports_profile_path: Optional[ScorecardProfilePath] = None,
         form_factors: Optional[list["ScorecardDevice.FormFactor"]] = None,
@@ -59,8 +59,8 @@ class ScorecardDevice:
             if (
                 (enabled is None or enabled == device.enabled)
                 and (
-                    supports_fp16_npu is None
-                    or supports_fp16_npu == device.supports_fp16_npu
+                    npu_supports_precision is None
+                    or device.npu_supports_precision(npu_supports_precision)
                 )
                 and (
                     supports_compile_path is None
@@ -289,6 +289,15 @@ class ScorecardDevice:
             return self.mirror_device.supports_fp16_npu
 
         return "htp-supports-fp16:true" in self.reference_device.attributes
+
+    def npu_supports_precision(self, precision: Precision) -> bool:
+        """
+        Whether this device's NPU supports the given quantization spec.
+        """
+        if self.mirror_device:
+            return self.mirror_device.npu_supports_precision(precision)
+
+        return not precision.has_float_activations or self.supports_fp16_npu
 
     @cached_property
     def supported_runtimes(self) -> list[TargetRuntime]:

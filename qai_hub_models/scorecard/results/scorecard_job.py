@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+import time
 from functools import cached_property
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
@@ -24,7 +25,7 @@ ScorecardPathTypeVar = TypeVar(
     "ScorecardPathTypeVar", ScorecardCompilePath, ScorecardProfilePath
 )
 
-# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing inheritors of the generic base.
 ScorecardJobTypeVar = TypeVar(
     "ScorecardJobTypeVar",
     "QuantizeScorecardJob",
@@ -43,14 +44,16 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
         job_id: Optional[str],
         device: ScorecardDevice,
         wait_for_job: bool,  # If false, running jobs are treated like they were "skipped".
-        wait_job_secs: Optional[int],  # None == any number of seconds
+        wait_for_max_job_duration: Optional[
+            int
+        ],  # Allow the job this many seconds after creation to complete
         path: ScorecardPathTypeVar,
     ):
         self.model_id = model_id
         self.job_id = job_id
         self._device = device
         self.wait_for_job = wait_for_job
-        self.wait_job_secs = wait_job_secs
+        self.wait_for_max_job_duration = wait_for_max_job_duration
         self.path: ScorecardPathTypeVar = path
         self.__post_init__()
 
@@ -79,7 +82,15 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathTypeVar]):
             if not self.wait_for_job:
                 return job
             else:
-                job.wait(self.wait_job_secs)
+                if self.wait_for_max_job_duration:
+                    time_left = int(
+                        job.date.timestamp()
+                        + self.wait_for_max_job_duration
+                        - time.time()
+                    )
+                    job.wait(time_left)
+                else:
+                    job.wait()
         return job
 
     @cached_property
@@ -176,7 +187,9 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
     def profile_results(self) -> dict[str, Any]:
         """Profile results from profile job."""
         if self.success:
-            return self.job.download_profile()
+            profile = self.job.download_profile()
+            assert isinstance(profile, dict)
+            return profile
         raise ValueError("Can't get profile results if job did not succeed.")
 
     @cached_property

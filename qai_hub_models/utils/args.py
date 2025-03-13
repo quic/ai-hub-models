@@ -15,7 +15,7 @@ import sys
 from collections.abc import Mapping
 from functools import partial
 from pydoc import locate
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 import qai_hub as hub
 from qai_hub.client import APIException, InternalError, UserError
@@ -42,14 +42,71 @@ class ParseEnumAction(argparse.Action):
         setattr(namespace, self.dest, self.enum_type[values.upper().replace("-", "_")])
 
 
-def get_parser(allow_dupe_args: bool = False) -> argparse.ArgumentParser:
-    return argparse.ArgumentParser(
+ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
+
+
+class QAIHMArgumentParser(argparse.ArgumentParser):
+    """
+    An ArgumentParser that sets hub_device from the appropriate options.
+    This isn't implemented as a `type` argument to `add_argument` because the
+    device/chipset can be modified by device_os.
+    """
+
+    def parse_args(self, args=None, namespace=None):
+        parsed = super().parse_args(args, namespace)
+        device_name = getattr(parsed, "device", None)
+        chipset_name = getattr(parsed, "chipset", None)
+        if device_name or chipset_name:
+            hub_device = _get_hub_device(
+                device_name, chipset_name, getattr(parsed, "device_os", "")
+            )
+            parsed.hub_device = hub_device
+        return parsed
+
+
+def get_parser(allow_dupe_args: bool = False) -> QAIHMArgumentParser:
+    return QAIHMArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         conflict_handler="resolve" if allow_dupe_args else "error",
     )
 
 
-def add_output_dir_arg(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+def _add_device_args(
+    parser: QAIHMArgumentParser,
+    default_device: str | None = None,
+    default_chipset: str | None = None,
+) -> QAIHMArgumentParser:
+    # This is an assertion because this is a logic error; it shouldn't be possible to get this at runtime.
+    assert not (
+        default_device and default_chipset
+    ), "Only one of default_device or default_chipset may be specified."
+
+    device_group = parser.add_argument_group("Device Selection")
+    device_mutex_group = device_group.add_mutually_exclusive_group()
+    device_mutex_group.add_argument(
+        "--device",
+        type=str,
+        default=default_device,
+        help="If running on-device, use this device.",
+    )
+    device_mutex_group.add_argument(
+        "--chipset",
+        type=str,
+        default=default_chipset,
+        choices=sorted(_get_qcom_chipsets(), reverse=True),
+        help="If set, will choose a random device with this chipset.",
+    )
+    device_group.add_argument(
+        "--device-os",
+        type=str,
+        default="",
+        help="Optionally specified together with --device or --chipset",
+    )
+
+    return parser
+
+
+def add_output_dir_arg(parser: ParserT) -> ParserT:
     parser.add_argument(
         "--output-dir",
         "-o",
@@ -72,17 +129,17 @@ def _get_default_runtime(available_runtimes: list[TargetRuntime]):
 
 
 def add_target_runtime_arg(
-    parser: argparse.ArgumentParser,
+    parser: ParserT,
     help: str,
     available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
     default: TargetRuntime = TargetRuntime.TFLITE,
-) -> argparse.ArgumentParser:
+) -> ParserT:
     parser.add_argument(
         "--target-runtime",
         type=str,
-        action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore
+        action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore[arg-type]
         default=default,
         choices=[rt.name.lower().replace("_", "-") for rt in available_target_runtimes],
         help=help,
@@ -91,7 +148,7 @@ def add_target_runtime_arg(
 
 
 def get_on_device_demo_parser(
-    parser: argparse.ArgumentParser | None = None,
+    parser: QAIHMArgumentParser | None = None,
     available_target_runtimes: list[TargetRuntime] = list(
         TargetRuntime.__members__.values()
     ),
@@ -114,26 +171,9 @@ def get_on_device_demo_parser(
         " Provide comma separated model-ids if multiple models are required for demo."
         " Run export.py to get on-device demo command with models exported for you.",
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default=default_device,
-        help="If running on-device, use this device.",
-    )
-    parser.add_argument(
-        "--chipset",
-        type=str,
-        default=None,
-        choices=sorted(get_qcom_chipsets(), reverse=True),
-        help="If set, will choose a random device with this chipset. "
-        "Overrides whatever is set in --device.",
-    )
-    parser.add_argument(
-        "--device-os",
-        type=str,
-        default="",
-        help="Optionally specified together with --device",
-    )
+
+    _add_device_args(parser, default_device=default_device)
+
     if add_output_dir:
         add_output_dir_arg(parser)
     parser.add_argument(
@@ -168,6 +208,12 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
         )
         sys.exit(1)
 
+    if args.on_device and not getattr(args, "hub_device", None):
+        print(
+            "--device or --chipset must be specified when --on-device flag is provided."
+        )
+        sys.exit(1)
+
     if (args.inference_options or args.hub_model_id) and not args.on_device:
         print(
             "A Hub model ID and inference options can be provided only if the --on-device flag is provided."
@@ -176,8 +222,8 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
 
 
 def get_model_cli_parser(
-    cls: type[FromPretrainedTypeVar], parser: argparse.ArgumentParser | None = None
-) -> argparse.ArgumentParser:
+    cls: type[FromPretrainedTypeVar], parser: QAIHMArgumentParser | None = None
+) -> QAIHMArgumentParser:
     """
     Generate the argument parser to create this model from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as from_pretrained method args.
@@ -265,7 +311,7 @@ def model_from_cli_args(
     return model_cls.from_pretrained(**get_model_kwargs(model_cls, vars(cli_args)))
 
 
-def get_hub_device(
+def _get_hub_device(
     device: Optional[str] = None, chipset: Optional[str] = None, device_os: str = ""
 ) -> hub.Device:
     """
@@ -328,7 +374,7 @@ def demo_model_from_cli_args(
     is_on_device = "on_device" in cli_args and cli_args.on_device
     inference_model: FromPretrainedTypeVar | OnDeviceModel
     if is_on_device and issubclass(model_cls, BaseModel):
-        device = get_hub_device(cli_args.device, cli_args.chipset, cli_args.device_os)
+        device: hub.Device = cli_args.hub_device
         if cli_args.hub_model_id:
             model_from_hub = hub.get_model(cli_args.hub_model_id)
             inference_model = OnDeviceModel(
@@ -380,8 +426,8 @@ def get_input_spec_kwargs(
 
 
 def get_model_input_spec_parser(
-    model_cls: type[BaseModel], parser: argparse.ArgumentParser | None = None
-) -> argparse.ArgumentParser:
+    model_cls: type[BaseModel], parser: QAIHMArgumentParser | None = None
+) -> QAIHMArgumentParser:
     """
     Generate the argument parser to get this model's input spec from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as get_input_spec method args.
@@ -425,7 +471,7 @@ def input_spec_from_cli_args(
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))
 
 
-def get_qcom_chipsets() -> set[str]:
+def _get_qcom_chipsets() -> set[str]:
     try:
         return {
             attr[len("chipset:") :]
@@ -445,7 +491,7 @@ def _evaluate_export_common_parser(
     default_runtime: TargetRuntime = TargetRuntime.TFLITE,
     exporting_compiled_model: bool = False,
     is_hub_quantized: bool = False,
-) -> argparse.ArgumentParser:
+) -> QAIHMArgumentParser:
     """
     Common arguments between export and evaluate scripts.
     """
@@ -514,7 +560,7 @@ def export_parser(
     exporting_compiled_model: bool = False,
     default_export_device: str | None = None,
     is_hub_quantized: bool = False,
-) -> argparse.ArgumentParser:
+) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
 
@@ -550,20 +596,9 @@ def export_parser(
         exporting_compiled_model=exporting_compiled_model,
         is_hub_quantized=is_hub_quantized,
     )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default=default_export_device,
-        help="Device for which to export.",
-    )
-    parser.add_argument(
-        "--chipset",
-        type=str,
-        default=None,
-        choices=sorted(get_qcom_chipsets(), reverse=True),
-        help="If set, will choose a random device with this chipset. "
-        "Overrides whatever is set in --device.",
-    )
+
+    _add_device_args(parser, default_device=default_export_device)
+
     if is_hub_quantized:
         parser.add_argument(
             "--skip-compiling",
@@ -620,7 +655,7 @@ def evaluate_parser(
     default_runtime=TargetRuntime.TFLITE,
     is_hub_quantized: bool = False,
     default_num_samples: int = DEFAULT_NUM_EVAL_SAMPLES,
-) -> argparse.ArgumentParser:
+) -> QAIHMArgumentParser:
     """
     Arg parser to be used in evaluate scripts.
 
@@ -655,13 +690,9 @@ def evaluate_parser(
         default_runtime=default_runtime,
         is_hub_quantized=is_hub_quantized,
     )
-    parser.add_argument(
-        "--chipset",
-        type=str,
-        default="qualcomm-snapdragon-8gen2",
-        choices=sorted(get_qcom_chipsets(), reverse=True),
-        help="Which chipset to use to run evaluation.",
-    )
+
+    _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen2")
+
     parser.add_argument(
         "--split-size",
         type=int,
