@@ -342,6 +342,7 @@ and many more.
 | **Image Generation**
 | [ControlNet](https://aihub.qualcomm.com/models/controlnet_quantized) | [qai_hub_models.models.controlnet_quantized](qai_hub_models/models/controlnet_quantized/README.md) |
 | [Riffusion](https://aihub.qualcomm.com/models/riffusion_quantized) | [qai_hub_models.models.riffusion_quantized](qai_hub_models/models/riffusion_quantized/README.md) |
+| [Stable-Diffusion-v1.5](https://aihub.qualcomm.com/models/stable_diffusion_v1_5_w8a16_quantized) | [qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized](qai_hub_models/models/stable_diffusion_v1_5_w8a16_quantized/README.md) |
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1_quantized) | [qai_hub_models.models.stable_diffusion_v2_1_quantized](qai_hub_models/models/stable_diffusion_v2_1_quantized/README.md) |
 | | |
 | **Text Generation**

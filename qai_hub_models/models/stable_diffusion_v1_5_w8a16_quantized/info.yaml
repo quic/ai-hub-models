@@ -1,0 +1,40 @@
+name: Stable-Diffusion-v1.5
+id: stable_diffusion_v1_5_w8a16_quantized
+status: public
+headline: State-of-the-art generative AI model used to generate detailed images conditioned
+  on text descriptions.
+domain: Generative AI
+description: Generates high resolution images from text prompts using a latent diffusion
+  model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising,
+  and VAE based decoder to generate the final image.
+use_case: Image Generation
+tags:
+  - generative-ai
+  - quantized
+research_paper: https://arxiv.org/abs/2112.10752
+research_paper_title: High-Resolution Image Synthesis with Latent Diffusion Models
+license: https://github.com/CompVis/stable-diffusion/blob/main/LICENSE
+deploy_license: https://github.com/CompVis/stable-diffusion/blob/main/LICENSE
+source_repo: https://github.com/CompVis/stable-diffusion/tree/main
+technical_details:
+  Input: Text prompt to generate image
+  QNN-SDK: '2.28'
+  Text Encoder Number of parameters: 340M
+  UNet Number of parameters: 865M
+  VAE Decoder Number of parameters: 83M
+  Model size: 1GB
+applicable_scenarios:
+  - Image Generation
+  - Image Editing
+  - Content Creation
+related_models:
+  - stable_diffusion_v2_1_quantized
+  - controlnet_quantized
+form_factors:
+  - Phone
+  - Tablet
+has_static_banner: true
+has_animated_banner: true
+license_type: creativeml-openrail-m
+deploy_license_type: creativeml-openrail-m
+dataset: []
