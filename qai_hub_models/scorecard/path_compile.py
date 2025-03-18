@@ -80,19 +80,10 @@ class ScorecardCompilePath(ParseableQAIHMEnum):
         ]
 
     def supports_precision(self, precision: Precision) -> bool:
-        if precision == Precision.float:
-            return True
         if self == ScorecardCompilePath.ONNX_FP16:
-            # Only FP32 models are applicable for this compilation path.
             return precision.has_float_activations
-        if self == ScorecardCompilePath.QNN:
-            # QNN support for quantization schemes is broad
-            return True
-        # ONNX and TFLite struggle with any QDQ scheme that isn't INT8
-        return (
-            precision.activations_type == hub.QuantizeDtype.INT8
-            and precision.weights_type == hub.QuantizeDtype.INT8
-        )
+
+        return self.runtime.supports_precision(precision)
 
     def get_compile_options(
         self,

@@ -47,7 +47,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # This field is managed automatically by the scorecard, and should
     # not be manually edited after a model is first added. If the model
     # begins to work again, this will be removed automatically by scorecard.
-    qnn_export_failure_reason: str = ""
+    qnn_scorecard_failure: str = ""
 
     # If the model should be disabled for qnn for any reason other than
     # a job failure, this should explain why,
@@ -68,14 +68,13 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # This field is managed automatically by the scorecard, and should
     # not be manually edited after a model is first added. If the model
     # begins to work again, this will be removed automatically by scorecard.
-    tflite_export_failure_reason: str = ""
+    tflite_scorecard_failure: str = ""
 
     # If the model should be disabled for tflite for any reason other than
     # a job failure, this should explain why.
     #
     # This requires a filed issue because it isn't auto-removed
     # when a model begins to work again.
-
     tflite_export_disable_issue: str = ""
 
     # If the model doesn't work on onnx, this should explain why,
@@ -84,7 +83,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # This field is managed automatically by the scorecard, and should
     # not be manually edited after a model is first added. If the model
     # begins to work again, this will be removed automatically by scorecard.
-    onnx_export_failure_reason: str = ""
+    onnx_scorecard_failure: str = ""
 
     # If the model should be disabled for onnx for any reason other than
     # a job failure, this should explain why.
@@ -199,12 +198,15 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         """
         Return the reason a model failed or None if the model did not fail.
         """
+        if not any(runtime.supports_precision(p) for p in self.supported_precisions):
+            return "Runtime does not support any precisions supported by this model"
+
         if runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
             runtime = (
                 TargetRuntime.QNN
             )  # QNN Support is a proxy for precompiled QNN ONNX.
         automated_skip = getattr(
-            self, f"{runtime.name.lower()}_export_failure_reason", None
+            self, f"{runtime.name.lower()}_scorecard_failure", None
         )
         user_provided_skip = getattr(
             self, f"{runtime.name.lower()}_export_disable_issue", None
@@ -250,12 +252,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         Whether the model can be quantized via quantize job.
         This may return true even if the model does list support for non-float precisions.
         """
-        return (
-            not self.is_precompiled
-            and not self.is_aimet
-            and not self.has_components
-            and self.eval_datasets is not None
-        )
+        return not self.is_precompiled and not self.is_aimet and not self.has_components
 
     @property
     def supports_quantization(self) -> bool:
@@ -307,7 +304,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
                 (timeout_field_name, timeout),
             ):
                 if field_val and issue_link not in field_val:
-                    return f"{field_name} must include a full link to an issue (expected format: `{issue_link}/1234` )"
+                    return f"{field_name} must include a full link to an issue (expected format: `{issue_link}1234` )"
 
         return None
 

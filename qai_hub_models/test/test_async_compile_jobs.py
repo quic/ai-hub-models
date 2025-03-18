@@ -39,11 +39,11 @@ def test_compile_jobs_success():
                 try:
                     job.wait(int((timemax - timediff).total_seconds()))
                 except TimeoutError:
-                    timeout_jobs[name] = job_id
+                    timeout_jobs[name] = job.url
             else:
-                timeout_jobs[name] = job_id
+                timeout_jobs[name] = job.url
         elif not job.get_status().success:
-            failed_jobs[name] = job_id
+            failed_jobs[name] = job.url
 
     error_strs = []
     if failed_jobs:

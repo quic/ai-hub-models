@@ -141,20 +141,34 @@ def get_torch_val_dataloader(dataset_name: str, num_samples: int) -> DataLoader:
     return get_deterministic_sample(torch_val_dataset, num_samples)
 
 
+def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
+    """
+    Extracts the qdq model from the source quantize job.
+
+    If the model was not ultimately from a quantize job, returns None.
+    """
+    if not isinstance(model.producer, hub.CompileJob):
+        return None
+    if not isinstance(model.producer.model, hub.Model):
+        return None
+    if not isinstance(model.producer.model.producer, hub.QuantizeJob):
+        return None
+    return model.producer.model
+
+
 def _make_quant_cpu_session(model: hub.Model) -> onnxruntime.InferenceSession:
     """
     Creates an onnx runtime session with the qdq onnx model that was used to produce
     this hub.Model. Assumes the model was produced by a compile job, and the source
     model for the compile job was from a quantize job.
     """
-    assert isinstance(model.producer, hub.CompileJob)
-    assert isinstance(model.producer.model, hub.Model)
-    assert isinstance(model.producer.model.producer, hub.QuantizeJob)
+    qdq_model = get_qdq_onnx(model)
+    assert qdq_model is not None, "Model must be from a quantize job."
     local_dir = Path("build/qdq_cache_dir")
     local_dir.mkdir(exist_ok=True)
-    local_path = local_dir / f"{model.producer.model.model_id}.onnx"
+    local_path = local_dir / f"{qdq_model.model_id}.onnx"
     if not local_path.exists():
-        model.producer.model.download(str(local_path))
+        qdq_model.download(str(local_path))
     return onnxruntime.InferenceSession(local_path)
 
 

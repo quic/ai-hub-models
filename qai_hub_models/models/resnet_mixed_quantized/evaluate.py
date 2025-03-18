@@ -26,6 +26,7 @@ def main():
         default_split_size=100,
         default_num_samples=100,
         supported_datasets=SUPPORTED_DATASETS,
+        supports_tflite=False,
         is_hub_quantized=True,
     )
     args = parser.parse_args()

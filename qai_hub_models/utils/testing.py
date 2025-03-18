@@ -8,7 +8,6 @@ import contextlib
 import os
 import shutil
 from collections.abc import Callable
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,7 +20,6 @@ import qai_hub as hub
 from qai_hub.client import SourceModelType
 from tabulate import tabulate
 
-from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import (
     always_answer_prompts,
     load_yaml,
@@ -47,9 +45,6 @@ from qai_hub_models.utils.testing_async_utils import (  # noqa: F401
     get_quantize_job_ids_file,
     is_hub_testing_async,
 )
-
-# If a model has many outputs, how many of them to store PSNR for
-MAX_PSNR_VALUES = 10
 
 
 def skip_clone_repo_check(func):
@@ -196,28 +191,6 @@ def should_run_skipped_models() -> bool:
     return bool(os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0))
 
 
-def get_job_date(artifacts_dir: os.PathLike | str | None = None) -> str:
-    date_file = get_artifact_filepath("date.txt", artifacts_dir)
-    if date_file.stat().st_size == 0:
-        curr_date = datetime.today().strftime("%Y-%m-%d")
-        with open(date_file, "w") as f:
-            f.write(curr_date)
-        return curr_date
-    with open(date_file) as f:
-        return f.read()
-
-
-def get_accuracy_file() -> Path:
-    filepath = get_artifact_filepath("accuracy.csv")
-    if filepath.stat().st_size == 0:
-        with open(filepath, "w") as f:
-            f.write("model_id,runtime,Torch Accuracy,Sim Accuracy,Device Accuracy")
-            for i in range(MAX_PSNR_VALUES):
-                f.write(f",PSNR_{i}")
-            f.write(",date,branch\n")
-    return filepath
-
-
 def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
     psnr_values = []
     for i, (_, value) in enumerate(df.iterrows()):
@@ -278,26 +251,6 @@ def get_val_dataset_id_keys(
     if not apply_channel_transpose:
         base_name += "nt_"  # no transpose
     return base_name + "input", base_name + "gt"
-
-
-def write_accuracy(
-    model_name: str,
-    runtime: TargetRuntime,
-    psnr_values: list[str],
-    torch_accuracy: float | None = None,
-    device_accuracy: float | None = None,
-    sim_accuracy: float | None = None,
-) -> None:
-    line = f"{model_name},{runtime.name.lower()},"
-    line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
-    line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
-    line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","
-    if len(psnr_values) >= MAX_PSNR_VALUES:
-        line += ",".join(psnr_values[:10])
-    else:
-        line += ",".join(psnr_values) + "," * (MAX_PSNR_VALUES - len(psnr_values))
-    line += f",{get_job_date()},main"
-    append_line_to_file(get_accuracy_file(), line)
 
 
 def get_hub_val_dataset(

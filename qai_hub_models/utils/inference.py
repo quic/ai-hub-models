@@ -17,6 +17,7 @@ import torch
 from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
+from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixin
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, VersionType
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
@@ -101,7 +102,9 @@ def prepare_compile_zoo_model_to_hub(
                 model_name=model_name,
             )
 
-    elif AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin):
+    elif (
+        AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin)
+    ) or isinstance(model, AimetEncodingLoaderMixin):
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():

@@ -276,6 +276,7 @@ and many more.
 | [PPE-Detection](https://aihub.qualcomm.com/models/gear_guard_net) | [qai_hub_models.models.gear_guard_net](qai_hub_models/models/gear_guard_net/README.md) |
 | [PPE-Detection-Quantized](https://aihub.qualcomm.com/models/gear_guard_net_quantized) | [qai_hub_models.models.gear_guard_net_quantized](qai_hub_models/models/gear_guard_net_quantized/README.md) |
 | [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) |
+| [Person-Foot-Detection-Quantized](https://aihub.qualcomm.com/models/foot_track_net_quantized) | [qai_hub_models.models.foot_track_net_quantized](qai_hub_models/models/foot_track_net_quantized/README.md) |
 | [RTMDet](https://aihub.qualcomm.com/models/rtmdet) | [qai_hub_models.models.rtmdet](qai_hub_models/models/rtmdet/README.md) |
 | [YOLOv10-Detection](https://aihub.qualcomm.com/models/yolov10_det) | [qai_hub_models.models.yolov10_det](qai_hub_models/models/yolov10_det/README.md) |
 | [YOLOv11-Detection](https://aihub.qualcomm.com/models/yolov11_det) | [qai_hub_models.models.yolov11_det](qai_hub_models/models/yolov11_det/README.md) |
@@ -292,6 +293,7 @@ and many more.
 | [Yolo-v7-Quantized](https://aihub.qualcomm.com/models/yolov7_quantized) | [qai_hub_models.models.yolov7_quantized](qai_hub_models/models/yolov7_quantized/README.md) |
 | | |
 | **Pose Estimation**
+| [Facial-Landmark-Detection](https://aihub.qualcomm.com/models/facemap_3dmm) | [qai_hub_models.models.facemap_3dmm](qai_hub_models/models/facemap_3dmm/README.md) |
 | [Facial-Landmark-Detection-Quantized](https://aihub.qualcomm.com/models/facemap_3dmm_quantized) | [qai_hub_models.models.facemap_3dmm_quantized](qai_hub_models/models/facemap_3dmm_quantized/README.md) |
 | [HRNetPose](https://aihub.qualcomm.com/models/hrnet_pose) | [qai_hub_models.models.hrnet_pose](qai_hub_models/models/hrnet_pose/README.md) |
 | [HRNetPoseQuantized](https://aihub.qualcomm.com/models/hrnet_pose_quantized) | [qai_hub_models.models.hrnet_pose_quantized](qai_hub_models/models/hrnet_pose_quantized/README.md) |

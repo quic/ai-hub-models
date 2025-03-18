@@ -107,9 +107,10 @@ class Mask2Former(BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
-        options = " --truncate_64bit_tensors True"
+        if target_runtime != TargetRuntime.ONNX:
+            compile_options += " --truncate_64bit_tensors True"
 
-        return compile_options + options
+        return compile_options
 
     def get_hub_profile_options(
         self,

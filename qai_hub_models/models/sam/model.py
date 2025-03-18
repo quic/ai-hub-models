@@ -142,7 +142,7 @@ class SAMEncoderPart(BaseModel):
         encoder_splits = []
         if num_splits == 0:
             # Single end-to-end encoder (default constructor)
-            encoder_splits.append(SAMEncoderPart(sam))
+            encoder_splits.append(SAMEncoderPart(sam, 0))
         else:
             # Split the encoder into several models.
             # Each model will have a portion of the transformer blocks.
@@ -164,6 +164,7 @@ class SAMEncoderPart(BaseModel):
             encoder_splits.append(
                 SAMEncoderPart(
                     sam,
+                    index=0,
                     include_embedding=True,
                     include_transformer_blocks=split_idx[0],
                     include_neck=False,
@@ -175,6 +176,7 @@ class SAMEncoderPart(BaseModel):
                 encoder_splits.append(
                     SAMEncoderPart(
                         sam,
+                        index=i,
                         include_embedding=False,
                         include_transformer_blocks=split_idx[i],
                         include_neck=False,
@@ -185,6 +187,7 @@ class SAMEncoderPart(BaseModel):
             encoder_splits.append(
                 SAMEncoderPart(
                     sam,
+                    index=num_splits,
                     include_embedding=False,
                     include_transformer_blocks=split_idx[-1],
                     include_neck=True,
@@ -196,6 +199,7 @@ class SAMEncoderPart(BaseModel):
     def __init__(
         self,
         sam: Sam,
+        index: int,
         include_embedding: bool = True,
         include_transformer_blocks: tuple[int, int] | None = (0, -1),
         include_neck=True,
@@ -205,6 +209,7 @@ class SAMEncoderPart(BaseModel):
         self.include_embedding = include_embedding
         self.include_neck = include_neck
         self.include_transformer_blocks = include_transformer_blocks
+        self.index = index
 
         if (
             not include_embedding
@@ -290,6 +295,17 @@ class SAMEncoderPart(BaseModel):
             self.include_embedding,
             self.sam.image_encoder.blocks[0].attn.in_feature,
         )
+
+    def __str__(self) -> str:
+        """
+        In our CI tests, we use str(module) as a cache key to cache
+        the pre-trained PyTorch modules and avoid re-loading from scratch
+        for all the CI tests that invoke from_pretrained. However, all
+        SAM encoder parts have the same string representation.
+
+        So we append the part index to the string to keep the cache keys unique.
+        """
+        return super().__str__() + f"_{self.index}"
 
     @staticmethod
     def get_channel_last_inputs(include_embedding=True) -> list[str]:

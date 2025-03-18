@@ -32,7 +32,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
             - identity feature map with shape (batch_size, 512)
         """
         id_features, _, _, _, _, _ = output
-        image_ids, _, _ = gt
+        image_ids, image_idxs, _, _ = gt
 
         """
         extract id and index information from filename, for example image filename
@@ -40,10 +40,8 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         are multiple images with same id, index with 0 for enroll, other index for query
         """
         for i in range(len(image_ids)):
-            last_idx = image_ids[i].rfind("_")
-            second_last_idx = image_ids[i][:last_idx].rfind("_")
-            id_str = image_ids[i][second_last_idx + 1 : last_idx]
-            id_idx = image_ids[i][last_idx + 1 :]
+            id_str = str(image_ids[i].item())
+            id_idx = str(image_idxs[i].item())
             if id_str not in self.id_features:
                 self.id_features[id_str] = {}
                 self.id_total += 1

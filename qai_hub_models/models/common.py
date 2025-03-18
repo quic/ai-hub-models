@@ -12,6 +12,7 @@ from typing import Optional
 import numpy as np
 import qai_hub as hub
 from qai_hub.client import QuantizeDtype
+from typing_extensions import assert_never
 
 
 @unique
@@ -33,7 +34,7 @@ class TargetRuntime(Enum):
         return f"{self.name.lower()}"
 
     @property
-    def channel_last_native_execution(self):
+    def channel_last_native_execution(self) -> bool:
         """
         If true, this runtime natively executes ops in NHWC (channel-last) format.
         If false, the runtime executes ops in NCHW (channel-first) format.
@@ -43,6 +44,35 @@ class TargetRuntime(Enum):
             TargetRuntime.QNN,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ]
+
+    def supports_precision(self, precision: Precision) -> bool:
+        # Float is always supported.
+        if precision == Precision.float:
+            return True
+
+        # Check quantized types
+        if self == TargetRuntime.TFLITE:
+            return precision == Precision.w8a8
+        if self == TargetRuntime.ONNX:
+            return precision in [
+                Precision.w8a8,
+                Precision.w8a16,
+                # The following three are enabled tentatively
+                # (not experimentally verified)
+                Precision.w16a16,
+                Precision.w4a16,
+                Precision.w4,
+            ]
+        if self == TargetRuntime.QNN or self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            return precision in [
+                Precision.w8a8,
+                Precision.w8a16,
+                Precision.w4a16,
+                Precision.w4,
+                Precision.w16a16,
+            ]
+
+        assert_never(self)
 
     def get_target_runtime_flag(
         self,
@@ -99,6 +129,9 @@ class Precision:
     float: Precision
     w8a8: Precision
     w8a16: Precision
+    w16a16: Precision
+    w4a16: Precision
+    w4: Precision
 
     def __init__(
         self, weights_type: QuantizeDtype | None, activations_type: QuantizeDtype | None
@@ -179,6 +212,9 @@ class Precision:
 Precision.float = Precision(None, None)
 Precision.w8a8 = Precision(QuantizeDtype.INT8, QuantizeDtype.INT8)
 Precision.w8a16 = Precision(QuantizeDtype.INT8, QuantizeDtype.INT16)
+Precision.w16a16 = Precision(QuantizeDtype.INT16, QuantizeDtype.INT16)
+Precision.w4a16 = Precision(QuantizeDtype.INT4, QuantizeDtype.INT16)
+Precision.w4 = Precision(QuantizeDtype.INT4, None)
 
 
 @unique

@@ -16,7 +16,7 @@ from .constants import (
     STATIC_MDOELS_ROOT,
 )
 from .github import on_github
-from .util import new_cd, run, run_and_get_output
+from .util import get_is_hub_quantized, new_cd, run, run_and_get_output
 
 REPRESENTATIVE_EXPORT_MODELS = [
     "sinet",
@@ -43,6 +43,7 @@ MANUAL_EDGES = {
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
@@ -51,6 +52,7 @@ MANUAL_EDGES = {
     "qai_hub_models/models/_configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/models/_configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/models/_configs/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/_version.py": [],
 }
 
 
@@ -323,6 +325,20 @@ def get_all_models() -> set[str]:
             if model not in model_names:
                 raise ValueError(f"Unknown model selected: {model}")
         model_names = allowed_models
+
+    if os.environ.get("QAIHM_TEST_PRECISIONS", "DEFAULT") != "DEFAULT":
+        cleaned_models: set[str] = set()
+        for model in model_names:
+            # TODO(#13765): Remove this hack when:
+            # - static scorecard models support quantization.
+            # - quantized model folders go away
+            if (
+                model not in static_models
+                and "_quantized" not in model
+                and get_is_hub_quantized(model)
+            ):
+                cleaned_models.add(model)
+        model_names = cleaned_models
 
     return model_names
 

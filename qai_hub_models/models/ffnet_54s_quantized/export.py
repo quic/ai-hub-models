@@ -39,6 +39,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
 def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
+    precision: Precision = Precision.w8a8,
     num_calibration_samples: int = 100,
     skip_compiling: bool = False,
     skip_profiling: bool = False,
@@ -70,6 +71,8 @@ def export_model(
             Defaults to DEFAULT_DEVICE if not specified.
         chipset: If set, will choose a random device with this chipset.
             Overrides the `device` argument.
+        precision: The precision to which this model should be quantized.
+            Quantization is skipped if the precision is float.
         num_calibration_samples: The number of calibration data samples
             to use for quantization.
         skip_compiling: If set, skips compiling model to format that can run on device.
@@ -129,36 +132,44 @@ def export_model(
     # Trace the model
     source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
-    print(f"Quantizing model {model_name} with {num_calibration_samples} samples.")
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
-    onnx_compile_job = hub.submit_compile_job(
-        model=source_model,
-        input_specs=input_spec,
-        device=hub_device,
-        name=model_name,
-        options="--target_runtime onnx",
-    )
-    calibration_data = quantization_utils.get_calibration_data(
-        input_spec, "cityscapes", num_calibration_samples
-    )
-    quantize_job = hub.submit_quantize_job(
-        model=onnx_compile_job.get_target_model(),
-        calibration_data=calibration_data,
-        weights_dtype=Precision.w8a8.weights_type,  # type: ignore[arg-type]
-        activations_dtype=Precision.w8a8.activations_type,  # type: ignore[arg-type]
-        name=model_name,
-        options=model.get_hub_quantize_options(Precision.w8a8),
-    )
-    if skip_compiling:
-        return ExportResult(quantize_job=quantize_job)
+    quantize_job = None
+    if precision != Precision.float:
+        print(f"Quantizing model {model_name} with {num_calibration_samples} samples.")
+        onnx_compile_job = hub.submit_compile_job(
+            model=source_model,
+            input_specs=input_spec,
+            device=hub_device,
+            name=model_name,
+            options="--target_runtime onnx",
+        )
+
+        if not precision.activations_type or not precision.weights_type:
+            raise ValueError(
+                "Quantization is only supported if both weights and activations are quantized."
+            )
+
+        calibration_data = quantization_utils.get_calibration_data(
+            input_spec, "cityscapes", num_calibration_samples
+        )
+        quantize_job = hub.submit_quantize_job(
+            model=onnx_compile_job.get_target_model(),
+            calibration_data=calibration_data,
+            activations_dtype=precision.activations_type,
+            weights_dtype=precision.weights_type,
+            name=model_name,
+            options=model.get_hub_quantize_options(precision),
+        )
+        if skip_compiling:
+            return ExportResult(quantize_job=quantize_job)
 
     # 3. Compiles the model to an asset that can be run on device
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, Precision.w8a8, compile_options, hub_device
+        target_runtime, precision, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
-        model=quantize_job.get_target_model(),
+        model=quantize_job.get_target_model() if quantize_job else source_model,
         input_specs=input_spec,
         device=hub_device,
         name=model_name,

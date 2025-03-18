@@ -334,6 +334,8 @@ def make_hub_dataset_entries(
             assert isinstance(curr_input, np.ndarray)
             if curr_input.dtype == np.int64:
                 curr_input = curr_input.astype(np.int32)
+            if curr_input.dtype == np.float64:
+                curr_input = curr_input.astype(np.float32)
             converted_inputs.append(curr_input)
         dataset[name] = converted_inputs
 

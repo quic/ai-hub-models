@@ -45,8 +45,15 @@ class FaceAttribDataset(BaseDataset):
         image = Image.open(image_path)
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0).repeat(3, 1, 1)
 
+        image_fname = str(image_path.name[:-4])
+        last_idx = image_fname.rfind("_")
+        second_last_idx = image_fname[:last_idx].rfind("_")
+        image_id = image_fname[second_last_idx + 1 : last_idx]
+        image_idx = image_fname[last_idx + 1 :]
+
         return image_tensor, (
-            str(image_path.name[:-4]),
+            int(image_id),
+            int(image_idx),
             self.img_height,
             self.img_width,
         )

@@ -76,7 +76,7 @@ MODEL_SPLIT_MAP = {
 
 # Hugging face repo name and url
 HF_REPO_NAME = "meta-llama/Llama-2-7b-chat-hf"
-HF_REPO_URL = "https://huggingface.co/meta-llama/Llama-2-7b-chat-hf"
+HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
 # TODO: #10762 should reduce once AIMET export consumes less memory during export.

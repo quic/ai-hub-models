@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import cast
 
 from qai_hub_models.configs.info_yaml import MODEL_DOMAIN, MODEL_TAG, MODEL_USE_CASE
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import (
     for_each_scorecard_path_and_device,
@@ -21,6 +21,10 @@ from qai_hub_models.scorecard.results.performance_summary import (
     ModelCompileSummary,
     ModelInferenceSummary,
     ModelPerfSummary,
+    ModelPrecisionCompileSummary,
+    ModelPrecisionInferenceSummary,
+    ModelPrecisionPerfSummary,
+    ModelPrecisionQuantizeSummary,
     ModelQuantizeSummary,
     ScorecardJobTypeVar,
 )
@@ -49,7 +53,7 @@ class ResultsSpreadsheet(list):
     class Entry:
         model_id: str
         component_id: str | None
-        quantized: bool
+        precision: Precision
         chipset: str
         runtime: TargetRuntime
         quantize_status: str
@@ -176,7 +180,7 @@ class ResultsSpreadsheet(list):
 
     def append_model_summary_entries(
         self,
-        is_quantized: bool,
+        precisions: list[Precision],
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -184,7 +188,7 @@ class ResultsSpreadsheet(list):
     ):
         self.extend(
             ResultsSpreadsheet.get_model_summary_entries(
-                is_quantized,
+                precisions,
                 quantize_summary,
                 compile_summary,
                 profile_summary,
@@ -212,7 +216,7 @@ class ResultsSpreadsheet(list):
 
     @staticmethod
     def get_model_summary_entries(
-        is_quantized: bool,
+        precisions: list[Precision],
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -232,39 +236,94 @@ class ResultsSpreadsheet(list):
             profile_summary,
             inference_summary,
         ]:
-            if summary and not base_summary.is_same_model(summary):
-                raise ValueError("Summaries do not point to the same model definition.")
+            for precision in precisions:
+                if summary and (
+                    precision not in base_summary.summaries_per_precision
+                    or precision not in summary.summaries_per_precision
+                    or not base_summary.summaries_per_precision[
+                        precision
+                    ].is_same_model(summary.summaries_per_precision[precision])
+                ):
+                    raise ValueError(
+                        "Summaries do not point to the same model definition."
+                    )
 
-        # Extract model and component ids
-        model_id = base_summary.model_id
-        component_ids = base_summary.component_ids
+        def create_entry(
+            precision: Precision, path: ScorecardProfilePath, device: ScorecardDevice
+        ):
+            nonlocal base_summary
+            assert base_summary
+            base_precision_summary = base_summary.summaries_per_precision[precision]
+            nonlocal quantize_summary
+            quantize_precision_summary = (
+                quantize_summary.summaries_per_precision[precision]
+                if quantize_summary
+                else None
+            )
+            nonlocal compile_summary
+            compile_precision_summary = (
+                compile_summary.summaries_per_precision[precision]
+                if compile_summary
+                else None
+            )
+            nonlocal profile_summary
+            profile_precision_summary = (
+                profile_summary.summaries_per_precision[precision]
+                if profile_summary
+                else None
+            )
+            nonlocal inference_summary
+            inference_precision_summary = (
+                inference_summary.summaries_per_precision[precision]
+                if inference_summary
+                else None
+            )
 
-        # Create empty summaries if a relevant summary is not passed.
-        # Empty summaries will always return "skipped" jobs when queried for runs.
-        quantize_summary = quantize_summary or ModelQuantizeSummary(
-            model_id, None, {x: {} for x in component_ids}
-        )
-        compile_summary = compile_summary or ModelCompileSummary(
-            model_id, None, {x: {} for x in component_ids}
-        )
-        profile_summary = profile_summary or ModelPerfSummary(
-            model_id, None, {x: {} for x in component_ids}
-        )
-        inference_summary = inference_summary or ModelInferenceSummary(
-            model_id, None, {x: {} for x in component_ids}
-        )
+            # Extract model and component ids
+            model_id = base_precision_summary.model_id
+            component_ids = base_precision_summary.component_ids
 
-        def create_entry(path: ScorecardProfilePath, device: ScorecardDevice):
+            # Create empty summaries if a relevant summary is not passed.
+            # Empty summaries will always return "skipped" jobs when queried for runs.
+            quantize_precision_summary = (
+                quantize_precision_summary
+                or ModelPrecisionQuantizeSummary(
+                    model_id, precision, None, {x: {} for x in component_ids}
+                )
+            )
+            compile_precision_summary = (
+                compile_precision_summary
+                or ModelPrecisionCompileSummary(
+                    model_id, precision, None, {x: {} for x in component_ids}
+                )
+            )
+            profile_precision_summary = (
+                profile_precision_summary
+                or ModelPrecisionPerfSummary(
+                    model_id, precision, None, {x: {} for x in component_ids}
+                )
+            )
+            inference_precision_summary = (
+                inference_precision_summary
+                or ModelPrecisionInferenceSummary(
+                    model_id, precision, None, {x: {} for x in component_ids}
+                )
+            )
+
             for component_id in component_ids:
                 # Get job for this path + device + component combo
-                quantize_job = quantize_summary.get_run(
+                quantize_job = quantize_precision_summary.get_run(
+                    device, None, component_id
+                )
+                compile_job = compile_precision_summary.get_run(
                     device, path.compile_path, component_id
                 )
-                compile_job = compile_summary.get_run(
-                    device, path.compile_path, component_id
+                profile_job = profile_precision_summary.get_run(
+                    device, path, component_id
                 )
-                profile_job = profile_summary.get_run(device, path, component_id)
-                inference_job = inference_summary.get_run(device, path, component_id)
+                inference_job = inference_precision_summary.get_run(
+                    device, path, component_id
+                )
 
                 def _get_url_and_status(
                     sjob: ScorecardJobTypeVar,
@@ -297,7 +356,7 @@ class ResultsSpreadsheet(list):
                 entry = ResultsSpreadsheet.Entry(
                     model_id=model_id,
                     component_id=component_id if component_id != model_id else None,
-                    quantized=is_quantized,
+                    precision=precision,
                     chipset=device.chipset,
                     runtime=path.runtime,
                     quantize_status=quantize_status,
@@ -316,9 +375,9 @@ class ResultsSpreadsheet(list):
                 entries.append(entry)
 
         for_each_scorecard_path_and_device(
-            is_quantized,
             ScorecardProfilePath,
             create_entry,
+            precisions,
             exclude_devices=[cs_universal],
             include_mirror_devices=True,
         )

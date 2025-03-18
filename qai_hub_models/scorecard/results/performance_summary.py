@@ -8,6 +8,7 @@ import pprint
 from collections.abc import Iterable
 from typing import Any, Generic, TypeVar, Union
 
+from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
@@ -25,7 +26,7 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     ProfileScorecardJob,
     QuantizeScorecardJob,
     ScorecardJobTypeVar,
-    ScorecardPathTypeVar,
+    ScorecardPathOrNoneTypeVar,
 )
 
 # Caching this information is helpful because it requires pulling data from hub.
@@ -59,45 +60,80 @@ def get_reference_device_info(device: ScorecardDevice) -> dict[str, str]:
     return __REFERENCE_DEVICE_INFO_PER_CHIPSET[chipset]
 
 
-class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathTypeVar]):
+# This file defines summary mappings for scorecard jobs.
+# This is the hierarchy of base classes:
+#
+# Python Dict
+# Summary mapping for a single model ID.
+#   map<model_id: ScorecardModelSummary>
+#
+#       ScorecardModelSummary
+#         Summary for all precisions available for a model.
+#         map<Precision: ScorecardModelPrecisionSummary>
+#
+#            ScorecardModelPrecisionSummary
+#              Summary for all model components with a specific QDQ spec.
+#              (If no components, a single "component name" is stored in the map.
+#               This "component name" is the model ID.)
+#              map<Component Name: map<ScorecardDevice: ScorecardDeviceSummary>>
+#
+#                   ScorecardDeviceSummary
+#                     Summary for one model component targeting a specific QDQ spec and device.
+#                     map<ScorecardPath: ScorecardJob>
+#
+#                         ScorecardJob
+#                           Job for one scorecard path / device / model component / QDQ spec / model ID.
+#
+#
+# Each base class has one child class per supported job type. The supported job types are:
+#   QuantizeJob (only ScorecardCompilePath.ONNX is supported)
+#   CompileJob (mapped by ScorecardCompilePath)
+#   ProfileJob (mapped by ScorecardProfilePath)
+#   InferenceJob (mapped by ScorecardProfilePath)
+
+
+class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar]):
     scorecard_job_type: type[ScorecardJobTypeVar]
 
     def __init__(
         self,
         model_id: str,
+        precision: Precision,
         device: ScorecardDevice,
         run_per_path: dict[
-            ScorecardPathTypeVar, ScorecardJobTypeVar
+            ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar
         ],  # Map<path, Summary>
     ):
         self.model_id = model_id
+        self.precision = precision
         self.device = device
         self.run_per_path: dict[
-            ScorecardPathTypeVar, ScorecardJobTypeVar
+            ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar
         ] = run_per_path
 
     @classmethod
     def from_runs(
         cls: type[_DeviceSummaryTypeVar],
         model_id: str,
+        precision: Precision,
         device: ScorecardDevice,
         path_runs: list[ScorecardJobTypeVar],
     ):
         # Figure out unique devices in various baselines
-        run_per_path: dict[ScorecardPathTypeVar, ScorecardJobTypeVar] = {}
+        run_per_path: dict[ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar] = {}
         for run in path_runs:
             assert run._device == device  # Device should match
             run_per_path[run.path] = run  # type: ignore[index]
 
-        return cls(model_id, device, run_per_path)
+        return cls(model_id, precision, device, run_per_path)
 
-    def get_run(self, path: ScorecardPathTypeVar) -> ScorecardJobTypeVar:
+    def get_run(self, path: ScorecardPathOrNoneTypeVar) -> ScorecardJobTypeVar:
         if x := self.run_per_path.get(path):
             return x
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, None, self.device, False, None, path  # type: ignore[arg-type]
+            self.model_id, self.precision, None, self.device, False, None, path  # type: ignore[arg-type]
         )
 
 
@@ -112,8 +148,8 @@ DeviceSummaryTypeVar = TypeVar(
 )
 
 
-class ScorecardModelSummary(
-    Generic[DeviceSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathTypeVar]
+class ScorecardModelPrecisionSummary(
+    Generic[DeviceSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar]
 ):
     device_summary_type: type[DeviceSummaryTypeVar]
     scorecard_job_type: type[ScorecardJobTypeVar]
@@ -128,7 +164,7 @@ class ScorecardModelSummary(
         """
         return self.runs_per_component_device.keys()
 
-    def is_same_model(self, other: ScorecardModelSummary) -> bool:
+    def is_same_model(self, other: ScorecardModelPrecisionSummary) -> bool:
         """Returns true if this summary and the provided summary map to the same model definition."""
         return self.model_id == other.model_id and set(self.component_ids) == set(
             other.component_ids
@@ -137,6 +173,7 @@ class ScorecardModelSummary(
     def __init__(
         self,
         model_id: str,
+        precision: Precision,
         runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None = None,
         runs_per_component_device: dict[
             str, dict[ScorecardDevice, DeviceSummaryTypeVar]
@@ -144,11 +181,14 @@ class ScorecardModelSummary(
         | None = None,
     ):
         """
-        Create a Summary for a single Scorecard Model.
+        Create a Summary for a Scorecard Model with a specific Precision.
 
         Parameters:
             model_id: str
                 Model ID.
+
+            precision: Precision
+                Model quantization scheme.
 
             runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None
                 Set if the model does not have components.
@@ -162,6 +202,7 @@ class ScorecardModelSummary(
             )
 
         self.model_id = model_id
+        self.precision = precision
         self.has_components = runs_per_component_device is not None
         self.runs_per_component_device: dict[
             str, dict[ScorecardDevice, DeviceSummaryTypeVar]
@@ -177,8 +218,9 @@ class ScorecardModelSummary(
 
     @classmethod
     def from_runs(
-        cls: type[_ModelSummaryTypeVar],
+        cls: type[_ModelPrecisionSummaryTypeVar],
         model_id: str,
+        precision: Precision,
         path_runs: list[ScorecardJobTypeVar],
         components: list[str] | None = None,
     ):
@@ -194,19 +236,21 @@ class ScorecardModelSummary(
                     component_dict[run._device] = job_list
                     job_list.append(run)
             summaries_per_device_component[component_id] = {
-                device: cls.device_summary_type.from_runs(model_id, device, runs)
+                device: cls.device_summary_type.from_runs(
+                    model_id, precision, device, runs
+                )
                 for device, runs in component_dict.items()
             }
 
         if components is None:
-            return cls(model_id, summaries_per_device_component[model_id])
+            return cls(model_id, precision, summaries_per_device_component[model_id])
         else:
-            return cls(model_id, None, summaries_per_device_component)
+            return cls(model_id, precision, None, summaries_per_device_component)
 
     def get_run(
         self,
         device: ScorecardDevice,
-        path: ScorecardPathTypeVar,
+        path: ScorecardPathOrNoneTypeVar,
         component: str | None = None,
     ) -> ScorecardJobTypeVar:
         """
@@ -214,7 +258,7 @@ class ScorecardModelSummary(
 
         Parameters:
             device: ScorecardDevice
-            path: ScorecardPathTypeVar
+            path: ScorecardPathOrNoneTypeVar
             component: str | None
                 To make writing helper functions easier, users may pass component == model_id if this model does not have components.
         """
@@ -234,7 +278,97 @@ class ScorecardModelSummary(
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, None, device, False, None, path  # type: ignore[arg-type]
+            self.model_id, self.precision, None, device, False, None, path  # type: ignore[arg-type]
+        )
+
+
+_ModelPrecisionSummaryTypeVar = TypeVar(
+    "_ModelPrecisionSummaryTypeVar", bound=ScorecardModelPrecisionSummary
+)
+# Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
+ModelPrecisionSummaryTypeVar = TypeVar(
+    "ModelPrecisionSummaryTypeVar",
+    "ModelPrecisionPerfSummary",
+    "ModelPrecisionQuantizeSummary",
+    "ModelPrecisionCompileSummary",
+    "ModelPrecisionInferenceSummary",
+)
+
+
+class ScorecardModelSummary(
+    Generic[
+        ModelPrecisionSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar
+    ]
+):
+    model_summary_type: type[ModelPrecisionSummaryTypeVar]
+    scorecard_job_type: type[ScorecardJobTypeVar]
+
+    def __init__(
+        self,
+        model_id: str,
+        summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar],
+    ):
+        """
+        Create a Summary for a single Scorecard Model.
+
+        Parameters:
+            model_id: str
+                Model ID.
+
+            summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
+                Summary per precision.
+        """
+        self.model_id = model_id
+        self.summaries_per_precision: dict[
+            Precision, ModelPrecisionSummaryTypeVar
+        ] = summaries_per_precision
+
+    @classmethod
+    def from_runs(
+        cls: type[_ModelSummaryTypeVar],
+        model_id: str,
+        runs: list[ScorecardJobTypeVar],
+        components: list[str] | None = None,
+    ):
+        summaries_per_precision: dict[Precision, list[ScorecardJobTypeVar]] = {}
+        for run in runs:
+            if run.precision in summaries_per_precision:
+                summaries_per_precision[run.precision].append(run)
+            else:
+                summaries_per_precision[run.precision] = [run]
+
+        return cls(
+            model_id,
+            {
+                precision: cls.model_summary_type.from_runs(
+                    model_id, precision, runs, components
+                )
+                for precision, runs in summaries_per_precision.items()
+            },
+        )
+
+    def get_run(
+        self,
+        precision: Precision,
+        device: ScorecardDevice,
+        path: ScorecardPathOrNoneTypeVar,
+        component: str | None = None,
+    ) -> ScorecardJobTypeVar:
+        """
+        Get a scorecard job matching these parameters.
+
+        Parameters:
+            device: ScorecardDevice
+            path: ScorecardPathOrNoneTypeVar
+            component: str | None
+                To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+        """
+        if model_summary := self.summaries_per_precision.get(precision):
+            return model_summary.get_run(device, path, component)  # type: ignore[arg-type,return-value]
+
+        # Create a "Skipped" run to return
+        return self.__class__.scorecard_job_type(
+            self.model_id, precision, None, device, False, None, path  # type: ignore[arg-type]
         )
 
 
@@ -247,6 +381,12 @@ ModelSummaryTypeVar = TypeVar(
     "ModelCompileSummary",
     "ModelInferenceSummary",
 )
+
+
+# --------------------------------------
+#
+# Profile Job Summary Classes
+#
 
 
 class DevicePerfSummary(
@@ -288,8 +428,10 @@ class DevicePerfSummary(
         return pprint.pformat(self.get_perf_card())
 
 
-class ModelPerfSummary(
-    ScorecardModelSummary[DevicePerfSummary, ProfileScorecardJob, ScorecardProfilePath]
+class ModelPrecisionPerfSummary(
+    ScorecardModelPrecisionSummary[
+        DevicePerfSummary, ProfileScorecardJob, ScorecardProfilePath
+    ]
 ):
     device_summary_type = DevicePerfSummary
     scorecard_job_type = ProfileScorecardJob
@@ -408,25 +550,59 @@ class ModelPerfSummary(
         return pprint.pformat(self.get_perf_card())
 
 
-class DeviceQuantizeSummary(
-    ScorecardDeviceSummary[QuantizeScorecardJob, ScorecardCompilePath]
+class ModelPerfSummary(
+    ScorecardModelSummary[
+        ModelPrecisionPerfSummary, ProfileScorecardJob, ScorecardProfilePath
+    ]
 ):
+    model_summary_type = ModelPrecisionPerfSummary
+    scorecard_job_type = ProfileScorecardJob
+
+    def get_perf_card(
+        self,
+        include_failed_jobs: bool = True,
+        include_internal_devices: bool = True,
+        exclude_paths: Iterable[ScorecardProfilePath] = [],
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
+        model_name: str | None = None,
+    ) -> dict[str, str | list[Any] | dict[str, Any]]:
+        perf_card_all_precisions: dict[str, dict] = {}
+
+        for precision, summary in self.summaries_per_precision.items():
+            perf_card_all_precisions[str(precision)] = summary.get_perf_card(
+                include_failed_jobs,
+                include_internal_devices,
+                exclude_paths,
+                exclude_form_factors,
+                model_name,
+            )
+
+        # TODO(#13765) Save non-default precisions in the perf card.
+        return perf_card_all_precisions[
+            str(next(iter(self.summaries_per_precision.keys())))
+        ]
+
+    def __repr__(self):
+        return pprint.pformat(self.get_perf_card())
+
+
+# --------------------------------------
+#
+# Quantize Job Summary Classes
+#
+
+
+class DeviceQuantizeSummary(ScorecardDeviceSummary[QuantizeScorecardJob, None]):
     scorecard_job_type = QuantizeScorecardJob
 
-    def get_run(self, path: ScorecardCompilePath) -> QuantizeScorecardJob:
-        return super().get_run(ScorecardCompilePath.ONNX)
+    def get_run(
+        self, path: ScorecardCompilePath | ScorecardProfilePath | None
+    ) -> QuantizeScorecardJob:
+        return super().get_run(None)
 
 
-class DeviceCompileSummary(
-    ScorecardDeviceSummary[CompileScorecardJob, ScorecardCompilePath]
-):
-    scorecard_job_type = CompileScorecardJob
-
-
-class ModelQuantizeSummary(
-    ScorecardModelSummary[
-        DeviceQuantizeSummary, QuantizeScorecardJob, ScorecardCompilePath
-    ]
+class ModelPrecisionQuantizeSummary(
+    ScorecardModelPrecisionSummary[DeviceQuantizeSummary, QuantizeScorecardJob, None]
 ):
     device_summary_type = DeviceQuantizeSummary
     scorecard_job_type = QuantizeScorecardJob
@@ -434,14 +610,40 @@ class ModelQuantizeSummary(
     def get_run(
         self,
         device: ScorecardDevice,
-        path: ScorecardCompilePath,
+        path: ScorecardCompilePath | ScorecardProfilePath | None,
         component: str | None = None,
     ) -> QuantizeScorecardJob:
-        return super().get_run(cs_universal, ScorecardCompilePath.ONNX, component)
+        return super().get_run(cs_universal, None, component)
 
 
-class ModelCompileSummary(
-    ScorecardModelSummary[
+class ModelQuantizeSummary(
+    ScorecardModelSummary[ModelPrecisionQuantizeSummary, InferenceScorecardJob, None]
+):
+    model_summary_type = ModelPrecisionQuantizeSummary
+    scorecard_job_type = InferenceScorecardJob
+
+
+# --------------------------------------
+#
+# Compile Job Summary Classes
+#
+
+
+class DeviceCompileSummary(
+    ScorecardDeviceSummary[CompileScorecardJob, ScorecardCompilePath]
+):
+    scorecard_job_type = CompileScorecardJob
+
+    def get_run(
+        self, path: ScorecardCompilePath | ScorecardProfilePath
+    ) -> CompileScorecardJob:
+        if isinstance(path, ScorecardProfilePath):
+            path = path.compile_path
+        return super().get_run(path)
+
+
+class ModelPrecisionCompileSummary(
+    ScorecardModelPrecisionSummary[
         DeviceCompileSummary, CompileScorecardJob, ScorecardCompilePath
     ]
 ):
@@ -451,10 +653,12 @@ class ModelCompileSummary(
     def get_run(
         self,
         device: ScorecardDevice,
-        path: ScorecardCompilePath,
+        path: ScorecardCompilePath | ScorecardProfilePath,
         component: str | None = None,
         universal_device_fallback: bool = True,
     ) -> CompileScorecardJob:
+        if isinstance(path, ScorecardProfilePath):
+            path = path.compile_path
         run = super().get_run(device, path, component)
         if (
             universal_device_fallback
@@ -465,16 +669,40 @@ class ModelCompileSummary(
         return run
 
 
+class ModelCompileSummary(
+    ScorecardModelSummary[
+        ModelPrecisionCompileSummary, InferenceScorecardJob, ScorecardProfilePath
+    ]
+):
+    model_summary_type = ModelPrecisionCompileSummary
+    scorecard_job_type = InferenceScorecardJob
+
+
+# --------------------------------------
+#
+# Inference Job Summary Classes
+#
+
+
 class DeviceInferenceSummary(
     ScorecardDeviceSummary[InferenceScorecardJob, ScorecardProfilePath]
 ):
     scorecard_job_type = InferenceScorecardJob
 
 
-class ModelInferenceSummary(
-    ScorecardModelSummary[
+class ModelPrecisionInferenceSummary(
+    ScorecardModelPrecisionSummary[
         DeviceInferenceSummary, InferenceScorecardJob, ScorecardProfilePath
     ]
 ):
     device_summary_type = DeviceInferenceSummary
+    scorecard_job_type = InferenceScorecardJob
+
+
+class ModelInferenceSummary(
+    ScorecardModelSummary[
+        ModelPrecisionInferenceSummary, InferenceScorecardJob, ScorecardProfilePath
+    ]
+):
+    model_summary_type = ModelPrecisionInferenceSummary
     scorecard_job_type = InferenceScorecardJob

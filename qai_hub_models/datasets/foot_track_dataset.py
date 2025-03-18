@@ -91,8 +91,10 @@ class FootTrackDataset(BaseDataset):
             boxes = F.pad(boxes, (0, 0, 0, self.max_boxes - num_boxes), value=0)
             labels = F.pad(labels, (0, self.max_boxes - num_boxes), value=0)
 
+        image_id = abs(hash(str(image_path.name[:-4]))) % (10**8)
+
         return image_tensor, (
-            str(image_path.name[:-4]),
+            image_id,
             self.img_height,
             self.img_width,
             boxes,

@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -13,48 +14,59 @@ from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
-from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathTypeVar
+from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
 
 
 def for_each_scorecard_path_and_device(
-    model_is_quantized: bool,
-    path_type: type[ScorecardPathTypeVar],
-    callback: Callable[[ScorecardPathTypeVar, ScorecardDevice], None],
-    include_paths: list[ScorecardPathTypeVar] | None = None,
+    path_type: type[ScorecardPathOrNoneTypeVar],
+    callback: Callable[[Precision, ScorecardPathOrNoneTypeVar, ScorecardDevice], None],
+    precisions: list[Precision] = [Precision.float],
+    include_paths: list[ScorecardPathOrNoneTypeVar] | None = None,
     include_devices: list[ScorecardDevice] | None = None,
-    exclude_paths: list[ScorecardPathTypeVar] | None = None,
+    exclude_paths: list[ScorecardPathOrNoneTypeVar] | None = None,
     exclude_devices: list[ScorecardDevice] | None = None,
     include_mirror_devices: bool = False,
 ):
+    for precision in precisions:
+        if path_type is not type(None) and path_type is not None:
+            all_paths = path_type.all_paths(enabled=True, supports_precision=precision)  # type: ignore[attr-defined]
+        else:
+            all_paths = [None]  # type: ignore[list-item]
 
-    for path in path_type.all_paths(
-        enabled=True,
-        supports_precision=(Precision.w8a8 if model_is_quantized else Precision.float),
-    ):
-        if include_paths and path not in include_paths:
-            continue
-        if exclude_paths and path in exclude_paths:
-            continue
-
-        for device in ScorecardDevice.all_devices(
-            enabled=True,
-            npu_supports_precision=(
-                Precision.w8a8 if model_is_quantized else Precision.float
-            ),
-            supports_compile_path=path
-            if isinstance(path, ScorecardCompilePath)
-            else None,
-            supports_profile_path=path
-            if isinstance(path, ScorecardProfilePath)
-            else None,
-            is_mirror=None if include_mirror_devices else False,
-        ):
-            if include_devices and device not in include_devices:
+        for path in all_paths:
+            if include_paths and path not in include_paths:
                 continue
-            if exclude_devices and device in exclude_devices:
+            if exclude_paths and path in exclude_paths:
                 continue
 
-            callback(path, device)  # pyright: ignore[reportArgumentType]
+            for device in ScorecardDevice.all_devices(
+                enabled=True,
+                npu_supports_precision=precision,
+                supports_compile_path=path
+                if isinstance(path, ScorecardCompilePath)
+                else None,
+                supports_profile_path=path
+                if isinstance(path, ScorecardProfilePath)
+                else None,
+                is_mirror=None if include_mirror_devices else False,
+            ):
+                if include_devices and device not in include_devices:
+                    continue
+                if exclude_devices and device in exclude_devices:
+                    continue
+
+                callback(precision, path, device)  # type: ignore[arg-type]
+
+
+def get_precisions_or_override_precisions(precisions: list[Precision]):
+    """
+    If the list of precisions is overridden globally via QAIHM_TEST_PRECISIONS, return that list of precisions.
+    Otherwise return the passed in list of precisions.
+    """
+    precisions_envstr = os.getenv("QAIHM_TEST_PRECISIONS", "DEFAULT")
+    if precisions_envstr == "DEFAULT":
+        return precisions
+    return [Precision.from_string(p.strip()) for p in precisions_envstr.split(",")]
 
 
 def pytest_device_idfn(val):
@@ -79,6 +91,13 @@ def pytest_device_idfn(val):
         return str(val)
 
 
+def get_quantize_parameterized_pytest_config(
+    precisions: list[Precision] = [Precision.float],
+) -> list[Precision]:
+    precisions = get_precisions_or_override_precisions(precisions)
+    return [x for x in precisions if not x.has_float_activations]
+
+
 def get_compile_parameterized_pytest_config(
     precisions: list[Precision] = [Precision.float],
 ) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
@@ -86,6 +105,7 @@ def get_compile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]] = []
+    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_paths(
@@ -120,6 +140,7 @@ def get_profile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
+    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
@@ -155,6 +176,7 @@ def get_evaluation_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
+    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
@@ -184,6 +206,7 @@ def get_async_job_cache_name(
     path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None,
     model_id: str,
     device: ScorecardDevice,
+    precision: Precision = Precision.float,
     component: Optional[str] = None,
 ) -> str:
     """
@@ -193,10 +216,12 @@ def get_async_job_cache_name(
         path: Applicable scorecard path
         model_id: The ID of the QAIHM model being tested
         device: The targeted device
+        precision: The precision in which this model is running
         component: The name of the model component being tested, if applicable
     """
     return (
         f"{model_id}"
+        + ("_" + str(precision) if not precision == Precision.float else "")
         + ("_" + path.name if path else "")
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")

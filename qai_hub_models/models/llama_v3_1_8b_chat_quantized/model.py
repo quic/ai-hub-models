@@ -25,7 +25,7 @@ NUM_LAYERS_PER_SPLIT = 9
 
 # Hugging face repo name and url
 HF_REPO_NAME = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-HF_REPO_URL = f"https://huggingface.co/meta-llama/{HF_REPO_NAME}"
+HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 80

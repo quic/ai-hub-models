@@ -70,10 +70,10 @@ def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
     yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
     if yaml_path.exists():
         with open(yaml_path) as f:
-            field = f"{field_name}: "
+            field = f"{field_name}:"
             for line in f.readlines():
                 if line.startswith(field):
-                    return line[len(field) : -1].strip("'").strip('"')
+                    return line[len(field) : -1].strip("'").strip('"').strip()
 
     return None
 
@@ -85,11 +85,19 @@ def can_support_aimet(platform: str = sys.platform) -> bool:
 
 
 def get_is_hub_quantized(model_name) -> bool:
-    # TODO(#13765): change this when we remove the quantized model folders
+    # TODO(#13765):
+    # - remove this when we remove the quantized model folders
+    # - add support for multiple default precisions
+    if os.environ.get("QAIHM_TEST_PRECISIONS", "DEFAULT") == "DEFAULT":
+        is_quantized_model = "quantized" in model_name.lower()
+    else:
+        is_quantized_model = True
+
     return (
-        "quantized" in model_name.lower()
+        is_quantized_model
         and not check_code_gen_field(model_name, "is_precompiled")
         and not check_code_gen_field(model_name, "is_aimet")
+        and get_code_gen_str_field(model_name, "components") is None
     )
 
 
