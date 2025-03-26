@@ -150,7 +150,7 @@ def export_model(
             )
 
         calibration_data = quantization_utils.get_calibration_data(
-            input_spec, "coco_foot_track_dataset", num_calibration_samples
+            input_spec, "foot_track_dataset", num_calibration_samples
         )
         quantize_job = hub.submit_quantize_job(
             model=onnx_compile_job.get_target_model(),

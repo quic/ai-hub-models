@@ -106,7 +106,7 @@ def print_profile_metrics_from_job(
         runtime = TargetRuntime.TFLITE
     elif is_qnn_hub_model(profile_job.model):
         runtime = TargetRuntime.QNN
-    elif profile_job.model.model_type in [SourceModelType.ORT, SourceModelType.ONNX]:
+    elif profile_job.model.model_type == SourceModelType.ONNX:
         runtime = TargetRuntime.ONNX
     else:
         raise NotImplementedError()

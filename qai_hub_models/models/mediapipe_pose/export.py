@@ -38,7 +38,6 @@ def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     components: Optional[list[str]] = None,
-    precision: Precision = Precision.float,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -70,8 +69,6 @@ def export_model(
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
-        precision: The precision to which this model should be quantized.
-            Quantization is skipped if the precision is float.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -140,10 +137,6 @@ def export_model(
         source_model = torch.jit.trace(
             component.to("cpu"), make_torch_inputs(input_spec)
         )
-
-        assert precision in [
-            Precision.float,
-        ], f"Precision {str(precision)} is not supported by {model_name}"
 
         # 2. Compiles the model to an asset that can be run on device
         model_compile_options = component.get_hub_compile_options(

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable, Mapping
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Literal, cast, overload
 
@@ -23,9 +22,6 @@ from qai_hub_models.scorecard.device import cs_universal
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardJob
 from qai_hub_models.scorecard.results.yaml import get_scorecard_job_yaml
 from qai_hub_models.utils.asset_loaders import load_yaml
-
-# If a model has many outputs, how many of them to store PSNR for
-MAX_PSNR_VALUES = 10
 
 
 def callable_side_effect(side_effects: Iterable) -> Callable:
@@ -105,19 +101,6 @@ def get_inference_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -
 
 def get_quantize_job_ids_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
     return get_artifact_filepath("quantize-jobs.yaml", artifacts_dir)
-
-
-def get_accuracy_file() -> Path:
-    filepath = get_artifact_filepath("accuracy.csv")
-    if filepath.stat().st_size == 0:
-        with open(filepath, "w") as f:
-            f.write(
-                "model_id,precision,runtime,Torch Accuracy,Sim Accuracy,Device Accuracy"
-            )
-            for i in range(MAX_PSNR_VALUES):
-                f.write(f",PSNR_{i}")
-            f.write(",date,branch\n")
-    return filepath
 
 
 def get_async_test_job_cache_path(job_type: hub.JobType) -> Path:
@@ -484,35 +467,3 @@ def get_cached_dataset_entries(
     if x := get_cached_dataset(model_id, dataset_name):
         return cast(DatasetEntries, x.download())
     return None
-
-
-def get_job_date(artifacts_dir: os.PathLike | str | None = None) -> str:
-    date_file = get_artifact_filepath("date.txt", artifacts_dir)
-    if date_file.stat().st_size == 0:
-        curr_date = datetime.today().strftime("%Y-%m-%d")
-        with open(date_file, "w") as f:
-            f.write(curr_date)
-        return curr_date
-    with open(date_file) as f:
-        return f.read()
-
-
-def write_accuracy(
-    model_name: str,
-    precision: Precision,
-    runtime: TargetRuntime,
-    psnr_values: list[str],
-    torch_accuracy: float | None = None,
-    device_accuracy: float | None = None,
-    sim_accuracy: float | None = None,
-) -> None:
-    line = f"{model_name},{str(precision)},{runtime.name.lower()},"
-    line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
-    line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
-    line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","
-    if len(psnr_values) >= MAX_PSNR_VALUES:
-        line += ",".join(psnr_values[:10])
-    else:
-        line += ",".join(psnr_values) + "," * (MAX_PSNR_VALUES - len(psnr_values))
-    line += f",{get_job_date()},main"
-    append_line_to_file(get_accuracy_file(), line)

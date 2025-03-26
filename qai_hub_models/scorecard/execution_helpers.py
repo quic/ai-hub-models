@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -58,17 +57,6 @@ def for_each_scorecard_path_and_device(
                 callback(precision, path, device)  # type: ignore[arg-type]
 
 
-def get_precisions_or_override_precisions(precisions: list[Precision]):
-    """
-    If the list of precisions is overridden globally via QAIHM_TEST_PRECISIONS, return that list of precisions.
-    Otherwise return the passed in list of precisions.
-    """
-    precisions_envstr = os.getenv("QAIHM_TEST_PRECISIONS", "DEFAULT")
-    if precisions_envstr == "DEFAULT":
-        return precisions
-    return [Precision.from_string(p.strip()) for p in precisions_envstr.split(",")]
-
-
 def pytest_device_idfn(val):
     """
     Pytest generates test titles based on the parameterization of each test.
@@ -91,13 +79,6 @@ def pytest_device_idfn(val):
         return str(val)
 
 
-def get_quantize_parameterized_pytest_config(
-    precisions: list[Precision] = [Precision.float],
-) -> list[Precision]:
-    precisions = get_precisions_or_override_precisions(precisions)
-    return [x for x in precisions if not x.has_float_activations]
-
-
 def get_compile_parameterized_pytest_config(
     precisions: list[Precision] = [Precision.float],
 ) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
@@ -105,7 +86,6 @@ def get_compile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]] = []
-    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardCompilePath] = ScorecardCompilePath.all_paths(
@@ -140,7 +120,6 @@ def get_profile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
-    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(
@@ -176,7 +155,6 @@ def get_evaluation_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     ret: list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]] = []
-    precisions = get_precisions_or_override_precisions(precisions)
 
     for precision in precisions:
         path_list: list[ScorecardProfilePath] = ScorecardProfilePath.all_paths(

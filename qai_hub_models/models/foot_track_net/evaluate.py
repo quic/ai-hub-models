@@ -16,7 +16,7 @@ from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
-SUPPORTED_DATASETS = ["coco_foot_track_dataset"]
+SUPPORTED_DATASETS = ["foot_track_dataset", "coco_foot_track_dataset"]
 
 
 def main():

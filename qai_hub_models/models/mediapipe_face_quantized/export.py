@@ -36,7 +36,6 @@ def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     components: Optional[list[str]] = None,
-    precision: Precision = Precision.w8a8,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -68,8 +67,6 @@ def export_model(
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
             Defaults to ALL_COMPONENTS if not specified.
-        precision: The precision to which this model should be quantized.
-            Quantization is skipped if the precision is float.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -138,10 +135,6 @@ def export_model(
         source_model = component.convert_to_hub_source_model(
             target_runtime, output_path, input_spec
         )
-
-        assert precision in [
-            Precision.w8a8,
-        ], f"Precision {str(precision)} is not supported by {model_name}"
 
         # 2. Compiles the model to an asset that can be run on device
         model_compile_options = component.get_hub_compile_options(

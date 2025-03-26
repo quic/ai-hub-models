@@ -21,11 +21,7 @@ from qai_hub_models.scorecard import (
     ScorecardProfilePath,
 )
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.evaluate import (
-    evaluate_on_dataset,
-    get_qdq_onnx,
-    get_torch_val_dataloader,
-)
+from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,
@@ -34,6 +30,7 @@ from qai_hub_models.utils.testing import (
     mock_get_calibration_data,
     mock_on_device_model_call,
     mock_tabulate_fn,
+    write_accuracy,
 )
 from qai_hub_models.utils.testing_async_utils import (
     assert_success_or_cache_job,
@@ -44,7 +41,6 @@ from qai_hub_models.utils.testing_async_utils import (
     get_dataset_ids_file,
     is_hub_testing_async,
     str_with_async_test_metadata,
-    write_accuracy,
 )
 
 ExportFunc = Union[  # type:ignore[valid-type]
@@ -303,7 +299,6 @@ def quantize_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
-                precision=precision,
                 skip_downloading=True,
                 skip_compiling=True,
                 skip_profiling=True,
@@ -383,7 +378,6 @@ def compile_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
-                precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
                 skip_inferencing=True,
@@ -465,7 +459,6 @@ def profile_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
-                precision=precision,
                 skip_downloading=True,
                 skip_profiling=False,
                 skip_inferencing=True,
@@ -548,7 +541,6 @@ def inference_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
-                precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
                 skip_inferencing=False,
@@ -627,7 +619,6 @@ def export_test_e2e(
         export_model(  # type:ignore[misc]
             device=device.execution_device_name,
             chipset=device.chipset,
-            precision=precision,
             skip_downloading=True,
             compile_options=scorecard_path.compile_path.get_compile_options(),
             target_runtime=scorecard_path.runtime,
@@ -873,12 +864,11 @@ def accuracy_on_sample_inputs_via_export(
     with calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
-            precision=precision,
             skip_downloading=True,
             skip_profiling=True,
         )
 
-    write_accuracy(model_id, precision, scorecard_path.runtime, psnr_values)
+    write_accuracy(model_id, scorecard_path.runtime, psnr_values)
 
 
 def accuracy_on_dataset_via_evaluate_and_export(
@@ -983,7 +973,6 @@ def accuracy_on_dataset_via_evaluate_and_export(
             split_size=num_eval_samples,
             num_samples=num_eval_samples,
             use_cache=True,
-            compute_quant_cpu_accuracy=(get_qdq_onnx(inference_job.model) is not None),
         )
 
     # Patch previous jobs
@@ -1026,17 +1015,10 @@ def accuracy_on_dataset_via_evaluate_and_export(
     ):
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
-            precision=precision,
             skip_downloading=True,
             skip_profiling=True,
         )
 
     write_accuracy(
-        model_id,
-        precision,
-        scorecard_path.runtime,
-        psnr_values,
-        torch_acc,
-        device_acc,
-        sim_acc,
+        model_id, scorecard_path.runtime, psnr_values, torch_acc, device_acc, sim_acc
     )

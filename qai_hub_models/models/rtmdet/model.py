@@ -10,7 +10,10 @@ import torch.nn.functional as F
 from mmdet.apis import init_detector
 
 from qai_hub_models.models._shared.yolo.model import Yolo
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -43,7 +46,7 @@ class RTMDet(Yolo):
         rather than a public weights file"""
 
         model = _load_rtmdet_source_model_from_weights(
-            str(MODEL_CONFIG_PATH), str(MODEL_LOCAL_PATH)
+            MODEL_CONFIG_PATH, MODEL_LOCAL_PATH
         )
         return cls(model, include_postprocessing)
 
@@ -99,8 +102,32 @@ class RTMDet(Yolo):
             return result_box
         boxes = result_box[:, :, :4]
         scores = result_box[:, :, 5]
-        class_idx = result_box[:, :, 4]
-        return boxes, scores, class_idx.to(torch.int8)
+        class_idx = result_box[:, :, 4:5]
+        return boxes, scores, class_idx
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        image_address = CachedWebModelAsset.from_asset_store(
+            "yolov7", 1, "yolov7_demo_640.jpg"
+        )
+        image = load_image(image_address)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    @staticmethod
+    def get_input_spec(
+        batch_size: int = 1,
+        height: int = 640,
+        width: int = 640,
+    ) -> InputSpec:
+        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
+        #
+        # This can be used with the qai_hub python API to declare
+        # the model input specification upon submitting a profile job.
+        return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
     def get_output_names(include_postprocessing: bool = True) -> list[str]:
