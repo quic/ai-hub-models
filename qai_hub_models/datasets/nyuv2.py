@@ -127,3 +127,10 @@ class NyUv2Dataset(BaseDataset):
             )
         os.makedirs(self.dataset_path.parent, exist_ok=True)
         shutil.copy(self.source_dataset_file, self.dataset_path)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 100

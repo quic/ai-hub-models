@@ -4,4 +4,4 @@
 # ---------------------------------------------------------------------
 from .app import ClipApp as App  # noqa: F401
 from .model import MODEL_ID  # noqa: F401
-from .model import Clip as Model  # noqa: F401
+from .model import OpenAIClip as Model  # noqa: F401

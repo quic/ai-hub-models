@@ -22,6 +22,7 @@ from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
+    validate_precision_runtime,
 )
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.input_spec import make_torch_inputs
@@ -40,7 +41,7 @@ def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     precision: Precision = Precision.float,
-    num_calibration_samples: int = 100,
+    num_calibration_samples: int | None = None,
     skip_compiling: bool = False,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -74,7 +75,9 @@ def export_model(
         precision: The precision to which this model should be quantized.
             Quantization is skipped if the precision is float.
         num_calibration_samples: The number of calibration data samples
-            to use for quantization.
+            to use for quantization. If not set, uses the default number
+            specified by the dataset. If model doesn't have a calibration dataset
+            specified, this must be None.
         skip_compiling: If set, skips compiling model to format that can run on device.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
@@ -135,7 +138,7 @@ def export_model(
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
     quantize_job = None
     if precision != Precision.float:
-        print(f"Quantizing model {model_name} with {num_calibration_samples} samples.")
+        print(f"Quantizing model {model_name}.")
         onnx_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
@@ -150,7 +153,7 @@ def export_model(
             )
 
         calibration_data = quantization_utils.get_calibration_data(
-            input_spec, "imagenette", num_calibration_samples
+            model, input_spec, num_calibration_samples
         )
         quantize_job = hub.submit_quantize_job(
             model=onnx_compile_job.get_target_model(),
@@ -252,8 +255,23 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model, supports_onnx=False)
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+    }
+
+    parser = export_parser(
+        model_cls=Model,
+        supported_precision_runtimes=supported_precision_runtimes,
+    )
     args = parser.parse_args()
+    validate_precision_runtime(
+        supported_precision_runtimes, args.precision, args.target_runtime
+    )
     export_model(**vars(args))
 
 

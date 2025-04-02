@@ -125,6 +125,14 @@ class ImagenetClassifier(BaseModel):
     def get_channel_last_inputs() -> list[str]:
         return ["image_tensor"]
 
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["imagenet", "imagenette"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "imagenette"
+
 
 class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
     model_builder: Callable

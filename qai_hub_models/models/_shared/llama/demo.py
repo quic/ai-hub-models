@@ -17,7 +17,7 @@ from qai_hub_models.models._shared.llama.app import (
 )
 from qai_hub_models.models._shared.llama.model import (
     DEFAULT_INPUT_SEQ_LEN,
-    Llama2PretrainedCollectionModel,
+    Llama2BundledModel,
 )
 from qai_hub_models.utils.args import (
     get_model_cli_parser,
@@ -36,7 +36,7 @@ DEFAULT_USER_PROMPT = "Hi! What is 2+3?"
 
 
 def llama_chat_demo(
-    model_cls: type[Llama2PretrainedCollectionModel],
+    model_cls: type[Llama2BundledModel],
     model_id: str,
     get_model_class: Callable,
     get_input_prompt_with_tags: Callable,

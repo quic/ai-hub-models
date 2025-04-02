@@ -15,7 +15,11 @@ from qai_hub_models.utils.asset_loaders import (
     find_replace_in_repo,
     load_torch,
 )
-from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    CollectionModel,
+    PretrainedCollectionModel,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -29,41 +33,13 @@ VGG_WEIGHTS_ASSET = CachedWebModelAsset.from_asset_store(
 DEFAULT_YOLO_WEIGHTS = "yolov3-tiny.pt"
 
 
-class DeepBox(CollectionModel):
-    def __init__(
-        self,
-        yolo: Yolo2DDetection,
-        vgg: VGG3DDetection,
-    ) -> None:
-        """
-        Construct a 3D Deep-box object detection model.
-
-        # Inputs:
-        #     Yolo2DDetection: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
-        #         Hand detection model. Input is an image, output is
-        #         [bounding boxes & keypoints, box & keypoint scores]
-
-        #     VGG3DDetection
-        #         Hand landmark detector model. Input is an image cropped to the hand. The hand must be upright
-        #         and un-tilted in the frame. Returns [landmark_scores, prob_is_right_hand, landmarks]
-        """
-        super().__init__()
-        self.bbox2D_dectector = yolo
-        self.bbox3D_dectector = vgg
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        yolo_ckpt: str = DEFAULT_YOLO_WEIGHTS,
-        vgg_ckpt_path: str = "DEFAULT",
-    ) -> DeepBox:
-        yolo = Yolo2DDetection.from_pretrained(yolo_ckpt)
-        vgg_net = VGG3DDetection.from_pretrained(vgg_ckpt_path)
-        return cls(yolo, vgg_net)
-
-
 class Yolo2DDetection(YoloV3):
-    """Exportable YoloV3 bounding box detector, end-to-end."""
+    """
+    Exportable YoloV3 bounding box detector, end-to-end.
+
+    Hand detection model. Input is an image, output is
+    [bounding boxes & keypoints, box & keypoint scores]
+    """
 
     @staticmethod
     def get_input_spec(
@@ -82,8 +58,17 @@ class Yolo2DDetection(YoloV3):
     ) -> SampleInputsType:
         return super()._sample_inputs_impl(input_spec or self.get_input_spec())
 
+    @staticmethod
+    def calibration_dataset_name() -> str | None:
+        return None
+
 
 class VGG3DDetection(BaseModel):
+    """
+    Hand landmark detector model. Input is an image cropped to the hand. The hand must be upright
+    and un-tilted in the frame. Returns [landmark_scores, prob_is_right_hand, landmarks]
+    """
+
     def __init__(self, model: torch.nn.Module) -> None:
         super().__init__()
         self.model = model
@@ -138,3 +123,22 @@ class VGG3DDetection(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+
+@CollectionModel.add_component(Yolo2DDetection)
+@CollectionModel.add_component(VGG3DDetection)
+class DeepBox(PretrainedCollectionModel):
+    def __init__(self, yolo_2d_det: Yolo2DDetection, vgg_3d_det: VGG3DDetection):
+        super().__init__(yolo_2d_det, vgg_3d_det)
+        self.yolo_2d_det = yolo_2d_det
+        self.vgg_3d_det = vgg_3d_det
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        yolo_ckpt: str = DEFAULT_YOLO_WEIGHTS,
+        vgg_ckpt_path: str = "DEFAULT",
+    ) -> DeepBox:
+        yolo = Yolo2DDetection.from_pretrained(yolo_ckpt)
+        vgg_net = VGG3DDetection.from_pretrained(vgg_ckpt_path)
+        return cls(yolo, vgg_net)

@@ -38,13 +38,11 @@ class YoloV11Detector(Yolo):
         model: nn.Module,
         include_postprocessing: bool = True,
         split_output: bool = False,
-        use_quantized_postprocessing: bool = False,
     ) -> None:
         super().__init__()
         self.model = model
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
-        self.use_quantized_postprocessing = use_quantized_postprocessing
 
     @classmethod
     def from_pretrained(
@@ -52,7 +50,6 @@ class YoloV11Detector(Yolo):
         ckpt_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
-        use_quantized_postprocessing: bool = False,
     ):
         with SourceAsRoot(
             SOURCE_REPO,
@@ -80,7 +77,6 @@ class YoloV11Detector(Yolo):
                 model,
                 include_postprocessing,
                 split_output,
-                use_quantized_postprocessing,
             )
 
     def forward(self, image):
@@ -118,9 +114,7 @@ class YoloV11Detector(Yolo):
                 return boxes, scores
             return torch.cat([boxes, scores], dim=1)
 
-        boxes, scores, classes = yolo_detect_postprocess(
-            boxes, scores, self.use_quantized_postprocessing
-        )
+        boxes, scores, classes = yolo_detect_postprocess(boxes, scores)
         return boxes, scores, classes
 
     @staticmethod

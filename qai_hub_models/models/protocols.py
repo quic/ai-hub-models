@@ -142,6 +142,7 @@ class QuantizableModelProtocol(Protocol):
 T = TypeVar("T", covariant=True)
 
 
+@runtime_checkable
 class ExecutableModelProtocol(Generic[T], Protocol):
     """
     Classes follow this protocol if they are executable.

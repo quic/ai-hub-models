@@ -562,25 +562,22 @@ class ModelPerfSummary(
         self,
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
-        exclude_paths: Iterable[ScorecardProfilePath] = [],
+        exclude_paths: dict[Precision, list[ScorecardProfilePath]] = {},
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
         model_name: str | None = None,
-    ) -> dict[str, str | list[Any] | dict[str, Any]]:
+    ) -> dict[str, dict]:
         perf_card_all_precisions: dict[str, dict] = {}
 
         for precision, summary in self.summaries_per_precision.items():
             perf_card_all_precisions[str(precision)] = summary.get_perf_card(
                 include_failed_jobs,
                 include_internal_devices,
-                exclude_paths,
+                exclude_paths.get(precision, []),
                 exclude_form_factors,
                 model_name,
             )
 
-        # TODO(#13765) Save non-default precisions in the perf card.
-        return perf_card_all_precisions[
-            str(next(iter(self.summaries_per_precision.keys())))
-        ]
+        return perf_card_all_precisions
 
     def __repr__(self):
         return pprint.pformat(self.get_perf_card())

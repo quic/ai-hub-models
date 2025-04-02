@@ -25,7 +25,6 @@ def main(is_test: bool = False):
         DEFAULT_WEIGHTS,
         IMAGE_ADDRESS,
         is_test,
-        threshold=0.75,
     )
 
 

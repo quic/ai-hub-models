@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from pycocotools.cocoeval import COCOeval
+from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator

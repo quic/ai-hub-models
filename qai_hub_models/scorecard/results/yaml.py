@@ -208,6 +208,7 @@ class ScorecardJobYaml(
         self,
         model_id: str,
         precisions: list[Precision] = [Precision.float],
+        devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> list[ScorecardJobTypeVar]:
         """
@@ -230,6 +231,7 @@ class ScorecardJobYaml(
                 create_job,  # type: ignore[arg-type]
                 precisions,
                 include_mirror_devices=True,
+                include_devices=devices,
             )
 
         return model_runs
@@ -238,12 +240,13 @@ class ScorecardJobYaml(
         self,
         model_id: str,
         precisions: list[Precision] = [Precision.float],
+        devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> ModelSummaryTypeVar:
         """
         Creates a summary of all jobs related to the given model.
         """
-        runs = self.get_all_jobs(model_id, precisions, components)
+        runs = self.get_all_jobs(model_id, precisions, devices, components)
         return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore[arg-type]
 
 
@@ -283,6 +286,7 @@ class QuantizeScorecardJobYaml(
         self,
         model_id: str,
         precisions: list[Precision] = [Precision.float],
+        devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> list[QuantizeScorecardJob]:
         model_runs: list[QuantizeScorecardJob] = []
@@ -303,6 +307,21 @@ class CompileScorecardJobYaml(
     scorecard_job_type = CompileScorecardJob
     scorecard_path_type = ScorecardCompilePath
     scorecard_model_summary_type = ModelCompileSummary
+
+    def get_all_jobs(
+        self,
+        model_id: str,
+        precisions: list[Precision] = [Precision.float],
+        devices: list[ScorecardDevice] | None = None,
+        components: Iterable[str] | None = None,
+    ) -> list[CompileScorecardJob]:
+        if devices:
+            # Always include the universal device.
+            devices_set = set(devices)
+            devices_set.add(cs_universal)
+            devices = list(devices_set)
+
+        return super().get_all_jobs(model_id, precisions, devices, components)
 
     def get_job_id(
         self,

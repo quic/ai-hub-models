@@ -82,6 +82,13 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         """
         return None
 
+    @classmethod
+    def get_calibrated_aimet_model(cls) -> tuple[str, str]:
+        """
+        Returns .onnx and .encodings paths
+        """
+        raise FileNotFoundError()
+
     def quantize(
         self,
         data: _DataLoader | None = None,

@@ -2,9 +2,12 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from qai_hub_models.models._shared.video_classifier.app import (  # noqa: F401
-    KineticsClassifierApp as App,
+from qai_hub_models.models.resnet_2plus1d import MODEL_ID, App, Model  # noqa: F401
+from qai_hub_models.utils.quantization import (
+    Precision,
+    quantized_folder_deprecation_warning,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import ResNet2Plus1DQuantizable as Model  # noqa: F401
+quantized_folder_deprecation_warning(
+    "resnet_2plus1d_quantized", "resnet_2plus1d", Precision.w8a8
+)

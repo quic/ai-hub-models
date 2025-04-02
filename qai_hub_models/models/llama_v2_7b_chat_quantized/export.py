@@ -353,8 +353,7 @@ def main(argv: Optional[list[str]] = None):
     parser = export_parser(
         model_cls=Model,
         components=ALL_COMPONENTS,
-        supports_tflite=False,
-        supports_onnx=False,
+        supported_precision_runtimes={Precision.w8a16: [TargetRuntime.QNN]},
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     parser = enable_model_caching(parser)

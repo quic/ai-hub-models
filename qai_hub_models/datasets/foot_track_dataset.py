@@ -140,3 +140,10 @@ class FootTrackDataset(BaseDataset):
 
         os.makedirs(self.images_path.parent, exist_ok=True)
         extract_zip_file(self.input_data_zip, self.images_path)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 20

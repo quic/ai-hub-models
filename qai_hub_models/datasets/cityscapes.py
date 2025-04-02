@@ -44,6 +44,9 @@ CLASS_MAP = {
     33: 18,
 }
 
+HEIGHT = 1024
+WIDTH = 2048
+
 
 def class_map_lookup(key: int):
     return CLASS_MAP.get(key, -1)
@@ -59,6 +62,7 @@ class CityscapesDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_images_zip: str | None = None,
         input_gt_zip: str | None = None,
+        make_lowres: bool = False,
     ):
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             CITYSCAPES_DATASET_ID, CITYSCAPES_VERSION, "data"
@@ -68,6 +72,7 @@ class CityscapesDataset(BaseDataset):
 
         self.input_images_zip = input_images_zip
         self.input_gt_zip = input_gt_zip
+        self.make_lowres = make_lowres
         BaseDataset.__init__(self, self.data_path, split=split)
 
     def __getitem__(self, index):
@@ -75,6 +80,10 @@ class CityscapesDataset(BaseDataset):
         gt_path = self.gt_list[index]
         image = Image.open(image_path)
         gt_img = Image.open(gt_path)
+        if self.make_lowres:
+            new_size = (WIDTH // 2, HEIGHT // 2)
+            image = image.resize(new_size)
+            gt_img = gt_img.resize(new_size)
         gt = np.vectorize(class_map_lookup)(np.array(gt_img))
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
         return image_tensor, torch.tensor(gt)
@@ -96,7 +105,7 @@ class CityscapesDataset(BaseDataset):
                 if not img_path.name.endswith("leftImg8bit.png"):
                     print(f"Invalid file: {str(img_path)}")
                     return False
-                if Image.open(img_path).size != (2048, 1024):
+                if Image.open(img_path).size != (WIDTH, HEIGHT):
                     raise ValueError(Image.open(img_path).size)
                 img_count += 1
                 gt_filename = img_path.name.replace(
@@ -133,3 +142,10 @@ class CityscapesDataset(BaseDataset):
         os.makedirs(self.images_path.parent, exist_ok=True)
         extract_zip_file(self.input_images_zip, self.images_path)
         extract_zip_file(self.input_gt_zip, self.gt_path)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 50

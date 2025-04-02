@@ -124,3 +124,11 @@ class HRNetPose(BaseModel):
             return MPIIPoseEvaluator()
         else:
             return CocoBodyPoseEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cocobody", "mpii"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cocobody"

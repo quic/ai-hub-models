@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/s
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[stable-diffusion-v2-1-quantized]"
+pip install "qai-hub-models[stable-diffusion-v2-1-quantized]" -f https://qaihub-public-python-wheels.s3.us-west-2.amazonaws.com/index.html
 ```
 
 

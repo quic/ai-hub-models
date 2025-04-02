@@ -42,12 +42,15 @@ def update_code_gen_failure_reasons(
     Returns true if the config was updated, false otherwise.
     """
     model_id = compile_summary.model_id
-    compile_failures: dict[ScorecardCompilePath, dict[str, CompileScorecardJob]] = {
-        x.compile_path: {} for x in CODE_GENERATED_EXPORT_PATHS
+    compile_failures: dict[
+        Precision, dict[ScorecardCompilePath, dict[str, CompileScorecardJob]]
+    ] = {
+        p: {x.compile_path: {} for x in CODE_GENERATED_EXPORT_PATHS}
+        for p in supported_precisions
     }
-    profile_failures: dict[ScorecardProfilePath, dict[str, ProfileScorecardJob]] = {
-        x: {} for x in CODE_GENERATED_EXPORT_PATHS
-    }
+    profile_failures: dict[
+        Precision, dict[ScorecardProfilePath, dict[str, ProfileScorecardJob]]
+    ] = {p: {x: {} for x in CODE_GENERATED_EXPORT_PATHS} for p in supported_precisions}
     default_device = ScorecardDevice.get(code_gen_config.default_device)
     model_ran_in_this_scorecard: bool = False
 
@@ -67,7 +70,9 @@ def update_code_gen_failure_reasons(
                 device, path.compile_path, component_id
             )
             if compile_job.failed:
-                compile_failures[path.compile_path][component_id] = compile_job
+                compile_failures[precision][path.compile_path][
+                    component_id
+                ] = compile_job
                 model_ran_in_this_scorecard = True
             elif device == default_device:
                 # Skip model if it can't be profiled on its default device.
@@ -75,7 +80,7 @@ def update_code_gen_failure_reasons(
                     device, path, component_id
                 )
                 if profile_job.failed:
-                    profile_failures[path][component_id] = profile_job
+                    profile_failures[precision][path][component_id] = profile_job
                 if not profile_job.skipped:
                     model_ran_in_this_scorecard = True
 
@@ -87,26 +92,40 @@ def update_code_gen_failure_reasons(
     )
 
     if model_ran_in_this_scorecard:
-        for path in CODE_GENERATED_EXPORT_PATHS:
-            if failed_compile_jobs := compile_failures[path.compile_path]:
-                failures = [
-                    f"{key}:{val.job_id}" if key != model_id else str(val.job_id)
-                    for key, val in failed_compile_jobs.items()
-                ]
-                path_failure_reason = f"Compilation Failure(s): {' '.join(failures)}"
-            elif failed_profile_jobs := profile_failures[path]:
-                failures = [
-                    f"{key}:{val.job_id}" if key != model_id else str(val.job_id)
-                    for key, val in failed_profile_jobs.items()
-                ]
-                path_failure_reason = f"Profiling Failure(s): {' '.join(failures)}"
-            else:
-                path_failure_reason = ""
+        # Clean old failure reasons
+        for pmapping in code_gen_config.disabled_paths.values():
+            for reasons in pmapping.values():
+                reasons.scorecard_failure = None
 
-            setattr(
-                code_gen_config,
-                f"{path.name.lower()}_scorecard_failure",
-                path_failure_reason,
-            )
+        # Add new failure reasons
+        for precision in supported_precisions:
+            for path in CODE_GENERATED_EXPORT_PATHS:
+                if not path.compile_path.supports_precision(precision):
+                    path_failure_reason = (
+                        f"{path.runtime} does not support {str(precision)}"
+                    )
+                elif failed_compile_jobs := compile_failures[precision][
+                    path.compile_path
+                ]:
+                    failures = [
+                        f"{key}:{val.job_id}" if key != model_id else str(val.job_id)
+                        for key, val in failed_compile_jobs.items()
+                    ]
+                    path_failure_reason = (
+                        f"Compilation Failure(s): {' '.join(failures)}"
+                    )
+                elif failed_profile_jobs := profile_failures[precision][path]:
+                    failures = [
+                        f"{key}:{val.job_id}" if key != model_id else str(val.job_id)
+                        for key, val in failed_profile_jobs.items()
+                    ]
+                    path_failure_reason = f"Profiling Failure(s): {' '.join(failures)}"
+                else:
+                    path_failure_reason = ""
+
+                if path_failure_reason:
+                    code_gen_config.disabled_paths.get_disable_reasons(
+                        precision, path.runtime
+                    ).scorecard_failure = path_failure_reason
 
     return model_ran_in_this_scorecard

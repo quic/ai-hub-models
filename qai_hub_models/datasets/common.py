@@ -79,6 +79,21 @@ class BaseDataset(Dataset, Sized, ABC):
         """
         return cls.__module__.split(".")[-1]
 
+    @staticmethod
+    @abstractmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        pass
+
+    @staticmethod
+    def default_num_calibration_samples() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 100
+
 
 def setup_fiftyone_env():
     """

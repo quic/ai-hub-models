@@ -4,10 +4,15 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Callable
+
 import torch
 from PIL.Image import Image
 
-from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.models.protocols import ExecutableModelProtocol
+from qai_hub_models.utils.asset_loaders import load_image
 
 
 class ClipApp:
@@ -25,87 +30,48 @@ class ClipApp:
 
     def __init__(
         self,
-        clip_model: torch.nn.Module,
+        # Model has two inputs:
+        #  - image (N, 3, H, W), RGB, float[0:1]
+        #  - tokenized text (N, 77)
+        model: ExecutableModelProtocol[torch.Tensor],
+        text_tokenizer: Callable[[str], torch.Tensor],
+        image_preprocessor: Callable[[Image], torch.Tensor],
     ):
-        # Open AI Clip
-        self.text_encoder = clip_model.text_encoder
-        self.image_encoder = clip_model.image_encoder
-        # Preprocess Compose function from Open AI clip
-        self.preprocess = clip_model.preprocess
-        self.tokenizer = clip_model.tokenizer_func
+        self.model = model
+        self.text_tokenizer = text_tokenizer
+        self.image_preprocessor = image_preprocessor
 
     def predict(self, *args, **kwargs):
         # See predict_similarity.
         return self.predict_similarity(*args, **kwargs)
 
     def predict_similarity(
-        self, image: torch.Tensor, text: torch.Tensor
+        self, images_or_image_paths: Sequence[Image | str | Path], texts: Sequence[str]
     ) -> torch.Tensor:
         """
         Inputs:
-            image: torch.Tensor (Shape: [1, 3, 224, 224])
-                Processed image tensor with values normalized to be between 0-1.
-            text: torch.Tensor (Shape: [1, 77])
-                Processed text tensor to be tokenized.
+            images_or_image_paths: PIL Image or path to an image file / URL.
+            texts: String texts to search for similarity.
 
         Outputs:
-            logits_per_image: torch.Tensor (Shape: [num_images, num_text_prompts])
-
+            cosine_similarities_per_image: torch.Tensor (Shape: [num_images, num_text_prompts])
                 Given a batch of images and a batch of text tokens, returns a tensor,
-                containing the logit scores corresponding to each image per text input.
+                containing the cosine similarity scores corresponding to each image per text input.
                 The values are cosine similarities between the corresponding image and
-                text features, times 100. The logits of text per image can be computed
+                text features, times 100. The cosine similarities of text per image can be computed
                 by doing a transpose.
-
         """
-        image_features = self.image_encoder(image)
-        text_features = self.text_encoder(text)
-        logits_per_image = image_features @ text_features.t()
-        return logits_per_image.cpu().numpy()
+        preprocessed_images: list[torch.Tensor] = []
 
-    def process_image(self, image: Image) -> torch.Tensor:
-        """Process image before calling forward.
+        # Process each image to be a tensor  of shape [NImages, 3, 224, 224] with layout RGB and range [0 - 1 ]
+        for image_or_path in images_or_image_paths:
+            if isinstance(image_or_path, str) or isinstance(image_or_path, Path):
+                image_or_path = load_image(image_or_path)
+            preprocessed_images.append(self.image_preprocessor(image_or_path))
+        preprocessed_stacked_images = torch.stack(preprocessed_images)
 
-        Inputs:
-            image: PIL.Image
-                Image loaded by Pillow must be provided.
-                Example: image = Image.open('<path>')
+        # Tokenize string text to shape [NTexts, 77]
+        preprocessed_texts: list[torch.Tensor] = [self.text_tokenizer(x) for x in texts]
+        preprocessed_stacked_texts = torch.cat(preprocessed_texts)
 
-        Outputs:
-            processed_image: torch.Tensor (shape [1, 3, 224, 224])
-                Layout: RGB
-                The image is converted to torch tensor and normalized
-                to be in the range of 0-1.
-        """
-        return self.preprocess(image).unsqueeze(0)
-
-    def process_text(self, text: str) -> torch.Tensor:
-        """Process text into tokens for forward call.
-
-        Input:
-            text: str
-                Text prompt intended for inference.
-                Example: "golden hour"
-
-        Output:
-            tokenized_tensor: torch.Tensor (shape: [1, 77])
-            Example: tensor([[49406,  3878,  2232, 49407, 0, 0...]])
-
-        """
-        return self.tokenizer(text)
-
-    @staticmethod
-    def get_input_spec(
-        image_size: tuple[int, int] = (224, 224),
-        text_size: tuple[int, int] = (3, 77),
-    ) -> InputSpec:
-        # Get the input specification ordered (name -> (shape, type)) pairs for this model.
-        #
-        # This can be used with the qai_hub python API to declare
-        # the model input specification upon submitting a profile job.
-        if isinstance(image_size, int):
-            image_size = (image_size, image_size)
-        return {
-            "image": ((1, 3, *image_size), "float32"),
-            "text": (text_size, "int32"),
-        }
+        return self.model(preprocessed_stacked_images, preprocessed_stacked_texts)

@@ -7,7 +7,10 @@ YoloNAS is a machine learning model that predicts bounding boxes and classes of 
 
 This is based on the implementation of Yolo-NAS found [here](https://github.com/Deci-AI/super-gradients). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolonas).
+accross various devices, can be found here:
+
+  - [float](https://aihub.qualcomm.com/models/yolonas)
+  - [w8a8](https://aihub.qualcomm.com/models/yolonas_quantized)
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -25,7 +28,7 @@ pip install "qai-hub-models[yolonas]"
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.yolonas.demo
+python -m qai_hub_models.models.yolonas.demo { --quantize w8a8 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,7 +41,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.yolonas.export
+python -m qai_hub_models.models.yolonas.export { --quantize w8a8 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

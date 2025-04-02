@@ -25,7 +25,7 @@ def test_task() -> None:
         OUTPUT_IMAGE_ADDRESS,
     )
     wrapper = DeepBox.from_pretrained()
-    app = DeepBoxApp(wrapper.bbox2D_dectector, wrapper.bbox3D_dectector)
+    app = DeepBoxApp(wrapper.yolo_2d_det, wrapper.vgg_3d_det)
     assert np.allclose(np.asarray(app.detect_image(input)), np.asarray(expected_output))
 
 

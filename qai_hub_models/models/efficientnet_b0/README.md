@@ -7,7 +7,10 @@ EfficientNetB0 is a machine learning model that can classify images from the Ima
 
 This is based on the implementation of EfficientNet-B0 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/efficientnet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/efficientnet_b0).
+accross various devices, can be found here:
+
+  - [float](https://aihub.qualcomm.com/models/efficientnet_b0)
+  - [w8a16](https://aihub.qualcomm.com/models/efficientnet_b0_w8a16_quantized)
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -25,7 +28,7 @@ pip install qai-hub-models
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.efficientnet_b0.demo
+python -m qai_hub_models.models.efficientnet_b0.demo { --quantize w8a16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,7 +41,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.efficientnet_b0.export
+python -m qai_hub_models.models.efficientnet_b0.export { --quantize w8a16 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

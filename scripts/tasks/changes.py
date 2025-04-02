@@ -16,7 +16,7 @@ from .constants import (
     STATIC_MDOELS_ROOT,
 )
 from .github import on_github
-from .util import new_cd, run, run_and_get_output
+from .util import get_is_hub_quantized, new_cd, run, run_and_get_output
 
 REPRESENTATIVE_EXPORT_MODELS = [
     "sinet",
@@ -42,7 +42,10 @@ MANUAL_EDGES = {
     "qai_hub_models/datasets/__init__.py": [
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
+    "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
@@ -324,6 +327,13 @@ def get_all_models() -> set[str]:
             if model not in model_names:
                 raise ValueError(f"Unknown model selected: {model}")
         model_names = allowed_models
+
+    if os.environ.get("QAIHM_TEST_PRECISIONS", "DEFAULT") != "DEFAULT":
+        cleaned_models: set[str] = set()
+        for model in model_names:
+            if model not in static_models and get_is_hub_quantized(model):
+                cleaned_models.add(model)
+        model_names = cleaned_models
 
     return model_names
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import cv2
 import torch
-from pycocotools.coco import COCO
+from xtcocotools.coco import COCO
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
@@ -37,7 +37,7 @@ COCO_VAL_ANNOTATIONS_ASSET = CachedWebDatasetAsset.from_asset_store(
 
 class CocoBodyDataset(BaseDataset):
     """
-    Wrapper class around CocoWholeBody Human Pose dataset
+    Wrapper class around CocoBody Human Pose dataset
     http://images.cocodataset.org/
 
     COCO keypoints::
@@ -91,41 +91,35 @@ class CocoBodyDataset(BaseDataset):
         for img_id in self.img_ids:
             img_info = self.cocoGt.loadImgs(img_id)[0]
             width, height = img_info["width"], img_info["height"]
-            ann_ids = self.cocoGt.getAnnIds(imgIds=img_id, iscrowd=False)
+            ann_ids = self.cocoGt.getAnnIds(imgIds=img_id, catIds=[1], iscrowd=False)
             annotations = self.cocoGt.loadAnns(ann_ids)
             ratio = self.input_width / self.input_height
 
-            for ann in annotations:
+            # keep only single person objects
+            person_anns = [ann for ann in annotations]
+            if len(person_anns) != 1:
+                continue
+            ann = person_anns[0]
 
-                # Keep only persons objects
-                if ann.get("category_id", 0) != 1:
-                    continue
-
-                # Store cleaned bound boxes
-                x, y, w, h = ann["bbox"]
-                x1 = max(0, x)
-                y1 = max(0, y)
-                x2 = min(width - 1, x1 + max(0, w - 1))
-                y2 = min(height - 1, y1 + max(0, h - 1))
-                if ann.get("area", 0) > 0 and x2 >= x1 and y2 >= y1:
-                    ann["clean_bbox"] = [x1, y1, x2 - x1, y2 - y1]
-
-                    if "keypoints" not in ann or max(ann["keypoints"]) == 0:
-                        continue  # Remove images with no visible keypoints
-
-                    bbox = ann["clean_bbox"]
-                    center, scale = box_xywh_to_cs(bbox, ratio)
-
-                    kpt_db.append(
-                        (
-                            img_info["file_name"],
-                            img_id,
-                            ann.get("category_id", 0),
-                            center,
-                            scale,
-                        )
+            # Store cleaned bound boxes
+            x, y, w, h = ann["bbox"]
+            x1 = max(0, x)
+            y1 = max(0, y)
+            x2 = min(width - 1, x1 + max(0, w - 1))
+            y2 = min(height - 1, y1 + max(0, h - 1))
+            if ann.get("area", 0) > 0:
+                bbox = [x1, y1, x2 - x1, y2 - y1]
+                center, scale = box_xywh_to_cs(bbox, ratio)
+                kpt_db.append(
+                    (
+                        img_info["file_name"],
+                        img_id,
+                        ann.get("category_id", 0),
+                        center,
+                        scale,
                     )
-                    break
+                )
+
             if len(kpt_db) == self.samples:
                 break
         return kpt_db
@@ -182,3 +176,10 @@ class CocoBodyDataset(BaseDataset):
         # Download and extract images
         COCO_VAL_IMAGES_ASSET.fetch(extract=True)
         COCO_VAL_ANNOTATIONS_ASSET.fetch()
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 1000

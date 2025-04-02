@@ -137,7 +137,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
             for c in mock_comp.get_hub_compile_options.call_args_list
         )
         assert all(
-            c.args[1] == "compile_extra"
+            c.args[2] == "compile_extra"
             for c in mock_comp.get_hub_compile_options.call_args_list
         )
 

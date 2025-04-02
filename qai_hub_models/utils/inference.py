@@ -179,20 +179,26 @@ def compile_model_from_args(
 
     """
     model_kwargs_dict = dict(model_kwargs)
+    cli_str = ""
+    if "precision" in cli_args:
+        model_kwargs_dict["precision"] = cli_args.precision
+        cli_str += f"--precision {cli_args.precision} "
+
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
     if hasattr(cli_args, "num_calibration_samples"):
         model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
+        cli_str += f"--num-calibration-samples {cli_args.num_calibration_samples} "
     device = getattr(cli_args, "device", None)
     if cli_args.chipset:
-        device_cli = f"--chipset {cli_args.chipset}"
+        cli_str += f"--chipset {cli_args.chipset} "
     else:
         assert device is not None
-        device_cli = f"--device {device}"
+        cli_str += f"--device {device} "
     model_name = model_id + (f".{component}" if component else "")
     print(f"Compiling on-device model asset for {model_name}.")
     print(
-        f"Running python -m {export_file} {device_cli} "
+        f"Running python -m {export_file} {cli_str} "
         f"--target-runtime {cli_args.target_runtime.name.lower()}\n"
     )
     component_kwargs = {}

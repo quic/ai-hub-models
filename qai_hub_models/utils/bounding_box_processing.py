@@ -170,32 +170,55 @@ def compute_box_affine_crop_resize_matrix(
     return affines
 
 
-def box_xywh_to_xyxy(box_cwh: torch.Tensor) -> torch.Tensor:
+def box_xywh_to_xyxy(box_cwh: torch.Tensor, flat_boxes: bool = False) -> torch.Tensor:
     """
     Convert center, W, H to top left / bottom right bounding box values.
 
     Inputs:
-        box_cwh: torch.Tensor
-            Bounding box. Shape is [B, 2, 2]
-            [[xc, yc], [w, h]] * Batch
-
-    Outputs:
         box_xy: torch.Tensor
-            Bounding box. Output format is [[x0, y0], [x1, y1]]
+            Bounding box.
+
+            If flat_boxes:
+                Shape is [..., 4]
+                Box layout is [xc, yc, w, h]
+
+            else:
+                Shape is [..., 2, 2]
+                [[xc, yc], [w, h]] * Batch
+
+    Outputs: torch.Tensor
+        If flat_boxes:
+            Output shape is [..., 4]
+            Output box layout is [x0, y0, x1, y1]
+        else:
+            Output shape is [..., 2, 2]
+            Output box layout is [[x0, y0], [x1, y1]]
     """
-    # Convert Xc, Yc, W, H to min and max bounding box values.
-    x_center = box_cwh[..., 0, 0]
-    y_center = box_cwh[..., 0, 1]
-    w = box_cwh[..., 1, 0]
-    h = box_cwh[..., 1, 1]
+    if flat_boxes:
+        cx = box_cwh[..., 0]
+        cy = box_cwh[..., 1]
+        w_2 = box_cwh[..., 2] * 0.5
+        h_2 = box_cwh[..., 3] * 0.5
 
-    out = torch.clone(box_cwh)
-    out[..., 0, 0] = x_center - w / 2.0  # x0
-    out[..., 0, 1] = y_center - h / 2.0  # y0
-    out[..., 1, 0] = x_center + w / 2.0  # x1
-    out[..., 1, 1] = y_center + h / 2.0  # y1
+        top_left_x = cx - w_2
+        top_left_y = cy - h_2
+        bot_right_x = cx + w_2
+        bot_right_y = cy + h_2
+        return torch.stack((top_left_x, top_left_y, bot_right_x, bot_right_y), -1)
+    else:
+        # Convert Xc, Yc, W, H to min and max bounding box values.
+        x_center = box_cwh[..., 0, 0]
+        y_center = box_cwh[..., 0, 1]
+        w = box_cwh[..., 1, 0]
+        h = box_cwh[..., 1, 1]
 
-    return out
+        out = torch.clone(box_cwh)
+        out[..., 0, 0] = x_center - w / 2.0  # x0
+        out[..., 0, 1] = y_center - h / 2.0  # y0
+        out[..., 1, 0] = x_center + w / 2.0  # x1
+        out[..., 1, 1] = y_center + h / 2.0  # y1
+
+        return out
 
 
 def box_xyxy_to_xywh(

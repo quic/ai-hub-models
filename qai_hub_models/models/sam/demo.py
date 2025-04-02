@@ -8,11 +8,11 @@ import torch
 
 from qai_hub_models.models.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models.sam.model import (
+    BASE_MODEL_TYPE,
     DEFAULT_MODEL_TYPE,
     MODEL_ASSET_VERSION,
     MODEL_ID,
-    SMALL_MODEL_TYPE,
-    SAMQAIHMWrapper,
+    SAM,
 )
 from qai_hub_models.models.sam.utils import show_image
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
@@ -52,12 +52,12 @@ def main(is_test: bool = False):
         default=True,
         help="If True, returns single mask. For multiple points multiple masks could lead to better results.",
     )
-    args = parser.parse_args(["--model-type", SMALL_MODEL_TYPE] if is_test else None)
+    args = parser.parse_args(["--model-type", BASE_MODEL_TYPE] if is_test else None)
 
     coordinates: list[str] = list(filter(None, args.point_coordinates.split(";")))
 
     # Load Application
-    wrapper = SAMQAIHMWrapper.from_pretrained(model_type=args.model_type)
+    wrapper = SAM.from_pretrained(args.model_type)
     app = SAMApp(
         wrapper.sam.image_encoder.img_size,
         wrapper.sam.mask_threshold,

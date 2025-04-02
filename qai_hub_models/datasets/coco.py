@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from enum import Enum
 from pathlib import Path
 from typing import Union
 
@@ -13,6 +14,12 @@ from torch.utils.data.dataloader import default_collate
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
+
+
+class CocoDatasetClass(Enum):
+    ALL_CLASSES = 91
+    SUBSET_CLASSES = 80
+
 
 DATASET_ID = "coco"
 DATASET_ASSET_VERSION = 1
@@ -41,7 +48,7 @@ class CocoDataset(BaseDataset):
     """
     Wrapper class around COCO dataset https://cocodataset.org/
 
-    Contains object detection samples and labels spanning 80 classes.
+    Contains object detection samples and labels spanning 80 or 91 classes.
 
     This wrapper supports the train and val splits of the 2017 version.
     """
@@ -52,6 +59,7 @@ class CocoDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         max_boxes: int = 100,
         num_samples: int = 5000,
+        num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
     ):
         """
         Parameters:
@@ -68,15 +76,25 @@ class CocoDataset(BaseDataset):
             num_samples: Number of data samples to download. Needs to be specified
                 during initialization because only as many samples as requested
                 are downloaded.
+            use_all_classes : Flag to indicate whether to use 91 classes (DETR) or 80 classes (YOLO).
         """
         self.num_samples = num_samples
+        self.num_classes = num_classes
 
         # FiftyOne package manages dataset so pass a dummy name for data path
         BaseDataset.__init__(self, "non_existent_dir", split)
 
+        # coco labels 91 reference from https://huggingface.co/facebook/detr-resnet-50/blob/main/config.json
+        # the mapping is to insert unused and extend to 91 labels.
+        label_file = (
+            "coco_labels_91.txt"
+            if self.num_classes == CocoDatasetClass.ALL_CLASSES
+            else "coco_labels.txt"
+        )
+
         counter = 0
         self.label_map = {}
-        with open(QAIHM_PACKAGE_ROOT / "labels" / "coco_labels.txt") as f:
+        with open(QAIHM_PACKAGE_ROOT / "labels" / label_file) as f:
             for line in f.readlines():
                 self.label_map[line.strip()] = counter
                 counter += 1
@@ -164,3 +182,10 @@ class CocoDataset(BaseDataset):
         self.dataset = foz.load_zoo_dataset(
             "coco-2017", split=split_str, max_samples=self.num_samples, shuffle=True
         ).sort_by("filepath")
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 250

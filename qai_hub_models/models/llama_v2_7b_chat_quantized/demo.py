@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from qai_hub_models.models._shared.llama.demo import llama_chat_demo
-from qai_hub_models.models._shared.llama.model import Llama2PretrainedCollectionModel
+from qai_hub_models.models._shared.llama.model import Llama2BundledModel
 from qai_hub_models.models.llama_v2_7b_chat_quantized import MODEL_ID, Model
 from qai_hub_models.models.llama_v2_7b_chat_quantized.model import (
     DEFAULT_USER_PROMPT,
@@ -53,7 +53,7 @@ def _get_model_class(split_part: int, is_token_generator: bool = False):
 
 
 def llama_2_chat_demo(
-    model_cls: type[Llama2PretrainedCollectionModel] = Model,
+    model_cls: type[Llama2BundledModel] = Model,
     model_id: str = MODEL_ID,
     num_splits: int = NUM_SPLITS,
     num_key_val_heads: int = NUM_KEY_VAL_HEADS,

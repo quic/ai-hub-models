@@ -36,12 +36,122 @@ from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_la
 
 class CollectionModel:
     """
-    Model that glues together several BaseModels
+    Model that glues together several BaseModels or BasePrecompiledModel.
+
+    See test_base_model.py for usage examples.
     """
+
+    component_classes: list[type] = []
+    component_class_names: list[str] = []
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Make copies of the list for each subclass so they don't share state
+        cls.component_classes = list(cls.component_classes)
+        cls.component_class_names = list(cls.component_class_names)
+
+    def __init__(self, *args):
+        component_names = type(self).component_class_names
+        components: dict[
+            str, BaseModel | BasePrecompiledModel
+        ] = {}  # class name -> instantiated object
+
+        # Process positional arguments.
+        if len(args) != len(component_names):
+            raise ValueError(
+                f"CollectionModel has {len(component_names)} ordered arguments, "
+                "each of which should correspond with a single component."
+            )
+        for i, (name, arg) in enumerate(zip(component_names, args)):
+            expected_class = type(self).component_classes[i]
+            if not isinstance(arg, (expected_class, ExecutableModelProtocol)):
+                raise ValueError(
+                    f"Expected component '{name}' to be an instance "
+                    f"of {name} or ExecutableModelProtocol, got {type(arg).__name__}"
+                )
+            assert isinstance(arg, (BaseModel, BasePrecompiledModel))
+            components[name] = arg
+
+        # Check that all required components are provided.
+        missing = [name for name in component_names if name not in components]
+        if missing:
+            raise ValueError(f"Missing components for: {missing}")
+
+        self.components = components
+
+    @staticmethod
+    def add_component(component_class: type, component_name: str | None = None):
+        """
+        Decorator to add a component (a subclass of BaseModel or
+        BasePrecompiledModel) to a CollectionModel.  The component is
+        inserted at the beginning of the class-level dictionary `component_classes`,
+        so that the outer decorator appears first.
+
+        See test_base_model.py for usage examples.
+        """
+
+        def decorator(subclass):
+            name = component_name or component_class.__name__
+            if name in subclass.component_class_names:
+                raise ValueError(f"Component with name {name} already registered")
+            # prepend list
+            subclass.component_classes.insert(0, component_class)
+            subclass.component_class_names.insert(0, name)
+            return subclass
+
+        return decorator
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        """
+        Returns list of strings with names of all datasets on which
+        this model can be evaluated.
+
+        All names must be registered in qai_hub_models/datasets/__init__.py
+        """
+        return []
 
 
 class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
-    pass
+    @classmethod
+    def from_pretrained(cls):
+        """
+        Instantiate the CollectionModel by instantiating all registered components
+        using their own from_pretrained() methods.
+        """
+        components = []
+        for component_cls in cls.component_classes:
+            if not (
+                hasattr(component_cls, "from_pretrained")
+                and callable(component_cls.from_pretrained)
+            ):
+                raise AttributeError(
+                    f"Component '{component_cls.__name__}' does not have "
+                    "a callable from_pretrained method"
+                )
+            components.append(component_cls.from_pretrained())
+        return cls(*components)
+
+
+class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
+    @classmethod
+    def from_precompiled(cls):
+        """
+        Instantiate the CollectionModel by instantiating all registered components
+        using their own from_precompiled() methods.
+        """
+        components = []
+        for component_cls in cls.component_classes:
+            if not (
+                hasattr(component_cls, "from_precompiled")
+                and callable(component_cls.from_precompiled)
+            ):
+                raise AttributeError(
+                    f"Component '{component_cls.__name__}' does not have "
+                    "a callable from_precompiled method"
+                )
+            components.append(component_cls.from_precompiled())
+        return cls(*components)
 
 
 class HubModel(HubModelProtocol):
@@ -322,6 +432,31 @@ class BaseModel(
         supported.
         """
         return None
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        """
+        Returns list of strings with names of all datasets on which
+        this model can be evaluated.
+
+        All names must be registered in qai_hub_models/datasets/__init__.py
+        """
+        return []
+
+    @staticmethod
+    def calibration_dataset_name() -> str | None:
+        """
+        Name of the dataset to use for calibration when quantizing the model.
+
+        Must be registered in qai_hub_models/datasets/__init__.py
+        """
+        return None
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        """
+        AI Hub quantize options recommended for the model.
+        """
+        return "--range_scheme min_max" if precision == Precision.w8a16 else ""
 
 
 class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):

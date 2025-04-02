@@ -16,29 +16,31 @@ def get_basic_speedup_report(
     onnx_ort_qnn_inference_time=100.0,
 ):
     return {
-        "models": [
-            {
-                "name": "dummy",
-                "performance_metrics": [
-                    {
-                        "reference_device_info": {
-                            "os": OS,
-                            "os_name": os_name,
-                            "chipset": CHIPSET,
+        "float": {
+            "models": [
+                {
+                    "name": "dummy",
+                    "performance_metrics": [
+                        {
+                            "reference_device_info": {
+                                "os": OS,
+                                "os_name": os_name,
+                                "chipset": CHIPSET,
+                            },
+                            "torchscript_onnx_tflite": {
+                                "inference_time": onnx_tf_inference_time,
+                            },
+                            "torchscript_onnx_qnn": {
+                                "inference_time": 5.0,
+                            },
+                            "torchscript_qnn": {
+                                "inference_time": 5.0,
+                            },
                         },
-                        "torchscript_onnx_tflite": {
-                            "inference_time": onnx_tf_inference_time,
-                        },
-                        "torchscript_onnx_qnn": {
-                            "inference_time": 5.0,
-                        },
-                        "torchscript_qnn": {
-                            "inference_time": 5.0,
-                        },
-                    },
-                ],
-            },
-        ]
+                    ],
+                },
+            ]
+        }
     }
 
 
@@ -88,7 +90,17 @@ def test_model_inference_run_toggle():
     perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     assert perf_diff.progressions["inf"] == [
-        (MODEL_ID, "torchscript_onnx_tflite", "inf", 10.0, "null", "null", CHIPSET, OS)
+        (
+            MODEL_ID,
+            "float",
+            "torchscript_onnx_tflite",
+            "inf",
+            10.0,
+            "null",
+            "null",
+            CHIPSET,
+            OS,
+        )
     ]
 
 
@@ -107,7 +119,17 @@ def test_perf_progression_basic():
     perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
-        (MODEL_ID, "torchscript_onnx_tflite", 20.0, 0.5, 10.0, "null", CHIPSET, OS),
+        (
+            MODEL_ID,
+            "float",
+            "torchscript_onnx_tflite",
+            20.0,
+            0.5,
+            10.0,
+            "null",
+            CHIPSET,
+            OS,
+        ),
     ]
 
     assert perf_diff.progressions[10] == expected_inf_bucket
@@ -129,7 +151,17 @@ def test_perf_regression_basic():
     perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     expected_inf_bucket = [
-        (MODEL_ID, "torchscript_onnx_tflite", 2, 20.0, 10.0, "null", CHIPSET, OS),
+        (
+            MODEL_ID,
+            "float",
+            "torchscript_onnx_tflite",
+            2,
+            20.0,
+            10.0,
+            "null",
+            CHIPSET,
+            OS,
+        ),
     ]
 
     assert perf_diff.regressions[2] == expected_inf_bucket
@@ -144,9 +176,9 @@ def test_missing_devices():
     )
 
     # Override chipset
-    new_perf_metrics["models"][0]["performance_metrics"][0]["reference_device_info"][
-        "chipset"
-    ] = "diff-chip-xyz"
+    new_perf_metrics["float"]["models"][0]["performance_metrics"][0][
+        "reference_device_info"
+    ]["chipset"] = "diff-chip-xyz"
 
     perf_diff = PerformanceDiff()
     validate_perf_diff_is_empty(perf_diff)
@@ -155,12 +187,12 @@ def test_missing_devices():
     perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     assert len(perf_diff.missing_devices) == 1
-    assert perf_diff.missing_devices[0] == (MODEL_ID, CHIPSET)
+    assert perf_diff.missing_devices[0] == (MODEL_ID, "float", CHIPSET)
 
 
 def test_empty_report():
     prev_perf_metrics = get_basic_speedup_report()
-    prev_perf_metrics["models"][0]["performance_metrics"][0][
+    prev_perf_metrics["float"]["models"][0]["performance_metrics"][0][
         "reference_device_info"
     ] = {}
     new_perf_metrics = prev_perf_metrics
@@ -172,4 +204,4 @@ def test_empty_report():
     perf_diff.update_summary(MODEL_ID, prev_perf_metrics, new_perf_metrics)
 
     assert len(perf_diff.empty_perf_report) == 1
-    assert perf_diff.empty_perf_report[0] == (MODEL_ID,)
+    assert perf_diff.empty_perf_report[0] == (MODEL_ID, "float")

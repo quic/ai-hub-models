@@ -140,3 +140,10 @@ class Kinetics400Dataset(BaseDataset):
         if self.split == DatasetSplit.TRAIN:
             for video in CORRUPTED_TRAIN_VIDEOS:
                 os.remove(self.videos_folder / video)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 100

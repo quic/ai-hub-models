@@ -9,6 +9,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from ruamel.yaml.scalarstring import LiteralScalarString
+
+from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
@@ -41,56 +44,10 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # Should print a statement at the end of export script to point to genie tutorial or not.
     add_genie_url_to_export: bool = False
 
-    # If the model doesn't work on qnn, this should explain why,
-    # ideally with a reference to an internal issue.
-    #
-    # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added. If the model
-    # begins to work again, this will be removed automatically by scorecard.
-    qnn_scorecard_failure: str = ""
-
-    # If the model should be disabled for qnn for any reason other than
-    # a job failure, this should explain why,
-    #
-    # This requires a filed issue because it isn't auto-removed
-    # when a model begins to work again.
-    qnn_export_disable_issue: str = ""
-
-    # If the model times out, we can't run it in testing or scorecard.
-    #
-    # This requires a filed issue because it isn't auto-removed
-    # when a model begins to work again.
-    qnn_export_timeout_issue: str = ""
-
-    # If the model doesn't work on tflite, this should explain why,
-    # ideally with a reference to an internal issue.
-    #
-    # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added. If the model
-    # begins to work again, this will be removed automatically by scorecard.
-    tflite_scorecard_failure: str = ""
-
-    # If the model should be disabled for tflite for any reason other than
-    # a job failure, this should explain why.
-    #
-    # This requires a filed issue because it isn't auto-removed
-    # when a model begins to work again.
-    tflite_export_disable_issue: str = ""
-
-    # If the model doesn't work on onnx, this should explain why,
-    # ideally with a reference to an internal issue.
-    #
-    # This field is managed automatically by the scorecard, and should
-    # not be manually edited after a model is first added. If the model
-    # begins to work again, this will be removed automatically by scorecard.
-    onnx_scorecard_failure: str = ""
-
-    # If the model should be disabled for onnx for any reason other than
-    # a job failure, this should explain why.
-    #
-    # This requires a filed issue because it isn't auto-removed
-    # when a model begins to work again.
-    onnx_export_disable_issue: str = ""
+    # The reason why various paths are disabled
+    disabled_paths: ModelDisableReasonsMapping = field(
+        default_factory=lambda: ModelDisableReasonsMapping()
+    )
 
     # If set, changes the default device when running export.py for the model.
     default_device: str = DEFAULT_EXPORT_DEVICE
@@ -109,16 +66,9 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # This is commonly used to test a smaller variant in the unit test.
     export_test_model_kwargs: Optional[dict[str, str]] = None
 
-    # Some models are comprised of submodels that should be compiled separately.
-    # For example, this is used when there is an encoder/decoder pattern.
-    # This is a dict from component name to a python expression that can be evaluated
-    # to produce the submodel. The expression can assume the parent model has been
-    # initialized and assigned to the variable `model`.
-    components: Optional[dict[str, str]] = None
-
-    # If components is set, this field can specify a subset of components to run
-    # by default when invoking `export.py`. If unset, all components are run by default.
-    default_components: Optional[list[str]] = None
+    # True for Collection model comprises of components, such as Whisper model's
+    # encoder and decoder.
+    is_collection_model: bool = False
 
     # If set, skips
     #  - generating `test_generated.py`
@@ -160,18 +110,20 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     inference_metrics: str = "psnr"
 
     # Additional details that can be set on the model's readme.
-    additional_readme_section: str = ""
+    # Use LiteralScalarString so the YAML dump writes this on multiple lines instead of dumping '\n' directly
+    additional_readme_section: LiteralScalarString = LiteralScalarString("")
 
     # If set, omits the "Example Usage" section from the HuggingFace readme.
     skip_example_usage: bool = False
 
-    # If set, generates an `evaluate.py` file which can be used to evaluate the model
-    # on a full dataset. Datasets specified here must be chosen from `qai_hub_models/datasets`.
-    eval_datasets: Optional[list[str]] = None
-
     # By default inference tests are done using 8gen1 chipset to avoid overloading
     # newer devices. Some models don't work on 8gen1, so use 8gen3 for those.
     inference_on_8gen3: bool = False
+
+    # TODO(#13765): remove this hack when we remove the quantized model folders
+    # This folder is a "mirror" of the unquantized variant with the same name.
+    # Evaluate and export scripts will call the script from the unquantized folder.
+    quantized_mirror_of_model: Optional[str] = None
 
     # The model supports python versions that are at least this version. None == Any version
     python_version_greater_than_or_equal_to: Optional[str] = None
@@ -181,38 +133,35 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     python_version_less_than: Optional[str] = None
     python_version_less_than_reason: Optional[str] = None
 
-    @property
-    def component_names(self) -> list[str] | None:
-        if self.default_components:
-            return self.default_components
-        return list(self.components.keys()) if self.components else None
-
-    def supports_runtime(self, runtime: TargetRuntime) -> bool:
+    def is_supported(self, precision: Precision, runtime: TargetRuntime) -> bool:
         """
-        Return true if this runtime is supported by this model.
+        Return true if this precision + runtime combo is supported by this model.
         Return false if this model has a failure reason set for this runtime.
         """
-        return not bool(self.runtime_failure_reason(runtime))
+        return not bool(self.failure_reason(precision, runtime))
 
-    def runtime_failure_reason(self, runtime: TargetRuntime) -> str | None:
+    def failure_reason(
+        self, precision: Precision, runtime: TargetRuntime
+    ) -> Optional[str]:
         """
         Return the reason a model failed or None if the model did not fail.
         """
-        if not any(runtime.supports_precision(p) for p in self.supported_precisions):
-            return "Runtime does not support any precisions supported by this model"
+        if self.is_precompiled and runtime != TargetRuntime.QNN:
+            return "Precompiled models are only supported via the QNN path."
+
+        if precision and not runtime.supports_precision(precision):
+            return f"{runtime} does not support precision {str(precision)}."
 
         if runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
             runtime = (
                 TargetRuntime.QNN
             )  # QNN Support is a proxy for precompiled QNN ONNX.
-        automated_skip = getattr(
-            self, f"{runtime.name.lower()}_scorecard_failure", None
-        )
-        user_provided_skip = getattr(
-            self, f"{runtime.name.lower()}_export_disable_issue", None
-        )
-        timeout = getattr(self, f"{runtime.name.lower()}_export_timeout_issue", None)
-        return user_provided_skip or timeout or automated_skip
+
+        if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
+            if reason.has_failure:
+                return reason.failure_reason
+
+        return None
 
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
@@ -243,29 +192,26 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         return out
 
     @property
-    def has_components(self) -> bool:
-        return bool(self.components)
-
-    @property
     def can_use_quantize_job(self) -> bool:
         """
         Whether the model can be quantized via quantize job.
         This may return true even if the model does list support for non-float precisions.
         """
-        return not self.is_precompiled and not self.is_aimet and not self.has_components
+        return (
+            not self.is_precompiled
+            and not self.is_aimet
+            and not self.is_collection_model
+        )
 
     @property
     def supports_quantization(self) -> bool:
         return any(x != Precision.float for x in self.supported_precisions)
 
+    @property
+    def default_precision(self) -> Precision:
+        return self.supported_precisions[0]
+
     def validate(self) -> Optional[str]:
-        if (
-            not self.is_precompiled
-            and not self.is_aimet
-            and self.supports_quantization
-            and not self.eval_datasets
-        ):
-            return "Must set eval_datasets if Hub quantization is supported"
         if (
             self.python_version_greater_than_or_equal_to is None
             and self.python_version_greater_than_or_equal_to_reason is not None
@@ -290,21 +236,6 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             return "If pip_install_flags is set, global_requirements_incompatible must also be true."
         if self.pip_pre_build_reqs and not self.global_requirements_incompatible:
             return "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
-
-        for runtime in TargetRuntime:
-            disable_field_name = f"{runtime.name.lower()}_export_disable_issue"
-            user_provided_skip = getattr(self, disable_field_name, None)
-
-            timeout_field_name = f"{runtime.name.lower()}_export_timeout_issue"
-            timeout = getattr(self, timeout_field_name, None)
-
-            issue_link = "https://github.com/qcom-ai-hub/tetracode/issues/"
-            for field_name, field_val in (
-                (disable_field_name, user_provided_skip),
-                (timeout_field_name, timeout),
-            ):
-                if field_val and issue_link not in field_val:
-                    return f"{field_name} must include a full link to an issue (expected format: `{issue_link}1234` )"
 
         return None
 

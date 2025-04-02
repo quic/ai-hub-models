@@ -13,7 +13,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models._shared.llama.model import (
-    Llama2PretrainedCollectionModel,
+    Llama2BundledModel,
     RopeEmbedding,
     get_past_keyval_with_shift,
 )
@@ -208,7 +208,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
 
     def __init__(
         self,
-        models: Llama2PretrainedCollectionModel,
+        models: Llama2BundledModel,
         num_splits: int,
         num_past_key_val_heads: int,
         model_split_map: dict[int, tuple[int, int]],

@@ -132,3 +132,11 @@ class FFNetLowRes(FFNet):
         width: int = 1024,
     ) -> InputSpec:
         return FFNet.get_input_spec(batch_size, height, width)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cityscapes_lowres"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cityscapes_lowres"

@@ -14,9 +14,11 @@ import qai_hub as hub
 from qai_hub.client import QuantizeDtype
 from typing_extensions import assert_never
 
+from qai_hub_models.utils.base_config import ParseableQAIHMEnum
+
 
 @unique
-class TargetRuntime(Enum):
+class TargetRuntime(ParseableQAIHMEnum):
     TFLITE = 0
     QNN = 1
     ONNX = 2
@@ -24,6 +26,10 @@ class TargetRuntime(Enum):
 
     def __str__(self):
         return self.name.lower()
+
+    @staticmethod
+    def from_string(string: str) -> TargetRuntime:
+        return TargetRuntime[string.upper()]
 
     @property
     def long_name(self):

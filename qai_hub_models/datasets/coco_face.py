@@ -6,31 +6,12 @@ from __future__ import annotations
 
 import cv2
 import torch
-from xtcocotools.coco import COCO
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
-from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.printing import suppress_stdout
-
-DATASET_DIR_NAME = "coco-wholebody"
-COCO_VERSION = 1
-
-# Dataset assets
-COCO_VAL_IMAGES_ASSET = CachedWebDatasetAsset(
-    "http://images.cocodataset.org/zips/val2017.zip",
-    DATASET_DIR_NAME,
-    COCO_VERSION,
-    "val2017.zip",
-)
-
-COCO_VAL_ANNOTATIONS_ASSET = CachedWebDatasetAsset.from_asset_store(
-    DATASET_DIR_NAME,
-    COCO_VERSION,
-    "coco_wholebody_val_v1.0.json",
-)
+from qai_hub_models.datasets.cocobody import CocoBodyDataset
+from qai_hub_models.datasets.common import DatasetSplit
 
 
-class CocoFaceDataset(BaseDataset):
+class CocoFaceDataset(CocoBodyDataset):
     """
     Wrapper class around CocoFace dataset
     http://images.cocodataset.org/
@@ -52,27 +33,9 @@ class CocoFaceDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 128,
         input_width: int = 128,
-        num_samples: int = 100,
+        num_samples: int = -1,
     ):
-        self.input_height = input_height
-        self.input_width = input_width
-        self.samples = num_samples
-
-        # Load dataset paths
-        self.image_dir = COCO_VAL_IMAGES_ASSET.path().parent / "val2017" / "val2017"
-        self.annotation_path = COCO_VAL_ANNOTATIONS_ASSET.path()
-        BaseDataset.__init__(self, self.annotation_path, split)
-
-        # Load annotations
-        if not self.annotation_path.exists():
-            raise FileNotFoundError(
-                f"Annotations file not found at {self.annotation_path}"
-            )
-
-        with suppress_stdout():
-            self.cocoGt = COCO(self.annotation_path)
-        self.img_ids = sorted(self.cocoGt.getImgIds())
-        self.kpt_db = self._load_kpt_db()
+        super().__init__(split, input_height, input_width, num_samples)
 
     def _load_kpt_db(self):
         kpt_db = []
@@ -120,29 +83,21 @@ class CocoFaceDataset(BaseDataset):
         img_path = file_name
 
         x0, y0, x1, y1 = bbox
-        image = cv2.imread(img_path)
+        image_array = cv2.imread(img_path)
 
-        image = (
-            torch.from_numpy(
-                cv2.resize(
-                    image[int(y0) : int(y1 + 1), int(x0) : int(x1 + 1)],
-                    (self.input_height, self.input_width),
-                    interpolation=cv2.INTER_LINEAR,
-                )
-            )
-            .float()
-            .permute(2, 0, 1)
+        image_array = cv2.resize(
+            image_array[int(y0) : int(y1 + 1), int(x0) : int(x1 + 1)],
+            (self.input_height, self.input_width),
+            interpolation=cv2.INTER_LINEAR,
         )
+
+        image = torch.from_numpy(image_array).float().permute(2, 0, 1)
 
         return image, [image_id, category_id, bbox]
 
-    def __len__(self):
-        return len(self.kpt_db)
-
-    def _download_data(self) -> None:
+    @staticmethod
+    def default_samples_per_job() -> int:
         """
-        Download and extract COCO-WholeBody dataset assets.
+        The default value for how many samples to run in each inference job.
         """
-        # Download and extract images
-        COCO_VAL_IMAGES_ASSET.fetch(extract=True)
-        COCO_VAL_ANNOTATIONS_ASSET.fetch()
+        return 1000

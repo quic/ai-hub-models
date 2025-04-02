@@ -24,12 +24,16 @@ class DetectionEvaluator(BaseEvaluator):
         image_width: int,
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
+        use_nms: bool = True,
+        score_threshold: float = 0.5,  # Add a score threshold for filtering predictions
     ):
         self.reset()
         self.nms_score_threshold = nms_score_threshold
         self.nms_iou_threshold = nms_iou_threshold
         self.scale_x = 1 / image_height
         self.scale_y = 1 / image_width
+        self.use_nms = use_nms
+        self.score_threshold = score_threshold
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
@@ -50,26 +54,24 @@ class DetectionEvaluator(BaseEvaluator):
         """
         image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
         pred_boxes, pred_scores, pred_class_idx = output
-
         for i in range(len(image_ids)):
             image_id = image_ids[i]
             bboxes = all_bboxes[i][: all_num_boxes[i].item()]
             classes = all_classes[i][: all_num_boxes[i].item()]
             if bboxes.numel() == 0:
                 continue
+            curr_pred_box = pred_boxes[i : i + 1]
+            curr_pred_score = pred_scores[i : i + 1]
+            curr_pred_class = pred_class_idx[i : i + 1]
 
-            # Reuse NMS utility
-            (
-                after_nms_pred_boxes,
-                after_nms_pred_scores,
-                after_nms_pred_class_idx,
-            ) = batched_nms(
-                self.nms_iou_threshold,
-                self.nms_score_threshold,
-                pred_boxes[i : i + 1],
-                pred_scores[i : i + 1],
-                pred_class_idx[i : i + 1],
-            )
+            if self.use_nms:
+                (curr_pred_box, curr_pred_score, curr_pred_class,) = batched_nms(
+                    self.nms_iou_threshold,
+                    self.nms_score_threshold,
+                    curr_pred_box,
+                    curr_pred_score,
+                    curr_pred_class,
+                )
 
             # Collect GT and prediction boxes
             gt_bb_entry = [
@@ -83,20 +85,23 @@ class DetectionEvaluator(BaseEvaluator):
                 BoundingBox.of_bbox(
                     image_id,
                     pred_cat,
-                    pred_bbox[0] * self.scale_x,
-                    pred_bbox[1] * self.scale_y,
-                    pred_bbox[2] * self.scale_x,
-                    pred_bbox[3] * self.scale_y,
-                    pred_score,
+                    float(pred_bbox[0]) * self.scale_x,
+                    float(pred_bbox[1]) * self.scale_y,
+                    float(pred_bbox[2]) * self.scale_x,
+                    float(pred_bbox[3]) * self.scale_y,
+                    float(pred_score),
                 )
                 for pred_cat, pred_score, pred_bbox in zip(
-                    after_nms_pred_class_idx[0].tolist(),
-                    after_nms_pred_scores[0].tolist(),
-                    after_nms_pred_boxes[0].tolist(),
+                    curr_pred_class[0].tolist(),
+                    curr_pred_score[0].tolist(),
+                    curr_pred_box[0].tolist(),
                 )
             ]
 
-            # Compute mean average precision
+            # Mask and threshold predictions
+            if not self.use_nms:
+                pd_bb_entry = [b for b in pd_bb_entry if b.score > self.score_threshold]
+
             self._update_mAP(gt_bb_entry, pd_bb_entry)
 
     def reset(self):
@@ -111,6 +116,7 @@ class DetectionEvaluator(BaseEvaluator):
         self.results = get_pascal_voc_metrics(
             self.gt_bb, self.pd_bb, self.nms_iou_threshold
         )
+
         self.mAP = MetricPerClass.mAP(self.results)
 
     def get_accuracy_score(self):

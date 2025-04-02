@@ -25,6 +25,7 @@ from typing import (
 )
 
 import ruamel.yaml
+import ruamel.yaml.scalarstring
 from schema import And
 from schema import Optional as OptionalSchema
 from schema import Schema
@@ -450,14 +451,14 @@ class BaseQAIHMConfig:
             return tuple(_process_list_field_val(list(field_val)))
 
         def _process_field_val(field_val: Any):
-            if isinstance(field_val, dict):
+            if isinstance(field_val, BaseQAIHMConfig):
+                return field_val.to_dict(include_defaults, yaml_compatible)
+            elif isinstance(field_val, dict):
                 return _process_dict_field_val(field_val)
             elif isinstance(field_val, list):
                 return _process_list_field_val(field_val)
             elif isinstance(field_val, tuple):
                 return _process_tuple_field_val(field_val)
-            elif isinstance(field_val, BaseQAIHMConfig):
-                return field_val.to_dict(include_defaults, yaml_compatible)
             elif yaml_compatible and type(field_val) not in [int, float, bool, str]:
                 return str(field_val)
             return field_val
@@ -503,6 +504,8 @@ class BaseQAIHMConfig:
              * every field in this dataclass instance is set to its default value
         """
         dict = self.to_dict(include_defaults=False, yaml_compatible=True)
+        # this makes sure LiteralScalarString in configs are dumped on multiple lines instead of using '\n' for newlines
+        ruamel.yaml.scalarstring.walk_tree(dict)
         if not dict and not write_if_empty:
             if delete_if_empty and os.path.exists(path):
                 os.remove(path)

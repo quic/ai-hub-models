@@ -97,3 +97,11 @@ class FaceAttribNet(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return FaceAttribNetEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["face_attrib_dataset"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "face_attrib_dataset"

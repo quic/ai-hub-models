@@ -102,3 +102,10 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         target_path = IMAGENETTE_ASSET.path() / DEVKIT_NAME
         if not target_path.exists():
             os.symlink(DEVKIT_ASSET.path(), target_path)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 2500

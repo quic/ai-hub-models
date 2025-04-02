@@ -7,7 +7,10 @@ face_det_lite is a machine learning model that detect face in the images
 
 This is based on the implementation of Lightweight-Face-Detection found [here](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/face_det_lite/model.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/face_det_lite).
+accross various devices, can be found here:
+
+  - [float](https://aihub.qualcomm.com/models/face_det_lite)
+  - [w8a8](https://aihub.qualcomm.com/models/face_det_lite_quantized)
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -18,14 +21,14 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/f
 
 Install the package via pip:
 ```bash
-pip install qai-hub-models
+pip install "qai-hub-models[face-det-lite]"
 ```
 
 
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.face_det_lite.demo
+python -m qai_hub_models.models.face_det_lite.demo { --quantize w8a8 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,7 +41,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.face_det_lite.export
+python -m qai_hub_models.models.face_det_lite.export { --quantize w8a8 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

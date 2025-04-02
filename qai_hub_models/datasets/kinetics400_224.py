@@ -11,3 +11,10 @@ from qai_hub_models.models._shared.video_classifier.utils import preprocess_vide
 class Kinetics400_224Dataset(Kinetics400Dataset):
     def preprocess_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
         return preprocess_video_224(tensor)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 100

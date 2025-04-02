@@ -33,7 +33,10 @@ def deepbox_demo(
     args = parser.parse_args([] if is_test else None)
 
     wrapper = model_type.from_pretrained()
-    app = DeepBoxApp(wrapper.bbox2D_dectector, wrapper.bbox3D_dectector)
+    app = DeepBoxApp(
+        wrapper.yolo_2d_det,
+        wrapper.vgg_3d_det,
+    )
     print("Model Loaded")
 
     image = load_image(args.image)

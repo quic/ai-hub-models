@@ -10,6 +10,7 @@ import sys
 import torch
 
 from qai_hub_models.models._shared.yolo.model import Yolo
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
 
 SOURCE_REPOSITORY = "https://github.com/Deci-AI/super-gradients/"
@@ -26,12 +27,10 @@ class YoloNAS(Yolo):
         self,
         model: torch.nn.Module,
         include_postprocessing: bool = True,
-        class_dtype: torch.dtype = torch.float32,
     ) -> None:
         super().__init__()
         self.model = model
         self.include_postprocessing = include_postprocessing
-        self.class_dtype = class_dtype
 
     @classmethod
     def from_pretrained(
@@ -92,7 +91,7 @@ class YoloNAS(Yolo):
         if not self.include_postprocessing:
             return boxes, scores
         scores, class_idx = torch.max(scores, -1, keepdim=False)
-        return boxes, scores, class_idx.to(self.class_dtype)
+        return boxes, scores, class_idx.to(torch.uint8)
 
     @staticmethod
     def get_output_names(include_postprocessing: bool = True) -> list[str]:
@@ -103,3 +102,6 @@ class YoloNAS(Yolo):
 
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"

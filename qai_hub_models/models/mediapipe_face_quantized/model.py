@@ -26,6 +26,7 @@ from qai_hub_models.models.mediapipe_face.model import (
 )
 from qai_hub_models.utils.aimet.config_loader import get_default_aimet_config
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.base_model import CollectionModel
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 3
@@ -37,21 +38,6 @@ DEFAULT_LANDMARK_DETECTOR_ENCODINGS = "landmark_detector_quantized_encodings.jso
 # When calibrating the range, the quantizer clips the range to exclude these positive outliers.
 # The range was manually overridden in the encodings file to be [-128, 127]
 DEFAULT_FACE_DETECTOR_ENCODINGS = "face_detector_quantized_encodings.json"
-
-
-class MediaPipeFaceQuantizable(MediaPipeFace):
-    @classmethod
-    def from_pretrained(  # type: ignore[override]
-        cls,
-        face_detector_encodings: str | None = "DEFAULT",
-        landmark_detector_encodings: str | None = "DEFAULT",
-    ) -> MediaPipeFaceQuantizable:
-        return cls(
-            FaceDetectorQuantizable.from_pretrained(face_detector_encodings),
-            FaceLandmarkDetectorQuantizable.from_pretrained(
-                landmark_detector_encodings
-            ),
-        )
 
 
 class FaceDetectorQuantizable(AIMETQuantizableMixin, FaceDetector):
@@ -140,3 +126,20 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
             )
 
         return final_model
+
+
+@CollectionModel.add_component(FaceDetectorQuantizable)
+@CollectionModel.add_component(FaceLandmarkDetectorQuantizable)
+class MediaPipeFaceQuantizable(MediaPipeFace):
+    @classmethod
+    def from_pretrained(  # type: ignore[override]
+        cls,
+        face_detector_encodings: str | None = "DEFAULT",
+        landmark_detector_encodings: str | None = "DEFAULT",
+    ) -> MediaPipeFaceQuantizable:
+        return cls(
+            FaceDetectorQuantizable.from_pretrained(face_detector_encodings),
+            FaceLandmarkDetectorQuantizable.from_pretrained(
+                landmark_detector_encodings
+            ),
+        )

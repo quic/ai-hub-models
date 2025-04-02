@@ -20,6 +20,8 @@ def segmentation_demo(
     model_id,
     default_image: CachedWebModelAsset,
     is_test: bool = False,
+    pad_mode: str = "constant",
+    app_cls: type[SegmentationApp] = SegmentationApp,
 ):
     # Demo parameters
     parser = get_model_cli_parser(model_type)
@@ -36,9 +38,11 @@ def segmentation_demo(
 
     (_, _, height, width) = model_type.get_input_spec()["image"][0]
     orig_image = load_image(args.image)
-    image, scale, padding = pil_resize_pad(orig_image, (height, width))
+    image, scale, padding = pil_resize_pad(
+        orig_image, (height, width), pad_mode=pad_mode
+    )
 
-    app = SegmentationApp(model)
+    app = app_cls(model)
     print("Model Loaded")
 
     output = app.segment_image(image)[0]

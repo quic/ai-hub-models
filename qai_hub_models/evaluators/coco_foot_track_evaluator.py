@@ -12,7 +12,9 @@ from collections.abc import Iterable
 from typing import Any, Optional
 
 import numpy as np
+import numpy.typing as npt
 import torch
+from pycocotools.coco import COCO
 
 from qai_hub_models.datasets.coco_foot_track_dataset import CocoFootTrackDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -26,16 +28,17 @@ CLASSNAME_TO_ID_MAP = {"face": 0, "person": 1}
 class CocoFootTrackNetEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
-    def __init__(self, in_vis_thre=0.2):
+    def __init__(self, in_vis_thre=0.2, verbose: bool = False):
         """
         Args:
             coco_gt: COCO ground truth dataset.
         """
-        self.predictions = []
+        self.predictions: list[dict[str, Any]] = []
         self.in_vis_thre = in_vis_thre
         self.threshhold = [0.5, 0.5, 0.5]  # threshold for each detector, 0.6 original
         self.iou_thr = [0.2, 0.5, 0.5]
         self.coco_gt = CocoFootTrackDataset().cocoGt
+        self.verbose = verbose
 
     def reset(self):
         """Resets the collected predictions."""
@@ -103,6 +106,8 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
                 x, y, r, b = (int(bb + 0.5) for bb in np.array(obj.box).astype(int))
                 b_box = [x, y, r - x + 1, b - y + 1]
                 keypoints = []
+                assert obj.landmark is not None
+                assert obj.vis is not None
                 for i in range(len(obj.landmark)):
                     x, y = obj.landmark[i][:2]
                     visibility = obj.vis[i]
@@ -295,9 +300,9 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
             coco_eval.params.useSegm = None
             coco_eval.evaluate()
             coco_eval.accumulate()
-            coco_eval.summarize()
+            stats = coco_eval.summarize()
 
-        return {"AP": coco_eval.stats[0], "AP@.5": coco_eval.stats[1]}
+        return {"AP": stats[0], "AP@.5": stats[1]}
 
     def get_accuracy_score(self) -> float:
         """Returns the overall mAP score."""
@@ -312,9 +317,14 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
 class COCOfooteval:
     _paramsEval: Optional[Params] = None
     params: Params
-    evalImgs: list
+    # evalImgs: per-image per-category evaluation results [KxAxI] elements
+    # eval: accumulated evaluation results
+    # _gts: gt for evaluation
+    # _dts: dt for evaluation
+    # stats: result summarization
+    # ious: ious between all gts and dts
 
-    def __init__(self, cocoGt=None, cocoDt=None, iouType="segm"):
+    def __init__(self, cocoGt: COCO, cocoDt: COCO, iouType="segm"):
         """
         Initialize COCOfooteval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
@@ -325,14 +335,8 @@ class COCOfooteval:
             print("iouType not specified. use default iouType segm")
         self.cocoGt = cocoGt  # ground truth COCO API
         self.cocoDt = cocoDt  # detections COCO API
-        self.evalImgs = []  # per-image per-category evaluation results [KxAxI] elements
-        self.eval = {}  # accumulated evaluation results
-        self._gts = defaultdict(list)  # gt for evaluation
-        self._dts = defaultdict(list)  # dt for evaluation
         self.params = Params(iouType=iouType)  # parameters
         self._paramsEval = None  # parameters for evaluation
-        self.stats = []  # result summarization
-        self.ious = {}  # ious between all gts and dts
         if cocoGt is not None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
@@ -405,6 +409,8 @@ class COCOfooteval:
 
         if p.iouType == "keypoints":
             computeIoU = self.computeOks
+        else:
+            raise ValueError("IOU type must be keypoints.")
         self.ious = {
             (imgId, catId): computeIoU(imgId, catId)
             for imgId in p.imgIds
@@ -679,7 +685,7 @@ class COCOfooteval:
         toc = time.time()
         print(f"DONE (t={toc - tic:0.2f}s).")
 
-    def summarize(self):
+    def summarize(self) -> npt.NDArray:
         """
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
@@ -757,7 +763,10 @@ class COCOfooteval:
             summarize = _summarizeDets
         elif iouType == "keypoints":
             summarize = _summarizeKps
+        else:
+            raise ValueError(f"Unsupported IOU type: {iouType}")
         self.stats = summarize()
+        return self.stats
 
     def __str__(self):
         self.summarize()

@@ -17,10 +17,12 @@ import torch
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.real_esrgan_x4plus import Model
+from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
+    validate_precision_runtime,
 )
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.input_spec import make_torch_inputs
@@ -39,6 +41,7 @@ def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     precision: Precision = Precision.float,
+    num_calibration_samples: int | None = None,
     skip_compiling: bool = False,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
@@ -71,6 +74,10 @@ def export_model(
             Overrides the `device` argument.
         precision: The precision to which this model should be quantized.
             Quantization is skipped if the precision is float.
+        num_calibration_samples: The number of calibration data samples
+            to use for quantization. If not set, uses the default number
+            specified by the dataset. If model doesn't have a calibration dataset
+            specified, this must be None.
         skip_compiling: If set, skips compiling model to format that can run on device.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
@@ -131,7 +138,7 @@ def export_model(
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
     quantize_job = None
     if precision != Precision.float:
-        print(f"Quantizing model {model_name} with a single sample.")
+        print(f"Quantizing model {model_name}.")
         onnx_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
@@ -144,13 +151,10 @@ def export_model(
             raise ValueError(
                 "Quantization is only supported if both weights and activations are quantized."
             )
-        print(
-            f"WARNING: {model_name} will be quantized using only a single sample for calibration. "
-            + "The quantized model should be only used for performance evaluation, and is unlikely to "
-            + "produce reasonable accuracy without additional calibration data."
-        )
 
-        calibration_data = model.sample_inputs()
+        calibration_data = quantization_utils.get_calibration_data(
+            model, input_spec, num_calibration_samples
+        )
         quantize_job = hub.submit_quantize_job(
             model=onnx_compile_job.get_target_model(),
             calibration_data=calibration_data,
@@ -251,8 +255,23 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model)
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+    }
+
+    parser = export_parser(
+        model_cls=Model,
+        supported_precision_runtimes=supported_precision_runtimes,
+    )
     args = parser.parse_args()
+    validate_precision_runtime(
+        supported_precision_runtimes, args.precision, args.target_runtime
+    )
     export_model(**vars(args))
 
 

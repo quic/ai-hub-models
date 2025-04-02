@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.wholebody_pose_evaluator import WholeBodyPoseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
@@ -64,7 +66,6 @@ class RTMPosebody2d(BaseModel):
                     133 = Number of keypoints,
                     512 = SimCC Y-axis resolution.
         """
-
         x = image[:, [2, 1, 0], ...]  # RGB -> BGR
         x = (x - self.pre_processor.mean) / self.pre_processor.std
         return self.model._forward(x)
@@ -89,3 +90,14 @@ class RTMPosebody2d(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["pred_x", "pred_y"]
+
+    def get_evaluator(self) -> BaseEvaluator | None:
+        return WholeBodyPoseEvaluator(*self.get_input_spec()["image"][0][2:])
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cocowholebody"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cocowholebody"

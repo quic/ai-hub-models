@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import cast
 
 from qai_hub_models.configs.info_yaml import MODEL_DOMAIN, MODEL_TAG, MODEL_USE_CASE
+from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import (
@@ -47,7 +48,9 @@ class ResultsSpreadsheet(list):
         domain: MODEL_DOMAIN
         use_case: MODEL_USE_CASE
         tags: list[MODEL_TAG]
-        known_failure_reasons: dict[TargetRuntime, str | None]
+        known_failure_reasons: ModelDisableReasonsMapping
+        public_status: str
+        is_pytorch: bool
 
     @dataclass
     class Entry:
@@ -148,17 +151,22 @@ class ResultsSpreadsheet(list):
                         else ""
                     )
                 if field_name == "tags":
-                    return (
-                        ", ".join([x.name for x in self._model_metadata[model_id].tags])
-                        if model_id in self._model_metadata
-                        else ""
-                    )
+                    if model_id not in self._model_metadata:
+                        return ""
+                    metadata = self._model_metadata[model_id]
+                    tags = [x.name for x in metadata.tags]
+                    tags.append(metadata.public_status)
+                    tags.append("pytorch" if metadata.is_pytorch else "static")
+                    return ", ".join(tags)
                 if field_name == "branch":
                     return branch
                 if field_name == "known_issue":
                     if meta := self._model_metadata.get(model_id):
-                        if rt_reason := meta.known_failure_reasons.get(entry.runtime):
-                            return rt_reason
+                        if failure_reasons := meta.known_failure_reasons.get_disable_reasons(
+                            entry.precision, entry.runtime
+                        ):
+                            if failure_reasons.has_failure:
+                                return failure_reasons.failure_reason
                     return ""
 
                 val = getattr(entry, field_name)
@@ -181,6 +189,7 @@ class ResultsSpreadsheet(list):
     def append_model_summary_entries(
         self,
         precisions: list[Precision],
+        devices: list[ScorecardDevice] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -189,6 +198,7 @@ class ResultsSpreadsheet(list):
         self.extend(
             ResultsSpreadsheet.get_model_summary_entries(
                 precisions,
+                devices,
                 quantize_summary,
                 compile_summary,
                 profile_summary,
@@ -202,10 +212,12 @@ class ResultsSpreadsheet(list):
         domain: MODEL_DOMAIN,
         use_case: MODEL_USE_CASE,
         tags: list[MODEL_TAG],
-        known_failure_reasons: dict[TargetRuntime, str | None],
+        public_status: str,
+        is_pytorch: bool,
+        known_failure_reasons: ModelDisableReasonsMapping = ModelDisableReasonsMapping(),
     ):
         self._model_metadata[model_id] = ResultsSpreadsheet.ModelMetadata(
-            domain, use_case, tags, known_failure_reasons
+            domain, use_case, tags, known_failure_reasons, public_status, is_pytorch
         )
 
     def set_date(self, date: datetime | None):
@@ -217,6 +229,7 @@ class ResultsSpreadsheet(list):
     @staticmethod
     def get_model_summary_entries(
         precisions: list[Precision],
+        devices: list[ScorecardDevice] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -361,9 +374,13 @@ class ResultsSpreadsheet(list):
                     runtime=path.runtime,
                     quantize_status=quantize_status,
                     quantize_url=quantize_url,
-                    compile_status=compile_status,
+                    compile_status=compile_status.replace(
+                        ",", "."
+                    ),  # remove commas for CSV compatibliity
                     compile_url=compile_url,
-                    profile_status=profile_status,
+                    profile_status=profile_status.replace(
+                        ",", "."
+                    ),  # remove commas for CSV compatibliity
                     profile_url=profile_url,
                     inference_time=inference_time,
                     NPU=NPU,
@@ -380,6 +397,7 @@ class ResultsSpreadsheet(list):
             precisions,
             exclude_devices=[cs_universal],
             include_mirror_devices=True,
+            include_devices=devices,
         )
 
         return entries

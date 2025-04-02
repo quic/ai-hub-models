@@ -26,8 +26,8 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_model import (
     BaseModel,
+    FromPretrainedProtocol,
     Precision,
-    PretrainedCollectionModel,
     TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
@@ -35,7 +35,9 @@ from qai_hub_models.utils.input_spec import InputSpec
 DEFAULT_INPUT_SEQ_LEN = 1024
 
 
-class Llama2PretrainedCollectionModel(PretrainedCollectionModel):
+# Llama2BundledModel has component and sub components and thus doesn't fit the
+# design of CollectionModel
+class Llama2BundledModel(FromPretrainedProtocol):
     @abstractmethod
     def load_model_part(self, split_part: str) -> BaseModel:
         ...

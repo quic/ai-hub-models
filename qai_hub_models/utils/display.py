@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
+import numpy as np
 from PIL.Image import Image
 from PIL.ImageShow import IPythonViewer, _viewers  # type: ignore[attr-defined]
 
@@ -96,3 +97,19 @@ def display_or_save_image(
 
     save_image(image, os.path.join(Path.cwd(), "build"), filename, desc)
     return False
+
+
+def to_uint8(image: np.ndarray) -> np.ndarray:
+    """
+    Converts a numpy array image to uint8 type. Values are clipped the values
+    to the range [0, 255].
+
+    Parameters:
+    image (numpy array): The input image array.
+
+    Returns:
+    numpy array: The processed image in uint8 format.
+    """
+    clipped_image = np.clip(image, 0, 1)
+    uint8_image = np.round(clipped_image * 255).astype(np.uint8)
+    return uint8_image

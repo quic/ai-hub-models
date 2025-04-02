@@ -14,6 +14,9 @@ def _transpose_channel(
 ) -> dict[str, list[np.ndarray]]:
     target = dict()
     for name, array in inputs.items():
+        if name not in io_names:
+            target[name] = array  # no op
+            continue
         num_dims = len(array[0].shape)
         assert num_dims in [
             3,
@@ -24,21 +27,18 @@ def _transpose_channel(
         # Channel dimension is assumed to be the second index (i.e., shape[1])
         # if the tensor is rank 4 or 5 and the first index (i.e., shape[0])
         # if the tensor is rank 3
-        if name in io_names:
-            transpose_order = list(range(num_dims))
-            if first_to_last:
-                if num_dims < 5:
-                    transpose_order.append(transpose_order.pop(-3))
-                else:
-                    transpose_order.append(transpose_order.pop(1))
+        transpose_order = list(range(num_dims))
+        if first_to_last:
+            if num_dims < 5:
+                transpose_order.append(transpose_order.pop(-3))
             else:
-                if num_dims < 5:
-                    transpose_order.insert(-2, transpose_order.pop(-1))
-                else:
-                    transpose_order.insert(1, transpose_order.pop(-1))
-            target[name] = [np.transpose(arr, transpose_order) for arr in array]
+                transpose_order.append(transpose_order.pop(1))
         else:
-            target[name] = array
+            if num_dims < 5:
+                transpose_order.insert(-2, transpose_order.pop(-1))
+            else:
+                transpose_order.insert(1, transpose_order.pop(-1))
+        target[name] = [np.transpose(arr, transpose_order) for arr in array]
     return target
 
 

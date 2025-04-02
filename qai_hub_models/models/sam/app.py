@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import Sequence
 from enum import Enum
 from typing import Callable
 
@@ -11,7 +12,7 @@ import numpy as np
 import torch
 from PIL.Image import Image
 
-from qai_hub_models.models.sam.model import ResizeLongestSide, SAMEncoderPart
+from qai_hub_models.models.sam.model import ResizeLongestSide
 from qai_hub_models.models.sam.model_patches import mask_postprocessing as upscale_masks
 from qai_hub_models.utils.image_processing import (
     numpy_image_to_torch,
@@ -38,7 +39,7 @@ class SAMApp:
         encoder_input_img_size: int,
         mask_threshold: float,
         input_image_channel_layout: SAMInputImageLayout,
-        sam_encoder_splits: list[SAMEncoderPart],
+        sam_encoder_splits: Sequence[Callable[[torch.Tensor], torch.Tensor]],
         sam_decoder: Callable[
             [torch.Tensor, torch.Tensor, torch.Tensor],
             tuple[torch.Tensor, torch.Tensor],

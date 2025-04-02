@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Optional, cast
 
 import numpy as np
+import onnx
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
 
@@ -192,24 +193,27 @@ def export_model(
         source_model_path = Path(source_model)
 
         input_onnx_path = glob.glob((source_model_path / "*.onnx").as_posix())[0]
-        input_encodings_path = glob.glob(
-            (source_model_path / "*.encodings").as_posix()
-        )[0]
+        encodings_files = glob.glob((source_model_path / "*.encodings").as_posix())
+        input_encodings_path = encodings_files[0] if encodings_files else None
 
         # Split encodings
         model_artifact = Path(output_dir or Path.cwd()) / instantiation_name
         os.makedirs(model_artifact, exist_ok=True)
 
-        utils.split_onnx(
-            onnxfile=input_onnx_path,
-            modelname=full_name,
-            num_splits=num_splits,
-            num_layers_per_split=num_layers_per_split,
-            output_dir=model_artifact,
-            split_embedding=True,
-            encoding_file=input_encodings_path,
-            using_qairt_workflow=True,
-        )
+        onnx.checker.check_model(input_onnx_path, full_check=True)
+        if num_splits == 1:
+            model_artifact = source_model_path
+        else:
+            utils.split_onnx(
+                onnxfile=input_onnx_path,
+                modelname=full_name,
+                num_splits=num_splits,
+                num_layers_per_split=num_layers_per_split,
+                output_dir=model_artifact,
+                split_embedding=True,
+                encoding_file=input_encodings_path,
+                using_qairt_workflow=True,
+            )
 
         # Submit the parts for compilation
         for i in range(num_splits):
@@ -217,7 +221,18 @@ def export_model(
             component_name = f"part_{i + 1}_of_{num_splits}"
             sub_component_names[instantiation_name].append(sub_component_name)
             full_name = f"{model_name}_{sub_component_name}"
-            aimet_path = Path(model_artifact) / (full_name + ".aimet")
+            ext = ".aimet" if input_encodings_path is not None else ".onnx"
+            if num_splits == 1:
+                aimet_path = Path(source_model_path)
+            else:
+                aimet_path = Path(model_artifact) / (full_name + ext)
+            onnx_files = list(aimet_path.glob("*.onnx"))
+            if len(onnx_files) != 1:
+                raise FileNotFoundError(
+                    f"Expected exactly one .onnx file, but found {len(onnx_files)}"
+                )
+            onnx_path = onnx_files[0]
+            onnx.checker.check_model(onnx_path, full_check=True)
 
             model_compile_options = (
                 model.get_hub_compile_options(

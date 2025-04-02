@@ -15,7 +15,7 @@ DEFAULT_WEIGHTS = "nasnetalarge.tf_in1k"
 
 class NASNet(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, checkpoint_path: str | None = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, checkpoint_path: str = DEFAULT_WEIGHTS):
         model = timm.create_model(checkpoint_path, pretrained=True)
         model.eval()
         return cls(model, transform_input=True)

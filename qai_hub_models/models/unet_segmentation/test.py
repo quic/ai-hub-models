@@ -24,10 +24,10 @@ def test_task() -> None:
     net = UNet.from_pretrained()
 
     img = load_image(IMAGE_ADDRESS)
-    mask = UNetSegmentationApp(net).predict(img)
+    mask = UNetSegmentationApp(net).predict(img, raw_output=True)
 
     # Convert raw mask of 0s and 1s into a PIL Image
-    img = fromarray(mask)
+    img = fromarray(mask[0].argmax(0) == 1)
     expected_out = load_image(OUTPUT_ADDRESS)
     np.testing.assert_allclose(np.array(img), np.array(expected_out))
 

@@ -98,3 +98,11 @@ class KineticsClassifier(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return ClassificationEvaluator(num_classes=400)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["kinetics400"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "kinetics400"

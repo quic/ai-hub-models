@@ -17,6 +17,7 @@ def show_image(image: Image, masks: np.ndarray | None = None) -> None:
     if masks is not None:
         _show_mask(masks, plt.gca())
     plt.axis("off")
+    plt.savefig("demo_output.jpg", bbox_inches="tight")
     plt.show()
 
 

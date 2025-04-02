@@ -106,6 +106,12 @@ class MODEL_DOMAIN(ParseableQAIHMEnum):
         return domain
 
     def __str__(self):
+        if self == MODEL_DOMAIN.GENERATIVE_AI:
+            return "Generative AI"
+        else:
+            return self.name.replace("_", " ").title()
+
+    def __repr__(self):
         return self.name.title().replace("_", " ")
 
 
@@ -162,6 +168,7 @@ class MODEL_USE_CASE(ParseableQAIHMEnum):
     IMAGE_TO_TEXT = 106
     OBJECT_DETECTION = 107
     POSE_ESTIMATION = 108
+    DRIVER_ASSISTANCE = 109
 
     # Audio: 200 - 299
     SPEECH_RECOGNITION = 200
@@ -209,4 +216,6 @@ class MODEL_USE_CASE(ParseableQAIHMEnum):
             return "automatic-speech-recognition"
         if self.name == "AUDIO_CLASSIFICATION":
             return "audio-classification"
+        if self.name == "DRIVER_ASSISTANCE":
+            return "other"
         return self.name.replace("_", "-").lower()

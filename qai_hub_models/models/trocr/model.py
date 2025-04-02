@@ -32,69 +32,6 @@ Traceable modules used by TrOCRApp
 KVCache = tuple[torch.Tensor, ...]  # Export friendly
 
 
-class TrOCR(CollectionModel):
-    def __init__(
-        self,
-        encoder: Callable[[torch.Tensor], KVCache],
-        decoder: Callable[..., tuple[torch.Tensor, ...]],
-        io_processor: TrOCRProcessor,
-        pad_token_id: int = 1,
-        eos_token_id: int = 2,
-        start_token_id: int = 2,
-        max_seq_len: int = 20,
-        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
-        decoder_attention_heads: int = 8,
-        embeddings_per_head: int = 32,
-    ):
-        self.encoder = encoder
-        self.decoder = decoder
-        self.io_processor = io_processor
-        self.pad_token_id = pad_token_id
-        self.eos_token_id = eos_token_id
-        self.start_token_id = start_token_id
-        self.max_seq_len = max_seq_len
-        self.num_decoder_layers = num_decoder_layers
-        self.decoder_attention_heads = decoder_attention_heads
-        self.embeddings_per_head = embeddings_per_head
-
-    @classmethod
-    def from_pretrained(cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL) -> TrOCR:
-        # Load Huggingface source
-        source_model = VisionEncoderDecoderModel.from_pretrained(
-            hf_trocr_model, return_dict=False
-        )
-        io_processor = TrOCRProcessor.from_pretrained(hf_trocr_model)
-
-        assert isinstance(source_model, VisionEncoderDecoderModel)
-        assert isinstance(io_processor, TrOCRProcessor)
-        return TrOCR.from_source_model(source_model, io_processor)
-
-    @staticmethod
-    def from_source_model(
-        source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
-    ) -> TrOCR:
-        assert source_model.encoder is not None
-        encoder = TrOCREncoder(
-            source_model.encoder, source_model.decoder
-        )  # pyright: ignore[reportArgumentType]
-        decoder = TrOCRDecoder(
-            source_model.decoder
-        )  # pyright: ignore[reportArgumentType]
-        assert source_model.generation_config is not None
-        return TrOCR(
-            encoder,
-            decoder,
-            io_processor,
-            source_model.generation_config.pad_token_id,
-            source_model.generation_config.eos_token_id,
-            (
-                source_model.generation_config.decoder_start_token_id
-                or source_model.generation_config.bos_token_id
-            ),
-            source_model.generation_config.max_length,
-        )
-
-
 class TrOCREncoder(BaseModel):
     """Vision encoder that returns the decoder's cross attn cache state."""
 
@@ -349,3 +286,69 @@ class TrOCRDecoder(BaseModel):
     @classmethod
     def from_pretrained(cls):
         return TrOCR.from_pretrained().decoder
+
+
+@CollectionModel.add_component(TrOCRDecoder)
+@CollectionModel.add_component(TrOCREncoder)
+class TrOCR(CollectionModel):
+    def __init__(
+        self,
+        encoder: Callable[[torch.Tensor], KVCache],
+        decoder: Callable[..., tuple[torch.Tensor, ...]],
+        io_processor: TrOCRProcessor,
+        pad_token_id: int = 1,
+        eos_token_id: int = 2,
+        start_token_id: int = 2,
+        max_seq_len: int = 20,
+        num_decoder_layers: int = DEFAULT_NUM_DECODER_LAYERS,
+        decoder_attention_heads: int = 8,
+        embeddings_per_head: int = 32,
+    ):
+        super().__init__(decoder, encoder)
+        self.encoder = encoder
+        self.decoder = decoder
+        self.io_processor = io_processor
+        self.pad_token_id = pad_token_id
+        self.eos_token_id = eos_token_id
+        self.start_token_id = start_token_id
+        self.max_seq_len = max_seq_len
+        self.num_decoder_layers = num_decoder_layers
+        self.decoder_attention_heads = decoder_attention_heads
+        self.embeddings_per_head = embeddings_per_head
+
+    @classmethod
+    def from_pretrained(cls, hf_trocr_model: str = HUGGINGFACE_TROCR_MODEL) -> TrOCR:
+        # Load Huggingface source
+        source_model = VisionEncoderDecoderModel.from_pretrained(
+            hf_trocr_model, return_dict=False
+        )
+        io_processor = TrOCRProcessor.from_pretrained(hf_trocr_model)
+
+        assert isinstance(source_model, VisionEncoderDecoderModel)
+        assert isinstance(io_processor, TrOCRProcessor)
+        return TrOCR.from_source_model(source_model, io_processor)
+
+    @staticmethod
+    def from_source_model(
+        source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
+    ) -> TrOCR:
+        assert source_model.encoder is not None
+        encoder = TrOCREncoder(
+            source_model.encoder, source_model.decoder
+        )  # pyright: ignore[reportArgumentType]
+        decoder = TrOCRDecoder(
+            source_model.decoder
+        )  # pyright: ignore[reportArgumentType]
+        assert source_model.generation_config is not None
+        return TrOCR(
+            encoder,
+            decoder,
+            io_processor,
+            source_model.generation_config.pad_token_id,
+            source_model.generation_config.eos_token_id,
+            (
+                source_model.generation_config.decoder_start_token_id
+                or source_model.generation_config.bos_token_id
+            ),
+            source_model.generation_config.max_length,
+        )

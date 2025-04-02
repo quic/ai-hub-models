@@ -55,3 +55,11 @@ class DepthAnything(DepthEstimationModel):
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
         return "--range_scheme min_max"
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["nyuv2x518"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "nyuv2x518"

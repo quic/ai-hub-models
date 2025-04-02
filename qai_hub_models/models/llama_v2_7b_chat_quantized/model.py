@@ -11,7 +11,7 @@ import torch
 
 from qai_hub_models.models._shared.llama.model import (
     DEFAULT_INPUT_SEQ_LEN,
-    Llama2PretrainedCollectionModel,
+    Llama2BundledModel,
     Llama_QuantizedMixin,
     RopeEmbedding,
     get_hidden_layer_range_from_split,
@@ -319,7 +319,7 @@ def _get_llama_model_with_split(
     return model, aimet_encodings
 
 
-class Llama2_Quantized(Llama2PretrainedCollectionModel):
+class Llama2_Quantized(Llama2BundledModel):
     def __init__(self, max_position_embeddings: int) -> None:
         super().__init__()
         self.max_position_embeddings = max_position_embeddings

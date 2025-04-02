@@ -97,3 +97,10 @@ class ImagenetDataset(BaseDataset, ImageNet):
 
         print("Moving images to appropriate class folder. This may take a few minutes.")
         subprocess.call(f"sh {VAL_PREP_ASSET.path().name}", shell=True, cwd=val_path)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 2500

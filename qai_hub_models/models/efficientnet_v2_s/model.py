@@ -7,6 +7,7 @@ from __future__ import annotations
 import torchvision.models as tv_models
 
 from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models.common import Precision
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -18,3 +19,6 @@ class EfficientNetV2s(ImagenetClassifier):
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> EfficientNetV2s:
         net = tv_models.efficientnet_v2_s(weights=weights)
         return cls(net)
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"

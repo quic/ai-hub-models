@@ -61,15 +61,18 @@ class MediaPipeHandApp(MediaPipeApp):
         See parent initializer for further parameter documentation.
         """
         super().__init__(
-            model.hand_detector,
-            model.hand_detector.anchors,
-            model.hand_landmark_detector,
+            model.components["HandDetector"],  # type: ignore
+            model.components["HandDetector"].anchors,  # type: ignore
+            model.components["HandLandmarkDetector"],  # type: ignore
             cast(
-                tuple[int, int], model.hand_detector.get_input_spec()["image"][0][-2:]
+                tuple[int, int],
+                model.components["HandDetector"].get_input_spec()["image"][0][-2:],  # type: ignore
             ),
             cast(
                 tuple[int, int],
-                model.hand_landmark_detector.get_input_spec()["image"][0][-2:],
+                model.components["HandLandmarkDetector"].get_input_spec()["image"][0][  # type: ignore
+                    -2:
+                ],
             ),
             WRIST_CENTER_KEYPOINT_INDEX,
             MIDDLE_FINDER_KEYPOINT_INDEX,

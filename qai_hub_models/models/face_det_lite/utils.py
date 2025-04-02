@@ -1,0 +1,149 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+from __future__ import annotations
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from qai_hub_models.utils.bounding_box_processing import get_iou
+
+
+class BBox:
+    # Bounding Box
+    def __init__(
+        self,
+        label: str,
+        xyrb: list[int],
+        score: float = 0,
+        landmark: list | None = None,
+        rotate: bool = False,
+    ):
+        """
+        A bounding box plus landmarks structure to hold the hierarchical result.
+        parameters:
+            label:str the class label
+            xyrb: 4 list for bbox left, top,  right bottom coordinates
+            score:the score of the deteciton
+            landmark: 10x2 the landmark of the joints [[x1,y1], [x2,y2]...]
+        """
+        self.label = label
+        self.score = score
+        self.landmark = landmark
+        self.x, self.y, self.r, self.b = xyrb
+        self.rotate = rotate
+
+        minx = min(self.x, self.r)
+        maxx = max(self.x, self.r)
+        miny = min(self.y, self.b)
+        maxy = max(self.y, self.b)
+        self.x, self.y, self.r, self.b = minx, miny, maxx, maxy
+
+    def __repr__(self):
+        landmark_formated = (
+            ",".join([str(item[:2]) for item in self.landmark])
+            if self.landmark is not None
+            else "empty"
+        )
+        return (
+            f"(BBox[{self.label}]: x={self.x:.2f}, y={self.y:.2f}, r={self.r:.2f}, "
+            + f"b={self.b:.2f}, width={self.width:.2f}, height={self.height:.2f}, landmark={landmark_formated})"
+        )
+
+    @property
+    def width(self) -> int:
+        return self.r - self.x + 1
+
+    @property
+    def height(self) -> int:
+        return self.b - self.y + 1
+
+    @property
+    def box(self) -> list[int]:
+        return [self.x, self.y, self.r, self.b]
+
+    @box.setter
+    def box(self, newvalue: list[int]) -> None:
+        self.x, self.y, self.r, self.b = newvalue
+
+    @property
+    def haslandmark(self) -> bool:
+        return self.landmark is not None
+
+    @property
+    def xywh(self) -> list[int]:
+        return [self.x, self.y, self.width, self.height]
+
+
+def nms(objs: list[BBox], iou: float = 0.5) -> list[BBox]:
+    """
+    nms function customized to work on the BBox objects list.
+    parameter:
+        objs: the list of the BBox objects.
+    return:
+        the rest of the BBox after nms operation.
+    """
+    if objs is None or len(objs) <= 1:
+        return objs
+
+    objs = sorted(objs, key=lambda obj: obj.score, reverse=True)
+    keep = []
+    flags = [0] * len(objs)
+    for index, obj in enumerate(objs):
+        if flags[index] != 0:
+            continue
+
+        keep.append(obj)
+        for j in range(index + 1, len(objs)):
+            # if flags[j] == 0 and obj.iou(objs[j]) > iou:
+            if (
+                flags[j] == 0
+                and get_iou(np.array(obj.box), np.array(objs[j].box)) > iou
+            ):
+                flags[j] = 1
+    return keep
+
+
+def detect(
+    hm: torch.Tensor,
+    box: torch.Tensor,
+    landmark: torch.Tensor,
+    threshold: float = 0.2,
+    nms_iou: float = 0.2,
+    stride: int = 8,
+) -> list[BBox]:
+    hm = hm.sigmoid()
+    hm_pool = F.max_pool2d(hm, 3, 1, 1)
+    lens = ((hm == hm_pool).float() * hm).view(1, -1).cpu().shape[1]
+    scores, indices = (
+        ((hm == hm_pool).float() * hm).view(1, -1).cpu().topk(min(lens, 2000))
+    )
+
+    hm_height, hm_width = hm.shape[2:]
+
+    scores = scores.squeeze()
+    indices = indices.squeeze()
+    ys = list(torch.div(indices, hm_width).int().data.numpy())
+    xs = list((indices % hm_width).int().data.numpy())
+    scores = list(scores.data.numpy())
+
+    objs = []
+    for cx, cy, score in zip(xs, ys, scores):
+        if score < threshold:
+            break
+
+        x, y, r, b = box[0, :, cy, cx].cpu().data.numpy()
+        xyrb: list[int] = (
+            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride
+        ).tolist()
+        x5y5 = landmark[0, :, cy, cx].cpu().data.numpy()
+        x5y5 = (x5y5 + ([cx] * 5 + [cy] * 5)) * stride
+
+        box_landmark = list(zip(x5y5[:5], x5y5[5:]))
+        objs.append(BBox("0", xyrb=xyrb, score=score, landmark=box_landmark))
+
+    if nms_iou != -1:
+        return nms(objs, iou=nms_iou)
+    return objs

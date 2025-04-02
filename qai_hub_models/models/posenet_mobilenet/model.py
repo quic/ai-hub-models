@@ -104,3 +104,11 @@ class PosenetMobilenet(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return CocoBodyPoseEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cocobody_513x257"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cocobody_513x257"

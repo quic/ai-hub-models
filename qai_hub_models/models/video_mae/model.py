@@ -79,3 +79,11 @@ class VideoMAE(KineticsClassifier):
             num_frames = input_spec["video"][0][2]
             input_tensor = input_tensor[:, :, :num_frames]
         return {"video": [input_tensor.numpy()]}
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["kinetics400_224"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "kinetics400_224"

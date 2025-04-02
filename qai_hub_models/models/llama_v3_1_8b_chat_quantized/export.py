@@ -8,6 +8,7 @@ from __future__ import annotations
 import warnings
 
 from qai_hub_models.models._shared.llama3.export import export_model
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_1_8b_chat_quantized import MODEL_ID, Model
 from qai_hub_models.models.llama_v3_1_8b_chat_quantized.model import (
     MODEL_ASSET_VERSION,
@@ -34,8 +35,7 @@ def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,
-        supports_tflite=False,
-        supports_onnx=False,
+        supported_precision_runtimes={Precision.w8a16: [TargetRuntime.QNN]},
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     parser.add_argument(

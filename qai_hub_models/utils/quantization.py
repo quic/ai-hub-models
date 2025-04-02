@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -12,7 +13,9 @@ from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader, TensorDataset
 
 from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
@@ -75,27 +78,43 @@ def get_image_quantization_samples(
 
 
 def get_calibration_data(
-    input_spec: InputSpec, dataset_name: str, num_samples: int
+    model: BaseModel, input_spec: InputSpec, num_samples: int | None = None
 ) -> DatasetEntries:
     """
     Produces a numpy dataset to be used for calibration data of a quantize job.
 
+    If the model has a calibration dataset name set, it will use that dataset.
+    Otherwise, it returns the model's sample inputs.
+
     Parameters:
+        model: The model for which to get calibration data.
         input_spec: The input spec of the model. Used to ensure the returned dataset's names
             match the input names of the model.
-        dataset_name: Name of the dataset to sample from.
-        num_samples: Number of data samples to use.
+        num_samples: Number of data samples to use. If not specified, uses
+            default specified on dataset.
 
     Returns:
         Dataset compatible with the format expected by AI Hub.
     """
+    calibration_dataset_name = model.calibration_dataset_name()
+    if calibration_dataset_name is None:
+        assert (
+            num_samples is None
+        ), "Cannot set num_samples if model doesn't have calibration dataset."
+        print(
+            "WARNING: Model will be quantized using only a single sample for calibration. "
+            + "The quantized model should be only used for performance evaluation, and is unlikely to "
+            + "produce reasonable accuracy without additional calibration data."
+        )
+        return model.sample_inputs(input_spec, use_channel_last_format=False)
     batch_size = get_batch_size(input_spec)
+    dataset = get_dataset_from_name(calibration_dataset_name, split=DatasetSplit.TRAIN)
+    num_samples = num_samples or dataset.default_num_calibration_samples()
 
     # Round num samples to largest multiple of batch_size less than number requested
     num_samples = (num_samples // batch_size) * batch_size
-    torch_dataset = sample_dataset(
-        get_dataset_from_name(dataset_name, split=DatasetSplit.TRAIN), num_samples
-    )
+    print(f"Loading {num_samples} calibration samples.")
+    torch_dataset = sample_dataset(dataset, num_samples)
     dataloader = DataLoader(torch_dataset, batch_size=batch_size)
     inputs: list[list[torch.Tensor | np.ndarray]] = [[] for _ in range(len(input_spec))]
     for (sample_input, _) in dataloader:
@@ -105,3 +124,17 @@ def get_calibration_data(
         else:
             inputs[0].append(sample_input)
     return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
+
+
+def quantized_folder_deprecation_warning(
+    deprecated_package: str, replacement_package: str, precision: Precision
+):
+    warnings.warn(
+        f"""
+
+!!! WARNING !!!
+Quantized model package {deprecated_package} is deprecated. Use the equivalent unquantized model package ({replacement_package}) instead.
+You can use qai_hub_models.models.{replacement_package}.export and qai_hub_models.models.{replacement_package}.evaluate with the `--precision {str(precision)}` flag to replicate previous behavior of those scripts.
+
+"""
+    )

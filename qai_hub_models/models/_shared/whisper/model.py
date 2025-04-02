@@ -56,37 +56,6 @@ AUDIO_EMB_LEN = int(N_SAMPLES / N_MELS / 4)
 MELS_AUDIO_LEN = AUDIO_EMB_LEN * 2
 
 
-class Whisper(CollectionModel):
-    def __init__(
-        self,
-        encoder: Callable[[torch.Tensor], list[torch.Tensor]],
-        decoder: Callable[..., tuple[torch.Tensor, tuple[torch.Tensor, ...]]],
-        num_decoder_blocks: int,
-        attention_dim: int,
-        num_heads: int,
-    ):
-        self.encoder = encoder
-        self.decoder = decoder
-        self.num_decoder_blocks = num_decoder_blocks
-        self.attention_dim = attention_dim
-        self.num_decoder_heads = num_heads
-        self.mean_decode_len = MEAN_DECODE_LEN
-
-    @classmethod
-    def from_pretrained(cls, model: str = "tiny.en"):
-        # For other model sizes, see https://github.com/openai/whisper/blob/main/whisper/__init__.py#L17
-        return cls.from_source_model(whisper.load_model(model))
-
-    @classmethod
-    def from_source_model(cls, whisper_model: Any):
-        encoder = WhisperEncoderInf(whisper_model)
-        decoder = WhisperDecoderInf(whisper_model.decoder)
-        num_decoder_blocks = len(decoder.blocks)
-        attention_dim = decoder.attention_dim
-        num_heads = decoder.num_heads
-        return cls(encoder, decoder, num_decoder_blocks, attention_dim, num_heads)
-
-
 class WhisperEncoderInf(BaseModel):
     """
     WhisperEncoder optimized for export and inference.
@@ -587,3 +556,37 @@ class ResidualAttentionBlockWrapper(torch.nn.Module):
             x = x + x_cross_attn
         x = x + self.mlp(self.mlp_ln(x))
         return x, k_cache, v_cache
+
+
+@CollectionModel.add_component(WhisperEncoderInf)
+@CollectionModel.add_component(WhisperDecoderInf)
+class Whisper(CollectionModel):
+    def __init__(
+        self,
+        encoder: Callable[[torch.Tensor], list[torch.Tensor]],
+        decoder: Callable[..., tuple[torch.Tensor, tuple[torch.Tensor, ...]]],
+        num_decoder_blocks: int,
+        attention_dim: int,
+        num_heads: int,
+    ):
+        super().__init__(encoder, decoder)
+        self.encoder = encoder
+        self.decoder = decoder
+        self.num_decoder_blocks = num_decoder_blocks
+        self.attention_dim = attention_dim
+        self.num_decoder_heads = num_heads
+        self.mean_decode_len = MEAN_DECODE_LEN
+
+    @classmethod
+    def from_pretrained(cls, model: str = "tiny.en"):
+        # For other model sizes, see https://github.com/openai/whisper/blob/main/whisper/__init__.py#L17
+        return cls.from_source_model(whisper.load_model(model))
+
+    @classmethod
+    def from_source_model(cls, whisper_model: Any):
+        encoder = WhisperEncoderInf(whisper_model)
+        decoder = WhisperDecoderInf(whisper_model.decoder)
+        num_decoder_blocks = len(decoder.blocks)
+        attention_dim = decoder.attention_dim
+        num_heads = decoder.num_heads
+        return cls(encoder, decoder, num_decoder_blocks, attention_dim, num_heads)

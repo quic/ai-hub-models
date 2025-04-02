@@ -11,23 +11,53 @@ import warnings
 
 import qai_hub as hub
 
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.vit import MODEL_ID, Model
-from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
+from qai_hub_models.models.vit.export import export_model
+from qai_hub_models.utils.args import (
+    evaluate_parser,
+    get_model_kwargs,
+    validate_precision_runtime,
+)
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
-
-SUPPORTED_DATASETS = ["imagenette", "imagenet"]
 
 
 def main():
     warnings.filterwarnings("ignore")
+    eval_datasets = Model.eval_datasets()
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+    }
+
     parser = evaluate_parser(
         model_cls=Model,
-        default_split_size=2500,
-        default_num_samples=1000,
-        supported_datasets=SUPPORTED_DATASETS,
+        supported_datasets=eval_datasets,
+        supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()
+    validate_precision_runtime(
+        supported_precision_runtimes, args.precision, args.target_runtime
+    )
+
+    if len(eval_datasets) == 0:
+        print(
+            "Model does not have evaluation dataset specified. Evaluating PSNR on a single sample."
+        )
+        export_model(
+            device=getattr(args, "device", None),
+            chipset=args.chipset,
+            target_runtime=args.target_runtime,
+            skip_downloading=True,
+            skip_profiling=True,
+            **get_model_kwargs(Model, vars(args)),
+        )
+        return
 
     if args.hub_model_id is not None:
         hub_model = hub.get_model(args.hub_model_id)
@@ -42,7 +72,7 @@ def main():
         torch_model,
         hub_device,
         args.dataset_name,
-        args.split_size,
+        args.samples_per_job,
         args.num_samples,
         args.seed,
         args.profile_options,

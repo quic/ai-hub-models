@@ -1,13 +1,13 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Yolo-X: Real-time object detection optimized for mobile and edge](#)
+# [Yolo-X: Real-time object detection optimized for mobile and edge](https://aihub.qualcomm.com/models/yolox)
 
 YoloX is a machine learning model that predicts bounding boxes and classes of objects in an image.
 
 This is based on the implementation of Yolo-X found [here](https://github.com/Megvii-BaseDetection/YOLOX/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](#).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolox).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

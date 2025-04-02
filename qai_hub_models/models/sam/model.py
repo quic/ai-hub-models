@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import functools
-from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -29,12 +28,15 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-DEFAULT_MODEL_TYPE = "vit_l"
-SMALL_MODEL_TYPE = "vit_b"
+BASE_MODEL_TYPE = "vit_b"
+LARGE_MODEL_TYPE = "vit_l"
+HUGE_MODEL_TYPE = "vit_h"
+DEFAULT_MODEL_TYPE = LARGE_MODEL_TYPE
+
 MODEL_REGISTERY = {
-    "vit_b": "sam_vit_b_01ec64.pth",  # 91M params
-    "vit_l": "sam_vit_l_0b3195.pth",  # 308M params
-    "vit_h": "sam_vit_h_4b8939.pth",  # 636M params
+    BASE_MODEL_TYPE: "sam_vit_b_01ec64.pth",  # 91M params
+    LARGE_MODEL_TYPE: "sam_vit_l_0b3195.pth",  # 308M params
+    HUGE_MODEL_TYPE: "sam_vit_h_4b8939.pth",  # 636M params
 }
 
 with SourceAsRoot(
@@ -60,138 +62,8 @@ setattr(sam_image_encoder, "window_partition", window_partition_5d)
 setattr(sam_image_encoder, "window_unpartition", window_unpartition_5d)
 
 
-class SAMQAIHMWrapper(CollectionModel):
-    """
-    "Holding class" for all pieces of SAM.
-    """
-
-    def __init__(
-        self,
-        sam: Sam,
-        num_encoder_splits: int,
-        single_mask_mode: bool = True,
-    ):
-        self.sam = sam
-        self.encoder_splits = SAMEncoderPart.create_with_splits(sam, num_encoder_splits)
-        self.decoder = SAMDecoder(self.sam, return_single_mask=single_mask_mode)
-
-    @classmethod
-    def from_pretrained(
-        cls, model_type: str = SMALL_MODEL_TYPE, num_encoder_splits=5
-    ) -> SAMQAIHMWrapper:
-        sam: Sam = sam_model_registry[model_type](_get_weights_path(model_type))
-
-        # Normalize pixel_mean and pixel_std for fp ([0, 1]) input
-        sam.pixel_mean = sam.pixel_mean / 255.0  # [0-255] -> [0, 1]
-        sam.pixel_std = sam.pixel_std / 255.0  # [0-255] -> [0, 1]
-
-        ###
-        # Patch the graph for compatibility with QNN.
-        #
-        # All below optimizations either optimize for QNN inference speed,
-        # or fix failures that occur when compiling to QNN.
-        ###
-        for block in sam.image_encoder.blocks:
-            assert isinstance(block, SAM_Encoder_Block)
-            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
-            block.attn = SplitHeadSAMEncoderAttention(block.attn)
-
-        sam.mask_decoder.predict_masks = functools.partial(
-            sam_decoder_predict_masks, sam.mask_decoder
-        )
-        for i in range(0, len(sam.mask_decoder.output_hypernetworks_mlps)):
-            mlp = cast(SAMMaskDecoderMLP, sam.mask_decoder.output_hypernetworks_mlps[i])
-            sam.mask_decoder.output_hypernetworks_mlps[
-                i
-            ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
-        sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(
-            sam.mask_decoder.iou_prediction_head
-        )
-
-        transformer = cast(TwoWayTransformer, sam.mask_decoder.transformer)
-        transformer.final_attn_token_to_image = SplitHeadSAMDecoderAttention(
-            transformer.final_attn_token_to_image
-        )
-        for block in transformer.layers:
-            assert isinstance(block, TwoWayAttentionBlock)
-            block.self_attn = SplitHeadSAMDecoderAttention(block.self_attn)
-            block.cross_attn_token_to_image = SplitHeadSAMDecoderAttention(
-                block.cross_attn_token_to_image
-            )
-            block.cross_attn_image_to_token = SplitHeadSAMDecoderAttention(
-                block.cross_attn_image_to_token
-            )
-            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
-
-        return cls(sam, num_encoder_splits)
-
-
 class SAMEncoderPart(BaseModel):
     """Exportable SAM encoder that can be split into several parts."""
-
-    @classmethod
-    def create_with_splits(cls, sam: Sam, num_splits: int) -> list[SAMEncoderPart]:
-        """
-        Split the encoder into parts by assigning each an equal portion of N sequential attention blocks.
-
-        Returns num_splits encoders, each with the same number of attention blocks.
-        The encoders will be returned in the order they should be executed.
-
-        The first encoder will contain the image embedding step, and the last encoder will contain the encoder "neck".
-        """
-        encoder_splits = []
-        if num_splits == 0:
-            # Single end-to-end encoder (default constructor)
-            encoder_splits.append(SAMEncoderPart(sam))
-        else:
-            # Split the encoder into several models.
-            # Each model will have a portion of the transformer blocks.
-
-            # Get number of transformer blocks that should be included in each model
-            n_transformer_blocks = len(sam.image_encoder.blocks)
-            block_split_len = n_transformer_blocks // (num_splits + 1)
-
-            # Generate split indices
-            split_idx: list[tuple[int, int]] = []
-            for i in range(0, num_splits + 1):
-                split_idx.append((i * block_split_len, (i + 1) * block_split_len))
-
-            # Add make sure final split if self.num_encoder_splits + 1 is the last transformer block.
-            # This is necessary if self.num_encoder_splits + 1 does not evenly divide n_transformer_blocks
-            split_idx[-1] = (split_idx[-1][0], n_transformer_blocks)
-
-            # Add first encoder. Includes embedding + transformer blocks.
-            encoder_splits.append(
-                SAMEncoderPart(
-                    sam,
-                    include_embedding=True,
-                    include_transformer_blocks=split_idx[0],
-                    include_neck=False,
-                )
-            )
-
-            # Add several encoders consisting of only transformer blocks..
-            for i in range(1, len(split_idx) - 1):
-                encoder_splits.append(
-                    SAMEncoderPart(
-                        sam,
-                        include_embedding=False,
-                        include_transformer_blocks=split_idx[i],
-                        include_neck=False,
-                    )
-                )
-
-            # Add final encoder. Includes transformer blocks + neck.
-            encoder_splits.append(
-                SAMEncoderPart(
-                    sam,
-                    include_embedding=False,
-                    include_transformer_blocks=split_idx[-1],
-                    include_neck=True,
-                )
-            )
-
-        return encoder_splits
 
     def __init__(
         self,
@@ -338,10 +210,8 @@ class SAMEncoderPart(BaseModel):
         return self.sam.preprocess(transformed_image)
 
     @classmethod
-    def from_pretrained(cls, model_type: str = SMALL_MODEL_TYPE):
-        return SAMQAIHMWrapper.from_pretrained(
-            model_type, num_encoder_splits=0
-        ).encoder_splits[0]
+    def from_pretrained(cls, model_type: str = BASE_MODEL_TYPE) -> SAMEncoderPart:
+        return SAMLoader.load(model_type, True, 0)[1][0]
 
 
 class SAMDecoder(BaseModel):
@@ -478,20 +348,219 @@ class SAMDecoder(BaseModel):
         return ["masks", "scores"]
 
     @classmethod
-    def from_pretrained(cls, model_type: str = SMALL_MODEL_TYPE):
-        return SAMQAIHMWrapper.from_pretrained(model_type).decoder
+    def from_pretrained(cls, model_type: str = BASE_MODEL_TYPE) -> SAMDecoder:
+        return SAMLoader.load(model_type, True, 0)[2]
 
 
-def _get_weights_path(model_type: str = DEFAULT_MODEL_TYPE) -> Path:
-    """Convert from names of weights files to the url for the weights file"""
-    if model_type not in MODEL_REGISTERY.keys():
-        raise RuntimeError(f"Weights not found for model type `{model_type}`.")
+class SAMLoader:
+    """
+    Helper class for loading and preparing a HTP-compatible SAM model.
+    """
 
-    asset = CachedWebModelAsset(
-        f"https://dl.fbaipublicfiles.com/segment_anything/{MODEL_REGISTERY[model_type]}",
-        MODEL_ID,
-        MODEL_ASSET_VERSION,
-        f"{MODEL_REGISTERY[model_type]}",
-    )
-    asset.fetch()
-    return asset.path()
+    @staticmethod
+    def load(
+        model_type: str = BASE_MODEL_TYPE,
+        single_mask_mode: bool = True,
+        num_encoder_splits: int = 0,
+    ) -> tuple[Sam, list[SAMEncoderPart], SAMDecoder]:
+        # https://github.com/qcom-ai-hub/tetracode/issues/14357
+        # sam test.py::test_e2e_numerical fails if using num_splits=0 for encoder
+        # (vit-b small variant)
+
+        # Even 10 part encoder splitting fails at the last split
+        # https://dev.aihub.qualcomm.com/jobs/jpxkrm6l5
+        # (vit-b huge variant)
+        sam = SAMLoader._load_sam_from_repo(model_type)
+        SAMLoader._patch_sam_for_qnn_comatibility(sam)
+        encoder_splits = SAMLoader._split_sam_encoder(sam, num_encoder_splits)
+        decoder = SAMDecoder(sam, single_mask_mode)
+
+        return sam, encoder_splits, decoder
+
+    @staticmethod
+    def _load_sam_from_repo(model_type: str = DEFAULT_MODEL_TYPE) -> Sam:
+        """
+        Get the SAM described by the given model type.
+        SAM will be patched for QNN compatibility.
+        """
+        if model_type not in MODEL_REGISTERY.keys():
+            raise RuntimeError(f"Weights not found for model type `{model_type}`.")
+
+        asset = CachedWebModelAsset(
+            f"https://dl.fbaipublicfiles.com/segment_anything/{MODEL_REGISTERY[model_type]}",
+            MODEL_ID,
+            MODEL_ASSET_VERSION,
+            f"{MODEL_REGISTERY[model_type]}",
+        )
+        asset.fetch()
+        return sam_model_registry[model_type](asset.path())
+
+    @staticmethod
+    def _patch_sam_for_qnn_comatibility(sam: Sam, patch_encoder: bool = True) -> None:
+        """Apply a patch to the SAM class for compatibility with QNN."""
+        # Normalize pixel_mean and pixel_std for fp ([0, 1]) input
+        # Allows network inputs to be float instead of int.
+        sam.pixel_mean = sam.pixel_mean / 255.0  # [0-255] -> [0, 1]
+        sam.pixel_std = sam.pixel_std / 255.0  # [0-255] -> [0, 1]
+
+        ###
+        # Patch the graph for compatibility with QNN.
+        #
+        # All below optimizations either optimize for QNN inference speed,
+        # or fix failures that occur when compiling to QNN.
+        ###
+        if patch_encoder:
+            for block in sam.image_encoder.blocks:
+                assert isinstance(block, SAM_Encoder_Block)
+                block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
+                block.attn = SplitHeadSAMEncoderAttention(block.attn)
+
+        sam.mask_decoder.predict_masks = functools.partial(
+            sam_decoder_predict_masks, sam.mask_decoder
+        )
+        for i in range(0, len(sam.mask_decoder.output_hypernetworks_mlps)):
+            mlp = cast(SAMMaskDecoderMLP, sam.mask_decoder.output_hypernetworks_mlps[i])
+            sam.mask_decoder.output_hypernetworks_mlps[
+                i
+            ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+        sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(
+            sam.mask_decoder.iou_prediction_head
+        )
+
+        transformer = cast(TwoWayTransformer, sam.mask_decoder.transformer)
+        transformer.final_attn_token_to_image = SplitHeadSAMDecoderAttention(
+            transformer.final_attn_token_to_image
+        )
+        for block in transformer.layers:
+            block = cast(TwoWayAttentionBlock, block)
+            block.self_attn = SplitHeadSAMDecoderAttention(block.self_attn)
+            block.cross_attn_token_to_image = SplitHeadSAMDecoderAttention(
+                block.cross_attn_token_to_image
+            )
+            block.cross_attn_image_to_token = SplitHeadSAMDecoderAttention(
+                block.cross_attn_image_to_token
+            )
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
+
+    @staticmethod
+    def _split_sam_encoder(sam: Sam, num_splits: int) -> list[SAMEncoderPart]:
+        """
+        Split the given SAM model's encoder into smaller pieces (components).
+        This is done for HTP compatibility.
+
+        The model is too big to fit on the HTP as one graph,
+        but each component can fit on the HTP individually.
+
+        Discussion:
+            Each encoder part is assigned an equal portion of N
+            sequential attention blocks, resulting in num_splits + 1 instances of SAMEncoderPart.
+
+            Returns num_splits encoders, each with the same number of attention blocks.
+            The encoders will be returned in the order they should be executed.
+
+            The first encoder will contain the image embedding step, and the last encoder will contain the encoder "neck".
+
+        Args:
+            num_splits:
+                Nnmber of times the encoder should be split. Must be 0 or higher.
+        """
+        encoder_splits = []
+        if num_splits == 0:
+            # Single end-to-end encoder (default constructor)
+            encoder_splits.append(SAMEncoderPart(sam))
+        else:
+            # Split the encoder into several models.
+            # Each model will have a portion of the transformer blocks.
+
+            # Get number of transformer blocks that should be included in each model
+            n_transformer_blocks = len(sam.image_encoder.blocks)
+            block_split_len = n_transformer_blocks // (num_splits + 1)
+
+            # Generate split indices
+            split_idx: list[tuple[int, int]] = []
+            for i in range(0, num_splits + 1):
+                split_idx.append((i * block_split_len, (i + 1) * block_split_len))
+
+            # Add make sure final split if self.num_encoder_splits + 1 is the last transformer block.
+            # This is necessary if self.num_encoder_splits + 1 does not evenly divide n_transformer_blocks
+            split_idx[-1] = (split_idx[-1][0], n_transformer_blocks)
+
+            # Add first encoder. Includes embedding + transformer blocks.
+            encoder_splits.append(
+                SAMEncoderPart(
+                    sam,
+                    include_embedding=True,
+                    include_transformer_blocks=split_idx[0],
+                    include_neck=False,
+                )
+            )
+
+            # Add several encoders consisting of only transformer blocks..
+            for i in range(1, len(split_idx) - 1):
+                encoder_splits.append(
+                    SAMEncoderPart(
+                        sam,
+                        include_embedding=False,
+                        include_transformer_blocks=split_idx[i],
+                        include_neck=False,
+                    )
+                )
+
+            # Add final encoder. Includes transformer blocks + neck.
+            encoder_splits.append(
+                SAMEncoderPart(
+                    sam,
+                    include_embedding=False,
+                    include_transformer_blocks=split_idx[-1],
+                    include_neck=True,
+                )
+            )
+
+        return encoder_splits
+
+
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart1")
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart2")
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart3")
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart4")
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart5")
+@CollectionModel.add_component(SAMEncoderPart, "SAMEncoderPart6")
+@CollectionModel.add_component(SAMDecoder)
+class SAM(CollectionModel):
+    def __init__(
+        self, sam: Sam, encoder_splits: list[SAMEncoderPart], decoder: SAMDecoder
+    ):
+        super().__init__(*[*encoder_splits, decoder])
+        self.sam = sam
+        self.encoder_splits = encoder_splits
+        self.decoder = decoder
+
+    @classmethod
+    def from_pretrained(
+        cls, model_type: str = DEFAULT_MODEL_TYPE, single_mask_mode: bool = True
+    ) -> SAM:
+        return cls(*SAMLoader.load(model_type, single_mask_mode, num_encoder_splits=5))
+
+
+class SAMBase(SAM):
+    @classmethod
+    def from_pretrained(cls, single_mask_mode: bool = True) -> SAM:
+        return cls(
+            *SAMLoader.load(BASE_MODEL_TYPE, single_mask_mode, num_encoder_splits=5)
+        )
+
+
+class SAMLarge(SAM):
+    @classmethod
+    def from_pretrained(cls, single_mask_mode: bool = True) -> SAM:
+        return cls(
+            *SAMLoader.load(LARGE_MODEL_TYPE, single_mask_mode, num_encoder_splits=5)
+        )
+
+
+class SAMHuge(SAM):
+    @classmethod
+    def from_pretrained(cls, single_mask_mode: bool = True) -> SAM:
+        return cls(
+            *SAMLoader.load(HUGE_MODEL_TYPE, single_mask_mode, num_encoder_splits=5)
+        )

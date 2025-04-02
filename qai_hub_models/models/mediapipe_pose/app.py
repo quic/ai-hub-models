@@ -53,15 +53,18 @@ class MediaPipePoseApp(MediaPipeApp):
             See parent initializer for further parameter documentation.
         """
         super().__init__(
-            model.pose_detector,
-            model.pose_detector.anchors,
-            model.pose_landmark_detector,
+            model.components["PoseDetector"],  # type: ignore
+            model.components["PoseDetector"].anchors,  # type: ignore
+            model.components["PoseLandmarkDetector"],  # type: ignore
             cast(
-                tuple[int, int], model.pose_detector.get_input_spec()["image"][0][-2:]
+                tuple[int, int],
+                model.components["PoseDetector"].get_input_spec()["image"][0][-2:],  # type: ignore
             ),
             cast(
                 tuple[int, int],
-                model.pose_landmark_detector.get_input_spec()["image"][0][-2:],
+                model.components["PoseLandmarkDetector"].get_input_spec()["image"][0][  # type: ignore
+                    -2:
+                ],
             ),
             POSE_KEYPOINT_INDEX_START,
             POSE_KEYPOINT_INDEX_END,

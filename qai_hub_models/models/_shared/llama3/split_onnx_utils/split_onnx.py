@@ -195,6 +195,8 @@ def save_model(model, newonnxfile, using_external_data=False):
         kwargs["save_as_external_data"] = True
         kwargs["all_tensors_to_one_file"] = True
         kwargs["location"] = location
+        # In case the attribute itself is >2GB
+        kwargs["convert_attribute"] = True
         if os.path.exists(os.path.join(dirname, str(kwargs["location"]))):
             os.unlink(os.path.join(dirname, str(kwargs["location"])))
 

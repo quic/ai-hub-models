@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import time
 import zipfile
@@ -16,7 +17,7 @@ import numpy as np
 import onnx
 import qai_hub as hub
 import torch
-from qai_hub.client import APIException, DatasetEntries, UserError
+from qai_hub.client import APIException, DatasetEntries, Device, UserError
 
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import TargetRuntime
@@ -164,6 +165,7 @@ def export_torch_to_onnx_zip(
     output_names: list[str] | None = None,
     onnx_transforms: Optional[Callable[[onnx.ModelProto], onnx.ModelProto]] = None,
     skip_zip: bool = False,
+    torch_export_kwargs=None,
 ) -> str:
     """
     Export a torch model to ONNX, possibly as zip if model size exceeds 2GB,
@@ -196,12 +198,12 @@ def export_torch_to_onnx_zip(
             total_bytes += tensor.numel() * tensor.element_size()
     threshold_bytes = 2 * 1024**3  # 2GB threshold
 
+    torch_export_kwargs = torch_export_kwargs or {}
+
+    if not f.name.endswith(".onnx"):
+        f = f.with_suffix(".onnx")
     if total_bytes < threshold_bytes:
         # For models under 2GB, export as a single ONNX file.
-        if not f.name.endswith(".onnx"):
-            raise ValueError(
-                f"File name {f.name} must end with '.onnx' for models under 2GB."
-            )
         start_time = time.time()
         torch.onnx.export(
             torch_model,
@@ -209,25 +211,12 @@ def export_torch_to_onnx_zip(
             str(f),
             input_names=input_names,
             output_names=output_names,
+            **torch_export_kwargs,
         )
         export_time = time.time() - start_time
         print(f"ONNX exported to {f} in {export_time:.1f} seconds")
         return str(f)
     else:
-        # For models >=2GB, handle external data export.
-        if skip_zip:
-            # When skipping zip for large models, f should be a directory name, not ending with ".onnx".
-            if f.name.endswith(".onnx"):
-                raise ValueError(
-                    "When skip_zip is True and model size >2GB, the file name must not end with '.onnx'."
-                )
-        else:
-            # If not skipping zip, f must end in .onnx because it will be used as base for the zip file.
-            if not f.name.endswith(".onnx"):
-                raise ValueError(
-                    "File name must end with '.onnx' when zipping is enabled for models >2GB."
-                )
-
         # Export with external data using two temporary directories.
         with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
             tmpdir1 = Path(tmpdir1)
@@ -243,6 +232,7 @@ def export_torch_to_onnx_zip(
                 str(export_path),
                 input_names=input_names,
                 output_names=output_names,
+                **torch_export_kwargs,
             )
             export_time = time.time() - start_time
             print(f"torch.onnx.export finished in {export_time:.1f} seconds")
@@ -251,7 +241,7 @@ def export_torch_to_onnx_zip(
 
             if onnx_transforms is not None:
                 transform_start_time = time.time()
-                print("Running onnx2onnx transforms...")
+                print("Running onnx to onnx transforms...")
                 onnx_model = onnx_transforms(onnx_model)
                 transform_time = time.time() - transform_start_time
                 print(f"ONNX transform finished in {transform_time:.1f} seconds")
@@ -266,6 +256,7 @@ def export_torch_to_onnx_zip(
                 all_tensors_to_one_file=True,
                 # Weight file name must end with .data per Hub requirement
                 location="model.data",
+                convert_attribute=True,
             )
             save_time = time.time() - save_start_time
             print(f"onnx.save_model finished in {save_time:.1f} seconds")
@@ -334,6 +325,8 @@ def make_hub_dataset_entries(
             assert isinstance(curr_input, np.ndarray)
             if curr_input.dtype == np.int64:
                 curr_input = curr_input.astype(np.int32)
+            if curr_input.dtype == np.float64:
+                curr_input = curr_input.astype(np.float32)
             converted_inputs.append(curr_input)
         dataset[name] = converted_inputs
 
@@ -341,3 +334,25 @@ def make_hub_dataset_entries(
     if channel_last_input:
         dataset = transpose_channel_first_to_last(channel_last_input, dataset)
     return dataset
+
+
+def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None | str:
+    if target_runtime != TargetRuntime.QNN:
+        return "AIMET model currently runs on QNN only"
+    hex_attrs = [attr for attr in device.attributes if attr.startswith("hexagon:")]
+    if len(hex_attrs) != 1:
+        return f"Unable to determine hexagon version for {device.name}"
+    hex_str = hex_attrs[0]
+    # Extract hexagon version
+    match = re.search(r"\d+", hex_str)
+    hex_version = None
+    if match:
+        hex_version = int(match.group())
+    else:
+        return f"Unable to determine hexagon version for {device.name}"
+    if hex_version < 73:
+        return (
+            "AIMET-ONNX requires hexagon v73 or above for Stable "
+            "Diffusion VaeDecoder. "
+        )
+    return None

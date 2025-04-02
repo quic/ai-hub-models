@@ -57,3 +57,11 @@ class MobileVIT(ImagenetClassifier):
             "pixel_values"
         ]
         return dict(image_tensor=[tensor.numpy()])
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return []
+
+    @staticmethod
+    def calibration_dataset_name() -> str | None:
+        return None

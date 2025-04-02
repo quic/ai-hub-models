@@ -40,6 +40,10 @@ class SegmentationApp:
         # See segment_image.
         return self.segment_image(*args, **kwargs)
 
+    def normalize_input(self, image: torch.Tensor) -> torch.Tensor:
+        input_transform = normalize_image_transform()
+        return input_transform(image)
+
     def segment_image(
         self,
         pixel_values_or_image: torch.Tensor
@@ -74,8 +78,8 @@ class SegmentationApp:
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
         )
-        input_transform = normalize_image_transform()
-        NCHW_fp32_torch_frames = input_transform(NCHW_fp32_torch_frames)
+
+        NCHW_fp32_torch_frames = self.normalize_input(NCHW_fp32_torch_frames)
 
         # pred_mask is downsampled
         pred_masks = self.model(NCHW_fp32_torch_frames)

@@ -63,3 +63,48 @@ class TorchNumpyAdapter:
         if isinstance(output, tuple) and len(output) == 1:
             return output[0]
         return output
+
+
+class Conv2dLinear(torch.nn.Module):
+    """
+    A class to convert a Linear layer to a Conv2D layer with a 1x1 kernel.
+    This allows the linear transformation to be applied to the channel dimension
+    at each spatial location in the input tensor.
+
+    Args:
+        linear (nn.Linear): The original linear layer to be converted.
+    """
+
+    def __init__(self, linear: torch.nn.Linear):
+        super().__init__()
+        self.in_features = linear.in_features
+        self.out_features = linear.out_features
+
+        # Initialize a Conv2D layer with a 1x1 kernel to mimic the Linear layer
+        self.conv = torch.nn.Conv2d(
+            in_channels=self.in_features,
+            out_channels=self.out_features,
+            kernel_size=1,
+            bias=(linear.bias is not None),
+        )
+
+        # Copy the weights from the Linear layer to the Conv2D layer
+        self.conv.weight.data.copy_(
+            linear.weight.data.view(self.out_features, self.in_features, 1, 1)
+        )
+
+        # Copy the bias if it exists
+        if linear.bias is not None:
+            self.conv.bias.data.copy_(linear.bias.data)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward-pass routine for the Conv2D layer.
+
+        Args:
+            x (torch.Tensor): The input tensor in NCHW format.
+
+        Returns:
+            torch.Tensor: The output tensor after applying the Conv2D transformation.
+        """
+        return self.conv(x)

@@ -60,60 +60,12 @@ ROTATION_VECTOR_OFFSET_RADS = (
 )  # Offset required when computing rotation of the detected pose.
 
 
-class MediaPipePose(CollectionModel):
-    def __init__(
-        self,
-        pose_detector: PoseDetector,
-        pose_landmark_detector: PoseLandmarkDetector,
-    ) -> None:
-        """
-        Construct a mediapipe pose model.
-
-        Inputs:
-            pose_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
-                Pose detection model. Input is an image, output is
-                [bounding boxes & keypoints, box & kp scores]
-
-            pose_landmark_detector
-                Pose landmark detector model. Input is an image cropped to the posing object. The pose must be upright
-                and un-tilted in the frame. Returns [landmark_scores, landmarks, mask]
-
-                Note that although the landmark detector returns 3 values,
-                the third output (mask) is unused by this application.
-
-        """
-        super().__init__()
-        self.pose_detector = pose_detector
-        self.pose_landmark_detector = pose_landmark_detector
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        detector_weights: str = "blazepose.pth",
-        detector_anchors: str = "anchors_pose.npy",
-        landmark_detector_weights: str = "blazepose_landmark.pth",
-    ) -> MediaPipePose:
-        """
-        Load mediapipe models from the source repository.
-        Returns tuple[<source repository>.blazepose.BlazePose, BlazePose Anchors, <source repository>.blazepose_landmark.BlazePoseLandmark]
-        """
-        with MediaPipePyTorchAsRoot():
-            from blazepose import BlazePose
-            from blazepose_landmark import BlazePoseLandmark
-
-            pose_detector = BlazePose()
-            pose_detector.load_weights(detector_weights)
-            pose_detector.load_anchors(detector_anchors)
-            pose_regressor = BlazePoseLandmark()
-            pose_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                PoseDetector(pose_detector, pose_detector.anchors),
-                PoseLandmarkDetector(pose_regressor),
-            )
-
-
 class PoseDetector(BaseModel):
+    """
+    Pose detection model. Input is an image, output is
+    [bounding boxes & keypoints, box & kp scores]
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -169,6 +121,15 @@ class PoseDetector(BaseModel):
 
 
 class PoseLandmarkDetector(BaseModel):
+    """
+    Pose landmark detector model. Input is an image cropped to the posing
+    object. The pose must be upright and un-tilted in the frame. Returns
+    [landmark_scores, landmarks, mask]
+
+    Note that although the landmark detector returns 3 values,
+    the third output (mask) is unused by this application.
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -215,3 +176,33 @@ class PoseLandmarkDetector(BaseModel):
             MODEL_ID, MODEL_ASSET_VERSION, "sample_landmark_inputs.npy"
         )
         return {"image": [load_numpy(numpy_inputs)]}
+
+
+@CollectionModel.add_component(PoseDetector)
+@CollectionModel.add_component(PoseLandmarkDetector)
+class MediaPipePose(CollectionModel):
+    @classmethod
+    def from_pretrained(
+        cls,
+        detector_weights: str = "blazepose.pth",
+        detector_anchors: str = "anchors_pose.npy",
+        landmark_detector_weights: str = "blazepose_landmark.pth",
+    ) -> MediaPipePose:
+        """
+        Load mediapipe models from the source repository.
+        Returns tuple[<source repository>.blazepose.BlazePose, BlazePose Anchors, <source repository>.blazepose_landmark.BlazePoseLandmark]
+        """
+        with MediaPipePyTorchAsRoot():
+            from blazepose import BlazePose
+            from blazepose_landmark import BlazePoseLandmark
+
+            pose_detector = BlazePose()
+            pose_detector.load_weights(detector_weights)
+            pose_detector.load_anchors(detector_anchors)
+            pose_regressor = BlazePoseLandmark()
+            pose_regressor.load_weights(landmark_detector_weights)
+
+            return cls(
+                PoseDetector(pose_detector, pose_detector.anchors),
+                PoseLandmarkDetector(pose_regressor),
+            )

@@ -13,6 +13,7 @@ import torch.nn.functional as F
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
 
 YOLOV7_SOURCE_REPOSITORY = "https://github.com/WongKinYiu/yolov7"
@@ -31,14 +32,12 @@ class YoloV7(Yolo):
         yolov7_detector: torch.nn.Module,
         include_postprocessing: bool = True,
         split_output: bool = False,
-        class_dtype: torch.dtype = torch.float32,
     ) -> None:
         super().__init__()
         self.yolov7_feature_extractor = yolov7_feature_extractor
         self.yolov7_detector = yolov7_detector
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
-        self.class_dtype = class_dtype
 
     @classmethod
     def from_pretrained(
@@ -122,9 +121,7 @@ class YoloV7(Yolo):
                 return detector_output
             return torch.cat(detector_output, -1)
 
-        return detect_postprocess_split_input(  # type: ignore[misc]
-            *detector_output, class_dtype=self.class_dtype
-        )
+        return detect_postprocess_split_input(*detector_output)  # type: ignore[misc]
 
     @staticmethod
     def get_output_names(
@@ -140,6 +137,9 @@ class YoloV7(Yolo):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"
 
 
 class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection

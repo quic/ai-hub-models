@@ -32,6 +32,8 @@ class ScorecardDevice:
 
     @classmethod
     def get(cls, device_name: str):
+        if device_name in ScorecardDevice._registry:
+            return ScorecardDevice._registry[device_name]
         return [
             x
             for x in ScorecardDevice.all_devices()

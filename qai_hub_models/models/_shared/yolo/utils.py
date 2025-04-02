@@ -94,14 +94,13 @@ def detect_postprocess(detector_output: torch.Tensor):
     # Get class ID of most likely score.
     scores, class_idx = get_most_likely_score(scores)
 
-    return boxes, scores, class_idx
+    return boxes, scores, class_idx.to(torch.uint8)
 
 
 def detect_postprocess_split_input(
     xy: torch.Tensor,
     wh: torch.Tensor,
     scores: torch.Tensor,
-    class_dtype: torch.dtype = torch.float32,
 ):
     """
     Same as `detect_postprocess` with inputs split into separate tensors.
@@ -119,10 +118,8 @@ def detect_postprocess_split_input(
     # expensive by a factor of NUM_CLASSES and mathematically equivalent to this.
     scores *= conf
 
-    # Quantized model runtime doesn't like int32 outputs, so cast class idx to int8.
-    # This is a no-op for coco models, but for datasets with >128 classes, this
-    # should be int32 for the unquantized model.
-    return boxes, scores, class_idx.to(class_dtype)
+    # Cast classes to int8 for imsdk compatibility
+    return boxes, scores, class_idx.to(torch.uint8)
 
 
 def get_most_likely_score(scores: torch.Tensor):

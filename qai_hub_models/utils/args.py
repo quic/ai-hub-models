@@ -20,13 +20,18 @@ from typing import Any, Optional, TypeVar
 import qai_hub as hub
 from qai_hub.client import APIException, InternalError, UserError
 
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
     FromPretrainedProtocol,
     FromPretrainedTypeVar,
 )
-from qai_hub_models.utils.base_model import BaseModel, HubModel, TargetRuntime
-from qai_hub_models.utils.evaluate import DEFAULT_NUM_EVAL_SAMPLES
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    CollectionModel,
+    HubModel,
+    TargetRuntime,
+)
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
@@ -45,6 +50,49 @@ class ParseEnumAction(argparse.Action):
 ParserT = TypeVar("ParserT", bound=argparse.ArgumentParser)
 
 
+def _get_non_float_precision(
+    supported_precisions: set[Precision] | None,
+) -> Precision | None:
+    if not supported_precisions:
+        return None
+
+    for p in supported_precisions:
+        if p != Precision.float:
+            return p
+
+    return None
+
+
+def get_quantize_action_with_default(
+    default_quantized_precision: Precision,
+) -> type[argparse.Action]:
+    """
+    Get an action that:
+
+    Returns default_quantized_precision if "--quantize" is passed with no arg.
+
+    Returns a parsed precision object if "--quantize <value> " is passed.
+    """
+
+    class ParsePrecisionAction(argparse.Action):
+        def __init__(self, option_strings, dest, **kwargs):
+            super().__init__(option_strings, dest, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            if values:
+                if isinstance(values, Precision):
+                    val = values
+                else:
+                    assert isinstance(values, str)
+                    val = Precision.from_string(values)
+            else:
+                val = default_quantized_precision
+
+            setattr(namespace, self.dest, val)
+
+    return ParsePrecisionAction
+
+
 class QAIHMArgumentParser(argparse.ArgumentParser):
     """
     An ArgumentParser that sets hub_device from the appropriate options.
@@ -61,6 +109,10 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
                 device_name, chipset_name, getattr(parsed, "device_os", "")
             )
             parsed.hub_device = hub_device
+
+        if getattr(parsed, "quantize", None):
+            parsed.precision = parsed.quantize
+
         return parsed
 
 
@@ -117,23 +169,22 @@ def add_output_dir_arg(parser: ParserT) -> ParserT:
     return parser
 
 
-def _get_default_runtime(available_runtimes: list[TargetRuntime]):
+def _get_default_runtime(available_runtimes: list[TargetRuntime] | set[TargetRuntime]):
     if len(available_runtimes) == 0:
         raise RuntimeError("available_runtimes empty, expecting at-least one runtime.")
 
     return (
         TargetRuntime.TFLITE
         if TargetRuntime.TFLITE in available_runtimes
-        else available_runtimes[0]
+        else next(iter(available_runtimes))
     )
 
 
 def add_target_runtime_arg(
     parser: ParserT,
     help: str,
-    available_target_runtimes: list[TargetRuntime] = list(
-        TargetRuntime.__members__.values()
-    ),
+    available_target_runtimes: list[TargetRuntime]
+    | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
     default: TargetRuntime = TargetRuntime.TFLITE,
 ) -> ParserT:
     parser.add_argument(
@@ -147,11 +198,40 @@ def add_target_runtime_arg(
     return parser
 
 
+def add_precision_arg(
+    parser: argparse.ArgumentParser,
+    supported_precisions: set[Precision],
+    default_if_arg_explicitly_passed: Precision,  # the default value if --precision is passed explicitly
+    default: Precision,  # the default value if --precision is not passed
+) -> argparse.ArgumentParser:
+    precision_help = "Desired precision to which the model should be quantized."
+    if Precision.float in supported_precisions:
+        precision_help += " If set to 'float', the model will not be quantized, and inference will run in fp32 or fp16 (depending on compute unit)."
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--precision",
+        action=get_quantize_action_with_default(default),
+        default=default,
+        choices=[str(p) for p in supported_precisions],
+        help=precision_help,
+    )
+    if len(supported_precisions) > 1:
+        group.add_argument(
+            "--quantize",
+            action=get_quantize_action_with_default(default_if_arg_explicitly_passed),
+            default=None,
+            choices=[str(p) for p in supported_precisions if p != Precision.float],
+            help=f"Quantize the model to this precision. If passed without an explicit argument, precision {default_if_arg_explicitly_passed} will be used. If set, this always supercedes the '--precision' argument.",
+            nargs="?",
+        )
+    return parser
+
+
 def get_on_device_demo_parser(
     parser: QAIHMArgumentParser | None = None,
-    available_target_runtimes: list[TargetRuntime] = list(
-        TargetRuntime.__members__.values()
-    ),
+    available_target_runtimes: list[TargetRuntime]
+    | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
     add_output_dir: bool = False,
     default_device: str | None = None,
 ):
@@ -188,6 +268,14 @@ def get_on_device_demo_parser(
         help="The runtime to demo (if --on-device is specified).",
         default=default_runtime,
         available_target_runtimes=available_target_runtimes,
+    )
+
+    # TODO: This should only include supported precisions.
+    add_precision_arg(
+        parser,
+        {Precision.w8a8, Precision.w8a16, Precision.float},
+        Precision.float,
+        Precision.float,
     )
 
     return parser
@@ -327,30 +415,30 @@ def _get_hub_device(
 
 
 def demo_model_components_from_cli_args(
-    model_cls: list[type[FromPretrainedTypeVar]],
+    model_cls: type[CollectionModel],
     model_id: str,
-    components: list[str],
     cli_args: argparse.Namespace,
-) -> tuple[FromPretrainedTypeVar | OnDeviceModel, ...]:
+) -> tuple[FromPretrainedProtocol | OnDeviceModel, ...]:
     """
     Similar to demo_model_from_cli_args, but for component models.
 
     Args:
     - model_cls: Must have the same length as components
-
-    - components: the component names returned by export.py
     """
     res = []
+    component_classes = model_cls.component_classes
     if cli_args.hub_model_id:
-        if len(cli_args.hub_model_id.split(",")) != len(components):
+        if len(cli_args.hub_model_id.split(",")) != len(component_classes):
             raise ValueError(
-                f"Expected {len(components)} components in "
+                f"Expected {len(component_classes)} components in "
                 f"hub-model-id, but got {cli_args.hub_model_id}"
             )
 
     cli_args_comp = copy.deepcopy(cli_args)
 
-    for i, (cls, comp) in enumerate(zip(model_cls, components)):
+    for i, (cls, comp) in enumerate(
+        zip(model_cls.component_classes, model_cls.component_class_names)
+    ):
         if cli_args.hub_model_id:
             cli_args_comp.hub_model_id = cli_args.hub_model_id.split(",")[i]
         res.append(demo_model_from_cli_args(cls, model_id, cli_args_comp, comp))
@@ -485,12 +573,10 @@ def _get_qcom_chipsets() -> set[str]:
 
 def _evaluate_export_common_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
-    supports_tflite: bool = True,
-    supports_qnn: bool = True,
-    supports_onnx: bool = True,
-    default_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
+    uses_quantize_job: bool = True,
     exporting_compiled_model: bool = False,
-    is_hub_quantized: bool = False,
+    num_calibration_samples: int | None = None,
 ) -> QAIHMArgumentParser:
     """
     Common arguments between export and evaluate scripts.
@@ -498,24 +584,18 @@ def _evaluate_export_common_parser(
     # Set handler to resolve, to allow from_pretrained and get_input_spec
     # to have the same argument names.
     parser = get_parser(allow_dupe_args=True)
-    if is_hub_quantized:
+    if uses_quantize_job:
         parser.add_argument(
             "--num-calibration-samples",
             type=int,
-            default=100,
+            default=num_calibration_samples,
             help="The number of calibration data samples to use for quantization.",
         )
     if not exporting_compiled_model:
         # Default runtime for compiled model is fixed for given model
-        available_runtimes = []
-        if supports_tflite:
-            available_runtimes.append(TargetRuntime.TFLITE)
-        if supports_qnn:
-            available_runtimes.append(TargetRuntime.QNN)
-        if supports_onnx:
-            available_runtimes.append(TargetRuntime.ONNX)
-        if supports_qnn:
-            available_runtimes.append(TargetRuntime.PRECOMPILED_QNN_ONNX)
+        available_runtimes = set()
+        for rts in supported_precision_runtimes.values():
+            available_runtimes.update(rts)
 
         default_runtime = _get_default_runtime(available_runtimes)
         add_target_runtime_arg(
@@ -547,19 +627,30 @@ def _evaluate_export_common_parser(
         if issubclass(model_cls, BaseModel):
             parser = get_model_input_spec_parser(model_cls, parser)
 
+        supported_precisions = set(supported_precision_runtimes.keys())
+        non_float_precision = _get_non_float_precision(supported_precisions)
+        add_precision_arg(
+            parser,
+            supported_precisions,
+            default_if_arg_explicitly_passed=non_float_precision or Precision.float,
+            default=Precision.float
+            if Precision.float in supported_precisions
+            else next(iter(supported_precisions)),
+        )
+
     return parser
 
 
 def export_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     components: Optional[list[str]] = None,
-    supports_tflite: bool = True,
-    supports_qnn: bool = True,
-    supports_onnx: bool = True,
-    default_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [TargetRuntime.TFLITE],
+    },
+    uses_quantize_job: bool = True,
     exporting_compiled_model: bool = False,
     default_export_device: str | None = None,
-    is_hub_quantized: bool = False,
+    num_calibration_samples: int | None = None,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -567,39 +658,36 @@ def export_parser(
     Parameters:
         model_cls: Class of the model to be exported. Used to add additional
             args for model instantiation.
-        components: Some models have multiple components that need to be
-            compiled separately. This represents the list of options for the user to
-            select which components they want to compile.
-        supports_qnn:
-            Whether QNN export is supported.
-            Default=True.
-        supports_onnx:
-            Whether ORT export is supported.
-            Default=True.
-        default_runtime: Which runtime to use as default if not specified in cli args.
+        components: Only used for model with component and sub-component, such
+            as Llama 2, 3, where two subcomponents (e.g.,
+            PromptProcessor_1_Quantized, TokenGenerator_1_Quantized)
+            are classified under one component (e.g. Llama2_Part1_Quantized).
+        supported_precision_runtimes:
+            The list of supported (precision, runtime) pairs for this model.
+        uses_quantize_job:
+            Whether this model uses quantize job to quantize the model.
         exporting_compiled_model:
             True when exporting compiled model.
             If set, removing skip_profiling flag from export arguments.
             Default = False.
         default_export_device: Default device to set for export.
-        is_hub_quantized: Whether the model is quantized via the hub quantize job.
+        num_calibration_samples:
+            How many samples to calibrate on when quantizing by default.
+            If not set, defers to the dataset to decide the number.
 
     Returns:
         argparse ArgumentParser object.
     """
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
-        supports_tflite=supports_tflite,
-        supports_qnn=supports_qnn,
-        supports_onnx=supports_onnx,
-        default_runtime=default_runtime,
+        supported_precision_runtimes=supported_precision_runtimes,
         exporting_compiled_model=exporting_compiled_model,
-        is_hub_quantized=is_hub_quantized,
+        num_calibration_samples=num_calibration_samples,
     )
 
     _add_device_args(parser, default_device=default_export_device)
 
-    if is_hub_quantized:
+    if uses_quantize_job:
         parser.add_argument(
             "--skip-compiling",
             action="store_true",
@@ -633,13 +721,18 @@ def export_parser(
         help="Directory to store generated assets (e.g. compiled model). "
         "Defaults to `<cwd>/build/<model_name>`.",
     )
-    if components is not None:
+    if components is not None or issubclass(model_cls, CollectionModel):
+        choices = (
+            components
+            if components is not None
+            else model_cls.component_class_names  # type: ignore
+        )
         parser.add_argument(
             "--components",
             nargs="+",
             type=str,
             default=None,
-            choices=components,
+            choices=choices,
             help="Which components of the model to be exported.",
         )
     return parser
@@ -647,69 +740,58 @@ def export_parser(
 
 def evaluate_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
-    default_split_size: int,
     supported_datasets: list[str],
-    supports_tflite=True,
-    supports_qnn=True,
-    supports_onnx=True,
-    default_runtime=TargetRuntime.TFLITE,
-    is_hub_quantized: bool = False,
-    default_num_samples: int = DEFAULT_NUM_EVAL_SAMPLES,
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [TargetRuntime.TFLITE],
+    },
+    uses_quantize_job: bool = True,
+    num_calibration_samples: int | None = None,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in evaluate scripts.
 
     Parameters:
-        model_cls: Class of the model to be exported. Used to add additional
-            args for model instantiation.
-        supported_datasets: List of supported dataset names.
-        default_split_size: Default size for the most samples to be submitted
-            in a single inference job.
-        supports_qnn:
-            Whether QNN export is supported.
-            Default=True.
-        supports_onnx:
-            Whether ORT export is supported.
-            Default=True.
-        exporting_compiled_model:
-            True when exporting compiled model.
-            If set, removing skip_profiling flag from export arguments.
-            Default = False.
-        default_runtime: Which runtime to use as default if not specified in cli args.
-        is_hub_quantized: Whether the model is quantized via the hub quantize job.
-        default_num_samples: Number of samples to evaluate by default.
+        model_cls:
+            Class of the model to be exported. Used to add additional args for model instantiation.
+        supported_datasets:
+            List of supported dataset names.
+        supported_precision_runtimes:
+            The list of supported (precision, runtime) pairs for this model.
+        uses_quantize_job:
+            Whether this model uses quantize job to quantize the model.
+        num_calibration_samples:
+            How many samples to calibrate on when quantizing by default.
+            If not set, defers to the dataset to decide the number.
 
     Returns:
         Arg parser object.
     """
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
-        supports_tflite=supports_tflite,
-        supports_qnn=supports_qnn,
-        supports_onnx=supports_onnx,
-        default_runtime=default_runtime,
-        is_hub_quantized=is_hub_quantized,
+        supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=uses_quantize_job,
+        num_calibration_samples=num_calibration_samples,
     )
-
     _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen2")
-
+    if len(supported_datasets) == 0:
+        return parser
     parser.add_argument(
-        "--split-size",
+        "--samples-per-job",
         type=int,
-        default=default_split_size,
+        default=None,
         help="Max size to be submitted in a single inference job.",
     )
     parser.add_argument(
         "--dataset-name",
         type=str,
-        default=supported_datasets[-1],
+        default=supported_datasets[0],
         choices=supported_datasets,
         help="Name of the dataset to use for evaluation.",
     )
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=default_num_samples,
+        default=None,
         help="Number of samples to run. If set to -1, will run on full dataset.",
     )
     parser.add_argument(
@@ -731,7 +813,7 @@ def evaluate_parser(
         help="If set, will store hub dataset ids in a local file and re-use "
         "for subsequent evaluations on the same dataset.",
     )
-    if is_hub_quantized:
+    if uses_quantize_job:
         parser.add_argument(
             "--compute-quant-cpu-accuracy",
             action="store_true",
@@ -754,3 +836,17 @@ def enable_model_caching(parser):
         " If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.",
     )
     return parser
+
+
+def validate_precision_runtime(
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
+    precision: Precision,
+    runtime: TargetRuntime,
+):
+    if (
+        precision not in supported_precision_runtimes
+        or runtime not in supported_precision_runtimes[precision]
+    ):
+        raise ValueError(
+            f"Model does not support runtime {runtime} with precision {precision}. These combinations are supported: {supported_precision_runtimes}"
+        )

@@ -7,9 +7,13 @@ This is a sample script showing how to profile various optimizations for Stable
 Diffusion v1.5.
 
 Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
+
+This is broken currently. Will fix soon.
 """
 import argparse
+import logging
 import os
+import tempfile
 from pathlib import Path
 
 import piqaro
@@ -24,10 +28,16 @@ from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized.model import (
     make_text_encoder_hf_model,
     make_unet_hf_model,
 )
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
+
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO, format="[%(asctime)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
 COMPONENTS = {
     "text_encoder": TextEncoderQuantizable,
@@ -37,13 +47,38 @@ COMPONENTS = {
 
 OPT_METHODS = ["no_opt", "manual", "piqaro_torch", "piqaro_onnx"]
 
+
+def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
+    import onnx
+    import onnxsim
+
+    onnx_model, _ = onnxsim.simplify(onnx_model)
+    # Convert to piQaro/PyTorch format
+    torch_model = piqaro.onnx._acquire(onnx_model)
+
+    # Optimize
+    opt = piqaro.Optimizer()
+    opt(torch_model)
+
+    # Export back to ONNX
+    # For models > 2GB, must specify an absolute path so weight files
+    # can be written next to the .onnx file
+    onnx_path = os.path.join(export_dir, "model.onnx")
+    logger.info(f"Saving piqaro-onnx optimized ONNX model to {onnx_path}")
+
+    torch.onnx.export(torch_model, sample_input, onnx_path)
+
+    onnx_model = onnx.load(onnx_path)
+    return onnx_model
+
+
 if __name__ == "__main__":
     # Args
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--component",
         choices=COMPONENTS.keys(),
-        required=True,
+        default="unet",
         help="One of " + ", ".join(COMPONENTS.keys()),
     )
     parser.add_argument(
@@ -51,12 +86,6 @@ if __name__ == "__main__":
         type=str,
         default="no_opt",
         help="Optimization method. One of {OPT_METHODS}. Default is no_opt",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="Snapdragon X Elite CRD",
-        help="Hub device",
     )
     parser.add_argument(
         "--output-dir",
@@ -84,20 +113,21 @@ if __name__ == "__main__":
     assert args.opt in OPT_METHODS, f"Unsupported {args.opt}"
     apply_monkey_patch = args.opt == "manual"
 
-    hub_device = hub.Device(args.device)
-
     if args.component == "unet":
         torch_model = make_unet_hf_model(apply_monkey_patch=apply_monkey_patch)
     elif args.component == "text_encoder":
         torch_model = make_text_encoder_hf_model()
 
     dummy_input = tuple(make_torch_inputs(input_spec))
+
+    # piqaro.config.load_file('toyota.yaml')
     if args.opt == "piqaro_torch":
-        print("Optimizing with Piqaro torch")
+        # optimized_model = piqaro.onnx.optimize(model)
+        logger.info("Optimizing with Piqaro torch")
         torch_model = piqaro.optimize(torch_model, dummy_input)
 
     # Export to ONNX
-    print("Exporting to onnx...")
+    logger.info("Exporting to onnx...")
     output_dir = args.output_dir or str(
         Path() / "build" / f"{args.component}_{args.opt}"
     )
@@ -106,40 +136,70 @@ if __name__ == "__main__":
         output_dir, f"sd1_5_{args.component}_{args.opt}.onnx"
     )
     onnx_transforms = None
+
     if args.opt == "piqaro_onnx":
+        # Create a temporary directory that will persist until export finishes.
+        with tempfile.TemporaryDirectory() as tmpdir:
 
-        def onnx_transforms(onnx_model):
-            import onnxsim
+            def onnx_transforms(onnx_model):
+                # import onnxsim
+                # onnx_model, _ = onnxsim.simplify(onnx_model)
 
-            onnx_model, _ = onnxsim.simplify(onnx_model)
-            return piqaro.onnx.optimize(onnx_model)
+                # TODO: simplify after piqaro fixes
+                # https://github.qualcomm.com/Hexagon-Architecture/piqaro/issues/914
+                # return piqaro.onnx.optimize(onnx_model)
+                # export_dir = "/mnt/vol1/tetra/m6/scripts/examples/build/llama_v3_2_3b_piqaro_onnx/piqaro_opt_torch_export.onnx"
+                # os.makedirs(export_dir, exist_ok=True)
+                return piqaro_onnx_large_model(onnx_model, dummy_input, tmpdir)
 
-    zip_path = export_torch_to_onnx_zip(
-        torch_model,
-        output_path_onnx,
-        dummy_input,
-        input_names=list(input_spec.keys()),
-        onnx_transforms=onnx_transforms,
+            output_dir = export_torch_to_onnx_zip(
+                torch_model,
+                str(output_dir),
+                dummy_input,
+                input_names=list(input_spec.keys()),
+                onnx_transforms=onnx_transforms,
+                skip_zip=True,
+            )
+    else:
+        output_dir = export_torch_to_onnx_zip(
+            torch_model,
+            str(output_dir),
+            dummy_input,
+            input_names=list(input_spec.keys()),
+            onnx_transforms=onnx_transforms,
+            skip_zip=True,
+        )
+
+    compile_options = component.get_hub_compile_options(
+        TargetRuntime.QNN, precision=Precision.w8a16
     )
 
-    compile_options = component.get_hub_compile_options(TargetRuntime.QNN)
+    compile_jobs = []
+    # Profile on all 3 devices
+    devices = [
+        "Snapdragon X Elite CRD",
+        "Samsung Galaxy S23 (Family)",
+        "Samsung Galaxy S24 (Family)",
+    ]
+    hub_model = hub.upload_model(output_dir)
+    for device in devices:
+        hub_device = hub.Device(device)
+        compile_job = hub.submit_compile_job(
+            model=hub_model,
+            input_specs=input_spec,
+            device=hub_device,
+            name=f"sd1_5_{args.component}_{args.opt}",
+            options=compile_options,
+        )
+        logger.info(f"compile job: {compile_job}")
 
-    compile_job = hub.submit_compile_job(
-        model=zip_path,
-        input_specs=input_spec,
-        device=hub_device,
-        name=f"sd1_5_{args.component}_{args.opt}",
-        options=compile_options,
-    )
-    print(f"compile job: {compile_job}")
-
-    profile_job = hub.submit_profile_job(
-        model=compile_job.get_target_model(),
-        device=hub_device,
-        name=f"sd1_5_{args.component}_{args.opt}",
-    )
-    print(f"profile job: {profile_job}")
+        profile_job = hub.submit_profile_job(
+            model=compile_job.get_target_model(),
+            device=hub_device,
+            name=f"sd1_5_{args.component}_{args.opt}",
+        )
+        logger.info(f"profile job: {profile_job}")
 
     assert profile_job.wait().success, "Job failed: " + profile_job.url
     profile_data = profile_job.download_profile()
-    print_profile_metrics_from_job(profile_job, profile_data)
+    logger.info(print_profile_metrics_from_job(profile_job, profile_data))

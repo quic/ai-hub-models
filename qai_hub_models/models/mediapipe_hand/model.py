@@ -12,7 +12,11 @@ import torch
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    CollectionModel,
+    PretrainedCollectionModel,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -76,53 +80,12 @@ ROTATION_VECTOR_OFFSET_RADS = (
 )  # Offset required when computing rotation of the detected palm.
 
 
-class MediaPipeHand(CollectionModel):
-    def __init__(
-        self,
-        hand_detector: HandDetector,
-        hand_landmark_detector: HandLandmarkDetector,
-    ) -> None:
-        """
-        Construct a mediapipe hand model.
-
-        Inputs:
-            hand_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
-                Hand detection model. Input is an image, output is
-                [bounding boxes & keypoints, box & keypoint scores]
-
-            hand_landmark_detector
-                Hand landmark detector model. Input is an image cropped to the hand. The hand must be upright
-                and un-tilted in the frame. Returns [landmark_scores, prob_is_right_hand, landmarks]
-        """
-        super().__init__()
-        self.hand_detector = hand_detector
-        self.hand_landmark_detector = hand_landmark_detector
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        detector_weights: str = "blazepalm.pth",
-        detector_anchors: str = "anchors_palm.npy",
-        landmark_detector_weights: str = "blazehand_landmark.pth",
-    ) -> MediaPipeHand:
-        with MediaPipePyTorchAsRoot():
-            from blazehand_landmark import BlazeHandLandmark
-            from blazepalm import BlazePalm
-
-            palm_detector = BlazePalm()
-            palm_detector.load_weights(detector_weights)
-            palm_detector.load_anchors(detector_anchors)
-            palm_detector.min_score_thresh = 0.75
-            hand_regressor = BlazeHandLandmark()
-            hand_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                HandDetector(palm_detector, palm_detector.anchors),
-                HandLandmarkDetector(hand_regressor),
-            )
-
-
 class HandDetector(BaseModel):
+    """
+    Hand detection model. Input is an image, output is
+    [bounding boxes & keypoints, box & keypoint scores]
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -175,6 +138,11 @@ class HandDetector(BaseModel):
 
 
 class HandLandmarkDetector(BaseModel):
+    """
+    Hand landmark detector model. Input is an image cropped to the hand. The hand must be upright
+    and un-tilted in the frame. Returns [landmark_scores, prob_is_right_hand, landmarks]
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -217,3 +185,30 @@ class HandLandmarkDetector(BaseModel):
             MODEL_ID, MODEL_ASSET_VERSION, "sample_landmark_inputs.npy"
         )
         return {"image": [load_numpy(numpy_inputs)]}
+
+
+@CollectionModel.add_component(HandDetector)
+@CollectionModel.add_component(HandLandmarkDetector)
+class MediaPipeHand(PretrainedCollectionModel):
+    @classmethod
+    def from_pretrained(
+        cls,
+        detector_weights: str = "blazepalm.pth",
+        detector_anchors: str = "anchors_palm.npy",
+        landmark_detector_weights: str = "blazehand_landmark.pth",
+    ) -> MediaPipeHand:
+        with MediaPipePyTorchAsRoot():
+            from blazehand_landmark import BlazeHandLandmark
+            from blazepalm import BlazePalm
+
+            palm_detector = BlazePalm()
+            palm_detector.load_weights(detector_weights)
+            palm_detector.load_anchors(detector_anchors)
+            palm_detector.min_score_thresh = 0.75
+            hand_regressor = BlazeHandLandmark()
+            hand_regressor.load_weights(landmark_detector_weights)
+
+            return cls(
+                HandDetector(palm_detector, palm_detector.anchors),
+                HandLandmarkDetector(hand_regressor),
+            )

@@ -11,6 +11,7 @@ from copy import deepcopy
 from typing import Any, Optional
 
 import numpy as np
+import onnx
 import torch
 from qai_hub.public_rest_api import DatasetEntries
 from transformers.cache_utils import DynamicCache
@@ -22,7 +23,10 @@ from qai_hub_models.models.common import (
     SourceModelFormat,
     TargetRuntime,
 )
-from qai_hub_models.utils.aimet.encodings import map_encodings
+from qai_hub_models.utils.aimet.encodings import (
+    map_encodings,
+    propagate_memory_encodings,
+)
 from qai_hub_models.utils.huggingface import (
     ensure_has_required_transformer,
     has_model_access,
@@ -619,8 +623,6 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
 
         Works for the new 3.0 and 3.1 encodings.
         """
-        import onnx
-
         with open(src_encodings_path) as f:
             encodings = json.load(f)
 
@@ -1013,33 +1015,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
                 ]
             new_encodings["activation_encodings"][key] = zero_entry
 
-        changes = True
-        while changes:
-            changes = False
-            for node in model.graph.node:
-                if node.output[0] in new_encodings["activation_encodings"]:
-                    continue
-
-                if node.op_type in {
-                    "Concat",
-                    "Split",
-                    "Transpose",
-                    "Cast",
-                    "Reshape",
-                    "Slice",
-                }:
-                    if node.input[0] in new_encodings["activation_encodings"]:
-                        for output_name in node.output:
-                            dst_entry = deepcopy(
-                                new_encodings["activation_encodings"][node.input[0]]
-                            )
-                            if isinstance(dst_entry, dict):
-                                dst_entry["name"] = output_name
-                            new_encodings["activation_encodings"][
-                                output_name
-                            ] = dst_entry
-                            enc_names.add(output_name)
-                            changes = True
+        propagate_memory_encodings(new_encodings, model)
 
         if uses_lists:
             # convert back

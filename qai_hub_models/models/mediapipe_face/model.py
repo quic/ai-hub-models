@@ -178,65 +178,12 @@ LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-class MediaPipeFace(CollectionModel):
-    def __init__(
-        self,
-        face_detector: FaceDetector,
-        face_landmark_detector: FaceLandmarkDetector,
-    ) -> None:
-        """
-        Construct a mediapipe face model.
-
-        Inputs:
-            face_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
-                Face detection model. Input is an image, output is
-                [bounding boxes & keypoints, box & kp scores]
-
-            face_landmark_detector
-                Face landmark detector model. Input is an image cropped to the face. The face must be upright
-                and un-tilted in the frame. Returns [landmark_scores, landmarks]
-        """
-        super().__init__()
-        self.face_detector = face_detector
-        self.face_landmark_detector = face_landmark_detector
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        detector_weights: str = "blazefaceback.pth",
-        detector_anchors: str = "anchors_face_back.npy",
-        landmark_detector_weights: str = "blazeface_landmark.pth",
-    ) -> MediaPipeFace:
-        """
-        Load mediapipe models from the source repository.
-        Returns tuple[
-            <source repository>.blazeface.BlazeFace,
-            BlazeFace Anchors,
-            <source repository>.blazeface_landmark.BlazeFaceLandmark,
-        ]
-        """
-        with MediaPipePyTorchAsRoot() as repo_path:
-            # This conditional is unlikely to be hit, and breaks torch fx graph conversion
-            find_replace_in_repo(
-                repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
-            )
-
-            from blazeface import BlazeFace
-            from blazeface_landmark import BlazeFaceLandmark
-
-            face_detector = BlazeFace(back_model=True)
-            face_detector.load_weights(detector_weights)
-            face_detector.load_anchors(detector_anchors)
-            face_regressor = BlazeFaceLandmark()
-            face_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                FaceDetector(face_detector, face_detector.anchors),
-                FaceLandmarkDetector(face_regressor),
-            )
-
-
 class FaceDetector(BaseModel):
+    """
+    Face detection model. Input is an image, output is
+    [bounding boxes & keypoints, box & kp scores]
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -286,6 +233,11 @@ class FaceDetector(BaseModel):
 
 
 class FaceLandmarkDetector(BaseModel):
+    """
+    Face landmark detector model. Input is an image cropped to the face. The face must be upright
+    and un-tilted in the frame. Returns [landmark_scores, landmarks]
+    """
+
     def __init__(
         self,
         detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
@@ -330,3 +282,51 @@ class FaceLandmarkDetector(BaseModel):
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         return {"image": [load_numpy(LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}
+
+
+@CollectionModel.add_component(FaceDetector)
+@CollectionModel.add_component(FaceLandmarkDetector)
+class MediaPipeFace(CollectionModel):
+    def __init__(
+        self,
+        face_detector: FaceDetector,
+        face_landmark_detector: FaceLandmarkDetector,
+    ) -> None:
+        super().__init__(face_detector, face_landmark_detector)
+        self.face_detector = face_detector
+        self.face_landmark_detector = face_landmark_detector
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        detector_weights: str = "blazefaceback.pth",
+        detector_anchors: str = "anchors_face_back.npy",
+        landmark_detector_weights: str = "blazeface_landmark.pth",
+    ) -> MediaPipeFace:
+        """
+        Load mediapipe models from the source repository.
+        Returns tuple[
+            <source repository>.blazeface.BlazeFace,
+            BlazeFace Anchors,
+            <source repository>.blazeface_landmark.BlazeFaceLandmark,
+        ]
+        """
+        with MediaPipePyTorchAsRoot() as repo_path:
+            # This conditional is unlikely to be hit, and breaks torch fx graph conversion
+            find_replace_in_repo(
+                repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
+            )
+
+            from blazeface import BlazeFace
+            from blazeface_landmark import BlazeFaceLandmark
+
+            face_detector = BlazeFace(back_model=True)
+            face_detector.load_weights(detector_weights)
+            face_detector.load_anchors(detector_anchors)
+            face_regressor = BlazeFaceLandmark()
+            face_regressor.load_weights(landmark_detector_weights)
+
+            return cls(
+                FaceDetector(face_detector, face_detector.anchors),
+                FaceLandmarkDetector(face_regressor),
+            )

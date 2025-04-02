@@ -21,42 +21,6 @@ MODEL_STORAGE_DIRECTORY = None
 USER_NETWORK_DIRECTORY = None
 
 
-class EasyOCR(CollectionModel):
-    def __init__(
-        self,
-        detector: EasyOCRDetector,
-        recognizer: EasyOCRRecognizer,
-        lang_list: list[str],
-    ):
-        self.lang_list = lang_list
-        self.detector = detector
-        self.recognizer = recognizer
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        lang_list: list[str] = LANG_LIST,
-        detect_network: str = "craft",
-        recog_network: str = "standard",
-    ) -> EasyOCR:
-        """
-        Create an EasyOCR model.
-
-        Parameters:
-            lang_list: list[str]
-                Language List
-
-            detect_network: Detector network architecture
-                Valid options: craft, dbnet18
-
-            recog_network: Recognizer network architecture
-                Valid options: standard (determine based on language list), generation1, generation2
-        """
-        detector = EasyOCRDetector.from_pretrained(lang_list, detect_network)
-        recognizer = EasyOCRRecognizer.from_pretrained(lang_list, recog_network)
-        return EasyOCR(detector, recognizer, lang_list)
-
-
 class EasyOCRDetector(BaseModel):
     def __init__(self, detector_model: CRAFTDetector | DBNetDetector) -> None:
         super().__init__()
@@ -158,3 +122,42 @@ class EasyOCRRecognizer(BaseModel):
     @staticmethod
     def get_output_names(*args, **kwargs):
         return ["output_preds"]
+
+
+@CollectionModel.add_component(EasyOCRDetector)
+@CollectionModel.add_component(EasyOCRRecognizer)
+class EasyOCR(CollectionModel):
+    def __init__(
+        self,
+        detector: EasyOCRDetector,
+        recognizer: EasyOCRRecognizer,
+        lang_list: list[str],
+    ):
+        super().__init__(detector, recognizer)
+        self.lang_list = lang_list
+        self.detector = detector
+        self.recognizer = recognizer
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        lang_list: list[str] = LANG_LIST,
+        detect_network: str = "craft",
+        recog_network: str = "standard",
+    ) -> EasyOCR:
+        """
+        Create an EasyOCR model.
+
+        Parameters:
+            lang_list: list[str]
+                Language List
+
+            detect_network: Detector network architecture
+                Valid options: craft, dbnet18
+
+            recog_network: Recognizer network architecture
+                Valid options: standard (determine based on language list), generation1, generation2
+        """
+        detector = EasyOCRDetector.from_pretrained(lang_list, detect_network)
+        recognizer = EasyOCRRecognizer.from_pretrained(lang_list, recog_network)
+        return EasyOCR(detector, recognizer, lang_list)

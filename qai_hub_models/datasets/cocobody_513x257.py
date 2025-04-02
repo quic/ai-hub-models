@@ -9,30 +9,6 @@ from qai_hub_models.datasets.common import DatasetSplit
 
 
 class CocoBody513x257Dataset(CocoBodyDataset):
-    """
-    Wrapper class around CocoWholeBody Human Pose dataset
-    http://images.cocodataset.org/
-
-    COCO keypoints::
-        0: 'nose',
-        1: 'left_eye',
-        2: 'right_eye',
-        3: 'left_ear',
-        4: 'right_ear',
-        5: 'left_shoulder',
-        6: 'right_shoulder',
-        7: 'left_elbow',
-        8: 'right_elbow',
-        9: 'left_wrist',
-        10: 'right_wrist',
-        11: 'left_hip',
-        12: 'right_hip',
-        13: 'left_knee',
-        14: 'right_knee',
-        15: 'left_ankle',
-        16: 'right_ankle'
-    """
-
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
@@ -41,3 +17,10 @@ class CocoBody513x257Dataset(CocoBodyDataset):
         num_samples: int = -1,
     ):
         CocoBodyDataset.__init__(self, split, input_height, input_width, num_samples)
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        """
+        The default value for how many samples to run in each inference job.
+        """
+        return 1000

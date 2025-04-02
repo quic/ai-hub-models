@@ -12,12 +12,11 @@ from qai_hub_models.models.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models.sam.demo import IMAGE_ADDRESS
 from qai_hub_models.models.sam.demo import main as demo_main
 from qai_hub_models.models.sam.model import (
-    SMALL_MODEL_TYPE,
+    BASE_MODEL_TYPE,
+    SAM,
+    SAMLoader,
     SamOnnxModel,
     SamPredictor,
-    SAMQAIHMWrapper,
-    _get_weights_path,
-    sam_model_registry,
 )
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
@@ -25,17 +24,15 @@ from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
 
 def test_e2e_numerical() -> None:
     """Verify our driver produces the correct segmentation as source PyTorch model"""
-    model_type = SMALL_MODEL_TYPE
+    model_type = BASE_MODEL_TYPE
 
     # OOTB SAM Objects
-    sam_without_our_edits = sam_model_registry[model_type](
-        _get_weights_path(model_type)
-    )
+    sam_without_our_edits = SAMLoader._load_sam_from_repo(model_type)
     sam_predictor = SamPredictor(sam_without_our_edits)
     sam_onnx_decoder = SamOnnxModel(sam_predictor.model, return_single_mask=True)
 
     # QAIHM SAMApp
-    qaihm_sam = SAMQAIHMWrapper.from_pretrained(model_type)
+    qaihm_sam = SAM.from_pretrained(model_type)
     qaihm_app = SAMApp(
         qaihm_sam.sam.image_encoder.img_size,
         qaihm_sam.sam.mask_threshold,
@@ -51,7 +48,7 @@ def test_e2e_numerical() -> None:
     point_coords = torch.tensor([[[313, 167]]])
     point_labels = torch.randint(low=0, high=4, size=(1, 1), dtype=torch.float)
     mask_input = torch.zeros(
-        [1, 1, qaihm_sam.decoder.embed_size[0] * 4, qaihm_sam.decoder.embed_size[1] * 4]
+        qaihm_sam.decoder.get_input_spec(has_mask_input=True)["mask_input"][0]
     )
     has_mask_input = torch.zeros([1])
 

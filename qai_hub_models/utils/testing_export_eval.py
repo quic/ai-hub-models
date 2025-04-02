@@ -14,14 +14,19 @@ import numpy as np
 import qai_hub as hub
 import torch
 
+from qai_hub_models.datasets import DATASET_NAME_MAP
 from qai_hub_models.models.common import ExportResult, Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.evaluate import (
+    evaluate_on_dataset,
+    get_qdq_onnx,
+    get_torch_val_dataloader,
+)
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,
@@ -30,7 +35,6 @@ from qai_hub_models.utils.testing import (
     mock_get_calibration_data,
     mock_on_device_model_call,
     mock_tabulate_fn,
-    write_accuracy,
 )
 from qai_hub_models.utils.testing_async_utils import (
     assert_success_or_cache_job,
@@ -41,6 +45,7 @@ from qai_hub_models.utils.testing_async_utils import (
     get_dataset_ids_file,
     is_hub_testing_async,
     str_with_async_test_metadata,
+    write_accuracy,
 )
 
 ExportFunc = Union[  # type:ignore[valid-type]
@@ -299,6 +304,7 @@ def quantize_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
+                precision=precision,
                 skip_downloading=True,
                 skip_compiling=True,
                 skip_profiling=True,
@@ -378,6 +384,7 @@ def compile_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
+                precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
                 skip_inferencing=True,
@@ -459,6 +466,7 @@ def profile_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
+                precision=precision,
                 skip_downloading=True,
                 skip_profiling=False,
                 skip_inferencing=True,
@@ -541,6 +549,7 @@ def inference_via_export(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
                 chipset=device.chipset,
+                precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
                 skip_inferencing=False,
@@ -619,6 +628,7 @@ def export_test_e2e(
         export_model(  # type:ignore[misc]
             device=device.execution_device_name,
             chipset=device.chipset,
+            precision=precision,
             skip_downloading=True,
             compile_options=scorecard_path.compile_path.get_compile_options(),
             target_runtime=scorecard_path.runtime,
@@ -626,9 +636,8 @@ def export_test_e2e(
 
 
 def on_device_inference_for_accuracy_validation(
-    model: type[BaseModel],
+    model: type[BaseModel] | type[CollectionModel],
     dataset_name: str,
-    num_eval_samples: int,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -639,25 +648,22 @@ def on_device_inference_for_accuracy_validation(
     Async testing must be enabled to run this method.
 
     Parameters:
-        model: type[BaseModel]
+        model:
             Model class to run inference on.
 
-        dataset_name: str
+        dataset_name:
             Name of the dataset to use for evaluation.
 
-        num_eval_samples: str
-            Number of dataset samples to use for evaluation.
-
-        model_id: str
+        model_id:
             Model ID
 
-        precision: Precision
+        precision:
             Model precision
 
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
+        scorecard_path:
             Scorecard path
 
-        device: ScorecardDevice | None
+        device:
             Scorecard device
     """
     compile_jobs = fetch_successful_async_test_jobs(
@@ -680,7 +686,6 @@ def on_device_inference_for_accuracy_validation(
             get_dataset_ids_file(),
             model,
             apply_channel_transpose=scorecard_path.runtime.channel_last_native_execution,
-            num_samples=num_eval_samples,
         )
         ijob = hub.submit_inference_job(
             device=device.execution_device,
@@ -694,7 +699,7 @@ def on_device_inference_for_accuracy_validation(
 
 
 def torch_inference_for_accuracy_validation(
-    model: BaseModel, dataset_name: str, num_eval_samples: int, model_id: str
+    model: BaseModel | CollectionModel, dataset_name: str, model_id: str
 ) -> None:
     """
     Runs torch inference job on the given dataset.
@@ -702,19 +707,19 @@ def torch_inference_for_accuracy_validation(
     Async testing must be enabled to run this method.
 
     Parameters:
-        model: BaseModel
+        model:
             Model instance to run inference on.
 
-        dataset_name: str
+        dataset_name:
             Name of the dataset to use for evaluation.
 
-        num_eval_samples: str
-            Number of dataset samples to use for evaluation.
-
-        model_id: str
+        model_id:
             Model ID
     """
-    inputs, *_ = next(iter(get_torch_val_dataloader(dataset_name, num_eval_samples)))
+    assert isinstance(
+        model, BaseModel
+    ), "This function is not yet supported for CollectionModel."
+    inputs, *_ = next(iter(get_torch_val_dataloader(dataset_name)))
     output_names = model.get_output_names()
     all_outputs: list[list[np.ndarray]] = [[] for _ in output_names]
     for input_tensor in inputs.split(1, dim=0):
@@ -864,18 +869,20 @@ def accuracy_on_sample_inputs_via_export(
     with calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
+            precision=precision,
             skip_downloading=True,
             skip_profiling=True,
         )
 
-    write_accuracy(model_id, scorecard_path.runtime, psnr_values)
+    write_accuracy(
+        model_id, device.chipset, precision, scorecard_path.runtime, psnr_values
+    )
 
 
 def accuracy_on_dataset_via_evaluate_and_export(
     export_model: ExportFunc,  # type:ignore[misc,valid-type]
-    model: BaseModel,
+    model: BaseModel | CollectionModel,
     dataset_name: str,
-    num_eval_samples: int,
     torch_val_outputs: np.ndarray,
     torch_evaluate_mock_outputs: list[torch.Tensor | tuple[torch.Tensor, ...]],
     model_id: str,
@@ -888,35 +895,37 @@ def accuracy_on_dataset_via_evaluate_and_export(
     Async testing must be enabled to run this method.
 
     Parameters:
-        export_model: ExportFunc
+        export_model:
             Code-generated export function from export.py.
 
-        model: BaseModel
+        model:
             Model instance to run inference on.
 
-        dataset_name: str
+        dataset_name:
             Name of the dataset to use for evaluation.
 
-        num_eval_samples: str
-            Number of dataset samples to use for evaluation.
-
-        model_id: str
+        model_id:
             Model ID
 
-        precision: Precision
+        precision:
             Model precision
 
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
+        scorecard_path:
             Scorecard path
 
-        device: ScorecardDevice | None
+        device:
             Scorecard device
     """
+    assert isinstance(
+        model, BaseModel
+    ), "This function is not yet supported for CollectionModel."
     # Patch input eval dataset to use a cached dataset if it exists
+    dataset_cls = DATASET_NAME_MAP.get(dataset_name, None)
+    assert dataset_cls is not None
     dataset_dir = get_and_sync_datasets_cache_dir(
         scorecard_path.runtime.channel_last_native_execution,
         dataset_name,
-        num_eval_samples,
+        dataset_cls.default_samples_per_job(),
     )
     cache_path_patch = mock.patch(
         "qai_hub_models.utils.evaluate.get_hub_datasets_path",
@@ -970,9 +979,8 @@ def accuracy_on_dataset_via_evaluate_and_export(
             torch_model=model,
             hub_device=inference_job.device,
             dataset_name=dataset_name,
-            split_size=num_eval_samples,
-            num_samples=num_eval_samples,
             use_cache=True,
+            compute_quant_cpu_accuracy=(get_qdq_onnx(inference_job.model) is not None),
         )
 
     # Patch previous jobs
@@ -1015,10 +1023,18 @@ def accuracy_on_dataset_via_evaluate_and_export(
     ):
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
+            precision=precision,
             skip_downloading=True,
             skip_profiling=True,
         )
 
     write_accuracy(
-        model_id, scorecard_path.runtime, psnr_values, torch_acc, device_acc, sim_acc
+        model_id,
+        device.chipset,
+        precision,
+        scorecard_path.runtime,
+        psnr_values,
+        torch_acc,
+        device_acc,
+        sim_acc,
     )

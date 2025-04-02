@@ -35,4 +35,11 @@ class ConditionalDETRResNet50(DETR):
 
         """
         predictions = self.model(image)
-        return predictions[0], predictions[1]
+        logits = predictions[0]
+        boxes = predictions[1]
+
+        return logits, boxes
+
+    @staticmethod
+    def get_output_names() -> list[str]:
+        return ["logits", "boxes"]

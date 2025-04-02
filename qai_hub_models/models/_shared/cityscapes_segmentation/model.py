@@ -102,3 +102,11 @@ class CityscapesSegmentor(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cityscapes"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cityscapes"

@@ -20,6 +20,7 @@ from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
+    validate_precision_runtime,
 )
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.printing import (
@@ -36,6 +37,7 @@ from qai_hub_models.utils.qai_hub_helpers import (
 def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
+    precision: Precision = Precision.w8a8,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -64,6 +66,8 @@ def export_model(
             Defaults to DEFAULT_DEVICE if not specified.
         chipset: If set, will choose a random device with this chipset.
             Overrides the `device` argument.
+        precision: The precision to which this model should be quantized.
+            Quantization is skipped if the precision is float.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -210,8 +214,24 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
-    parser = export_parser(model_cls=Model)
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.w8a8: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+    }
+
+    parser = export_parser(
+        model_cls=Model,
+        supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=False,
+    )
     args = parser.parse_args()
+    validate_precision_runtime(
+        supported_precision_runtimes, args.precision, args.target_runtime
+    )
     export_model(**vars(args))
 
 

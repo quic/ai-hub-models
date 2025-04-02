@@ -83,3 +83,11 @@ class DeepLabV3Model(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["pascal_voc"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "pascal_voc"

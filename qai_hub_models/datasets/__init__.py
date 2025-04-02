@@ -48,7 +48,9 @@ def _try_import_dataset(module_name: str, cls: str):
 
 _try_import_dataset(".bsd300", "BSD300Dataset")
 _try_import_dataset(".cityscapes", "CityscapesDataset")
+_try_import_dataset(".cityscapes_lowres", "CityscapesLowResDataset")
 _try_import_dataset(".coco", "CocoDataset")
+_try_import_dataset(".coco91class", "Coco91ClassDataset")
 _try_import_dataset(".coco_face", "CocoFaceDataset")
 _try_import_dataset(".foot_track_dataset", "FootTrackDataset")
 _try_import_dataset(".face_attrib_dataset", "FaceAttribDataset")
@@ -62,7 +64,9 @@ _try_import_dataset(".nyuv2x518", "NyUv2x518Dataset")
 _try_import_dataset(".pascal_voc", "VOCSegmentationDataset")
 _try_import_dataset(".mpii", "MPIIDataset")
 _try_import_dataset(".cocobody", "CocoBodyDataset")
+_try_import_dataset(".cocowholebody", "CocoWholeBodyDataset")
 _try_import_dataset(".cocobody_513x257", "CocoBody513x257Dataset")
+_try_import_dataset(".coco_face_480x640", "CocoFace_480x640Dataset")
 
 
 def get_dataset_from_name(name: str, split: DatasetSplit) -> BaseDataset:

@@ -241,7 +241,8 @@ def split_onnx_by_names(
         if using_external_data:
             onnx.load_external_data_for_model(submodel, base_dir=base_dir)
 
-        part_root_path = Path(output_dir) / (new_basename + ".aimet")
+        ext = ".aimet" if encoding_file is not None else ".onnx"
+        part_root_path = Path(output_dir) / (new_basename + ext)
         part_root_path.mkdir(parents=True, exist_ok=True)
 
         newonnxfile = part_root_path / (new_basename + ".onnx")
@@ -383,7 +384,10 @@ def split_onnx(
     names_to_split = []
     if split_embedding:
         first_output_tensors = output_tensor_list[0].split(",")
-        fill_input_encodings_of_split(onnxmodel, encoding_file, first_output_tensors)
+        if encoding_file is not None:
+            fill_input_encodings_of_split(
+                onnxmodel, encoding_file, first_output_tensors
+            )
         names_to_split.append(output_tensor_list[0])
         output_tensor_list.pop(0)
 

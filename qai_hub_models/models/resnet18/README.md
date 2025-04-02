@@ -7,7 +7,10 @@ ResNet18 is a machine learning model that can classify images from the Imagenet 
 
 This is based on the implementation of ResNet18 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/resnet18).
+accross various devices, can be found here:
+
+  - [float](https://aihub.qualcomm.com/models/resnet18)
+  - [w8a8](https://aihub.qualcomm.com/models/resnet18_quantized)
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -25,7 +28,7 @@ pip install qai-hub-models
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.resnet18.demo
+python -m qai_hub_models.models.resnet18.demo { --quantize w8a8 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,7 +41,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.resnet18.export
+python -m qai_hub_models.models.resnet18.export { --quantize w8a8 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

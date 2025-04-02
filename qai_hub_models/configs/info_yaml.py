@@ -180,8 +180,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Quantized models must contain quantized tag
         if ("quantized" in self.id) and (MODEL_TAG.QUANTIZED not in self.tags):
             return f"Quantized models must have quantized tag. tags: {self.tags}"
-        if ("quantized" not in self.id) and (MODEL_TAG.QUANTIZED in self.tags):
-            return f"Models with a quantized tag must have 'quantized' in the id. tags: {self.tags}"
 
         # Validate related models are present
         for r_model in self.related_models:
@@ -219,12 +217,13 @@ class QAIHMModelInfo(BaseQAIHMConfig):
                 return "All public models must have an info.yaml"
 
             supports_at_least_1_runtime = False
-            for runtime in TargetRuntime:
-                supports_at_least_1_runtime = self.code_gen_config.supports_runtime(
-                    runtime
-                )
-                if supports_at_least_1_runtime:
-                    break
+            for precision in self.code_gen_config.supported_precisions:
+                for runtime in TargetRuntime:
+                    supports_at_least_1_runtime = self.code_gen_config.is_supported(
+                        precision, runtime
+                    )
+                    if supports_at_least_1_runtime:
+                        break
 
             if not supports_at_least_1_runtime:
                 return "Public models must support at least one export path"

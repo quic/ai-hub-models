@@ -38,7 +38,7 @@ class FootTrackNet(BaseModel):
     @classmethod
     def from_pretrained(  # pyright: ignore[reportIncompatibleMethodOverride]
         cls, checkpoint_path: str | None = None
-    ) -> nn.Module:
+    ) -> FootTrackNet:
         """
         Load model from pretrained weights.
 
@@ -106,3 +106,11 @@ class FootTrackNet(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return CocoFootTrackNetEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["coco_foot_track_dataset", "foot_track_dataset"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "coco_foot_track_dataset"

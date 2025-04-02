@@ -18,7 +18,11 @@ import torch
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.whisper_medium_en import Model
-from qai_hub_models.utils.args import export_parser, get_model_kwargs
+from qai_hub_models.utils.args import (
+    export_parser,
+    get_model_kwargs,
+    validate_precision_runtime,
+)
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.input_spec import make_torch_inputs
@@ -31,13 +35,12 @@ from qai_hub_models.utils.qai_hub_helpers import (
     export_without_hub_access,
 )
 
-ALL_COMPONENTS = ["WhisperDecoder", "WhisperEncoder"]
-
 
 def export_model(
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     components: Optional[list[str]] = None,
+    precision: Precision = Precision.float,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
@@ -68,7 +71,9 @@ def export_model(
             Overrides the `device` argument.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
-            Defaults to ALL_COMPONENTS if not specified.
+            Defaults to all components of the CollectionModel if not specified.
+        precision: The precision to which this model should be quantized.
+            Quantization is skipped if the precision is float.
         skip_profiling: If set, skips profiling of compiled model on real devices.
         skip_inferencing: If set, skips computing on-device outputs from sample data.
         skip_downloading: If set, skips downloading of compiled model.
@@ -97,9 +102,9 @@ def export_model(
             name=device or "", attributes=f"chipset:{chipset}" if chipset else []
         )
     component_arg = components
-    components = components or ALL_COMPONENTS
+    components = components or Model.component_class_names
     for component_name in components:
-        if component_name not in ALL_COMPONENTS:
+        if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
     if not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
@@ -123,14 +128,10 @@ def export_model(
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
-    components_dict: dict[str, BaseModel] = {}
-    if "WhisperDecoder" in components:
-        components_dict["WhisperDecoder"] = model.decoder  # type: ignore[assignment]
-    if "WhisperEncoder" in components:
-        components_dict["WhisperEncoder"] = model.encoder  # type: ignore[assignment]
 
     compile_jobs: dict[str, hub.client.CompileJob] = {}
-    for component_name, component in components_dict.items():
+    for component_name, component in model.components.items():
+        assert isinstance(component, BaseModel)
         input_spec = component.get_input_spec()
 
         # Trace the model
@@ -158,7 +159,7 @@ def export_model(
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
-            profile_options_all = components_dict[
+            profile_options_all = model.components[
                 component_name
             ].get_hub_profile_options(target_runtime, profile_options)
             print(f"Profiling model {component_name} on a hosted device.")
@@ -179,10 +180,10 @@ def export_model(
             print(
                 f"Running inference for {component_name} on a hosted device with example inputs."
             )
-            profile_options_all = components_dict[
+            profile_options_all = model.components[
                 component_name
             ].get_hub_profile_options(target_runtime, profile_options)
-            sample_inputs = components_dict[component_name].sample_inputs(
+            sample_inputs = model.components[component_name].sample_inputs(
                 use_channel_last_format=use_channel_last_format
             )
             submitted_inference_job = hub.submit_inference_job(
@@ -213,7 +214,8 @@ def export_model(
             print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
-        for component_name, component in components_dict.items():
+        for component_name, component in model.components.items():
+            assert isinstance(component, BaseModel)
             inference_job = inference_jobs[component_name]
             sample_inputs = component.sample_inputs(use_channel_last_format=False)
             torch_out = torch_inference(
@@ -241,13 +243,21 @@ def export_model(
 
 def main():
     warnings.filterwarnings("ignore")
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
+        Precision.float: [
+            TargetRuntime.TFLITE,
+        ],
+    }
+
     parser = export_parser(
         model_cls=Model,
-        components=ALL_COMPONENTS,
-        supports_qnn=False,
-        supports_onnx=False,
+        supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=False,
     )
     args = parser.parse_args()
+    validate_precision_runtime(
+        supported_precision_runtimes, args.precision, args.target_runtime
+    )
     export_model(**vars(args))
 
 

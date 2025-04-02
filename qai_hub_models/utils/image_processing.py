@@ -121,6 +121,8 @@ def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:
     """
     out = torch.clip(data, min=0.0, max=1.0)
     np_out = (out.permute(1, 2, 0).detach().numpy() * 255).astype(np.uint8)
+    if np_out.shape[2] == 1:
+        np_out = np_out.squeeze(2)
     return ImageFromArray(np_out)
 
 
@@ -173,7 +175,9 @@ def pad_to_square(frame: np.ndarray) -> np.ndarray:
     return np.pad(frame, pad_values, constant_values=255)
 
 
-def resize_pad(image: torch.Tensor, dst_size: tuple[int, int]):
+def resize_pad(
+    image: torch.Tensor, dst_size: tuple[int, int], pad_mode: str = "constant"
+):
     """
     Resize and pad image to be shape [..., dst_size[0], dst_size[1]]
 
@@ -220,7 +224,9 @@ def resize_pad(image: torch.Tensor, dst_size: tuple[int, int]):
         image, size=[int(new_height), int(new_width)], mode="bilinear"
     )
     rescaled_padded_image = pad(
-        rescaled_image, (pad_left, pad_right, pad_top, pad_bottom)
+        rescaled_image,
+        (pad_left, pad_right, pad_top, pad_bottom),
+        mode=pad_mode,
     )
     padding = (pad_left, pad_top)
 
@@ -253,12 +259,15 @@ def undo_resize_pad(
 
 
 def pil_resize_pad(
-    image: Image, dst_size: tuple[int, int]
+    image: Image,
+    dst_size: tuple[int, int],
+    pad_mode: str = "constant",
 ) -> tuple[Image, float, tuple[int, int]]:
     torch_image = preprocess_PIL_image(image)
     torch_out_image, scale, padding = resize_pad(
         torch_image,
         dst_size,
+        pad_mode=pad_mode,
     )
     pil_out_image = torch_tensor_to_PIL_image(torch_out_image[0])
     return (pil_out_image, scale, padding)

@@ -2,10 +2,12 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-
-from qai_hub_models.models._shared.face_attrib_net.app import (  # noqa: F401
-    FaceAttribNetApp as App,
+from qai_hub_models.models.face_attrib_net import MODEL_ID, App, Model  # noqa: F401
+from qai_hub_models.utils.quantization import (
+    Precision,
+    quantized_folder_deprecation_warning,
 )
 
-from .model import MODEL_ID  # noqa: F401
-from .model import FaceAttribNetQuantizable as Model  # noqa: F401
+quantized_folder_deprecation_warning(
+    "face_attrib_net_quantized", "face_attrib_net", Precision.w8a8
+)

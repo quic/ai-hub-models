@@ -8,7 +8,9 @@ import torch
 import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.face_estimation import FacemapFaceEstimationEvaluator
+from qai_hub_models.evaluators.face_landmark_evaluator import (
+    FacemapFaceEstimationEvaluator,
+)
 from qai_hub_models.models.facemap_3dmm.resnet_score_rgb import resnet18_wd2
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
 from qai_hub_models.utils.base_model import BaseModel
@@ -78,3 +80,11 @@ class FaceMap_3DMM(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return FacemapFaceEstimationEvaluator(*self.get_input_spec()["image"][0][2:])
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["coco_face"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "coco_face"
