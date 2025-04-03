@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import re
 
 import qai_hub as hub
@@ -69,7 +71,7 @@ def supported_chipsets(chips: list[str]) -> list[str]:
     return chipset_list
 
 
-def chipset_marketing_name(chipset) -> str:
+def chipset_marketing_name(chipset, world: str | None = None) -> str:
     """Sanitize chip name to match marketing."""
     chip = " ".join([word.capitalize() for word in chipset.split("-")])
     chip = chip.replace("Qualcomm ", "")
@@ -90,7 +92,7 @@ def chipset_marketing_name(chipset) -> str:
         r"(Qcs|Sa)\s*(\w+)", lambda m: f"{m.group(1).upper()}{m.group(2).upper()}", chip
     )
 
-    return chip
+    return chip + (f" {world}" if world else "")
 
 
 def supported_chipsets_santized(chips) -> list[str]:

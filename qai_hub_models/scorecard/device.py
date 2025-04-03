@@ -126,13 +126,14 @@ class ScorecardDevice:
     def __init__(
         self,
         name: str,
-        reference_device_name: Optional[str],
+        reference_device_name: str,
         execution_device_name: Optional[str] = None,
         disabled_models: list[str] = [],
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
         mirror_device: "Optional[ScorecardDevice]" = None,
         public: bool = True,
+        register: bool = True,
     ):
         """
         Parameters
@@ -151,8 +152,10 @@ class ScorecardDevice:
             mirror_device: If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
 
             public: Whether this device is publicly available.
+
+            register: Whether to register this device in the list of all devices.
         """
-        if name in ScorecardDevice._registry:
+        if register and name in ScorecardDevice._registry:
             raise ValueError("Device " + name + "already registered.")
 
         if mirror_device:
@@ -180,7 +183,8 @@ class ScorecardDevice:
         self.mirror_device: Optional[ScorecardDevice] = mirror_device
         self.public = public
 
-        ScorecardDevice._registry[name] = self
+        if register:
+            ScorecardDevice._registry[name] = self
 
     def __str__(self):
         return self.name.lower()
@@ -223,9 +227,7 @@ class ScorecardDevice:
         Get the "reference" device used by the scorecard for metadata when collating results.
         This is not used by any actual scorecard jobs.
         """
-        if self.reference_device_name is not None:
-            return _get_cached_device(self.reference_device_name)
-        raise NotImplementedError(f"No reference device for {self.name}")
+        return _get_cached_device(self.reference_device_name)
 
     @cached_property
     def execution_device(self) -> hub.Device:
@@ -251,6 +253,23 @@ class ScorecardDevice:
             if attr.startswith("chipset:"):
                 return attr[8:]
         raise ValueError(f"Chipset not found for device: {self.name}")
+
+    @cached_property
+    def chipset_aliases(self) -> list[str]:
+        """
+        The aliases for the chipset used by this device.
+        """
+        device = (
+            self.execution_device
+            if self.execution_device_name
+            else self.reference_device
+        )
+
+        aliases = []
+        for attr in device.attributes:
+            if attr.startswith("chipset:"):
+                aliases.append(attr[8:])
+        return aliases
 
     @cached_property
     def os(self) -> OperatingSystem:
