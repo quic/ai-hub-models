@@ -37,7 +37,7 @@ class MobileVIT(ImagenetClassifier):
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
         feature_extractor = MobileViTFeatureExtractor.from_pretrained(ckpt_name)
         assert isinstance(feature_extractor, MobileViTFeatureExtractor)
-        feature_extractor.size = {"height": 224, "width": 224}
+        feature_extractor.size = {"height": 256, "width": 256}
         net = MobileViTForImageClassification.from_pretrained(ckpt_name)
         assert isinstance(net, MobileViTForImageClassification)
         return cls(net, feature_extractor)
@@ -60,8 +60,8 @@ class MobileVIT(ImagenetClassifier):
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return []
+        return ["imagenet_256", "imagenette_256"]
 
     @staticmethod
     def calibration_dataset_name() -> str | None:
-        return None
+        return "imagenette_256"

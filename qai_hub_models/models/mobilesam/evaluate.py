@@ -12,8 +12,8 @@ import warnings
 import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.openpose import MODEL_ID, Model
-from qai_hub_models.models.openpose.export import export_model
+from qai_hub_models.models.mobilesam import MODEL_ID, Model
+from qai_hub_models.models.mobilesam.export import export_model
 from qai_hub_models.utils.args import (
     evaluate_parser,
     get_model_kwargs,
@@ -39,6 +39,7 @@ def main():
         model_cls=Model,
         supported_datasets=eval_datasets,
         supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=False,
     )
     args = parser.parse_args()
     validate_precision_runtime(

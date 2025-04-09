@@ -47,10 +47,19 @@ def test_collection_model_demo():
     class SecondCollection(PretrainedCollectionModel):
         pass
 
+    # Second subclass shouldn't interfere with DummyCollection
+    @CollectionModel.add_component(Component1)
+    @CollectionModel.reset_components()
+    class ThirdCollection(SecondCollection):
+        pass
+
     # Access class vars via component_classes
     assert DummyCollection.component_classes[0] is Component1
     assert DummyCollection.component_classes[1] is Component2
     assert DummyCollection.component_class_names == ["Component1", "Component2"]
+
+    assert len(ThirdCollection.component_class_names) == 1
+    assert len(ThirdCollection.component_classes) == 1
 
     model = DummyCollection.from_pretrained()
 

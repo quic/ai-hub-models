@@ -45,6 +45,8 @@ MANUAL_EDGES = {
     "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
@@ -198,6 +200,7 @@ def get_code_gen_changed_models() -> set[str]:
 
 @functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
 def get_changed_files_in_package(
+    prefix: Optional[str] = None,
     suffix: Optional[str] = None,
 ) -> Iterable[str]:
     """
@@ -206,7 +209,6 @@ def get_changed_files_in_package(
     If the suffix argument is passed, restrict only to files ending in that suffix.
     """
     with new_cd(REPO_ROOT):
-        os.makedirs("build/model-zoo/", exist_ok=True)
         changed_files_path = "build/changed-qaihm-files.txt"
         if not on_github():
             run(f"git diff origin/main --name-only > {changed_files_path}")
@@ -216,6 +218,7 @@ def get_changed_files_in_package(
                     file
                     for file in f.read().split("\n")
                     if file.startswith(PY_PACKAGE_RELATIVE_SRC_ROOT)
+                    and (prefix is None or file.startswith(prefix))
                     and (suffix is None or file.endswith(suffix))
                 ]
                 # Weed out duplicates

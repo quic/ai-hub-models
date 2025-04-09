@@ -22,7 +22,7 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of Phi-3.5-mini-instruct can be found
   [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://github.com/baichuan-inc/Baichuan-7B/blob/main/LICENSE)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

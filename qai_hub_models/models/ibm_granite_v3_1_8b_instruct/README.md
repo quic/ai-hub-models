@@ -22,7 +22,7 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of IBM-Granite-v3.1-8B-Instruct can be found
   [here](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md).
-* The license for the compiled assets for on-device deployment can be found [here](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md)
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

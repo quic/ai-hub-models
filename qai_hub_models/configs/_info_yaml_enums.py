@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import re
 from enum import unique
 
 from qai_hub_models.utils.base_config import ParseableQAIHMEnum
@@ -77,7 +78,104 @@ HF_AVAILABLE_LICENSES = {
     "llama3",
     "unknown",
     "other",
+    "commercial",
 }
+
+
+@unique
+class MODEL_LICENSE(ParseableQAIHMEnum):
+    # General
+    UNLICENSED = 0  # unlicensed
+    AI_HUB_MODELS_LICENSE = 1  # ai-hub-model-license
+    COMMERCIAL = 2  # commercial
+
+    # Non-restrictive
+    APACHE_2_0 = 30  # apache-2.0
+    MIT = 31  # mit
+    BSD_3_CLAUSE = 32  # bsd-3-clause
+    CC_BY_4_0 = 33  # cc-by-4.0
+
+    # Copyleft (derivative works must have the same license)
+    AGPL_3_0 = 52  # agpl-3.0
+    GPL_3_0 = 53  # gpl-3.0
+    CREATIVEML_OPENRAIL_M = 54  # creativeml-openrail-m
+
+    # Commecial use prohibited
+    OTHER_NON_COMMERCIAL = 70  # other-non-commercial
+    CC_BY_NON_COMMERCIAL_4_0 = 71  # cc-by-non-commercial-4.0
+
+    # Licenses for specific models
+    AIMET_MODEL_ZOO = 90  # aimet-model-zoo
+    LLAMA2 = 91  # llama2
+    LLAMA3 = 92  # llama3
+    TAIDE = 93  # taide
+
+    @property
+    def is_copyleft(self) -> bool:
+        # Return true if any derivative works must also use this license.
+        return self in [
+            MODEL_LICENSE.COMMERCIAL,
+            MODEL_LICENSE.AGPL_3_0,
+            MODEL_LICENSE.GPL_3_0,
+            MODEL_LICENSE.CREATIVEML_OPENRAIL_M,
+            MODEL_LICENSE.LLAMA2,
+            MODEL_LICENSE.LLAMA3,
+            MODEL_LICENSE.TAIDE,
+        ]
+
+    @property
+    def is_non_commerical(self) -> bool:
+        # If true if this license does not permit commercial use.
+        return self in [
+            MODEL_LICENSE.OTHER_NON_COMMERCIAL,
+            MODEL_LICENSE.CC_BY_NON_COMMERCIAL_4_0,
+        ]
+
+    @property
+    def deploy_license(self) -> MODEL_LICENSE | None:
+        # For a given model source license (self), get the associated model deployment license.
+        # If None is returned, this model cannot be published with any license.
+        if self.is_copyleft:
+            return self
+        if self.is_non_commerical:
+            return None
+        return MODEL_LICENSE.AI_HUB_MODELS_LICENSE
+
+    @property
+    def huggingface_name(self) -> str:
+        hf_str = None
+        if self == MODEL_LICENSE.CC_BY_NON_COMMERCIAL_4_0:
+            hf_str = "cc-by-nc-4.0"
+        elif self == MODEL_LICENSE.UNLICENSED:
+            hf_str = "unlicense"
+        else:
+            hf_str = str(self)
+        if hf_str in HF_AVAILABLE_LICENSES:
+            return hf_str
+        return "other"
+
+    @property
+    def url(self) -> str | None:
+        # If this license has a known URL, return it.
+        if self == MODEL_LICENSE.AI_HUB_MODELS_LICENSE:
+            return "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf"
+        elif self in [MODEL_LICENSE.LLAMA2, MODEL_LICENSE.LLAMA3]:
+            return "https://github.com/facebookresearch/llama/blob/main/LICENSE"
+        elif self == MODEL_LICENSE.TAIDE:
+            return "https://en.taide.tw/download.html"
+        return None
+
+    @staticmethod
+    def from_string(string: str) -> MODEL_LICENSE:
+        try:
+            return MODEL_LICENSE[string.upper().replace("-", "_").replace(".", "_")]
+        except KeyError:
+            raise ValueError(
+                f"Unknown license type: {string}. See the MODEL_LICENSE enum for valid options (or to add an option)."
+            )
+
+    def __str__(self) -> str:
+        return re.sub(r"(?<=\d)_(?=\d)", ".", self.name).replace("_", "-").lower()
 
 
 @unique

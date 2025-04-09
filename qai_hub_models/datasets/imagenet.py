@@ -40,7 +40,9 @@ class ImagenetDataset(BaseDataset, ImageNet):
     Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/
     """
 
-    def __init__(self, split: DatasetSplit = DatasetSplit.VAL):
+    def __init__(
+        self, split: DatasetSplit = DatasetSplit.VAL, transform=IMAGENET_TRANSFORM
+    ):
         """
         A direct download link for the validation set is not available.
         Users should download the validation dataset manually and pass the local filepath
@@ -56,7 +58,7 @@ class ImagenetDataset(BaseDataset, ImageNet):
             self,
             root=str(self.dataset_path),
             split=self.split_str,
-            transform=IMAGENET_TRANSFORM,
+            transform=transform,
         )
 
     def _validate_data(self) -> bool:

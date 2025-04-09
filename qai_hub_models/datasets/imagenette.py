@@ -51,7 +51,9 @@ class ImagenetteDataset(BaseDataset, ImageNet):
     Contains ~4k images spanning 10 of the imagenet classes.
     """
 
-    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN):
+    def __init__(
+        self, split: DatasetSplit = DatasetSplit.TRAIN, transform=IMAGENET_TRANSFORM
+    ):
         BaseDataset.__init__(
             self, str(IMAGENETTE_ASSET.path(extracted=True)), split=split
         )
@@ -59,7 +61,7 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             self,
             root=str(IMAGENETTE_ASSET.path()),
             split=self.split_str,
-            transform=IMAGENET_TRANSFORM,
+            transform=transform,
             target_transform=lambda val: IMAGENETTE_CLASS_MAP[val],
         )
 

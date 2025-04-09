@@ -102,16 +102,12 @@ def _get_intermediate_logit_name(split_part):
 
 
 def get_input_prompt_with_tags(
-    previous_history: str = "",
-    system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     user_input_prompt: str = DEFAULT_USER_PROMPT,
+    system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
 ):
     """
     Get prompt to set context and initialize prompt-processor
     """
-    prompt = previous_history
-    prompt += "" if len(previous_history) == 0 else "</s>"
-
     prompt = f"""<s>{INST_START} {SYS_START}
 {system_context_prompt}
 {SYS_END}

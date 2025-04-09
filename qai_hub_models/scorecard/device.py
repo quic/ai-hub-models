@@ -31,7 +31,7 @@ class ScorecardDevice:
     _registry: dict[str, "ScorecardDevice"] = {}
 
     @classmethod
-    def get(cls, device_name: str):
+    def get(cls, device_name: str) -> "ScorecardDevice":
         if device_name in ScorecardDevice._registry:
             return ScorecardDevice._registry[device_name]
         return [
@@ -40,6 +40,10 @@ class ScorecardDevice:
             if x.reference_device_name == device_name
             or x.execution_device_name == device_name
         ][0]
+
+    @classmethod
+    def from_string(cls, string: str) -> "ScorecardDevice":
+        return cls.get(string)
 
     @classmethod
     def all_devices(

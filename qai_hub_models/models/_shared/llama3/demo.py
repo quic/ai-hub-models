@@ -53,8 +53,19 @@ def llama_chat_demo(
     parser.add_argument(
         "--prompt",
         type=str,
-        default=default_prompt,
+        default=None,
         help="input prompt.",
+    )
+    parser.add_argument(
+        "--prompt-file",
+        type=str,
+        default=None,
+        help="input prompt from file path.",
+    )
+    parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="If specified, will assume prompt contains systems tags and will not be added automatically.",
     )
     parser.add_argument(
         "--max-output-tokens",
@@ -62,13 +73,40 @@ def llama_chat_demo(
         default=MAX_OUTPUT_TOKENS,
         help="max output tokens to generate.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="random seed.",
+    )
     args = parser.parse_args([] if is_test else None)
+    if args.prompt is not None and args.prompt_file is not None:
+        raise ValueError("Must specify one of --prompt or --prompt-file")
+    if args.prompt_file is not None:
+        with open(args.prompt_file) as f:
+            prompt = f.read()
+    elif args.prompt:
+        prompt = args.prompt
+    else:
+        prompt = default_prompt
+
+    if args.raw:
+
+        def preprocess_prompt_fn(
+            user_input_prompt: str = "",
+            system_context_prompt: str = "",
+        ):
+            return user_input_prompt
+
+    else:
+        preprocess_prompt_fn = get_input_prompt_with_tags
 
     if not is_test:
         print(f"\n{'-' * 85}")
         print(f"** Generating response via {model_id} **")
         print()
-        print("Prompt:", args.prompt)
+        print("Prompt:", prompt)
+        print("Raw (prompt will be passed in unchanged):", args.raw)
         print("Max number of output tokens to generate:", args.max_output_tokens)
         print("Please pass `--max-output-tokens <int>` to generate longer responses.")
         print()
@@ -90,13 +128,14 @@ def llama_chat_demo(
 
     app = App(
         model_cls,
-        get_input_prompt_with_tags=get_input_prompt_with_tags,
+        get_input_prompt_with_tags=preprocess_prompt_fn,
         prepare_combined_attention_mask=prepare_combined_attention_mask,
         tokenizer=tokenizer,
         end_tokens=end_tokens,
+        seed=args.seed,
     )
     app.generate_output_prompt(
-        args.prompt,
+        prompt,
         prompt_sequence_length=args.sequence_length,
         context_length=args.context_length,
         max_output_tokens=args.max_output_tokens,

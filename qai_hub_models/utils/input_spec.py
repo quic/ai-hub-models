@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 from typing import Optional
 
 import numpy as np
@@ -39,18 +41,19 @@ def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> list[torch.T
     return torch_input
 
 
-def get_batch_size(input_spec: InputSpec) -> int:
+def get_batch_size(input_spec: InputSpec) -> int | None:
     """
     Derive the batch size from an input specification. Assumes the batch size
     is the first dimension in each shape. If two inputs differ in the value of the
-    first dimension, throw an error.
+    first dimension, return None, as we are unable to determine a batch size.
     """
-    batch_size = 0
+    batch_size = None
     for spec in input_spec.values():
-        if batch_size == 0:
+        if batch_size is None:
             batch_size = spec[0][0]
-        else:
-            assert batch_size == spec[0][0], "All inputs must have the same batch size."
+        elif batch_size != spec[0][0]:
+            # Inputs differ in first dimension, so unable to determine a batch size
+            return None
     return batch_size
 
 

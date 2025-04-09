@@ -18,7 +18,8 @@ IFS=',' read -r -a hub_deployments <<< "$deployments"
 
 # Set env vars for accessing each deployment
 for deployment in "${hub_deployments[@]}"; do
-  deployment_upper=$(echo "$deployment" | tr '[:lower:]' '[:upper:]')
+  # Bash env variables can't have {".", "-"} characters in the name, replace with "_" for valid naming
+  deployment_upper=$(echo "$deployment" | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g' | sed 's/\./_/g')
 
   case "$deployment_upper" in
     PROD)
@@ -55,7 +56,8 @@ done
 
 # Configure AI Hub to use the first deployment in the list by default
 if [ -n "$venv_path" ]; then
-  deployment_upper=$(echo "${hub_deployments[0]}" | tr '[:lower:]' '[:upper:]')
+  # Bash env variables can't have {".", "-"} characters in the name, replace with "_" for valid naming
+  deployment_upper=$(echo "${hub_deployments[0]}" | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g' | sed 's/\./_/g')
   token_varname="HUB_USER_TOKEN_${deployment_upper}"
   url_varname="HUB_API_URL_${deployment_upper}"
 

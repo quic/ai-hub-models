@@ -99,7 +99,7 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
     @staticmethod
     def from_string(string: str) -> "ScorecardProfilePath":
         for path in ScorecardProfilePath:
-            if path.long_name == string or path.name == string:
+            if path.long_name == string or path.name == string.upper():
                 return path
         raise ValueError(
             "Unable to map name {runtime_name} to a valid scorecard profile path"

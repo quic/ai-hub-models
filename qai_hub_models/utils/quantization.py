@@ -107,7 +107,7 @@ def get_calibration_data(
             + "produce reasonable accuracy without additional calibration data."
         )
         return model.sample_inputs(input_spec, use_channel_last_format=False)
-    batch_size = get_batch_size(input_spec)
+    batch_size = get_batch_size(input_spec) or 1
     dataset = get_dataset_from_name(calibration_dataset_name, split=DatasetSplit.TRAIN)
     num_samples = num_samples or dataset.default_num_calibration_samples()
 

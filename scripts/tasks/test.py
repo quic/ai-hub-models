@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from tempfile import TemporaryDirectory
 from typing import Optional
 
+from .changes import get_changed_files_in_package
 from .constants import (
     BUILD_ROOT,
     GLOBAL_REQUIREMENTS_PATH,
@@ -44,8 +45,19 @@ class PyTestQAIHMTask(PyTestTask):
         all_dirs_except_models = [
             f"{PY_PACKAGE_SRC_ROOT}/{x}"
             for x in os.listdir(PY_PACKAGE_SRC_ROOT)
-            if x != "models" and x != "__pycache__"
+            if x != "models" and x != "__pycache__" and x != "scorecard"
         ]
+
+        # Internal scorecard tests are expensive (calls to Hub), so only run them if the internal scorecard changes.
+        scorecard_files = [
+            os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard", x)
+            for x in os.listdir(os.path.join(PY_PACKAGE_SRC_ROOT, "scorecard"))
+        ]
+
+        if not get_changed_files_in_package("qai_hub_models/scorecard/internal"):
+            scorecard_files.remove(f"{PY_PACKAGE_SRC_ROOT}/scorecard/internal")
+        all_dirs_except_models.extend(scorecard_files)
+
         all_dirs_except_models = [x for x in all_dirs_except_models if os.path.isdir(x)]
         super().__init__(
             "Test QAIHM",

@@ -258,9 +258,7 @@ def main(restrict_to_precision: Precision | None = None):
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
-            TargetRuntime.QNN,
             TargetRuntime.ONNX,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
         Precision.w8a8: [
             TargetRuntime.TFLITE,

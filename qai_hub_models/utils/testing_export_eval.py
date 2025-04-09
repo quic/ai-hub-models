@@ -250,7 +250,12 @@ def patch_hub_with_cached_jobs(
         else nullcontext()
     )
 
+    device_patch = mock.patch(
+        "qai_hub.get_devices", return_value=[device.reference_device]
+    )
+
     return (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -291,7 +296,7 @@ def quantize_via_export(
     """
 
     # Patch calibration data to use cached datasets
-    calibration_data_patch, _, _, _, _ = patch_hub_with_cached_jobs(
+    _, calibration_data_patch, _, _, _, _ = patch_hub_with_cached_jobs(
         model_id,
         precision,
         None,
@@ -364,6 +369,7 @@ def compile_via_export(
     """
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         pre_quantize_compile_job_patch,
@@ -379,7 +385,7 @@ def compile_via_export(
     )
 
     # Use export script to create a compile job.
-    with pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
+    with device_patch, pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
         export_result = _parse_export_result(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
@@ -445,6 +451,7 @@ def profile_via_export(
     """
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -461,7 +468,7 @@ def profile_via_export(
     )
 
     # Use export script to create a profile job.
-    with calibration_data_patch, quantize_job_patch, compile_job_patch:
+    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
         export_result = _parse_export_result(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
@@ -528,6 +535,7 @@ def inference_via_export(
     """
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -544,7 +552,7 @@ def inference_via_export(
     )
 
     # Use export script to create an inference job.
-    with calibration_data_patch, quantize_job_patch, compile_job_patch:
+    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
         export_result = _parse_export_result(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
@@ -606,6 +614,7 @@ def export_test_e2e(
     """
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -624,7 +633,7 @@ def export_test_e2e(
     )
 
     # Test export script end to end
-    with calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
+    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
         export_model(  # type:ignore[misc]
             device=device.execution_device_name,
             chipset=device.chipset,
@@ -836,6 +845,7 @@ def accuracy_on_sample_inputs_via_export(
     """
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -866,7 +876,7 @@ def accuracy_on_sample_inputs_via_export(
         side_effect=_mock_tabulate_fn,
     )
 
-    with calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
+    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
             precision=precision,
@@ -985,6 +995,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
 
     # Patch previous jobs
     (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
@@ -1013,6 +1024,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
         side_effect=_mock_tabulate_fn,
     )
     with (
+        device_patch,
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,

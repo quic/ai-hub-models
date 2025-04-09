@@ -90,15 +90,9 @@ class TargetRuntime(ParseableQAIHMEnum):
         target_runtime_flag = None
         if self == TargetRuntime.QNN:
             if device:
-                if not device.attributes:
-                    # Only name / os specified
-                    devices = hub.get_devices(device.name, device.os)
-                elif not device.name:
-                    # Only attribute specified
-                    devices = hub.get_devices(attributes=device.attributes)
-                else:
-                    devices = [device]
-
+                devices = hub.get_devices(
+                    device.name, device.os, attributes=device.attributes
+                )
                 for device in devices:
                     if (
                         "os:android" not in device.attributes

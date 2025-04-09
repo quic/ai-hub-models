@@ -102,6 +102,22 @@ class CollectionModel:
         return decorator
 
     @staticmethod
+    def reset_components():
+        """
+        Decorator to erase all components set on a CollectionModel.
+        Useful when subclassing a CollectionModel and overriding component classes.
+
+        See test_base_model.py for usage examples.
+        """
+
+        def decorator(subclass):
+            subclass.component_classes = []
+            subclass.component_class_names = []
+            return subclass
+
+        return decorator
+
+    @staticmethod
     def eval_datasets() -> list[str]:
         """
         Returns list of strings with names of all datasets on which
@@ -234,7 +250,7 @@ class HubModel(HubModelProtocol):
         sample_inputs = self._sample_inputs_impl(input_spec, **kwargs)
         if input_spec is not None:
             batch_size = get_batch_size(input_spec)
-            if batch_size > 1:
+            if batch_size is not None and batch_size > 1:
                 sample_inputs = broadcast_data_to_multi_batch(input_spec, sample_inputs)
         if use_channel_last_format and self.get_channel_last_inputs():
             return transpose_channel_first_to_last(

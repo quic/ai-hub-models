@@ -23,6 +23,7 @@ from functools import partial
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Optional, Union
+from unittest.mock import MagicMock
 from zipfile import ZipFile
 
 import gdown
@@ -293,6 +294,9 @@ def SourceAsRoot(
     source_repo_patches: list[str] = [],
     keep_sys_modules: bool = True,
     ask_to_clone: bool = not EXECUTING_IN_CI_ENVIRONMENT,
+    # These modules are imported but unused during model loading.
+    # They are mocked so they can be imported without requiring us to install them.
+    imported_but_unused_modules: list[str] = [],
 ):
     """
     Context manager that runs code with:
@@ -317,6 +321,13 @@ def SourceAsRoot(
     original_modules = dict(sys.modules)
     cwd = os.getcwd()
     try:
+        # These modules are imported but unused during use.
+        # They are mocked so they can be imported without error
+        # without requiring us to install them.
+        for module_name in imported_but_unused_modules:
+            if module_name not in sys.modules:
+                sys.modules[module_name] = MagicMock()
+
         # If repo path already in sys.path from previous load,
         # delete it and put it first
         if repository_path in sys.path:
@@ -338,7 +349,9 @@ def SourceAsRoot(
             # We want all imports done within the sub-repo to be either deleted from
             # sys.modules or restored to the previous module if one was overwritten.
             for name, module in list(sys.modules.items()):
-                if (getattr(module, "__file__", "") or "").startswith(repository_path):
+                if (getattr(module, "__file__", "") or "").startswith(
+                    repository_path
+                ) or name in imported_but_unused_modules:
                     if name in original_modules:
                         sys.modules[name] = original_modules[name]
                     else:

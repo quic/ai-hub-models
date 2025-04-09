@@ -1,13 +1,13 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [OpenPose: Human pose estimation](https://aihub.qualcomm.com/models/openpose)
+# [MobileSam: FASTER SEGMENT ANYTHING: TOWARDS LIGHTWEIGHT SAM FOR MOBILE APPLICATIONS](https://aihub.qualcomm.com/models/mobilesam)
 
-OpenPose is a machine learning model that estimates body and hand pose in an image and returns location and confidence for each of 19 joints.
+Transformer based encoder-decoder where prompts specify what to segment in an image thereby allowing segmentation without the need for additional training. The image encoder generates embeddings and the lightweight decoder operates on the embeddings for point and mask based image segmentation.
 
-This is based on the implementation of OpenPose found [here](https://github.com/CMU-Perceptual-Computing-Lab/openpose). This repository contains scripts for optimized on-device
+This is based on the implementation of MobileSam found [here](https://github.com/facebookresearch/segment-anything). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/openpose).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/mobilesam).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -18,14 +18,14 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/o
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[openpose]"
+pip install "qai-hub-models[mobilesam]"
 ```
 
 
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.openpose.demo
+python -m qai_hub_models.models.mobilesam.demo
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,21 +38,21 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.openpose.export
+python -m qai_hub_models.models.mobilesam.export
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.
 
 
 ## License
-* The license for the original implementation of OpenPose can be found
-  [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740).
-* The license for the compiled assets for on-device deployment can be found [here](https://cmu.flintbox.com/technologies/b820c21d-8443-4aa2-a49f-8919d93a8740)
+* The license for the original implementation of MobileSam can be found
+  [here](https://github.com/facebookresearch/segment-anything/blob/main/LICENSE).
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References
-* [OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields](https://arxiv.org/abs/1812.08008)
-* [Source Model Implementation](https://github.com/CMU-Perceptual-Computing-Lab/openpose)
+* [Segment Anything](https://arxiv.org/abs/2306.14289)
+* [Source Model Implementation](https://github.com/facebookresearch/segment-anything)
 
 
 

@@ -28,7 +28,6 @@ def main():
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.TFLITE,
             TargetRuntime.ONNX,
         ],
     }

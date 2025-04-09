@@ -130,6 +130,7 @@ class FaceLandmarkDetectorQuantizable(AIMETQuantizableMixin, FaceLandmarkDetecto
 
 @CollectionModel.add_component(FaceDetectorQuantizable)
 @CollectionModel.add_component(FaceLandmarkDetectorQuantizable)
+@CollectionModel.reset_components()
 class MediaPipeFaceQuantizable(MediaPipeFace):
     @classmethod
     def from_pretrained(  # type: ignore[override]

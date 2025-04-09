@@ -13,8 +13,8 @@ import requests
 from qai_hub.util.session import create_session
 
 from qai_hub_models.configs._info_yaml_enums import (
-    HF_AVAILABLE_LICENSES,
     MODEL_DOMAIN,
+    MODEL_LICENSE,
     MODEL_STATUS,
     MODEL_TAG,
     MODEL_USE_CASE,
@@ -112,7 +112,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     technical_details: dict[str, str]
 
     # The license type of the original model repo.
-    license_type: str
+    license_type: MODEL_LICENSE
 
     # Device form factors for which we don't publish performance data.
     private_perf_form_factors: Optional[list[ScorecardDevice.FormFactor]] = None
@@ -139,9 +139,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     # In that case, this should point to the same as the model license.
     deploy_license: Optional[str] = None
 
-    # Should be set to `AI Model Hub License`, unless the license is more restrictive like GPL.
+    # Should be set to `ai-hub-models-license`, unless the license is more restrictive like GPL.
     # In that case, this should be the same as the model license.
-    deploy_license_type: Optional[str] = None
+    deploy_license_type: Optional[MODEL_LICENSE] = None
 
     # If set, model assets shouldn't distributed.
     restrict_model_sharing: bool = False
@@ -195,9 +195,33 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if "/abs/" not in self.research_paper:
                 return "Arxiv links should be `abs` links, not link directly to pdfs."
 
-        # If license_type does not match the map, return an error
-        if self.license_type not in HF_AVAILABLE_LICENSES:
-            return f"license can be one of these: {HF_AVAILABLE_LICENSES}"
+        # Whether this model has a page on the website
+        model_is_available = self.status == MODEL_STATUS.PUBLIC
+        # Whether this model can actually be downloaded by the public
+        model_is_accessible = not self.restrict_model_sharing
+
+        # License validation
+        if not self.deploy_license and model_is_available and model_is_accessible:
+            return "deploy_license cannot be empty"
+        if not self.deploy_license_type and model_is_available and model_is_accessible:
+            return "deploy_license_type cannot be empty"
+        if self.license_type.url is not None and self.license != self.license_type.url:
+            return f"License {str(self.license_type)} must have URL {self.license_type.url}"
+        if self.license_type.deploy_license is None and model_is_available:
+            return f"Models with license {str(self.license_type)} cannot be published"
+        if self.deploy_license_type is not None:
+            if self.license_type.deploy_license != self.deploy_license_type:
+                return f"License {str(self.license_type)} must be paired with a deployment license of type {self.license_type.deploy_license}"
+            if (
+                self.deploy_license_type.url is not None
+                and self.deploy_license != self.deploy_license_type.url
+            ):
+                return f"License {str(self.deploy_license_type)} must have URL {self.deploy_license_type.url}"
+            if (
+                self.deploy_license_type == self.license_type
+                and self.deploy_license != self.license
+            ):
+                return "If a model's source license and deployment license types are the same, their URLs must also be the same."
 
         # Status Reason
         if self.status == MODEL_STATUS.PRIVATE and not self.status_reason:
@@ -253,8 +277,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         if expected_example_use != ASSET_CONFIG.get_example_use(self.id):
             return "Example-usage field not pointing to expected relative path"
 
-        model_is_available = self.status == MODEL_STATUS.PUBLIC
-
         # Check that model_type_llm and llm_details fields
         if self.model_type_llm:
             if not self.llm_details:
@@ -288,12 +310,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
                             return f"Download URL is missing at {runtime_detail.model_download_url}"
         elif self.llm_details:
             return "Model type must be LLM if llm_details is set"
-
-        if not self.deploy_license and model_is_available:
-            return "deploy_license cannot be empty"
-
-        if not self.deploy_license_type and model_is_available:
-            return "deploy_license_type cannot be empty"
 
         # Check code gen
         return self.code_gen_config.validate()
@@ -329,7 +345,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Get the metadata for huggingface model cards.
         hf_metadata: dict[str, Union[str, list[str]]] = dict()
         hf_metadata["library_name"] = "pytorch"
-        hf_metadata["license"] = self.license_type
+        hf_metadata["license"] = self.license_type.huggingface_name
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata
@@ -362,6 +378,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     def has_model_requirements(self, root: Path = QAIHM_PACKAGE_ROOT):
         return os.path.exists(self.get_requirements_path(root))
+
+    def get_web_url(self, website_url: str = ASSET_CONFIG.models_website_url) -> str:
+        return f"{website_url}/models/{self.id}"
 
     @property
     def is_gen_ai_model(self) -> bool:

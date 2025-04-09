@@ -82,16 +82,12 @@ DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
 
 
 def get_input_prompt_with_tags(
-    previous_history: str = "",
-    system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     user_input_prompt: str = DEFAULT_USER_PROMPT,
+    system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
 ) -> str:
     """
     Get prompt to set context and initialize prompt-processor
     """
-    prompt = previous_history
-    prompt += "" if len(previous_history) == 0 else "</s>"
-
     prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
@@ -153,14 +149,16 @@ class RopeEmbedding:
         return embeddings  # pyright: ignore [reportReturnType]
 
     def get_embedding(
-        self, position_ids: list[int], dtype: torch.dtype = torch.float32
+        self,
+        position_ids: torch.Tensor,
+        dtype: torch.dtype = torch.float32,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         position_ids: [batch_size, sequence_length]
         return [batch_size, 1, sequence_length, head_sim//2][2]
         """
-        cos = self.cos[0, 0, :, :]  # [seq_len, dim]
-        sin = self.sin[0, 0, :, :]  # [seq_len, dim]
+        cos = self.cos[0, 0, :, :].to(position_ids.device)  # [seq_len, dim]
+        sin = self.sin[0, 0, :, :].to(position_ids.device)  # [seq_len, dim]
         cos = cos[position_ids].unsqueeze(1).to(dtype=dtype)
         sin = sin[position_ids].unsqueeze(1).to(dtype=dtype)
         return cos, sin

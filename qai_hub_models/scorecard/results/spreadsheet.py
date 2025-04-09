@@ -190,6 +190,7 @@ class ResultsSpreadsheet(list):
         self,
         precisions: list[Precision],
         devices: list[ScorecardDevice] | None = None,
+        paths: list[ScorecardProfilePath] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -199,6 +200,7 @@ class ResultsSpreadsheet(list):
             ResultsSpreadsheet.get_model_summary_entries(
                 precisions,
                 devices,
+                paths,
                 quantize_summary,
                 compile_summary,
                 profile_summary,
@@ -230,6 +232,7 @@ class ResultsSpreadsheet(list):
     def get_model_summary_entries(
         precisions: list[Precision],
         devices: list[ScorecardDevice] | None = None,
+        paths: list[ScorecardProfilePath] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
@@ -398,6 +401,7 @@ class ResultsSpreadsheet(list):
             exclude_devices=[cs_universal],
             include_mirror_devices=True,
             include_devices=devices,
+            include_paths=paths,
         )
 
         return entries

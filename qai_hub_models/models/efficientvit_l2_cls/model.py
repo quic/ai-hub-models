@@ -28,6 +28,12 @@ class EfficientViT(ImagenetClassifier):
             EFFICIENTVIT_SOURCE_REPO_COMMIT,
             MODEL_ID,
             MODEL_ASSET_VERSION,
+            imported_but_unused_modules=[
+                "onnxsim",
+                "torchpack",
+                "torchpack.distributed",
+                "timm.data.auto_augment",
+            ],
         ):
             from efficientvit.cls_model_zoo import create_cls_model
 
