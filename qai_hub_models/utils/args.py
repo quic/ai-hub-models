@@ -504,7 +504,11 @@ def get_input_spec_kwargs(
     Given a dict with many args, pull out the ones relevant
     to constructing the model's input_spec.
     """
-    get_input_spec_args = inspect.signature(model.get_input_spec)
+    get_input_spec_args = inspect.signature(model._get_input_spec_for_instance)
+    if list(get_input_spec_args.parameters.keys()) == ["self", "args", "kwargs"]:
+        # Use get_input_spec args if get_input_spec_for_instance is not defined.
+        get_input_spec_args = inspect.signature(model.get_input_spec)
+
     input_spec_kwargs = {}
     for name in get_input_spec_args.parameters:
         if name == "self" or name not in args_dict:

@@ -11,7 +11,7 @@ from typing import Any
 import torch
 import torch.nn.functional as F
 
-from qai_hub_models.models._shared.yolo.model import Yolo
+from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW, Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
@@ -29,7 +29,7 @@ class YoloV7(Yolo):
     def __init__(
         self,
         yolov7_feature_extractor: torch.nn.Module,
-        yolov7_detector: torch.nn.Module,
+        yolov7_detector: _YoloV7Detector,
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
@@ -45,6 +45,8 @@ class YoloV7(Yolo):
         weights_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
+        height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
+        width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
     ):
         """Load YoloV7 from a weightfile created by the source YoloV7 repository."""
         # Load PyTorch model from disk
@@ -58,18 +60,20 @@ class YoloV7(Yolo):
 
         # Generate replacement detector that can be traced
         detector_head_state_dict = yolov7_model.model[-1].state_dict()
-        detector_head_state_dict["stride"] = yolov7_model.model[-1].stride
-
-        h, w = cls.get_input_spec()["image"][0][2:]
-        detector_head_state_dict["h"] = h
-        detector_head_state_dict["w"] = w
-        yolov7_detect = _YoloV7Detector.from_yolov7_state_dict(detector_head_state_dict)
+        yolov7_detect = _YoloV7Detector.from_yolov7_state_dict(
+            detector_head_state_dict, (height, width), yolov7_model.model[-1].stride
+        )
 
         return cls(
             yolov7_model,
             yolov7_detect,
             include_postprocessing,
             split_output,
+        )
+
+    def _get_input_spec_for_instance(self, batch_size: int = 1):
+        return super().get_input_spec(
+            batch_size, self.yolov7_detector.h, self.yolov7_detector.w
         )
 
     def forward(self, image):
@@ -173,6 +177,8 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
     @staticmethod
     def from_yolov7_state_dict(
         state_dict: Mapping[str, Any],
+        input_shape: tuple[int, int],
+        stride: torch.Tensor,
         strict: bool = True,
     ):
         """
@@ -198,10 +204,8 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
             m_in_channels.append(new_state_dict[weight].shape[1])
             m_out_channel = new_state_dict[weight].shape[0]
 
-        input_shape = state_dict["h"], state_dict["w"]
-
         out = _YoloV7Detector(
-            state_dict["stride"],
+            stride,
             na,
             nl,
             m_in_channels,

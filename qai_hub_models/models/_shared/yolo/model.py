@@ -20,6 +20,8 @@ from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
+DEFAULT_YOLO_IMAGE_INPUT_HW = 640
+
 
 def yolo_detect_postprocess(
     boxes: torch.Tensor,
@@ -115,8 +117,8 @@ class Yolo(BaseModel):
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        height: int = 640,
-        width: int = 640,
+        height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
+        width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
