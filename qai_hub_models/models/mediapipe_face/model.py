@@ -9,7 +9,7 @@ from collections.abc import Callable
 import torch
 
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models.common import Precision, SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     find_replace_in_repo,
@@ -231,6 +231,13 @@ class FaceDetector(BaseModel):
     ) -> SampleInputsType:
         return {"image": [load_numpy(FACE_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}
 
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "human_faces"
+
 
 class FaceLandmarkDetector(BaseModel):
     """
@@ -282,6 +289,10 @@ class FaceLandmarkDetector(BaseModel):
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         return {"image": [load_numpy(LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "human_faces_192"
 
 
 @CollectionModel.add_component(FaceDetector)

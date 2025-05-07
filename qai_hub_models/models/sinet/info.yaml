@@ -1,38 +1,35 @@
 name: SINet
-# id must match with the model dir name in qai_hub_models
 id: sinet
 status: public
 headline: Lightweight portrait segmentation for background removal.
 domain: Computer Vision
+description: SINet is a machine learning model that is designed to segment people from close-up portrait images in real time.
 use_case: Semantic Segmentation
-description: SINet is a machine learning model that is designed to segment people
-  from close-up portrait images in real time.
 tags: []
-research_paper: https://arxiv.org/abs/1911.09099
-research_paper_title: 'SINet: Extreme Lightweight Portrait Segmentation Networks with
-  Spatial Squeeze Modules and Information Blocking Decoder'
-license: https://github.com/clovaai/ext_portrait_segmentation/blob/master/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/clovaai/ext_portrait_segmentation
+applicable_scenarios:
+- Background replacement
+- Face removal
+related_models:
+- fcn_resnet50
+- unet_segmentation
+- mediapipe_selfie
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: false
+dataset: []
 technical_details:
   Model checkpoint: SINet.pth
   Input resolution: 224x224
   Number of parameters: 91.9K
   Model size: 430 KB
   Number of output classes: 2 (foreground / background)
-applicable_scenarios:
-  - Background replacement
-  - Face removal
-related_models:
-  - fcn_resnet50
-  - unet_segmentation
-  - mediapipe_selfie
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-has_static_banner: true
-has_animated_banner: false
 license_type: mit
+research_paper: https://arxiv.org/abs/1911.09099
+research_paper_title: 'SINet: Extreme Lightweight Portrait Segmentation Networks with Spatial Squeeze Modules and Information Blocking Decoder'
+source_repo: https://github.com/clovaai/ext_portrait_segmentation
+license: https://github.com/clovaai/ext_portrait_segmentation/blob/master/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []

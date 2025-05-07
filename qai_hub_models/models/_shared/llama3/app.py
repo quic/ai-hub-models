@@ -12,7 +12,7 @@ from typing import Any
 import torch
 
 from qai_hub_models.models._shared.llama3.model import (
-    Llama3Base_Quantized,
+    Llama3Base,
     RopeEmbedding,
     get_past_keyval_with_shift,
 )
@@ -42,7 +42,7 @@ def _sample_tokens_from_logits(
 class ChatApp:
     """
     This class is a demonstration of how to use Llama model to build a basic ChatApp.
-    This App use two models
+    This App uses two models:
         * Prompt Processor
             - Instantiation with sequence length 128. Used to process user
               prompt.
@@ -53,7 +53,7 @@ class ChatApp:
 
     def __init__(
         self,
-        model_cls: type[Llama3Base_Quantized],
+        model_cls: type[Llama3Base],
         get_input_prompt_with_tags: Callable,
         prepare_combined_attention_mask: Callable,
         tokenizer: Any,

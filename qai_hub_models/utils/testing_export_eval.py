@@ -21,12 +21,10 @@ from qai_hub_models.scorecard import (
     ScorecardDevice,
     ScorecardProfilePath,
 )
+from qai_hub_models.scorecard.device import cs_universal
+from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
-from qai_hub_models.utils.evaluate import (
-    evaluate_on_dataset,
-    get_qdq_onnx,
-    get_torch_val_dataloader,
-)
+from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,
@@ -37,11 +35,13 @@ from qai_hub_models.utils.testing import (
     mock_tabulate_fn,
 )
 from qai_hub_models.utils.testing_async_utils import (
+    append_line_to_file,
     assert_success_or_cache_job,
     cache_dataset,
     callable_side_effect,
     fetch_successful_async_test_jobs,
     get_cached_dataset_entries,
+    get_cpu_accuracy_file,
     get_dataset_ids_file,
     is_hub_testing_async,
     str_with_async_test_metadata,
@@ -75,6 +75,20 @@ def _parse_export_result(
         result = {None: result}
     assert isinstance(result, Mapping)
     return result
+
+
+def _invalid_job_submission(*args, **kwargs) -> None:
+    raise ValueError(
+        "Attempted to submit a job when a cached job should have been present."
+    )
+
+
+def _get_sim_cpu_key(model_id: str, precision: Precision) -> str:
+    return f"{model_id}_{precision}_sim"
+
+
+def _get_torch_cpu_key(model_id: str) -> str:
+    return f"{model_id}_torch"
 
 
 def patch_hub_with_cached_jobs(
@@ -203,7 +217,7 @@ def patch_hub_with_cached_jobs(
     )
 
     quantize_side_effect = itertools.chain(
-        quantize_jobs_to_patch, itertools.repeat(hub.submit_quantize_job)
+        quantize_jobs_to_patch, itertools.repeat(_invalid_job_submission)
     )
     quantize_job_patch = (
         mock.patch(
@@ -214,9 +228,19 @@ def patch_hub_with_cached_jobs(
         else nullcontext()
     )
 
-    compile_side_effect = itertools.chain(
-        compile_jobs_to_patch, itertools.repeat(hub.submit_compile_job)
-    )
+    # When patching quantize but not compile, the first set of compile jobs
+    # need to be patched and the following calls to `submit_compile_job` should
+    # actually submit jobs. Any subsequent calls should throw an error.
+    if not patch_compile and compile_jobs_to_patch:
+        compile_side_effect = itertools.chain(
+            compile_jobs_to_patch,
+            itertools.repeat(hub.submit_compile_job, len(compile_jobs_to_patch)),
+            itertools.repeat(_invalid_job_submission),
+        )
+    else:
+        compile_side_effect = itertools.chain(
+            compile_jobs_to_patch, itertools.repeat(_invalid_job_submission)
+        )
     compile_job_patch = (
         mock.patch(
             "qai_hub.submit_compile_job",
@@ -227,7 +251,7 @@ def patch_hub_with_cached_jobs(
     )
 
     profile_side_effect = itertools.chain(
-        profile_jobs_to_patch, itertools.repeat(hub.submit_profile_job)
+        profile_jobs_to_patch, itertools.repeat(_invalid_job_submission)
     )
     profile_job_patch = (
         mock.patch(
@@ -239,7 +263,7 @@ def patch_hub_with_cached_jobs(
     )
 
     inference_side_effect = itertools.chain(
-        inference_jobs_to_patch, itertools.repeat(hub.submit_inference_job)
+        inference_jobs_to_patch, itertools.repeat(_invalid_job_submission)
     )
     inference_job_patch = (
         mock.patch(
@@ -889,6 +913,26 @@ def accuracy_on_sample_inputs_via_export(
     )
 
 
+def _get_dataset_cache_patch(
+    dataset_name: str,
+    scorecard_path: ScorecardProfilePath,
+    model_cls: type[BaseModel] | type[CollectionModel],
+):
+    # Patch input eval dataset to use a cached dataset if it exists
+    dataset_cls = DATASET_NAME_MAP.get(dataset_name, None)
+    assert dataset_cls is not None
+    dataset_dir = get_and_sync_datasets_cache_dir(
+        scorecard_path.runtime.channel_last_native_execution,
+        dataset_name,
+        dataset_cls.default_samples_per_job(),
+        model_cls,
+    )
+    return mock.patch(
+        "qai_hub_models.utils.evaluate.get_hub_datasets_path",
+        return_value=dataset_dir.parent,
+    )
+
+
 def accuracy_on_dataset_via_evaluate_and_export(
     export_model: ExportFunc,  # type:ignore[misc,valid-type]
     model: BaseModel | CollectionModel,
@@ -929,33 +973,42 @@ def accuracy_on_dataset_via_evaluate_and_export(
     assert isinstance(
         model, BaseModel
     ), "This function is not yet supported for CollectionModel."
-    # Patch input eval dataset to use a cached dataset if it exists
-    dataset_cls = DATASET_NAME_MAP.get(dataset_name, None)
-    assert dataset_cls is not None
-    dataset_dir = get_and_sync_datasets_cache_dir(
-        scorecard_path.runtime.channel_last_native_execution,
-        dataset_name,
-        dataset_cls.default_samples_per_job(),
-    )
-    cache_path_patch = mock.patch(
-        "qai_hub_models.utils.evaluate.get_hub_datasets_path",
-        return_value=dataset_dir.parent,
+    cache_path_patch = _get_dataset_cache_patch(
+        dataset_name, scorecard_path, model.__class__
     )
 
-    # Get existing inference jobs, then create related patches
-    inference_jobs = fetch_successful_async_test_jobs(
-        hub.JobType.INFERENCE, model_id, precision, scorecard_path, device
-    )
-    if not inference_jobs:
-        raise ValueError(
-            str_with_async_test_metadata(
-                "Missing cached inference job",
-                model_id,
-                precision,
-                scorecard_path,
-                device,
-            )
+    cpu_accuracy = load_yaml(get_cpu_accuracy_file())
+    sim_acc = cpu_accuracy.get(_get_sim_cpu_key(model_id, precision), None)
+    torch_acc = float(cpu_accuracy[_get_torch_cpu_key(model_id)])
+    try:
+        # Get existing inference jobs, then create related patches
+        # This will raise a ValueError if any of the jobs failed
+        inference_jobs = fetch_successful_async_test_jobs(
+            hub.JobType.INFERENCE, model_id, precision, scorecard_path, device
         )
+        if not inference_jobs:
+            raise ValueError(
+                str_with_async_test_metadata(
+                    "Missing cached inference job",
+                    model_id,
+                    precision,
+                    scorecard_path,
+                    device,
+                )
+            )
+    except ValueError:
+        # If no on-device accuracy numbers, we still want to write torch, sim numbers
+        write_accuracy(
+            model_id,
+            device.chipset,
+            precision,
+            scorecard_path.runtime,
+            [],
+            torch_acc,
+            None,
+            float(sim_acc) if sim_acc is not None else None,
+        )
+        raise
 
     inference_output_datas = [x.download_output_data() for x in inference_jobs.values()]
     dataset_download_patch = mock.patch(
@@ -984,13 +1037,14 @@ def accuracy_on_dataset_via_evaluate_and_export(
     # Run eval script to collect accuracy metrics
     with cache_path_patch, dataset_download_patch, on_device_call_patch, torch_call_patch:
         inference_job = inference_jobs[None]
-        torch_acc, sim_acc, device_acc = evaluate_on_dataset(
+        evaluate_result = evaluate_on_dataset(
             compiled_model=inference_job.model,
             torch_model=model,
             hub_device=inference_job.device,
             dataset_name=dataset_name,
             use_cache=True,
-            compute_quant_cpu_accuracy=(get_qdq_onnx(inference_job.model) is not None),
+            skip_torch_accuracy=True,
+            compute_quant_cpu_accuracy=False,
         )
 
     # Patch previous jobs
@@ -1047,6 +1101,120 @@ def accuracy_on_dataset_via_evaluate_and_export(
         scorecard_path.runtime,
         psnr_values,
         torch_acc,
-        device_acc,
-        sim_acc,
+        evaluate_result.device_accuracy,
+        float(sim_acc) if sim_acc is not None else None,
     )
+
+
+def torch_accuracy_on_dataset(
+    model: BaseModel | CollectionModel,
+    dataset_name: str,
+    torch_evaluate_mock_outputs: list[torch.Tensor | tuple[torch.Tensor, ...]],
+    model_id: str,
+) -> None:
+    """
+    Computes accuracy for the given model on pytorch.
+    Async testing must be enabled to run this method.
+
+    Parameters:
+        model:
+            Model instance to run inference on.
+
+        dataset_name:
+            Name of the dataset to use for evaluation.
+
+        torch_evaluate_mock_outputs:
+            The outputs of the torch forward passes in the format
+            expected by the evaluate function.
+
+        model_id:
+            Model ID
+    """
+    torch_call_patch = mock.patch(
+        "qai_hub_models.utils.evaluate.BaseModel.__call__",
+        side_effect=torch_evaluate_mock_outputs,
+    )
+    scorecard_path = ScorecardProfilePath.ONNX
+    cache_path_patch = _get_dataset_cache_patch(
+        dataset_name, scorecard_path, model.__class__
+    )
+    with torch_call_patch, cache_path_patch:
+        evaluate_result = evaluate_on_dataset(
+            compiled_model=mock.MagicMock(),
+            torch_model=model,
+            hub_device=hub.Device(),  # unused
+            dataset_name=dataset_name,
+            use_cache=True,
+            skip_device_accuracy=True,
+            compute_quant_cpu_accuracy=False,
+        )
+    cache_key = _get_torch_cpu_key(model_id)
+    append_line_to_file(
+        get_cpu_accuracy_file(),
+        f"{cache_key}: {evaluate_result.torch_accuracy:.3g}",
+    )
+
+
+def sim_accuracy_on_dataset(
+    model: BaseModel | CollectionModel,
+    dataset_name: str,
+    model_id: str,
+    precision: Precision,
+) -> None:
+    """
+    Computes accuracy for the given model on quantsim.
+    Async testing must be enabled to run this method.
+
+    Parameters:
+        model:
+            Model instance to run inference on.
+
+        dataset_name:
+            Name of the dataset to use for evaluation.
+
+        model_id:
+            Model ID
+
+        precision:
+            Model precision
+    """
+    if precision == Precision.float:
+        return
+    scorecard_path = ScorecardProfilePath.ONNX
+    cache_path_patch = _get_dataset_cache_patch(
+        dataset_name, scorecard_path, model.__class__
+    )
+    quantize_jobs = fetch_successful_async_test_jobs(
+        hub.JobType.QUANTIZE, model_id, precision, None, cs_universal
+    )
+    assert quantize_jobs is not None
+    if len(quantize_jobs) != 1:
+        print(
+            f"Expected 1 quantize job for precision {precision} but got {len(quantize_jobs)}."
+        )
+
+    # Create a mock hub.Model that has a producer chain to the quantize job
+    qdq_model = list(quantize_jobs.values())[0].get_target_model()
+    assert qdq_model is not None
+    fake_model = mock.MagicMock(spec=hub.Model)
+    fake_compile_job = mock.MagicMock(spec=hub.CompileJob)
+    fake_model.producer = fake_compile_job
+    fake_compile_job.model = qdq_model
+    fake_compile_job.options = ""
+
+    with cache_path_patch:
+        evaluate_result = evaluate_on_dataset(
+            compiled_model=fake_model,
+            torch_model=model,
+            hub_device=hub.Device(),  # unused
+            dataset_name=dataset_name,
+            use_cache=True,
+            skip_device_accuracy=True,
+            skip_torch_accuracy=True,
+            compute_quant_cpu_accuracy=True,
+        )
+        cache_key = _get_sim_cpu_key(model_id, precision)
+        append_line_to_file(
+            get_cpu_accuracy_file(),
+            f"{cache_key}: {evaluate_result.sim_accuracy:.3g}",
+        )

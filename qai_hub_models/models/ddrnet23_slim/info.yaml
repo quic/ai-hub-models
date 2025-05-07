@@ -1,41 +1,37 @@
 name: DDRNet23-Slim
-# id must match with the model dir name in qai_hub_models
 id: ddrnet23_slim
 status: public
 headline: Segment images or video by class in real-time on device.
 domain: Computer Vision
-description: DDRNet23Slim is a machine learning model that segments an image into
-  semantic classes, specifically designed for road-based scenes. It is designed for
-  the application of self-driving cars.
+description: DDRNet23Slim is a machine learning model that segments an image into semantic classes, specifically designed for road-based scenes. It is designed for the application of self-driving cars.
 use_case: Semantic Segmentation
 tags:
-  - real-time
-research_paper: https://arxiv.org/abs/2101.06085
-research_paper_title: Deep Dual-resolution Networks for Real-time and Accurate Semantic
-  Segmentation of Road Scenes
-license: https://github.com/chenjun2hao/DDRNet.pytorch/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/chenjun2hao/DDRNet.pytorch
+- real-time
+applicable_scenarios:
+- Self-driving cars
+related_models:
+- unet_segmentation
+- fcn_resnet50
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset:
+- cityscapes
 technical_details:
   Model checkpoint: DDRNet23s_imagenet.pth
   Inference latency: RealTime
   Input resolution: 2048x1024
   Number of parameters: 5.69M
   Model size: 21.7 MB
-  Number of output classes: 19
-applicable_scenarios:
-  - Self-driving cars
-related_models:
-  - unet_segmentation
-  - fcn_resnet50
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-has_static_banner: true
-has_animated_banner: true
+  Number of output classes: '19'
 license_type: mit
+research_paper: https://arxiv.org/abs/2101.06085
+research_paper_title: Deep Dual-resolution Networks for Real-time and Accurate Semantic Segmentation of Road Scenes
+source_repo: https://github.com/chenjun2hao/DDRNet.pytorch
+license: https://github.com/chenjun2hao/DDRNet.pytorch/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset:
-  - cityscapes
 labels_file: cityscapes_labels.txt

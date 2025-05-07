@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import torch
 
-from qai_hub_models.models._shared.yolo.model import Yolo, yolo_segment_postprocess
+from qai_hub_models.models._shared.yolo.model import YoloSeg, yolo_segment_postprocess
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
 from qai_hub_models.utils.base_model import TargetRuntime
 
@@ -27,7 +27,7 @@ DEFAULT_WEIGHTS = "yolo11n-seg.pt"
 NUM_ClASSES = 80
 
 
-class YoloV11Segmentor(Yolo):
+class YoloV11Segmentor(YoloSeg):
     """Exportable YoloV11 segmentor, end-to-end."""
 
     @classmethod
@@ -80,11 +80,7 @@ class YoloV11Segmentor(Yolo):
         boxes, scores, masks, classes = yolo_segment_postprocess(
             predictions[0], NUM_ClASSES
         )
-        return boxes, scores, masks, classes, predictions[1][-1]
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["boxes", "scores", "masks", "class_idx", "protos"]
+        return boxes, scores, masks, classes.to(torch.uint8), predictions[1][-1]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""

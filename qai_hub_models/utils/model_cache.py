@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from enum import Enum, unique
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +15,7 @@ from onnx import __version__ as onnx_version
 from torch import __version__ as torch_version
 
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig
-from qai_hub_models.utils.base_config import BaseQAIHMConfig, ParseableQAIHMEnum
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.qai_hub_helpers import get_hub_endpoint
 
 DEFAULT_CACHE_NAME = "model_cache.yaml"
@@ -23,7 +23,8 @@ HUB_MODEL_ID_KEY = "hub_model_id"
 ASSET_CONFIG = ModelZooAssetConfig.from_cfg()
 
 
-class CacheMode(ParseableQAIHMEnum):
+@unique
+class CacheMode(Enum):
     ENABLE = "enable"
     DISABLE = "disable"
     OVERWRITE = "overwrite"
@@ -88,11 +89,12 @@ def _get_model_cache_val(hub_model_id: str) -> dict[str, str]:
 
 def _load_cache_for_model(model_name: str, model_asset_version: int) -> Cache:
     file_path = _get_cache_file_path(model_name, model_asset_version)
-    model_cache = Cache.from_yaml(file_path) if os.path.exists(file_path) else Cache([])
+    model_cache = (
+        Cache.from_yaml(file_path) if os.path.exists(file_path) else Cache(cache=[])
+    )
     return model_cache
 
 
-@dataclass
 class KeyValue(BaseQAIHMConfig):
     # CacheKey for cache
     key: dict[str, str]
@@ -101,7 +103,6 @@ class KeyValue(BaseQAIHMConfig):
     val: dict[str, str]
 
 
-@dataclass
 class Cache(BaseQAIHMConfig):
     """
     Generic cache config storing List of key and value
@@ -121,7 +122,7 @@ class Cache(BaseQAIHMConfig):
     def insert(
         self, key: dict[str, str], value: dict[str, str], overwrite: bool = False
     ):
-        key_val = KeyValue(key, value)
+        key_val = KeyValue(key=key, val=value)
         for i, k_v in enumerate(self.cache):
             if k_v.key == key:
                 if not overwrite:

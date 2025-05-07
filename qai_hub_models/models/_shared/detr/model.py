@@ -13,7 +13,10 @@ from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -34,31 +37,19 @@ class DETR(BaseModel):
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return DetectionEvaluator(image_height, image_width, 0.45, 0.7, use_nms=False)
 
-    @classmethod
-    def from_pretrained(cls, ckpt_name: str):
-        model = DetrForObjectDetection.from_pretrained(ckpt_name)
-        return cls(model)
-
-    def forward(
-        self, image: torch.Tensor, threshold: float = 0.9
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def detr_postprocess(self, logits, boxes, image_shape):
         """
-        Run DETR on `image` and produce high quality detection results.
+        Postprocess the output of the DETR model.
 
-        Parameters:
-            image: Image tensor to run detection on.
-            threshold: Prediction score threshold.
+        Args:
+            logits (torch.Tensor): The classification logits.
+            boxes (torch.Tensor): The bounding box coordinates.
+            image_shape (tuple): The shape of the input image.
 
         Returns:
-            A tuple of three tensors:
-                - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
-                - scores: torch.Tensor of shape (1, 100) representing the confidence scores
-                - labels: torch.Tensor of shape (1, 100) representing the class labels
+            tuple: A tuple containing the processed boxes, scores, and labels.
         """
-
-        # boxes: (center_x, center_y, w, h)
-        logits, boxes, _, _ = self.model(image, return_dict=False)
-        b, _, h, w = image.shape
+        b, _, h, w = image_shape
 
         # Apply softmax to get probabilities
         probabilities = torch.nn.functional.softmax(logits, -1)
@@ -74,12 +65,39 @@ class DETR(BaseModel):
         boxes *= torch.Tensor([w, h, w, h])
 
         # Cast output tensors to float32 and supported by Qualcomm AI Hub
-        # This is required because Qualcomm AI Hub only supports float32 tensors.
         boxes = boxes.to(torch.float32)
         scores = scores.to(torch.float32)
         labels = labels.to(torch.int32)
 
-        # Return the output tensors - boxes, scores, and labels
+        return boxes, scores, labels
+
+    @classmethod
+    def from_pretrained(cls, ckpt_name: str):
+        model = DetrForObjectDetection.from_pretrained(ckpt_name)
+        return cls(model)
+
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Run DETR on `image` and produce high quality detection results.
+
+        Parameters:
+            image: Image tensor to run detection on.
+            threshold: Prediction score threshold.
+
+        Returns:
+            A tuple of three tensors:
+                - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
+                - scores: torch.Tensor of shape (1, 100) representing the confidence scores
+                - labels: torch.Tensor of shape (1, 100) representing the class labels
+        """
+        image_array = normalize_image_torchvision(image)
+        # boxes: (center_x, center_y, w, h)
+        predictions = self.model(image_array)
+        logits, boxes = predictions[0], predictions[1]
+        boxes, scores, labels = self.detr_postprocess(logits, boxes, image_array.shape)
+
         return boxes, scores, labels
 
     @staticmethod

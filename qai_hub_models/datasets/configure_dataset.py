@@ -7,6 +7,7 @@ import argparse
 from qai_hub_models.datasets.cityscapes import CityscapesDataset
 from qai_hub_models.datasets.face_attrib_dataset import FaceAttribDataset
 from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
+from qai_hub_models.datasets.human_faces import HumanFacesDataset
 from qai_hub_models.datasets.nyuv2 import NyUv2Dataset
 
 SUPPORTED_DATASETS = [
@@ -14,6 +15,7 @@ SUPPORTED_DATASETS = [
     "foot_track_dataset",
     "face_attrib_dataset",
     "cityscapes",
+    "human_faces",
 ]
 
 
@@ -49,6 +51,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         FaceAttribDataset(input_data_zip=files[0])
     elif dataset == "cityscapes":
         CityscapesDataset(input_images_zip=files[0], input_gt_zip=files[1])
+    elif dataset == "human_faces":
+        HumanFacesDataset(input_data_zip=files[0])
     else:
         raise ValueError(f"Invalid dataset {dataset}")
 

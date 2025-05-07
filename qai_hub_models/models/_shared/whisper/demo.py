@@ -37,7 +37,15 @@ def whisper_demo(model_cls: type[Whisper], is_test: bool = False):
     args = parser.parse_args([] if is_test else None)
 
     # For other model sizes, see https://github.com/openai/whisper/blob/main/whisper/__init__.py#L17
-    app = WhisperApp(model_cls.from_pretrained())
+    model = model_cls.from_pretrained()
+    app = WhisperApp(
+        model.encoder,
+        model.decoder,
+        num_decoder_blocks=model.num_decoder_blocks,
+        num_decoder_heads=model.num_decoder_heads,
+        attention_dim=model.attention_dim,
+        mean_decode_len=model.mean_decode_len,
+    )
 
     # Load default audio if file not provided
     audio = args.audio_file

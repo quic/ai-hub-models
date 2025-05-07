@@ -25,6 +25,7 @@ def export_onnx_in_memory(
     example_input: tuple[torch.Tensor, ...],
     input_names: list[str] | None = None,
     output_names: list[str] | None = None,
+    **kwargs,
 ) -> onnx.ModelProto:
     """
     Exports a PyTorch model to ONNX format and loads it into memory without saving to disk.
@@ -112,10 +113,10 @@ def make_calib_data_unet_vae(
     tokenizer,
     text_encoder_hf,
     unet_hf,
-    time_embedding_hf,
     scheduler,
     num_steps: int = 20,
     num_samples: int = 100,
+    guidance_scale: float = 7.5,
 ) -> tuple[str, str]:
     """Generate calibration data for Unet and Vae and save as npz.
 
@@ -143,14 +144,17 @@ def make_calib_data_unet_vae(
     )
 
     # uncond_emb doesn't change for each prompt
-    uncond_emb = text_encoder_hf(uncond_token)
+    uncond_emb = None
+    if guidance_scale > 0:
+        uncond_emb = text_encoder_hf(uncond_token)
 
     calib_unet = dict(
         latent=[],
         time_emb=[],
         cond_emb=[],
-        uncond_emb=[],
     )  # type: ignore
+    if guidance_scale > 0:
+        calib_unet["uncond_emb"] = []
     calib_vae = dict(latent=[])  # type: ignore
 
     for i, cond_token in tqdm(
@@ -162,16 +166,17 @@ def make_calib_data_unet_vae(
         latent, all_steps = run_diffusion_steps_on_latents(
             unet_hf,
             scheduler=scheduler,
-            time_embedding=time_embedding_hf,
             cond_embeddings=cond_emb,
             uncond_embeddings=uncond_emb,
             num_steps=num_steps,
             return_all_steps=True,
+            guidance_scale=guidance_scale,
         )
         calib_unet["latent"].extend(all_steps["latent"])
         calib_unet["time_emb"].extend(all_steps["time_emb"])
         calib_unet["cond_emb"].extend([cond_emb] * num_steps)
-        calib_unet["uncond_emb"].extend([uncond_emb] * num_steps)
+        if guidance_scale > 0:
+            calib_unet["uncond_emb"].extend([uncond_emb] * num_steps)
         calib_vae["latent"].append(latent)
 
     for k in list(calib_unet.keys()):
@@ -217,15 +222,28 @@ def load_unet_calib_dataset_entries(
     npz = np.load(path)
     num_diffusion_samples = npz["latent"].shape[0]
     latent = np.split(npz["latent"], num_diffusion_samples, axis=0)
-    time_emb = np.split(npz["time_emb"], num_diffusion_samples, axis=0)
+    # time embeddings range from 999 to 0
+    time_emb = [
+        np.asarray([[999 - (999 * (i - 1) / (num_diffusion_samples - 1))]]).astype(
+            np.float32
+        )
+        for i in range(1, num_diffusion_samples + 1)
+    ]
     cond_emb = np.split(npz["cond_emb"], num_diffusion_samples, axis=0)
-    uncond_emb = np.split(npz["uncond_emb"], num_diffusion_samples, axis=0)
-    calib_data = dict(
-        latent=latent * 2,
-        time_emb=time_emb * 2,
-        text_emb=cond_emb + uncond_emb,
-    )
-    if num_samples is not None and num_samples < num_diffusion_samples * 2:
+    if "uncond_emb" in npz:
+        uncond_emb = np.split(npz["uncond_emb"], num_diffusion_samples, axis=0)
+        calib_data = dict(
+            latent=latent * 2,
+            timestep=time_emb * 2,
+            text_emb=cond_emb + uncond_emb,
+        )
+    else:
+        calib_data = dict(
+            latent=latent,
+            timestep=time_emb,
+            text_emb=cond_emb,
+        )
+    if num_samples is not None and num_samples < len(calib_data["latent"]):
         rng = np.random.RandomState(42)
         idx = rng.choice(num_diffusion_samples * 2, num_samples, replace=False)
         calib_data = {k: [v[i] for i in idx] for k, v in calib_data.items()}
@@ -272,3 +290,22 @@ def run_tokenizer(
         text_input.input_ids.to(torch.int32),
         uncond_input.input_ids.to(torch.int32),
     )
+
+
+def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
+    """
+    Count how many nodes in the given ONNX model have the specified operator type.
+
+    Parameters
+    ----------
+    model : onnx.ModelProto
+        The loaded ONNX model to inspect.
+    op_type : str
+        The operator type to count (e.g., "Conv", "Relu", "MatMul").
+
+    Returns
+    -------
+    int
+        The number of nodes in the model whose op_type matches the given string.
+    """
+    return sum(1 for node in model.graph.node if node.op_type == op_type)

@@ -1,45 +1,42 @@
 name: YOLOv8-Segmentation
-# id must match with the model dir name in qai_hub_models
 id: yolov8_seg
 status: public
 headline: Real-time object segmentation optimized for mobile and edge by Ultralytics.
 domain: Computer Vision
+description: Ultralytics YOLOv8 is a machine learning model that predicts bounding boxes, segmentation masks and classes of objects in an image.
 use_case: Semantic Segmentation
-description: Ultralytics YOLOv8 is a machine learning model that predicts bounding boxes, segmentation
-  masks and classes of objects in an image.
 tags:
-  - real-time
-research_paper: https://docs.ultralytics.com/tasks/segment/
-research_paper_title: "Ultralytics YOLOv8 Docs: Instance Segmentation"
-license: https://github.com/ultralytics/ultralytics/blob/main/LICENSE
-deploy_license: https://github.com/ultralytics/ultralytics/blob/main/LICENSE
-source_repo:
-  https://github.com/ultralytics/ultralytics/tree/main/ultralytics/models/yolo/segment
+- real-time
+applicable_scenarios:
+- Factory Automation
+- Robotic Navigation
+- Camera
+related_models:
+- unet_segmentation
+- sam
+- fastsam_x
+- mediapipe_selfie
+- yolov8_det
+- ddrnet23_slim
+form_factors:
+- Phone
+- Tablet
+- IoT
+- XR
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Model checkpoint: YOLOv8N-Seg
   Input resolution: 640x640
   Number of parameters: 3.43M
-  Model size: 13.2 MB
-  Number of output classes: 80
-applicable_scenarios:
-  - Factory Automation
-  - Robotic Navigation
-  - Camera
-related_models:
-  - unet_segmentation
-  - sam
-  - fastsam_x
-  - mediapipe_selfie
-  - yolov8_det
-  - ddrnet23_slim
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-  - XR
-has_static_banner: true
-has_animated_banner: true
+  Number of output classes: '80'
+  Model size (float): 13.2 MB
 license_type: agpl-3.0
+research_paper: https://docs.ultralytics.com/tasks/segment/
+research_paper_title: 'Ultralytics YOLOv8 Docs: Instance Segmentation'
+source_repo: https://github.com/ultralytics/ultralytics/tree/main/ultralytics/models/yolo/segment
+license: https://github.com/ultralytics/ultralytics/blob/main/LICENSE
+deploy_license: https://github.com/ultralytics/ultralytics/blob/main/LICENSE
 deploy_license_type: agpl-3.0
-dataset: []
 restrict_model_sharing: true

@@ -44,7 +44,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN,
+    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -99,6 +99,9 @@ def export_model(
         hub_device = hub.Device(
             name=device or "", attributes=f"chipset:{chipset}" if chipset else []
         )
+    assert precision in [
+        Precision.w8a16,
+    ], f"Precision {str(precision)} is not supported by {model_name}"
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
@@ -108,13 +111,14 @@ def export_model(
         return export_without_hub_access(
             "stable_diffusion_v1_5_w8a16_quantized",
             "Stable-Diffusion-v1.5",
-            device or f"Device (Chipset {chipset})",
+            hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
             skip_summary,
             output_path,
             target_runtime,
+            precision,
             compile_options,
             profile_options,
             component_arg,
@@ -127,17 +131,17 @@ def export_model(
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
+    # 2. Compiles the model to an asset that can be run on device
     compile_jobs: dict[str, hub.client.CompileJob] = {}
-    for component_name, component in model.components.items():
+    for component_name in components:
+        component = model.components[component_name]
         assert isinstance(component, BaseModel)
         input_spec = component.get_input_spec()
-
         # Trace the model
         source_model = component.convert_to_hub_source_model(
             target_runtime, output_path, input_spec
         )
 
-        # 2. Compiles the model to an asset that can be run on device
         model_compile_options = component.get_hub_compile_options(
             target_runtime, Precision.w8a16, compile_options, hub_device
         )
@@ -215,7 +219,8 @@ def export_model(
             print_profile_metrics_from_job(profile_job, profile_data)
 
     if not skip_summary and not skip_inferencing:
-        for component_name, component in model.components.items():
+        for component_name in components:
+            component = model.components[component_name]
             assert isinstance(component, BaseModel)
             inference_job = inference_jobs[component_name]
             sample_inputs = component.sample_inputs(use_channel_last_format=False)
@@ -246,8 +251,7 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a16: [
-            TargetRuntime.QNN,
-            TargetRuntime.ONNX,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

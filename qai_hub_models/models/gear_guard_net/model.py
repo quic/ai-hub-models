@@ -8,6 +8,8 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.ppe_evaluator import PpeEvaluator
 from qai_hub_models.models._shared.body_detection.model import Model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
 from qai_hub_models.utils.base_model import BaseModel
@@ -128,3 +130,10 @@ class GearGuardNet(BaseModel):
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
         return ["bbox_8x", "bbox_16x", "bbox_32x"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return PpeEvaluator(*self.get_input_spec()["image"][0][2:])
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["ppe"]

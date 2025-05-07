@@ -32,8 +32,9 @@ MATRYOSHIKA_DIM = 512
 def _patched_transformers_get_class_in_module(
     class_name: str,
     module_path: PathLike,
+    force_reload: bool = False,
 ) -> type:
-    name = os.path.normpath(module_path).rstrip(".py").replace(os.path.sep, ".")
+    name = os.path.normpath(module_path).rstrip(".py")
     # Everything in this function is copied from transformers except the following ".".join() statement.
     name = ".".join(
         [
@@ -48,7 +49,7 @@ def _patched_transformers_get_class_in_module(
         raise ValueError(f"Module spec not found for path {name}")
 
     module = sys.modules.get(name)
-    if module is None:
+    if force_reload or module is None:
         module = importlib.util.module_from_spec(module_spec)
         # insert it into sys.modules before any loading begins
         sys.modules[name] = module

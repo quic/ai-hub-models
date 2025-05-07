@@ -24,14 +24,22 @@ def load_sample_audio_input(app: WhisperApp) -> tuple[np.ndarray, np.ndarray, in
     )
 
 
-def run_test_wrapper_numerics(whisper_version):
+def run_test_wrapper_numerics(model_cls: type[Whisper], whisper_version):
     """
     Test that wrapper classes, excluding the
     app, predict logits (without post
     processing) that matches with the
     original model's.
     """
-    app = WhisperApp(Whisper.from_source_model(whisper.load_model(whisper_version)))
+    model = model_cls.from_source_model(whisper.load_model(whisper_version))
+    app = WhisperApp(
+        model.encoder,
+        model.decoder,
+        num_decoder_blocks=model.num_decoder_blocks,
+        num_decoder_heads=model.num_decoder_heads,
+        attention_dim=model.attention_dim,
+        mean_decode_len=model.mean_decode_len,
+    )
 
     # Load inputs
     _, mel_input, _ = load_sample_audio_input(app)
@@ -80,12 +88,20 @@ def run_test_wrapper_numerics(whisper_version):
     np.testing.assert_allclose(logits_orig, logits, rtol=5e-3)
 
 
-def run_test_transcribe(whisper_version):
+def run_test_transcribe(model_cls: type[Whisper], whisper_version):
     """
     Test that WhisperApp produces end to end transcription results that
     matches with the original model
     """
-    app = WhisperApp(Whisper.from_source_model(whisper.load_model(whisper_version)))
+    model = model_cls.from_source_model(whisper.load_model(whisper_version))
+    app = WhisperApp(
+        model.encoder,
+        model.decoder,
+        num_decoder_blocks=model.num_decoder_blocks,
+        num_decoder_heads=model.num_decoder_heads,
+        attention_dim=model.attention_dim,
+        mean_decode_len=model.mean_decode_len,
+    )
     audio, mel_input, sample_rate = load_sample_audio_input(app)
 
     # Run inference with OpenAI whisper

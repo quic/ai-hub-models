@@ -7,10 +7,7 @@ Midas is designed for estimating depth at each point in an image.
 
 This is based on the implementation of Midas-V2 found [here](https://github.com/isl-org/MiDaS). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/midas)
-  - [w8a8](https://aihub.qualcomm.com/models/midas_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/midas).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

@@ -1012,7 +1012,7 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
                     for data in response.iter_content(block_size):
                         progress_bar.update(len(data))
                         file.write(data)
-            os.rename(tmp_filepath, dst_path)
+            shutil.move(tmp_filepath, dst_path)
         print("Done")
     return dst_path
 

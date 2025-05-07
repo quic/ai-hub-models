@@ -47,7 +47,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.ONNX,
+    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
     **additional_model_kwargs,
@@ -110,13 +110,14 @@ def export_model(
         return export_without_hub_access(
             "huggingface_wavlm_base_plus",
             "HuggingFace-WavLM-Base-Plus",
-            device or f"Device (Chipset {chipset})",
+            hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
             skip_summary,
             output_path,
             target_runtime,
+            precision,
             compile_options,
             profile_options,
         )
@@ -131,12 +132,10 @@ def export_model(
         **get_input_spec_kwargs(model, additional_model_kwargs)
     )
 
-    # Trace the model
-    source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
-
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
     quantize_job = None
     if precision != Precision.float:
+        source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
         print(f"Quantizing model {model_name}.")
         onnx_compile_job = hub.submit_compile_job(
             model=source_model,
@@ -166,12 +165,18 @@ def export_model(
             return ExportResult(quantize_job=quantize_job)
 
     # 3. Compiles the model to an asset that can be run on device
+    if quantize_job:
+        source_model = quantize_job.get_target_model()
+    else:
+        # Trace the model
+        source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
+
     model_compile_options = model.get_hub_compile_options(
         target_runtime, precision, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
-        model=quantize_job.get_target_model() if quantize_job else source_model,
+        model=source_model,
         input_specs=input_spec,
         device=hub_device,
         name=model_name,
@@ -253,7 +258,7 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.ONNX,
+            TargetRuntime.TFLITE,
         ],
     }
 

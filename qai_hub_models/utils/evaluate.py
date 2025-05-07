@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import shutil
 from collections.abc import Iterator, Sized
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -42,6 +43,13 @@ from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_fir
 
 CACHE_SAMPLES_PER_JOB_FILE = "current_samples_per_job.txt"
 DEFAULT_NUM_EVAL_SAMPLES = 1000
+
+
+@dataclass
+class EvaluateResult:
+    torch_accuracy: float | None = None
+    sim_accuracy: float | None = None
+    device_accuracy: float | None = None
 
 
 def get_dataset_path(cache_path: Path, dataset_id: str) -> Path:
@@ -413,7 +421,8 @@ def evaluate_on_dataset(
     use_cache: bool = False,
     compute_quant_cpu_accuracy: bool = False,
     skip_device_accuracy: bool = False,
-) -> tuple[float, Optional[float], Optional[float]]:
+    skip_torch_accuracy: bool = False,
+) -> EvaluateResult:
     f"""
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
@@ -437,6 +446,7 @@ def evaluate_on_dataset(
         compute_quant_cpu_accuracy: If the compiled model came from a quantize job,
             and this option is set, computes the quantized ONNX accuracy on the CPU.
         skip_device_accuracy: If set, skips on-device accuracy checks.
+        skip_device_accuracy: If set, skips torch cpu accuracy checks.
 
     Returns:
         Tuple of (torch accuracy, quant cpu accuracy, on device accuracy) all as float.
@@ -458,7 +468,6 @@ def evaluate_on_dataset(
         compiled_model, input_names, hub_device, profile_options, output_names
     )
 
-    torch_dataset: Dataset
     if use_cache:
         _populate_data_cache(
             source_torch_dataset,
@@ -485,9 +494,7 @@ def evaluate_on_dataset(
 
     torch_evaluator = torch_model.get_evaluator()
     on_device_evaluator = torch_model.get_evaluator()
-    quant_cpu_evaluator = (
-        torch_model.get_evaluator() if compute_quant_cpu_accuracy else None
-    )
+    quant_cpu_evaluator = torch_model.get_evaluator()
     quant_cpu_session = (
         _make_quant_cpu_session(compiled_model) if compute_quant_cpu_accuracy else None
     )
@@ -505,29 +512,34 @@ def evaluate_on_dataset(
         elif not skip_device_accuracy:
             on_device_results.append(on_device_model(model_inputs.split(1, dim=0)))
 
+        if skip_torch_accuracy and not compute_quant_cpu_accuracy:
+            continue
+
         for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
             if isinstance(ground_truth_values, torch.Tensor):
                 ground_truth = ground_truth_values[j : j + 1]
             else:
                 ground_truth = tuple(val[j : j + 1] for val in ground_truth_values)
             torch_input = model_input.unsqueeze(0)
-            torch_output = torch_model(torch_input)
-            torch_evaluator.add_batch(torch_output, ground_truth)
-            if quant_cpu_evaluator is not None and quant_cpu_session is not None:
+            if not skip_torch_accuracy:
+                torch_output = torch_model(torch_input)
+                torch_evaluator.add_batch(torch_output, ground_truth)
+            if quant_cpu_session is not None:
                 quant_cpu_out = mock_torch_onnx_inference(
                     quant_cpu_session, torch_input
                 )
                 quant_cpu_evaluator.add_batch(quant_cpu_out, ground_truth)
 
-        if quant_cpu_evaluator is not None:
+        if compute_quant_cpu_accuracy:
             print(
                 f"Cumulative quant cpu accuracy on batch {i + 1}/{num_batches}: "
                 f"{quant_cpu_evaluator.formatted_accuracy()}"
             )
-        print(
-            f"Cumulative torch accuracy on batch {i + 1}/{num_batches}: "
-            f"{torch_evaluator.formatted_accuracy()}"
-        )
+        if not skip_torch_accuracy:
+            print(
+                f"Cumulative torch accuracy on batch {i + 1}/{num_batches}: "
+                f"{torch_evaluator.formatted_accuracy()}"
+            )
 
     if not skip_device_accuracy:
         for i, sample in enumerate(dataloader):
@@ -538,19 +550,21 @@ def evaluate_on_dataset(
                 f"Cumulative on device accuracy on batch {i + 1}/{num_batches}: "
                 f"{on_device_evaluator.formatted_accuracy()}"
             )
-    torch_accuracy = torch_evaluator.formatted_accuracy()
+    torch_accuracy = None
     on_device_accuracy = None
-    quant_cpu_acc = None
+    quant_cpu_accuracy = None
     print("\nFinal accuracy:")
-    print(f"torch: {torch_accuracy}")
-    if quant_cpu_evaluator is not None:
-        quant_cpu_acc = quant_cpu_evaluator.get_accuracy_score()
+    if not skip_torch_accuracy:
+        torch_accuracy = torch_evaluator.get_accuracy_score()
+        print(f"torch: {torch_evaluator.formatted_accuracy()}")
+    if compute_quant_cpu_accuracy:
+        quant_cpu_accuracy = quant_cpu_evaluator.get_accuracy_score()
         print(f"quant cpu: {quant_cpu_evaluator.formatted_accuracy()}")
     if not skip_device_accuracy:
         on_device_accuracy = on_device_evaluator.get_accuracy_score()
         print(f"on-device: {on_device_evaluator.formatted_accuracy()}")
-    return (
-        torch_evaluator.get_accuracy_score(),
-        quant_cpu_acc,
+    return EvaluateResult(
+        torch_accuracy,
+        quant_cpu_accuracy,
         on_device_accuracy,
     )

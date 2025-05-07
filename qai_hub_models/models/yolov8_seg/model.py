@@ -7,7 +7,7 @@ from __future__ import annotations
 import torch
 from ultralytics import YOLO as ultralytics_YOLO
 
-from qai_hub_models.models._shared.yolo.model import Yolo, yolo_segment_postprocess
+from qai_hub_models.models._shared.yolo.model import YoloSeg, yolo_segment_postprocess
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
@@ -23,7 +23,7 @@ DEFAULT_WEIGHTS = "yolov8n-seg.pt"
 NUM_ClASSES = 80
 
 
-class YoloV8Segmentor(Yolo):
+class YoloV8Segmentor(YoloSeg):
     """Exportable YoloV8 segmentor, end-to-end."""
 
     @classmethod
@@ -62,12 +62,4 @@ class YoloV8Segmentor(Yolo):
         boxes, scores, masks, classes = yolo_segment_postprocess(
             predictions[0], NUM_ClASSES
         )
-        return boxes, scores, masks, classes, predictions[1][-1]
-
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["boxes", "scores", "masks", "class_idx", "protos"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["protos"]
+        return boxes, scores, masks, classes.to(torch.uint8), predictions[1][-1]

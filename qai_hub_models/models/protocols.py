@@ -11,7 +11,7 @@ For example, a function may take any class that implements FromPretrained.
 The parameter would be typed "FromPretrainedProtocol", as defined in this file.
 
 Protocols may also be inherited to declare that a class must implement said protocol.
-For example, AIMETQuantizableMixin inherits HubModelProtocol. This informs the type
+For example, AIMETOnnxQuantizableMixin inherits HubModelProtocol. This informs the type
 checker that the class that inherits the mixin must implement HubModelProtocol.
 
 These are type checked at compile time.

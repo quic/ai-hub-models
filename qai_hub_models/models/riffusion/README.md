@@ -1,9 +1,9 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Riffusion: State-of-the-art generative AI model used to generate spectrogram images given any text input. These spectrograms can be converted into audio clips](https://aihub.qualcomm.com/models/riffusion)
+# [Riffusion: State-of-the-art generative AI model used to generate spectrogram images of music given a text prompt. These spectrograms can be converted into audio clips](#)
 
-Generates high resolution spectrograms images from text prompts using a latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising, and VAE based decoder to generate the final image.
+Generates high resolution spectrograms images of music from text prompts using a latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising, and VAE based decoder to generate the final image.
 
 This is based on the implementation of Riffusion found [here](https://github.com/CompVis/stable-diffusion/tree/main). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance

@@ -7,10 +7,7 @@ FCN_ResNet50 is a machine learning model that can segment images from the COCO d
 
 This is based on the implementation of FCN-ResNet50 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/fcn.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/fcn_resnet50)
-  - [w8a8](https://aihub.qualcomm.com/models/fcn_resnet50_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/fcn_resnet50).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

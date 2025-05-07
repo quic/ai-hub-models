@@ -13,7 +13,7 @@ from qai_hub_models.models.trocr.demo import main as demo_main
 from qai_hub_models.models.trocr.model import HUGGINGFACE_TROCR_MODEL, TrOCR
 from qai_hub_models.utils.asset_loaders import load_image
 
-IMAGE_TEXT = 'industrial " Mr. Brown commented icity., letus have a'
+IMAGE_TEXT = 'industrial " Mr. Brown commented icity ., letus have a'
 
 
 @pytest.fixture(scope="module")

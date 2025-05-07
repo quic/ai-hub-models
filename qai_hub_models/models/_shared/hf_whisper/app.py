@@ -189,8 +189,8 @@ class HfWhisperApp:
             # update position_ids
             position_ids += 1
 
-        text = self.tokenizer.decode(output_ids[0])
-        return text.strip()
+        # Exclude start / end tokens
+        return self.tokenizer.decode(output_ids[0][4:-1])
 
 
 def chunk_and_resample_audio(

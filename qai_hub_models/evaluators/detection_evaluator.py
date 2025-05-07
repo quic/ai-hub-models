@@ -25,7 +25,7 @@ class DetectionEvaluator(BaseEvaluator):
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
         use_nms: bool = True,
-        score_threshold: float = 0.5,  # Add a score threshold for filtering predictions
+        score_threshold: float = 0.9,
     ):
         self.reset()
         self.nms_score_threshold = nms_score_threshold
@@ -37,20 +37,23 @@ class DetectionEvaluator(BaseEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        gt should be a tuple of tensors with the following tensors:
-            - image_ids of shape (batch_size,)
-            - image heights of shape (batch_size,)
-            - image widths of shape (batch_size,)
-            - bounding boxes of shape (batch_size, max_boxes, 4)
-              - The 4 should be normalized (x, y, w, h)
-            - classes of shape (batch_size, max_boxes)
-            - num nonzero boxes for each sample of shape (batch_size,)
+        Args:
+            output: A tuple of tensors containing the predicted bounding boxes, scores, and class indices.
+                - bounding boxes with shape (batch_size, num_candidate_boxes, 4)
+                - The 4 should be normalized (x, y, w, h)
+                - scores with shape (batch_size, num_candidate_boxes)
+                - class predictions with shape (batch_size, num_candidate_boxes)
+            gt: A tuple of tensors containing the ground truth bounding boxes and other metadata.
+                - image_ids of shape (batch_size,)
+                - image heights of shape (batch_size,)
+                - image widths of shape (batch_size,)
+                - bounding boxes of shape (batch_size, max_boxes, 4)
+                - The 4 should be normalized (x, y, w, h)
+                - classes of shape (batch_size, max_boxes)
+                - num nonzero boxes for each sample of shape (batch_size,)
 
-        output should be a tuple of tensors with the following tensors:
-            - bounding boxes with shape (batch_size, num_candidate_boxes, 4)
-              - The 4 should be normalized (x, y, w, h)
-            - scores with shape (batch_size, num_candidate_boxes)
-            - class predictions with shape (batch_size, num_candidate_boxes)
+        Note:
+            The `output` and `gt` tensors should be of the same length, i.e., the same batch size.
         """
         image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
         pred_boxes, pred_scores, pred_class_idx = output
@@ -100,6 +103,7 @@ class DetectionEvaluator(BaseEvaluator):
 
             # Mask and threshold predictions
             if not self.use_nms:
+                # Create a new list that includes only the predictions with scores above the threshold
                 pd_bb_entry = [b for b in pd_bb_entry if b.score > self.score_threshold]
 
             self._update_mAP(gt_bb_entry, pd_bb_entry)

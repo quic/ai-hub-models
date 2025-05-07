@@ -26,11 +26,6 @@ from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
 
 try:
-    from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
-except NotImplementedError:
-    AIMETQuantizableMixin = None  # type: ignore[assignment,misc]
-
-try:
     from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
 except NotImplementedError:
     AIMETOnnxQuantizableMixin = None  # type: ignore[assignment,misc]
@@ -67,19 +62,12 @@ def prepare_compile_zoo_model_to_hub(
         (3) (TORCHSCRIPT, TFLITE)
 
             (a) Fp32: Invalid option for model not subclass of
-            (AIMETQuantizableMixin, AIMETOnnxQuantizableMixin)
-
-            (b) For AIMETQuantizableMixin subclass, torch(AIMET) ->
-            torchscript with embedded quantizer -> tflite
+            (AIMETOnnxQuantizableMixin)
 
         (4) (TORCHSCRIPT, QNN)
 
             (a) For fp32, torch -> qnn (via qnn-torch-converter, aka
                     --use_qnn_pytorch_converter flag in Hub)
-
-            (b) For AIMETQuantizableMixin subclass, torch(AIMET) ->
-            torchscript with embedded quantizer -> qnn (via
-                    qnn-pytorch-converter)
 
     Returns:
 
@@ -102,9 +90,7 @@ def prepare_compile_zoo_model_to_hub(
                 model_name=model_name,
             )
 
-    elif (
-        AIMETQuantizableMixin is not None and isinstance(model, AIMETQuantizableMixin)
-    ) or isinstance(model, AimetEncodingLoaderMixin):
+    elif isinstance(model, AimetEncodingLoaderMixin):
         if source_model_format == SourceModelFormat.ONNX:
 
             def export_model_func():

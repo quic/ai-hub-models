@@ -2,47 +2,105 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import os
+from enum import Enum, unique
+from functools import cached_property
 from typing import Optional
 
-from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
-from qai_hub_models.utils.base_config import ParseableQAIHMEnum
+from typing_extensions import assert_never
+
+from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
+from qai_hub_models.scorecard.path_compile import (
+    DEFAULT_QAIRT_VERSION_ENVVAR,
+    QAIRTVersion,
+    ScorecardCompilePath,
+)
+from qai_hub_models.utils.base_config import EnumListWithParseableAll
 
 
-class ScorecardProfilePath(ParseableQAIHMEnum):
-    TFLITE = 0
-    QNN = 1
-    ONNX = 2
-    ONNX_DML_GPU = 3
+@unique
+class ScorecardProfilePath(Enum):
+    TFLITE = "tflite"
+    QNN = "qnn"
+    QNN_CONTEXT_BINARY = "qnn_context_binary"
+    ONNX = "onnx"
+    PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
+    ONNX_DML_GPU = "onnx_dml_gpu"
 
     def __str__(self):
         return self.name.lower()
 
     @property
-    def long_name(self):
-        if "onnx" in self.name.lower():
-            return f"torchscript_{self.name.lower()}"
-        return f"torchscript_onnx_{self.name.lower()}"
+    def spreadsheet_name(self) -> str:
+        """
+        Returns the name used for the 'runtime' column in the scorecard results spreadsheet.
+        """
+        # QNN and QNN_CONTEXT_BINARY are nearly the same and hence map to the same value
+        if self in [ScorecardProfilePath.QNN, ScorecardProfilePath.QNN_CONTEXT_BINARY]:
+            return InferenceEngine.QNN.value
+
+        # Otherwise use the path name
+        return self.value
+
+    @property
+    def perf_yaml_name(self) -> str:
+        """
+        Returns the name used for this runtime in serialized perf.yaml files.
+        """
+        # The website only supports listing runs for each inference
+        # engine, so always use the inference engine name.
+        return self.runtime.inference_engine.value
 
     @property
     def enabled(self) -> bool:
         valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
+        if (
+            not self.enabled_only_if_explicitly_selected
+            and valid_test_runtimes == "ALL"
+        ):
+            return True
 
-        # DML only enabled if explicitly requested
-        if self == ScorecardProfilePath.ONNX_DML_GPU:
-            return "onnx_dml" in [x.lower() for x in valid_test_runtimes.split(",")]
-
-        return valid_test_runtimes == "ALL" or (
-            self.runtime.name.lower()
-            in [x.lower() for x in valid_test_runtimes.split(",")]
+        valid_test_runtime_names = [x.lower() for x in valid_test_runtimes.split(",")]
+        return (
+            self.runtime.inference_engine.value in valid_test_runtime_names
+            or self.value in valid_test_runtime_names
         )
+
+    @property
+    def is_force_enabled(self) -> bool:
+        """
+        Returns true if this path should run regardless of what a model's settings are.
+        For example, if a model only supports AOT paths, a JIT path that is force enabled will run anyway.
+
+        For example:
+            * if a model only supports AOT paths, a JIT path that is force enabled will run anyway.
+            * if a model lists a path as failed, and that path is force enabled, it will run anyway.
+
+        Note that device limitations are still obeyed regardless. For example, we still won't run TFLite on Windows.
+        """
+        if self.value == self.runtime.inference_engine.value:
+            return False
+
+        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
+        valid_test_runtime_names = [x.lower() for x in valid_test_runtimes.split(",")]
+        return self.value in valid_test_runtime_names
+
+    @property
+    def enabled_only_if_explicitly_selected(self) -> bool:
+        """
+        Return true if this path is enabled only when the user
+        selects it explicitly in QAIHM_TEST_RUNTIMES.
+        """
+        return self == ScorecardProfilePath.ONNX_DML_GPU
 
     @staticmethod
     def all_paths(
         enabled: Optional[bool] = None,
         supports_precision: Optional[Precision] = None,
-    ) -> list["ScorecardProfilePath"]:
+        is_aot_compiled: Optional[bool] = None,
+    ) -> list[ScorecardProfilePath]:
         """
         Get all profile paths that match the given attributes.
         If an attribute is None, it is ignored when filtering paths.
@@ -55,13 +113,19 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
                 supports_precision is None
                 or path.compile_path.supports_precision(supports_precision)
             )
+            and (
+                is_aot_compiled is None
+                or path.runtime.is_aot_compiled == is_aot_compiled
+            )
         ]
 
     @property
     def include_in_perf_yaml(self) -> bool:
         return self in [
             ScorecardProfilePath.QNN,
+            ScorecardProfilePath.QNN_CONTEXT_BINARY,
             ScorecardProfilePath.ONNX,
+            ScorecardProfilePath.PRECOMPILED_QNN_ONNX,
             ScorecardProfilePath.TFLITE,
         ]
 
@@ -69,14 +133,18 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
     def runtime(self) -> TargetRuntime:
         if self == ScorecardProfilePath.TFLITE:
             return TargetRuntime.TFLITE
-        if self in [
-            ScorecardProfilePath.ONNX,
-            ScorecardProfilePath.ONNX_DML_GPU,
-        ]:
+        if (
+            self == ScorecardProfilePath.ONNX
+            or self == ScorecardProfilePath.ONNX_DML_GPU
+        ):
             return TargetRuntime.ONNX
+        if self == ScorecardProfilePath.PRECOMPILED_QNN_ONNX:
+            return TargetRuntime.PRECOMPILED_QNN_ONNX
         if self == ScorecardProfilePath.QNN:
             return TargetRuntime.QNN
-        raise NotImplementedError()
+        if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
+            return TargetRuntime.QNN_CONTEXT_BINARY
+        assert_never(self)
 
     @property
     def compile_path(self) -> ScorecardCompilePath:
@@ -84,23 +152,78 @@ class ScorecardProfilePath(ParseableQAIHMEnum):
             return ScorecardCompilePath.TFLITE
         if self == ScorecardProfilePath.ONNX:
             return ScorecardCompilePath.ONNX
+        if self == ScorecardProfilePath.PRECOMPILED_QNN_ONNX:
+            return ScorecardCompilePath.PRECOMPILED_QNN_ONNX
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return ScorecardCompilePath.ONNX_FP16
         if self == ScorecardProfilePath.QNN:
             return ScorecardCompilePath.QNN
-        raise NotImplementedError()
+        if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
+            return ScorecardCompilePath.QNN_CONTEXT_BINARY
+        assert_never(self)
+
+    @cached_property
+    def aot_equivalent(self) -> ScorecardProfilePath | None:
+        """
+        Returns the equivalent path that is compiled ahead of time.
+        Returns None if there is no equivalent path that is compiled ahead of time.
+        """
+        if self.runtime.is_aot_compiled:
+            return self
+
+        aot_runtime = self.runtime.aot_equivalent
+        if not aot_runtime:
+            return None
+        for path in ScorecardProfilePath:
+            if path.runtime == aot_runtime:
+                return path
+
+        # This line should never actually execute.
+        # There is an equivalent path for every AOT runtime.
+        raise NotImplementedError(
+            f"There is no AOT equivalent for profile path {self.value}"
+        )
+
+    @cached_property
+    def jit_equivalent(self) -> ScorecardProfilePath:
+        """
+        Returns the equivalent path that is compiled "just in time" on device.
+        """
+        if not self.runtime.is_aot_compiled:
+            return self
+
+        jit_runtime = self.runtime.jit_equivalent
+        for path in ScorecardProfilePath:
+            if path.runtime == jit_runtime:
+                return path
+
+        # This line should never actually execute.
+        # There is an equivalent path for every JIT runtime.
+        raise NotImplementedError(
+            f"There is no JIT equivalent for profile path {self.value}"
+        )
 
     @property
     def profile_options(self) -> str:
+        out = ""
         if self == ScorecardProfilePath.ONNX_DML_GPU:
-            return "--onnx_execution_providers directml"
-        return ""
+            out = out + " --onnx_execution_providers directml"
 
-    @staticmethod
-    def from_string(string: str) -> "ScorecardProfilePath":
-        for path in ScorecardProfilePath:
-            if path.long_name == string or path.name == string.upper():
-                return path
-        raise ValueError(
-            "Unable to map name {runtime_name} to a valid scorecard profile path"
+        qairt_version = QAIRTVersion(
+            os.getenv(DEFAULT_QAIRT_VERSION_ENVVAR, QAIRTVersion.DEFAULT_TAG)
         )
+        out = out + f" {qairt_version.hub_option}"
+        return out.strip()
+
+
+class ScorecardProfilePathJITParseableAllList(
+    EnumListWithParseableAll[ScorecardProfilePath]
+):
+    """
+    Helper class for parsing.
+    If "all" is in the list in the yaml, then it will parse to all JIT
+    (on device prepare) profile path values.
+    """
+
+    EnumType = ScorecardProfilePath
+    ALL = [x for x in ScorecardProfilePath if not x.runtime.is_aot_compiled]

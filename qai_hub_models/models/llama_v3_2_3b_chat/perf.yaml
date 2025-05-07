@@ -1,0 +1,31 @@
+supported_devices:
+  - Snapdragon X Elite CRD
+  - Snapdragon 8 Elite QRD
+  - SA8255P ADP
+supported_chipsets:
+  - qualcomm-snapdragon-8-elite
+  - qualcomm-snapdragon-x-elite
+  - qualcomm-sa8255p
+precisions:
+  w4a16:
+    components:
+      Llama-v3.2-3B-Chat:
+        performance_metrics:
+          Snapdragon 8 Elite QRD:
+            qnn:
+              time_to_first_token_range_milliseconds:
+                min: 88.195
+                max: 2822.250
+              tokens_per_second: 23.4718
+          Snapdragon X Elite CRD:
+            qnn:
+              time_to_first_token_range_milliseconds:
+                min: 125.936
+                max: 4029.952
+              tokens_per_second: 18.4176
+          SA8255P (Proxy):
+            qnn:
+              time_to_first_token_range_milliseconds:
+                min: 187.414
+                max: 5997.257
+              tokens_per_second: 14.02377

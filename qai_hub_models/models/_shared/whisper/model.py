@@ -558,8 +558,6 @@ class ResidualAttentionBlockWrapper(torch.nn.Module):
         return x, k_cache, v_cache
 
 
-@CollectionModel.add_component(WhisperEncoderInf)
-@CollectionModel.add_component(WhisperDecoderInf)
 class Whisper(CollectionModel):
     def __init__(
         self,

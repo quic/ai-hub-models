@@ -18,6 +18,7 @@ from pydoc import locate
 from typing import Any, Optional, TypeVar
 
 import qai_hub as hub
+import torch
 from qai_hub.client import APIException, InternalError, UserError
 
 from qai_hub_models.models.common import Precision
@@ -84,7 +85,7 @@ def get_quantize_action_with_default(
                     val = values
                 else:
                     assert isinstance(values, str)
-                    val = Precision.from_string(values)
+                    val = Precision.parse(values)
             else:
                 val = default_quantized_precision
 
@@ -192,7 +193,7 @@ def add_target_runtime_arg(
         type=str,
         action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore[arg-type]
         default=default,
-        choices=[rt.name.lower().replace("_", "-") for rt in available_target_runtimes],
+        choices=[rt.value for rt in available_target_runtimes],
         help=help,
     )
     return parser
@@ -234,6 +235,7 @@ def get_on_device_demo_parser(
     | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
     add_output_dir: bool = False,
     default_device: str | None = None,
+    default_server_device: torch.device = torch.device("cpu"),
 ):
     if not parser:
         parser = get_parser()
@@ -250,6 +252,15 @@ def get_on_device_demo_parser(
         help="If running on-device, uses this model Hub model ID."
         " Provide comma separated model-ids if multiple models are required for demo."
         " Run export.py to get on-device demo command with models exported for you.",
+    )
+    parser.add_argument(
+        "--server-device",
+        type=str,
+        default="cpu",
+        help=(
+            "One of cpu,cuda. Run QuantSim or fp32 inference on this server device. "
+            "Not applicable if --on-device is True"
+        ),
     )
 
     _add_device_args(parser, default_device=default_device)
@@ -664,7 +675,7 @@ def export_parser(
             args for model instantiation.
         components: Only used for model with component and sub-component, such
             as Llama 2, 3, where two subcomponents (e.g.,
-            PromptProcessor_1_Quantized, TokenGenerator_1_Quantized)
+            PromptProcessor_1, TokenGenerator_1)
             are classified under one component (e.g. Llama2_Part1_Quantized).
         supported_precision_runtimes:
             The list of supported (precision, runtime) pairs for this model.
@@ -824,6 +835,16 @@ def evaluate_parser(
             help="If flag is set, computes the accuracy "
             "of the quantized onnx model on the CPU.",
         )
+    parser.add_argument(
+        "--skip-device-accuracy",
+        action="store_true",
+        help="If flag is set, skips computing accuracy on device.",
+    )
+    parser.add_argument(
+        "--skip-torch-accuracy",
+        action="store_true",
+        help="If flag is set, skips computing accuracy with the torch model.",
+    )
     return parser
 
 

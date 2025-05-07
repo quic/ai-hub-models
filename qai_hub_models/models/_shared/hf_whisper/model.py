@@ -305,8 +305,6 @@ class HfWhisperDecoder(BaseModel):
         return compile_options
 
 
-@CollectionModel.add_component(HfWhisperEncoder)
-@CollectionModel.add_component(HfWhisperDecoder)
 class HfWhisper(CollectionModel):
     def __init__(
         self,

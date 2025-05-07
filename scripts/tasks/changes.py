@@ -42,8 +42,8 @@ MANUAL_EDGES = {
     "qai_hub_models/datasets/__init__.py": [
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
-    "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
@@ -51,11 +51,12 @@ MANUAL_EDGES = {
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/_configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/_configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/_configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/_configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
-    "qai_hub_models/models/_configs/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/_info_yaml_llm_details.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/info_yaml.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/model_disable_reasons.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/configs/perf_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/_version.py": [],
 }
 
@@ -168,6 +169,7 @@ def resolve_affected_models(
                 "test.py",
                 "test_generated.py",
                 "demo.py",
+                "requirements.txt",
             ]:
                 continue
             if not include_model and file_path.name == "model.py":
@@ -189,7 +191,7 @@ def resolve_affected_models(
 
 def get_code_gen_changed_models() -> set[str]:
     """Get models where the `code-gen.yaml` changed."""
-    changed_code_gen_files = get_changed_files_in_package("code-gen.yaml")
+    changed_code_gen_files = get_changed_files_in_package(suffix="code-gen.yaml")
     changed_models = []
     for f in changed_code_gen_files:
         if not f.startswith(PY_PACKAGE_RELATIVE_MODELS_ROOT):
@@ -298,8 +300,10 @@ def get_changed_models(
 
     Returns a list of model IDs (folder names) that have changed.
     """
+    files = list(get_changed_files_in_package(suffix="requirements.txt"))
+    files.extend(get_changed_files_in_package(suffix=".py"))
     return resolve_affected_models(
-        get_changed_files_in_package(".py"),
+        files,
         include_model,
         include_demo,
         include_export,

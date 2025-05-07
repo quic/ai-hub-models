@@ -1,17 +1,23 @@
 name: EasyOCR
-# id must match with the model dir name in qai_hub_models
 id: easyocr
 status: public
 headline: Ready-to-use OCR with 80+ supported languages and all popular writing scripts.
 domain: Multimodal
-description: EasyOCR is a machine learning model that can recognize text in images.
-  It supports 80+ supported languages and all popular writing scripts.
+description: EasyOCR is a machine learning model that can recognize text in images. It supports 80+ supported languages and all popular writing scripts.
 use_case: Image To Text
 tags: []
-license: https://github.com/JaidedAI/EasyOCR/blob/master/LICENSE
-deploy_license:
-  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/JaidedAI/EasyOCR
+applicable_scenarios:
+- Publishing
+- Healthcare
+- Document Management
+related_models:
+- trocr
+form_factors:
+- Phone
+- Tablet
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Model checkpoint: easyocr-small-stage1
   Input resolution: 384x384
@@ -19,17 +25,8 @@ technical_details:
   Model size (EasyOCRDetector): 79.2 MB
   Number of parameters (EasyOCRRecognizer): 3.84M
   Model size (EasyOCRRecognizer): 14.7 MB
-applicable_scenarios:
-  - Publishing
-  - Healthcare
-  - Document Management
-form_factors:
-  - Phone
-  - Tablet
-related_models:
-  - trocr
-has_static_banner: true
-has_animated_banner: true
 license_type: apache-2.0
+source_repo: https://github.com/JaidedAI/EasyOCR
+license: https://github.com/JaidedAI/EasyOCR/blob/master/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []

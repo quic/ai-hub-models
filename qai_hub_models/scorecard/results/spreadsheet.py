@@ -6,13 +6,14 @@ from __future__ import annotations
 
 import csv
 import os
+import re
 from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import cast
 
 from qai_hub_models.configs.info_yaml import MODEL_DOMAIN, MODEL_TAG, MODEL_USE_CASE
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
-from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import (
     for_each_scorecard_path_and_device,
@@ -22,14 +23,13 @@ from qai_hub_models.scorecard.results.performance_summary import (
     ModelCompileSummary,
     ModelInferenceSummary,
     ModelPerfSummary,
-    ModelPrecisionCompileSummary,
-    ModelPrecisionInferenceSummary,
-    ModelPrecisionPerfSummary,
-    ModelPrecisionQuantizeSummary,
     ModelQuantizeSummary,
     ScorecardJobTypeVar,
 )
 from qai_hub_models.utils.path_helpers import get_git_branch
+
+MAX_ERROR_LENGTH = 250
+DEFAULT_MODEL_SUMMARY_ID = "__DEFAULT_SUMMARY_FOR_MODEL"
 
 
 @dataclass
@@ -58,7 +58,7 @@ class ResultsSpreadsheet(list):
         component_id: str | None
         precision: Precision
         chipset: str
-        runtime: TargetRuntime
+        runtime: ScorecardProfilePath
         quantize_status: str
         quantize_url: str | None
         compile_status: str
@@ -136,6 +136,8 @@ class ResultsSpreadsheet(list):
                         if combine_model_and_component_id
                         else entry.model_id
                     )
+                if field_name == "runtime":
+                    return entry.runtime.spreadsheet_name
                 if field_name == "date":
                     return date
                 if field_name == "domain":
@@ -163,7 +165,7 @@ class ResultsSpreadsheet(list):
                 if field_name == "known_issue":
                     if meta := self._model_metadata.get(model_id):
                         if failure_reasons := meta.known_failure_reasons.get_disable_reasons(
-                            entry.precision, entry.runtime
+                            entry.precision, entry.runtime.runtime
                         ):
                             if failure_reasons.has_failure:
                                 return failure_reasons.failure_reason
@@ -188,7 +190,9 @@ class ResultsSpreadsheet(list):
 
     def append_model_summary_entries(
         self,
+        model_id: str,
         precisions: list[Precision],
+        components: list[str] | None = None,
         devices: list[ScorecardDevice] | None = None,
         paths: list[ScorecardProfilePath] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
@@ -198,7 +202,9 @@ class ResultsSpreadsheet(list):
     ):
         self.extend(
             ResultsSpreadsheet.get_model_summary_entries(
+                model_id,
                 precisions,
+                components,
                 devices,
                 paths,
                 quantize_summary,
@@ -230,7 +236,9 @@ class ResultsSpreadsheet(list):
 
     @staticmethod
     def get_model_summary_entries(
+        model_id: str,
         precisions: list[Precision],
+        components: list[str] | None = None,
         devices: list[ScorecardDevice] | None = None,
         paths: list[ScorecardProfilePath] | None = None,
         quantize_summary: ModelQuantizeSummary | None = None,
@@ -239,114 +247,41 @@ class ResultsSpreadsheet(list):
         inference_summary: ModelInferenceSummary | None = None,
     ) -> list[ResultsSpreadsheet.Entry]:
         entries: list[ResultsSpreadsheet.Entry] = []
-
-        # Validate input summaries match
-        base_summary = (
-            quantize_summary or compile_summary or profile_summary or inference_summary
-        )
-        if not base_summary:
-            return []
-        for summary in [
-            quantize_summary,
-            compile_summary,
-            profile_summary,
-            inference_summary,
-        ]:
-            for precision in precisions:
-                if summary and (
-                    precision not in base_summary.summaries_per_precision
-                    or precision not in summary.summaries_per_precision
-                    or not base_summary.summaries_per_precision[
-                        precision
-                    ].is_same_model(summary.summaries_per_precision[precision])
-                ):
-                    raise ValueError(
-                        "Summaries do not point to the same model definition."
-                    )
+        quantize_summary = quantize_summary or ModelQuantizeSummary()
+        compile_summary = compile_summary or ModelCompileSummary()
+        profile_summary = profile_summary or ModelPerfSummary()
+        inference_summary = inference_summary or ModelInferenceSummary()
 
         def create_entry(
             precision: Precision, path: ScorecardProfilePath, device: ScorecardDevice
         ):
-            nonlocal base_summary
-            assert base_summary
-            base_precision_summary = base_summary.summaries_per_precision[precision]
-            nonlocal quantize_summary
-            quantize_precision_summary = (
-                quantize_summary.summaries_per_precision[precision]
-                if quantize_summary
-                else None
-            )
-            nonlocal compile_summary
-            compile_precision_summary = (
-                compile_summary.summaries_per_precision[precision]
-                if compile_summary
-                else None
-            )
-            nonlocal profile_summary
-            profile_precision_summary = (
-                profile_summary.summaries_per_precision[precision]
-                if profile_summary
-                else None
-            )
-            nonlocal inference_summary
-            inference_precision_summary = (
-                inference_summary.summaries_per_precision[precision]
-                if inference_summary
-                else None
-            )
-
-            # Extract model and component ids
-            model_id = base_precision_summary.model_id
-            component_ids = base_precision_summary.component_ids
-
-            # Create empty summaries if a relevant summary is not passed.
-            # Empty summaries will always return "skipped" jobs when queried for runs.
-            quantize_precision_summary = (
-                quantize_precision_summary
-                or ModelPrecisionQuantizeSummary(
-                    model_id, precision, None, {x: {} for x in component_ids}
-                )
-            )
-            compile_precision_summary = (
-                compile_precision_summary
-                or ModelPrecisionCompileSummary(
-                    model_id, precision, None, {x: {} for x in component_ids}
-                )
-            )
-            profile_precision_summary = (
-                profile_precision_summary
-                or ModelPrecisionPerfSummary(
-                    model_id, precision, None, {x: {} for x in component_ids}
-                )
-            )
-            inference_precision_summary = (
-                inference_precision_summary
-                or ModelPrecisionInferenceSummary(
-                    model_id, precision, None, {x: {} for x in component_ids}
-                )
-            )
-
-            for component_id in component_ids:
+            for component_id in components or [model_id]:
                 # Get job for this path + device + component combo
-                quantize_job = quantize_precision_summary.get_run(
-                    device, None, component_id
+                quantize_job = quantize_summary.get_run(
+                    precision, device, None, component_id
                 )
-                compile_job = compile_precision_summary.get_run(
-                    device, path.compile_path, component_id
+                compile_job = compile_summary.get_run(
+                    precision, device, path.compile_path, component_id
                 )
-                profile_job = profile_precision_summary.get_run(
-                    device, path, component_id
+                profile_job = profile_summary.get_run(
+                    precision, device, path, component_id
                 )
-                inference_job = inference_precision_summary.get_run(
-                    device, path, component_id
+                inference_job = inference_summary.get_run(
+                    precision, device, path, component_id
                 )
 
                 def _get_url_and_status(
                     sjob: ScorecardJobTypeVar,
                 ) -> tuple[str, str | None]:
+                    # Replace all whitespace with space character
+                    status = (
+                        re.sub(r"\s+", " ", sjob.status_message[:MAX_ERROR_LENGTH])
+                        if sjob.status_message
+                        else None
+                    )
                     return (
                         sjob.job_status
-                        + (f" ({sjob.status_message})" if sjob.status_message else ""),
+                        + (f" ({status})" if sjob.status_message else ""),
                         sjob.job.url if not sjob.skipped else None,
                     )
 
@@ -358,10 +293,10 @@ class ResultsSpreadsheet(list):
 
                 # Profile job results
                 if profile_job.success:
-                    inference_time = float(profile_job.inference_time) / 1000
-                    NPU = profile_job.npu
-                    GPU = profile_job.gpu
-                    CPU = profile_job.cpu
+                    inference_time = float(profile_job.inference_time_milliseconds)
+                    NPU = profile_job.layer_counts.npu
+                    GPU = profile_job.layer_counts.gpu
+                    CPU = profile_job.layer_counts.cpu
                 else:
                     inference_time = None
                     NPU = None
@@ -374,7 +309,7 @@ class ResultsSpreadsheet(list):
                     component_id=component_id if component_id != model_id else None,
                     precision=precision,
                     chipset=device.chipset,
-                    runtime=path.runtime,
+                    runtime=path,
                     quantize_status=quantize_status,
                     quantize_url=quantize_url,
                     compile_status=compile_status.replace(

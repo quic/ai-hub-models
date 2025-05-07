@@ -85,23 +85,13 @@ def can_support_aimet(platform: str = sys.platform) -> bool:
 
 
 def get_is_hub_quantized(model_name) -> bool:
-    is_collection_model_val = get_code_gen_str_field(model_name, "is_collection_model")
-    is_collection_model = (
-        False if is_collection_model_val is None else bool(is_collection_model_val)
-    )
-
-    return (
-        not check_code_gen_field(model_name, "is_precompiled")
-        and not check_code_gen_field(model_name, "is_aimet")
-        and not is_collection_model
-    )
+    return not check_code_gen_field(
+        model_name, "is_precompiled"
+    ) and not check_code_gen_field(model_name, "is_aimet")
 
 
 def model_needs_aimet(model_name: str) -> bool:
-    # TODO(#13765): change this when we remove the quantized model folders
-    return "quantized" in model_name.lower() and check_code_gen_field(
-        model_name, "is_aimet"
-    )
+    return check_code_gen_field(model_name, "is_aimet")
 
 
 def get_model_python_version_requirements(
@@ -213,3 +203,21 @@ def on_ci() -> bool:
 
 def debug_mode() -> bool:
     return get_env_bool("DEBUG_MODE") or False
+
+
+@functools.cache
+def uv_installed() -> bool:
+    try:
+        result = subprocess.run(["bash", "which", "uv"], capture_output=True)
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+@functools.cache
+def get_pip() -> str:
+    # UV has trouble building many packages from source on Python 3.12
+    if uv_installed() and (sys.version_info.major == 3 and sys.version_info.minor < 12):
+        return "uv pip"
+    else:
+        return "pip"

@@ -21,10 +21,8 @@ from qai_hub_models.utils.args import (
     get_model_kwargs,
     validate_precision_runtime,
 )
-from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
-from qai_hub_models.utils.quantization_aimet import AIMETQuantizableMixin
 
 
 def main():
@@ -32,8 +30,7 @@ def main():
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a16: [
-            TargetRuntime.QNN,
-            TargetRuntime.ONNX,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
@@ -70,13 +67,7 @@ def main():
             MODEL_ID, args, get_model_kwargs(Model, vars(args))
         )
     hub_device: hub.Device = args.hub_device
-
-    # Use Fp16 model for torch inference
-    for cls in Model.__mro__:
-        if issubclass(cls, BaseModel) and not issubclass(cls, AIMETQuantizableMixin):
-            torch_cls = cls
-            break
-    torch_model = torch_cls.from_pretrained(**get_model_kwargs(torch_cls, vars(args)))
+    torch_model = Model.from_pretrained(**get_model_kwargs(Model, vars(args)))
     evaluate_on_dataset(
         hub_model,
         torch_model,
@@ -87,6 +78,8 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        skip_device_accuracy=args.skip_device_accuracy,
+        skip_torch_accuracy=args.skip_torch_accuracy,
     )
 
 

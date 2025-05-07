@@ -13,11 +13,9 @@ import torch
 from PIL.Image import Image, Resampling
 
 from qai_hub_models.models._shared.detr.coco_label_map import LABEL_MAP
-from qai_hub_models.utils.bounding_box_processing import box_xywh_to_xyxy
 from qai_hub_models.utils.draw import draw_box_from_xyxy
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
-    normalize_image_torchvision,
     preprocess_PIL_image,
 )
 
@@ -101,67 +99,6 @@ class DETRApp:
 
         return pred_scores[mask], pred_class_idx, pred_boxes
 
-    def _process_logits_boxes(
-        self,
-        out_logits: torch.Tensor,
-        out_bbox: torch.Tensor,
-        NHWC_int_numpy_frames: list[npt.NDArray[np.uint8]],
-        threshold: float,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Process outputs for [out_logits, out_bbox] format.
-
-        Parameters:
-            out_logits: torch.Tensor
-                Output logits.
-            out_bbox: torch.Tensor
-                Output bounding boxes.
-            NHWC_int_numpy_frames: list[npt.NDArray[np.uint8]]
-                Image in NHWC format as a list of numpy arrays.
-            threshold: float
-                Prediction score threshold.
-
-        Returns:
-            scores: torch.Tensor
-                Confidence scores for the predicted class.
-            labels: torch.Tensor
-                Labels (class number) for the predicted class.
-            boxes: torch.Tensor
-                Bounding boxes for the predicted class.
-        """
-        prob = torch.nn.functional.softmax(out_logits, -1)
-        scores, _ = prob[..., :-1].max(-1)
-
-        # Convert to [x0, y0, x1, y1] format
-        boxes = box_xywh_to_xyxy(out_bbox.view(-1, 2, 2)).view(-1, 4)
-
-        # Convert from relative [0, 1] to absolute [0, height] coordinates
-        target_sizes = torch.tensor(NHWC_int_numpy_frames[0].shape[:2][::-1]).unsqueeze(
-            0
-        )
-        img_h, img_w = target_sizes.unbind(1)
-        scale_fct = torch.stack([img_w, img_h, img_w, img_h], dim=1).to(boxes.device)
-        boxes = boxes * scale_fct[:, None, :]
-
-        mask = scores > threshold
-        labels = torch.argmax(prob[..., :-1], dim=-1)[mask]
-        boxes = boxes[mask]
-        scores = scores[mask]
-
-        for p, (xmin, ymin, xmax, ymax), l in zip(
-            scores.tolist(), boxes.tolist(), labels.tolist()
-        ):
-            draw_box_from_xyxy(
-                NHWC_int_numpy_frames[0],
-                (int(xmin), int(ymin)),
-                (int(xmax), int(ymax)),
-                color=(0, 255, 0),
-                size=2,
-                text=f"{LABEL_MAP[l]}: {p:0.2f}",
-            )
-
-        return scores, labels, boxes
-
     def predict(
         self,
         image: Image,
@@ -197,24 +134,16 @@ class DETRApp:
                 (self.model_image_width, self.model_image_height),
                 resample=Resampling.BILINEAR,
             )
-        image_array = normalize_image_torchvision(preprocess_PIL_image(image))
 
         # Convert image to numpy array for drawing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(image)
 
         # Run DETR Inference
-        outputs = self.model(image_array)
+        outputs = self.model(preprocess_PIL_image(image))
 
-        # Process outputs based on format
-        if isinstance(outputs, tuple) and len(outputs) == 3:
-            # Process outputs for (pred_boxes, pred_scores, pred_class_idx) format
-            scores, labels, boxes = self._process_boxes_scores_classes(
-                outputs[0], outputs[1], outputs[2], NHWC_int_numpy_frames, threshold
-            )
-        else:
-            # Process outputs for [out_logits, out_bbox] format
-            scores, labels, boxes = self._process_logits_boxes(
-                outputs[0], outputs[1], NHWC_int_numpy_frames, threshold
-            )
+        # Process outputs for (pred_boxes, pred_scores, pred_class_idx) format
+        scores, labels, boxes = self._process_boxes_scores_classes(
+            outputs[0], outputs[1], outputs[2], NHWC_int_numpy_frames, threshold
+        )
 
         return NHWC_int_numpy_frames, scores, labels, boxes

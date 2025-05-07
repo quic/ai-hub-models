@@ -35,6 +35,16 @@ def save_image(image: Image, base_dir: str, filename: str, desc: str):
     print(f"Saving {desc} to {filename}")
 
 
+def is_headless() -> bool:
+    if os.environ.get(ALWAYS_DISPLAY_VAR) == "1":
+        return False
+
+    return (
+        os.environ.get("SSH_TTY") is not None
+        or os.environ.get("SSH_CLIENT") is not None
+    )
+
+
 def display_image(image: Image, desc: str = "image") -> bool:
     """
     Attempt to display image.
@@ -49,9 +59,7 @@ def display_image(image: Image, desc: str = "image") -> bool:
                 return True
 
     try:
-        if os.environ.get(ALWAYS_DISPLAY_VAR) == "1" or not (
-            os.environ.get("SSH_TTY") or os.environ.get("SSH_CLIENT")
-        ):
+        if not is_headless():
             print(f"Displaying {desc}")
             image.show()
             return True

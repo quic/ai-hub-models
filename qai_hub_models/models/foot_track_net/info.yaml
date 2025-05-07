@@ -1,5 +1,4 @@
 name: Person-Foot-Detection
-# id must match with the model dir name in qai_hub_models
 id: foot_track_net
 status: public
 headline: Multi-task Human detector.
@@ -7,28 +6,29 @@ domain: Computer Vision
 description: Real-time multiple person detection with accurate feet localization optimized for mobile and edge.
 use_case: Object Detection
 tags:
-  - real-time
-license: https://github.com/quic/ai-hub-models/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/foot_track_net/model.py
+- real-time
+applicable_scenarios:
+- Accessibility
+- Augmented Reality
+- Gaming
+related_models: []
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset:
+- coco
 technical_details:
   Inference latency: RealTime
   Input resolution: 640x480
-  Number of output classes: 2
+  Number of output classes: '2'
   Number of parameters: 2.53M
-  Model size: 9.69 MB
-applicable_scenarios:
-  - Accessibility
-  - Augmented Reality
-  - Gaming
-related_models: []
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-has_static_banner: true
-has_animated_banner: true
+  Model size (float): 9.69 MB
+  Model size (w8a8): 2.62 MB
 license_type: bsd-3-clause
+source_repo: https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/foot_track_net/model.py
+license: https://github.com/quic/ai-hub-models/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset:
-  - coco

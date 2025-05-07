@@ -15,7 +15,10 @@ from qai_hub_models.models.segformer_base.demo import (
 from qai_hub_models.models.segformer_base.demo import main as demo_main
 from qai_hub_models.models.segformer_base.model import SegformerBase
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.image_processing import (
+    normalize_image_transform,
+    preprocess_PIL_image,
+)
 from qai_hub_models.utils.testing import assert_most_close
 
 WEIGHTS = "nvidia/segformer-b0-finetuned-ade-512-512"
@@ -29,7 +32,7 @@ def test_task():
 
     with torch.no_grad():
         # original model output
-        source_out = source_model(processed_sample_image)
+        source_out = source_model(normalize_image_transform()(processed_sample_image))
 
         # Qualcomm AI Hub Model output
         qaihm_out = qaihm_model(processed_sample_image)
@@ -47,7 +50,7 @@ def test_trace():
     img = load_image(INPUT_IMAGE_ADDRESS)
     (_, _, height, width) = SegformerBase.get_input_spec()["image"][0]
     img_resized = img.resize((height, width))
-    app = SegmentationApp(trace)
+    app = SegmentationApp(trace, normalize_input=False)
     out_imgs = app.predict(img_resized)
     out_imgs = out_imgs[0].resize(img.size)
 

@@ -9,6 +9,9 @@ import torch.nn.functional as F
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
+from qai_hub_models.evaluators.yolo_segmentation_evaluator import (
+    YoloSegmentationOutputEvaluator,
+)
 from qai_hub_models.models._shared.yolo.utils import (
     box_transform_xywh2xyxy_split_input,
     get_most_likely_score,
@@ -149,3 +152,25 @@ class Yolo(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "coco"
+
+
+class YoloSeg(Yolo):
+    @staticmethod
+    def get_output_names() -> list[str]:
+        return ["boxes", "scores", "masks", "class_idx", "protos"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
+        return ["protos"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        image_height, image_width = self.get_input_spec()["image"][0][2:]
+        return YoloSegmentationOutputEvaluator(image_height, image_width, 0.001, 0.7)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["coco_seg"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "coco_seg"

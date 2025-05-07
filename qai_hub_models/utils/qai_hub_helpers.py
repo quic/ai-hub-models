@@ -20,7 +20,8 @@ import torch
 from qai_hub.client import APIException, DatasetEntries, Device, UserError
 
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, qaihm_temp_dir
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
 from qai_hub_models.utils.printing import print_profile_metrics
@@ -48,13 +49,14 @@ _INFO_DASH = "-" * 55
 def export_without_hub_access(
     model_id: str,
     model_display_name: str,
-    device_name: str,
+    device: str,
     skip_profiling: bool,
     skip_inferencing: bool,
     skip_downloading: bool,
     skip_summary: bool,
     output_path: str | Path,
     target_runtime: TargetRuntime,
+    precision: Precision,
     compile_options: str,
     profile_options: str,
     components: Optional[list[str]] = None,
@@ -82,7 +84,7 @@ def export_without_hub_access(
             "perf.yaml",
         )
         if os.path.exists(perf_yaml_path):
-            parsed_perf = QAIHMModelPerf(perf_yaml_path, model_id)
+            parsed_perf = QAIHMModelPerf.from_yaml(perf_yaml_path).precisions[precision]
 
             if not components:
                 components = [model_display_name]
@@ -90,19 +92,21 @@ def export_without_hub_access(
             print(f"Profiling Results\n{_INFO_DASH}")
             for component in components:
                 print(f"{component}")
-                model_perf = parsed_perf.per_model_details[component]
+                model_perf = parsed_perf.components[component]
 
                 # Device families aren't stored in perf yamls. Replace with the original device name.
-                device_search_name = device_name.replace(" (Family)", "")
-                device_perf = model_perf.details_per_device.get(
-                    device_search_name, None
+                device_name = device.replace(" (Family)", "")
+                device_perf = model_perf.performance_metrics.get(
+                    ScorecardDevice.get(device_name)
                 )
                 if not device_perf:
                     break
 
                 runtime_perf = None
-                for path, path_runtime_perf in device_perf.details_per_path.items():
-                    if path.runtime == target_runtime:
+                for path, path_runtime_perf in device_perf.items():
+                    # TODO(#14896): Remove this hack when the website supports more runtime names
+                    # We only use the JIT runtime names in perf yaml for now.
+                    if path.runtime == target_runtime.jit_equivalent:
                         runtime_perf = path_runtime_perf
                         break
 
@@ -111,12 +115,15 @@ def export_without_hub_access(
 
                 missing_perf = False
                 print_profile_metrics(
-                    device_perf.device, target_runtime, runtime_perf.perf_details
+                    device_name,
+                    target_runtime,
+                    runtime_perf,
+                    can_access_qualcomm_ai_hub=False,
                 )
 
         if missing_perf:
             print(
-                f"Cannot obtain results for Device({device_name}) with runtime {target_runtime.name} without an API token.\n"
+                f"Cannot obtain results for device {device} with runtime {target_runtime.name} without an API token.\n"
                 f"Please sign-up for {_AIHUB_NAME} to get run this configuration on hosted devices."
             )
 
@@ -137,7 +144,7 @@ def export_without_hub_access(
         )
         try:
             paths = fetch_huggingface_target_model(
-                model_display_name, output_path, target_runtime
+                model_display_name, precision, output_path, target_runtime
             )
             print(f"Deployable model(s) saved to: {paths}")
         except Exception as e:
@@ -160,7 +167,7 @@ def get_hub_endpoint():
 def export_torch_to_onnx_zip(
     torch_model: torch.nn.Module,
     f: str | PathLike,
-    example_input: tuple[torch.Tensor, ...],
+    example_input: tuple[torch.Tensor, ...] | list[torch.Tensor],
     input_names: list[str] | None = None,
     output_names: list[str] | None = None,
     onnx_transforms: Optional[Callable[[onnx.ModelProto], onnx.ModelProto]] = None,
@@ -188,6 +195,8 @@ def export_torch_to_onnx_zip(
       or a directory if skip_zip is True and model size is >2GB).
     """
     f = Path(f)
+    if isinstance(example_input, list):
+        example_input = tuple(example_input)
 
     # Estimate total weight size (parameters and buffers) in bytes.
     # state_dict includes buffers etc, while model.parameters include only learnable params.
@@ -337,8 +346,8 @@ def make_hub_dataset_entries(
 
 
 def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None | str:
-    if target_runtime != TargetRuntime.QNN:
-        return "AIMET model currently runs on QNN only"
+    if not target_runtime.is_aot_compiled:
+        return "AIMET model currently runs on precompiled targets"
     hex_attrs = [attr for attr in device.attributes if attr.startswith("hexagon:")]
     if len(hex_attrs) != 1:
         return f"Unable to determine hexagon version for {device.name}"

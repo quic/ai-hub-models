@@ -143,23 +143,6 @@ def assert_most_close(
     ), f"More than {diff_tol * 100}% of values were not close."
 
 
-def mock_first_n(fn: Callable, n: int):
-    """
-    Return a function that returns a Mock object for the first N calls
-    and calls the given fn on all subsequent calls.
-    """
-    call_count = 0
-
-    def mock_fn(*args, **kwargs):
-        nonlocal call_count
-        call_count += 1
-        if call_count <= n:
-            return mock.Mock()
-        return fn(*args, **kwargs)
-
-    return mock_fn
-
-
 def mock_on_device_model_call(inference_job: hub.InferenceJob) -> Callable:
     def mock_call(self, *args):
         return AsyncOnDeviceResult(
@@ -204,7 +187,10 @@ def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
 
 
 def get_and_sync_datasets_cache_dir(
-    has_channel_transpose: bool, dataset_name: str, samples_per_job: int
+    has_channel_transpose: bool,
+    dataset_name: str,
+    samples_per_job: int,
+    model_cls: type[BaseModel] | type[CollectionModel],
 ) -> Path:
     folder_name = "hub_datasets"
     if not has_channel_transpose:
@@ -214,8 +200,20 @@ def get_and_sync_datasets_cache_dir(
         return dir_path
     with qaihm_temp_dir() as tmp_dir:
         tmp_path = Path(tmp_dir)
-        dataset_ids = load_yaml(get_dataset_ids_file())
+        dataset_ids_filepath = get_dataset_ids_file()
+        dataset_ids = load_yaml(dataset_ids_filepath)
         input_key, gt_key = get_val_dataset_id_keys(dataset_name, has_channel_transpose)
+        # In most cases, the input and gt validation data have been created
+        # and stored in the dataset_ids yaml. In the rare case it isn't, do so here.
+        if input_key not in dataset_ids or gt_key not in dataset_ids:
+            get_hub_val_dataset(
+                dataset_name,
+                dataset_ids_filepath,
+                model_cls,
+                has_channel_transpose,
+                samples_per_job,
+            )
+            dataset_ids = load_yaml(dataset_ids_filepath)
         with open(tmp_path / f"samples_per_job_{samples_per_job}.txt", "w") as f:
             f.write(dataset_ids[input_key] + " " + dataset_ids[gt_key])
 
@@ -276,6 +274,10 @@ def get_hub_val_dataset(
 
     The dataset is sampled by taking every N samples for the largest possible N
     that produces the number of requested samples.
+
+    The dataset is produced using the input spec and channel last inputs of a
+    representative model. The assumption being that all models using this dataset
+    have the same values for both of those things.
 
     Parameters:
         dataset_name: Name of the dataset. Dataset must be registered in

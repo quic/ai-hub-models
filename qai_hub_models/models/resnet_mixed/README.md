@@ -7,10 +7,7 @@ ResNet Mixed Convolutions is a network with a mixture of 2D and 3D convolutions 
 
 This is based on the implementation of ResNet-Mixed-Convolution found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/video/resnet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/resnet_mixed)
-  - [w8a8](https://aihub.qualcomm.com/models/resnet_mixed_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/resnet_mixed).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

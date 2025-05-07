@@ -24,6 +24,7 @@ from .util import (
     check_code_gen_field,
     get_is_hub_quantized,
     get_model_python_version_requirements,
+    get_pip,
     model_needs_aimet,
     on_ci,
 )
@@ -274,9 +275,7 @@ class PyTestModelsTask(CompositeTask):
                         group_name="Install Global Requirements",
                         venv=base_test_venv,
                         commands=[
-                            f'pip install -r "{GLOBAL_REQUIREMENTS_PATH}" ',
-                            # TODO(13985): rever this hack once aimet-torch is upgrade
-                            "pip install onnxruntime==1.19.2",
+                            f'{get_pip()} install -r "{GLOBAL_REQUIREMENTS_PATH}" ',
                         ],
                     )
                 )

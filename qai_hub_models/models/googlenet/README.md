@@ -7,10 +7,7 @@ GoogLeNet is a machine learning model that can classify images from the Imagenet
 
 This is based on the implementation of GoogLeNet found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/googlenet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/googlenet)
-  - [w8a8](https://aihub.qualcomm.com/models/googlenet_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/googlenet).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

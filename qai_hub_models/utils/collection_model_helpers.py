@@ -45,5 +45,9 @@ def get_components(model_id: str) -> list[str] | None:
                                 component_arg = decorator.args[0]
                                 if isinstance(component_arg, ast.Name):
                                     components.append(component_arg.id)
+                            if len(decorator.args) == 2:
+                                component_arg = decorator.args[1]
+                                if isinstance(component_arg, ast.Constant):
+                                    components.append(component_arg.value)
 
     return components if components else None

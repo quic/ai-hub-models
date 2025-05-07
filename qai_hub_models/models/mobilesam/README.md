@@ -1,7 +1,7 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [MobileSam: FASTER SEGMENT ANYTHING: TOWARDS LIGHTWEIGHT SAM FOR MOBILE APPLICATIONS](https://aihub.qualcomm.com/models/mobilesam)
+# [MobileSam: Faster Segment Anything: Towards lightweight SAM for mobile applications](https://aihub.qualcomm.com/models/mobilesam)
 
 Transformer based encoder-decoder where prompts specify what to segment in an image thereby allowing segmentation without the need for additional training. The image encoder generates embeddings and the lightweight decoder operates on the embeddings for point and mask based image segmentation.
 

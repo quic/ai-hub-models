@@ -1,22 +1,24 @@
 Pillow>10,<12
 gdown==4.7.1
 gitpython==3.1.42
-huggingface_hub>=0.23.1,<0.24
+huggingface_hub>=0.23.1,<1.0
 ipython==8.12.3
-numpy>=1.23.5,< 2 # 1.23.5 required by AIMET
-onnx>=1.14.1,<1.17 # ONNX must be at least 1.14.1. AIMET-torch and AIMET-ONNX use different ONNX versions.
-onnxruntime>=1.15.1
+numpy<2
+onnx>=1.16.1 # 1.16.1 is allowed for compatiblity with AIMET-ONNX
+onnxruntime>=1.19 # 1.19 is allowed for compatibility with AIMET-ONNX
 opencv-python>4,<5
-pandas>=1.4.3,<2.3 # 1.4 required by AIMET
+pandas>2,<2.3
 prettytable==3.11.0
 requests_toolbelt==1.0.0
 schema==0.7.5
-torch>=2.1.2,<2.5.0 # 2.1.2 is for AIMET. 2.5 won't work with torchvision yet.
+torch>=2.1,<2.6.0
 tabulate==0.9.0
-torchvision>=0.16.2,<0.21
+torchvision>=0.16,<0.21
 typing-extensions>=4.12.2
 tqdm>=4.66
 qai_hub>=0.22.0
 datasets==2.14.5
 ruamel-yaml==0.18.10
 filelock>=3.16.1
+pydantic>=2,<3
+pydantic_yaml==1.4.0

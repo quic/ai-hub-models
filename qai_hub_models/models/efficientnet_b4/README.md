@@ -7,10 +7,7 @@ EfficientNetB4 is a machine learning model that can classify images from the Ima
 
 This is based on the implementation of EfficientNet-B4 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/efficientnet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/efficientnet_b4)
-  - [w8a16](https://aihub.qualcomm.com/models/efficientnet_b4_w8a16_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/efficientnet_b4).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

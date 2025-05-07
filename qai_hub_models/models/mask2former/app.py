@@ -33,7 +33,7 @@ class Mask2FormerApp:
         self,
         model: Callable[
             [torch.Tensor],
-            tuple[torch.Tensor, torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         ],
     ):
         self.model = model
@@ -80,9 +80,14 @@ class Mask2FormerApp:
         )
 
         # Run prediction
-        pred1, pred2 = self.model(NCHW_fp32_torch_frames)
+        class_pred_scores, class_pred_labels, masks_queries_logits = self.model(
+            NCHW_fp32_torch_frames
+        )
 
-        pred_mask_img = self.post_process_panoptic_segmentation(pred1, pred2)
+        pred_mask_img = self.post_process_panoptic_segmentation(
+            class_pred_scores, class_pred_labels, masks_queries_logits
+        )[0]
+        pred_mask_img = pred_mask_img["segmentation"].unsqueeze(0)
 
         if raw_output:
             return pred_mask_img
@@ -101,10 +106,12 @@ class Mask2FormerApp:
             )
         return out
 
+    @staticmethod
     def post_process_panoptic_segmentation(
-        self,
-        class_queries_logits: torch.Tensor,
+        class_pred_scores: torch.Tensor,
+        class_pred_labels: torch.Tensor,
         masks_queries_logits: torch.Tensor,
+        num_labels: int = 133,
         threshold: float = 0.5,
         mask_threshold: float = 0.5,
         overlap_mask_area_threshold: float = 0.8,
@@ -152,22 +159,12 @@ class Mask2FormerApp:
         if label_ids_to_fuse is None:
             # logger.warning("`label_ids_to_fuse` unset. No instance will be fused.")
             label_ids_to_fuse = set()
-
         # Scale back to preprocessed image size - (384, 384) for all models
         masks_queries_logits = F.interpolate(
             masks_queries_logits, size=(384, 384), mode="bilinear", align_corners=False
         )
-
-        batch_size = class_queries_logits.shape[0]
-        num_labels = class_queries_logits.shape[-1] - 1
-
-        mask_probs = (
-            masks_queries_logits.sigmoid()
-        )  # [batch_size, num_queries, height, width]
-
-        # Predicted label and score of each query (batch_size, num_queries)
-        pred_scores, pred_labels = F.softmax(class_queries_logits, dim=-1).max(-1)
-
+        batch_size = class_pred_scores.shape[0]
+        mask_probs = masks_queries_logits.sigmoid()
         # Loop over items in batch size
         results = []
 
@@ -177,7 +174,11 @@ class Mask2FormerApp:
                 pred_scores_item,
                 pred_labels_item,
             ) = remove_low_and_no_objects(
-                mask_probs[i], pred_scores[i], pred_labels[i], threshold, num_labels
+                mask_probs[i],
+                class_pred_scores[i],
+                class_pred_labels[i],
+                threshold,
+                num_labels,
             )
 
             # No mask found
@@ -188,12 +189,12 @@ class Mask2FormerApp:
                     else mask_probs_item.shape[1:]
                 )
                 segmentation = torch.zeros((height, width)) - 1
-                results.append(segmentation.unsqueeze(0))
+                results.append({"segmentation": segmentation, "segments_info": []})
                 continue
 
             # Get segmentation map and segment information of batch item
             target_size = target_sizes[i] if target_sizes is not None else None
-            segmentation, _ = compute_segments(
+            segmentation, segments = compute_segments(
                 mask_probs=mask_probs_item,
                 pred_scores=pred_scores_item,
                 pred_labels=pred_labels_item,
@@ -203,5 +204,5 @@ class Mask2FormerApp:
                 target_size=target_size,
             )
 
-            results.append(segmentation.unsqueeze(0))
-        return torch.cat(results, 0)
+            results.append({"segmentation": segmentation, "segments_info": segments})
+        return results

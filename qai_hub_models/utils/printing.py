@@ -18,7 +18,13 @@ from qai_hub.client import SourceModelType
 from qai_hub.public_rest_api import DatasetEntries
 from tabulate import tabulate
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, bytes_to_mb
+from qai_hub_models.configs.devices_and_chipsets_yaml import (
+    SCORECARD_DEVICE_YAML_PATH,
+    DeviceDetailsYaml,
+    DevicesAndChipsetsYaml,
+    ScorecardDevice,
+)
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
@@ -94,10 +100,13 @@ def print_profile_metrics_from_job(
     profile_data: dict[str, Any],
 ):
     compute_unit_counts = Counter(
-        [op.get("compute_unit", "UNK") for op in profile_data["execution_detail"]]
+        [
+            op.get("compute_unit", "UNK").lower()
+            for op in profile_data["execution_detail"]
+        ]
     )
     execution_summary = profile_data["execution_summary"]
-    peak_memory_bytes = execution_summary["inference_memory_peak_range"]
+    low_mem_bytes, high_mem_bytes = execution_summary["inference_memory_peak_range"]
     print(f"\n{_INFO_DASH}")
     print(f"Performance results on-device for {profile_job.name.title()}.")
     print(_INFO_DASH)
@@ -113,58 +122,73 @@ def print_profile_metrics_from_job(
 
     perf_details = QAIHMModelPerf.PerformanceDetails(
         job_id=profile_job.job_id,
-        inference_time_microsecs=execution_summary["estimated_inference_time"],
-        peak_memory_bytes=peak_memory_bytes,
-        compute_unit_counts=compute_unit_counts,
-        # Unused
-        primary_compute_unit="",
-        precision="",
+        inference_time_milliseconds=execution_summary["estimated_inference_time"]
+        / 1000,
+        estimated_peak_memory_range_mb=QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB.from_bytes(
+            low_mem_bytes, high_mem_bytes
+        ),
+        layer_counts=QAIHMModelPerf.PerformanceDetails.LayerCounts.from_layers(
+            npu=compute_unit_counts.get("npu", 0),
+            gpu=compute_unit_counts.get("gpu", 0),
+            cpu=compute_unit_counts.get("cpu", 0),
+        ),
     )
 
-    device_details = QAIHMModelPerf.DeviceDetails(
-        name=profile_job.device.name,
-        os=profile_job.device.os,
-        # unused
-        form_factor="",
-        os_name="",
-        manufacturer="",
-        chipset="",
-    )
-
-    print_profile_metrics(device_details, runtime, perf_details)
+    print_profile_metrics(profile_job.device.name, runtime, perf_details)
     print(_INFO_DASH)
     last_line = f"More details: {profile_job.url}\n"
     print(last_line)
 
 
 def get_profile_metrics(
-    device: QAIHMModelPerf.DeviceDetails,
+    device_name: str,
     runtime: TargetRuntime,
-    perf_details: QAIHMModelPerf.PerformanceDetails
-    | QAIHMModelPerf.LLMPerformanceDetails,
+    perf_details: QAIHMModelPerf.PerformanceDetails,
+    can_access_qualcomm_ai_hub: bool = True,
 ) -> str:
+    if not can_access_qualcomm_ai_hub:
+        device_name = device_name.removesuffix(" (Family)")
+        device_info = DevicesAndChipsetsYaml.from_yaml(
+            SCORECARD_DEVICE_YAML_PATH
+        ).devices[device_name]
+    else:
+        device_info = DeviceDetailsYaml.from_device(
+            ScorecardDevice.get(device_name, return_unregistered=True)
+        )
+
     rows = [
-        ["Device", f"{device.name} ({device.os})"],
+        ["Device", f"{device_name} ({device_info.os})"],
         ["Runtime", runtime.name],
     ]
 
-    if isinstance(perf_details, QAIHMModelPerf.LLMPerformanceDetails):
+    if perf_details.tokens_per_second:
+        assert perf_details.time_to_first_token_range_milliseconds
         rows.extend(
             [
-                ["Response Rate (Tokens/Second)", str(perf_details.tokens_per_second)],
+                [
+                    "Response Rate (Tokens/Second)",
+                    str(perf_details.tokens_per_second),
+                ],
                 [
                     "Time to First Token (Seconds)",
-                    str(perf_details.time_to_first_token_range_secs),
+                    f"min={perf_details.time_to_first_token_range_milliseconds.min / 1000}, max={perf_details.time_to_first_token_range_milliseconds.max / 100}",
                 ],
             ]
         )
     else:
-        inf_time_ms = perf_details.inference_time_microsecs / 1000
-        mem_min = bytes_to_mb(perf_details.peak_memory_bytes[0])
-        mem_max = bytes_to_mb(perf_details.peak_memory_bytes[1])
+        assert perf_details.inference_time_milliseconds
+        assert perf_details.estimated_peak_memory_range_mb
+        assert perf_details.layer_counts
+        inf_time_ms = perf_details.inference_time_milliseconds
+        mem_min = perf_details.estimated_peak_memory_range_mb.min
+        mem_max = perf_details.estimated_peak_memory_range_mb.max
         compute_units = [
             f"{unit} ({num_ops} ops)"
-            for unit, num_ops in perf_details.compute_unit_counts.items()
+            for unit, num_ops in [
+                ("npu", perf_details.layer_counts.npu),
+                ("gpu", perf_details.layer_counts.gpu),
+                ("cpu", perf_details.layer_counts.cpu),
+            ]
         ]
 
         rows.extend(
@@ -174,7 +198,7 @@ def get_profile_metrics(
                     "<0.1" if inf_time_ms < 0.1 else f"{inf_time_ms:.1f}",
                 ],
                 ["Estimated peak memory usage (MB)", f"[{mem_min}, {mem_max}]"],
-                ["Total # Ops", str(sum(perf_details.compute_unit_counts.values()))],
+                ["Total # Ops", str(perf_details.layer_counts.total)],
                 ["Compute Unit(s)", " ".join(compute_units)],
             ]
         )
@@ -186,12 +210,16 @@ def get_profile_metrics(
 
 
 def print_profile_metrics(
-    device: QAIHMModelPerf.DeviceDetails,
+    device_name: str,
     runtime: TargetRuntime,
-    perf_details: QAIHMModelPerf.PerformanceDetails
-    | QAIHMModelPerf.LLMPerformanceDetails,
+    perf_details: QAIHMModelPerf.PerformanceDetails,
+    can_access_qualcomm_ai_hub: bool = True,
 ):
-    print(get_profile_metrics(device, runtime, perf_details))
+    print(
+        get_profile_metrics(
+            device_name, runtime, perf_details, can_access_qualcomm_ai_hub
+        )
+    )
 
 
 DemoJobT = TypeVar("DemoJobT", hub.CompileJob, hub.LinkJob)

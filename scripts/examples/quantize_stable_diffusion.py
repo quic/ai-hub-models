@@ -24,7 +24,11 @@ from qai_hub_models.models._shared.stable_diffusion.utils import (
 )
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 
-MODEL_IDS = ["stable_diffusion_v1_5_w8a16_quantized", "stable_diffusion_v2_1_quantized"]
+MODEL_IDS = [
+    "stable_diffusion_v1_5_w8a16_quantized",
+    "stable_diffusion_v2_1_quantized",
+    "stable_diffusion_turbo",
+]
 
 COMPONENT_NAMES = ["text_encoder", "unet", "vae_decoder"]
 
@@ -77,6 +81,12 @@ if __name__ == "__main__":
         default=42,
         help="For reproducibility.",
     )
+    parser.add_argument(
+        "--server-device",
+        type=str,
+        default="cpu",
+        help=("One of cpu,cuda. Run QuantSim calibration on this server device. "),
+    )
     args = parser.parse_args()
 
     if args.component in ["unet", "vae_decoder"] and args.calib_path is None:
@@ -102,11 +112,14 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     output_name = args.output_name or args.component
 
+    server_device = torch.device(args.server_device)
     model_cls = COMPONENTS[args.component]
-    model_quant = model_cls.from_pretrained(aimet_encodings=None)
+    model_quant = model_cls.from_pretrained(
+        aimet_encodings=None, server_device=server_device
+    )
 
     if args.component == "text_encoder":
-        ds = model_quant.get_calibration_data()
+        ds = model_quant.get_calibration_data(num_samples=args.num_samples)
     elif args.component == "unet":
         ds = load_unet_calib_dataset_entries(path=args.calib_path)
     elif args.component == "vae_decoder":
@@ -116,5 +129,7 @@ if __name__ == "__main__":
 
     model_quant.quantize(data_loader, num_samples=args.num_samples)
     model_quant.convert_to_onnx_and_aimet_encodings(
-        output_dir=output_dir, model_name=output_name
+        output_dir=output_dir,
+        model_name=output_name,
+        return_zip=False,
     )

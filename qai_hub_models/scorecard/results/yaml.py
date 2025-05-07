@@ -184,16 +184,6 @@ class ScorecardJobYaml(
             component,
         )
 
-        if not job_id and "_quantized" in model_id:
-            # TODO(#13765): Remove this hack for supporting old scorecard runs for models in "quantized" folders.
-            job_id = self.get_job_id(
-                path,
-                model_id,
-                device,
-                Precision.float,
-                component,
-            )
-
         return self.scorecard_job_type(
             component or model_id,
             precision,

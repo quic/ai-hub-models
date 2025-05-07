@@ -25,8 +25,6 @@ from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized.model import (
     TextEncoderQuantizable,
     UnetQuantizable,
     VaeDecoderQuantizable,
-    make_text_encoder_hf_model,
-    make_unet_hf_model,
 )
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import make_torch_inputs
@@ -114,9 +112,13 @@ if __name__ == "__main__":
     apply_monkey_patch = args.opt == "manual"
 
     if args.component == "unet":
-        torch_model = make_unet_hf_model(apply_monkey_patch=apply_monkey_patch)
+        torch_model = UnetQuantizable.make_adapted_torch_model(
+            on_device_opt=apply_monkey_patch
+        )
     elif args.component == "text_encoder":
-        torch_model = make_text_encoder_hf_model()
+        torch_model = TextEncoderQuantizable.make_adapted_torch_model()
+    elif args.component == "vae_decoder":
+        torch_model = VaeDecoderQuantizable.make_adapted_torch_model()
 
     dummy_input = tuple(make_torch_inputs(input_spec))
 
@@ -182,6 +184,7 @@ if __name__ == "__main__":
         "Samsung Galaxy S24 (Family)",
     ]
     hub_model = hub.upload_model(output_dir)
+    profile_jobs = []
     for device in devices:
         hub_device = hub.Device(device)
         compile_job = hub.submit_compile_job(
@@ -199,7 +202,9 @@ if __name__ == "__main__":
             name=f"sd1_5_{args.component}_{args.opt}",
         )
         logger.info(f"profile job: {profile_job}")
+        profile_jobs.append(profile_job)
 
-    assert profile_job.wait().success, "Job failed: " + profile_job.url
-    profile_data = profile_job.download_profile()
-    logger.info(print_profile_metrics_from_job(profile_job, profile_data))
+    for profile_job in profile_jobs:
+        assert profile_job.wait().success, "Job failed: " + profile_job.url
+        profile_data = profile_job.download_profile()
+        logger.info(print_profile_metrics_from_job(profile_job, profile_data))

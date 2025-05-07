@@ -17,7 +17,7 @@ from qai_hub.public_rest_api import DatasetEntries
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig, modeling_llama
 
-from qai_hub_models.models._shared.llama.model import Llama_QuantizedMixin
+from qai_hub_models.models._shared.llama.model import LlamaMixin
 from qai_hub_models.models.common import (
     SampleInputsType,
     SourceModelFormat,
@@ -345,7 +345,7 @@ def monkey_patch_huggingface_llama_modeling(
         modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
 
 
-class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
+class Llama3Base(LlamaMixin, ABC):
     def __init__(
         self,
         huggingface_model_name: str,
@@ -453,7 +453,7 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> Llama3Base_Quantized:
+    ) -> Llama3Base:
         pass
 
     @staticmethod
@@ -946,6 +946,10 @@ class Llama3Base_Quantized(Llama_QuantizedMixin, ABC):
             src_encodings=encodings["param_encodings"],
             dst_encodings=new_encodings["param_encodings"],
         )
+
+        with open("llama32_transformed.encodings", "w") as write_file:
+            json.dump(new_encodings, write_file, indent=4, sort_keys=True)
+        print("DONE")
 
         # This is needed for subtle reasons.
         # Gather ops require weights and output range to be the same, so that

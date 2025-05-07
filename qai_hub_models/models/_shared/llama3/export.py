@@ -18,7 +18,7 @@ from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_SEQUENCE_LENGTH,
-    Llama3Base_Quantized,
+    Llama3Base,
 )
 from qai_hub_models.models._shared.llama3.split_onnx_utils import utils
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
@@ -32,7 +32,7 @@ from qai_hub_models.utils.printing import (
 
 
 def export_model(
-    model_cls: type[Llama3Base_Quantized],
+    model_cls: type[Llama3Base],
     model_name: str,
     model_asset_version: int,
     components: list[str],
@@ -217,7 +217,10 @@ def export_model(
 
         # Submit the parts for compilation
         for i in range(num_splits):
+            # Sequence length (ar...) and context lenght (cl...) in graph name
+            # are semantically important to Genie
             sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
+            graph_name = f"{instantiation_name}_ar{seq_len}_cl{model.context_length}_{i + 1}_of_{num_splits}"
             component_name = f"part_{i + 1}_of_{num_splits}"
             sub_component_names[instantiation_name].append(sub_component_name)
             full_name = f"{model_name}_{sub_component_name}"
@@ -238,7 +241,7 @@ def export_model(
                 model.get_hub_compile_options(
                     target_runtime, Precision.w8a16, compile_options
                 )
-                + f" --qnn_graph_name {sub_component_name}"
+                + f" --qnn_graph_name {graph_name}"
             )
 
             current_model = get_or_create_cached_model(
@@ -285,12 +288,17 @@ def export_model(
     # 3. Profile the model assets on real devices
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
-        for instantiation_name, _ in instantiations:
+        for instantiation_name, seq_len in instantiations:
             for sub_component_name in sub_component_names[instantiation_name]:
                 component_name = component_from_sub_component_names[sub_component_name]
+                graph_name = sub_component_name.replace(
+                    instantiation_name,
+                    f"{instantiation_name}_ar{seq_len}_cl{model.context_length}",
+                )
+
                 profile_options = (
                     profile_options_per_instantiation[instantiation_name]
-                    + f" --qnn_options context_enable_graphs={sub_component_name}"
+                    + f" --qnn_options context_enable_graphs={graph_name}"
                 )
                 print(
                     f"Profiling model {instantiation_name} {sub_component_name} on a hosted device."
@@ -340,9 +348,13 @@ def export_model(
                         sample_inputs[key] = full_model_sample_inputs[key]
 
                 # Load model with no-AIMET mode
+                graph_name = sub_component_name.replace(
+                    instantiation_name,
+                    f"{instantiation_name}_ar{seq_len}_cl{model.context_length}",
+                )
                 inference_options = (
                     profile_options_per_instantiation[instantiation_name]
-                    + f" --qnn_options context_enable_graphs={sub_component_name}"
+                    + f" --qnn_options context_enable_graphs={graph_name}"
                 )
                 # Load individual model part
                 full_name = f"{model_name}_{sub_component_name}"

@@ -18,7 +18,9 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def main(is_test: bool = False):
-    segmentation_demo(SegformerBase, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
+    segmentation_demo(
+        SegformerBase, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test, normalize_input=False
+    )
 
 
 if __name__ == "__main__":

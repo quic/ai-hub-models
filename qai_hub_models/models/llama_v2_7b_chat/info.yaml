@@ -1,0 +1,52 @@
+name: Llama-v2-7B-Chat
+id: llama_v2_7b_chat
+status: public
+headline: State-of-the-art large language model useful on a variety of language understanding and generation tasks.
+domain: Generative AI
+description: Llama 2 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to w4a16(4-bit weights and 16-bit activations) and part of the model is quantized to w8a16(8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-KVCache-Quantized's latency.
+use_case: Text Generation
+tags:
+- llm
+- generative-ai
+applicable_scenarios:
+- Dialogue
+- Content Generation
+- Customer Support
+related_models: []
+form_factors:
+- Phone
+- Tablet
+has_static_banner: true
+has_animated_banner: true
+dataset: []
+technical_details:
+  Input sequence length for Prompt Processor: '1024'
+  Context length: '1024'
+  Number of parameters: 7B
+  Precision: w4a16 + w8a16 (few layers)
+  Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
+  Prompt processor model size: 3.6 GB
+  Prompt processor input: 1024 tokens
+  Prompt processor output: 1024 output tokens + KVCache for token generator
+  Model-2 (Token Generator): Llama-TokenGenerator-KVCache-Quantized
+  Token generator model size: 3.6 GB
+  Token generator input: 1 input token + past KVCache
+  Token generator output: 1 output token + KVCache for next iteration
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.0
+  Supported languages: English.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. For Llama-v2-7B-Chat, both values in the range are the same since prompt length is the full context length (1024 tokens).
+  Response Rate: Rate of response generation after the first response token.
+license_type: llama2
+research_paper: https://arxiv.org/abs/2302.13971
+research_paper_title: 'LLaMA: Open and Efficient Foundation Language Models'
+source_repo: https://huggingface.co/meta-llama/Llama-2-7b-chat-hf
+license: https://github.com/facebookresearch/llama/blob/main/LICENSE
+deploy_license: https://github.com/facebookresearch/llama/blob/main/LICENSE
+deploy_license_type: llama2
+restrict_model_sharing: true
+model_type_llm: true
+llm_details:
+  call_to_action: View Readme
+  genie_compatible: true
+  devices: {}

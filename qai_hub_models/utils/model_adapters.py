@@ -10,6 +10,8 @@ from contextlib import contextmanager
 import numpy as np
 import torch
 
+from qai_hub_models.utils.executable_onnx_model import ExecutableOnnxModel
+
 
 def flatten(obj):
     """Flatten nested list or tuple"""
@@ -44,7 +46,9 @@ class TorchNumpyAdapter:
         """
         Wraps torch models to use numpy input / outputs
         """
-        assert isinstance(base_model, (torch.jit.ScriptModule, torch.nn.Module))
+        assert isinstance(
+            base_model, (torch.jit.ScriptModule, torch.nn.Module, ExecutableOnnxModel)
+        )
         self.base_model = base_model
 
     def __call__(self, *args) -> tuple[np.ndarray, ...]:

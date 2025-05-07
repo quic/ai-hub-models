@@ -4,10 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import re
-from enum import unique
-
-from qai_hub_models.utils.base_config import ParseableQAIHMEnum
+from enum import Enum, unique
 
 HF_AVAILABLE_LICENSES = {
     "apache-2.0",
@@ -90,33 +87,32 @@ HF_AVAILABLE_LICENSES = {
 }
 
 
-@unique
-class MODEL_LICENSE(ParseableQAIHMEnum):
+class MODEL_LICENSE(Enum):
     # General
-    UNLICENSED = 0  # unlicensed
-    AI_HUB_MODELS_LICENSE = 1  # ai-hub-model-license
-    COMMERCIAL = 2  # commercial
+    UNLICENSED = "unlicensed"
+    AI_HUB_MODELS_LICENSE = "ai-hub-models-license"
+    COMMERCIAL = "commercial"
 
     # Non-restrictive
-    APACHE_2_0 = 30  # apache-2.0
-    MIT = 31  # mit
-    BSD_3_CLAUSE = 32  # bsd-3-clause
-    CC_BY_4_0 = 33  # cc-by-4.0
+    APACHE_2_0 = "apache-2.0"
+    MIT = "mit"
+    BSD_3_CLAUSE = "bsd-3-clause"
+    CC_BY_4_0 = "cc-by-4.0"
 
     # Copyleft (derivative works must have the same license)
-    AGPL_3_0 = 52  # agpl-3.0
-    GPL_3_0 = 53  # gpl-3.0
-    CREATIVEML_OPENRAIL_M = 54  # creativeml-openrail-m
+    AGPL_3_0 = "agpl-3.0"
+    GPL_3_0 = "gpl-3.0"
+    CREATIVEML_OPENRAIL_M = "creativeml-openrail-m"
 
     # Commecial use prohibited
-    OTHER_NON_COMMERCIAL = 70  # other-non-commercial
-    CC_BY_NON_COMMERCIAL_4_0 = 71  # cc-by-non-commercial-4.0
+    OTHER_NON_COMMERCIAL = "other-non-commercial"
+    CC_BY_NON_COMMERCIAL_4_0 = "cc-by-non-commercial-4.0"
 
     # Licenses for specific models
-    AIMET_MODEL_ZOO = 90  # aimet-model-zoo
-    LLAMA2 = 91  # llama2
-    LLAMA3 = 92  # llama3
-    TAIDE = 93  # taide
+    AIMET_MODEL_ZOO = "aimet-model-zoo"
+    LLAMA2 = "llama2"
+    LLAMA3 = "llama3"
+    TAIDE = "taide"
 
     @property
     def is_copyleft(self) -> bool:
@@ -173,136 +169,60 @@ class MODEL_LICENSE(ParseableQAIHMEnum):
             return "https://en.taide.tw/download.html"
         return None
 
-    @staticmethod
-    def from_string(string: str) -> MODEL_LICENSE:
-        try:
-            return MODEL_LICENSE[string.upper().replace("-", "_").replace(".", "_")]
-        except KeyError:
-            raise ValueError(
-                f"Unknown license type: {string}. See the MODEL_LICENSE enum for valid options (or to add an option)."
-            )
 
-    def __str__(self) -> str:
-        return re.sub(r"(?<=\d)_(?=\d)", ".", self.name).replace("_", "-").lower()
+@unique
+class MODEL_DOMAIN(Enum):
+    COMPUTER_VISION = "Computer Vision"
+    MULTIMODAL = "Multimodal"
+    AUDIO = "Audio"
+    GENERATIVE_AI = "Generative AI"
 
 
 @unique
-class MODEL_DOMAIN(ParseableQAIHMEnum):
-    COMPUTER_VISION = 0  # YAML string: Computer Vision
-    AUDIO = 1  # YAML string: Auto
-    MULTIMODAL = 2  # YAML string: Multimodel
-    GENERATIVE_AI = 3  # YAML string: Generative AI
-
-    @staticmethod
-    def from_string(string: str) -> MODEL_DOMAIN:
-        # It's quicker to get the domain first via hashmap then verify the string against it.
-        domain = MODEL_DOMAIN[string.upper().replace(" ", "_")]
-
-        # Each string is compared becuase the YAML needs specific capitalization.
-        # The public website takes these strings directly from the YAML and displays them.
-        if domain == MODEL_DOMAIN.GENERATIVE_AI:
-            assert (
-                string == "Generative AI"
-            ), f"Expected 'Generative AI' for Model Domain, but capitalization is wrong: {string}"
-        else:
-            assert (
-                string == domain.name.replace("_", " ").title()
-            ), f"Model Domain should be in Title Case ({string.title()}, but got {string} instead."
-
-        return domain
-
-    def __str__(self):
-        if self == MODEL_DOMAIN.GENERATIVE_AI:
-            return "Generative AI"
-        else:
-            return self.name.replace("_", " ").title()
-
-    def __repr__(self):
-        return self.name.title().replace("_", " ")
+class MODEL_TAG(Enum):
+    BACKBONE = "backbone"
+    REAL_TIME = "real-time"
+    FOUNDATION = "foundation"
+    LLM = "llm"
+    GENERATIVE_AI = "generative-ai"
 
 
 @unique
-class MODEL_TAG(ParseableQAIHMEnum):
-    BACKBONE = 0  # YAML string: backbone
-    REAL_TIME = 1  # YAML string: real-time
-    FOUNDATION = 2  # YAML string: foundation
-    QUANTIZED = 3  # YAML string: quantized
-    LLM = 4  # YAML string: llm
-    GENERATIVE_AI = 5  # YAML string: generative-ai
-
-    @staticmethod
-    def from_string(string: str) -> MODEL_TAG:
-        # YAML should contain lower case strings that are dash separated.
-        assert (
-            "_" not in string and " " not in string
-        ), f"Multi-Word Model Tags should be split by '-', not ' ' or '_': {string}"
-        assert string == string.lower(), f"Model Tags should be lower case: {string}"
-        return MODEL_TAG[string.upper().replace("-", "_")]
-
-    def __str__(self) -> str:
-        return self.name.replace("_", "-").lower()
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-
-@unique
-class MODEL_STATUS(ParseableQAIHMEnum):
-    PUBLIC = 0
-    PRIVATE = 1
+class MODEL_STATUS(Enum):
+    PUBLIC = "public"
+    PRIVATE = "private"
     # proprietary models are released only internally
-    PROPRIETARY = 2
-
-    @staticmethod
-    def from_string(string: str) -> MODEL_STATUS:
-        return MODEL_STATUS[string.upper()]
-
-    def __str__(self):
-        return self.name
+    PROPRIETARY = "proprietary"
 
 
 @unique
-class MODEL_USE_CASE(ParseableQAIHMEnum):
+class MODEL_USE_CASE(Enum):
     # Image: 100 - 199
-    IMAGE_CLASSIFICATION = 100
-    IMAGE_EDITING = 101
-    IMAGE_GENERATION = 102
-    SUPER_RESOLUTION = 103
-    SEMANTIC_SEGMENTATION = 104
-    DEPTH_ESTIMATION = 105
+    IMAGE_CLASSIFICATION = "Image Classification"
+    IMAGE_EDITING = "Image Editing"
+    IMAGE_GENERATION = "Image Generation"
+    SUPER_RESOLUTION = "Super Resolution"
+    SEMANTIC_SEGMENTATION = "Semantic Segmentation"
+    DEPTH_ESTIMATION = "Depth Estimation"
     # Ex: OCR, image caption
-    IMAGE_TO_TEXT = 106
-    OBJECT_DETECTION = 107
-    POSE_ESTIMATION = 108
-    DRIVER_ASSISTANCE = 109
+    IMAGE_TO_TEXT = "Image To Text"
+    OBJECT_DETECTION = "Object Detection"
+    POSE_ESTIMATION = "Pose Estimation"
+    DRIVER_ASSISTANCE = "Driver Assistance"
 
     # Audio: 200 - 299
-    SPEECH_RECOGNITION = 200
-    AUDIO_ENHANCEMENT = 201
-    AUDIO_CLASSIFICATION = 202
+    SPEECH_RECOGNITION = "Speech Recognition"
+    AUDIO_ENHANCEMENT = "Audio Enhancement"
+    AUDIO_CLASSIFICATION = "Audio Classification"
+    AUDIO_GENERATION = "Audio Generation"
 
     # Video: 300 - 399
-    VIDEO_CLASSIFICATION = 300
-    VIDEO_GENERATION = 301
+    VIDEO_CLASSIFICATION = "Video Classification"
+    VIDEO_GENERATION = "Video Generation"
+    VIDEO_OBJECT_TRACKING = "Video Object Tracking"
 
     # LLM: 400 - 499
-    TEXT_GENERATION = 400
-
-    @staticmethod
-    def from_string(string: str) -> MODEL_USE_CASE:
-        # It's quicker to get the use case first via hashmap then verify the string against it.
-        use_case = MODEL_USE_CASE[string.upper().replace(" ", "_")]
-
-        # Each string is compared becuase the YAML needs specific capitalization.
-        # The public website takes these strings directly from the YAML and displays them.
-        assert (
-            string == use_case.name.replace("_", " ").title()
-        ), f"Use Case should be in Title Case: {string}"
-
-        return use_case
-
-    def __str__(self):
-        return self.name.replace("_", " ").title()
+    TEXT_GENERATION = "Text Generation"
 
     def map_to_hf_pipeline_tag(self):
         """Map our usecase to pipeline-tag used by huggingface."""
@@ -322,6 +242,8 @@ class MODEL_USE_CASE(ParseableQAIHMEnum):
             return "automatic-speech-recognition"
         if self.name == "AUDIO_CLASSIFICATION":
             return "audio-classification"
+        if self.name == "AUDIO_GENERATION":
+            return "text-to-audio"
         if self.name == "DRIVER_ASSISTANCE":
             return "other"
         return self.name.replace("_", "-").lower()

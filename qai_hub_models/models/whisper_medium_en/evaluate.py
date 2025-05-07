@@ -36,7 +36,6 @@ def main():
         model_cls=Model,
         supported_datasets=eval_datasets,
         supported_precision_runtimes=supported_precision_runtimes,
-        uses_quantize_job=False,
     )
     args = parser.parse_args()
     validate_precision_runtime(
@@ -75,6 +74,8 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        skip_device_accuracy=args.skip_device_accuracy,
+        skip_torch_accuracy=args.skip_torch_accuracy,
     )
 
 

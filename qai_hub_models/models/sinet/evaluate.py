@@ -30,6 +30,7 @@ def main():
         Precision.float: [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
@@ -77,6 +78,8 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        skip_device_accuracy=args.skip_device_accuracy,
+        skip_torch_accuracy=args.skip_torch_accuracy,
     )
 
 

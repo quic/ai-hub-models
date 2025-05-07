@@ -1,5 +1,4 @@
 name: PPE-Detection
-# id must match with the model dir name in qai_hub_models
 id: gear_guard_net
 status: public
 headline: Object detection for personal protective equipments (PPE).
@@ -7,28 +6,28 @@ domain: Computer Vision
 description: Detect if a person is wearing personal protective equipments (PPE) in real-time.
 use_case: Object Detection
 tags:
-  - real-time
-license: https://github.com/quic/ai-hub-models/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/gear_guard_net/model.py
+- real-time
+applicable_scenarios:
+- Protective Gear Detection
+- Mask Detection
+related_models:
+- face_body_net
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Inference latency: RealTime
   Input resolution: 320x192
   Number of parameters: 7.02M
   Model size: 13.5 MB
-  Number of output classes: 2
-applicable_scenarios:
-  - Protective Gear Detection
-  - Mask Detection
-related_models:
-  - face_body_net
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-has_static_banner: true
-has_animated_banner: true
+  Number of output classes: '2'
 license_type: bsd-3-clause
+source_repo: https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/gear_guard_net/model.py
+license: https://github.com/quic/ai-hub-models/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []
 labels_file: ppe_labels.txt

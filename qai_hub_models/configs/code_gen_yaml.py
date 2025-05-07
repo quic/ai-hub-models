@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
-from ruamel.yaml.scalarstring import LiteralScalarString
+from pydantic import Field, model_validator
+from typing_extensions import TypeAlias
 
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
@@ -17,8 +17,15 @@ from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
+# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
+# Pydantic can't understand "dict".
+_outputs_to_skip_validation_type: TypeAlias = "Optional[Dict[int, str]]"
 
-@dataclass
+# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
+# Pydantic can't understand "dict".
+_export_test_model_kwargs_type: TypeAlias = "Optional[Dict[str, str]]"
+
+
 class QAIHMModelCodeGen(BaseQAIHMConfig):
     """
     Schema & loader for model code-gen.yaml.
@@ -30,7 +37,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # The list of precisions that:
     # - Are enabled via the CLI
     # - Scorecard runs by default each week for accuracy & performance tests
-    supported_precisions: list[Precision] = field(
+    supported_precisions: list[Precision] = Field(
         default_factory=lambda: [Precision.float]
     )
 
@@ -45,7 +52,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     add_genie_url_to_export: bool = False
 
     # The reason why various paths are disabled
-    disabled_paths: ModelDisableReasonsMapping = field(
+    disabled_paths: ModelDisableReasonsMapping = Field(
         default_factory=lambda: ModelDisableReasonsMapping()
     )
 
@@ -60,11 +67,11 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
-    outputs_to_skip_validation: Optional[dict[int, str]] = None
+    outputs_to_skip_validation: _outputs_to_skip_validation_type = None
 
     # Additional arguments to initialize the model when unit testing export.
     # This is commonly used to test a smaller variant in the unit test.
-    export_test_model_kwargs: Optional[dict[str, str]] = None
+    export_test_model_kwargs: _export_test_model_kwargs_type = None
 
     # True for Collection model comprises of components, such as Whisper model's
     # encoder and decoder.
@@ -79,6 +86,13 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # Whether the model uses the pre-compiled pattern instead of the
     # standard pre-trained pattern.
     is_precompiled: bool = False
+
+    # If set, all paths that compile "Just In Time" to QNN on device are disabled.
+    # These disabled paths are sometimes referred to as doing "on device prepare".
+    #
+    # In other words, if set, only paths that compile to context binary ahead of time
+    # ("AOT prepare") are enabled, both in CI and in Scorecard.
+    requires_aot_prepare: bool = False
 
     # If set, disables generating `export.py`.
     skip_export: bool = False
@@ -111,7 +125,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
     # Additional details that can be set on the model's readme.
     # Use LiteralScalarString so the YAML dump writes this on multiple lines instead of dumping '\n' directly
-    additional_readme_section: LiteralScalarString = LiteralScalarString("")
+    additional_readme_section: str = ""
 
     # If set, omits the "Example Usage" section from the HuggingFace readme.
     skip_example_usage: bool = False
@@ -119,11 +133,6 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # By default inference tests are done using 8gen1 chipset to avoid overloading
     # newer devices. Some models don't work on 8gen1, so use 8gen3 for those.
     inference_on_8gen3: bool = False
-
-    # TODO(#13765): remove this hack when we remove the quantized model folders
-    # This folder is a "mirror" of the unquantized variant with the same name.
-    # Evaluate and export scripts will call the script from the unquantized folder.
-    quantized_mirror_of_model: Optional[str] = None
 
     # The model supports python versions that are at least this version. None == Any version
     python_version_greater_than_or_equal_to: Optional[str] = None
@@ -146,16 +155,22 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         """
         Return the reason a model failed or None if the model did not fail.
         """
-        if self.is_precompiled and runtime != TargetRuntime.QNN:
+        if self.is_precompiled and runtime not in [
+            TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+        ]:
             return "Precompiled models are only supported via the QNN path."
 
         if precision and not runtime.supports_precision(precision):
             return f"{runtime} does not support precision {str(precision)}."
 
-        if runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            runtime = (
-                TargetRuntime.QNN
-            )  # QNN Support is a proxy for precompiled QNN ONNX.
+        if self.requires_aot_prepare and not runtime.is_aot_compiled:
+            return "Only runtimes that are compiled to context binary ahead of time are supported."
+
+        if not self.requires_aot_prepare and runtime.is_aot_compiled:
+            # Only the JIT path is tested if this model does not require AOT prepare.
+            # All AOT paths will fail if QNN fails.
+            runtime = TargetRuntime.QNN
 
         if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
             if reason.has_failure:
@@ -175,20 +190,6 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         else:
             out = cls.from_yaml(code_gen_path)
 
-        # This is a hack so we don't have to populate all of the legacy quantized models' code gen configs
-        # with the quantization type.
-        #
-        # TODO(#13765): remove this hack when we remove the quantized model folders
-        if "_quantized" in model_id:
-            if (
-                len(out.supported_precisions) == 1
-                and out.supported_precisions[0] == Precision.float
-            ):
-                if model_id.endswith("w8a16_quantized"):
-                    out.supported_precisions = [Precision.w8a16]
-                elif model_id.endswith("_quantized"):
-                    out.supported_precisions = [Precision.w8a8]
-
         return out
 
     @property
@@ -197,11 +198,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         Whether the model can be quantized via quantize job.
         This may return true even if the model does list support for non-float precisions.
         """
-        return (
-            not self.is_precompiled
-            and not self.is_aimet
-            and not self.is_collection_model
-        )
+        return not self.is_precompiled and not self.is_aimet
 
     @property
     def supports_quantization(self) -> bool:
@@ -211,39 +208,46 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     def default_precision(self) -> Precision:
         return self.supported_precisions[0]
 
-    def validate(self) -> Optional[str]:
+    @model_validator(mode="after")
+    def check_fields(self) -> QAIHMModelCodeGen:
         if (
             self.python_version_greater_than_or_equal_to is None
             and self.python_version_greater_than_or_equal_to_reason is not None
         ):
-            return "python_version_greater_than_or_equal_to_reason is set, but python_version_greater_than_or_equal_to is not."
+            raise ValueError(
+                "python_version_greater_than_or_equal_to_reason is set, but python_version_greater_than_or_equal_to is not."
+            )
         if (
             self.python_version_greater_than_or_equal_to is not None
             and self.python_version_greater_than_or_equal_to_reason is None
         ):
-            return "python_version_greater_than_or_equal_to must have a reason (python_version_greater_than_or_equal_to_reason) set."
+            raise ValueError(
+                "python_version_greater_than_or_equal_to must have a reason (python_version_greater_than_or_equal_to_reason) set."
+            )
         if (
             self.python_version_less_than_reason is None
             and self.python_version_less_than is not None
         ):
-            return "python_version_less_than must have a reason (python_version_less_than_reason) set."
+            raise ValueError(
+                "python_version_less_than must have a reason (python_version_less_than_reason) set."
+            )
         if (
             self.python_version_less_than_reason is not None
             and self.python_version_less_than is None
         ):
-            return "python_version_less_than_reason is set, but python_version_less_than is not."
+            raise ValueError(
+                "python_version_less_than_reason is set, but python_version_less_than is not."
+            )
         if self.pip_install_flags and not self.global_requirements_incompatible:
-            return "If pip_install_flags is set, global_requirements_incompatible must also be true."
+            raise ValueError(
+                "If pip_install_flags is set, global_requirements_incompatible must also be true."
+            )
         if self.pip_pre_build_reqs and not self.global_requirements_incompatible:
-            return "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
+            raise ValueError(
+                "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
+            )
 
-        return None
-
-    @classmethod
-    def from_yaml(cls: type[QAIHMModelCodeGen], path: str | Path) -> QAIHMModelCodeGen:
-        if not path or not os.path.exists(path):
-            return QAIHMModelCodeGen()  # Default Schema
-        return super().from_yaml(path)
+        return self
 
     def to_model_yaml(self, model_id: str) -> Path:
         code_gen_path = QAIHM_MODELS_ROOT / model_id / "code-gen.yaml"

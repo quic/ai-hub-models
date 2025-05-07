@@ -7,10 +7,7 @@ Ultralytics YOLOv11 is a machine learning model that predicts bounding boxes and
 
 This is based on the implementation of YOLOv11-Detection found [here](https://github.com/ultralytics/ultralytics/tree/main/ultralytics/models/yolo/detect). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/yolov11_det)
-  - [w8a8](https://aihub.qualcomm.com/models/yolov11_det_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolov11_det).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -28,7 +25,7 @@ pip install "qai-hub-models[yolov11-det]"
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.yolov11_det.demo { --quantize w8a8 }
+python -m qai_hub_models.models.yolov11_det.demo { --quantize w8a8, w8a16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -41,7 +38,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.yolov11_det.export { --quantize w8a8 }
+python -m qai_hub_models.models.yolov11_det.export { --quantize w8a8, w8a16 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

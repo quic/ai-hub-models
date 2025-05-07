@@ -10,8 +10,15 @@ prod_token=$2
 staging_token=$3
 dev_token=$4
 sandbox_token=$5
-venv_path=$6
+user=${6:-"DEFAULT"}
+venv_path=$7
 
+user_upper=$(echo "$user" | tr '[:lower:]' '[:upper:]')
+if [ "$user_upper" == "DEFAULT" ]; then
+  TOKEN_PREFIX="HUB_USER_TOKEN_"
+else
+  TOKEN_PREFIX="HUB_${user_upper}_USER_TOKEN_"
+fi
 
 # Convert the deployments list to an array
 IFS=',' read -r -a hub_deployments <<< "$deployments"
@@ -45,9 +52,9 @@ for deployment in "${hub_deployments[@]}"; do
   esac
 
   url="https://${deployment_url_name}.aihub.qualcomm.com/"
-  export "HUB_USER_TOKEN_$deployment_upper"=$token
-  echo "HUB_USER_TOKEN_$deployment_upper=$token" >> "$GITHUB_ENV"
-  echo "Set HUB_USER_TOKEN_$deployment_upper=$token"
+  export "${TOKEN_PREFIX}$deployment_upper"=$token
+  echo "${TOKEN_PREFIX}$deployment_upper=$token" >> "$GITHUB_ENV"
+  echo "Set ${TOKEN_PREFIX}$deployment_upper=$token"
 
   export "HUB_API_URL_$deployment_upper"=$url
   echo "Set HUB_API_URL_$deployment_upper=$url"
@@ -58,7 +65,7 @@ done
 if [ -n "$venv_path" ]; then
   # Bash env variables can't have {".", "-"} characters in the name, replace with "_" for valid naming
   deployment_upper=$(echo "${hub_deployments[0]}" | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g' | sed 's/\./_/g')
-  token_varname="HUB_USER_TOKEN_${deployment_upper}"
+  token_varname="${TOKEN_PREFIX}${deployment_upper}"
   url_varname="HUB_API_URL_${deployment_upper}"
 
   # shellcheck disable=SC1091

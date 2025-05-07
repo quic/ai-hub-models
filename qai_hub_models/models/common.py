@@ -7,37 +7,171 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum, unique
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import qai_hub as hub
+from pydantic import GetCoreSchemaHandler
+from pydantic_core import core_schema
 from qai_hub.client import QuantizeDtype
+from qai_hub.hub import _global_client
+from qai_hub.public_api_pb2 import Framework
+from qai_hub.public_rest_api import get_framework_list
 from typing_extensions import assert_never
 
-from qai_hub_models.utils.base_config import ParseableQAIHMEnum
+
+class QAIRTVersion:
+    # Map of <Hub URL -> Valid QAIRT Versions>
+    _FRAMEWORKS: dict[str, list[Framework]] = {}
+    HUB_FLAG = "--qairt_version"
+    DEFAULT_TAG = "default"
+    LATEST_TAG = "latest"
+
+    def __init__(
+        self, version_or_tag: str, return_default_if_does_not_exist: bool = False
+    ):
+        if re.match(r"(\d+)\.(\d+)(\.\d+)*", version_or_tag):
+            api_version = version_or_tag
+            api_tag = None
+        else:
+            api_tag = version_or_tag
+            api_version = None
+
+        self._api_url, frameworks = QAIRTVersion._load_frameworks()
+        framework = None
+        default_framework = None
+        for fw in frameworks:
+            if (api_version and fw.full_version.startswith(api_version)) or (
+                api_tag and api_tag in [x for x in fw.api_tags]
+            ):
+                framework = fw
+                break
+            if QAIRTVersion.DEFAULT_TAG in fw.api_tags:
+                default_framework = fw
+
+        if not framework:
+            if not self._api_url:
+                self.api_version = api_version or "UNKNOWN"
+                self.full_version = api_version or "UNKNOWN"
+                self.tags = [api_tag] if api_tag else []
+            elif return_default_if_does_not_exist:
+                assert default_framework is not None
+                print(
+                    f"Warning: QAIRT version {version_or_tag} does not exist. Using the default version ({default_framework.api_version}) instead."
+                )
+                self.api_version = default_framework.api_version
+                self.full_version = default_framework.full_version
+                self.tags = [x for x in default_framework.api_tags]
+            else:
+                all_versions_str = "\n    ".join([str(x) for x in QAIRTVersion.all()])
+                raise ValueError(
+                    f"QAIRT version {version_or_tag} is not supported by AI Hub. Available versions are:\n    {all_versions_str}"
+                )
+        else:
+            self.api_version = framework.api_version
+            self.full_version = framework.full_version
+            self.tags = [x for x in framework.api_tags]
+
+    @property
+    def hub_option(self) -> str:
+        """String flag to pass to hub to use this Hub version."""
+        if self.is_default:
+            return ""
+        return (
+            f"{QAIRTVersion.HUB_FLAG} {self.tags[0]}"
+            if self.tags
+            else f"{QAIRTVersion.HUB_FLAG} {self.api_version}"
+        )
+
+    @property
+    def is_default(self) -> bool:
+        """Whether this is the default AI Hub QAIRT version."""
+        return bool(self.tags) and QAIRTVersion.DEFAULT_TAG in self.tags
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.full_version.startswith(other) or other in self.tags
+        if isinstance(other, QAIRTVersion):
+            return self.full_version == other.full_version
+        return False
+
+    def __str__(self):
+        return (
+            f"QAIRT v{self.api_version}"
+            + (
+                " | UNVERIFIED - NO AI HUB ACCESS"
+                if not self._api_url
+                else f" | {self.full_version}"
+            )
+            + (f" | {', '.join(self.tags)}" if self.tags else "")
+        )
+
+    def __repr__(self):
+        return str(self)
+
+    @staticmethod
+    def default() -> QAIRTVersion:
+        return QAIRTVersion(QAIRTVersion.DEFAULT_TAG)
+
+    @staticmethod
+    def latest() -> QAIRTVersion:
+        return QAIRTVersion(QAIRTVersion.LATEST_TAG)
+
+    @staticmethod
+    def all() -> list[QAIRTVersion]:
+        _, frameworks = QAIRTVersion._load_frameworks()
+        return [QAIRTVersion(f.api_version) for f in frameworks]
+
+    @staticmethod
+    def _load_frameworks() -> tuple[str, list[Framework]]:
+        try:
+            api_url = _global_client.config.api_url
+            if api_url not in QAIRTVersion._FRAMEWORKS:
+                QAIRTVersion._FRAMEWORKS[api_url] = [
+                    f
+                    for f in get_framework_list(_global_client.config).frameworks
+                    if f.name == "QAIRT"
+                ]
+        except Exception:
+            # No hub API Access
+            api_url = ""
+            QAIRTVersion._FRAMEWORKS[api_url] = []
+
+        return (api_url, QAIRTVersion._FRAMEWORKS[api_url])
 
 
 @unique
-class TargetRuntime(ParseableQAIHMEnum):
-    TFLITE = 0
-    QNN = 1
-    ONNX = 2
-    PRECOMPILED_QNN_ONNX = 3
+class InferenceEngine(Enum):
+    """
+    The inference engine that executes a TargetRuntime asset.
+    """
 
-    def __str__(self):
-        return self.name.lower()
+    TFLITE = "tflite"
+    QNN = "qnn"
+    ONNX = "onnx"
 
-    @staticmethod
-    def from_string(string: str) -> TargetRuntime:
-        return TargetRuntime[string.upper()]
+
+@unique
+class TargetRuntime(Enum):
+    """
+    Compilation target.
+    """
+
+    TFLITE = "tflite"
+    QNN = "qnn"
+    QNN_CONTEXT_BINARY = "qnn_context_binary"
+    ONNX = "onnx"
+    PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
 
     @property
-    def long_name(self):
-        if self.name.lower() in {"tflite", "qnn"}:
-            return f"torchscript_onnx_{self.name.lower()}"
-        elif self.name.lower() == "onnx":
-            return f"torchscript_{self.name.lower()}"
-        return f"{self.name.lower()}"
+    def inference_engine(self) -> InferenceEngine:
+        if self == TargetRuntime.TFLITE:
+            return InferenceEngine.TFLITE
+        if self == TargetRuntime.QNN or self == TargetRuntime.QNN_CONTEXT_BINARY:
+            return InferenceEngine.QNN
+        if self == TargetRuntime.ONNX or self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            return InferenceEngine.ONNX
+        assert_never(self)
 
     @property
     def channel_last_native_execution(self) -> bool:
@@ -48,8 +182,16 @@ class TargetRuntime(ParseableQAIHMEnum):
         return self in [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ]
+
+    @property
+    def qairt_version_changes_compilation(self) -> bool:
+        """
+        Returns true if different versions of Qualcomm AI Runtime will affect how this runtime is compiled.
+        """
+        return self == TargetRuntime.QNN or self.is_aot_compiled
 
     def supports_precision(self, precision: Precision) -> bool:
         # Float is always supported.
@@ -69,7 +211,11 @@ class TargetRuntime(ParseableQAIHMEnum):
                 Precision.w4a16,
                 Precision.w4,
             ]
-        if self == TargetRuntime.QNN or self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+        if (
+            self == TargetRuntime.QNN
+            or self == TargetRuntime.QNN_CONTEXT_BINARY
+            or self == TargetRuntime.PRECOMPILED_QNN_ONNX
+        ):
             return precision in [
                 Precision.w8a8,
                 Precision.w8a16,
@@ -103,16 +249,54 @@ class TargetRuntime(ParseableQAIHMEnum):
                         break
 
             target_runtime_flag = target_runtime_flag or "qnn_lib_aarch64_android"
-        elif self == TargetRuntime.ONNX:
-            target_runtime_flag = "onnx"
-        elif self == TargetRuntime.TFLITE:
-            target_runtime_flag = "tflite"
-        elif self == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            target_runtime_flag = "precompiled_qnn_onnx"
+            return f"--target_runtime {target_runtime_flag}"
         else:
-            raise NotImplementedError()
+            return f"--target_runtime {self.value}"
 
-        return f"--target_runtime {target_runtime_flag}"
+    @property
+    def default_qairt_version(self) -> QAIRTVersion:
+        """
+        Default QAIRT version for this runtime, if not the AI Hub default.
+        """
+        if self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            # Return default in a possible future where 2.31 is deprecated on Hub.
+            return QAIRTVersion("2.31", return_default_if_does_not_exist=True)
+        return QAIRTVersion.default()
+
+    @property
+    def is_aot_compiled(self) -> bool:
+        """
+        Returns true if this asset is fully compiled ahead of time (before running on target).
+        This means the compiled asset contains a QNN context binary.
+        """
+        return self.aot_equivalent == self
+
+    @property
+    def aot_equivalent(self) -> TargetRuntime | None:
+        """
+        Returns the equivalent runtime that is compiled ahead of time.
+        Returns None if there is no equivalent runtime that is compiled ahead of time.
+        """
+        if self == TargetRuntime.ONNX or self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            return TargetRuntime.PRECOMPILED_QNN_ONNX
+        if self == TargetRuntime.QNN or self == TargetRuntime.QNN_CONTEXT_BINARY:
+            return TargetRuntime.QNN_CONTEXT_BINARY
+        if self == TargetRuntime.TFLITE:
+            return None
+        assert_never(self)
+
+    @property
+    def jit_equivalent(self) -> TargetRuntime:
+        """
+        Returns the equivalent runtime that is compiled "just in time" on target.
+        """
+        if self == TargetRuntime.PRECOMPILED_QNN_ONNX or self == TargetRuntime.ONNX:
+            return TargetRuntime.ONNX
+        if self == TargetRuntime.QNN or self == TargetRuntime.QNN_CONTEXT_BINARY:
+            return TargetRuntime.QNN
+        if self == TargetRuntime.TFLITE:
+            return TargetRuntime.TFLITE
+        assert_never(self)
 
 
 class Precision:
@@ -140,7 +324,12 @@ class Precision:
         self.activations_type: QuantizeDtype | None = activations_type
 
     @staticmethod
-    def from_string(string: str) -> Precision:
+    def parse(obj: Any) -> Precision:
+        if isinstance(obj, Precision):
+            return obj
+        if not isinstance(obj, str):
+            raise ValueError(f"Unknown type {obj} for parsing to Precision")
+        string = obj
         if string == "float":
             return Precision.float
 
@@ -207,6 +396,19 @@ class Precision:
 
     def __hash__(self) -> int:
         return hash(str(self))
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        return core_schema.with_info_after_validator_function(
+            lambda obj, _: cls.parse(obj),
+            handler(Any),
+            field_name=handler.field_name,
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                Precision.__str__, when_used="json"
+            ),
+        )
 
 
 Precision.float = Precision(None, None)

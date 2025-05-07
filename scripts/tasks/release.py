@@ -11,6 +11,7 @@ from typing import Optional
 
 from .constants import BUILD_ROOT
 from .task import CompositeTask
+from .util import get_pip
 from .venv import (
     CreateVenvTask,
     RunCommandsTask,
@@ -166,7 +167,6 @@ class PushRepositoryTask(CompositeTask):
         commands += [
             # Fetch origin
             f"git remote add origin {remote_url}",
-            "git-lfs install",
             "git fetch origin",
             # Checkout and commit main
             "git reset origin/main",  # this checks out main "symbolically" (no on-disk source tree changes)
@@ -271,7 +271,7 @@ class PublishWheelTask(CompositeTask):
                 venv=venv,
                 env=os.environ,
                 commands=[
-                    "pip install twine",
+                    f"{get_pip()} install twine",
                     f"twine upload --verbose --repository-url {pypi} {os.path.join(_get_wheel_dir(), '*.whl')}",
                 ],
             )

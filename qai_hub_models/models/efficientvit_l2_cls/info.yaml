@@ -1,46 +1,42 @@
 name: EfficientViT-l2-cls
-# id must match with the model dir name in qai_hub_models
 id: efficientvit_l2_cls
 status: public
-private_perf_form_factors:
-  - Auto
 headline: Imagenet classifier and general purpose backbone.
 domain: Computer Vision
-description: EfficientViT is a machine learning model that can classify images from
-  the Imagenet dataset. It can also be used as a backbone in building more complex
-  models for specific use cases.
+description: EfficientViT is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.
 use_case: Image Classification
 tags:
-  - backbone
-  - real-time
-research_paper: https://arxiv.org/abs/2205.14756
-research_paper_title: 'EfficientViT: Multi-Scale Linear Attention for High-Resolution Dense Prediction'
-license: https://github.com/CVHub520/efficientvit/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/CVHub520/efficientvit
+- backbone
+- real-time
+applicable_scenarios:
+- Medical Imaging
+- Anomaly Detection
+- Inventory Management
+related_models:
+- squeezenet1_1
+- densenet121
+- googlenet
+form_factors:
+- Phone
+- Tablet
+- IoT
+- XR
+has_static_banner: true
+has_animated_banner: true
+dataset:
+- imagenet-1k
 technical_details:
   Model checkpoint: Imagenet
   Input resolution: 224x224
   Number of parameters: 64M
-  Model size: 243 MB
-applicable_scenarios:
-  - Medical Imaging
-  - Anomaly Detection
-  - Inventory Management
-related_models:
-  - mobilenet_v2_quantized
-  - squeezenet1_1
-  - densenet121
-  - googlenet
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-  - XR
-has_static_banner: true
-has_animated_banner: true
+  Model size (float): 243 MB
 license_type: bsd-3-clause
+private_perf_form_factors:
+- Auto
+research_paper: https://arxiv.org/abs/2205.14756
+research_paper_title: 'EfficientViT: Multi-Scale Linear Attention for High-Resolution Dense Prediction'
+source_repo: https://github.com/CVHub520/efficientvit
+license: https://github.com/CVHub520/efficientvit/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset:
-  - imagenet-1k
 labels_file: imagenet_labels.txt

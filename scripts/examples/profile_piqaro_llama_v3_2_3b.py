@@ -24,11 +24,8 @@ from transformers import AutoConfig
 from transformers.models.llama import LlamaConfig
 
 from qai_hub_models.models._shared.llama3.export import export_model
-from qai_hub_models.models.llama_v3_2_3b_chat_quantized import MODEL_ID as model_id_orig
-from qai_hub_models.models.llama_v3_2_3b_chat_quantized.model import (
-    MODEL_ASSET_VERSION,
-    Llama3_2_Quantized,
-)
+from qai_hub_models.models.llama_v3_2_3b_chat import MODEL_ID as model_id_orig
+from qai_hub_models.models.llama_v3_2_3b_chat.model import MODEL_ASSET_VERSION, Llama3_2
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
@@ -65,6 +62,9 @@ def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
     torch.onnx.export(torch_model, sample_input, onnx_path)
 
     onnx_model = onnx.load(onnx_path)
+    import onnxsim
+
+    onnx_model, _ = onnxsim.simplify(onnx_model)
 
     # TODO: rename the first input as input_ids for split_onnx to work correctly
     return onnx_model
@@ -78,12 +78,6 @@ if __name__ == "__main__":
         type=str,
         default="manual",
         help="Optimization method. One of {OPT_METHODS}. Default is no_opt",
-    )
-    parser.add_argument(
-        "--device",
-        type=str,
-        default="Snapdragon X Elite CRD",
-        help="Hub device",
     )
     parser.add_argument(
         "--output-dir",
@@ -125,7 +119,7 @@ if __name__ == "__main__":
     shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    class Llama3_2_Quantized_PiQaro(Llama3_2_Quantized):
+    class Llama3_2_PiQaro(Llama3_2):
         def __init__(self, *args, **kwargs):
             if truncate_model:
                 kwargs["load_pretrained"] = False  # Vocab size mismatch
@@ -190,8 +184,9 @@ if __name__ == "__main__":
                 with tempfile.TemporaryDirectory() as tmpdir:
 
                     def onnx_transforms(onnx_model):
-                        # import onnxsim
-                        # onnx_model, _ = onnxsim.simplify(onnx_model)
+                        import onnxsim
+
+                        onnx_model, _ = onnxsim.simplify(onnx_model)
 
                         # TODO: simplify after piqaro fixes
                         # https://github.qualcomm.com/Hexagon-Architecture/piqaro/issues/914
@@ -229,7 +224,7 @@ if __name__ == "__main__":
 
             return output_dir
 
-    model_cls = Llama3_2_Quantized_PiQaro
+    model_cls = Llama3_2_PiQaro
     model_name = model_id_orig + f"_{args.opt}"
 
     if truncate_model:
@@ -249,17 +244,23 @@ if __name__ == "__main__":
         for i in range(num_splits)
     }
 
-    export_model(
-        model_cls=model_cls,
-        model_name=model_name,
-        model_asset_version=MODEL_ASSET_VERSION,
-        components=all_components,
-        sub_components=all_sub_components,
-        num_layers_per_split=num_layers_per_split,
-        output_dir=output_dir,
-        _skip_optimizations=skip_optimizations,
-        device=args.device,
-        skip_inferencing=True,
-        skip_downloading=True,
-        model_cache_mode=CacheMode.DISABLE,
-    )
+    devices = [
+        "Snapdragon X Elite CRD",
+        "Samsung Galaxy S23 (Family)",
+        "Samsung Galaxy S24 (Family)",
+    ]
+    for device in devices:
+        export_model(
+            model_cls=model_cls,
+            model_name=model_name,
+            model_asset_version=MODEL_ASSET_VERSION,
+            components=all_components,
+            sub_components=all_sub_components,
+            num_layers_per_split=num_layers_per_split,
+            output_dir=output_dir,
+            _skip_optimizations=skip_optimizations,
+            device=device,
+            skip_inferencing=True,
+            skip_downloading=True,
+            model_cache_mode=CacheMode.DISABLE,
+        )

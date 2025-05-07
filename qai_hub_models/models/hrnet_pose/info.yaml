@@ -1,34 +1,35 @@
 name: HRNetPose
-# id must match with the model dir name in qai_hub_models
 id: hrnet_pose
 status: public
 headline: Perform accurate human pose estimation.
 domain: Computer Vision
-use_case: Pose Estimation
 description: HRNet performs pose estimation in high-resolution representations.
+use_case: Pose Estimation
 tags: []
-research_paper: https://arxiv.org/abs/1902.09212
-research_paper_title: Deep High-Resolution Representation Learning for Human Pose
-  Estimation
-license: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch/blob/master/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
+applicable_scenarios:
+- Injury prevention training
+- Sports performance analysis
+- Posture recognition
+related_models:
+- litehrnet
+- openpose
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Model checkpoint: hrnet_posenet_FP32_state_dict
   Input resolution: 256x192
   Number of parameters: 28.5M
-  Model size: 109 MB
-applicable_scenarios:
-  - Injury prevention training
-  - Sports performance analysis
-  - Posture recognition
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-related_models: [litehrnet, openpose]
-has_static_banner: true
-has_animated_banner: true
+  Model size (float): 109 MB
+  Model size (w8a8): 28 MB
 license_type: mit
+research_paper: https://arxiv.org/abs/1902.09212
+research_paper_title: Deep High-Resolution Representation Learning for Human Pose Estimation
+source_repo: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
+license: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch/blob/master/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []

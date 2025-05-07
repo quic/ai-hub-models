@@ -6,10 +6,15 @@ from __future__ import annotations
 
 from transformers import SegformerForSemanticSegmentation
 
+from qai_hub_models.evaluators.ade_evaluator import AdeEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -18,6 +23,7 @@ DEFAULT_WEIGHTS = "nvidia/segformer-b0-finetuned-ade-512-512"
 INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "image_512.jpg"
 )
+NUM_CLASSES = 150
 
 
 class SegformerBase(BaseModel):
@@ -43,7 +49,7 @@ class SegformerBase(BaseModel):
             where the modified height and width will be some factor smaller
             than the input image.
         """
-        return self.model(image_tensor, return_dict=False)
+        return self.model(normalize_image_torchvision(image_tensor), return_dict=False)
 
     @staticmethod
     def get_input_spec(
@@ -73,3 +79,14 @@ class SegformerBase(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return AdeEvaluator(NUM_CLASSES)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["ade20k"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "ade20k"

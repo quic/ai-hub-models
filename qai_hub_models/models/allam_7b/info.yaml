@@ -6,14 +6,22 @@ domain: Generative AI
 description: Allam 7B is SDAIA's first generation edge model, optimized for performance on Snapdragon X Elite.
 use_case: Text Generation
 tags:
-  - llm
-  - generative-ai
-  - quantized
-model_maker_id: SDAIA
+- llm
+- generative-ai
+applicable_scenarios:
+- Dialogue
+- Content Generation
+- Customer Support
+related_models: []
+form_factors:
+- Compute
+has_static_banner: true
+has_animated_banner: false
+dataset: []
 technical_details:
-  Input sequence length for Prompt Processor: 128
-  Max context length: 1024
-  Num of key-value heads: 32
+  Input sequence length for Prompt Processor: '128'
+  Max context length: '1024'
+  Num of key-value heads: '32'
   Number of parameters: 7B
   Precision: w4a16 + w8a16 (few layers)
   Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
@@ -21,18 +29,10 @@ technical_details:
   Supported languages: English, Arabic.
   TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
   Response Rate: Rate of response generation after the first response token.
-applicable_scenarios:
-  - Dialogue
-  - Content Generation
-  - Customer Support
-related_models: []
-form_factors:
-  - Compute
-has_static_banner: true
-has_animated_banner: false
-license_type: "commercial"
-dataset: []
-model_type_llm: true
+license_type: commercial
+model_maker_id: SDAIA
 restrict_model_sharing: true
+model_type_llm: true
 llm_details:
-  call_to_action: 'coming_soon'
+  call_to_action: Coming Soon
+  devices: {}

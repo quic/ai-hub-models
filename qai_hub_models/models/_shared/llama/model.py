@@ -283,7 +283,7 @@ class RopeEmbedding:
         return cos, sin
 
 
-class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
+class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
     def __init__(self, model: torch.nn.Module, encoding_path, is_token_generator=False):
         AimetEncodingLoaderMixin.__init__(self, model, encoding_path)
         BaseModel.__init__(self)
@@ -302,6 +302,9 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
+        )
         assert precision == Precision.w8a16, "Only w8a16 precision is supported"
         graph_name = self.get_qnn_graph_name()
         if (
@@ -312,26 +315,29 @@ class Llama_QuantizedMixin(AimetEncodingLoaderMixin, BaseModel):
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-        options = (
+        compile_options += (
             " --target_runtime qnn_context_binary"
             if target_runtime == TargetRuntime.QNN
             else " --target_runtime precompiled_qnn_onnx"
         )
-        options += " --quantize_full_type w8a16 --quantize_io"
+        compile_options += " --quantize_full_type w8a16 --quantize_io"
         if graph_name is not None:
-            options += f" --qnn_graph_name {graph_name}"
-        return options
+            compile_options += f" --qnn_graph_name {graph_name}"
+        return compile_options
 
     def get_hub_profile_options(
         self,
         target_runtime: TargetRuntime,
         other_profile_options: str = "",
     ) -> str:
-        options = "--max_profiler_iterations 50"
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        profile_options += " --max_profiler_iterations 50"
         graph_name = self.get_qnn_graph_name()
         if graph_name is not None:
-            options += f" --qnn_options context_enable_graphs={graph_name}"
-        return options
+            profile_options += f" --qnn_options context_enable_graphs={graph_name}"
+        return profile_options
 
     @staticmethod
     def _get_output_names(

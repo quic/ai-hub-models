@@ -111,13 +111,14 @@ def export_model(
         return export_without_hub_access(
             "real_esrgan_general_x4v3",
             "Real-ESRGAN-General-x4v3",
-            device or f"Device (Chipset {chipset})",
+            hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             skip_downloading,
             skip_summary,
             output_path,
             target_runtime,
+            precision,
             compile_options,
             profile_options,
         )
@@ -132,12 +133,10 @@ def export_model(
         **get_input_spec_kwargs(model, additional_model_kwargs)
     )
 
-    # Trace the model
-    source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
-
     # 2. Converts the PyTorch model to ONNX and quantizes the ONNX model.
     quantize_job = None
     if precision != Precision.float:
+        source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
         print(f"Quantizing model {model_name}.")
         onnx_compile_job = hub.submit_compile_job(
             model=source_model,
@@ -167,12 +166,18 @@ def export_model(
             return ExportResult(quantize_job=quantize_job)
 
     # 3. Compiles the model to an asset that can be run on device
+    if quantize_job:
+        source_model = quantize_job.get_target_model()
+    else:
+        # Trace the model
+        source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
+
     model_compile_options = model.get_hub_compile_options(
         target_runtime, precision, compile_options, hub_device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
-        model=quantize_job.get_target_model() if quantize_job else source_model,
+        model=source_model,
         input_specs=input_spec,
         device=hub_device,
         name=model_name,
@@ -253,16 +258,29 @@ def export_model(
     )
 
 
-def main():
+def main(restrict_to_precision: Precision | None = None):
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+        Precision.w8a8: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
+
+    if restrict_to_precision:
+        supported_precision_runtimes = {
+            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
+        }
 
     parser = export_parser(
         model_cls=Model,

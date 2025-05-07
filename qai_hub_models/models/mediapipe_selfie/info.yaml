@@ -1,42 +1,38 @@
 name: MediaPipe-Selfie-Segmentation
-# id must match with the model dir name in qai_hub_models
 id: mediapipe_selfie
 status: public
-headline: Segments the person from background in a selfie image and realtime background
-  segmentation in video conferencing.
+headline: Segments the person from background in a selfie image and realtime background segmentation in video conferencing.
 domain: Computer Vision
-description: Light-weight model that segments a person from the background in square
-  or landscape selfie and video conference imagery.
+description: Light-weight model that segments a person from the background in square or landscape selfie and video conference imagery.
 use_case: Semantic Segmentation
 tags: []
-research_paper: https://developers.google.com/mediapipe/solutions/vision/image_segmenter/
-research_paper_title: Image segmentation guide
-license: https://github.com/google/mediapipe/blob/master/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo:
-  https://github.com/google/mediapipe/tree/master/mediapipe/modules/selfie_segmentation
+applicable_scenarios:
+- Camera
+- Instant Photo Studio
+- Video Conferencing
+- Personalized Marketing Content
+- Interactive Gaming Avatar
+- Real-time Portrait Editor
+- Dynamic Wallpaper Generator
+related_models:
+- sam
+form_factors:
+- Phone
+- Tablet
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Model checkpoint: Square
   Input resolution (Square): 256x256
   Input resolution (Landscape): 144x256
   Number of parameters: 106K
   Model size: 454 KB
-  Number of output classes: 6
-applicable_scenarios:
-  - Camera
-  - Instant Photo Studio
-  - Video Conferencing
-  - Personalized Marketing Content
-  - Interactive Gaming Avatar
-  - Real-time Portrait Editor
-  - Dynamic Wallpaper Generator
-related_models:
-  - sam
-form_factors:
-  - Phone
-  - Tablet
-has_static_banner: true
-has_animated_banner: true
+  Number of output classes: '6'
 license_type: apache-2.0
+research_paper: https://developers.google.com/mediapipe/solutions/vision/image_segmenter/
+research_paper_title: Image segmentation guide
+source_repo: https://github.com/google/mediapipe/tree/master/mediapipe/modules/selfie_segmentation
+license: https://github.com/google/mediapipe/blob/master/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []

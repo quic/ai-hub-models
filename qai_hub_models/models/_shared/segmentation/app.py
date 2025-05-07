@@ -33,16 +33,22 @@ class SegmentationApp:
         * Overlay the segmentation mask onto the image and return it
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(
+        self,
+        model: Callable[[torch.Tensor], torch.Tensor],
+        normalize_input: bool = True,
+    ):
         self.model = model
+        self.normalize_transform = (
+            normalize_image_transform() if normalize_input else lambda x: x
+        )
 
     def predict(self, *args, **kwargs):
         # See segment_image.
         return self.segment_image(*args, **kwargs)
 
     def normalize_input(self, image: torch.Tensor) -> torch.Tensor:
-        input_transform = normalize_image_transform()
-        return input_transform(image)
+        return self.normalize_transform(image)
 
     def segment_image(
         self,

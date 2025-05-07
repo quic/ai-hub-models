@@ -1,41 +1,39 @@
 name: FCN-ResNet50
-# id must match with the model dir name in qai_hub_models
 id: fcn_resnet50
 status: public
 headline: Fully-convolutional network model for image segmentation.
 domain: Computer Vision
+description: FCN_ResNet50 is a machine learning model that can segment images from the COCO dataset. It uses ResNet50 as a backbone.
 use_case: Semantic Segmentation
-description: FCN_ResNet50 is a machine learning model that can segment images from
-  the COCO dataset. It uses ResNet50 as a backbone.
 tags: []
-research_paper: https://arxiv.org/abs/1411.4038
-research_paper_title: Fully Convolutional Networks for Semantic Segmentation
-license: https://github.com/pytorch/vision/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo:
-  https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/fcn.py
+applicable_scenarios:
+- Anomaly Detection
+- Inventory Management
+related_models:
+- sam
+- deeplabv3_plus_mobilenet
+- ddrnet23_slim
+form_factors:
+- Phone
+- Tablet
+- IoT
+- XR
+has_static_banner: true
+has_animated_banner: false
+dataset:
+- coco
 technical_details:
   Model checkpoint: COCO_WITH_VOC_LABELS_V1
   Input resolution: 224x224
   Number of parameters: 32.9M
-  Model size: 126 MB
-  Number of output classes: 21
-applicable_scenarios:
-  - Anomaly Detection
-  - Inventory Management
-related_models:
-  - sam
-  - deeplabv3_plus_mobilenet
-  - ddrnet23_slim
-form_factors:
-  - Phone
-  - Tablet
-  - IoT
-  - XR
-has_static_banner: true
-has_animated_banner: false
+  Number of output classes: '21'
+  Model size (float): 126 MB
+  Model size (w8a8): 32.2 MB
 license_type: bsd-3-clause
+research_paper: https://arxiv.org/abs/1411.4038
+research_paper_title: Fully Convolutional Networks for Semantic Segmentation
+source_repo: https://github.com/pytorch/vision/blob/main/torchvision/models/segmentation/fcn.py
+license: https://github.com/pytorch/vision/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset:
-  - coco
 labels_file: voc_labels.txt

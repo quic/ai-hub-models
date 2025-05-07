@@ -8,10 +8,12 @@ Items defined in this file require that AIMET-ONNX be installed.
 
 from __future__ import annotations
 
+import onnx
+
 try:
     import onnxruntime as ort
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-
+    from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
     raise NotImplementedError(
         "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
@@ -19,6 +21,7 @@ except (ImportError, ModuleNotFoundError):
     )
 
 import os
+import shutil
 from collections.abc import Collection
 from pathlib import Path
 
@@ -40,17 +43,8 @@ from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
 
 class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     """
-    It follows closely AIMETQuantizableMixin. The main differences are
-    following simplifications:
-
-    - quantize() takes just data and num_samples. (No device,
-            requantize_model_weights, data_has_gt)
-
-    - convert_to_onnx_and_aimet_encodings() takes just output_dir and
-    model_name. No input_spec, external_weights,
-    output_names.
-
-    Due to these simplification, we no longer satisfy QuantizableModelProtocol
+    Mixin that allows a model to be quantized & exported to disk using AIMET.
+    Inheritor must implement BaseModel for this mixin to function.
     """
 
     def __init__(
@@ -70,9 +64,6 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         num_samples: int | None = None,
     ) -> DatasetEntries | None:
         """
-        Same as AIMETQuantizableMixin.get_calibration_data with the addition
-        of `num_samples`
-
         Args:
 
         num_samples: None to use all. Specify `num_samples` to use fewer. If
@@ -93,6 +84,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self,
         data: _DataLoader | None = None,
         num_samples: int | None = None,
+        use_seq_mse: bool = False,
+        original_onnx_model: onnx.ModelProto | None = None,
     ) -> None:
         """
         Args:
@@ -111,8 +104,16 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
                 )
             data = dataset_entries_to_dataloader(calib_data)
 
+        num_iterations = num_samples or len(data)
+
         def _forward(session, _):
-            run_onnx_inference(session, data, num_samples)
+            run_onnx_inference(session, data, num_iterations)
+
+        if use_seq_mse:
+            assert original_onnx_model is not None
+            params = SeqMseParams(num_batches=num_iterations)
+            seq_mse = SequentialMse(original_onnx_model, self.quant_sim, params, data)
+            seq_mse.apply_seq_mse_algo()
 
         print(f"Start QuantSim calibration for {self.__class__.__name__}")
         self.quant_sim.compute_encodings(_forward, tuple())
@@ -138,41 +139,71 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self,
         output_dir: str | Path,
         model_name: str | None = None,
+        return_zip: bool = True,
     ) -> str:
         """
-        Converts the torch module to a zip file containing an
-        unquantized ONNX model and an aimet quantization encodings file.
+        Converts the torch module to a zip file containing an unquantized ONNX model
+        and an AIMET quantization encodings file if return_zip is True (default).
+
+        If return_zip is False, the model is exported to a directory.
+        In that case, the output directory is set to:
+
+            Path(output_dir) / f"{model_name}.aimet"
+
+        and the existing directory is forcefully removed.
         """
         if model_name is None:
             model_name = self.__class__.__name__
 
-        os.makedirs(output_dir, exist_ok=True)
-        zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
-        base_dir = Path(f"{model_name}.aimet")
+        output_dir = Path(output_dir)
 
-        print(f"Exporting quantized {self.__class__.__name__} to {zip_path}")
-        with qaihm_temp_dir() as tmpdir:
-            base_path = Path(tmpdir) / base_dir
-            os.makedirs(base_path)
+        if return_zip:
+            # Ensure output_dir exists and define the zip path.
+            os.makedirs(output_dir, exist_ok=True)
+            zip_path = output_dir / f"{model_name}.aimet.zip"
+            base_dir = Path(f"{model_name}.aimet")
 
-            self.quant_sim.export(str(base_path), "model")
+            print(f"Exporting quantized {self.__class__.__name__} to {zip_path}")
+            # Use a temporary directory to export the model before zipping.
+            with qaihm_temp_dir() as tmpdir:
+                export_dir = Path(tmpdir) / base_dir
+                os.makedirs(export_dir)
+                self.quant_sim.export(str(export_dir), "model")
 
-            onnx_file_path = str(base_path / "model.onnx")
-            encoding_file_path = str(base_path / "model.encodings")
-            external_data_file_path = str(base_path / "model.onnx.data")
+                onnx_file_path = str(export_dir / "model.onnx")
+                encoding_file_path = str(export_dir / "model.encodings")
 
-            if not os.path.exists(external_data_file_path):
+                # Attempt to locate external data file.
+                # aimet-onnx<=2.0.0 export external data with model.onnx.data
+                # aimet-onnx>=2.3.0 export external data with model.data
+                # version between 2.0 - 2.3 are broken on large models
                 external_data_file_path = ""
+                external_data_file_path2 = export_dir / "model.onnx.data"
+                external_data_file_path1 = export_dir / "model.data"
+                if external_data_file_path1.exists():
+                    external_data_file_path = str(external_data_file_path1)
+                elif external_data_file_path2.exists():
+                    external_data_file_path = str(external_data_file_path2)
 
-            zip_aimet_model(
-                zip_path,
-                base_dir,
-                onnx_file_path,
-                encoding_file_path,
-                external_data_file_path,
+                zip_aimet_model(
+                    str(zip_path),
+                    base_dir,
+                    onnx_file_path,
+                    encoding_file_path,
+                    external_data_file_path,
+                )
+            return str(zip_path)
+        else:
+            # Export directly to a directory at output_dir / f"{model_name}.aimet"
+            export_dir = output_dir / f"{model_name}.aimet"
+            shutil.rmtree(export_dir, ignore_errors=True)
+            os.makedirs(export_dir, exist_ok=True)
+
+            print(
+                f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
             )
-
-        return zip_path
+            self.quant_sim.export(str(export_dir), "model")
+            return str(export_dir)
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
         """
@@ -184,13 +215,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 def run_onnx_inference(
     session: ort.InferenceSession,
     dataloader: DataLoader,
-    num_samples: int | None = None,
+    num_samples: int,
 ) -> None:
     input_names = [input.name for input in session.get_inputs()]
 
-    total = num_samples or len(dataloader)
     assert dataloader.batch_size is not None
-    for i, batch in tqdm(enumerate(dataloader), total=total):
+    for i, batch in tqdm(enumerate(dataloader), total=num_samples):
         if num_samples and i * dataloader.batch_size >= num_samples:
             break
 

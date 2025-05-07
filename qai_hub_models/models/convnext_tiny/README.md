@@ -7,10 +7,7 @@ ConvNextTiny is a machine learning model that can classify images from the Image
 
 This is based on the implementation of ConvNext-Tiny found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/convnext.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/convnext_tiny)
-  - [w8a16](https://aihub.qualcomm.com/models/convnext_tiny_w8a16_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/convnext_tiny).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

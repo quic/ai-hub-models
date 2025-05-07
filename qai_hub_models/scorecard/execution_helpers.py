@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from enum import Enum, unique
 from typing import Callable, Optional, TypeVar
 
 import qai_hub as hub
@@ -15,6 +16,28 @@ from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
+
+
+@unique
+class SpecialPrecisionSetting(Enum):
+    """
+    When specifying precision on a scorecard run, users can supply
+    specific precisions (e.g. w8a8) or one of these special keyword settings.
+
+    These can also be combined (e.g. default,w8a8) to stack on top of one another.
+
+    The meaning for each keyword is described below.
+    """
+
+    # Run all of the precisions defined in code-gen.yaml for each model
+    DEFAULT = "default"
+
+    # Run all of the precisions defined in code-gen.yaml for each model, except float
+    DEFAULT_MINUS_FLOAT = "default_minus_float"
+
+    # For models that have w8a16 in supported precisions, run them in w8a16
+    # For all other models, run in w8a16
+    DEFAULT_QUANTIZED = "default_quantized"
 
 
 def for_each_scorecard_path_and_device(
@@ -59,33 +82,40 @@ def for_each_scorecard_path_and_device(
 
 
 def get_enabled_test_precisions(
-    precisions_var: str = os.getenv("QAIHM_TEST_PRECISIONS", "DEFAULT")
-) -> tuple[bool, list[Precision]]:
+    precisions_var: str | None = None,
+) -> tuple[SpecialPrecisionSetting | None, list[Precision]]:
     """
     Determine what precisions are enabled based on the test environment.
 
     Returns:
-        include_default_precisions: Whether models should test their default precision(s).
+        special_precision_setting: Any special precision setting with which the run was configured.
         extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
+    if precisions_var is None:
+        precisions_var = os.getenv("QAIHM_TEST_PRECISIONS", "DEFAULT")
     precisions_set = {x.lower() for x in precisions_var.split(",")}
-    try:
-        precisions_set.remove("default")
-        include_default_precisions = True
-    except KeyError:
-        include_default_precisions = False
-
-    return include_default_precisions, [
-        Precision.from_string(p.strip()) for p in precisions_set
-    ]
+    special_setting = None
+    # Make a copy of the set so we can alter the original during iteration
+    for precision in set(precisions_set):
+        try:
+            curr_special_setting = SpecialPrecisionSetting(precision)
+        except ValueError:
+            # This precision is not one of the special keywords
+            continue
+        precisions_set.remove(precision)
+        if special_setting is None:
+            special_setting = curr_special_setting
+        else:
+            raise ValueError(
+                "Multiple special settings found in precision list."
+                f"Cannot set both {curr_special_setting.value} and {special_setting.value}."
+            )
+    return special_setting, [Precision.parse(p.strip()) for p in precisions_set]
 
 
 def get_model_test_precisions(
     model_supported_precisions: set[Precision],
     can_use_quantize_job: bool = True,
-    enabled_test_precisions: tuple[
-        bool, list[Precision]
-    ] = get_enabled_test_precisions(),
 ) -> list[Precision]:
     """
     Get the list of precisions that should be tested in this environment.
@@ -98,29 +128,38 @@ def get_model_test_precisions(
             Whether a model can use quantize job.
             If true, extra precisions set in parameter `enabled_test_precisions` will be included.
 
-        enabled_test_precisions:
-            A tuple of two values:
-                include_default_precisions: Whether models should test their default precision(s).
-                extra_enabled_precisions: Precisions that should be tested beyond the defaults, if a model supports quantize job.
-
     Returns:
         model_test_precisions:
             The list of precisions to test for this model.
     """
-    include_default_precisions, extra_enabled_precisions = enabled_test_precisions
-    enabled_precisions = set()
-
-    if include_default_precisions:
+    enabled_test_precisions = get_enabled_test_precisions()
+    special_precision_setting, extra_enabled_precisions = enabled_test_precisions
+    enabled_precisions: set[Precision] = set()
+    if special_precision_setting in [
+        SpecialPrecisionSetting.DEFAULT,
+        SpecialPrecisionSetting.DEFAULT_MINUS_FLOAT,
+    ]:
         # If default precisions are enabled, always run tests with default precisions.
         enabled_precisions.update(model_supported_precisions)
 
+    if (
+        special_precision_setting == SpecialPrecisionSetting.DEFAULT_MINUS_FLOAT
+        and Precision.float in enabled_precisions
+    ):
+        enabled_precisions.remove(Precision.float)
+    if special_precision_setting == SpecialPrecisionSetting.DEFAULT_QUANTIZED:
+        enabled_precisions.add(
+            Precision.w8a16
+            if (Precision.w8a16 in model_supported_precisions)
+            else Precision.w8a8
+        )
     if can_use_quantize_job:
         # If quantize job is supported, this model can run tests on any desired precision.
         enabled_precisions.update(extra_enabled_precisions)
     else:
         # If quantize job is not supported, we can still run enabled precisions that happen to be in the model's supported precisions list.
         enabled_precisions.update(
-            set(model_supported_precisions).union(extra_enabled_precisions)
+            set(model_supported_precisions).intersection(extra_enabled_precisions)
         )
 
     return list(enabled_precisions)
@@ -137,12 +176,8 @@ def get_model_test_parameterizations(
     path_type: type[ScorecardPathTypeVar],
     can_use_quantize_job: bool = True,
     devices: list[ScorecardDevice] | None = None,
-    include_unsupported_paths: bool = bool(
-        os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0)
-    ),
-    enabled_test_precisions: tuple[
-        bool, list[Precision]
-    ] = get_enabled_test_precisions(),
+    include_unsupported_paths: bool | None = None,
+    only_include_aot_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]]:
     """
     Get a list of parameterizations for testing a model.
@@ -168,10 +203,8 @@ def get_model_test_parameterizations(
             If true, all enabled paths will be included, instead of the ones compatible with
             parameter supported_paths.
 
-        enabled_test_precisions:
-            A tuple of two values:
-                include_default_precisions: Whether models should test their default precision(s).
-                extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
+        only_include_aot_paths:
+            If True, only AOT compiled paths are included.
 
     Returns:
         enabled_test_paths:
@@ -193,25 +226,49 @@ def get_model_test_parameterizations(
                 - See parameter documentation for details.
     """
     ret: list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]] = []
+    if include_unsupported_paths is None:
+        include_unsupported_paths = bool(
+            os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0)
+        )
 
     # Get the precisions enabled for this model in this test environment.
     model_supported_precisions = set(supported_paths.keys())
     test_precisions = get_model_test_precisions(
-        model_supported_precisions, can_use_quantize_job, enabled_test_precisions
+        model_supported_precisions, can_use_quantize_job
     )
 
     # For each enabled test precision...
     for precision in test_precisions:
         # Get all enabled paths that support this precision
         path_list = path_type.all_paths(  # type: ignore[attr-defined]
-            enabled=True, supports_precision=precision
+            enabled=True,
+            supports_precision=precision,
         )
+
+        if only_include_aot_paths:
+            # Only include AOT paths.
+            path_list = [
+                path
+                for path in path_list
+                if path.runtime.is_aot_compiled or path.is_force_enabled
+            ]
+        else:
+            # If both AOT and JIT paths are in the list, only include the JIT path.
+            path_list = [
+                path
+                for path in path_list
+                if not path.runtime.is_aot_compiled
+                or path.jit_equivalent not in path_list
+                or path.is_force_enabled
+            ]
 
         # Filter the list to include only paths that are supported by this model.
         if not include_unsupported_paths:
             supported_runtime_list = supported_paths.get(precision, [])
             path_list = [
-                path for path in path_list if path.runtime in supported_runtime_list
+                path
+                for path in path_list
+                if path.runtime in supported_runtime_list or path.is_force_enabled
             ]
 
         # Filter out timeout paths
@@ -281,7 +338,8 @@ def get_quantize_parameterized_pytest_config(
     can_use_quantize_job: bool = True,
 ) -> list[Precision]:
     precisions = get_model_test_precisions(
-        set(supported_paths.keys()), can_use_quantize_job
+        set(supported_paths.keys()),
+        can_use_quantize_job,
     )
     return [x for x in precisions if not x.has_float_activations]
 
@@ -290,12 +348,17 @@ def get_compile_parameterized_pytest_config(
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
+    only_include_aot_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
     return get_model_test_parameterizations(
-        supported_paths, timeout_paths, ScorecardCompilePath, can_use_quantize_job
+        supported_paths,
+        timeout_paths,
+        ScorecardCompilePath,
+        can_use_quantize_job,
+        only_include_aot_paths=only_include_aot_paths,
     )
 
 
@@ -303,12 +366,17 @@ def get_profile_parameterized_pytest_config(
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
+    only_include_aot_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     return get_model_test_parameterizations(
-        supported_paths, timeout_paths, ScorecardProfilePath, can_use_quantize_job
+        supported_paths,
+        timeout_paths,
+        ScorecardProfilePath,
+        can_use_quantize_job,
+        only_include_aot_paths=only_include_aot_paths,
     )
 
 
@@ -317,6 +385,7 @@ def get_evaluation_parameterized_pytest_config(
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
     device: ScorecardDevice = cs_universal,
+    only_include_aot_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
@@ -327,6 +396,7 @@ def get_evaluation_parameterized_pytest_config(
         ScorecardProfilePath,
         can_use_quantize_job,
         [device],
+        only_include_aot_paths=only_include_aot_paths,
     )
 
 

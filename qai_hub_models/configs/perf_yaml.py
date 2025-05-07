@@ -5,187 +5,195 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Annotated, Callable, Optional
 
-from qai_hub_models.scorecard import ScorecardProfilePath
-from qai_hub_models.utils.asset_loaders import load_yaml
+from pydantic import Field, PlainSerializer
+
+from qai_hub_models.models.common import Precision
+from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
+
+# TODO(#14896): Remove this hack when the website supports more runtime names
+#
+# Scorecard never runs AOT and JIT paths for the same model.
+# AOT path names (eg. precompiled_qnn_onnx) must
+#  be mapped to special names (onnx) so the website can display
+#  AOT runs properly.
+#
+_PerfScorecardProfilePath = Annotated[
+    ScorecardProfilePath, PlainSerializer(lambda x: x.perf_yaml_name, return_type=str)
+]
 
 
-def bytes_to_mb(num_bytes: int) -> int:
-    return round(num_bytes / (1 << 20))
+class QAIHMModelPerf(BaseQAIHMConfig):
+    class PerformanceDetails(BaseQAIHMConfig):
+        class TimeToFirstTokenRangeMillieconds(BaseQAIHMConfig):
+            min: float
+            max: float
 
+        class PeakMemoryRangeMB(BaseQAIHMConfig):
+            min: int
+            max: int
 
-class QAIHMModelPerf:
-    """Class to read model perf.yaml"""
-
-    ###
-    # Helper Struct Classes
-    ###
-
-    @dataclass
-    class PerformanceDetails:
-        job_id: str
-        inference_time_microsecs: float
-        peak_memory_bytes: tuple[int, int]  # min, max
-        compute_unit_counts: dict[str, int]
-        primary_compute_unit: str
-        precision: str
-
-        @staticmethod
-        def from_dict(device_perf_details: dict) -> QAIHMModelPerf.PerformanceDetails:
-            peak_memory = device_perf_details["estimated_peak_memory_range"]
-            layer_info = device_perf_details["layer_info"]
-            compute_unit_counts = {}
-            for layer_name, count in layer_info.items():
-                if "layers_on" in layer_name:
-                    if count > 0:
-                        compute_unit_counts[layer_name[-3:].upper()] = count
-
-            return QAIHMModelPerf.PerformanceDetails(
-                job_id=device_perf_details["job_id"],
-                inference_time_microsecs=float(device_perf_details["inference_time"]),
-                peak_memory_bytes=(peak_memory["min"], peak_memory["max"]),
-                compute_unit_counts=compute_unit_counts,
-                primary_compute_unit=device_perf_details["primary_compute_unit"],
-                precision=device_perf_details["precision"],
-            )
-
-    @dataclass
-    class LLMPerformanceDetails:
-        time_to_first_token_range_secs: tuple[str, str]  # min, max
-        tokens_per_second: float
-
-        @staticmethod
-        def from_dict(
-            device_perf_details: dict,
-        ) -> QAIHMModelPerf.LLMPerformanceDetails:
-            ttftr = device_perf_details["time_to_first_token_range"]
-            return QAIHMModelPerf.LLMPerformanceDetails(
-                time_to_first_token_range_secs=(
-                    # Original data is in microseconds
-                    str(float(ttftr["min"]) * 1e-6),
-                    str(float(ttftr["max"]) * 1e-6),
-                ),
-                tokens_per_second=device_perf_details["tokens_per_second"],
-            )
-
-    @dataclass
-    class EvaluationDetails(BaseQAIHMConfig):
-        name: str
-        value: float
-        unit: str
-
-    @dataclass
-    class DeviceDetails(BaseQAIHMConfig):
-        name: str
-        os: str
-        form_factor: str
-        os_name: str
-        manufacturer: str
-        chipset: str
-
-    @dataclass
-    class ProfilePerfDetails:
-        path: ScorecardProfilePath
-        perf_details: QAIHMModelPerf.PerformanceDetails | QAIHMModelPerf.LLMPerformanceDetails
-        eval_details: QAIHMModelPerf.EvaluationDetails | None = None
-
-        @staticmethod
-        def from_dict(
-            path: ScorecardProfilePath, perf_details_dict: dict
-        ) -> QAIHMModelPerf.ProfilePerfDetails:
-            perf_details: QAIHMModelPerf.LLMPerformanceDetails | QAIHMModelPerf.PerformanceDetails
-            if llm_metrics := perf_details_dict.get("llm_metrics", None):
-                perf_details = QAIHMModelPerf.LLMPerformanceDetails.from_dict(
-                    llm_metrics
-                )
-            else:
-                perf_details = QAIHMModelPerf.PerformanceDetails.from_dict(
-                    perf_details_dict
+            @staticmethod
+            def from_bytes(
+                min: int, max: int
+            ) -> QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB:
+                return QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB(
+                    min=round(min / (1 << 20)),
+                    max=round(max / (1 << 20)),
                 )
 
-            if eval_metrics := perf_details_dict.get("evaluation_metrics", None):
-                eval_details_data = (
-                    QAIHMModelPerf.EvaluationDetails.get_schema().validate(eval_metrics)
-                )
-                eval_details = QAIHMModelPerf.EvaluationDetails.from_dict(
-                    eval_details_data
-                )
-            else:
-                eval_details = None
+        class LayerCounts(BaseQAIHMConfig):
+            total: int
+            npu: int = 0
+            gpu: int = 0
+            cpu: int = 0
 
-            return QAIHMModelPerf.ProfilePerfDetails(
-                path=path, perf_details=perf_details, eval_details=eval_details
-            )
-
-    @dataclass
-    class DevicePerfDetails:
-        device: QAIHMModelPerf.DeviceDetails
-        details_per_path: dict[ScorecardProfilePath, QAIHMModelPerf.ProfilePerfDetails]
-
-        @staticmethod
-        def from_dict(
-            device: QAIHMModelPerf.DeviceDetails, device_runtime_details: dict
-        ) -> QAIHMModelPerf.DevicePerfDetails:
-            details_per_path = {}
-            for profile_path in ScorecardProfilePath:
-                if profile_path.long_name in device_runtime_details:
-                    perf_details_dict = device_runtime_details[profile_path.long_name]
-                    details_per_path[
-                        profile_path
-                    ] = QAIHMModelPerf.ProfilePerfDetails.from_dict(
-                        profile_path, perf_details_dict
-                    )
-            return QAIHMModelPerf.DevicePerfDetails(
-                device=device, details_per_path=details_per_path
-            )
-
-    @dataclass
-    class ModelPerfDetails:
-        model: str
-        details_per_device: dict[str, QAIHMModelPerf.DevicePerfDetails]
-
-        @staticmethod
-        def from_dict(
-            model: str, model_performance_metrics: list[dict]
-        ) -> QAIHMModelPerf.ModelPerfDetails:
-            details_per_device = {}
-            for device_perf_details in model_performance_metrics:
-                device_details_data = (
-                    QAIHMModelPerf.DeviceDetails.get_schema().validate(
-                        device_perf_details["reference_device_info"]
-                    )
-                )
-                device_details = QAIHMModelPerf.DeviceDetails.from_dict(
-                    device_details_data
-                )
-                details_per_device[
-                    device_details.name
-                ] = QAIHMModelPerf.DevicePerfDetails.from_dict(
-                    device_details, device_perf_details
+            @staticmethod
+            def from_layers(npu: int = 0, gpu: int = 0, cpu: int = 0):
+                return QAIHMModelPerf.PerformanceDetails.LayerCounts(
+                    total=npu + gpu + cpu,
+                    npu=npu,
+                    gpu=gpu,
+                    cpu=cpu,
                 )
 
-            return QAIHMModelPerf.ModelPerfDetails(
-                model=model, details_per_device=details_per_device
-            )
+            @property
+            def primary_compute_unit(self):
+                if self.npu == 0 and self.gpu == 0 and self.cpu == 0:
+                    return "null"
+                compute_unit_for_most_layers = max(self.cpu, self.gpu, self.npu)
+                if compute_unit_for_most_layers == self.npu:
+                    return "NPU"
+                elif compute_unit_for_most_layers == self.gpu:
+                    return "GPU"
+                return "CPU"
 
-    def __init__(self, perf_yaml_path: str | Path, model_name: str):
-        self.model_name = model_name
-        self.perf_yaml_path = perf_yaml_path
-        self.per_model_details: dict[str, QAIHMModelPerf.ModelPerfDetails] = {}
+        # Only set for LLMs.
+        time_to_first_token_range_milliseconds: Optional[
+            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds
+        ] = None
+        tokens_per_second: Optional[float] = None
 
-        if os.path.exists(self.perf_yaml_path):
-            self.perf_details = load_yaml(self.perf_yaml_path)
-            all_models_and_perf = self.perf_details["models"]
-            if not isinstance(all_models_and_perf, list):
-                all_models_and_perf = [all_models_and_perf]
+        # Only set for non-LLMs.
+        job_id: Optional[str] = None
+        job_status: Optional[str] = None
 
-            for model_perf in all_models_and_perf:
-                model_name = model_perf["name"]
-                self.per_model_details[
-                    model_name
-                ] = QAIHMModelPerf.ModelPerfDetails.from_dict(
-                    model_name, model_perf["performance_metrics"]
-                )
+        # Only set for successful non-LLM jobs.
+        inference_time_milliseconds: Optional[float] = None
+        inferences_per_second: Optional[float] = None
+        estimated_peak_memory_range_mb: Optional[
+            QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB
+        ] = None
+        primary_compute_unit: Optional[str] = None
+        layer_counts: Optional[QAIHMModelPerf.PerformanceDetails.LayerCounts] = None
+
+    class ComponentDetails(BaseQAIHMConfig):
+        universal_assets: dict[_PerfScorecardProfilePath, str] = Field(
+            default_factory=dict
+        )
+        device_assets: dict[
+            ScorecardDevice, dict[_PerfScorecardProfilePath, str]
+        ] = Field(default_factory=dict)
+        performance_metrics: dict[
+            ScorecardDevice,
+            dict[_PerfScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
+        ] = Field(default_factory=dict)
+
+    class PrecisionDetails(BaseQAIHMConfig):
+        components: dict[str, QAIHMModelPerf.ComponentDetails] = Field(
+            default_factory=dict
+        )
+
+    supported_devices: list[ScorecardDevice] = Field(default_factory=list)
+    supported_chipsets: list[str] = Field(default_factory=list)
+    precisions: dict[Precision, QAIHMModelPerf.PrecisionDetails] = Field(
+        default_factory=dict
+    )
+
+    @property
+    def empty(self):
+        return (
+            not self.supported_chipsets
+            and not self.supported_devices
+            and not self.precisions
+        )
+
+    def for_each_entry(
+        self,
+        callback: Callable[
+            [
+                Precision,
+                str,
+                ScorecardDevice,
+                ScorecardProfilePath,
+                QAIHMModelPerf.PerformanceDetails,
+            ],
+            bool | None,
+        ],
+        include_paths: Optional[list[ScorecardProfilePath]] = None,
+    ):
+        """
+        Walk over each valid perf.yaml job entry and call the callback.
+
+        Parameters:
+            callback:
+                A function to call for each perf.yaml job entry.
+
+                Parameters:
+                    precision: Precision
+                        The precision for this entry,
+                    component: str
+                        Component name. Will be Model Name if there is 1 component.
+                    device: ScorecardDevice,
+                        Device for this entry.
+                    path: ScorecardProfilePath
+                        Path for this entry.
+                    QAIHMModelPerf.PerformanceDetails
+                        Actual entry perf data
+
+                Returns:
+                    None or a Bool.
+                        If None or True, for_each_entry continues to walk over more entries.
+                        If False, for_each_entry will stop walking over additional entries.
+
+            include_pathsL
+                If set, only paths in this list will be iterated over.
+        """
+        for precision, precision_perf in self.precisions.items():
+            for component_name, component_detail in precision_perf.components.items():
+                for (
+                    device,
+                    device_detail,
+                ) in component_detail.performance_metrics.items():
+                    for path, profile_perf_details in device_detail.items():
+                        if include_paths and path not in include_paths:
+                            continue
+                        res = callback(
+                            precision,
+                            component_name,
+                            device,
+                            path,
+                            profile_perf_details,
+                        )
+                        # Note that res may be None. We ignore the return value in that case.
+                        if res is False:
+                            # If res is explicitly false, stop and return
+                            return
+
+    @classmethod
+    def from_model(
+        cls: type[QAIHMModelPerf], model_id: str, not_exists_ok: bool = False
+    ) -> QAIHMModelPerf:
+        perf_path = QAIHM_MODELS_ROOT / model_id / "perf.yaml"
+        if not_exists_ok and not os.path.exists(perf_path):
+            return QAIHMModelPerf()
+        return cls.from_yaml(perf_path)
+
+    def to_model_yaml(self, model_id: str) -> Path:
+        out = QAIHM_MODELS_ROOT / model_id / "perf.yaml"
+        self.to_yaml(out)
+        return out

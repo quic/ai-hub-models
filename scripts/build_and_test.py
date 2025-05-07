@@ -40,6 +40,7 @@ from tasks.task import (
 from tasks.test import PyTestModelsTask, PyTestQAIHMTask
 from tasks.util import echo, run
 from tasks.venv import (
+    AggregateScorecardResultsTask,
     CreateVenvTask,
     DownloadPrivateDatasetsTask,
     GenerateGlobalRequirementsTask,
@@ -236,6 +237,18 @@ class TaskLibrary:
         return plan.add_step(
             step_id,
             GenerateGlobalRequirementsTask(
+                venv=self.venv_path,
+            ),
+        )
+
+    @public_task("Aggregate Scorecard Results")
+    @depends(["install_deps"])
+    def aggregate_scorecard_results(
+        self, plan: Plan, step_id: str = "aggregate_scorecard_results"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            AggregateScorecardResultsTask(
                 venv=self.venv_path,
             ),
         )
@@ -581,7 +594,7 @@ class TaskLibrary:
             ),
         )
 
-    # This taks has no depedencies and does nothing.
+    # This task has no depedencies and does nothing.
     @task
     def nop(self, plan: Plan) -> str:
         return plan.add_step("nop", NoOpTask())

@@ -24,6 +24,8 @@ MODEL_ASSET_VERSION = 1
 MODEL_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, MODEL_REGISTRY["vit_t"]
 )
+
+
 with SourceAsRoot(
     MobileSAM_SOURCE_REPO,
     MobileSAM_SOURCE_REPO_COMMIT,

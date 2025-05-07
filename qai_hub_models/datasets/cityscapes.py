@@ -100,8 +100,9 @@ class CityscapesDataset(BaseDataset):
         self.image_list: list[Path] = []
         self.gt_list: list[Path] = []
         img_count = 0
-        for subdir in self.images_path.iterdir():
-            for img_path in subdir.iterdir():
+        # Sort by path name to ensure deterministic ordering
+        for subdir in sorted(self.images_path.iterdir(), key=lambda item: item.name):
+            for img_path in sorted(subdir.iterdir(), key=lambda item: item.name):
                 if not img_path.name.endswith("leftImg8bit.png"):
                     print(f"Invalid file: {str(img_path)}")
                     return False

@@ -5,8 +5,8 @@
 from diffusers import DPMSolverMultistepScheduler, UNet2DConditionModel
 from transformers import CLIPTokenizer
 
-from qai_hub_models.models.riffusion_quantized.demo_base import stable_diffusion_demo
-from qai_hub_models.models.riffusion_quantized.model import (
+from qai_hub_models.models.riffusion.demo_base import stable_diffusion_demo
+from qai_hub_models.models.riffusion.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
     ClipVITTextEncoder,

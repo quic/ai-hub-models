@@ -1,35 +1,34 @@
 name: ResNet-Mixed-Convolution
-# id must match with the model dir name in qai_hub_models
 id: resnet_mixed
 status: public
 headline: Sports and human action recognition in videos.
 domain: Computer Vision
+description: ResNet Mixed Convolutions is a network with a mixture of 2D and 3D convolutions used for video understanding.
 use_case: Video Classification
-description: ResNet Mixed Convolutions is a network with a mixture of 2D and 3D convolutions
-  used for video understanding.
 tags:
-  - backbone
-research_paper: https://arxiv.org/abs/1711.11248
-research_paper_title: A Closer Look at Spatiotemporal Convolutions for Action Recognition
-license: https://github.com/pytorch/vision/blob/main/LICENSE
-deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
-source_repo: https://github.com/pytorch/vision/blob/main/torchvision/models/video/resnet.py
+- backbone
+applicable_scenarios:
+- Camera
+- Action Recognition
+related_models:
+- resnet_3d
+- resnet_2plus1d
+form_factors:
+- Phone
+- Tablet
+has_static_banner: true
+has_animated_banner: true
+dataset: []
 technical_details:
   Model checkpoint: Kinectics-400
   Input resolution: 112x112
   Number of parameters: 11.7M
-  Model size: 44.7 MB
-applicable_scenarios:
-  - Camera
-  - Action Recognition
-related_models:
-  - resnet_3d
-  - resnet_2plus1d
-form_factors:
-  - Phone
-  - Tablet
-has_static_banner: true
-has_animated_banner: true
+  Model size (float): 44.7 MB
+  Model size (w8a8): 11.7 MB
 license_type: bsd-3-clause
+research_paper: https://arxiv.org/abs/1711.11248
+research_paper_title: A Closer Look at Spatiotemporal Convolutions for Action Recognition
+source_repo: https://github.com/pytorch/vision/blob/main/torchvision/models/video/resnet.py
+license: https://github.com/pytorch/vision/blob/main/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license
-dataset: []

@@ -18,7 +18,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/m
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[mask2former]"
+pip install "qai-hub-models[mask2former]" git+https://github.com/cocodataset/panopticapi.git
 ```
 
 

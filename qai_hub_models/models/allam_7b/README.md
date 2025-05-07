@@ -1,7 +1,7 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Allam-7B: Large Language Model supporting arabic and english](https://aihub.qualcomm.com/models/allam_7b)
+# [Allam-7B: Large Language Model supporting arabic and english](#)
 
 Allam 7B is SDAIA's first generation edge model, optimized for performance on Snapdragon X Elite.
 

@@ -25,7 +25,7 @@ pip install "qai-hub-models[real-esrgan-general-x4v3]"
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.real_esrgan_general_x4v3.demo
+python -m qai_hub_models.models.real_esrgan_general_x4v3.demo { --quantize w8a8 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -38,7 +38,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.real_esrgan_general_x4v3.export
+python -m qai_hub_models.models.real_esrgan_general_x4v3.export { --quantize w8a8 }
 ```
 Additional options are documented with the `--help` option. Note that the above
 script requires access to Deployment instructions for Qualcomm® AI Hub.

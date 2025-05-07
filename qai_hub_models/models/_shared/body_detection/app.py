@@ -89,6 +89,8 @@ def postprocess(
     """
     result = decode(output, conf_thr)
 
+    if result.ndim == 1:  # No detections
+        return np.empty((0, 6))
     result_final = []
     for c in [0, 1]:
         idx = result[:, 0] == c

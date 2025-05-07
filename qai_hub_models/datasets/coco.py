@@ -60,6 +60,7 @@ class CocoDataset(BaseDataset):
         max_boxes: int = 100,
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
+        label_types: list[str] = ["detections"],
     ):
         """
         Parameters:
@@ -80,6 +81,7 @@ class CocoDataset(BaseDataset):
         """
         self.num_samples = num_samples
         self.num_classes = num_classes
+        self.label_types = label_types
 
         # FiftyOne package manages dataset so pass a dummy name for data path
         BaseDataset.__init__(self, "non_existent_dir", split)
@@ -180,7 +182,11 @@ class CocoDataset(BaseDataset):
         # Sorting by filepath ensures a deterministic ordering every time this is called
         split_str = "validation" if self.split == DatasetSplit.VAL else "train"
         self.dataset = foz.load_zoo_dataset(
-            "coco-2017", split=split_str, max_samples=self.num_samples, shuffle=True
+            "coco-2017",
+            split=split_str,
+            label_types=self.label_types,
+            max_samples=self.num_samples,
+            shuffle=False,
         ).sort_by("filepath")
 
     @staticmethod

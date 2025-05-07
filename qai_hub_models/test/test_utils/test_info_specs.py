@@ -2,12 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from qai_hub_models.configs.info_yaml import (
-    MODEL_DOMAIN,
-    MODEL_TAG,
-    MODEL_USE_CASE,
-    QAIHMModelInfo,
-)
+from qai_hub_models.configs.info_yaml import MODEL_USE_CASE, QAIHMModelInfo
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 HF_PIPELINE_TAGS = {
@@ -59,6 +54,7 @@ HF_PIPELINE_TAGS = {
     "zero-shot-object-detection",
     "text-to-3d",
     "image-to-3d",
+    "video-object-tracking",
     "other",
 }
 
@@ -77,6 +73,9 @@ def test_info_spec():
     for model_id in MODEL_IDS:
         try:
             info_spec = QAIHMModelInfo.from_model(model_id)
+            QAIHMModelInfo.model_validate(
+                info_spec, context=dict(validate_urls_exist=True)
+            )
         except Exception as err:
             assert False, f"{model_id} config validation failed: {str(err)}"
 
@@ -84,28 +83,3 @@ def test_info_spec():
         assert (
             info_spec.id == model_id
         ), f"{model_id} config ID does not match the model's folder name"
-
-        # Validate spec
-        reason = info_spec.validate()
-        assert reason is None, f"{model_id} config validation failed: {reason}"
-
-
-def test_qaihm_domain():
-    # Test " " is handled correctly and vice-versa
-    assert MODEL_DOMAIN.from_string("Computer Vision") == MODEL_DOMAIN.COMPUTER_VISION
-    assert MODEL_DOMAIN.COMPUTER_VISION.__str__() == "Computer Vision"
-
-
-def test_qaihm_tags():
-    # Test "-" is handled correctly and vice-versa
-    assert MODEL_TAG.from_string("real-time") == MODEL_TAG.REAL_TIME
-    assert MODEL_TAG.REAL_TIME.__str__() == "real-time"
-
-
-def test_qaihm_usecases():
-    # Test " " is handled correctly and vice-versa
-    assert (
-        MODEL_USE_CASE.from_string("Image Classification")
-        == MODEL_USE_CASE.IMAGE_CLASSIFICATION
-    )
-    assert MODEL_USE_CASE.IMAGE_CLASSIFICATION.__str__() == "Image Classification"

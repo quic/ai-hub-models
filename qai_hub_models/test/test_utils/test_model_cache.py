@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import qai_hub as hub
+from pydantic import ValidationError
 
 from qai_hub_models.utils.model_cache import (
     ASSET_CONFIG,
@@ -55,7 +56,7 @@ def patch_hub_model(monkeypatch):
 
 
 def test_adding_cache():
-    cache = Cache([])
+    cache = Cache(cache=[])
 
     key = _get_model_cache_key("model_part_1")
     val = _get_model_cache_val("mdummymodel1")
@@ -66,7 +67,7 @@ def test_adding_cache():
 
 
 def test_adding_cache_with_additional_keys():
-    cache = Cache([])
+    cache = Cache(cache=[])
 
     additional_keys = {"abc": "xyz"}
     key = _get_model_cache_key("model_part_1", additional_keys=additional_keys)
@@ -81,7 +82,7 @@ def test_adding_cache_with_additional_keys():
 
 
 def test_insert_unique_entry():
-    cache = Cache([])
+    cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
     val1 = _get_model_cache_val("mdummymodel1")
@@ -100,11 +101,11 @@ def test_insert_unique_entry():
     assert cache.get_item(key2) == val2
 
     # check if second entry was added towards end
-    assert cache.cache[-1] == KeyValue(key2, val2)
+    assert cache.cache[-1] == KeyValue(key=key2, val=val2)
 
 
 def test_overwrite_fails():
-    cache = Cache([])
+    cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
     val1 = _get_model_cache_val("mdummymodel1")
@@ -121,7 +122,7 @@ def test_overwrite_fails():
 
 
 def test_overwrite_passes():
-    cache = Cache([])
+    cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
     val1 = _get_model_cache_val("mdummymodel1")
@@ -143,9 +144,7 @@ def test_incorrect_schema(monkeypatch):
             MagicMock(return_value=tmp_cache_file.name),
         )
 
-        with pytest.raises(
-            RuntimeError, match="Invalid schema. Input dictionary empty."
-        ):
+        with pytest.raises(ValidationError):
             Cache.from_yaml(tmp_cache_file.name)
 
 

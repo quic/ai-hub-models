@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import diffusers
 import torch
@@ -40,8 +40,9 @@ class StableDiffusionApp:
         unet: ExecutableModelProtocol,
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
-        time_embedding: diffusers.embeddings.TimeEmbedding,  # type: ignore[name-defined]
         channel_last_latent: bool,
+        server_device: torch.device = torch.device("cpu"),
+        time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
     ):
         """
         Initializes StableDiffusionApp with required neural networks for end-to-end pipeline.
@@ -61,11 +62,12 @@ class StableDiffusionApp:
         scheduler:
             Solver for diffusion steps.
             Updates latent space during each iteration.
-        time_embedding:
-            Projects time-step into embedding used during denoising in latent space.
         channel_last_latent:
             True if unet outputs latent of shape like (1, 64, 64, 4). False
             for (1, 4, 64, 64)
+        time_embedding:
+            Projects time-step into embedding used during denoising in latent space.
+            Optional; if this is None, then the time embedding should be baked into the unet model.
         """
 
         self.text_encoder = text_encoder
@@ -73,8 +75,11 @@ class StableDiffusionApp:
         self.vae_decoder = vae_decoder
         self.tokenizer = tokenizer
         self.scheduler = scheduler
-        self.time_embedding = time_embedding
         self.channel_last_latent = channel_last_latent
+        self.server_device = server_device
+        self.time_embedding = (
+            time_embedding.to(server_device) if time_embedding else None
+        )
 
     def _encode_text_prompt(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -95,42 +100,45 @@ class StableDiffusionApp:
         cached instead of computed every time. We compute it here for better
         clarity.
         """
-        # Tokenize input prompt
-        text_input = self.tokenizer(
-            prompt,
-            padding="max_length",
-            max_length=self.tokenizer.model_max_length,
-            return_tensors="pt",
-        )
-
-        # Tokenize empty prompt
-        max_length = text_input.input_ids.shape[-1]
-        uncond_input = self.tokenizer(
-            [""],
-            padding="max_length",
-            max_length=max_length,
-            return_tensors="pt",
-        )
-
-        # Embed using the text encoder neural network
-        # Encode input and empty prompt in one go
-        print(f"\nExtracting embeddings (inference on TextEncoder)\n{'-' * 50}")
-        if isinstance(self.text_encoder, OnDeviceModel):
-            # Batch data into one inference job
-            embeddings = self.text_encoder(
-                [
-                    text_input.input_ids.int(),
-                    uncond_input.input_ids.int(),
-                ]
+        with torch.no_grad():
+            # Tokenize input prompt
+            text_input = self.tokenizer(
+                prompt,
+                padding="max_length",
+                max_length=self.tokenizer.model_max_length,
+                return_tensors="pt",
             )
-            assert isinstance(embeddings, torch.Tensor)
-            cond_embeddings, uncond_embeddings = torch.split(embeddings, 1, 0)
-        else:
-            cond_embeddings = self.text_encoder(text_input.input_ids.type(torch.int32))
-            uncond_embeddings = self.text_encoder(
-                uncond_input.input_ids.type(torch.int32)
+
+            # Tokenize empty prompt
+            max_length = text_input.input_ids.shape[-1]
+            uncond_input = self.tokenizer(
+                [""],
+                padding="max_length",
+                max_length=max_length,
+                return_tensors="pt",
             )
-        return cond_embeddings, uncond_embeddings
+
+            # Embed using the text encoder neural network
+            # Encode input and empty prompt in one go
+            print(f"\nExtracting embeddings (inference on TextEncoder)\n{'-' * 50}")
+            if isinstance(self.text_encoder, OnDeviceModel):
+                # Batch data into one inference job
+                embeddings = self.text_encoder(
+                    [
+                        text_input.input_ids.int(),
+                        uncond_input.input_ids.int(),
+                    ]
+                )
+                assert isinstance(embeddings, torch.Tensor)
+                cond_embeddings, uncond_embeddings = torch.split(embeddings, 1, 0)
+            else:
+                cond_embeddings = self.text_encoder(
+                    text_input.input_ids.type(torch.int32)
+                )
+                uncond_embeddings = self.text_encoder(
+                    uncond_input.input_ids.type(torch.int32)
+                )
+            return cond_embeddings, uncond_embeddings
 
     def predict(self, *args, **kwargs):
         # See generate_image.
@@ -188,19 +196,20 @@ class StableDiffusionApp:
         latents = run_diffusion_steps_on_latents(
             unet=self.unet,
             scheduler=self.scheduler,
-            time_embedding=self.time_embedding,
             cond_embeddings=cond_embeddings,
             uncond_embeddings=uncond_embeddings,
             num_steps=num_steps,
             seed=seed,
             guidance_scale=guidance_scale,
             channel_last_latent=self.channel_last_latent,
+            server_device=self.server_device,
+            time_embedding=self.time_embedding,
         )
         # Decode generated image from latent space
         if self.channel_last_latent:
-            latents = _make_channel_last_torch(latents)
+            latents = _make_channel_last_torch(latents).to(self.server_device)
         image = self.vae_decoder(latents)
-        return image
+        return image.to("cpu")  # move to cpu in case it was run on gpu
 
 
 def get_time_embedding(
@@ -222,105 +231,122 @@ def get_time_embedding(
 def run_diffusion_steps_on_latents(
     unet: ExecutableModelProtocol,
     scheduler: diffusers.DPMSolverMultistepScheduler,
-    time_embedding: diffusers.embeddings.TimeEmbedding,  # type: ignore[name-defined]
     cond_embeddings: torch.Tensor,
-    uncond_embeddings: torch.Tensor,
+    uncond_embeddings: torch.Tensor | None = None,
     num_steps: int = 20,
     seed: int = 0,
     guidance_scale: float = 7.5,
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
+    server_device: torch.device = torch.device("cpu"),
+    time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
 ) -> torch.Tensor | tuple[torch.Tensor, dict[str, list[torch.Tensor]]]:
     """
-        Parameters
-        ----------
-        prompt:
-            The text prompt to generate an image from.
-        num_steps:
-            The number of steps to run the diffusion process for. Higher value
-            may lead to better image quality.
-        seed:
-            The seed to use for the random number generator.
-        guidance_scale:
-            Classifier-free guidance is a method that allows us to control how
-            strongly the image generation is guided by the prompt. This is done
-            by always processing two samples at once: an unconditional (using a
-            text embedding of an empty prompt) and a conditional (using a text
-            embedding of the provided prompt). Given the noise prediction of
-            both of these, we linearly interpolate between them based on the
-            guidance_scale. A guidance scale of 0 is the same as using an empty
-            prompt. A guidance scale of 1 turns off classifier-free guidance
-            and is computationally less expensive since it only processes one
-            sample at a time. Intuitively you may think the rest of guidance
-            scales are between 0 and 1, but it is common to use a scale greater
-            than 1 as a method of amplifying the prompt's influence on the
-            image, pushing it further away from the unconditional sample.
+    Runs the diffusion steps on latents to generate the final latent sample.
 
-        channel_last_latent:
-            True if unet outputs latent of shape like (1, 64, 64, 4). False
-            for (1, 4, 64, 64). channel_last_latent=False for Huggingface's
-            model.
+    When guidance_scale is nonzero, classifier-free guidance is applied by computing
+    both conditional and unconditional noise predictions. In that case, `uncond_embeddings`
+    must be provided. If guidance_scale is 0, no guidance is applied and only the conditional
+    branch is used.
 
-        return_all_steps:
-            True to return all intermediate latents (shape depending on
-            channel_last_latent) and time_emb.
+    Parameters
+    ----------
+    unet:
+        The denoising network.
+    scheduler:
+        The scheduler controlling the diffusion process.
+    cond_embeddings:
+        Conditional text embeddings.
+    uncond_embeddings:
+        Unconditional text embeddings. This is required if guidance_scale != 0.
+    num_steps:
+        Number of diffusion steps.
+    seed:
+        Seed for random number generation.
+    guidance_scale:
+        Scale for classifier-free guidance. If nonzero, both conditional and unconditional
+        noise predictions are computed.
+    channel_last_latent:
+        True if the unet outputs latents in channel-last format.
+    return_all_steps:
+        If True, returns intermediate latents and time embeddings for calibration.
+    time_embedding:
+        Projects time-step into embedding used during denoising in latent space.
+        Optional; if this is None, then the time embedding should be baked into the unet model.
 
-        Returns
-        -------
-        torch.Tensor
-            Final latent to be converted to RGB image by VAE decoder.
-
-        dict[str, list[torch.Tensor]]
-            Intermediate inputs. keys are: ["latent", "time_emb"]. Each list is
-            of length `num_steps`. This is useful for calibration.
-
-
-    Use cases
-    - generate calibration data for unet (using hf model). Need time_emb etc
-    - Partial diffusion step (e.g., run last step only)?
-    - Full evaluation (quantsim, tetra inference job etc)
+    Returns
+    -------
+    torch.Tensor
+        Final latent sample.
+    dict[str, list[torch.Tensor]]
+        Intermediate inputs (only if return_all_steps is True).
     """
     with torch.no_grad():
         scheduler.set_timesteps(num_steps)  # type: ignore[attr-defined]
         scheduler.config.prediction_type = "epsilon"  # type: ignore[attr-defined]
 
-        # Channel last input
+        # Initialize latent tensor
         latents_shape = (1, 4, OUT_H // 8, OUT_W // 8)
-
         generator = torch.manual_seed(seed)
-        latents = torch.randn(latents_shape, generator=generator)
-
+        latents = torch.randn(latents_shape, generator=generator, device=server_device)
         latents = latents * scheduler.init_noise_sigma  # type: ignore[attr-defined]
 
-        # Export for calibration purpose
-        unet_inputs: dict[str, list[torch.Tensor]] = dict(latent=[], time_emb=[])
+        # Time input
+        time_input_name = "time_embed" if time_embedding else "timestep"
+
+        # For calibration purposes, store intermediate inputs if needed
+        unet_inputs: dict[str, list[torch.Tensor]] = {"latent": [], time_input_name: []}
 
         for i, t in enumerate(scheduler.timesteps):  # type: ignore[attr-defined]
             print(f"\nStep: {i + 1}\n{'-' * 10}")
-            time_emb = get_time_embedding(time_embedding, t)
-            latent_model_input = scheduler.scale_model_input(latents, t)  # type: ignore[attr-defined]
-            if channel_last_latent:
-                latent_model_input = _make_channel_last_torch(latent_model_input)
-            unet_inputs["latent"].append(latent_model_input)
-            unet_inputs["time_emb"].append(time_emb)
 
-            # Denoise image in latent space
-            if isinstance(unet, OnDeviceModel):
-                # Batch data into one inference job
-                noise = unet(
-                    [latent_model_input, latent_model_input],
-                    [time_emb, time_emb],
-                    [cond_embeddings, uncond_embeddings],
+            if time_embedding:
+                time_input = get_time_embedding(time_embedding, t).to(server_device)
+            else:
+                time_input = torch.as_tensor([[t]], dtype=torch.float32).to(
+                    server_device
                 )
 
-                noise_cond, noise_uncond = torch.split(noise, 1, 0)
+            latent_model_input = scheduler.scale_model_input(latents, t)  # type: ignore[attr-defined]
+            if channel_last_latent:
+                latent_model_input = _make_channel_last_torch(latent_model_input).to(
+                    server_device
+                )
+            unet_inputs["latent"].append(latent_model_input)
+            unet_inputs[time_input_name].append(time_input)
+
+            # Check if guidance should be applied.
+            if guidance_scale != 0:
+                if uncond_embeddings is None:
+                    raise ValueError(
+                        "uncond_embeddings must be provided when guidance_scale is nonzero"
+                    )
+                # Use both conditional and unconditional embeddings.
+                if isinstance(unet, OnDeviceModel):
+                    # Batch data into one inference job.
+                    noise = unet(
+                        [latent_model_input, latent_model_input],
+                        [time_input, time_input],
+                        [cond_embeddings, uncond_embeddings],
+                    )
+                    noise_cond, noise_uncond = torch.split(noise, 1, 0)
+                else:
+                    noise_cond = unet(latent_model_input, time_input, cond_embeddings)
+                    noise_uncond = unet(
+                        latent_model_input, time_input, uncond_embeddings
+                    )
+                noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
             else:
-                noise_cond = unet(latent_model_input, time_emb, cond_embeddings)
-                noise_uncond = unet(latent_model_input, time_emb, uncond_embeddings)
-            noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
+                # No guidance: only process conditional embeddings.
+                if isinstance(unet, OnDeviceModel):
+                    noise_pred = unet(
+                        [latent_model_input], [time_input], [cond_embeddings]
+                    )
+                else:
+                    noise_pred = unet(latent_model_input, time_input, cond_embeddings)
 
             if channel_last_latent:
-                noise_pred = _make_channel_first_torch(noise_pred)
+                noise_pred = _make_channel_first_torch(noise_pred).to(server_device)
             latents = scheduler.step(noise_pred, t, latents).prev_sample  # type: ignore[attr-defined]
 
         if return_all_steps:

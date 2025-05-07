@@ -1,7 +1,7 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [ControlNet: Generating visual arts from text prompt and input guiding image](https://aihub.qualcomm.com/models/controlnet)
+# [ControlNet: Generating visual arts from text prompt and input guiding image](#)
 
 On-device, high-resolution image synthesis from text and image prompts. ControlNet guides Stable-diffusion with provided input image to generate accurate images from given input prompt.
 

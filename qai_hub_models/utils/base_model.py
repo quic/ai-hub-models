@@ -14,6 +14,7 @@ from qai_hub.client import Device
 
 from qai_hub_models.models.common import (
     Precision,
+    QAIRTVersion,
     SampleInputsType,
     SourceModelFormat,
     TargetRuntime,
@@ -286,6 +287,12 @@ class HubModel(HubModelProtocol):
         """
         AI Hub profile options recommended for the model.
         """
+        if QAIRTVersion.HUB_FLAG not in other_profile_options:
+            other_profile_options = (
+                other_profile_options
+                + f" {target_runtime.default_qairt_version.hub_option}"
+            )
+
         return other_profile_options
 
     @staticmethod
@@ -403,6 +410,10 @@ class BaseModel(
         compile_options = ""
         if "--target_runtime" not in other_compile_options:
             compile_options = target_runtime.get_target_runtime_flag(device)
+        if QAIRTVersion.HUB_FLAG not in other_compile_options:
+            compile_options = (
+                compile_options + f" {target_runtime.default_qairt_version.hub_option}"
+            )
 
         compile_options += f" --output_names {','.join(self.get_output_names())}"
 

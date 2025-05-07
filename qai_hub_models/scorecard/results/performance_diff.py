@@ -6,7 +6,22 @@ from __future__ import annotations
 
 from prettytable import PrettyTable
 
-RUNTIMES_TO_COMPARE = ["torchscript_onnx_qnn", "torchscript_onnx_tflite"]
+from qai_hub_models.configs.devices_and_chipsets_yaml import ScorecardDevice
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ScorecardProfilePath
+from qai_hub_models.models.common import Precision
+
+# Last 3 values in tuple are: [prev inference time, new inference time, diff, job_id]
+InferenceInfo = tuple[
+    str,  # Model ID
+    Precision,
+    str,  # Component Name (same as Model ID if model does not have multiple components)
+    ScorecardDevice,
+    ScorecardProfilePath,
+    float,  # prev inference time (millisecs)
+    float,  # new inference time (millisecs),
+    float,  # inference time diff
+    str,  # Profile Job ID
+]
 
 
 class PerformanceDiff:
@@ -30,21 +45,9 @@ class PerformanceDiff:
     """
 
     def __init__(self) -> None:
-        # List of new reports being added
-        self.new_perf_report: list[tuple[str, str]] = []
-
-        # Precision present in previous run, but missing in new
-        self.missing_precisions: list = []
-
-        # Device present in previous run, but missing in new
-        self.missing_devices: list = []
-
-        # Perf report with no passing job
-        self.empty_perf_report: list[tuple[str, str]] = []
-
         # Perf buckets to track
-        self.perf_buckets: list[float | str] = [
-            "inf",
+        self.perf_buckets: list[float] = [
+            float("inf"),
             10,
             5,
             2,
@@ -52,162 +55,227 @@ class PerformanceDiff:
             1.3,
             1.2,
             1.1,
-            1.05,
-            1.03,
         ]
 
-        # Only track PerfSummary for Android
-        self.tracked_oses: list = ["Android"]
+        self.empty_models: list[str] = []
 
-        # Map of perf_bucket -> List of tuple of progression summary entry
-        self.progressions: dict = {}
+        self.missing_models: list[str] = []
+        self.new_models: list[str] = []
 
-        # Map of perf_bucket -> List of tuple of regression summary entry
-        self.regressions: dict = {}
+        self.missing_precisions: list[tuple[str, Precision]] = []
+        self.new_precisions: list[tuple[str, Precision]] = []
 
-        for each in self.perf_buckets:
-            self.progressions[each] = []
-            self.regressions[each] = []
+        self.missing_components: list[tuple[str, Precision, str]] = []
+        self.new_components: list[tuple[str, Precision, str]] = []
 
-    def add_new_model(self, model_id: str, precision: str):
-        self.new_perf_report.append((model_id, precision))
+        self.missing_devices: list[tuple[str, Precision, str, ScorecardDevice]] = []
+        self.new_devices: list[tuple[str, Precision, str, ScorecardDevice]] = []
 
-    def add_missing_model(self, model_id: str, precision: str):
-        self.missing_precisions.append((model_id, precision))
+        self.progressions: dict[float | str, list[InferenceInfo]] = {
+            x: [] for x in self.perf_buckets
+        }
+        self.regressions: dict[float | str, list[InferenceInfo]] = {
+            x: [] for x in self.perf_buckets
+        }
 
-    def _format_speedup(self, num):
-        if isinstance(num, str):
-            return num
+    @staticmethod
+    def _format_speedup(num: float | None) -> str | float:
+        if not num:
+            return "null"
         return float(format(num, ".5f"))
 
-    def update_summary(
-        self, model_id: str, previous_report: dict | None, new_report: dict | None
+    def _update_summary_for_path(
+        self,
+        model_id: str,
+        precision: Precision,
+        component: str,
+        device: ScorecardDevice,
+        path: ScorecardProfilePath,
+        previous_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
+        new_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
     ):
-        prev_perf_metrics = {}
-        new_perf_metrics = {}
-
-        for precision in (new_report.keys() if new_report else set()) - (
-            previous_report.keys() if previous_report else set()
-        ):
-            # New precisions that did not exist before.
-            self.add_new_model(model_id, precision)
-
-        if not previous_report:
+        prev_inference_time = previous_report.get(
+            path, QAIHMModelPerf.PerformanceDetails()
+        ).inference_time_milliseconds
+        new_results = new_report.get(path, QAIHMModelPerf.PerformanceDetails())
+        new_inference_time = new_results.inference_time_milliseconds
+        if prev_inference_time and new_inference_time:
+            progression_speedup = float(prev_inference_time) / float(new_inference_time)
+            regression_speedup = float(new_inference_time) / float(prev_inference_time)
+            is_progression = progression_speedup >= 1
+            diff = progression_speedup if is_progression else regression_speedup
+        elif prev_inference_time and not new_inference_time:
+            is_progression = False
+            diff = float("inf")
+        elif not prev_inference_time and new_inference_time:
+            is_progression = True
+            diff = float("inf")
+        else:
+            # both failed, don't add this to the summary
             return
 
-        for precision, previous_precision_report in previous_report.items():
-            new_precision_report = (
-                new_report.get(precision, None) if new_report else None
+        if is_progression:
+            append_to = self.progressions
+        else:
+            append_to = self.regressions
+        bucket = None
+        for i in range(len(self.perf_buckets)):
+            key = self.perf_buckets[i]
+            if diff >= key:
+                bucket = key
+                break
+        if not bucket:
+            # not a meaningful change
+            return
+        append_to[bucket].append(
+            (
+                model_id,
+                precision,
+                component,
+                device,
+                path,
+                prev_inference_time or float("-inf"),
+                new_inference_time or float("-inf"),
+                diff,
+                new_results.job_id or "null",
             )
-            if new_precision_report is None:
-                # Precision existed previously but no longer exists.
-                self.add_missing_model(model_id, precision)
-            else:
-                for i in range(len(previous_precision_report["models"])):
-                    for j in range(len(new_precision_report["models"])):
-                        if (
-                            previous_precision_report["models"][i]["name"]
-                            == new_precision_report["models"][j]["name"]
-                        ):
-                            for prev_metric in previous_precision_report["models"][i][
-                                "performance_metrics"
-                            ]:
-                                if "chipset" in prev_metric["reference_device_info"]:
-                                    ref_device = prev_metric["reference_device_info"][
-                                        "chipset"
-                                    ]
-                                    prev_perf_metrics[ref_device] = prev_metric
+        )
 
-                            for new_metric in new_precision_report["models"][j][
-                                "performance_metrics"
-                            ]:
-                                if "chipset" in new_metric["reference_device_info"]:
-                                    ref_device = new_metric["reference_device_info"][
-                                        "chipset"
-                                    ]
-                                    new_perf_metrics[ref_device] = new_metric
+    def _update_summary_for_device(
+        self,
+        model_id: str,
+        precision: Precision,
+        component: str,
+        device: ScorecardDevice,
+        previous_report: dict[
+            ScorecardDevice,
+            dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
+        ],
+        new_report: dict[
+            ScorecardDevice,
+            dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
+        ],
+    ):
+        if device not in previous_report and device not in new_report:
+            return
+        if device in previous_report and device not in new_report:
+            self.missing_devices.append((model_id, precision, component, device))
+        elif device not in previous_report and device in new_report:
+            self.new_devices.append((model_id, precision, component, device))
+        else:
+            all_paths: set[ScorecardProfilePath] = set()
+            previous_report_device = previous_report[device]
+            new_report_device = new_report[device]
+            all_paths.update(previous_report_device.keys())
+            all_paths.update(new_report_device.keys())
+            for path in all_paths:
+                self._update_summary_for_path(
+                    model_id,
+                    precision,
+                    component,
+                    device,
+                    path,
+                    previous_report_device,
+                    new_report_device,
+                )
 
-                if len(prev_perf_metrics) == 0 or len(new_perf_metrics) == 0:
-                    self.empty_perf_report.append((model_id, precision))
+    def _update_summary_for_component(
+        self,
+        model_id: str,
+        precision: Precision,
+        component: str,
+        previous_report: QAIHMModelPerf.PrecisionDetails,
+        new_report: QAIHMModelPerf.PrecisionDetails,
+    ):
+        if (
+            component not in previous_report.components
+            and component not in new_report.components
+        ):
+            return
+        elif (
+            component in previous_report.components
+            and component not in new_report.components
+        ):
+            self.missing_components.append((model_id, precision, component))
+        elif (
+            component not in previous_report.components
+            and component in new_report.components
+        ):
+            self.new_components.append((model_id, precision, component))
+        else:
+            all_devices: set[ScorecardDevice] = set()
+            previous_report_component = previous_report.components[
+                component
+            ].performance_metrics
+            new_report_component = new_report.components[component].performance_metrics
+            all_devices.update(previous_report_component.keys())
+            all_devices.update(new_report_component.keys())
+            for device in all_devices:
+                self._update_summary_for_device(
+                    model_id,
+                    precision,
+                    component,
+                    device,
+                    previous_report_component,
+                    new_report_component,
+                )
 
-                for device in prev_perf_metrics.keys():
-                    device_info = prev_perf_metrics[device]["reference_device_info"]
-                    if device_info["os_name"] not in self.tracked_oses:
-                        continue
+    def _update_summary_for_precision(
+        self,
+        model_id: str,
+        precision: Precision,
+        previous_report: QAIHMModelPerf,
+        new_report: QAIHMModelPerf,
+    ):
+        if (
+            precision in previous_report.precisions
+            and precision not in new_report.precisions
+        ):
+            self.missing_precisions.append((model_id, precision))
+        elif (
+            precision not in previous_report.precisions
+            and precision in new_report.precisions
+        ):
+            self.new_precisions.append((model_id, precision))
+        else:
+            all_components: set[str] = set()
+            previous_report_precision = previous_report.precisions[precision]
+            new_report_precision = new_report.precisions[precision]
+            all_components.update(previous_report_precision.components.keys())
+            all_components.update(new_report_precision.components.keys())
+            for component in all_components:
+                self._update_summary_for_component(
+                    model_id,
+                    precision,
+                    component,
+                    previous_report_precision,
+                    new_report_precision,
+                )
 
-                    # Case 3: Chipset is missing in new data
-                    if device not in new_perf_metrics:
-                        self.missing_devices.append((model_id, precision, device))
-                        continue
+    def update_summary(
+        self,
+        model_id: str,
+        previous_report: QAIHMModelPerf | None,
+        new_report: QAIHMModelPerf | None,
+    ):
+        if not new_report and not previous_report:
+            return
+        elif new_report and not previous_report:
+            self.new_models.append(model_id)
+        elif previous_report and not new_report:
+            self.missing_models.append(model_id)
+        elif previous_report and new_report:
+            if new_report.empty:
+                self.empty_models.append(model_id)
+                return
 
-                    for runtime_type in RUNTIMES_TO_COMPARE:
-                        prev_inference_time = prev_perf_metrics[device].get(
-                            runtime_type, {}
-                        )
-                        prev_inference_time = prev_inference_time.get(
-                            "inference_time", "null"
-                        )
-                        run_stats = new_perf_metrics[device].get(runtime_type, {})
-                        job_id = run_stats.get("job_id", "null")
-                        new_inference_time = run_stats.get("inference_time", "null")
-                        if new_inference_time == prev_inference_time:
-                            continue
-
-                        if (
-                            new_inference_time == "null"
-                            or prev_inference_time == "null"
-                        ):
-                            # Case 1: Model either failed to infer or had a successful run
-                            summary_entry = (
-                                model_id,
-                                precision,
-                                runtime_type,
-                                "inf",
-                                self._format_speedup(new_inference_time),
-                                self._format_speedup(prev_inference_time),
-                                job_id,
-                                device_info["chipset"],
-                                device_info["os"],
-                            )
-
-                            if new_inference_time == "null":
-                                self.regressions["inf"].append(summary_entry)
-                            else:
-                                self.progressions["inf"].append(summary_entry)
-                            continue
-
-                        # Case 2: Bucketize speedup difference
-                        progression_speedup = float(prev_inference_time) / float(
-                            new_inference_time
-                        )
-                        regression_speedup = float(new_inference_time) / float(
-                            prev_inference_time
-                        )
-                        is_progression = progression_speedup >= 1
-                        speedup = (
-                            progression_speedup
-                            if is_progression
-                            else regression_speedup
-                        )
-
-                        for bucket in self.perf_buckets[1:]:
-                            if float(bucket) <= speedup:
-                                summary = (
-                                    model_id,
-                                    precision,
-                                    runtime_type,
-                                    self._format_speedup(speedup),
-                                    self._format_speedup(new_inference_time),
-                                    self._format_speedup(prev_inference_time),
-                                    job_id,
-                                    device_info["chipset"],
-                                    device_info["os"],
-                                )
-                                if is_progression:
-                                    self.progressions[bucket].append(summary)
-                                else:
-                                    self.regressions[bucket].append(summary)
-                                break
+            all_precisions: set[Precision] = set()
+            all_precisions.update(previous_report.precisions.keys())
+            all_precisions.update(new_report.precisions.keys())
+            for precision in all_precisions:
+                self._update_summary_for_precision(
+                    model_id, precision, previous_report, new_report
+                )
 
     def _get_summary_table(self, bucket_id, get_progressions=True):
         """
@@ -219,30 +287,35 @@ class PerformanceDiff:
             [
                 "Model ID",
                 "Precision",
+                "Component",
+                "Device",
                 "Runtime",
-                "Kx faster" if get_progressions else "Kx slower",
-                "New Inference time",
                 "Prev Inference time",
+                "New Inference time",
+                "Kx faster" if get_progressions else "Kx slower",
                 "Job ID",
-                "Chipset",
-                "OS",
             ]
         )
         data = self.progressions if get_progressions else self.regressions
         rows = data[bucket_id]
-        rows.sort(key=lambda k: k[2])
+        rows.sort(key=lambda k: k[2])  # sort by component name
         table.add_rows(rows)
         return table
 
     def _has_perf_changes(self):
         """Returns True if there are perf changes"""
-        for _, val in self.progressions.items():
-            if len(val) > 0:
-                return True
-        for _, val in self.regressions.items():
-            if len(val) > 0:
-                return True
-        return False
+        return (
+            self.new_components
+            or self.missing_components
+            or self.new_devices
+            or self.missing_devices
+            or self.new_models
+            or self.missing_models
+            or self.new_precisions
+            or self.missing_precisions
+            or self.progressions
+            or self.regressions
+        )
 
     def dump_summary(self, summary_file_path: str):
         """
@@ -278,34 +351,63 @@ class PerformanceDiff:
             else:
                 sf.write("\nNo significant changes observed.")
 
+            if len(self.missing_models) > 0:
+                sf.write("\n----------------- Missing Models -----------------\n")
+                table = PrettyTable(["Model ID"])
+                table.add_rows([x] for x in self.missing_models)
+                sf.write(str(table))
+
             if len(self.missing_precisions) > 0:
-                # 3. Missing devices (New runs missing data for certain devices)
                 sf.write("\n----------------- Missing Precisions -----------------\n")
                 table = PrettyTable(["Model ID", "Precision"])
                 table.add_rows(self.missing_precisions)
                 sf.write(str(table))
 
+            if len(self.missing_components) > 0:
+                sf.write("\n----------------- Missing Components -----------------\n")
+                table = PrettyTable(["Model ID", "Precision", "Component"])
+                table.add_rows(self.missing_components)
+                sf.write(str(table))
+
             if len(self.missing_devices) > 0:
-                # 3. Missing devices (New runs missing data for certain devices)
-                sf.write("\n----------------- Missing devices -----------------\n")
-                table = PrettyTable(["Model ID", "Precision", "Missing Device"])
+                sf.write("\n----------------- Missing Devices -----------------\n")
+                table = PrettyTable(["Model ID", "Precision", "Component", "Device"])
                 table.add_rows(self.missing_devices)
                 sf.write(str(table))
 
-            if len(self.new_perf_report) > 0:
-                # 4. New Models (Models that did not have perf.yaml previously)
-                sf.write("\n----------------- New models -----------------\n")
-                table = PrettyTable(["Model ID", "Precision"])
-                table.add_rows(self.new_perf_report)
+            if len(self.new_models) > 0:
+                sf.write("\n----------------- New Models -----------------\n")
+                table = PrettyTable(["Model ID"])
+                table.add_rows([x] for x in self.new_models)
                 sf.write(str(table))
 
-            if len(self.empty_perf_report) > 0:
+            if len(self.new_precisions) > 0:
+                sf.write("\n----------------- New Precisions -----------------\n")
+                table = PrettyTable(["Model ID", "Precision"])
+                table.add_rows(self.new_precisions)
+                sf.write(str(table))
+
+            if len(self.new_components) > 0:
+                # 3. Missing devices (New runs missing data for certain devices)
+                sf.write("\n----------------- New Components -----------------\n")
+                table = PrettyTable(["Model ID", "Precision", "Component"])
+                table.add_rows(self.new_components)
+                sf.write(str(table))
+
+            if len(self.new_devices) > 0:
+                # 3. Missing devices (New runs missing data for certain devices)
+                sf.write("\n----------------- New Devices -----------------\n")
+                table = PrettyTable(["Model ID", "Precision", "Component", "Device"])
+                table.add_rows(self.new_devices)
+                sf.write(str(table))
+
+            if len(self.empty_models) > 0:
                 # 5. Empty reports (Models with no passing jobs)
                 sf.write(
                     "\n----------------- Empty reports (No passing jobs) -----------------\n"
                 )
-                table = PrettyTable(["Model ID", "Precision"])
-                table.add_rows(self.empty_perf_report)
+                table = PrettyTable(["Model ID"])
+                table.add_rows([x] for x in self.empty_models)
                 sf.write(str(table))
 
         print(f"Perf change summary written to {summary_file_path}")

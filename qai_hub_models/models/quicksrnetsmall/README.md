@@ -7,10 +7,7 @@ QuickSRNet Small is designed for upscaling images on mobile platforms to sharpen
 
 This is based on the implementation of QuickSRNetSmall found [here](https://github.com/quic/aimet-model-zoo/tree/develop/aimet_zoo_torch/quicksrnet). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found here:
-
-  - [float](https://aihub.qualcomm.com/models/quicksrnetsmall)
-  - [w8a8](https://aihub.qualcomm.com/models/quicksrnetsmall_quantized)
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/quicksrnetsmall).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 

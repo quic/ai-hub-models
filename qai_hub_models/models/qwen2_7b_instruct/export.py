@@ -85,13 +85,14 @@ def export_model(
         return export_without_hub_access(
             "qwen2_7b_instruct",
             "Qwen2-7B-Instruct",
-            device or f"Device (Chipset {chipset})",
+            hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,
             False,
             skip_summary,
             output_path,
             TargetRuntime.QNN,
+            Precision.w4a16,
             "",
             profile_options,
             component_arg,
@@ -102,7 +103,6 @@ def export_model(
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
-
     # 2. Upload model assets to hub
     print("Uploading model assets on hub")
     uploaded_models = {}
@@ -159,6 +159,7 @@ def main():
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w4a16: [
             TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
         ],
     }
 
@@ -170,7 +171,7 @@ def main():
     )
     args = parser.parse_args()
     validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
+        supported_precision_runtimes, Precision.w4a16, args.target_runtime
     )
     export_model(**vars(args))
 

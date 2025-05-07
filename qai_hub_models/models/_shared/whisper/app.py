@@ -17,8 +17,8 @@ from qai_hub_models.models._shared.whisper.model import (
     N_FFT,
     N_MELS,
     SAMPLE_RATE,
-    Whisper,
 )
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.model_adapters import TorchNumpyAdapter
 
 
@@ -31,19 +31,22 @@ class WhisperApp:
 
     def __init__(
         self,
-        whisper: Whisper,
+        whisper_encoder: ExecutableModelProtocol,
+        whisper_decoder: ExecutableModelProtocol,
+        num_decoder_blocks: int,
+        num_decoder_heads: int,
+        attention_dim: int,
+        mean_decode_len: int,
         mel_filter: np.ndarray | None = None,
         sample_rate: int = SAMPLE_RATE,
         max_audio_seconds: int = CHUNK_LENGTH,
         n_fft: int = N_FFT,
         hop_length: int = HOP_LENGTH,
     ):
-        decoder = whisper.decoder.to("cpu")  # type: ignore[attr-defined]
-        encoder = whisper.encoder.to("cpu")  # type: ignore[attr-defined]
-        self.num_decoder_blocks = whisper.num_decoder_blocks
-        self.num_decoder_heads = whisper.num_decoder_heads
-        self.attention_dim = whisper.attention_dim
-        self.mean_decode_len = whisper.mean_decode_len
+        self.num_decoder_blocks = num_decoder_blocks
+        self.num_decoder_heads = num_decoder_heads
+        self.attention_dim = attention_dim
+        self.mean_decode_len = mean_decode_len
 
         self.mel_filter = mel_filter
         if not self.mel_filter:
@@ -57,15 +60,9 @@ class WhisperApp:
         self.n_fft = n_fft
         self.max_audio_samples = self.max_audio_seconds * self.sample_rate
 
-        # Wraps torch Module so it takes np ndarray as input and outputs
-        if isinstance(encoder, torch.nn.Module):
-            self.encoder = TorchNumpyAdapter(encoder)
-        else:
-            self.encoder = encoder
-        if isinstance(decoder, torch.nn.Module):
-            self.decoder = TorchNumpyAdapter(decoder)
-        else:
-            self.decoder = decoder
+        # Wraps models so they take np ndarray as input and outputs
+        self.encoder = TorchNumpyAdapter(whisper_encoder)
+        self.decoder = TorchNumpyAdapter(whisper_decoder)
 
     def predict(self, *args, **kwargs):
         # See transcribe.
@@ -96,6 +93,9 @@ class WhisperApp:
             import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
 
             audio, audio_sample_rate = a2n.audio_from_file(audio)
+            if isinstance(audio, np.ndarray) and audio.ndim == 2:
+                # Audio is multi-channel (e.g., stero); collapse to single.
+                audio = audio.mean(-1)
 
         assert audio_sample_rate is not None
         assert isinstance(audio, np.ndarray)

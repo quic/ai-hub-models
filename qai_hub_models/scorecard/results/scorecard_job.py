@@ -7,11 +7,12 @@ from __future__ import annotations
 import datetime
 import time
 from functools import cached_property
-from typing import Any, Generic, Optional, TypeVar, Union, cast
+from typing import Any, Generic, Optional, TypeVar, cast
 
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
 
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -186,109 +187,60 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
         raise ValueError("Can't get profile results if job did not succeed.")
 
     @cached_property
-    def inference_time(self) -> Union[float, str]:
+    def inference_time_milliseconds(self) -> float:
         """Get the inference time from the profile job."""
-        if self.success:
-            return float(
-                self.profile_results["execution_summary"]["estimated_inference_time"]
-            )
-        return "null"
+        return float(
+            self.profile_results["execution_summary"]["estimated_inference_time"] / 1000
+        )
 
     @cached_property
-    def throughput(self) -> Union[float, str]:
+    def inferences_per_second(self) -> float:
         """Get the throughput from the profile job."""
-        if not isinstance(self.inference_time, str):
-            return 1000000 / float(self.inference_time)
-        return "null"
+        return (1000 / float(self.inference_time_milliseconds)) * self._device.npu_count
 
-    def get_layer_info(self, unit: str) -> int:
+    @cached_property
+    def layer_counts(self) -> QAIHMModelPerf.PerformanceDetails.LayerCounts:
         """Count layers per compute unit."""
-        if self.profile_results is not None:
-            count: int = 0
-            count = sum(
+
+        def _count_unit(unit: str) -> int:
+            return sum(
                 1
                 for detail in self.profile_results["execution_detail"]
                 if detail["compute_unit"] == unit
             )
-            return count
-        return 0
+
+        cpu = _count_unit("CPU")
+        gpu = _count_unit("GPU")
+        npu = _count_unit("NPU")
+
+        return QAIHMModelPerf.PerformanceDetails.LayerCounts.from_layers(npu, gpu, cpu)
 
     @cached_property
-    def npu(self) -> int:
-        """Get number of layers running on NPU."""
-        return self.get_layer_info("NPU") if self.success else 0
-
-    @cached_property
-    def gpu(self) -> int:
-        """Get number of layers running on GPU."""
-        return self.get_layer_info("GPU") if self.success else 0
-
-    @cached_property
-    def cpu(self) -> int:
-        """Get number of layers running on CPU."""
-        return self.get_layer_info("CPU") if self.success else 0
-
-    @cached_property
-    def total(self) -> int:
-        """Get the total number of layers."""
-        return self.npu + self.gpu + self.cpu
-
-    @cached_property
-    def primary_compute_unit(self) -> str:
-        """Get the primary compute unit."""
-        layers_npu = self.npu
-        layers_gpu = self.gpu
-        layers_cpu = self.cpu
-
-        if layers_npu == 0 and layers_gpu == 0 and layers_cpu == 0:
-            return "null"
-        compute_unit_for_most_layers = max(layers_cpu, layers_gpu, layers_npu)
-        if compute_unit_for_most_layers == layers_npu:
-            return "NPU"
-        elif compute_unit_for_most_layers == layers_gpu:
-            return "GPU"
-        return "CPU"
-
-    @cached_property
-    def peak_memory_range(self) -> dict[str, int]:
+    def estimated_peak_memory_range_mb(
+        self,
+    ) -> QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB:
         """Get the estimated peak memory range."""
-        if self.success:
-            low, high = self.profile_results["execution_summary"][
-                "inference_memory_peak_range"
-            ]
-            return dict(min=low, max=high)
-        return dict(min=0, max=0)
+        low, high = self.profile_results["execution_summary"][
+            "inference_memory_peak_range"
+        ]
+        return QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB.from_bytes(low, high)
 
     @cached_property
-    def precision_str(self) -> str:
-        """Get the precision of the model based on the run."""
-        if self.success and self.precision == Precision.float:
-            # Backwards compatibility with old perf yaml
-            compute_unit = self.primary_compute_unit
-            return "fp32" if compute_unit == "CPU" else "fp16"
-
-        if self.precision == Precision.w8a8:
-            # Backwards compatibility with old perf yaml
-            return "int8"
-
-        return str(self.precision)
-
-    @cached_property
-    def performance_metrics(self) -> dict[str, Any]:
-        metrics = dict(
-            inference_time=self.inference_time,
-            throughput=self.throughput,
-            estimated_peak_memory_range=self.peak_memory_range,
-            primary_compute_unit=self.primary_compute_unit,
-            precision=self.precision_str,
-            layer_info=dict(
-                layers_on_npu=self.npu,
-                layers_on_gpu=self.gpu,
-                layers_on_cpu=self.cpu,
-                total_layers=self.total,
-            ),
+    def performance_metrics(self) -> QAIHMModelPerf.PerformanceDetails:
+        metrics = QAIHMModelPerf.PerformanceDetails(
             job_id=self.job_id,
             job_status=self.job_status,
+            inference_time_milliseconds=self.inference_time_milliseconds
+            if self.success
+            else None,
+            inferences_per_second=self.inferences_per_second if self.success else None,
+            estimated_peak_memory_range_mb=self.estimated_peak_memory_range_mb
+            if self.success
+            else None,
+            primary_compute_unit=self.layer_counts.primary_compute_unit
+            if self.success
+            else None,
+            layer_counts=self.layer_counts if self.success else None,
         )
         return metrics
 

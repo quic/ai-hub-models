@@ -107,6 +107,10 @@ def get_quantize_job_ids_file(artifacts_dir: os.PathLike | str | None = None) ->
     return get_artifact_filepath("quantize-jobs.yaml", artifacts_dir)
 
 
+def get_cpu_accuracy_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("cpu-accuracy.yaml", artifacts_dir)
+
+
 def get_accuracy_file() -> Path:
     filepath = get_artifact_filepath("accuracy.csv")
     if filepath.stat().st_size == 0:
@@ -514,6 +518,7 @@ def write_accuracy(
     if len(psnr_values) >= MAX_PSNR_VALUES:
         line += ",".join(psnr_values[:10])
     else:
-        line += ",".join(psnr_values) + "," * (MAX_PSNR_VALUES - len(psnr_values))
+        # If the psnr list is empty, we only want 9 commas after
+        line += ",".join(psnr_values) + "," * min(MAX_PSNR_VALUES - len(psnr_values), 9)
     line += f",{get_job_date()},main,{chipset}"
     append_line_to_file(get_accuracy_file(), line)

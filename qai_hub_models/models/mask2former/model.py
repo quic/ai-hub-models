@@ -12,19 +12,26 @@ from typing import Optional
 import torch
 from qai_hub.client import Device
 from torch import nn
+from torch.nn import functional as F
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.panoptic_segmentation_evaluator import (
+    PanopticSegmentationEvaluator,
+)
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 DEFAULT_WEIGHTS = "facebook/mask2former-swin-tiny-coco-panoptic"
 M2F_SOURCE_REPOSITORY = "https://github.com/huggingface/transformers.git"
-M2F_SOURCE_REPO_COMMIT = "75f15f39a0434fe7a61385c4677f2700542a7ba6"
+M2F_SOURCE_REPO_COMMIT = "5f4ecf2d9f867a1255131d2461d75793c0cf1db2"
 # optimize model to run on QNN
 M2F_SOURCE_PATCHES = [
     os.path.abspath(os.path.join(os.path.dirname(__file__), "patches/optimize.diff"))
 ]
+NUM_CLASSES = 134
 
 
 class Mask2Former(BaseModel):
@@ -73,9 +80,10 @@ class Mask2Former(BaseModel):
                 where the modified height and width will be some factor smaller
                 than the input image.
         """
-        out = self.model(image, return_dict=False)
-
-        return out[0], out[1]
+        outputs = self.model(normalize_image_torchvision(image), return_dict=False)
+        class_logits, mask_logits = outputs[0], outputs[1]
+        (class_pred_scores, class_pred_labels) = F.softmax(class_logits, dim=-1).max(-1)
+        return class_pred_scores, class_pred_labels, mask_logits
 
     @staticmethod
     def get_input_spec(
@@ -91,7 +99,7 @@ class Mask2Former(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["class_idx", "masks"]
+        return ["scores", "labels", "masks"]
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -108,7 +116,7 @@ class Mask2Former(BaseModel):
             target_runtime, precision, other_compile_options, device
         )
         if target_runtime != TargetRuntime.ONNX:
-            compile_options += " --truncate_64bit_tensors True"
+            compile_options += " --truncate_64bit_io --truncate_64bit_tensors"
 
         return compile_options
 
@@ -122,3 +130,10 @@ class Mask2Former(BaseModel):
         )
         options = " --compute_unit cpu"
         return profile_options + options
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return PanopticSegmentationEvaluator(NUM_CLASSES)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["coco_panoptic_seg"]

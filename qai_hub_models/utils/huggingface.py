@@ -12,11 +12,12 @@ from huggingface_hub.utils import GatedRepoError
 from packaging import version
 
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, ModelZooAssetConfig
-from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.base_model import Precision, TargetRuntime
 
 
 def fetch_huggingface_target_model(
     model_name: str,
+    precision: Precision,
     dst_folder: str | Path,
     runtime_path: TargetRuntime = TargetRuntime.TFLITE,
     config: ModelZooAssetConfig = ASSET_CONFIG,
@@ -34,8 +35,9 @@ def fetch_huggingface_target_model(
         raise NotImplementedError()
 
     files = []
+    precision_ext = f"_{precision}" if precision != Precision.float else ""
     for file_type in file_types:
-        files += fs.glob(os.path.join(hf_path, f"*.{file_type}"))
+        files += fs.glob(os.path.join(hf_path, f"*{precision_ext}.{file_type}"))
     if not files:
         raise FileNotFoundError(
             f"No compiled assets are available on Huggingface for {model_name} with runtime {runtime_path.name}."
