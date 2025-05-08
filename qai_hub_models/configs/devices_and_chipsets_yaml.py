@@ -94,7 +94,10 @@ class WebsiteIcon(Enum):
                 "qualcomm-qcs8250-proxy",
                 "qualcomm-qcs8275-proxy",
                 "qualcomm-qcs9075-proxy",
-            ] and not re.match(r"^RB\d", device.name):
+            ] and device.reference_device_name not in [
+                "RB3 Gen 2 (Proxy)",
+                "RB5 (Proxy)",
+            ]:
                 return WebsiteIcon.IoT_Chip
             return WebsiteIcon.IoT_Drone
         if device.form_factor == ScorecardDevice.FormFactor.AUTO:

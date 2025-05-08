@@ -42,6 +42,8 @@ class MMMLU(BaseDataset):
         num_fewshot: int = 5,
         split: str = "default",
         device: torch.device = torch.device("cpu"),
+        num_samples: int = 0,
+        seed: int = 42,
     ):
         self.block_size = block_size
         self.context_length = context_length
@@ -49,15 +51,19 @@ class MMMLU(BaseDataset):
 
         self.split_str = split
         self.num_fewshot = num_fewshot
+        self.num_samples = num_samples
 
         self.dataset = load_dataset(
             path="openai/MMMLU", name=self.split_str, split="test"
         )
-        self.preprocess_dataset()
+        self.dataset = self.dataset.shuffle(seed)
 
+        self.preprocess_dataset()
         self.device = device
 
     def __len__(self) -> int:
+        if self.num_samples != 0:
+            return self.num_samples
         return len(self.dataset)
 
     def load_fewshot(self) -> dict[str, list[str]]:
@@ -85,10 +91,10 @@ class MMMLU(BaseDataset):
 
         self.dataset.map(group_fewshot_questions)
 
-        for subject, questions in grouped_fewshot_questions.items():
-            if len(questions) < self.num_fewshot:
+        for _, questions in grouped_fewshot_questions.items():
+            if len(questions) < self.num_fewshot + 1:
                 raise ValueError(
-                    f"Not enough samples available in split {self.split_str} to satisfy {self.num_fewshot} fewshot samples."
+                    f"Not enough samples available in split {self.split_str} to satisfy {self.num_fewshot + 1} fewshot samples."
                 )
 
         return grouped_fewshot_questions

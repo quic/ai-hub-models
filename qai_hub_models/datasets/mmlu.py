@@ -25,10 +25,13 @@ class MMLU(BaseDataset):
         split: DatasetSplit = DatasetSplit.TEST,
         fewshot_split: str = "dev",
         device: torch.device = torch.device("cpu"),
+        num_samples: int = 0,
+        seed: int = 42,
     ):
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
+        self.num_samples = num_samples
 
         if split == DatasetSplit.TEST:
             self.split_str = "test"
@@ -39,11 +42,16 @@ class MMLU(BaseDataset):
         self.fewshot_split = fewshot_split
 
         self.dataset = load_dataset(path="cais/mmlu", name="all", split=self.split_str)
+
+        self.dataset = self.dataset.shuffle(seed)
+
         self.preprocess_dataset()
 
         self.device = device
 
     def __len__(self) -> int:
+        if self.num_samples != 0:
+            return self.num_samples
         return len(self.dataset)
 
     def load_fewshot(self) -> dict[str, str]:
@@ -70,7 +78,7 @@ class MMLU(BaseDataset):
 
         fewshot_split.map(group_fewshot_questions)
 
-        for subject, questions in grouped_fewshot_questions.items():
+        for _, questions in grouped_fewshot_questions.items():
             if len(questions) < self.num_fewshot:
                 raise ValueError(
                     f"Not enough samples available in split {fewshot_split} to satisfy {self.num_fewshot} fewshot samples."

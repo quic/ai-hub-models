@@ -30,7 +30,7 @@ from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
 
 
-def get_dataset(model, task):
+def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
     rope_embeddings = RopeEmbedding(
         max_length=model.context_length, config=model.llm_config
     )
@@ -73,6 +73,7 @@ def get_dataset(model, task):
             block_size=model.sequence_length,
             context_length=model.context_length,
             num_fewshot=5,
+            num_samples=num_samples_mmlu,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=mmlu_collate_fn
@@ -93,16 +94,13 @@ def get_dataset(model, task):
             context_length=model.context_length,
             num_fewshot=5,
             split=split_str,
+            num_samples=num_samples_mmlu,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=mmmlu_collate_fn
         )
     else:
-        raise ValueError(
-            "Only 'wikitext-ppl' and 'wikitext-ja-ppl' are available for evaluation."
-        )
-    # Pass it to data loader
-
+        raise ValueError("Use --help to see available tasks.")
     return dataloader
 
 
@@ -136,6 +134,12 @@ def llama3_evaluate(
         ]
         + ["mmmlu-" + language_code for language_code in mmmlu_split_lookup.keys()],
         help="Tasks for evaluation.",
+    )
+    parser.add_argument(
+        "--num-samples-mmlu",
+        type=int,
+        default=100,
+        help="Num of samples to use for MMLU or Multilingual MMLU.",
     )
 
     args = parser.parse_args()
@@ -187,7 +191,7 @@ def llama3_evaluate(
 
     model = model_cls.from_pretrained(**kwargs)
 
-    eval_dataloader = get_dataset(model, args.task)
+    eval_dataloader = get_dataset(model, args.task, args.num_samples_mmlu)
 
     evaluator = (
         get_mmlu_evaluator(model, server_device)
