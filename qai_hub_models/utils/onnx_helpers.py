@@ -14,6 +14,14 @@ import onnxruntime
 import torch
 from onnx.mapping import TENSOR_TYPE_MAP
 
+# Maps type strings returned by onnxruntime.InferenceSession.get_inputs() to numpy types.
+ORT_TENSOR_STR_TO_NP_TYPE = {
+    f"tensor({v.name[len('TensorProto.'):].lower()})": v.np_dtype
+    for v in TENSOR_TYPE_MAP.values()
+}
+
+QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
+
 
 def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
     """
@@ -85,8 +93,60 @@ def _to_scale_offset(scale: float, zero_point: int) -> tuple[float, int]:
     return (scale, -1 * zero_point)
 
 
+# Initializer proto definition: https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L499
+def _extract_scale(initializer: onnx.TensorProto) -> float:
+    assert initializer.data_type == onnx.TensorProto.DataType.Value("FLOAT")
+    if len(initializer.float_data) == 1:
+        return initializer.float_data[0]
+    assert len(initializer.raw_data) == 4, "Expected four bytes of raw float data."
+    return struct.unpack("<f", initializer.raw_data)[0]
+
+
+def _extract_zero_point(initializer: onnx.TensorProto) -> int:
+    valid_data_types: dict[str, tuple[str, int]] = {
+        "UINT8": ("<B", 1),
+        "INT8": ("<b", 1),
+        "UINT16": ("<H", 2),
+        "INT16": ("<h", 2),
+        "INT32": ("<i", 4),
+    }
+    for dtype in valid_data_types:
+        if initializer.data_type == onnx.TensorProto.DataType.Value(dtype):
+            format, size = valid_data_types[dtype]
+            if len(initializer.int32_data) == 1:
+                return initializer.int32_data[0]
+            assert (
+                len(initializer.raw_data) == size
+            ), f"Expect raw data to have {size} byte(s)."
+            return struct.unpack(format, initializer.raw_data)[0]
+    raise ValueError(
+        f"Quantization zero point constant has unknown data type {initializer.data_type}.",
+    )
+
+
+def _extract_qdq_scale_offset(
+    onnx_model: onnx.GraphProto,
+    initializer_indices: dict[str, int],
+    qdq_node: onnx.NodeProto,
+) -> tuple[float, int]:
+    scale = _extract_scale(
+        onnx_model.initializer[initializer_indices[qdq_node.input[1]]]
+    )
+    optional_zero_point_index = 2
+    zero_point = (
+        _extract_zero_point(
+            onnx_model.initializer[
+                initializer_indices[qdq_node.input[optional_zero_point_index]]
+            ]
+        )
+        if optional_zero_point_index < len(qdq_node.input)
+        else 0
+    )
+    return _to_scale_offset(scale, zero_point)
+
+
 def extract_io_types_from_onnx_model(
-    onnx_model: onnx.ModelProto,
+    onnx_model: onnx.ModelProto | onnxruntime.InferenceSession,
 ) -> tuple[
     dict[str, tuple[np.dtype, tuple[float, int] | None]],
     dict[str, tuple[np.dtype, tuple[float, int] | None]],
@@ -96,103 +156,79 @@ def extract_io_types_from_onnx_model(
     quantized input and output.
     """
 
-    # Initializer proto definition: https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L499
-    def extract_scale(initializer: onnx.TensorProto) -> float:
-        assert initializer.data_type == onnx.TensorProto.DataType.Value("FLOAT")
-        if len(initializer.float_data) == 1:
-            return initializer.float_data[0]
-        assert len(initializer.raw_data) == 4, "Expected four bytes of raw float data."
-        return struct.unpack("<f", initializer.raw_data)[0]
+    inputs: dict[str, tuple[np.dtype, tuple[float, int] | None]]
+    outputs: dict[str, tuple[np.dtype, tuple[float, int] | None]]
+    if isinstance(onnx_model, onnxruntime.InferenceSession):
+        # extract from inference session
+        input_names = {input.name for input in onnx_model.get_inputs()}
+        output_names = {output.name for output in onnx_model.get_outputs()}
 
-    def extract_zero_point(initializer: onnx.TensorProto) -> int:
-        valid_data_types: dict[str, tuple[str, int]] = {
-            "UINT8": ("<B", 1),
-            "INT8": ("<b", 1),
-            "UINT16": ("<H", 2),
-            "INT16": ("<h", 2),
-            "INT32": ("<i", 4),
+        inputs = {
+            input.name: (ORT_TENSOR_STR_TO_NP_TYPE[input.type], None)
+            for input in onnx_model.get_inputs()
         }
-        for dtype in valid_data_types:
-            if initializer.data_type == onnx.TensorProto.DataType.Value(dtype):
-                format, size = valid_data_types[dtype]
-                if len(initializer.int32_data) == 1:
-                    return initializer.int32_data[0]
-                assert (
-                    len(initializer.raw_data) == size
-                ), f"Expect raw data to have {size} byte(s)."
-                return struct.unpack(format, initializer.raw_data)[0]
-        raise ValueError(
-            f"Quantization zero point constant has unknown data type {initializer.data_type}.",
-        )
+        outputs = {
+            output.name: (ORT_TENSOR_STR_TO_NP_TYPE[output.type], None)
+            for output in onnx_model.get_outputs()
+        }
+    else:
+        # extract from onnx GraphProto
+        input_names = {input.name for input in onnx_model.graph.input}
+        output_names = {output.name for output in onnx_model.graph.output}
+        initializer_indices = {
+            init.name: idx for idx, init in enumerate(onnx_model.graph.initializer)
+        }
+        inputs = {
+            input.name: (
+                TENSOR_TYPE_MAP[input.type.tensor_type.elem_type].np_dtype,
+                None,
+            )
+            for input in onnx_model.graph.input
+        }
+        outputs = {
+            output.name: (
+                TENSOR_TYPE_MAP[output.type.tensor_type.elem_type].np_dtype,
+                None,
+            )
+            for output in onnx_model.graph.output
+        }
 
-    input_names = {input.name for input in onnx_model.graph.input}
-    output_names = {output.name for output in onnx_model.graph.output}
-    initializer_indices = {
-        init.name: idx for idx, init in enumerate(onnx_model.graph.initializer)
-    }
-    inputs: dict[str, tuple[np.dtype, tuple[float, int] | None]] = {
-        input.name: (TENSOR_TYPE_MAP[input.type.tensor_type.elem_type].np_dtype, None)
-        for input in onnx_model.graph.input
-    }
-    outputs: dict[str, tuple[np.dtype, tuple[float, int] | None]] = {
-        output.name: (TENSOR_TYPE_MAP[output.type.tensor_type.elem_type].np_dtype, None)
-        for output in onnx_model.graph.output
-    }
+        # Extract I/O QDQ Params
+        for node in onnx_model.graph.node:
+            if node.op_type == "EPContext":
+                for input_name in node.input:
+                    if input_name in input_names:
+                        dtype = inputs[input_name][0]
+                        if dtype in QUANTIZED_IO_TYPES:
+                            print(
+                                f"Warning: Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
+                                + " Cannot determine the QDQ parameters for the input."
+                            )
 
-    for node in onnx_model.graph.node:
-        if node.op_type == "EPContext":
-            input_name = node.input[0]
-            for input_name in node.input:
-                if input_name in input_names:
-                    dtype = inputs[input_name][0]
-                    if dtype in [np.uint8, np.uint16, np.int8, np.int16]:
-                        print(
-                            f"Warning: Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
-                            + " Cannot determine the QDQ parameters for the input."
-                        )
+                for output_name in node.output:
+                    if output_name in output_names:
+                        dtype = outputs[output_name][0]
+                        if dtype in QUANTIZED_IO_TYPES:
+                            print(
+                                f"Warning: Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
+                                + " Cannot determine the QDQ parameters for the output."
+                            )
 
-            for output_name in node.output:
-                if output_name in output_names:
-                    dtype = outputs[output_name][0]
-                    if dtype in [np.uint8, np.uint16, np.int8, np.int16]:
-                        print(
-                            f"Warning: Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
-                            + " Cannot determine the QDQ parameters for the output."
-                        )
-
-        if node.op_type == "DequantizeLinear":
-            if node.input[0] in input_names:
-                x_scale = extract_scale(
-                    onnx_model.graph.initializer[initializer_indices[node.input[1]]]
-                )
-                optional_zero_point_index = 2
-                x_zero_point = (
-                    extract_zero_point(
-                        onnx_model.graph.initializer[
-                            initializer_indices[node.input[optional_zero_point_index]]
-                        ]
+            if node.op_type == "DequantizeLinear":
+                if node.input[0] in input_names:
+                    inputs[node.input[0]] = (
+                        inputs[node.input[0]][0],
+                        _extract_qdq_scale_offset(
+                            onnx_model.graph, initializer_indices, node
+                        ),
                     )
-                    if optional_zero_point_index < len(node.input)
-                    else 0
-                )
-                scale, offset = _to_scale_offset(x_scale, x_zero_point)
-                inputs[node.input[0]] = (inputs[node.input[0]][0], (scale, offset))
-            continue
-        if node.op_type == "QuantizeLinear":
-            if node.output[0] in output_names:
-                y_scale = extract_scale(
-                    onnx_model.graph.initializer[initializer_indices[node.input[1]]]
-                )
-                optional_zero_point_index = 2
-                y_zero_point = (
-                    extract_zero_point(
-                        onnx_model.graph.initializer[
-                            initializer_indices[node.input[optional_zero_point_index]]
-                        ]
+            elif node.op_type == "QuantizeLinear":
+                if node.output[0] in output_names:
+                    outputs[node.output[0]] = (
+                        outputs[node.output[0]][0],
+                        _extract_qdq_scale_offset(
+                            onnx_model.graph, initializer_indices, node
+                        ),
                     )
-                    if optional_zero_point_index < len(node.input)
-                    else 0
-                )
-                scale, offset = _to_scale_offset(y_scale, y_zero_point)
-                outputs[node.output[0]] = (outputs[node.output[0]][0], (scale, offset))
+
     return inputs, outputs

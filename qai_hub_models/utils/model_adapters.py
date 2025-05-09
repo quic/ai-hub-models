@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import numpy as np
 import torch
 
-from qai_hub_models.utils.executable_onnx_model import ExecutableOnnxModel
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 
 
 def flatten(obj):
@@ -47,7 +47,8 @@ class TorchNumpyAdapter:
         Wraps torch models to use numpy input / outputs
         """
         assert isinstance(
-            base_model, (torch.jit.ScriptModule, torch.nn.Module, ExecutableOnnxModel)
+            base_model,
+            (torch.jit.ScriptModule, torch.nn.Module, ExecutableModelProtocol),
         )
         self.base_model = base_model
 

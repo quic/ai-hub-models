@@ -35,7 +35,9 @@ def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,
-        supported_precision_runtimes={Precision.w4a16: [TargetRuntime.QNN]},
+        supported_precision_runtimes={
+            Precision.w4a16: [TargetRuntime.QNN_CONTEXT_BINARY]
+        },
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     parser.add_argument(

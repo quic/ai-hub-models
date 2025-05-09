@@ -178,6 +178,18 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
         return None
 
+    @property
+    def supports_at_least_1_runtime(self) -> bool:
+        supports_at_least_1_runtime = False
+        for precision in self.supported_precisions:
+            if supports_at_least_1_runtime:
+                break
+            for runtime in TargetRuntime:
+                if supports_at_least_1_runtime:
+                    break
+                supports_at_least_1_runtime = self.is_supported(precision, runtime)
+        return supports_at_least_1_runtime
+
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
         model_folder = QAIHM_MODELS_ROOT / model_id

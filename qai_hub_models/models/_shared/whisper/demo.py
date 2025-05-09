@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 import numpy as np
+import sounddevice as sd
 
 from qai_hub_models.models._shared.whisper.app import WhisperApp
 from qai_hub_models.models._shared.whisper.model import (
@@ -34,7 +35,28 @@ def whisper_demo(model_cls: type[Whisper], is_test: bool = False):
         default=None,
         help="Audio file path or URL",
     )
+    parser.add_argument(
+        "--stream_audio_device",
+        type=int,
+        default=None,
+        help="Audio device (number) to stream from.",
+    )
+    parser.add_argument(
+        "--stream_audio_chunk_size",
+        type=int,
+        default=10,
+        help="For audio streaming, the number of seconds to record between each transcription attempt. A minimum of around 10 seconds is recommended for best accuracy.",
+    )
+    parser.add_argument(
+        "--list_audio_devices",
+        action="store_true",
+        help="Pass this to list audio devices and exit.",
+    )
     args = parser.parse_args([] if is_test else None)
+
+    if args.list_audio_devices:
+        print(sd.query_devices())
+        return
 
     # For other model sizes, see https://github.com/openai/whisper/blob/main/whisper/__init__.py#L17
     model = model_cls.from_pretrained()
@@ -47,12 +69,15 @@ def whisper_demo(model_cls: type[Whisper], is_test: bool = False):
         mean_decode_len=model.mean_decode_len,
     )
 
-    # Load default audio if file not provided
-    audio = args.audio_file
-    audio_sample_rate = None
-    if not audio:
-        audio, audio_sample_rate = load_demo_audio()
+    if args.stream_audio_device:
+        app.stream(args.stream_audio_device, args.stream_audio_chunk_size)
+    else:
+        # Load default audio if file not provided
+        audio = args.audio_file
+        audio_sample_rate = None
+        if not audio:
+            audio, audio_sample_rate = load_demo_audio()
 
-    # Perform transcription
-    transcription = app.transcribe(audio, audio_sample_rate)
-    print("Transcription:", transcription)
+        # Perform transcription
+        transcription = app.transcribe(audio, audio_sample_rate)
+        print("Transcription:", transcription)

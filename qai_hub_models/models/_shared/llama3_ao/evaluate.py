@@ -30,7 +30,7 @@ from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
 
 
-def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
+def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
     rope_embeddings = RopeEmbedding(
         max_length=model.context_length, config=model.llm_config
     )
@@ -43,6 +43,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
             model=model,
             block_size=model.sequence_length,
             context_length=model.context_length,
+            num_samples=num_samples,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=wikitext_collate_fn
@@ -54,6 +55,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
             model=model,
             block_size=model.sequence_length,
             context_length=model.context_length,
+            num_samples=num_samples,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=wikitext_ja_collate_fn
@@ -63,6 +65,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
             tokenizer=model.tokenizer,
             block_size=model.sequence_length,
             context_length=model.context_length,
+            num_samples=num_samples,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=tiny_mmlu_collate_fn
@@ -73,7 +76,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
             block_size=model.sequence_length,
             context_length=model.context_length,
             num_fewshot=5,
-            num_samples=num_samples_mmlu,
+            num_samples=num_samples,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=mmlu_collate_fn
@@ -94,7 +97,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples_mmlu: int):
             context_length=model.context_length,
             num_fewshot=5,
             split=split_str,
-            num_samples=num_samples_mmlu,
+            num_samples=num_samples,
         )
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=mmmlu_collate_fn
@@ -136,17 +139,21 @@ def llama3_evaluate(
         help="Tasks for evaluation.",
     )
     parser.add_argument(
-        "--num-samples-mmlu",
+        "--num-samples",
         type=int,
-        default=100,
-        help="Num of samples to use for MMLU or Multilingual MMLU.",
+        help="Number of samples to be used for evaluation.",
     )
 
     args = parser.parse_args()
+    num_samples = args.num_samples
+    task = args.task
     mode = args.mode
     user_specified_checkpoint = "--checkpoint" in sys.argv
     if (not user_specified_checkpoint or args.checkpoint == "DEFAULT") and mode is None:
         raise ValueError("--mode must be specified if --checkpoint is not.")
+
+    if num_samples is None:
+        num_samples = 0 if "ppl" in task else 100
 
     if args.checkpoint != "DEFAULT":
         if not mode:
@@ -191,7 +198,7 @@ def llama3_evaluate(
 
     model = model_cls.from_pretrained(**kwargs)
 
-    eval_dataloader = get_dataset(model, args.task, args.num_samples_mmlu)
+    eval_dataloader = get_dataset(model, task, num_samples)
 
     evaluator = (
         get_mmlu_evaluator(model, server_device)

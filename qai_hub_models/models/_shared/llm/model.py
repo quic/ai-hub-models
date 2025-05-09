@@ -37,6 +37,7 @@ from transformers.models.llama import LlamaConfig
 from qai_hub_models.models._shared.llm._utils import (
     _set_lm_head_to_8b,
     _set_tensors_to_output_8b_sym,
+    _tie_quantizers_for_kv_cache,
 )
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
@@ -280,6 +281,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         print()
         print("Creating a QuantSim model using AIMET ONNX.")
         quant_sim = cls.create_quantsim(qs_onnx_model, server_device)
+        _tie_quantizers_for_kv_cache(quant_sim)
 
         # Cleanup the ONNX model that creates the QuantSim model
         del qs_onnx_model
@@ -337,8 +339,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         # Tie Quantizers for Concat Op
         quantsim.op_types_to_tie_qtzrs = ["Concat"]
         quantsim._tie_qtzrs = True
-        # Ignore Slice outputs
+        # Ignore Slice and Constant outputs
         quantsim.op_outputs_to_ignore.append("Slice")
+        quantsim.op_outputs_to_ignore.append("Constant")
         qs.encoding_version = "0.6.1"
         quant_sim = QuantSimOnnx(
             model=onnx_model,
@@ -480,22 +483,20 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         other_compile_options: str = "",
         device: Device | None = None,
     ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
-        )
-        assert precision == Precision.w8a16, "Only w8a16 precision is supported"
         if (
-            target_runtime != TargetRuntime.QNN
+            target_runtime != TargetRuntime.QNN_CONTEXT_BINARY
+            and target_runtime != TargetRuntime.QNN
             and target_runtime != TargetRuntime.PRECOMPILED_QNN_ONNX
         ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-        compile_options += (
-            " --target_runtime qnn_context_binary"
-            if target_runtime == TargetRuntime.QNN
-            else " --target_runtime precompiled_qnn_onnx"
+        if precision != Precision.w8a16:
+            raise RuntimeError("Only w8a16 precision is supported")
+
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
         )
         return compile_options
 

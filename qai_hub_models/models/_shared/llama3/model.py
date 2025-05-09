@@ -947,10 +947,6 @@ class Llama3Base(LlamaMixin, ABC):
             dst_encodings=new_encodings["param_encodings"],
         )
 
-        with open("llama32_transformed.encodings", "w") as write_file:
-            json.dump(new_encodings, write_file, indent=4, sort_keys=True)
-        print("DONE")
-
         # This is needed for subtle reasons.
         # Gather ops require weights and output range to be the same, so that
         # it can be implemented as a memory look-up. Therefore, AIMET does not

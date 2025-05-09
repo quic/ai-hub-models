@@ -22,7 +22,6 @@ from qai_hub_models.configs._info_yaml_enums import (
 )
 from qai_hub_models.configs._info_yaml_llm_details import LLM_CALL_TO_ACTION, LLMDetails
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
-from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, QAIHM_WEB_ASSET
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -265,18 +264,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if not os.path.exists(self.get_package_path() / "info.yaml"):
                 raise ValueError("All public models must have an info.yaml")
 
-            supports_at_least_1_runtime = False
-            for precision in self.code_gen_config.supported_precisions:
-                if supports_at_least_1_runtime:
-                    break
-                for runtime in TargetRuntime:
-                    if supports_at_least_1_runtime:
-                        break
-                    supports_at_least_1_runtime = self.code_gen_config.is_supported(
-                        precision, runtime
-                    )
-
-            if not supports_at_least_1_runtime:
+            if not self.code_gen_config.supports_at_least_1_runtime:
                 raise ValueError("Public models must support at least one export path")
 
             if not self.has_static_banner:
@@ -422,10 +410,13 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         info.code_gen_config = QAIHMModelCodeGen.from_model(model_id)
         return info
 
-    def to_model_yaml(self, write_code_gen=True):
+    def to_model_yaml(self, write_code_gen=True) -> tuple[Path, Path | None]:
+        info_path = QAIHM_MODELS_ROOT / self.id / "info.yaml"
+        code_gen_path = None
         self.to_yaml(
-            path=QAIHM_MODELS_ROOT / self.id / "info.yaml",
+            path=info_path,
             exclude=["code_gen_config"],
         )
         if write_code_gen:
-            self.code_gen_config.to_model_yaml(self.id)
+            code_gen_path = self.code_gen_config.to_model_yaml(self.id)
+        return info_path, code_gen_path

@@ -425,9 +425,9 @@ class QNNExecutionProviderOptions(ExecutionProviderOptions):
         ]
 
 
-class ExecutableOnnxModel(ExecutableModelProtocol):
+class OnnxSessionTorchWrapper(ExecutableModelProtocol):
     """
-    A wrapper for ONNX Models that provides a Torch-like inference interface.
+    A wrapper for ONNX session that provides a Torch-like inference interface.
 
     Implements the __call__() and forward() functions in the same way a pyTorch module would.
     This allows this class to act as drop-in replacement for a pyTorch module of the same model.
@@ -438,22 +438,21 @@ class ExecutableOnnxModel(ExecutableModelProtocol):
 
     def __init__(
         self,
-        model_path: str | PathLike,
-        session_options: OnnxSessionOptions,
-        execution_providers: list[ExecutionProviderOptions],
+        session: onnxruntime.InferenceSession,
+        inputs: dict[str, tuple[np.dtype, tuple[float, int] | None]] | None = None,
+        outputs: dict[str, tuple[np.dtype, tuple[float, int] | None]] | None = None,
         quantize_io: bool = True,
     ):
         """
-        Create an executable ONNX model.
+        Create a wrapper for an ONNX session that uses torch-like I/O for the forward call.
 
-        model_path
-            ONNX model to load.
+        session:
+            ONNX session.
 
-        session_options
-            ONNX session options. This object will be modified in-place and should not be reused.
-
-        execution_providers
-            Execution providers to enable when running this model (& associated settings).
+        inputs / outputs
+            Model inputs / output names & types.
+            If not provided, they will be extracted from the session.
+            dict[name, tuple[type, (scale, bias)]]
 
         quantize_io
             If an input is float and the corresponding type in the ONNX model is quantized,
@@ -466,78 +465,16 @@ class ExecutableOnnxModel(ExecutableModelProtocol):
             Set this to false to disable that behavior; instead:
                 * if an input type does not match, an error will be raised
                 * quantized output will be returned in quantized format
-
-        input_qdq_params & output_qdq_params
-            By default, this class will attempt to extract QDQ parameters for this model's I/O from the ONNX model.
-            It can then automatically quantize and dequantize I/O when calling forward() or __call__().
-
-            If this class is unable to extract the parameters (eg. if this model contains a precompiled context binary),
-            but you would still like the class to auto-quantize / auto-dequantize I/O, you can pass supplemental
-            input_qdq_params and output_qdq_params here.
-
-            The format is dict[ i/o name, tuple[ quantized dtype, tuple[ scale, zero-point/bias ]]]
-
-            These params are unused if quantize_io is false.
         """
-        for ep in execution_providers:
-            # Verify the environment is set up correctly for QNN.
-            if isinstance(ep, QNNExecutionProviderOptions):
-                _verify_onnxruntime_qnn_installed()
-                break
-
-        # Extract I/O types & QDQ params from the model.
-        # Overwrite / supplement that I/O with user-provided types
-        self.inputs, self.outputs = extract_io_types_from_onnx_model(
-            # External data is not needed here, qdq params are always stored directly in the graph.
-            onnx.load(model_path, load_external_data=False)
-        )
-
-        # Deal with EP Session Caching
-        #   1. Determine location of cache for the user-provided onnx settings.
-        #   2. Set up the session options to either load the existing cache or compile a new cache.
-        if session_options.context_enable:
-            # Hash session options to determine final cache path.
-            context_file_path = self._get_model_cache_path(
-                model_path, session_options, execution_providers
-            )
-
-            # Copy the session options so we can modify it
-            session_options = dataclasses.replace(session_options)
-
-            if not os.path.exists(context_file_path):
-                # Set the flag that will enable session context compilation if there is no existing context to load.
-                session_options.context_file_path = context_file_path
-                session_options.context_enable = True
-            else:
-                # Otherwise, point the inference session to the cached context ONNX model instead of the input model.
-                session_options.context_enable = False
-                session_options.context_file_path = None
-                model_path = context_file_path
-                print(f"Loading cached session context at {model_path}")
-
-        # Create the inference session
-        self.model_path = model_path
-        self.session_options = session_options
-        self.execution_providers = execution_providers
+        self.session = session
         self.quantize_io = quantize_io
-        self.session = onnxruntime.InferenceSession(
-            self.model_path,
-            self.session_options.onnx_session_options,
-            [x.ep_name for x in self.execution_providers],
-            [x.provider_options_dict for x in self.execution_providers],
-        )
 
-        # A context cache will only be created if:
-        #  * session_options.context_enable is True
-        #
-        #  * one or more selected ONNX EPs can save a session context
-        #    (there's no way to know this without checking if the cache was created on disk)
-        if (
-            session_options.context_enable
-            and session_options.context_file_path is not None
-            and os.path.exists(session_options.context_file_path)
-        ):
-            print(f"Saved session context at {session_options.context_file_path}")
+        if not inputs or not outputs:
+            gen_inputs, gen_outputs = extract_io_types_from_onnx_model(session)
+            inputs = inputs or gen_inputs
+            outputs = outputs or gen_outputs
+        self.inputs = inputs
+        self.outputs = outputs
 
     def __call__(self, *args, **kwargs) -> torch.Tensor | tuple[torch.Tensor, ...]:
         """
@@ -694,6 +631,110 @@ class ExecutableOnnxModel(ExecutableModelProtocol):
             return processed_outputs
 
         return outputs
+
+
+class ExecutableOnnxModel(OnnxSessionTorchWrapper):
+    """
+    A wrapper for ONNX Models that provides a Torch-like inference interface.
+
+    Implements the __call__() and forward() functions in the same way a pyTorch module would.
+    This allows this class to act as drop-in replacement for a pyTorch module of the same model.
+
+    The class will also automatically quantize and dequantize model I/O, to make it easier to
+    drop the model into floating point-based pipelines even if the ONNX model is quantized.
+    """
+
+    def __init__(
+        self,
+        model_path: str | PathLike,
+        session_options: OnnxSessionOptions,
+        execution_providers: list[ExecutionProviderOptions],
+        quantize_io: bool = True,
+    ):
+        """
+        Create an executable ONNX model.
+
+        model_path
+            ONNX model to load.
+
+        session_options
+            ONNX session options. This object will be modified in-place and should not be reused.
+
+        execution_providers
+            Execution providers to enable when running this model (& associated settings).
+
+        quantize_io
+            If an input is float and the corresponding type in the ONNX model is quantized,
+            the input will be automatically quantized for you (when calling __call__ or forward())
+            using the QDQ params in the model.
+
+            The same applies to outputs; if an output is quantized, it will be dequantized for you
+            (when calling __call__ or forward()) using the QDQ params in the model.
+
+            Set this to false to disable that behavior; instead:
+                * if an input type does not match, an error will be raised
+                * quantized output will be returned in quantized format
+        """
+        for ep in execution_providers:
+            # Verify the environment is set up correctly for QNN.
+            if isinstance(ep, QNNExecutionProviderOptions):
+                _verify_onnxruntime_qnn_installed()
+                break
+
+        # Extract I/O types & QDQ params from the model.
+        # Overwrite / supplement that I/O with user-provided types
+        inputs, outputs = extract_io_types_from_onnx_model(
+            # External data is not needed here, qdq params are always stored directly in the graph.
+            onnx.load(model_path, load_external_data=False)
+        )
+
+        # Deal with EP Session Caching
+        #   1. Determine location of cache for the user-provided onnx settings.
+        #   2. Set up the session options to either load the existing cache or compile a new cache.
+        if session_options.context_enable:
+            # Hash session options to determine final cache path.
+            context_file_path = self._get_model_cache_path(
+                model_path, session_options, execution_providers
+            )
+
+            # Copy the session options so we can modify it
+            session_options = dataclasses.replace(session_options)
+
+            if not os.path.exists(context_file_path):
+                # Set the flag that will enable session context compilation if there is no existing context to load.
+                session_options.context_file_path = context_file_path
+                session_options.context_enable = True
+            else:
+                # Otherwise, point the inference session to the cached context ONNX model instead of the input model.
+                session_options.context_enable = False
+                session_options.context_file_path = None
+                model_path = context_file_path
+                print(f"Loading cached session context at {model_path}")
+
+        # Create the inference session
+        self.model_path = model_path
+        self.session_options = session_options
+        self.execution_providers = execution_providers
+        session = onnxruntime.InferenceSession(
+            self.model_path,
+            self.session_options.onnx_session_options,
+            [x.ep_name for x in self.execution_providers],
+            [x.provider_options_dict for x in self.execution_providers],
+        )
+
+        # A context cache will only be created if:
+        #  * session_options.context_enable is True
+        #
+        #  * one or more selected ONNX EPs can save a session context
+        #    (there's no way to know this without checking if the cache was created on disk)
+        if (
+            session_options.context_enable
+            and session_options.context_file_path is not None
+            and os.path.exists(session_options.context_file_path)
+        ):
+            print(f"Saved session context at {session_options.context_file_path}")
+
+        super().__init__(session, inputs, outputs, quantize_io)
 
     @classmethod
     def OnNPU(

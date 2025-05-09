@@ -7,13 +7,15 @@ from __future__ import annotations
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 
-def _find_node_type_with_pattern(node, node_type: str, pattern_str: str | list[str]):
-    if isinstance(pattern_str, str):
-        return node.op_type == node_type and pattern_str in node.name
-    if isinstance(pattern_str, list):
-        return node.op_type == node_type and any(
-            pattern in node.name for pattern in pattern_str
-        )
+def _tie_quantizers_for_kv_cache(quantsim_model: QuantSimOnnx) -> None:
+    quantizer_mapping = dict()
+    for input_name in quantsim_model.model.graph().input:
+        if "past_key" in input_name.name or "past_value" in input_name.name:
+            output_name = input_name.name.replace("in", "out")
+            quantizer_mapping[input_name.name] = quantsim_model.qc_quantize_op_dict[
+                output_name
+            ]
+    quantsim_model.set_quantizers(quantizer_mapping)
 
 
 def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):

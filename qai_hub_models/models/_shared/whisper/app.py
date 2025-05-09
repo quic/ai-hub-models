@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import numpy as np
 import samplerate
+import sounddevice as sd
 import torch
 import whisper
 from scipy import special as scipy_special
@@ -42,6 +43,7 @@ class WhisperApp:
         max_audio_seconds: int = CHUNK_LENGTH,
         n_fft: int = N_FFT,
         hop_length: int = HOP_LENGTH,
+        no_speech_threshold=1.1,
     ):
         self.num_decoder_blocks = num_decoder_blocks
         self.num_decoder_heads = num_decoder_heads
@@ -59,6 +61,11 @@ class WhisperApp:
         self.max_audio_seconds = max_audio_seconds
         self.n_fft = n_fft
         self.max_audio_samples = self.max_audio_seconds * self.sample_rate
+        self.tokenizer = whisper.decoding.get_tokenizer(
+            multilingual=False, language="en", task="transcribe"
+        )
+        self.no_speech_threshold = no_speech_threshold
+        self.clip_segment_tokens = {*self.tokenizer.special_tokens.values()}
 
         # Wraps models so they take np ndarray as input and outputs
         self.encoder = TorchNumpyAdapter(whisper_encoder)
@@ -67,6 +74,74 @@ class WhisperApp:
     def predict(self, *args, **kwargs):
         # See transcribe.
         return self.transcribe(*args, **kwargs)
+
+    def stream(self, device=2, audio_chunk_size_seconds: int = 5) -> None:
+        """
+        Stream audio from the given audio device and transcribe in real time.
+
+        Parameters:
+            device:
+                Audio device (see. sounddevice.query_devices())
+            audio_chunk_size_seconds:
+                Number of seconds to record between each transcription attempt.
+        """
+        tokens: list[int] = []
+
+        def callback(audio: np.ndarray, frames, time, status):
+            nonlocal tokens
+            curr_tokens = self.transcribe_tokens(audio.squeeze(-1), SAMPLE_RATE)
+            tokens.extend(curr_tokens)
+
+            if not curr_tokens:
+                # This audio was empty, so it's safe to decode previous tokens.
+                print(self.tokenizer.decode(tokens), end="", flush=True)
+                tokens = []
+            else:
+                split_start = 0
+                decode_splits = []
+                token_idx = 0
+                # Every time 2 "clip segment tokens" (timestamp tokens)
+                # appear in sequence, we're safe to decode the previous tokens.
+                while token_idx < len(tokens):
+                    if tokens[token_idx] in self.clip_segment_tokens:
+                        next_non_clip_idx = token_idx + 1
+                        while (
+                            next_non_clip_idx < len(tokens)
+                            and tokens[next_non_clip_idx] in self.clip_segment_tokens
+                        ):
+                            next_non_clip_idx = next_non_clip_idx + 1
+
+                        if next_non_clip_idx >= token_idx + 2:
+                            split_end = token_idx + 1
+                            if max(split_end - split_start, 0) > 0:
+                                decode_splits.append((split_start, split_end))
+                            split_start = next_non_clip_idx
+
+                        token_idx = next_non_clip_idx + 1
+                    else:
+                        token_idx = token_idx + 1
+
+                for split in decode_splits:
+                    print(
+                        self.tokenizer.decode(tokens[split[0] : split[1]]),
+                        end="",
+                        flush=True,
+                    )
+                if split_start != 0:
+                    tokens = tokens[split_start:]
+
+        print("Listening...")
+        with sd.InputStream(
+            device=device,
+            channels=1,
+            blocksize=audio_chunk_size_seconds * SAMPLE_RATE,
+            callback=callback,
+            samplerate=SAMPLE_RATE,
+        ):
+            while True:
+                response = input("Press ctrl+c or q/Q to quit.\n")
+                if response in ("q", "Q"):
+                    break
 
     def transcribe(
         self, audio: np.ndarray | str, audio_sample_rate: int | None = None
@@ -87,7 +162,31 @@ class WhisperApp:
 
         Returns
         -------
-        List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+        transcribed text
+        """
+        tokens = self.transcribe_tokens(audio, audio_sample_rate)
+        return self.tokenizer.decode(tokens).strip()
+
+    def transcribe_tokens(
+        self, audio: np.ndarray | str, audio_sample_rate: int | None = None
+    ) -> list[int]:
+        """
+        Transcribe the provided audio to text.
+
+        Parameters
+        ----------
+        audio: numpy array | str
+            Path to audio file if a string.
+            Raw audio array of shape (# of samples) if a numpy array.
+
+        audio_sample_rate: int | None
+            The sample rate of the provided audio, in samples / second.
+            If audio is a numpy array, this must be provided.
+            If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
+
+        Returns
+        -------
+        transcribed tokens
         """
         if isinstance(audio, str):
             import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
@@ -100,12 +199,16 @@ class WhisperApp:
         assert audio_sample_rate is not None
         assert isinstance(audio, np.ndarray)
 
-        return " ".join(
+        out_chunked_tokens: list[list[int]] = [
             self._transcribe_single_chunk(x)
             for x in chunk_and_resample_audio(audio, audio_sample_rate)
-        )
+        ]
+        out_tokens: list[int] = []
+        for chunk_tokens in out_chunked_tokens:
+            out_tokens.extend(chunk_tokens)
+        return out_tokens
 
-    def _transcribe_single_chunk(self, audio: np.ndarray) -> str:
+    def _transcribe_single_chunk(self, audio: np.ndarray) -> list[int]:
         """
         Transcribe an audio chunk to text.
 
@@ -117,8 +220,7 @@ class WhisperApp:
             The maximum length of this audio must be self.max_audio_samples.
 
         Returns:
-
-        - transcribed texts
+        - transcribed tokens
         """
         assert self.mel_filter is not None
         mel_input = log_mel_spectrogram(
@@ -128,7 +230,7 @@ class WhisperApp:
         # Start decoding
         # coreml only takes float tensors
         x = np.array([[TOKEN_SOT]])
-        decoded_tokens = [TOKEN_SOT]
+        decoded_tokens: list[int] = []
         sample_len = self.mean_decode_len  # mean # of tokens to sample
         k_cache_self = np.zeros(
             (
@@ -186,16 +288,14 @@ class WhisperApp:
             if next_token == TOKEN_EOT:
                 break
 
-            sum_logprobs += logprobs[next_token]
+            sum_logprobs += np.abs(logprobs[next_token])
             x = np.array([[next_token]])
             decoded_tokens.append(int(next_token))
 
-        tokenizer = whisper.decoding.get_tokenizer(
-            multilingual=False, language="en", task="transcribe"
-        )
+        if (sum_logprobs / len(decoded_tokens)) >= self.no_speech_threshold:
+            return []
 
-        text = tokenizer.decode(decoded_tokens[1:])  # remove TOKEN_SOT
-        return text.strip()
+        return decoded_tokens
 
 
 # Whisper constants

@@ -302,27 +302,26 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
-        )
-        assert precision == Precision.w8a16, "Only w8a16 precision is supported"
-        graph_name = self.get_qnn_graph_name()
+
         if (
-            target_runtime != TargetRuntime.QNN
+            target_runtime != TargetRuntime.QNN_CONTEXT_BINARY
+            and target_runtime != TargetRuntime.QNN
             and target_runtime != TargetRuntime.PRECOMPILED_QNN_ONNX
         ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-        compile_options += (
-            " --target_runtime qnn_context_binary"
-            if target_runtime == TargetRuntime.QNN
-            else " --target_runtime precompiled_qnn_onnx"
+        if precision != Precision.w8a16:
+            raise RuntimeError("Only w8a16 precision is supported")
+
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
         )
-        compile_options += " --quantize_full_type w8a16 --quantize_io"
+        graph_name = self.get_qnn_graph_name()
+
         if graph_name is not None:
-            compile_options += f" --qnn_graph_name {graph_name}"
+            compile_options += f" --qnn_options context_enable_graphs={graph_name}"
         return compile_options
 
     def get_hub_profile_options(

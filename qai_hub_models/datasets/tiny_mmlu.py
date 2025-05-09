@@ -23,10 +23,12 @@ class TinyMMLU(BaseDataset):
         context_length: int = 4096,
         split: DatasetSplit = DatasetSplit.TEST,
         device: torch.device = torch.device("cpu"),
+        num_samples: int = 0,
     ):
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
+        self.num_samples = num_samples
 
         if split == DatasetSplit.TEST:
             self.split_str = "test"
@@ -41,6 +43,10 @@ class TinyMMLU(BaseDataset):
         self.device = device
 
     def __len__(self) -> int:
+        if self.num_samples != 0:
+            if self.num_samples > 100:
+                raise ValueError("This dataset only has 100 samples for evalutaion.")
+            return self.num_samples
         return len(self.dataset)
 
     def preprocess_dataset(self):

@@ -31,6 +31,15 @@ from qai_hub_models.utils.printing import (
 )
 
 
+def get_graph_name(
+    sub_component_name: str, context_length: int, sequence_length: int
+) -> str:
+    model_type, part, _, num_splits = sub_component_name.split("_")
+    assert model_type in {"prompt", "token"}
+    assert part <= num_splits
+    return f"{model_type}_ar{sequence_length}_cl{context_length}_{part}_of_{num_splits}"
+
+
 def export_model(
     model_cls: type[Llama3Base],
     model_name: str,
@@ -220,7 +229,9 @@ def export_model(
             # Sequence length (ar...) and context lenght (cl...) in graph name
             # are semantically important to Genie
             sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
-            graph_name = f"{instantiation_name}_ar{seq_len}_cl{model.context_length}_{i + 1}_of_{num_splits}"
+            graph_name = get_graph_name(
+                sub_component_name, model.context_length, seq_len
+            )
             component_name = f"part_{i + 1}_of_{num_splits}"
             sub_component_names[instantiation_name].append(sub_component_name)
             full_name = f"{model_name}_{sub_component_name}"
@@ -241,7 +252,7 @@ def export_model(
                 model.get_hub_compile_options(
                     target_runtime, Precision.w8a16, compile_options
                 )
-                + f" --qnn_graph_name {graph_name}"
+                + f" --qnn_options context_enable_graphs={graph_name}"
             )
 
             current_model = get_or_create_cached_model(
@@ -291,11 +302,9 @@ def export_model(
         for instantiation_name, seq_len in instantiations:
             for sub_component_name in sub_component_names[instantiation_name]:
                 component_name = component_from_sub_component_names[sub_component_name]
-                graph_name = sub_component_name.replace(
-                    instantiation_name,
-                    f"{instantiation_name}_ar{seq_len}_cl{model.context_length}",
+                graph_name = get_graph_name(
+                    sub_component_name, model.context_length, seq_len
                 )
-
                 profile_options = (
                     profile_options_per_instantiation[instantiation_name]
                     + f" --qnn_options context_enable_graphs={graph_name}"

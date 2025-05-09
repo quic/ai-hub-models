@@ -758,15 +758,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         zero_keys = []
 
         for layer in range(self.llm_config.num_hidden_layers):
-            # This is a workaround for now as we can't tie the observers for two tensors yet.
-            # They are very slightly different.
-            encodings["activation_encodings"][f"past_key_{layer}_out"] = encodings[
-                "activation_encodings"
-            ][f"past_key_{layer}_in"]
-            encodings["activation_encodings"][f"past_value_{layer}_out"] = encodings[
-                "activation_encodings"
-            ][f"past_value_{layer}_in"]
-
             for sec in ["input", "post_attention"]:
                 zero_keys += [
                     f"/model/model/layers.{layer}/{sec}_layernorm/Pow_output_0",

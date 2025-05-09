@@ -99,8 +99,10 @@ def update_code_gen_failure_reasons(
     enabled_runtimes = {x.runtime for x in ScorecardProfilePath if x.enabled}
     for pmapping in code_gen_config.disabled_paths.data.values():
         for runtime in enabled_runtimes:
-            if runtime in pmapping:
-                pmapping.pop(runtime)
+            if reasons := pmapping.get(runtime):
+                reasons.scorecard_failure = None
+                if not reasons.has_failure:
+                    pmapping.pop(runtime)
 
     # Add new failure reasons
     for precision in supported_precisions:
