@@ -11,6 +11,7 @@ from qai_hub_models.scorecard import (
     ScorecardDevice,
     ScorecardProfilePath,
 )
+from qai_hub_models.scorecard.device import cs_x_elite
 from qai_hub_models.scorecard.execution_helpers import (
     for_each_scorecard_path_and_device,
 )
@@ -83,6 +84,17 @@ def update_code_gen_failure_reasons(
                 profile_job = profile_summary.get_run(
                     precision, device, path, component_id
                 )
+                if (
+                    profile_job.status_message is not None
+                    and "memory usage exceeded" in profile_job.status_message
+                ):
+                    # X Elite has the most memory by far. If X Elite can run it, then we support it,
+                    x_elite_profile_job = profile_summary.get_run(
+                        precision, cs_x_elite, path, component_id
+                    )
+                    if x_elite_profile_job.success:
+                        profile_job = x_elite_profile_job
+
                 if profile_job.failed:
                     profile_failures[precision][path][component_id] = profile_job
                 if not profile_job.skipped:
