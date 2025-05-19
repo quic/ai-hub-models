@@ -28,6 +28,9 @@ from qai_hub_models.models.llama_v3_2_3b_chat import MODEL_ID as model_id_orig
 from qai_hub_models.models.llama_v3_2_3b_chat.model import MODEL_ASSET_VERSION, Llama3_2
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
+from qai_hub_models.utils.onnx_helpers import (
+    torch_onnx_export_with_large_model_size_check,
+)
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
 
 # Set up logging
@@ -59,7 +62,7 @@ def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
     onnx_path = os.path.join(export_dir, "model.onnx")
     logger.info(f"Saving piqaro-onnx optimized ONNX model to {onnx_path}")
 
-    torch.onnx.export(torch_model, sample_input, onnx_path)
+    torch_onnx_export_with_large_model_size_check(torch_model, sample_input, onnx_path)
 
     onnx_model = onnx.load(onnx_path)
     import onnxsim

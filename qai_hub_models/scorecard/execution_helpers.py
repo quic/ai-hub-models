@@ -7,15 +7,21 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from enum import Enum, unique
+from functools import lru_cache
+from pathlib import Path
 from typing import Callable, Optional, TypeVar
 
 import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
+from qai_hub_models.scorecard.internal.scripts.sync_model_assets import (
+    get_bench_pytorch_w8a8_models,
+)
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
+from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 
 @unique
@@ -38,6 +44,10 @@ class SpecialPrecisionSetting(Enum):
     # For models that have w8a16 in supported precisions, run them in w8a16
     # For all other models, run in w8a16
     DEFAULT_QUANTIZED = "default_quantized"
+
+    # Runs all models in float except the models specified in
+    # pytorch_bench_models_w8a8.txt which will also run in w8a8
+    BENCH = "bench"
 
 
 def for_each_scorecard_path_and_device(
@@ -113,7 +123,20 @@ def get_enabled_test_precisions(
     return special_setting, [Precision.parse(p.strip()) for p in precisions_set]
 
 
+def get_quantized_bench_models_path() -> Path:
+    return (
+        QAIHM_MODELS_ROOT / "scorecard" / "internal" / "pytorch_bench_models_w8a8.txt"
+    )
+
+
+@lru_cache(maxsize=1)
+def get_quantized_bench_models() -> set[str]:
+    with open(get_quantized_bench_models_path()) as f:
+        return set(f.read().strip().split("\n"))
+
+
 def get_model_test_precisions(
+    model_id: str,
     model_supported_precisions: set[Precision],
     can_use_quantize_job: bool = True,
 ) -> list[Precision]:
@@ -153,6 +176,14 @@ def get_model_test_precisions(
             if (Precision.w8a16 in model_supported_precisions)
             else Precision.w8a8
         )
+    if special_precision_setting == SpecialPrecisionSetting.BENCH:
+        if Precision.float in model_supported_precisions:
+            enabled_precisions.add(Precision.float)
+        if (
+            Precision.w8a8 in model_supported_precisions
+            and model_id in get_bench_pytorch_w8a8_models()
+        ):
+            enabled_precisions.add(Precision.w8a8)
     if can_use_quantize_job:
         # If quantize job is supported, this model can run tests on any desired precision.
         enabled_precisions.update(extra_enabled_precisions)
@@ -171,6 +202,7 @@ ScorecardPathTypeVar = TypeVar(
 
 
 def get_model_test_parameterizations(
+    model_id: str,
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     path_type: type[ScorecardPathTypeVar],
@@ -183,6 +215,9 @@ def get_model_test_parameterizations(
     Get a list of parameterizations for testing a model.
 
     Parameters:
+        model_id:
+            model_id of the relevant model.
+
         supported_paths:
             The list of (Precision, Runtime) pairs that this model can support.
 
@@ -234,7 +269,7 @@ def get_model_test_parameterizations(
     # Get the precisions enabled for this model in this test environment.
     model_supported_precisions = set(supported_paths.keys())
     test_precisions = get_model_test_precisions(
-        model_supported_precisions, can_use_quantize_job
+        model_id, model_supported_precisions, can_use_quantize_job
     )
 
     # For each enabled test precision...
@@ -334,10 +369,12 @@ def pytest_device_idfn(val):
 
 
 def get_quantize_parameterized_pytest_config(
+    model_id: str,
     supported_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
 ) -> list[Precision]:
     precisions = get_model_test_precisions(
+        model_id,
         set(supported_paths.keys()),
         can_use_quantize_job,
     )
@@ -345,6 +382,7 @@ def get_quantize_parameterized_pytest_config(
 
 
 def get_compile_parameterized_pytest_config(
+    model_id: str,
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
@@ -354,6 +392,7 @@ def get_compile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
     """
     return get_model_test_parameterizations(
+        model_id,
         supported_paths,
         timeout_paths,
         ScorecardCompilePath,
@@ -363,6 +402,7 @@ def get_compile_parameterized_pytest_config(
 
 
 def get_profile_parameterized_pytest_config(
+    model_id: str,
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
@@ -372,6 +412,7 @@ def get_profile_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     return get_model_test_parameterizations(
+        model_id,
         supported_paths,
         timeout_paths,
         ScorecardProfilePath,
@@ -381,6 +422,7 @@ def get_profile_parameterized_pytest_config(
 
 
 def get_evaluation_parameterized_pytest_config(
+    model_id: str,
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
@@ -391,6 +433,7 @@ def get_evaluation_parameterized_pytest_config(
     Get a pytest parameterization list of all enabled (device, profile path) pairs.
     """
     return get_model_test_parameterizations(
+        model_id,
         supported_paths,
         timeout_paths,
         ScorecardProfilePath,

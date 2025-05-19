@@ -9,11 +9,12 @@ from pathlib import Path
 from typing import Optional
 
 from .constants import (
+    PUBLIC_BENCH_MODELS,
     PY_PACKAGE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_MODELS_ROOT,
     PY_PACKAGE_RELATIVE_SRC_ROOT,
     REPO_ROOT,
-    STATIC_MDOELS_ROOT,
+    STATIC_MODELS_ROOT,
 )
 from .github import on_github
 from .util import get_is_hub_quantized, new_cd, run, run_and_get_output
@@ -323,17 +324,22 @@ def get_all_models() -> set[str]:
         ):
             model_names.add(model_name)
 
-    bench_dir = os.getenv("QAIHM_BENCH_TEST_DIR", STATIC_MDOELS_ROOT)
+    bench_dir = os.getenv("QAIHM_BENCH_TEST_DIR", STATIC_MODELS_ROOT)
     static_models = {x[:-5] for x in os.listdir(bench_dir) if x.endswith(".yaml")}
 
     # Select a subset of models based on user input
-    allowed_models = os.environ.get("QAIHM_TEST_MODELS", None)
-    if allowed_models and allowed_models.upper() != "ALL":
-        allowed_models = set(allowed_models.split(",")) - static_models
-        for model in allowed_models:
-            if model not in model_names:
-                raise ValueError(f"Unknown model selected: {model}")
-        model_names = allowed_models
+    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", None)
+    if allowed_models_str and allowed_models_str.upper() not in ["ALL", "PYTORCH"]:
+        if allowed_models_str.upper() == "BENCH":
+            with open(PUBLIC_BENCH_MODELS) as f:
+                model_names = set(f.read().strip().split("\n"))
+        else:
+            all_models_list = [model.strip() for model in allowed_models_str.split(",")]
+            allowed_models = set(all_models_list) - static_models
+            for model in allowed_models:
+                if model not in model_names:
+                    raise ValueError(f"Unknown model selected: {model}")
+            model_names = allowed_models
 
     if os.environ.get("QAIHM_TEST_PRECISIONS", "DEFAULT") != "DEFAULT":
         cleaned_models: set[str] = set()

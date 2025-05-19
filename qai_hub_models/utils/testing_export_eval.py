@@ -4,7 +4,10 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import hashlib
 import itertools
+import os
+import tempfile
 from collections.abc import Mapping
 from contextlib import nullcontext
 from typing import Callable, Union, cast
@@ -15,14 +18,21 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.datasets import DATASET_NAME_MAP
-from qai_hub_models.models.common import ExportResult, Precision
+from qai_hub_models.models.common import ExportResult, Precision, QAIRTVersion
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.utils.asset_loaders import load_yaml
+from qai_hub_models.scorecard.path_compile import DEFAULT_QAIRT_VERSION_ENVVAR
+from qai_hub_models.scorecard.results.yaml import (
+    COMPILE_YAML_BASE,
+    ENVIRONMENT_ENV_BASE,
+    INFERENCE_YAML_BASE,
+    PROFILE_YAML_BASE,
+)
+from qai_hub_models.utils.asset_loaders import LOCAL_STORE_DEFAULT_PATH, load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
@@ -41,6 +51,7 @@ from qai_hub_models.utils.testing_async_utils import (
     callable_side_effect,
     fetch_successful_async_test_jobs,
     get_cached_dataset_entries,
+    get_cached_profile_job,
     get_cpu_accuracy_file,
     get_dataset_ids_file,
     is_hub_testing_async,
@@ -431,6 +442,180 @@ def compile_via_export(
         )
 
 
+def compare_model_hashes(
+    model_file1: str | None,
+    model_file2: str | None,
+) -> bool:
+    """
+    Compare the MD5 hashes of two model files.
+
+    Args:
+        model_file1 (str): The path to the first model file.
+        model_file2 (str | None): The path to the second model file, or None if it does not exist.
+
+    Returns:
+        bool: True if the MD5 hashes of the two model files are the same, False otherwise.
+    """
+    try:
+        if model_file1 is None:
+            return False
+        if model_file2 is None:
+            return False
+
+        chunk_size = 1024 * 1024  # 1MB chunks
+        md5_hash1 = hashlib.md5()
+        md5_hash2 = hashlib.md5()
+
+        with open(model_file1, "rb") as f1:
+            while True:
+                chunk = f1.read(chunk_size)
+                if not chunk:
+                    break
+                md5_hash1.update(chunk)
+
+        with open(model_file2, "rb") as f2:
+            while True:
+                chunk = f2.read(chunk_size)
+                if not chunk:
+                    break
+                md5_hash2.update(chunk)
+
+        return md5_hash1.hexdigest() == md5_hash2.hexdigest()
+    except Exception as e:
+        print(f"Error comparing MD5 hashes: {str(e)}")
+        return False
+
+
+def compile_jobs_are_same(
+    current_compile_job: hub.CompileJob,
+    previous_compile_job: hub.CompileJob,
+    yaml_base: str | None,
+) -> bool:
+    """
+    Compare the MD5 hashes of the compiled models for two jobs.
+
+    Args:
+        current_compile_job (hub.CompileJob): The current compile job.
+        previous_compile_job (hub.CompileJob): The previous compile job.
+        yaml_base (str | None): The base path of the YAML file.
+
+    Returns:
+        bool: True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
+    """
+    try:
+        # The temporary directory and all its contents will be automatically cleaned up when the 'with' block is exited
+        with tempfile.TemporaryDirectory(dir=LOCAL_STORE_DEFAULT_PATH) as tmp_dir:
+            current_model_dir = os.path.join(tmp_dir, "current_model")
+            previous_model_dir = os.path.join(tmp_dir, "previous_model")
+            current_model = hub.get_job(
+                current_compile_job.job_id, hub.JobType.COMPILE
+            ).download_target_model(current_model_dir)
+            previous_model = hub.get_job(
+                previous_compile_job.job_id, hub.JobType.COMPILE
+            ).download_target_model(previous_model_dir)
+
+            # Compare the MD5 hashes of the compiled models
+            if compare_model_hashes(current_model, previous_model):
+                return True
+            else:
+                return False
+    except Exception as e:
+        print(f"Failed to download model for current or previous job: {str(e)}")
+    return False
+
+
+def is_qairt_version_match(api_version: str | None) -> bool:
+    """
+    Checks if the QAIRT version in the environment file matches the QAIRT version from the API.
+
+    Args:
+        api_version (str): The QAIRT version from the ENVIRONMENT_ENV_BASE (/scorecard/intermediates/environment.env)
+
+    Returns:
+        bool: True if the QAIRT version in the environment file matches the QAIRT version from the API, False otherwise.
+    """
+    # Check QAIRT version from environment variable stored at QAIHM_TEST_ARTIFACTS_DIR (/build/scorecard-yamls), compare with default API version.
+    qairt_api_version = QAIRTVersion("default").api_version
+
+    return api_version == qairt_api_version
+
+
+def check_compile_jobs_and_get_output_jobs(
+    model_id: str,
+    precision: Precision,
+    scorecard_path: ScorecardProfilePath,
+    device: ScorecardDevice,
+    component_names: list[str] | None = None,
+    yaml_base: str = "",
+) -> Mapping[str, ExportResult]:
+    """
+    Checks if the compile jobs are the same, the QAIRT version matches, and the override flag is not set.
+    If all conditions are met, returns the cached profile or inference job and saves the job to the YAML cache.
+    Otherwise, returns None.
+
+    Parameters:
+        model_id (str): Model ID
+        precision (Precision): Model precision
+        scorecard_path (ScorecardProfilePath): Scorecard path
+        device (ScorecardDevice): Scorecard device
+        component_names (list[str] | None, optional): Name of all model components (if applicable), or None of there are no components. Defaults to None.
+        yaml_base (str | None, optional): YAML base for the job. Defaults to None.
+
+    Returns:
+        Mapping[str | ExportResult]: The cached ExportResult, or an empty mapping if no cached job is found.
+    """
+    # Check if the QAIRT version matches the API version and if the override flag is set.
+    # Previous scorecard QAIRT version is stored at /scorecard/intermediates/environment.env dump.
+    environment_str = str(load_yaml(ENVIRONMENT_ENV_BASE))
+    env_dict = dict([pair.split("=") for pair in environment_str.split()])
+    is_override = os.getenv("QAIHM_TEST_IGNORE_JOB_CACHE") == "true"
+
+    if is_override:
+        return {}
+
+    current_compile_jobs = fetch_successful_async_test_jobs(
+        hub.JobType.COMPILE,
+        model_id,
+        precision,
+        scorecard_path,
+        device,
+        component_names,
+    )
+
+    previous_compile_jobs = fetch_successful_async_test_jobs(
+        hub.JobType.COMPILE,
+        model_id,
+        precision,
+        scorecard_path,
+        device,
+        component_names,
+        COMPILE_YAML_BASE,
+    )
+
+    # Get the job_id and name from the CompileJob objects and compare with MD5 hash.
+    output_jobs = {}
+    if current_compile_jobs and previous_compile_jobs:
+        if all(
+            [
+                compile_jobs_are_same(
+                    current_compile_jobs[component],
+                    previous_compile_jobs[component],
+                    yaml_base,
+                )
+                for component in component_names or [None]  # type: ignore
+            ]
+        ) and is_qairt_version_match(env_dict[DEFAULT_QAIRT_VERSION_ENVVAR]):
+            cached_profile_jobs = get_cached_profile_job(
+                model_id, precision, scorecard_path, device, component_names, yaml_base
+            )
+            if cached_profile_jobs is not None:
+                jobs = [job for job in cached_profile_jobs.values() if job is not None]
+                for component, job in zip(component_names or [None], jobs):  # type: ignore
+                    output_jobs[component] = job
+                return output_jobs  # type: ignore
+    return {}
+
+
 def profile_via_export(
     export_model: ExportFunc,  # type:ignore[misc,valid-type]
     model_id: str,
@@ -491,27 +676,56 @@ def profile_via_export(
         patch_compile=True,
     )
 
-    # Use export script to create a profile job.
-    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
-        export_result = _parse_export_result(
-            export_model(  # type:ignore[misc]
-                device=device.execution_device_name,
-                chipset=device.chipset,
-                precision=precision,
-                skip_downloading=True,
-                skip_profiling=False,
-                skip_inferencing=True,
-                skip_summary=True,
-                compile_options=scorecard_path.compile_path.get_compile_options(),
-                profile_options=scorecard_path.profile_options,
-                target_runtime=scorecard_path.runtime,
+    export_result = check_compile_jobs_and_get_output_jobs(
+        model_id,
+        precision,
+        scorecard_path,
+        device,
+        component_names,
+        yaml_base=str(PROFILE_YAML_BASE),
+    )
+
+    if export_result:
+        print(
+            str_with_async_test_metadata(
+                f"Copying over profile job(s) {[x.job_id for x in export_result.values() if x is not None]}",  # type: ignore
+                model_id,
+                precision,
+                scorecard_path,
+                device,
             )
         )
+    else:
+        # If there are no cached compile jobs, use the export script to create a new profile job
+        with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
+            export_result = _parse_export_result(
+                export_model(
+                    device=device.execution_device_name,
+                    chipset=device.chipset,
+                    precision=precision,
+                    skip_downloading=True,
+                    skip_profiling=False,
+                    skip_inferencing=True,
+                    skip_summary=True,
+                    compile_options=scorecard_path.compile_path.get_compile_options(),
+                    profile_options=scorecard_path.profile_options,
+                    target_runtime=scorecard_path.runtime,
+                )
+            )
 
     # Verify success or cache job IDs to a file.
     for component, result in export_result.items():
+        if isinstance(result, ExportResult):
+            job = result.profile_job
+        else:
+            job = result
         assert_success_or_cache_job(
-            model_id, result.profile_job, precision, scorecard_path, device, component
+            model_id,
+            job,
+            precision,
+            scorecard_path,
+            device,
+            component,
         )
 
 
@@ -575,26 +789,56 @@ def inference_via_export(
         patch_compile=True,
     )
 
-    # Use export script to create an inference job.
-    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
-        export_result = _parse_export_result(
-            export_model(  # type:ignore[misc]
-                device=device.execution_device_name,
-                chipset=device.chipset,
-                precision=precision,
-                skip_downloading=True,
-                skip_profiling=True,
-                skip_inferencing=False,
-                skip_summary=True,
-                compile_options=scorecard_path.compile_path.get_compile_options(),
-                target_runtime=scorecard_path.runtime,
+    export_result = check_compile_jobs_and_get_output_jobs(
+        model_id,
+        precision,
+        scorecard_path,
+        device,
+        component_names,
+        yaml_base=str(INFERENCE_YAML_BASE),
+    )
+
+    if export_result:
+        print(
+            str_with_async_test_metadata(
+                f"Copying over inference job(s) {[x.job_id for x in export_result.values() if x is not None]}",  # type: ignore
+                model_id,
+                precision,
+                scorecard_path,
+                device,
             )
         )
+    else:
+        # If there are no cached compile jobs, use the export script to create a new inference job
+        with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
+            export_result = _parse_export_result(
+                export_model(
+                    device=device.execution_device_name,
+                    chipset=device.chipset,
+                    precision=precision,
+                    skip_downloading=True,
+                    skip_profiling=False,
+                    skip_inferencing=True,
+                    skip_summary=True,
+                    compile_options=scorecard_path.compile_path.get_compile_options(),
+                    profile_options=scorecard_path.profile_options,
+                    target_runtime=scorecard_path.runtime,
+                )
+            )
 
     # Verify success or cache job IDs to a file.
     for component, result in export_result.items():
+        if isinstance(result, ExportResult):
+            job = result.inference_job
+        else:
+            job = result
         assert_success_or_cache_job(
-            model_id, result.inference_job, precision, scorecard_path, device, component
+            model_id,
+            job,
+            precision,
+            scorecard_path,
+            device,
+            component,
         )
 
 

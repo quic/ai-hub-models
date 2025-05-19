@@ -260,7 +260,7 @@ class TargetRuntime(Enum):
         """
         if self == TargetRuntime.PRECOMPILED_QNN_ONNX:
             # Return default in a possible future where 2.31 is deprecated on Hub.
-            return QAIRTVersion("2.31", return_default_if_does_not_exist=True)
+            return QAIRTVersion("2.33", return_default_if_does_not_exist=True)
         return QAIRTVersion.default()
 
     @property

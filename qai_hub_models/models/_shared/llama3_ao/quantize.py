@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import argparse
-import gc
 
 import torch
 
@@ -28,7 +27,7 @@ def llama3_quantize(
         "--calibration-sequence-length",
         type=int,
         default=DEFAULT_CALIBRATION_SEQ_LEN,
-        help="Calibration length to be used.",
+        help="Sequence length to be used during calibration (does not need to match deployment sequence length).",
     )
     parser.add_argument(
         "-o",
@@ -51,9 +50,9 @@ def llama3_quantize(
     args = parser.parse_args()
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    if device.type == "cpu":
+    if device.type != "cuda":
         raise ValueError(
-            "This model requires a GPU (V100/A100) with atleast 32 GB VRAM available on it to do quantization. Please re-try with GPU machine."
+            "This model requires a CUDA GPU (V100/A100) on it to do quantization. Please re-try with GPU machine."
         )
 
     context_length = args.context_length
@@ -71,17 +70,16 @@ def llama3_quantize(
         context_length=context_length,
         sequence_length=seq_len,
         checkpoint=None,
-        server_device=device,
+        host_device=device,
         fp_model=fp_model,
     )
 
     # Passing the floating point model to create kvcache to do inference later.
     dataloader = model_quant.get_calibration_data(fp_model=fp_model)
 
-    del fp_model
-    gc.collect()
-    if device.type == "cuda":
-        torch.cuda.empty_cache()
+    # Release GPU memory
+    fp_model.to(torch.device("cpu"))
+    torch.cuda.empty_cache()
 
     # Do calibration (and Sequential MSE if flag is set)
     if args.use_seq_mse:
@@ -92,11 +90,10 @@ def llama3_quantize(
 
     model_quant.quantize(
         data=dataloader,
-        original_onnx_model=model_quant.onnx_model,
         use_seq_mse=args.use_seq_mse,
     )
 
-    model_quant.save_calibrated_checkpoint(args.output, args.checkpoint)
+    model_quant.save_calibrated_checkpoint(args.output, fp_model=fp_model)
     print("Quantization completed successfully.")
     print()
     print(

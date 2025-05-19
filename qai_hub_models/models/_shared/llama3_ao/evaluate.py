@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
+
 import sys
 
 import torch
@@ -21,7 +21,7 @@ from qai_hub_models.datasets.wikitext_ja import WikiText_Japanese
 from qai_hub_models.datasets.wikitext_ja import collate_fn as wikitext_ja_collate_fn
 from qai_hub_models.evaluators.mmlu_evaluator import MMLUEvaluator
 from qai_hub_models.models._shared.llama3_ao.model import (
-    DEFAULT_SEQUENCE_LENGTH,
+    DEFAULT_CALIBRATION_SEQ_LEN,
     RopeEmbedding,
     determine_mode,
     verify_mode_and_checkpoint_match,
@@ -60,7 +60,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
         dataloader = DataLoader(
             dataset, shuffle=False, batch_size=1, collate_fn=wikitext_ja_collate_fn
         )
-    elif task == "tiny-mmlu-english":
+    elif task == "tiny-mmlu":
         dataset = TinyMMLU(
             tokenizer=model.tokenizer,
             block_size=model.sequence_length,
@@ -86,7 +86,7 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
         try:
             split_str = mmmlu_split_lookup[language_code]
         except KeyError as exc:
-            raise KeyError(
+            raise ValueError(
                 'Unable to determine MMMLU language split. Please specify MMMLU task as "mmmlu-<language code>". '
                 "Example: --task mmmlu-ja"
             ) from exc
@@ -103,7 +103,9 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
             dataset, shuffle=False, batch_size=1, collate_fn=mmmlu_collate_fn
         )
     else:
-        raise ValueError("Use --help to see available tasks.")
+        raise ValueError(
+            f"Task not available: {task}. Use --help to see available tasks."
+        )
     return dataloader
 
 
@@ -132,7 +134,7 @@ def llama3_evaluate(
         choices=[
             "wikitext-ppl",
             "wikitext-ja-ppl",
-            "tiny-mmlu-english",
+            "tiny-mmlu",
             "mmlu",
         ]
         + ["mmmlu-" + language_code for language_code in mmmlu_split_lookup.keys()],
@@ -144,13 +146,15 @@ def llama3_evaluate(
         help="Number of samples to be used for evaluation.",
     )
 
+    # Use a higher default sequence length for efficiency
+    parser.set_defaults(sequence_length=DEFAULT_CALIBRATION_SEQ_LEN)
     args = parser.parse_args()
     num_samples = args.num_samples
     task = args.task
     mode = args.mode
     user_specified_checkpoint = "--checkpoint" in sys.argv
     if (not user_specified_checkpoint or args.checkpoint == "DEFAULT") and mode is None:
-        raise ValueError("--mode must be specified if --checkpoint is not.")
+        parser.error("--mode must be specified if --checkpoint is not.")
 
     if num_samples is None:
         num_samples = 0 if "ppl" in task else 100
@@ -161,47 +165,39 @@ def llama3_evaluate(
         else:
             verify_mode_and_checkpoint_match(args.checkpoint, mode)
 
-    server_device = (
+    host_device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     )
-    if server_device.type == "cpu":
+    if host_device.type == "cpu":
         print()
         print(
-            "WARNING: Evaluation of this model (floating point or QuantSim) takes a long time on CPU. Doing it on a CUDA enabled machine will be faster."
+            "WARNING: Evaluation of this model (floating point or QuantSim) takes a long time on CPU. Doing it on a CUDA-enabled machine will be faster."
         )
-    seq_len = args.sequence_length
-    seq_len_in_filename = 0
-    if os.path.exists(args.checkpoint):
-        for file in os.listdir(args.checkpoint):
-            if file.endswith(".onnx") and "seqlen" in file:
-                file_name = os.path.basename(file)
-                seq_len_in_filename = file_name.split("_")[-2].replace("seqlen", "")
-                seq_len = max(int(seq_len_in_filename), seq_len)
 
-    print()
-    if seq_len > DEFAULT_SEQUENCE_LENGTH:
-        print(
-            f"Using the longest available pre-computed sequence length ({seq_len}) to maximize evaluation speed."
-        )
+    kwargs = get_model_kwargs(quantized_model_cls, vars(args))
+    if mode == "quantsim":
+        if args.checkpoint == "DEFAULT":
+            kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
+                sequence_length=args.sequence_length,
+                context_length=args.context_length,
+            )
+        model_cls = quantized_model_cls
     else:
-        print(
-            "Using a longer sequence length will improve evaluation speed. Use argument --sequence-length to pass a longer sequence length."
-        )
+        del kwargs["_skip_quantsim_creation"]  # type: ignore[index, attr-defined]
+        del kwargs["fp_model"]  # type: ignore[index, attr-defined]
+        model_cls = fp_model_cls
 
-    model_cls = fp_model_cls if mode == "fp" else quantized_model_cls
-    kwargs = get_model_kwargs(model_cls, vars(args))
-    kwargs["sequence_length"] = seq_len  # type: ignore[index]
-    if args.mode != "fp":
-        kwargs["server_device"] = server_device  # type: ignore[index]
-    # We parsed arguments for quantized model, default for quantized model would be None for floating point model.
-    kwargs["checkpoint"] = None if args.checkpoint == "DEFAULT" and mode == "fp" else args.checkpoint  # type: ignore[index]
+    kwargs["sequence_length"] = args.sequence_length  # type: ignore[index]
+
+    if kwargs["checkpoint"] == "DEFAULT":
+        del kwargs["checkpoint"]  # type: ignore[attr-defined]
 
     model = model_cls.from_pretrained(**kwargs)
 
     eval_dataloader = get_dataset(model, task, num_samples)
 
     evaluator = (
-        get_mmlu_evaluator(model, server_device)
+        get_mmlu_evaluator(model, host_device)
         if "mmlu" in args.task
         else model.get_evaluator()
     )

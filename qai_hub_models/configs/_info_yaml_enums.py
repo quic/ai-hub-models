@@ -163,7 +163,7 @@ class MODEL_LICENSE(Enum):
         # If this license has a known URL, return it.
         if self == MODEL_LICENSE.AI_HUB_MODELS_LICENSE:
             return "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf"
-        elif self in [MODEL_LICENSE.LLAMA2, MODEL_LICENSE.LLAMA3]:
+        elif self == MODEL_LICENSE.LLAMA2:
             return "https://github.com/facebookresearch/llama/blob/main/LICENSE"
         elif self == MODEL_LICENSE.TAIDE:
             return "https://en.taide.tw/download.html"

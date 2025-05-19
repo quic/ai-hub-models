@@ -142,6 +142,7 @@ class ScorecardDevice:
         npu_count: Optional[int] = None,
         public: bool = True,
         register: bool = True,
+        is_cache_enabled: bool = False,
     ):
         """
         Parameters
@@ -193,6 +194,7 @@ class ScorecardDevice:
         self.mirror_device: Optional[ScorecardDevice] = mirror_device
         self._npu_count = npu_count
         self.public = public
+        self.is_cache_enabled = is_cache_enabled
 
         if register:
             ScorecardDevice._registry[name] = self

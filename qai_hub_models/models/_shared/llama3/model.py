@@ -65,6 +65,7 @@ DEFAULT_CONTEXT_LENGTH = 4096
 
 DATA_DIR = "data"
 USE_CACHED_DATA = True
+NEGATIVE_MASK_VALUE = -50.0
 
 ## Ref: https://llama.meta.com/docs/model-cards-and-prompt-formats/llama3_1
 BEGIN_TEXT = "<|begin_of_text|>"
@@ -181,7 +182,7 @@ def prepare_decoder_attention_mask(
     input_shape: torch.Size,
     inputs_embeds: torch.Tensor,
     past_key_values_length: int,
-    mask_neg: float = -50.0,
+    mask_neg: float = NEGATIVE_MASK_VALUE,
 ) -> torch.Tensor:
     # Copied from transformers.models.bart.modeling_bart._make_causal_mask
     def _make_causal_mask(
@@ -189,7 +190,7 @@ def prepare_decoder_attention_mask(
         dtype: torch.dtype,
         device: torch.device,
         past_key_values_length: int = 0,
-        mask_neg: float = -50.0,
+        mask_neg: float = NEGATIVE_MASK_VALUE,
     ) -> torch.Tensor:
         """
         Make causal mask used for bi-directional self-attention.
@@ -223,7 +224,7 @@ def prepare_decoder_attention_mask(
     def _expand_mask(
         mask: torch.Tensor,
         dtype: torch.dtype,
-        mask_neg: float = -50.0,
+        mask_neg: float = NEGATIVE_MASK_VALUE,
         tgt_len: Optional[int] = None,
     ) -> torch.Tensor:
         """
@@ -277,7 +278,7 @@ def prepare_combined_attention_mask(
     attention_mask: Optional[torch.Tensor],
     input_shape: torch.Size,
     past_key_values_length: int,
-    mask_neg=-50.0,
+    mask_neg=NEGATIVE_MASK_VALUE,
     dtype=torch.float32,
 ) -> torch.Tensor:
     dummy_embedding = torch.tensor((1.0,)).to(torch.float32)

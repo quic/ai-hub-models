@@ -36,7 +36,6 @@ class MMLUEvaluator(BaseEvaluator):
         self.block_size = block_size
         self.device = device
         self.choices = self._get_choices(tokenizer)
-
         self.reset()
 
     @staticmethod
@@ -182,7 +181,7 @@ class MMLUEvaluator(BaseEvaluator):
                 padded_attention_mask,
                 (1, self.block_size),
                 self.context_length - self.block_size,
-                -50,
+                -50.0,
                 torch.float,
             )
 

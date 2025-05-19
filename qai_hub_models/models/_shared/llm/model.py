@@ -4,45 +4,55 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import onnx
+# isort: off
+from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
 
-try:
-    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-
-    from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
-except (ImportError, ModuleNotFoundError):
-    raise NotImplementedError(
-        "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
-        "Install qai-hub-models on a Linux machine to use quantized models."
-    )
+# isort: on
 
 import gc
 import glob
 import os
 import shutil
 import tempfile
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 
-import aimet_common.quantsim as qs
+import onnx
 import torch
-from aimet_common.defs import QuantScheme
-from aimet_onnx import quantsim
-from aimet_onnx.quantsim import load_encodings_to_sim
 from onnx.external_data_helper import load_external_data_for_model
 from qai_hub.client import Device
-from transformers import AutoConfig
+from transformers import AutoConfig, PretrainedConfig, PreTrainedTokenizer
 from transformers.models.llama import LlamaConfig
 
-from qai_hub_models.models._shared.llm._utils import (
-    _set_lm_head_to_8b,
-    _set_tensors_to_output_8b_sym,
-    _tie_quantizers_for_kv_cache,
-)
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
 from qai_hub_models.utils.huggingface import ensure_has_required_transformer
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.onnx_helpers import (
+    torch_onnx_export_with_large_model_size_check,
+)
+
+AIMET_ONNX_INSTALLED = False
+try:
+    import aimet_common.quantsim as qs
+    from aimet_common.defs import QuantScheme
+    from aimet_onnx import quantsim
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+    from aimet_onnx.quantsim import load_encodings_to_sim
+
+    from qai_hub_models.models._shared.llm._utils import (
+        _set_lm_head_to_8b,
+        _set_tensors_to_output_8b_sym,
+        _tie_quantizers_for_kv_cache,
+    )
+
+    AIMET_ONNX_INSTALLED = True
+except (ImportError, ModuleNotFoundError):
+    print(
+        "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
+        "Install qai-hub-models on a Linux machine to use quantized models."
+    )
 
 MIN_TRANFORMER_VERSION = "4.45.0"
 
@@ -61,12 +71,13 @@ from transformers import (  # noqa: E402
 )
 
 
-def get_tokenizer(model_ckpt: str | None) -> PreTrainedTokenizerBase:
+def get_tokenizer(
+    model_ckpt: str | os.PathLike | Path | None,
+) -> PreTrainedTokenizerBase:
     """
     Tokenizer to use for LLMs
     """
     assert model_ckpt is not None
-
     print()
     print(f"Loading tokenizer from {model_ckpt}")
     tokenizer = AutoTokenizer.from_pretrained(model_ckpt, is_fast=False)
@@ -79,7 +90,7 @@ def get_tokenizer(model_ckpt: str | None) -> PreTrainedTokenizerBase:
 
 
 def get_llm_config(
-    model_ckpt: str | os.PathLike | None, _make_small_for_debugging: bool = False
+    model_ckpt: str | os.PathLike | Path | None, _make_small_for_debugging: bool = False
 ) -> LlamaConfig:
     """
     Construct and return a HuggingFace LLM config.
@@ -111,41 +122,44 @@ def get_onnx_model(
     context_length: int,
     sequence_length: int,
     path: str,
-    server_device: torch.device,
     return_model: bool = False,
 ) -> onnx.ModelProto | None:
     # Create the checkpoint directory if it does not exist.
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    fp_model.to(server_device)
+
+    # The GPU memory of the model passed into torch.onnx.export cannot
+    # subsequently be released due to what looks like a PyTorch bug. We export
+    # on the CPU as a workaround.
+    old_device = fp_model.model.device
+    device = torch.device("cpu")
+    fp_model.to(device)
+
     input_specs = fp_model.get_input_spec(
         context_length=context_length,
         sequence_length=sequence_length,
     )
     print()
     print(
-        f"Exporting ONNX model with sequence length {sequence_length} and context length {context_length}. This would take around 10 minutes."
+        f"Exporting ONNX model with sequence length {sequence_length} and context length {context_length}. This could take around 10 minutes."
     )
 
     example_input = [
         torch.zeros(
             input_specs[name][0], dtype=getattr(torch, input_specs[name][1])
-        ).to(server_device)
+        ).to(device)
         for name in input_specs.keys()
     ]
-    torch.onnx.export(
-        fp_model,
-        tuple(example_input),
-        path,
-        input_names=list(input_specs.keys()),
-        output_names=fp_model.get_output_names(),
-        opset_version=17,
-    )
+    with torch.no_grad():
+        torch_onnx_export_with_large_model_size_check(
+            fp_model,
+            tuple(example_input),
+            path,
+            input_names=list(input_specs.keys()),
+            output_names=fp_model.get_output_names(),
+            opset_version=17,
+        )
 
-    # Clean up floating point model
-    del example_input
-    del fp_model
-    gc.collect()
-    torch.cuda.empty_cache()
+    fp_model.to(old_device)
 
     onnx_model = onnx.load(path)
     # Clean up multiple weights files
@@ -172,47 +186,42 @@ def get_onnx_model(
 class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
     def __init__(
         self,
-        sim_model: QuantSimOnnx,
-        onnx_model: onnx.ModelProto,
+        sim_model: QuantSimOnnx | None,
+        checkpoint: str | os.PathLike | Path | None,
         sequence_length: int,
         context_length: int,
-        huggingface_model_name: str | None = None,
-        checkpoint: str | os.PathLike | Path | None = None,
-        server_device: torch.device | None = None,
+        tokenizer: PreTrainedTokenizer | None = None,
+        llm_config: PretrainedConfig | None = None,
+        host_device: torch.device | None = None,
     ):
         BaseModel.__init__(self)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
         self.context_length = context_length
         self.sequence_length = sequence_length
-        self.onnx_model = onnx_model
-        self.server_device = server_device
+        self.host_device = host_device
 
-        self.tokenizer = get_tokenizer(huggingface_model_name)
+        assert (
+            tokenizer is not None and llm_config is not None
+        ) or checkpoint is not None, f"{self.__class__.__name__} is unable to instantiate tokenizer/config. Must pass either checkpoint or tokenizer/config explicitly."
 
-        if checkpoint is not None:
-            try:
-                self.llm_config = get_llm_config(checkpoint)
-            except Exception:
-                print()
-                print(f"No model config in {checkpoint}")
-            # Needed for default grab-and-go
-            finally:
-                self.llm_config = get_llm_config(huggingface_model_name)
-
-        else:
-            self.tokenizer = get_tokenizer(huggingface_model_name)
-            self.llm_config = get_llm_config(huggingface_model_name)
+        self.tokenizer = tokenizer or get_tokenizer(checkpoint)
+        self.llm_config = llm_config or get_llm_config(checkpoint)
 
         self.checkpoint = checkpoint
+
+    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+        # This must be defined by the HubModelProtocol protocol via BaseModel
+        return self._sample_inputs_impl(input_spec)
 
     @classmethod
     def from_pretrained(
         cls,
-        server_device: torch.device,
+        host_device: torch.device,
         sequence_length: int,
         context_length: int,
         fp_model: torch.nn.Module | None = None,
         checkpoint: str | os.PathLike | Path | None = None,
+        _skip_quantsim_creation: bool = False,
     ) -> LLM_AIMETOnnx:
         """
         Load weight from local checkpoint of Huggingface and create Aimet-ONNX QuantSim.
@@ -220,7 +229,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
 
         Args:
 
-        - server_device: Device to use: GPU/CPU
+        - host_device: Device to use: GPU/CPU
         - sequence_length: Sequence Length for the model
         - context_length: Context Length for the model
         - fp_model: Floating point version of this model.
@@ -228,98 +237,81 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         - checkpoint: Path to previously calibrated AIMET encodings and
         ONNX models. Note that encodings are sensitive to AIMET ONNX versions
         because loading back the
-
-
         """
-        if server_device is None:
-            server_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if host_device is None:
+            host_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # Two copies are needed. One for QuantSim and one for passing to
-        # quantize function for applying Sequencial MSE.
-        # Deepcopy causes error on GPU.
-        onnx_path = None
-        onnx_file_exists = False
-        tmp_dir = tempfile.TemporaryDirectory()
-        onnx_tmpfile = os.path.join(tmp_dir.name, "model.onnx")
+        if not _skip_quantsim_creation:
 
-        if checkpoint is not None:
-            onnx_path = os.path.join(
-                checkpoint, f"model_seqlen{sequence_length}_cl{context_length}.onnx"
-            )
-            onnx_file_exists = os.path.exists(onnx_path) and os.path.exists(
-                os.path.join(checkpoint, "model.data")
-            )
+            onnx_path = None
+            onnx_file_exists = False
+            tmp_dir = tempfile.TemporaryDirectory()
+            onnx_tmpfile = os.path.join(tmp_dir.name, "model.onnx")
 
-        # If the file and external weights exist in the checkpoint, we should not export again.
-        if not onnx_file_exists:
-            # Floating model is created if not passed when from_pretrained() is called and an ONNX model doesn't exist.
-            if fp_model is None:
-                fp_model = cls.create_torch_model(
-                    context_length, sequence_length, checkpoint, server_device
+            if checkpoint is None:
+                onnx_file_exists = False
+            else:
+                onnx_path = os.path.join(
+                    checkpoint, f"model_seqlen{sequence_length}_cl{context_length}.onnx"
+                )
+                onnx_file_exists = os.path.exists(onnx_path) and os.path.exists(
+                    os.path.join(checkpoint, "model.data")
                 )
 
-            onnx_model = get_onnx_model(
-                fp_model=fp_model,
-                context_length=context_length,
-                sequence_length=sequence_length,
-                path=onnx_path or onnx_tmpfile,
-                server_device=server_device,
-                return_model=True,
-            )
-            del fp_model
-            gc.collect()
-            qs_onnx_model = onnx.load(onnx_path or onnx_tmpfile)
-        else:
-            print()
-            print(f"Loading onnx model from {onnx_path}")
-            assert onnx_path is not None
-            onnx_model, qs_onnx_model = onnx.load(onnx_path), onnx.load(onnx_path)
-
-        if onnx_path is None:
-            tmp_dir.cleanup()
-
-        print()
-        print("Creating a QuantSim model using AIMET ONNX.")
-        quant_sim = cls.create_quantsim(qs_onnx_model, server_device)
-        _tie_quantizers_for_kv_cache(quant_sim)
-
-        # Cleanup the ONNX model that creates the QuantSim model
-        del qs_onnx_model
-        gc.collect()
-
-        # Encodings are not produced yet.
-        if checkpoint is not None:
-            aimet_encodings = os.path.join(checkpoint, "model.encodings")
-            if os.path.exists(aimet_encodings):
+            if not onnx_file_exists:
+                if fp_model is None:
+                    raise ValueError(
+                        "The quantized checkpoint (with custom weights) must have an ONNX model."
+                    )
+                else:
+                    # Floating model is created if not passed when from_pretrained() is called and an ONNX model doesn't exist.
+                    onnx_model = get_onnx_model(
+                        fp_model=fp_model,
+                        context_length=context_length,
+                        sequence_length=sequence_length,
+                        path=onnx_tmpfile,
+                        return_model=True,
+                    )
+            else:
                 print()
-                print(
-                    f"Loading the encodings from path {checkpoint} to load the QuantSim model."
-                )
-                load_encodings_to_sim(quant_sim, aimet_encodings)
-                export_sequence_lengths = list(
-                    {
-                        1,
-                        sequence_length,
-                        context_length // 2,
-                        DEFAULT_CONTEXT_LENGTH // 2,
-                        DEFAULT_SEQUENCE_LENGTH,
-                    }
-                )
-                cls.create_onnx_models(
-                    checkpoint=checkpoint,
-                    context_length=context_length,
-                    export_sequence_lengths=export_sequence_lengths,
-                    server_device=server_device,
-                )
+                print(f"Loading onnx model from {onnx_path}")
+                assert onnx_path is not None
+                onnx_model = onnx.load(onnx_path)
 
-        assert onnx_model is not None
+            if onnx_path is None:
+                tmp_dir.cleanup()
+
+            # Two copies are needed. One for QuantSim and one for passing to
+            # quantize function for applying Sequencial MSE.
+            # Deepcopy causes error on GPU.
+            print()
+            print("Creating a QuantSim model using AIMET ONNX.")
+            assert onnx_model is not None
+            quant_sim = cls.create_quantsim(onnx_model, host_device)
+
+            # Cleanup the ONNX model that creates the QuantSim model
+            del onnx_model
+            gc.collect()
+
+            # Encodings are not produced yet.
+            if checkpoint is not None:
+                aimet_encodings = os.path.join(checkpoint, "model.encodings")
+                if os.path.exists(aimet_encodings):
+                    print()
+                    print(
+                        f"Loading the encodings from path {checkpoint} to load the QuantSim model."
+                    )
+                    load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
+        else:
+            quant_sim = None
         return cls(
             sim_model=quant_sim,
-            onnx_model=onnx_model,
             sequence_length=sequence_length,
             context_length=context_length,
-            server_device=server_device,
+            host_device=host_device,
             checkpoint=checkpoint,
+            tokenizer=fp_model.tokenizer if fp_model is not None else None,
+            llm_config=fp_model.llm_config if fp_model is not None else None,
         )
 
     def _adapt_aimet_encodings(
@@ -329,12 +321,17 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
 
     @classmethod
     def create_quantsim(
-        cls, onnx_model: onnx.ModelProto, server_device: torch.device
+        cls, onnx_model: onnx.ModelProto, host_device: torch.device
     ) -> QuantSimOnnx:
         """
         onnx_model: ONNX Model to create QuantSim model.
-        server_device: Device that the QuantSim model must be placed on.
+        host_device: Device that the QuantSim model must be placed on.
         """
+        if not AIMET_ONNX_INSTALLED:
+            raise ImportError(
+                "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
+                "Install qai-hub-models on a Linux machine to use quantized models."
+            )
         default_config = get_aimet_config_path("default_config_llama")
         # Tie Quantizers for Concat Op
         quantsim.op_types_to_tie_qtzrs = ["Concat"]
@@ -349,29 +346,22 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
             default_activation_bw=16,
             default_param_bw=4,
             config_file=default_config,
-            use_cuda=(server_device.type == "cuda"),
+            use_cuda=(host_device.type == "cuda"),
         )
+
         # Setting kv_cache and some other layers to 8-bit
         _set_tensors_to_output_8b_sym(quant_sim)
         # Setting the LM head weights to 8-bit.
         _set_lm_head_to_8b(quant_sim)
-        return quant_sim
+        # Tie kv_cache
+        _tie_quantizers_for_kv_cache(quant_sim)
 
-    @classmethod
-    @abstractmethod
-    def create_torch_model(
-        cls,
-        context_length: int,
-        sequence_length: int,
-        input_checkpoint: str | os.PathLike | Path | None,
-        device: torch.device,
-    ) -> torch.nn.Module:
-        pass
+        return quant_sim
 
     def save_calibrated_checkpoint(
         self,
         output_checkpoint: str | os.PathLike | Path,
-        input_checkpoint: str | os.PathLike | Path,
+        fp_model: torch.nn.Module,
     ) -> None:
         """
         output_checkpoint: Path to the directory which must store the checkpoint.
@@ -380,9 +370,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         """
         # Make the directory for the output checkpoint
         os.makedirs(output_checkpoint, exist_ok=True)
-        export_sequence_lengths = [1, self.context_length // 2]
+        export_sequence_lengths = list(
+            {1, DEFAULT_SEQUENCE_LENGTH, self.sequence_length, self.context_length // 2}
+        )
         # If the sequence length is ARs to be exported then export model as part of QuantSim.
         print(f"Creating a checkpoint of quantized model at {output_checkpoint}.")
+        assert self.quant_sim is not None
         self.quant_sim.export(str(output_checkpoint), "model")
         del self.quant_sim
         # Save ONNX model and data file in the checkpoint.
@@ -396,20 +389,22 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         # Create the multiple ONNX models.
         self.create_onnx_models(
             checkpoint=output_checkpoint,
+            fp_model=fp_model,
             context_length=self.context_length,
             export_sequence_lengths=export_sequence_lengths,
-            input_checkpoint=input_checkpoint,
-            server_device=self.server_device,
+            host_device=self.host_device,
         )
+        self.llm_config.save_pretrained(output_checkpoint)
+        self.tokenizer.save_pretrained(output_checkpoint)
 
     @classmethod
     def create_onnx_models(
         cls,
         checkpoint: str | os.PathLike | Path,
+        fp_model: torch.nn.Module,
         context_length: int,
         export_sequence_lengths: list[int],
-        input_checkpoint: str | os.PathLike | Path | None = None,
-        server_device: torch.device = torch.device("cpu"),
+        host_device: torch.device = torch.device("cpu"),
     ) -> None:
         external_weights_file = os.path.join(checkpoint, "model.data")
         onnx_file = os.path.join(checkpoint, "model.onnx")
@@ -424,21 +419,27 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
                 # Export to ONNX for any sequence length needed.
                 # The external weights is made multiple times but is overwritten each
                 # time so only one copy is ther at a given time.
-                fp_model = cls.create_torch_model(
-                    context_length, seq_len, input_checkpoint, server_device
-                )
                 get_onnx_model(
                     fp_model=fp_model,
                     context_length=context_length,
                     sequence_length=seq_len,
                     path=onnx_file,
-                    server_device=server_device,
                 )
                 # Rename the model per sequence_length
                 shutil.move(
                     onnx_file,
                     expected_onnx_model,
                 )
+
+    @classmethod
+    def save_tokenizer_and_config(
+        cls, checkpoint: str | os.PathLike | Path, fp_model: torch.nn.Module
+    ):
+        # Make sure tokenizer/config exist in the checkpoint
+        if not os.path.isfile(os.path.join(checkpoint, "tokenizer.json")):
+            fp_model.tokenizer.save_pretrained(checkpoint)
+        if not os.path.isfile(os.path.join(checkpoint, "config.json")):
+            fp_model.llm_config.save_pretrained(checkpoint)
 
     def convert_to_onnx_and_aimet_encodings(
         self,

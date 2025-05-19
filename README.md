@@ -298,30 +298,26 @@ and many more.
 | -- | -- |
 | | |
 | **Image Generation**
-| [ControlNet](qai_hub_models/models/controlnet/README.md) | [qai_hub_models.models.controlnet](qai_hub_models/models/controlnet/README.md) |
 | [Stable-Diffusion-v1.5](https://aihub.qualcomm.com/models/stable_diffusion_v1_5_w8a16_quantized) | [qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized](qai_hub_models/models/stable_diffusion_v1_5_w8a16_quantized/README.md) |
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1_quantized) | [qai_hub_models.models.stable_diffusion_v2_1_quantized](qai_hub_models/models/stable_diffusion_v2_1_quantized/README.md) |
 | | |
 | **Text Generation**
-| [Allam-7B](qai_hub_models/models/allam_7b/README.md) | [qai_hub_models.models.allam_7b](qai_hub_models/models/allam_7b/README.md) |
+| [Allam-7B](https://aihub.qualcomm.com/models/allam_7b) | [qai_hub_models.models.allam_7b](qai_hub_models/models/allam_7b/README.md) |
 | [Baichuan2-7B](https://aihub.qualcomm.com/models/baichuan2_7b) | [qai_hub_models.models.baichuan2_7b](qai_hub_models/models/baichuan2_7b/README.md) |
 | [IBM-Granite-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct) | [qai_hub_models.models.ibm_granite_v3_1_8b_instruct](qai_hub_models/models/ibm_granite_v3_1_8b_instruct/README.md) |
 | [IndusQ-1.1B](https://aihub.qualcomm.com/models/indus_1b) | [qai_hub_models.models.indus_1b](qai_hub_models/models/indus_1b/README.md) |
 | [JAIS-6p7b-Chat](https://aihub.qualcomm.com/models/jais_6p7b_chat) | [qai_hub_models.models.jais_6p7b_chat](qai_hub_models/models/jais_6p7b_chat/README.md) |
 | [Llama-v2-7B-Chat](https://aihub.qualcomm.com/models/llama_v2_7b_chat) | [qai_hub_models.models.llama_v2_7b_chat](qai_hub_models/models/llama_v2_7b_chat/README.md) |
-| [Llama-v3-8B-Chat](https://aihub.qualcomm.com/models/llama_v3_8b_chat) | [qai_hub_models.models.llama_v3_8b_chat](qai_hub_models/models/llama_v3_8b_chat/README.md) |
-| [Llama-v3.1-8B-Chat](https://aihub.qualcomm.com/models/llama_v3_1_8b_chat) | [qai_hub_models.models.llama_v3_1_8b_chat](qai_hub_models/models/llama_v3_1_8b_chat/README.md) |
-| [Llama-v3.2-3B-Chat](https://aihub.qualcomm.com/models/llama_v3_2_3b_chat) | [qai_hub_models.models.llama_v3_2_3b_chat](qai_hub_models/models/llama_v3_2_3b_chat/README.md) |
+| [Llama-v3-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_8b_instruct) | [qai_hub_models.models.llama_v3_8b_instruct](qai_hub_models/models/llama_v3_8b_instruct/README.md) |
+| [Llama-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_1_8b_instruct) | [qai_hub_models.models.llama_v3_1_8b_instruct](qai_hub_models/models/llama_v3_1_8b_instruct/README.md) |
+| [Llama-v3.2-3B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_3b_instruct) | [qai_hub_models.models.llama_v3_2_3b_instruct](qai_hub_models/models/llama_v3_2_3b_instruct/README.md) |
 | [Llama3-TAIDE-LX-8B-Chat-Alpha1](https://aihub.qualcomm.com/models/llama_v3_taide_8b_chat) | [qai_hub_models.models.llama_v3_taide_8b_chat](qai_hub_models/models/llama_v3_taide_8b_chat/README.md) |
 | [Ministral-3B](https://aihub.qualcomm.com/models/ministral_3b) | [qai_hub_models.models.ministral_3b](qai_hub_models/models/ministral_3b/README.md) |
 | [Mistral-3B](https://aihub.qualcomm.com/models/mistral_3b) | [qai_hub_models.models.mistral_3b](qai_hub_models/models/mistral_3b/README.md) |
 | [Mistral-7B-Instruct-v0.3](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3) | [qai_hub_models.models.mistral_7b_instruct_v0_3](qai_hub_models/models/mistral_7b_instruct_v0_3/README.md) |
-| [PLaMo-1B](qai_hub_models/models/plamo_1b/README.md) | [qai_hub_models.models.plamo_1b](qai_hub_models/models/plamo_1b/README.md) |
+| [PLaMo-1B](https://aihub.qualcomm.com/models/plamo_1b) | [qai_hub_models.models.plamo_1b](qai_hub_models/models/plamo_1b/README.md) |
 | [Phi-3.5-mini-instruct](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct) | [qai_hub_models.models.phi_3_5_mini_instruct](qai_hub_models/models/phi_3_5_mini_instruct/README.md) |
 | [Qwen2-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_7b_instruct) | [qai_hub_models.models.qwen2_7b_instruct](qai_hub_models/models/qwen2_7b_instruct/README.md) |
-| | |
-| **Audio Generation**
-| [Riffusion](qai_hub_models/models/riffusion/README.md) | [qai_hub_models.models.riffusion](qai_hub_models/models/riffusion/README.md) |
 
 
 ## Need help?

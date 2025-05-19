@@ -24,6 +24,9 @@ from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, qaihm_temp_dir
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
+from qai_hub_models.utils.onnx_helpers import (
+    torch_onnx_export_with_large_model_size_check,
+)
 from qai_hub_models.utils.printing import print_profile_metrics
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401
     transpose_channel_first_to_last,
@@ -214,7 +217,7 @@ def export_torch_to_onnx_zip(
     if total_bytes < threshold_bytes:
         # For models under 2GB, export as a single ONNX file.
         start_time = time.time()
-        torch.onnx.export(
+        torch_onnx_export_with_large_model_size_check(
             torch_model,
             example_input,
             str(f),
@@ -235,7 +238,7 @@ def export_torch_to_onnx_zip(
             )  # use .onnx extension for export
 
             start_time = time.time()
-            torch.onnx.export(
+            torch_onnx_export_with_large_model_size_check(
                 torch_model,
                 example_input,
                 str(export_path),

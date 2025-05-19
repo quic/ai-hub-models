@@ -113,8 +113,11 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # doesn't have its requirements set up correctly.
     pip_pre_build_reqs: Optional[str] = None
 
-    # If extra flags are needed when `pip install`ing for this model, provide them here
+    # If extra flags are needed when pip installing for this model, provide them here
     pip_install_flags: Optional[str] = None
+
+    # If extra flags are needed when pip installing for this model on GPU, provide them here
+    pip_install_flags_gpu: Optional[str] = None
 
     # A list of optimizations from `torch.utils.mobile_optimizer` that will
     # speed up the conversion to torchscript.

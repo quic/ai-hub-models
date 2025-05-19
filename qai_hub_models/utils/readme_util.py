@@ -78,7 +78,10 @@ def _get_licenses(
 
 
 def _get_package_instructions(
-    model_id: str, pip_install_flags: str | None, model_has_reqs: bool
+    model_id: str,
+    pip_install_flags: str | None,
+    model_has_reqs: bool,
+    pip_install_flags_gpu: str | None = None,
 ):
     # Use dashes in model name to avoid an issue where older pip versions may not install modules correctly.
     install_pkg = "qai-hub-models" + (
@@ -89,9 +92,19 @@ def _get_package_instructions(
         # shells like zsh unless contained within quotes.
         install_pkg = f'"{install_pkg}"'
 
+    gpu_intsallation_instructions = ""
+    if pip_install_flags_gpu:
+        gpu_intsallation_instructions = f"""
+
+Install the GPU package via pip:
+```bash
+pip install {install_pkg}{f' {pip_install_flags_gpu}'}
+```
+"""
+
     return f"""
 Install the package via pip:
 ```bash
 pip install {install_pkg}{f' {pip_install_flags}' if pip_install_flags else ''}
-```
+```{gpu_intsallation_instructions}
 """

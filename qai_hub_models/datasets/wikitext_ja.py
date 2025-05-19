@@ -4,16 +4,12 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import torch
 from datasets import Dataset, load_dataset
 
 from qai_hub_models.datasets.wikitext import WikiText
+from qai_hub_models.datasets.wikitext import collate_fn as wikitext_collate_fn
 
-
-def collate_fn(
-    batch: tuple[tuple[torch.tensor, ...], list[torch.tensor]]
-) -> tuple[tuple[torch.tensor, ...], list[torch.tensor]]:
-    return tuple(batch[0][0]), batch[0][1]
+collate_fn = wikitext_collate_fn
 
 
 class WikiText_Japanese(WikiText):

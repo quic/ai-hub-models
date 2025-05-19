@@ -18,7 +18,7 @@ from qai_hub_models.models._shared.llama3_ao.app import (
     get_past_keyval_with_shift,
 )
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.quantization import make_hub_dataset_entries
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 
 def collate_fn(
@@ -172,7 +172,7 @@ class WikiText(BaseDataset):
             position_ids
         )
 
-        mask_neg = -50
+        mask_neg = -50.0
         mask = torch.full(
             (self.block_size, self.block_size),
             torch.tensor(mask_neg),

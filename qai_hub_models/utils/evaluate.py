@@ -8,16 +8,16 @@ Utilities for evaluating model accuracy on device.
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 from collections.abc import Iterator, Sized
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union, cast
 
 import h5py
 import numpy as np
-import onnxruntime
 import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
@@ -26,7 +26,8 @@ from torch.utils.data import DataLoader, Dataset, Sampler, random_split
 from tqdm import tqdm
 
 from qai_hub_models.datasets import BaseDataset, DatasetSplit, get_dataset_from_name
-from qai_hub_models.models.protocols import EvalModelProtocol
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
     get_hub_datasets_path,
     load_h5,
@@ -36,9 +37,10 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.inference import (
     AsyncOnDeviceModel,
+    AsyncOnDeviceResult,
     dataset_entries_from_batch,
 )
-from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx_torch_wrapper import OnnxModelTorchWrapper
 from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
 
 CACHE_SAMPLES_PER_JOB_FILE = "current_samples_per_job.txt"
@@ -174,7 +176,7 @@ def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
     return model.producer.model
 
 
-def _make_quant_cpu_session(model: hub.Model) -> onnxruntime.InferenceSession:
+def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
     """
     Creates an onnx runtime session with the qdq onnx model that was used to produce
     this hub.Model. Assumes the model was produced by a compile job, and the source
@@ -187,7 +189,7 @@ def _make_quant_cpu_session(model: hub.Model) -> onnxruntime.InferenceSession:
     local_path = local_dir / f"{qdq_model.model_id}.onnx"
     if not local_path.exists():
         qdq_model.download(str(local_path))
-    return onnxruntime.InferenceSession(local_path)
+    return OnnxModelTorchWrapper.OnCPU(local_path)
 
 
 def _validate_dataset_ids_path(path: Path) -> bool:
@@ -353,8 +355,10 @@ class HubDataset(Dataset):
         self,
         dataset_name: str,
         num_samples: int,
+        input_names: list[str],
         channel_last_input: Optional[list[str]],
     ):
+        self.input_names = input_names
         self.cache_path = get_dataset_cache_filepath(dataset_name)
         self.samples_per_job = get_dataset_cache_samples_per_job(dataset_name)
         assert self.samples_per_job is not None, "Dataset cache must be pre-populated"
@@ -407,6 +411,153 @@ def _make_dataloader(dataset: Dataset, samples_per_job: int) -> DataLoader:
 
         return DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=_collate_fn)
     return DataLoader(dataset, batch_size=samples_per_job, shuffle=False)
+
+
+def evaluate(
+    dataloader: DataLoader,
+    evaluator_func: Callable[..., BaseEvaluator],
+    models: dict[str, ExecutableModelProtocol | AsyncOnDeviceModel],
+    model_batch_size: int | None = None,
+    verbose: bool = False,
+) -> dict[str, BaseEvaluator]:
+    """
+    Evaluate model accuracy on a dataset both on device and with PyTorch.
+
+    Parameters:
+        dataloader:
+            batched data loader
+
+        evaluator_func:
+            Function that returns a new evaluator instance to use for eval.
+
+        models:
+            dict[model identifier, model class]
+            Models to evaluate.
+
+        model_batch_size:
+            If set, models will always execute with this batch size.
+            If None, all models run with the dataloader batch size.
+
+            Generally this is set to 1 because most models compile to a batch size of 1.
+            We typically use a batch size of 1 locally because:
+                * It's not slower than multi-batch inference on CPU.
+                * It's usually required to run compiled models with fixed input shapes.
+
+            The dataloader may have a different batch size to accomodate
+            caching of Hub Datasets.
+
+        verbose:
+            If true, prints evaluation scores.
+
+    Returns:
+        dict[model identifier, eval result]
+    """
+    ai_hub_inference_models = {
+        n: m for n, m in models.items() if isinstance(m, AsyncOnDeviceModel)
+    }
+    local_inference_models = {
+        n: m for n, m in models.items() if not isinstance(m, AsyncOnDeviceModel)
+    }
+
+    evaluators = {name: evaluator_func() for name in models}
+    ai_hub_async_inference_outputs: dict[str, list[AsyncOnDeviceResult]] = {
+        name: []
+        for name, model in models.items()
+        if isinstance(model, AsyncOnDeviceModel)
+    }
+    batch_size = dataloader.batch_size or 1
+    model_batch_size = model_batch_size or batch_size
+
+    # Get each sample from the dataloader. Each sample has batch size batch_size.
+    for batch_idx, sample in enumerate(dataloader):
+        model_inputs, ground_truth_values, *_ = sample
+        if not isinstance(model_inputs, tuple):
+            model_inputs = tuple([model_inputs])
+        if not isinstance(ground_truth_values, tuple):
+            ground_truth_values = tuple([ground_truth_values])
+        model_inputs = cast(tuple[torch.Tensor, ...], model_inputs)
+        ground_truth_values = cast(tuple[torch.Tensor, ...], ground_truth_values)
+
+        # On device output is computed on the entire batch,
+        # Run all on-device models first.
+        for model_name, async_model in ai_hub_inference_models.items():
+            hub_dataset = None
+            if isinstance(dataloader.dataset, HubDataset):
+                # If the dataloader is a cached dataset, we can just use the cached Hub dataset
+                # instead of uploading the inputs to Hub again.
+                assert async_model.input_names == dataloader.dataset.input_names
+                assert (
+                    async_model.channel_last_input
+                    == dataloader.dataset.channel_last_input
+                )
+                hub_dataset = hub.get_dataset(dataloader.dataset.input_ids[batch_idx])
+                async_output = async_model(hub_dataset)
+            else:
+                device_inputs = (
+                    (x.split(model_batch_size, dim=0) for x in model_inputs)
+                    if model_batch_size
+                    else model_inputs
+                )
+                async_output = async_model(*device_inputs)
+
+            # On device output is computed asynchronously on AI Hub, so save it for later.
+            ai_hub_async_inference_outputs[model_name].append(async_output)
+
+        # Run the remaining local models separately.
+        if len(local_inference_models) == 0:
+            continue
+
+        # Run local inference
+        num_local_batches = math.ceil(batch_size / model_batch_size)
+        for single_batch_idx in tqdm(
+            range(0, num_local_batches), total=num_local_batches
+        ):
+            # Break batch into smaller batches for local inference.
+            batch_start_idx = single_batch_idx * model_batch_size
+            batch_end_idx = min(batch_size, (single_batch_idx * model_batch_size) + 1)
+            batch_input = tuple(x[batch_start_idx:batch_end_idx] for x in model_inputs)
+            batch_gt = tuple(
+                x[batch_start_idx:batch_end_idx] for x in ground_truth_values
+            )
+            if len(batch_gt) == 1:
+                # Ground truth should not be a tuple if there is only 1 element.
+                batch_gt = batch_gt[0]
+
+            # Run inference on this smaller batch, add to evaluator.
+            for model_name, local_model in local_inference_models.items():
+                batch_output = local_model(*batch_input)
+                evaluators[model_name].add_batch(batch_output, batch_gt)
+
+        if verbose:
+            for model_name in local_inference_models:
+                print(
+                    f"Cumulative {model_name} accuracy on {batch_idx * batch_size} samples: "
+                    f"{evaluators[model_name].formatted_accuracy()}"
+                )
+
+    # Collect on device accuracy
+    if len(ai_hub_inference_models) > 0:
+        for batch_idx, sample in enumerate(dataloader):
+            _, ground_truth_values, *_ = sample
+            for (
+                model_name,
+                batched_async_model_outputs,
+            ) in ai_hub_async_inference_outputs.items():
+                model_output = batched_async_model_outputs[batch_idx].wait()
+                evaluators[model_name].add_batch(model_output, ground_truth_values)
+
+                if verbose:
+                    print(
+                        f"Cumulative {model_name} accuracy on {batch_idx * batch_size} samples: "
+                        f"{evaluators[model_name].formatted_accuracy()}"
+                    )
+
+    if verbose:
+        print("\nFinal Accuracy")
+        for model_name, evaluator in evaluators.items():
+            print(f"{model_name}: {evaluator.formatted_accuracy()}")
+
+    return evaluators
 
 
 def evaluate_on_dataset(
@@ -477,7 +628,10 @@ def evaluate_on_dataset(
             on_device_model.channel_last_input,
         )
         torch_dataset = HubDataset(
-            dataset_name, num_samples, on_device_model.channel_last_input
+            dataset_name,
+            num_samples,
+            on_device_model.input_names,
+            on_device_model.channel_last_input,
         )
         dataloader = _make_dataloader(torch_dataset, samples_per_job)
         num_samples = len(torch_dataset) * samples_per_job
@@ -492,79 +646,25 @@ def evaluate_on_dataset(
 
     print(f"Evaluating on {num_samples} samples.")
 
-    torch_evaluator = torch_model.get_evaluator()
-    on_device_evaluator = torch_model.get_evaluator()
-    quant_cpu_evaluator = torch_model.get_evaluator()
-    quant_cpu_session = (
-        _make_quant_cpu_session(compiled_model) if compute_quant_cpu_accuracy else None
+    models: dict[str, ExecutableModelProtocol | AsyncOnDeviceModel] = {}
+    if compute_quant_cpu_accuracy:
+        models["quant cpu"] = _load_quant_cpu_onnx(compiled_model)
+    if not skip_device_accuracy:
+        models["on-device"] = on_device_model
+    if not skip_torch_accuracy:
+        models["torch"] = torch_model
+
+    results = evaluate(
+        dataloader,
+        torch_model.get_evaluator,
+        models,
+        model_batch_size=1,
+        verbose=True,
     )
 
-    on_device_results = []
-    num_batches = len(dataloader)
-    for i, sample in enumerate(dataloader):
-        model_inputs, ground_truth_values, *_ = sample
-
-        if use_cache:
-            assert isinstance(dataloader.dataset, HubDataset)
-            hub_dataset = hub.get_dataset(dataloader.dataset.input_ids[i])
-            if not skip_device_accuracy:
-                on_device_results.append(on_device_model(hub_dataset))
-        elif not skip_device_accuracy:
-            on_device_results.append(on_device_model(model_inputs.split(1, dim=0)))
-
-        if skip_torch_accuracy and not compute_quant_cpu_accuracy:
-            continue
-
-        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
-            if isinstance(ground_truth_values, torch.Tensor):
-                ground_truth = ground_truth_values[j : j + 1]
-            else:
-                ground_truth = tuple(val[j : j + 1] for val in ground_truth_values)
-            torch_input = model_input.unsqueeze(0)
-            if not skip_torch_accuracy:
-                torch_output = torch_model(torch_input)
-                torch_evaluator.add_batch(torch_output, ground_truth)
-            if quant_cpu_session is not None:
-                quant_cpu_out = mock_torch_onnx_inference(
-                    quant_cpu_session, torch_input
-                )
-                quant_cpu_evaluator.add_batch(quant_cpu_out, ground_truth)
-
-        if compute_quant_cpu_accuracy:
-            print(
-                f"Cumulative quant cpu accuracy on batch {i + 1}/{num_batches}: "
-                f"{quant_cpu_evaluator.formatted_accuracy()}"
-            )
-        if not skip_torch_accuracy:
-            print(
-                f"Cumulative torch accuracy on batch {i + 1}/{num_batches}: "
-                f"{torch_evaluator.formatted_accuracy()}"
-            )
-
-    if not skip_device_accuracy:
-        for i, sample in enumerate(dataloader):
-            on_device_values = on_device_results[i].wait()
-            _, ground_truth_values, *_ = sample
-            on_device_evaluator.add_batch(on_device_values, ground_truth_values)
-            print(
-                f"Cumulative on device accuracy on batch {i + 1}/{num_batches}: "
-                f"{on_device_evaluator.formatted_accuracy()}"
-            )
-    torch_accuracy = None
-    on_device_accuracy = None
-    quant_cpu_accuracy = None
-    print("\nFinal accuracy:")
-    if not skip_torch_accuracy:
-        torch_accuracy = torch_evaluator.get_accuracy_score()
-        print(f"torch: {torch_evaluator.formatted_accuracy()}")
-    if compute_quant_cpu_accuracy:
-        quant_cpu_accuracy = quant_cpu_evaluator.get_accuracy_score()
-        print(f"quant cpu: {quant_cpu_evaluator.formatted_accuracy()}")
-    if not skip_device_accuracy:
-        on_device_accuracy = on_device_evaluator.get_accuracy_score()
-        print(f"on-device: {on_device_evaluator.formatted_accuracy()}")
+    scores = {name: e.get_accuracy_score() for name, e in results.items()}
     return EvaluateResult(
-        torch_accuracy,
-        quant_cpu_accuracy,
-        on_device_accuracy,
+        scores.get("torch"),
+        scores.get("quant cpu"),
+        scores.get("on-device"),
     )

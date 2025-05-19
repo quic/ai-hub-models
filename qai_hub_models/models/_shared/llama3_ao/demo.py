@@ -6,20 +6,20 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable
-from typing import Any
 
 from qai_hub_models.models._shared.llama3_ao.app import ChatApp as App
 from qai_hub_models.models._shared.llama3_ao.model import (
     determine_mode,
     verify_mode_and_checkpoint_match,
 )
+from qai_hub_models.models._shared.llm.model import get_tokenizer
 from qai_hub_models.utils.args import get_model_cli_parser
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.huggingface import has_model_access
 
 # Max output tokens to generate
 # You can override this with cli argument.
-MAX_OUTPUT_TOKENS = 20
+MAX_OUTPUT_TOKENS = 1000
 
 
 def llama_chat_demo(
@@ -28,7 +28,6 @@ def llama_chat_demo(
     model_id: str,
     get_input_prompt_with_tags: Callable,
     prepare_combined_attention_mask: Callable,
-    tokenizer: Any,
     end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
@@ -39,18 +38,17 @@ def llama_chat_demo(
 ):
     """
     Shared Chat Demo App to generate output for provided input prompt
-        model_cls: Model base class (either Prompt Processor or Token Generator)
+        model_cls: Model class (of quantized models)
+        fp_model_cls: Model class (of floating point models)
         model_id: Model ID from hub,
         get_input_prompt_with_tags: Function to wrap input prompt with appropriate tags,
         prepare_combined_attention_mask: Function to combine attention mask,
-        tokenizer: Tokenizer to encode-decode prompt,
-        num_splits: Number of model splits,
         end_tokens: Set of end tokens to use for end of output generation,
         hf_repo_name: HF repo name,
         hf_repo_url: HF repo url,
         default_prompt: Default prompt to set,
         is_test: If test, no options required,
-        available_target_runtimes: Default availble runtime in options,
+        available_target_runtimes: Available runtimes,
         bundled_kvcache: KV-cache for each head is concatenated.
     """
     # Demo parameters
@@ -59,7 +57,6 @@ def llama_chat_demo(
         "--mode",
         type=str,
         choices=["fp", "quantsim"],
-        default="fp",
         help="Run the floating point model or simulated quantization.",
     )
     parser.add_argument(
@@ -116,18 +113,23 @@ def llama_chat_demo(
 
     user_specified_checkpoint = "--checkpoint" in sys.argv
     if (not user_specified_checkpoint or args.checkpoint == "DEFAULT") and mode is None:
-        raise ValueError("--mode must be specified if --checkpoint is not.")
+        parser.error("--mode must be specified if --checkpoint is not.")
 
     if args.checkpoint != "DEFAULT":
+        tokenizer = get_tokenizer(args.checkpoint)
+
         if not mode:
             mode = determine_mode(args.checkpoint)
         else:
             verify_mode_and_checkpoint_match(args.checkpoint, mode)
+    else:
+        has_model_access(hf_repo_name, hf_repo_url)
+        tokenizer = get_tokenizer(hf_repo_name)
 
     if not is_test:
         print(f"\n{'-' * 85}")
         print(f"** Generating response via {model_id} **")
-        if args.mode == "fp":
+        if mode == "fp":
             print("Variant: FP32 (PyTorch)")
             print("    This runs the original unquantized model for baseline purposes.")
         else:
@@ -137,12 +139,20 @@ def llama_chat_demo(
         print("Prompt:", prompt)
         print("Raw (prompt will be passed in unchanged):", args.raw)
         print("Max number of output tokens to generate:", args.max_output_tokens)
-        print("Please pass `--max-output-tokens <int>` to generate longer responses.")
         print()
         print(f"{'-' * 85}\n")
 
-    has_model_access(hf_repo_name, hf_repo_url)
-    model = fp_model_cls if args.mode == "fp" else model_cls
+    extra = {}
+    if mode == "quantsim":
+        if args.checkpoint == "DEFAULT":
+            extra["fp_model"] = fp_model_cls.from_pretrained(
+                sequence_length=args.sequence_length,
+                context_length=args.context_length,
+            )
+        model = model_cls
+    else:
+        model = fp_model_cls
+
     app = App(
         model,
         get_input_prompt_with_tags=preprocess_prompt_fn,
@@ -161,5 +171,5 @@ def llama_chat_demo(
         if args.checkpoint == "DEFAULT" and mode == "fp"
         else args.checkpoint,
         bundled_kvcache=bundled_kvcache,
-        mode=mode,
+        model_from_pretrained_extra=extra,
     )

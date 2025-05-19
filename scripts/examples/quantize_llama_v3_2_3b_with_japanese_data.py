@@ -105,7 +105,7 @@ if __name__ == "__main__":
         context_length=context_length,
         sequence_length=seq_len,
         checkpoint=None,
-        server_device=device,
+        host_device=device,
         fp_model=fp_model,
     )
     del fp_model

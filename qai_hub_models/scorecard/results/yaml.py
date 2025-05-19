@@ -39,6 +39,7 @@ from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
 
+ENVIRONMENT_ENV_BASE = INTERMEDIATES_DIR / "environment.env"
 QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"

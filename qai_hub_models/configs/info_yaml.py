@@ -264,6 +264,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if not os.path.exists(self.get_package_path() / "info.yaml"):
                 raise ValueError("All public models must have an info.yaml")
 
+            if not os.path.exists(self.get_package_path() / "perf.yaml"):
+                raise ValueError("All public models must have a perf.yaml")
+
             if not self.code_gen_config.supports_at_least_1_runtime:
                 raise ValueError("Public models must support at least one export path")
 

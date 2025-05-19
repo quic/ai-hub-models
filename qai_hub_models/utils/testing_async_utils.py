@@ -111,16 +111,26 @@ def get_cpu_accuracy_file(artifacts_dir: os.PathLike | str | None = None) -> Pat
     return get_artifact_filepath("cpu-accuracy.yaml", artifacts_dir)
 
 
+def get_accuracy_columns() -> list[str]:
+    cols = [
+        "model_id",
+        "precision",
+        "runtime",
+        "Torch Accuracy",
+        "Sim Accuracy",
+        "Device Accuracy",
+    ]
+    for i in range(MAX_PSNR_VALUES):
+        cols.append(f"PSNR_{i}")
+    cols.extend(["date", "branch", "chipset"])
+    return cols
+
+
 def get_accuracy_file() -> Path:
     filepath = get_artifact_filepath("accuracy.csv")
     if filepath.stat().st_size == 0:
         with open(filepath, "w") as f:
-            f.write(
-                "model_id,precision,runtime,Torch Accuracy,Sim Accuracy,Device Accuracy"
-            )
-            for i in range(MAX_PSNR_VALUES):
-                f.write(f",PSNR_{i}")
-            f.write(",date,branch,chipset\n")
+            f.write(",".join(get_accuracy_columns()))
     return filepath
 
 
@@ -204,6 +214,50 @@ def assert_success_or_cache_job(
         )
 
 
+def get_cached_profile_job(
+    model_id: str,
+    precision: Precision,
+    scorecard_path: ScorecardProfilePath,
+    device: ScorecardDevice,
+    component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
+) -> Mapping[str | None, hub.ProfileJob | hub.InferenceJob] | None:
+    """
+    Get the cached profile job for the given model and scorecard path.
+
+    Parameters;
+        model_id: str
+            Model ID
+
+        precision: Precision
+            Model precision
+
+        scorecard_path: ScorecardProfilePath
+            Scorecard path
+
+        device: ScorecardDevice
+            Scorecard device
+
+        component_names: list[str] | None = None
+            Name of all model components (if applicable), or None of there are no components
+
+        cache_path: str | Path | None = None
+            Path to the cache file. If None, uses the default cache path.
+
+    Returns:
+        Mapping[str | None, hub.ProfileJob | hub.InferenceJob | None] | None: The cached profile job, or None if no cached job is found.
+    """
+    return fetch_successful_async_test_jobs(
+        hub.JobType.PROFILE,
+        model_id,
+        precision,
+        scorecard_path,
+        device,
+        component_names,
+        cache_path=cache_path,
+    )
+
+
 @overload
 def fetch_successful_async_test_job(
     job_type: Literal[hub.JobType.COMPILE],
@@ -212,6 +266,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.CompileJob | None:
     ...
 
@@ -224,6 +279,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.ProfileJob | None:
     ...
 
@@ -236,6 +292,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.InferenceJob | None:
     ...
 
@@ -248,6 +305,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath | None,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.QuantizeJob | None:
     ...
 
@@ -260,6 +318,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.Job | None:
     ...
 
@@ -271,6 +330,7 @@ def fetch_successful_async_test_job(
     path: ScorecardCompilePath | ScorecardProfilePath | None,
     device: ScorecardDevice,
     component: str | None = None,
+    cache_path: str | Path | None = None,
 ) -> hub.Job | None:
     """
     Get the successful async test job that corresponds to the given parameters.
@@ -294,6 +354,9 @@ def fetch_successful_async_test_job(
         component: str | None = None
             Name of model com
 
+        cache_path: os.PathLike | str | None = None
+            Path to the cache file. If None, uses the default cache path.
+
     Returns:
         A successful Hub job, or None if this job type was not found in the cache.
 
@@ -301,7 +364,7 @@ def fetch_successful_async_test_job(
         ValueError if the job is cached but failed or is still running.
     """
     scorecard_job: ScorecardJob = get_scorecard_job_yaml(
-        job_type, get_async_test_job_cache_path(job_type)
+        job_type, cache_path or get_async_test_job_cache_path(job_type)
     ).get_job(
         path,
         model_id,
@@ -344,6 +407,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.CompileJob] | None:
     ...
 
@@ -356,6 +420,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.ProfileJob] | None:
     ...
 
@@ -368,6 +433,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.InferenceJob] | None:
     ...
 
@@ -380,6 +446,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath | None,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.QuantizeJob] | None:
     ...
 
@@ -392,6 +459,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.Job] | None:
     ...
 
@@ -403,6 +471,7 @@ def fetch_successful_async_test_jobs(
     path: ScorecardCompilePath | ScorecardProfilePath | None,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    cache_path: str | Path | None = None,
 ) -> Mapping[str | None, hub.Job] | None:
     """
     Get the succesful async test jobs that correspond to the given parameters.
@@ -425,6 +494,9 @@ def fetch_successful_async_test_jobs(
 
         component_names: list[str] | None = None
             Name of all model components (if applicable), or None of there are no components
+
+        cache_path: os.PathLike | str | None = None
+            Path to the cache file. If None, uses the default cache path.
 
     Returns:
         dict
@@ -453,6 +525,7 @@ def fetch_successful_async_test_jobs(
             path,  # type: ignore[arg-type]
             device,
             component,
+            cache_path,
         )
 
     has_jobs = all(component_jobs.values())

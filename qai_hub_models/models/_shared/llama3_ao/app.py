@@ -167,10 +167,10 @@ class ChatApp:
         input_prompt: str,
         prompt_sequence_length: int,
         context_length: int,
-        mode: str,
         max_output_tokens: int,
         checkpoint: str | None = None,
         bundled_kvcache: bool = True,
+        model_from_pretrained_extra: dict = {},
     ):
         torch.manual_seed(self.seed)
         input_prompt_processed = self.get_input_prompt_with_tags(
@@ -188,9 +188,9 @@ class ChatApp:
                 "This script requires the prompt sequence lengths to evenly divide the context length."
             )
 
-        server_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        host_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        orig_input_ids = input_tokens["input_ids"].type(torch.long).to(server_device)
+        orig_input_ids = input_tokens["input_ids"].type(torch.long).to(host_device)
 
         num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         num_prompt_iterations = math.ceil(num_tokens / prompt_sequence_length)
@@ -203,16 +203,18 @@ class ChatApp:
         output_token = None
         hub_tokens: torch.Tensor | None = None
 
-        extra = {}
-        if mode == "quantsim":
-            extra["server_device"] = server_device
-        extra["checkpoint"] = checkpoint
+        model_params = {
+            "context_length": context_length,
+            "host_device": host_device,
+            **model_from_pretrained_extra,
+        }
+        if checkpoint is not None:
+            model_params["checkpoint"] = checkpoint
 
         model = self.model_cls.from_pretrained(
             sequence_length=prompt_sequence_length,
-            context_length=context_length,
-            **extra,
-        ).to(server_device)
+            **model_params,
+        )
         rope_embedding = RopeEmbedding(
             max_length=context_length, config=model.llm_config
         )
@@ -226,7 +228,7 @@ class ChatApp:
 
         # Initialization of KV cache
         past_key_values = [
-            torch.zeros(shape, device=server_device)
+            torch.zeros(shape, device=host_device)
             for k, (shape, _) in input_specs.items()
             if k.startswith("past_")
         ]
@@ -246,8 +248,8 @@ class ChatApp:
                     # switch to token processor
                     model = self.model_cls.from_pretrained(
                         sequence_length=1,
-                        **extra,
-                    ).to(server_device)
+                        **model_params,
+                    )
                     is_prompt = False
 
                 seq_len = 1
@@ -275,12 +277,12 @@ class ChatApp:
                     torch.Tensor(position_ids_lst)
                     .type(torch.long)
                     .reshape(1, seq_len)
-                    .to(server_device)
+                    .to(host_device)
                 )
                 position_ids_cos, position_ids_sin = rope_embedding.get_embedding(
                     position_ids,
                 )
-                attention_mask = torch.zeros((1, context_length), device=server_device)
+                attention_mask = torch.zeros((1, context_length), device=host_device)
                 attention_mask[:, context_length - (first_prompt + i * seq_len) :] = 1.0
             else:
                 assert output_token is not None
@@ -291,7 +293,7 @@ class ChatApp:
                 attention_mask = torch.cat(
                     (
                         attention_mask[:, seq_len:],
-                        torch.ones((1, seq_len), device=server_device),
+                        torch.ones((1, seq_len), device=host_device),
                     ),
                     dim=-1,
                 )
@@ -302,7 +304,7 @@ class ChatApp:
                     torch.Tensor(position_ids)
                     .type(torch.long)
                     .reshape(1, 1)
-                    .to(server_device)
+                    .to(host_device)
                 )
                 position_ids_cos, position_ids_sin = rope_embedding.get_embedding(
                     position_ids,
@@ -312,7 +314,7 @@ class ChatApp:
                 attention_mask=attention_mask,
                 input_shape=(1, seq_len),
                 past_key_values_length=context_length - seq_len,
-            ).to(server_device)
+            ).to(host_device)
 
             # Generate output token
             output = model(
@@ -329,7 +331,7 @@ class ChatApp:
                 past_key_values,
                 output[1:],
                 length=context_length - next_seq_len,
-                device=server_device,
+                device=host_device,
             )
             is_prediction = next_seq_len == 1
 

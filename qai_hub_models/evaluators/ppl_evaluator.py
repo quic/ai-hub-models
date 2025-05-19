@@ -73,7 +73,7 @@ class PerplexityEvaluator(BaseEvaluator):
         return math.exp(average_loss)
 
     def formatted_accuracy(self) -> str:
-        return f"PPL: {self.get_accuracy_score():.2f}"
+        return f"PPL (lower is better): {self.get_accuracy_score():.2f}"
 
     def for_each_batch(
         self,

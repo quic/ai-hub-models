@@ -23,6 +23,25 @@ ORT_TENSOR_STR_TO_NP_TYPE = {
 QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
 
 
+def torch_onnx_export_with_large_model_size_check(*args, **kwargs):
+    """
+    Calls torch.onnx.export.
+
+    Catches large model export failures caused by a bug in
+    Torch 2.5 and appends a helpful message.
+    """
+    try:
+        return torch.onnx.export(*args, **kwargs)
+    except RuntimeError as e:
+        if torch.__version__.startswith(
+            "2.5."
+        ) and "The serialized model is larger than the 2GiB" in str(e):
+            raise ValueError(
+                "Large model export to ONNX is broken in torch 2.5. Install a different torch version and try again."
+            )
+        raise e
+
+
 def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
     """
     Convert args + kwargs to a key / value dictionary.
@@ -148,27 +167,38 @@ def _extract_qdq_scale_offset(
 def extract_io_types_from_onnx_model(
     onnx_model: onnx.ModelProto | onnxruntime.InferenceSession,
 ) -> tuple[
-    dict[str, tuple[np.dtype, tuple[float, int] | None]],
-    dict[str, tuple[np.dtype, tuple[float, int] | None]],
+    dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]],
+    dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]],
 ]:
     """
     For a model with quantized IO, return the quantization parameters (scale, offset) for every
     quantized input and output.
+
+    Returns:
+        dict[name, tuple[shape, dtype, qdq params or None]]
     """
 
-    inputs: dict[str, tuple[np.dtype, tuple[float, int] | None]]
-    outputs: dict[str, tuple[np.dtype, tuple[float, int] | None]]
+    inputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
+    outputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
     if isinstance(onnx_model, onnxruntime.InferenceSession):
         # extract from inference session
         input_names = {input.name for input in onnx_model.get_inputs()}
         output_names = {output.name for output in onnx_model.get_outputs()}
 
         inputs = {
-            input.name: (ORT_TENSOR_STR_TO_NP_TYPE[input.type], None)
+            input.name: (
+                tuple(input.shape),
+                ORT_TENSOR_STR_TO_NP_TYPE[input.type],
+                None,
+            )
             for input in onnx_model.get_inputs()
         }
         outputs = {
-            output.name: (ORT_TENSOR_STR_TO_NP_TYPE[output.type], None)
+            output.name: (
+                tuple(output.shape),
+                ORT_TENSOR_STR_TO_NP_TYPE[output.type],
+                None,
+            )
             for output in onnx_model.get_outputs()
         }
     else:
@@ -180,6 +210,7 @@ def extract_io_types_from_onnx_model(
         }
         inputs = {
             input.name: (
+                tuple(x.dim_value for x in input.type.tensor_type.shape.dim),
                 TENSOR_TYPE_MAP[input.type.tensor_type.elem_type].np_dtype,
                 None,
             )
@@ -187,6 +218,7 @@ def extract_io_types_from_onnx_model(
         }
         outputs = {
             output.name: (
+                tuple(x.dim_value for x in output.type.tensor_type.shape.dim),
                 TENSOR_TYPE_MAP[output.type.tensor_type.elem_type].np_dtype,
                 None,
             )
@@ -218,6 +250,7 @@ def extract_io_types_from_onnx_model(
                 if node.input[0] in input_names:
                     inputs[node.input[0]] = (
                         inputs[node.input[0]][0],
+                        inputs[node.input[0]][1],
                         _extract_qdq_scale_offset(
                             onnx_model.graph, initializer_indices, node
                         ),
@@ -226,6 +259,7 @@ def extract_io_types_from_onnx_model(
                 if node.output[0] in output_names:
                     outputs[node.output[0]] = (
                         outputs[node.output[0]][0],
+                        outputs[node.output[0]][1],
                         _extract_qdq_scale_offset(
                             onnx_model.graph, initializer_indices, node
                         ),

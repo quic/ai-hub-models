@@ -8,22 +8,20 @@ Items defined in this file require that AIMET-ONNX be installed.
 
 from __future__ import annotations
 
-import onnx
-
 try:
     import onnxruntime as ort
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
     from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
-    raise NotImplementedError(
+    print(
         "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
         "Install qai-hub-models on a Linux machine to use quantized models."
     )
-
 import os
 import shutil
 from collections.abc import Collection
 from pathlib import Path
+from typing import Any
 
 import torch
 from qai_hub.client import DatasetEntries
@@ -49,13 +47,24 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     def __init__(
         self,
-        quant_sim: QuantSimOnnx,
+        quant_sim: QuantSimOnnx | None,
     ):
         self.quant_sim = quant_sim
-        self.input_names = [input.name for input in self.quant_sim.session.get_inputs()]
-        self.output_names = [
-            output.name for output in self.quant_sim.session.get_outputs()
-        ]
+        if self.quant_sim is not None:
+            self.input_names = [
+                input.name for input in self.quant_sim.session.get_inputs()
+            ]
+            self.output_names = [
+                output.name for output in self.quant_sim.session.get_outputs()
+            ]
+
+    def convert_to_torchscript(
+        self, input_spec: InputSpec | None = None, check_trace: bool = True
+    ) -> Any:
+        # This must be defined by the PretrainedHubModelProtocol ABC
+        raise ValueError(
+            f"Cannot call convert_to_torchscript on {self.__class__.__name__}"
+        )
 
     def get_calibration_data(
         self,
@@ -85,7 +94,6 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         data: _DataLoader | None = None,
         num_samples: int | None = None,
         use_seq_mse: bool = False,
-        original_onnx_model: onnx.ModelProto | None = None,
     ) -> None:
         """
         Args:
@@ -110,12 +118,13 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             run_onnx_inference(session, data, num_iterations)
 
         if use_seq_mse:
-            assert original_onnx_model is not None
+            assert self.quant_sim is not None
             params = SeqMseParams(num_batches=num_iterations)
-            seq_mse = SequentialMse(original_onnx_model, self.quant_sim, params, data)
+            seq_mse = SequentialMse(self.quant_sim.model, self.quant_sim, params, data)
             seq_mse.apply_seq_mse_algo()
 
         print(f"Start QuantSim calibration for {self.__class__.__name__}")
+        assert self.quant_sim is not None
         self.quant_sim.compute_encodings(_forward, tuple())
 
     def _sample_inputs_impl(
@@ -133,6 +142,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         """
         QuantSim forward pass with torch.Tensor
         """
+        assert self.quant_sim is not None
         return mock_torch_onnx_inference(self.quant_sim.session, *args, **kwargs)
 
     def convert_to_onnx_and_aimet_encodings(
@@ -168,6 +178,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             with qaihm_temp_dir() as tmpdir:
                 export_dir = Path(tmpdir) / base_dir
                 os.makedirs(export_dir)
+                assert self.quant_sim is not None
                 self.quant_sim.export(str(export_dir), "model")
 
                 onnx_file_path = str(export_dir / "model.onnx")
@@ -202,6 +213,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             print(
                 f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
             )
+            assert self.quant_sim is not None
             self.quant_sim.export(str(export_dir), "model")
             return str(export_dir)
 

@@ -23,6 +23,9 @@ from qai_hub_models.models.protocols import (
 )
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
+from qai_hub_models.utils.onnx_helpers import (
+    torch_onnx_export_with_large_model_size_check,
+)
 
 
 def zip_aimet_model(
@@ -135,7 +138,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                 print("         pip install torch==2.4.0")
                 print()
 
-            torch.onnx.export(
+            torch_onnx_export_with_large_model_size_check(
                 self,
                 torch_inputs,
                 onnx_file_path,

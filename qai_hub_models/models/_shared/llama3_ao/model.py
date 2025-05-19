@@ -15,21 +15,26 @@ from qai_hub_models.models._shared.llm.model import (
 )
 
 # isort: on
-
 import copy
+import gc
 import json
 import math
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import onnx
 import torch
-from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel
+
 from packaging.version import Version
 from qai_hub.client import DatasetEntries
+from qai_hub.public_rest_api import DatasetEntries
+from transformers import PretrainedConfig, PreTrainedTokenizer
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import modeling_llama
 
@@ -47,7 +52,6 @@ from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
-from qai_hub_models.utils.huggingface import has_model_access
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.system_info import has_recommended_memory
 
@@ -109,28 +113,24 @@ def verify_mode_and_checkpoint_match(
 
 
 def determine_mode(checkpoint: str | os.PathLike | Path) -> str:
-    mode = None
-    try:
-        modeling_llama.LlamaForCausalLM.from_pretrained(
-            checkpoint, config=get_llm_config(checkpoint)
-        )
-        mode = "fp"
-    except Exception:
-        pass
-    finally:
-        list_of_files = os.listdir(checkpoint)
-        for file in list_of_files:
-            if (
-                file.endswith(".encodings")
-                and file.endswith(".data")
-                and file.endswith(".onnx")
-            ):
-                mode = "quantsim"
-    if mode is None:
+    if os.path.isdir(checkpoint):
+        encodings_paths = os.path.join(checkpoint, "model.encodings")
+        if os.path.exists(encodings_paths):
+            return "quantsim"
+        else:
+            return "fp"
+    elif is_huggingface_repo(checkpoint):
+        return "fp"
+    else:
         raise ValueError(
-            "Checkpoint is not valid to load floating point model nor QuantSim model."
+            f"Checkpoint {checkpoint} is not a valid local path nor Hugging Face repository name."
         )
-    return mode
+
+
+def is_huggingface_repo(checkpoint: str | os.PathLike | Path) -> bool:
+    from huggingface_hub import repo_exists
+
+    return isinstance(checkpoint, str) and repo_exists(checkpoint)
 
 
 def get_past_key_names(
@@ -364,13 +364,13 @@ def monkey_patch_huggingface_llama_modeling(
 class Llama3Base(BaseModel, ABC):
     def __init__(
         self,
-        huggingface_model_name: str,
+        checkpoint: str | os.PathLike | Path,
         min_memory_recommended: int,
         sequence_length: int,
         context_length: int,
-        checkpoint: str | os.PathLike | Path | None = None,
         is_token_generator: bool = False,
         load_pretrained: bool = True,
+        host_device: torch.device | None = None,
         _make_small_for_debugging: bool = False,  # construct a small and incorrect network
         _skip_optimizations: list[str] | None = None,
     ):
@@ -380,9 +380,8 @@ class Llama3Base(BaseModel, ABC):
         Parameters
         ----------
 
-        huggingface_model_name:
-            Name of the HuggingFace model. Subclasses should provide a default
-            for this.
+        checkpoint:
+            Can be local folder or Hugging Face repo name.
         min_memory_recommended:
             Minimum recommended memory in GB for running export.
         aimet_encodings:
@@ -396,41 +395,24 @@ class Llama3Base(BaseModel, ABC):
         _skip_optimizations:
             Turn off one or more of {sha_attention, rank4_rms_norm}
         """
+
         super().__init__()
         self.skip_optimizations = _skip_optimizations
         self.checkpoint = checkpoint
-        self.huggingface_model_name = huggingface_model_name
-
-        # Ensure User has access to model,
-        # otherwise point to instructions to get access and error out.
-        has_model_access(self.huggingface_model_name)
-
-        # Check access if checkpoint is a HF repo name
-        if (
-            self.checkpoint is not None
-            and not os.path.exists(self.checkpoint)
-            and isinstance(self.checkpoint, str)
-        ):
-            hf_repo_name: str = self.checkpoint
-            has_model_access(hf_repo_name)
 
         # Ensure User has recommended memory,
         # otherwise, provide warning to user and recommend to increase swap-space as a work-around.
         has_recommended_memory(min_memory_recommended)
 
-        self._verify_ckpt(_make_small_for_debugging)
         # TODO: Make this into a context manager
         monkey_patch_huggingface_llama_modeling(skip_optimizations=_skip_optimizations)
-
+        self._verify_ckpt(_make_small_for_debugging)
         if load_pretrained:
-            try:
-                model = modeling_llama.LlamaForCausalLM.from_pretrained(
-                    self.model_ckpt,
-                    config=self.llm_config,
-                    ignore_mismatched_sizes=_make_small_for_debugging,
-                )
-            except Exception:
-                raise ValueError("The model weights could not be loaded correctly.")
+            model = modeling_llama.LlamaForCausalLM.from_pretrained(
+                self.checkpoint,
+                config=self.llm_config,
+                ignore_mismatched_sizes=_make_small_for_debugging,
+            )
         else:
             model = modeling_llama.LlamaForCausalLM(self.llm_config)
         model.eval()
@@ -443,35 +425,28 @@ class Llama3Base(BaseModel, ABC):
             if hasattr(module, "prepare_sha"):
                 module.prepare_sha()
 
+        model.to(host_device)
+
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.split_part = 1
         self.is_token_generator = is_token_generator
         self.model = model
-        self.tokenizer = get_tokenizer(self.huggingface_model_name)
 
     def _verify_ckpt(self, _make_small_for_debugging: bool = False):
-        self.model_ckpt = (
-            self.checkpoint
-            if self.checkpoint is not None
-            and "config.json" in os.listdir(self.checkpoint)
-            else self.huggingface_model_name
-        )
-        try:
-            self.llm_config = get_llm_config(self.model_ckpt, _make_small_for_debugging)
-            if (
-                not (
-                    self.llm_config.architectures[0] == "LlamaForCausalLM"
-                    and self.llm_config.model_type == "llama"
-                )
-                and self.llm_config.rope_scaling is not None
-                and self.llm_config.rope_scaling["rope_type"] != "llama3"
-            ):
-                raise ValueError(
-                    "Model config is not compatible with our implementation."
-                )
-        except Exception:
-            raise ValueError(f"No model config is present in {self.model_ckpt}")
+        self.llm_config = get_llm_config(self.checkpoint, _make_small_for_debugging)
+        if (
+            not (
+                self.llm_config.architectures[0] == "LlamaForCausalLM"
+                and self.llm_config.model_type == "llama"
+            )
+            and self.llm_config.rope_scaling is not None
+            and self.llm_config.rope_scaling["rope_type"] != "llama3"
+        ):
+            raise ValueError(
+                "Model config is not compatible with this model implementation."
+            )
+        self.tokenizer = get_tokenizer(self.checkpoint)
 
     @classmethod
     @abstractmethod
@@ -677,34 +652,35 @@ class Llama3Base(BaseModel, ABC):
             input_spec, self.context_length, self.sequence_length, device
         )
 
+    def __del__(self):
+        # Clean up since it is prone to hang onto GPU memory otherwise
+        if hasattr(self, "model") and self.model is not None:
+            del self.model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
 
 class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     def __init__(
         self,
-        sim_model: QuantSimOnnx,
-        onnx_model: onnx.ModelProto,
-        server_device: torch.device,
-        huggingface_model_name: str,
+        sim_model: QuantizationSimModel,
+        host_device: torch.device,
         checkpoint: str | os.PathLike | Path | None = None,
+        tokenizer: PreTrainedTokenizer | None = None,
+        llm_config: PretrainedConfig | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
     ):
-        LLM_AIMETOnnx.__init__(
-            self,
+        super().__init__(
             sim_model=sim_model,
             checkpoint=checkpoint,
-            onnx_model=onnx_model,
-            huggingface_model_name=huggingface_model_name,
+            tokenizer=tokenizer,
+            llm_config=llm_config,
             sequence_length=sequence_length,
             context_length=context_length,
-            server_device=server_device,
+            host_device=host_device,
         )
-
-    @classmethod
-    def create_torch_model(
-        cls, context_length: int, sequence_length: int, device: torch.device
-    ) -> torch.nn.Module:
-        pass
 
     @staticmethod
     def get_output_names(num_hidden_layers: int):
@@ -832,7 +808,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             context_length=self.context_length, sequence_length=self.sequence_length
         )
         return PerplexityEvaluator(
-            input_spec, self.context_length, self.sequence_length, self.server_device
+            input_spec, self.context_length, self.sequence_length, self.host_device
         )
 
     def get_calibration_data(
