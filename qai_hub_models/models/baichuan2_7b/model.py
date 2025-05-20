@@ -227,7 +227,7 @@ class PromptProcessor_Part5(BasePrecompiledModel):
 
     @classmethod
     def from_precompiled(cls) -> PromptProcessor_Part5:
-        return PromptProcessor_Part5(get_cached_asset(part=45))
+        return PromptProcessor_Part5(get_cached_asset(part=5))
 
     @staticmethod
     def get_input_spec() -> InputSpec:

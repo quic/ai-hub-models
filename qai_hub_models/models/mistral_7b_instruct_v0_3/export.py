@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
@@ -39,11 +41,12 @@ def export_model(
     This function executes the following recipe:
 
         1. Initialize model
-        2. Upload model assets to hub
-        3. Profiles the model performance on a real device
-        4. Summarizes the results from profiling
+        2. Saves the model asset to the output directory
+        3. Upload model assets to hub
+        4. Profiles the model performance on a real device
+        5. Summarizes the results from profiling
 
-    Each of the last 2 steps can be optionally skipped using the input options.
+    Each of the last 3 steps can be optionally skipped using the input options.
 
     Parameters:
         device: Device for which to export the model.
@@ -68,6 +71,10 @@ def export_model(
         A Mapping from component_name to a struct of:
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
     """
+    if not skip_inferencing:
+        raise ValueError(
+            "This model does not support inferencing. Please pass --skip-inferencing"
+        )
     model_name = "mistral_7b_instruct_v0_3"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
@@ -103,20 +110,26 @@ def export_model(
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
-    # 2. Upload model assets to hub
-    print("Uploading model assets on hub")
-    uploaded_models = {}
-    path_for_uploaded_models = {}
+    # 2. Saves the model asset to the output directory
+    os.makedirs(output_path, exist_ok=True)
     for component_name in components:
         path = model.components[component_name].get_target_model_path()
-        if path not in path_for_uploaded_models:
-            path_for_uploaded_models[path] = hub.upload_model(path)
-        uploaded_models[component_name] = path_for_uploaded_models[path]
-        print(
-            f"The {component_name} model is saved here: {model.components[component_name].get_target_model_path()}"
-        )
+        dst_path = output_path / os.path.basename(path)
+        shutil.copyfile(src=path, dst=dst_path)
+        print(f"The {component_name} model is saved here: {dst_path}")
 
-    # 3. Profiles the model performance on a real device
+    # 3. Upload model assets to hub
+    uploaded_models = {}
+    if not skip_profiling or not skip_inferencing:
+        print("Uploading model assets on hub")
+        path_for_uploaded_models = {}
+        for component_name in components:
+            path = model.components[component_name].get_target_model_path()
+            if path not in path_for_uploaded_models:
+                path_for_uploaded_models[path] = hub.upload_model(path)
+            uploaded_models[component_name] = path_for_uploaded_models[path]
+
+    # 4. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         for component_name in components:
@@ -134,7 +147,7 @@ def export_model(
                 hub.client.ProfileJob, submitted_profile_job
             )
 
-    # 4. Summarizes the results from profiling
+    # 5. Summarizes the results from profiling
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]

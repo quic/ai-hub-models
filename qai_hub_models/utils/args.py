@@ -606,19 +606,19 @@ def _evaluate_export_common_parser(
             default=num_calibration_samples,
             help="The number of calibration data samples to use for quantization.",
         )
-    if not exporting_compiled_model:
-        # Default runtime for compiled model is fixed for given model
-        available_runtimes = set()
-        for rts in supported_precision_runtimes.values():
-            available_runtimes.update(rts)
+    # Default runtime for compiled model is fixed for given model
+    available_runtimes = set()
+    for rts in supported_precision_runtimes.values():
+        available_runtimes.update(rts)
 
-        default_runtime = _get_default_runtime(available_runtimes)
-        add_target_runtime_arg(
-            parser,
-            available_target_runtimes=available_runtimes,
-            default=default_runtime,
-            help="The runtime for which to export.",
-        )
+    default_runtime = _get_default_runtime(available_runtimes)
+    add_target_runtime_arg(
+        parser,
+        available_target_runtimes=available_runtimes,
+        default=default_runtime,
+        help="The runtime for which to export.",
+    )
+    if not exporting_compiled_model:
         # No compilation for compiled models
         parser.add_argument(
             "--compile-options",
