@@ -13,10 +13,8 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 # isort: on
 
 import math
-import os
 from typing import Optional
 
-import onnx
 import torch
 from aimet_common.defs import QuantScheme
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
@@ -30,30 +28,21 @@ from qai_hub_models.models._shared.stable_diffusion.model_adaptation import (
     monkey_patch_model,
 )
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
-from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
-from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
-from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
+from qai_hub_models.utils.base_model import (
+    BaseModel,
+    Precision,
+    PretrainedCollectionModel,
+    TargetRuntime,
+)
+from qai_hub_models.utils.checkpoint import CheckpointSpec, FromPretrainedMixin
+from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
 
 
-class TextEncoderBase(BaseModel):
-    def __init__(
-        self,
-        model: torch.nn.Module,
-    ) -> None:
-        super().__init__()
-        self.torch_model = model
-
+class TextEncoderBase(BaseModel, FromPretrainedMixin):
     @classmethod
-    def make_torch_model(cls) -> torch.nn.Module:
-        raise NotImplementedError()
-
-    @classmethod
-    def make_adapted_torch_model(
-        cls, server_device: torch.device = torch.device("cpu")
-    ) -> torch.nn.Module:
-        fp_model = cls.make_torch_model().to(server_device).eval()
-        fp_model.config.return_dict = False
+    def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
+        model.config.return_dict = False
 
         class TextEncoderWrapper(torch.nn.Module):
             """Return only the first output (cond and uncond embedding)"""
@@ -65,24 +54,17 @@ class TextEncoderBase(BaseModel):
             def forward(self, *args, **kwargs):
                 return self.model(*args, **kwargs)[0]
 
-        return TextEncoderWrapper(fp_model).to(server_device)
-
-    @classmethod
-    def from_pretrained(
-        cls, server_device: torch.device | str = torch.device("cpu")
-    ) -> TextEncoderBase:
-        server_device = torch.device(server_device)
-        return TextEncoderBase(cls.make_adapted_torch_model(server_device))
+        return TextEncoderWrapper(model)
 
     def forward(self, tokens) -> torch.Tensor:
-        return self.torch_model(tokens)
+        return self.model(tokens)
 
-    @staticmethod
+    @classmethod
     def get_input_spec(
-        seq_len: int,
+        cls,
         batch_size: int = 1,
     ) -> InputSpec:
-        return dict(tokens=((batch_size, seq_len), "int32"))
+        return dict(tokens=((batch_size, cls.seq_len), "int32"))
 
     @staticmethod
     def get_output_names() -> list[str]:
@@ -95,65 +77,44 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
     def __init__(
         self,
         sim_model: QuantSimOnnx,
-        server_device: torch.device = torch.device("cpu"),
+        host_device: torch.device = torch.device("cpu"),
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
         TextEncoderBase.__init__(self, None)
-        self.server_device = server_device
+        self.host_device = host_device
 
     @classmethod
     def from_pretrained(
         cls,
-        aimet_encodings: str | None = "DEFAULT",
-        server_device: torch.device | str = torch.device("cpu"),
-    ) -> TextEncoderQuantizableBase:
+        checkpoint: CheckpointSpec = "DEFAULT",
+        subfolder: str = "",
+        host_device: torch.device | str = torch.device("cpu"),
+    ) -> TextEncoderBase:
         """
-        Load weight from Huggingface and create Aimet-ONNX QuantSim.
-        Optionally load an aimet-encodings.
-
-        Args:
-
-        - aimet_encodings: path to previously calibrated AIMET encodings. Note
-        that encodings are sensitive to torch and huggingface versions because
-        exported ONNX variable names change across the versions, resulting in
-        different ONNX graph. Make sure the supplied aimet_encodings are
-        generated with the same torch and huggingface versions to ensure
-        identical ONNX graph.
+        Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
+        checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
-        server_device = torch.device(server_device)
-        if aimet_encodings == "DEFAULT":
-            onnx_file, aimet_encodings = cls.get_calibrated_aimet_model()
-            onnx_model = onnx.load(onnx_file)
-        else:
-            # always use cpu since we aren't running inference but only
-            # exporting it to onnx
-            fp_model = super().from_pretrained().torch_model
+        host_device = torch.device(host_device)
+        subfolder = subfolder or cls.default_subfolder
+        onnx_model, aimet_encodings = cls.onnx_from_pretrained(
+            checkpoint=checkpoint,
+            subfolder=subfolder,
+            host_device=host_device,
+            torch_to_onnx_options={"opset_version": 20},
+        )
 
-            example_input = tuple(make_torch_inputs(cls.get_input_spec()))  # type: ignore
+        # Model-specific onnx transformations
+        num_erf = utils.count_op_type(onnx_model, "Erf")
+        if num_erf > 0:
+            print(f"Warning: Found {num_erf} Erf ops instead of Gelu")
 
-            with qaihm_temp_dir() as tempdir:
-                temp_path = os.path.join(tempdir, "model.onnx")
-                torch.onnx.export(
-                    fp_model,
-                    example_input,
-                    temp_path,
-                    input_names=list(cls.get_input_spec().keys()),  # type: ignore
-                    output_names=cls.get_output_names(),
-                    opset_version=20,
-                )
+        # fuse_qkv breaks attention's projection matmul -> add pattern
+        onnx_model, _ = simplify(onnx_model, skipped_optimizers=["fuse_qkv"])
 
-                onnx_model = onnx.load(temp_path)
-                num_erf = utils.count_op_type(onnx_model, "Erf")
-                if num_erf > 0:
-                    print(f"Warning: Found {num_erf} Erf ops instead of Gelu")
-
-            # fuse_qkv breaks attention's projection matmul -> add pattern
-            onnx_model, _ = simplify(onnx_model, skipped_optimizers=["fuse_qkv"])
-
-            # Clip attention masks (containing -3.4e34 to reasonable values for
-            # encodings to properly represent. Must run after simplify which
-            # constant prop to create the attention mask tensor.
-            onnx_model = utils.clip_extreme_values(onnx_model)
+        # Clip attention masks (containing -3.4e34 to reasonable values for
+        # encodings to properly represent. Must run after simplify which
+        # constant prop to create the attention mask tensor.
+        onnx_model = utils.clip_extreme_values(onnx_model)
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
@@ -163,11 +124,15 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(server_device.type == "cuda"),
+            use_cuda=(host_device.type == "cuda"),
         )
         if aimet_encodings:
             load_encodings_to_sim(quant_sim, aimet_encodings)
-        return cls(quant_sim, server_device=server_device)
+        return cls(quant_sim, host_device=host_device)
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "stable_diffusion_calib_text_encoder"
 
     def get_hub_compile_options(
         self,
@@ -185,32 +150,16 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         )
 
 
-class UnetBase(BaseModel):
-    def __init__(
-        self,
-        model: torch.nn.Module,
-    ) -> None:
-        super().__init__()
-        self.torch_model = model
-
+class UnetBase(BaseModel, FromPretrainedMixin):
     def forward(self, latent, time_emb, text_emb) -> torch.Tensor:
-        return self.torch_model(latent, time_emb, text_emb)
+        return self.model(latent, time_emb, text_emb)
 
     @classmethod
-    def make_torch_model(cls) -> UNet2DConditionModel:
-        raise NotImplementedError()
-
-    @classmethod
-    def make_adapted_torch_model(
-        cls,
-        on_device_opt: bool = True,
-        server_device: torch.device = torch.device("cpu"),
+    def adapt_torch_model(
+        cls, model: torch.nn.Module, on_device_opt: bool = True
     ) -> torch.nn.Module:
-        """
-        Monkey patch away the time_embed compute logic
-        """
-        fp_model = cls.make_torch_model().to(server_device).eval()
-        fp_model.config.return_dict = False
+        model.config.return_dict = False
+
         embedding_dim = 320  # TODO: Extract from last unet layers
 
         def get_timestep_embedding(sample: torch.Tensor, timestep: torch.Tensor):
@@ -240,10 +189,10 @@ class UnetBase(BaseModel):
 
             return emb
 
-        fp_model.get_time_embed = get_timestep_embedding
+        model.get_time_embed = get_timestep_embedding
 
         if on_device_opt:
-            monkey_patch_model(fp_model)
+            monkey_patch_model(model)
 
         class UNet2DConditionModelWrapper(torch.nn.Module):
             """Just to unpack the output dict with key "sample" """
@@ -255,16 +204,7 @@ class UnetBase(BaseModel):
             def forward(self, latent, timestep, text_emb):
                 return self.model(latent, timestep, text_emb)["sample"]  # type: ignore
 
-        return UNet2DConditionModelWrapper(fp_model).to(server_device)
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        on_device_opt: bool = True,
-        server_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetBase:
-        server_device = torch.device(server_device)
-        return UnetBase(cls.make_adapted_torch_model(on_device_opt, server_device))
+        return UNet2DConditionModelWrapper(model)
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -274,16 +214,16 @@ class UnetBase(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["output_latent"]
 
-    @staticmethod
+    @classmethod
     def get_input_spec(
-        seq_len: int,
-        text_emb_dim: int,
+        cls,
         batch_size: int = 1,
+        text_emb_dim: int = 1024,
     ) -> InputSpec:
         return dict(
             latent=((batch_size, 4, 64, 64), "float32"),
             timestep=((batch_size, 1), "float32"),
-            text_emb=((batch_size, seq_len, text_emb_dim), "float32"),
+            text_emb=((batch_size, cls.seq_len, text_emb_dim), "float32"),
         )
 
     @staticmethod
@@ -312,55 +252,32 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
     def __init__(
         self,
         sim_model: QuantSimOnnx,
-        server_device: torch.device = torch.device("cpu"),
+        host_device: torch.device = torch.device("cpu"),
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
         # model is None as we don't do anything with the torch model
         UnetBase.__init__(self, None)
-        self.server_device = server_device
+        self.host_device = host_device
 
     @classmethod
     def from_pretrained(
         cls,
-        aimet_encodings: str | None = "DEFAULT",
-        server_device: torch.device | str = torch.device("cpu"),
+        checkpoint: CheckpointSpec = "DEFAULT",
+        subfolder: str = "",
+        host_device: torch.device | str = torch.device("cpu"),
     ) -> UnetQuantizableBase:
         """
-        Load weight from Huggingface and create Aimet-ONNX QuantSim.
-        Optionally load an aimet-encodings.
-
-        Args:
-
-        - aimet_encodings: path to previously calibrated AIMET encodings. Note
-        that encodings are sensitive to torch and huggingface versions because
-        exported ONNX variable names change across the versions, resulting in
-        different ONNX graph. Make sure the supplied aimet_encodings are
-        generated with the same torch and huggingface versions to ensure
-        identical ONNX graph.
+        Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
+        checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
-        server_device = torch.device(server_device)
-        if aimet_encodings == "DEFAULT":
-            onnx_file, aimet_encodings = cls.get_calibrated_aimet_model()
-            onnx_model = onnx.load(onnx_file)
-        else:
-            # always use cpu since we aren't running inference but only
-            # exporting it to onnx
-            fp_model = super().from_pretrained().torch_model
-
-            example_input = tuple(make_torch_inputs(cls.get_input_spec()))  # type: ignore
-
-            with qaihm_temp_dir() as tempdir:
-                temp_path = os.path.join(tempdir, "model.onnx")
-                torch.onnx.export(
-                    fp_model,
-                    example_input,
-                    temp_path,
-                    input_names=list(cls.get_input_spec().keys()),  # type: ignore
-                    output_names=cls.get_output_names(),
-                    opset_version=20,
-                )
-
-                onnx_model = onnx.load(temp_path)
+        host_device = torch.device(host_device)
+        subfolder = subfolder or cls.default_subfolder
+        onnx_model, aimet_encodings = cls.onnx_from_pretrained(
+            checkpoint=checkpoint,
+            subfolder=subfolder,
+            host_device=host_device,
+            torch_to_onnx_options={"opset_version": 20},
+        )
 
         # Don't run simplify on Unet which hangs
         # TODO (#12356): onnxsim cannot handle >2GB model
@@ -373,11 +290,11 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(server_device.type == "cuda"),
+            use_cuda=(host_device.type == "cuda"),
         )
         if aimet_encodings is not None:
-            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
-        return cls(quant_sim, server_device=server_device)
+            load_encodings_to_sim(quant_sim, aimet_encodings)
+        return cls(quant_sim, host_device=host_device)
 
     def get_hub_compile_options(
         self,
@@ -395,28 +312,18 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
             # need to use context bin to avoid OOM from on-device compile
         )
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "stable_diffusion_calib_unet"
 
-class VaeDecoderBase(BaseModel):
-    def __init__(
-        self,
-        model: torch.nn.Module,
-    ) -> None:
-        super().__init__()
-        self.torch_model = model
 
+class VaeDecoderBase(BaseModel, FromPretrainedMixin):
     def forward(self, latent) -> torch.Tensor:
-        return self.torch_model(latent)
+        return self.model(latent)
 
     @classmethod
-    def make_torch_model(cls) -> torch.nn.Module:
-        raise NotImplementedError()
-
-    @classmethod
-    def make_adapted_torch_model(
-        cls, server_device: torch.device = torch.device("cpu")
-    ) -> torch.nn.Module:
-        vae = cls.make_torch_model().to(server_device).eval()
-        vae.config.return_dict = False
+    def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
+        model.config.return_dict = False
 
         class AutoencoderKLDecoder(torch.nn.Module):
             def __init__(self, model: AutoencoderKL):
@@ -432,14 +339,7 @@ class VaeDecoderBase(BaseModel):
                 # output in NHWC
                 return image.permute(0, 2, 3, 1)
 
-        return AutoencoderKLDecoder(vae).to(server_device)
-
-    @classmethod
-    def from_pretrained(
-        cls, server_device: torch.device | str = torch.device("cpu")
-    ) -> VaeDecoderBase:
-        server_device = torch.device(server_device)
-        return VaeDecoderBase(cls.make_adapted_torch_model(server_device))
+        return AutoencoderKLDecoder(model)
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -466,57 +366,33 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
     def __init__(
         self,
         sim_model: QuantSimOnnx,
-        server_device: torch.device = torch.device("cpu"),
+        host_device: torch.device = torch.device("cpu"),
     ) -> None:
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
         VaeDecoderBase.__init__(self, None)
-        self.server_device = server_device
+        self.host_device = host_device
 
     @classmethod
     def from_pretrained(
         cls,
-        aimet_encodings: str | None = "DEFAULT",
-        server_device: torch.device | str = torch.device("cpu"),
-    ) -> VaeDecoderQuantizableBase:
+        checkpoint: CheckpointSpec = "DEFAULT",
+        subfolder: str = "",
+        host_device: torch.device | str = torch.device("cpu"),
+    ) -> UnetQuantizableBase:
         """
-        Load weight from Huggingface and create Aimet-ONNX QuantSim.
-        Optionally load an aimet-encodings.
-
-        Args:
-
-        - aimet_encodings: path to previously calibrated AIMET encodings. Note
-        that encodings are sensitive to torch and huggingface versions because
-        exported ONNX variable names change across the versions, resulting in
-        different ONNX graph. Make sure the supplied aimet_encodings are
-        generated with the same torch and huggingface versions to ensure
-        identical ONNX graph.
+        Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
+        checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
-        server_device = torch.device(server_device)
-        if aimet_encodings == "DEFAULT":
-            onnx_file, aimet_encodings = cls.get_calibrated_aimet_model()
-            onnx_model = onnx.load(onnx_file)
-        else:
-            # always use cpu since we aren't running inference but only
-            # exporting it to onnx
-            fp_model = super().from_pretrained().torch_model
+        host_device = torch.device(host_device)
+        subfolder = subfolder or cls.default_subfolder
+        onnx_model, aimet_encodings = cls.onnx_from_pretrained(
+            checkpoint=checkpoint,
+            subfolder=subfolder,
+            host_device=host_device,
+            torch_to_onnx_options={"opset_version": 20},
+        )
 
-            example_input = tuple(make_torch_inputs(cls.get_input_spec()))
-
-            with qaihm_temp_dir() as tempdir:
-                temp_path = os.path.join(tempdir, "model.onnx")
-                torch.onnx.export(
-                    fp_model,
-                    example_input,
-                    temp_path,
-                    input_names=list(cls.get_input_spec().keys()),
-                    output_names=cls.get_output_names(),
-                    opset_version=20,
-                )
-
-                onnx_model = onnx.load(temp_path)
-
-            # fuse_qkv breaks attention's projection matmul -> add pattern
-            onnx_model, _ = simplify(onnx_model, skipped_optimizers=["fuse_qkv"])
+        onnx_model, _ = simplify(onnx_model, skipped_optimizers=["fuse_qkv"])
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
@@ -526,11 +402,11 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(server_device.type == "cuda"),
+            use_cuda=(host_device.type == "cuda"),
         )
         if aimet_encodings:
             load_encodings_to_sim(quant_sim, aimet_encodings)
-        return cls(quant_sim, server_device=server_device)
+        return cls(quant_sim, host_device=host_device)
 
     def get_hub_compile_options(
         self,
@@ -552,8 +428,12 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
     ) -> None | str:
         return ensure_v73_or_later(target_runtime, device)
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "stable_diffusion_calib_vae"
 
-class StableDiffusionBase:
+
+class StableDiffusionBase(PretrainedCollectionModel):
     """
     Put glue modules here to aid app/demo code.
     """

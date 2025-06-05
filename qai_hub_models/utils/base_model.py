@@ -4,10 +4,11 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import inspect
 from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import torch
 from qai_hub.client import Device
@@ -26,6 +27,7 @@ from qai_hub_models.models.protocols import (
     HubModelProtocol,
     PretrainedHubModelProtocol,
 )
+from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.input_spec import (
     InputSpec,
     broadcast_data_to_multi_batch,
@@ -42,7 +44,7 @@ class CollectionModel:
     See test_base_model.py for usage examples.
     """
 
-    component_classes: list[type] = []
+    component_classes: list[type[BaseModel]] = []
     component_class_names: list[str] = []
 
     def __init_subclass__(cls, **kwargs):
@@ -98,6 +100,10 @@ class CollectionModel:
             # prepend list
             subclass.component_classes.insert(0, component_class)
             subclass.component_class_names.insert(0, name)
+
+            # Component class from_pretrained would look for this folder
+            # under checkpoint dir
+            setattr(component_class, "default_subfolder", name)
             return subclass
 
         return decorator
@@ -131,22 +137,55 @@ class CollectionModel:
 
 class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(
+        cls,
+        checkpoint: CheckpointSpec = "DEFAULT",
+        host_device: Union[torch.device, str] = torch.device("cpu"),
+        **kwargs,  # any extra you might want to forward
+    ) -> PretrainedCollectionModel:
         """
-        Instantiate the CollectionModel by instantiating all registered components
-        using their own from_pretrained() methods.
+        Instantiate the collection by delegating to each component_cls.from_pretrained,
+        but only passing it the arguments it actually declares.
         """
+        # common kwargs we’d like to pass
+        base_kwargs = {
+            "checkpoint": checkpoint,
+            "host_device": host_device,
+            **kwargs,
+        }
+
+        # helper to call any fn with only the supported subset of base_kwargs
+        def _call_with_supported(fn, all_kwargs):
+            sig = inspect.signature(fn)
+            params = sig.parameters.values()
+
+            # If fn accepts **kwargs, just pass everything through
+            if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params):
+                return fn(**all_kwargs)
+
+            # Otherwise, filter to only the names fn explicitly declares
+            supported = {
+                name: value
+                for name, value in all_kwargs.items()
+                if name in sig.parameters
+            }
+            return fn(**supported)
+
         components = []
-        for component_cls in cls.component_classes:
-            if not (
-                hasattr(component_cls, "from_pretrained")
-                and callable(component_cls.from_pretrained)
-            ):
+        for name, component_cls in zip(
+            cls.component_class_names, cls.component_classes
+        ):
+            # call component_cls.from_pretrained but only with the args it accepts
+            try:
+                comp = _call_with_supported(component_cls.from_pretrained, base_kwargs)
+            except Exception as e:
                 raise AttributeError(
                     f"Component '{component_cls.__name__}' does not have "
-                    "a callable from_pretrained method"
+                    f"a callable from_pretrained method. {e}"
                 )
-            components.append(component_cls.from_pretrained())
+            components.append(comp)
+
+        # now build and return your collection model however CollectionModel expects
         return cls(*components)
 
 

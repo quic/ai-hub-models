@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import math
+import types
 from typing import Callable, Optional
 
 import diffusers.models.attention_processor as attention_processor
@@ -528,29 +529,28 @@ def replace_layer_norm_modules(model: nn.Module):
 def replace_transformer2d_modules(model: nn.Module):
     """
     Recursively traverses the model to find and replace all instances of
-    LayerNorm within BasicTransformerBlock with PermuteLayerNorm to be
-    compatible with optimized_operate_on_continuous_inputs.
-
-    Args:
-        model (nn.Module): The model in which to replace LayerNorm modules.
+    Transformer2DModel that use linear projection, patching only those
+    instances with the optimized continuous‐input methods and swapping in
+    Conv2dLinear for proj_in / proj_out.
     """
 
+    def _patch_instance(m: Transformer2DModel):
+        # bind the two optimized routines onto this instance only
+        m._operate_on_continuous_inputs = types.MethodType(  # type: ignore
+            optimized_operate_on_continuous_inputs, m
+        )
+        m._get_output_for_continuous_inputs = types.MethodType(  # type: ignore
+            optimized_get_output_for_continuous_inputs, m
+        )
+
     def _replace_transformer2d(m: Transformer2DModel) -> Transformer2DModel:
-        """
-        Replaces norm1, norm2, and norm3 within a BasicTransformerBlock.
-
-        Args:
-            block (BasicTransformerBlock): The transformer block to modify.
-
-        Returns:
-            BasicTransformerBlock: The modified transformer block.
-        """
-        if not m.use_linear_projection:
-            return m  # no change needed
-
-        # convert m.proj_in from torch.nn.Linear to torch.nn.Conv2d
-        m.proj_in = Conv2dLinear(m.proj_in)
-        m.proj_out = Conv2dLinear(m.proj_out)
+        # 1) patch the instance methods
+        _patch_instance(m)
+        # 2) swap out the Linear‐based proj_in / proj_out for Conv2dLinear
+        if isinstance(m.proj_in, nn.Linear):
+            m.proj_in = Conv2dLinear(m.proj_in)
+        if isinstance(m.proj_out, nn.Linear):
+            m.proj_out = Conv2dLinear(m.proj_out)
         return m
 
     traverse_and_replace(model, Transformer2DModel, _replace_transformer2d)
@@ -561,10 +561,13 @@ def optimized_operate_on_continuous_inputs(self, hidden_states):
     By using 4D NCHW hidden states, we can skip permutation and reshape
     required in the HF implementation.
     """
-
     hidden_states = self.norm(hidden_states)
-    inner_dim = hidden_states.shape[1]
-    hidden_states = self.proj_in(hidden_states)
+    if not self.use_linear_projection:
+        hidden_states = self.proj_in(hidden_states)
+        inner_dim = hidden_states.shape[1]
+    else:
+        inner_dim = hidden_states.shape[1]
+        hidden_states = self.proj_in(hidden_states)
     return hidden_states, inner_dim
 
 
@@ -574,22 +577,6 @@ def optimized_get_output_for_continuous_inputs(
     """Similar to optimized_operate_on_continuous_inputs"""
     hidden_states = self.proj_out(hidden_states)
     return hidden_states + residual
-
-
-_patch_applied = False
-
-
-def _monkeypatch_hf_unet():
-    # Only need to run once
-    global _patch_applied
-    if not _patch_applied:
-        Transformer2DModel._operate_on_continuous_inputs = (
-            optimized_operate_on_continuous_inputs
-        )
-        Transformer2DModel._get_output_for_continuous_inputs = (
-            optimized_get_output_for_continuous_inputs
-        )
-        _patch_applied = True
 
 
 def monkey_patch_model(model: UNet2DConditionModel):
@@ -604,7 +591,6 @@ def monkey_patch_model(model: UNet2DConditionModel):
     diffusion 1.5
     """
     print("Monkeypatching Unet (replacing MHA with SHA attention etc)")
-    _monkeypatch_hf_unet()
     replace_attention_modules(model)
     replace_activations_with_conv2d(model)
     replace_layer_norm_modules(model)

@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-import sys
-
 import torch
 from torch.utils.data import DataLoader
 
@@ -23,8 +21,7 @@ from qai_hub_models.evaluators.mmlu_evaluator import MMLUEvaluator
 from qai_hub_models.models._shared.llama3_ao.model import (
     DEFAULT_CALIBRATION_SEQ_LEN,
     RopeEmbedding,
-    determine_mode,
-    verify_mode_and_checkpoint_match,
+    is_quantized_checkpoint,
 )
 from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
@@ -122,12 +119,6 @@ def llama3_evaluate(
 ):
     parser = get_model_cli_parser(quantized_model_cls)
     parser.add_argument(
-        "--mode",
-        type=str,
-        choices=["fp", "quantsim"],
-        help="Run the floating point model or simulated quantization.",
-    )
-    parser.add_argument(
         "--task",
         type=str,
         default="wikitext-ppl",
@@ -151,19 +142,11 @@ def llama3_evaluate(
     args = parser.parse_args()
     num_samples = args.num_samples
     task = args.task
-    mode = args.mode
-    user_specified_checkpoint = "--checkpoint" in sys.argv
-    if (not user_specified_checkpoint or args.checkpoint == "DEFAULT") and mode is None:
-        parser.error("--mode must be specified if --checkpoint is not.")
 
     if num_samples is None:
         num_samples = 0 if "ppl" in task else 100
 
-    if args.checkpoint != "DEFAULT":
-        if not mode:
-            mode = determine_mode(args.checkpoint)
-        else:
-            verify_mode_and_checkpoint_match(args.checkpoint, mode)
+    is_quantized = is_quantized_checkpoint(args.checkpoint)
 
     host_device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -175,8 +158,8 @@ def llama3_evaluate(
         )
 
     kwargs = get_model_kwargs(quantized_model_cls, vars(args))
-    if mode == "quantsim":
-        if args.checkpoint == "DEFAULT":
+    if is_quantized:
+        if args.checkpoint.startswith("DEFAULT"):
             kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
                 sequence_length=args.sequence_length,
                 context_length=args.context_length,
@@ -189,7 +172,7 @@ def llama3_evaluate(
 
     kwargs["sequence_length"] = args.sequence_length  # type: ignore[index]
 
-    if kwargs["checkpoint"] == "DEFAULT":
+    if kwargs["checkpoint"].startswith("DEFAULT"):
         del kwargs["checkpoint"]  # type: ignore[attr-defined]
 
     model = model_cls.from_pretrained(**kwargs)

@@ -5,8 +5,13 @@
 from __future__ import annotations
 
 # isort: off
-from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
-
+try:
+    from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
+except (ImportError, ModuleNotFoundError):
+    print(
+        "Some quantized models require the AIMET-ONNX package, which is only supported on Linux. "
+        "Quantized model can be exported without this requirement."
+    )
 # isort: on
 
 import gc
@@ -332,6 +337,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
                 "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
                 "Install qai-hub-models on a Linux machine to use quantized models."
             )
+
         default_config = get_aimet_config_path("default_config_llama")
         # Tie Quantizers for Concat Op
         quantsim.op_types_to_tie_qtzrs = ["Concat"]
@@ -346,7 +352,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
             default_activation_bw=16,
             default_param_bw=4,
             config_file=default_config,
-            use_cuda=(host_device.type == "cuda"),
+            providers=cls.get_ort_providers(host_device),
         )
 
         # Setting kv_cache and some other layers to 8-bit

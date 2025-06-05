@@ -33,6 +33,7 @@ from qai_hub_models.utils.base_model import (
     HubModel,
     TargetRuntime,
 )
+from qai_hub_models.utils.evaluate import EvalMode
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
@@ -231,36 +232,53 @@ def add_precision_arg(
 
 def get_on_device_demo_parser(
     parser: QAIHMArgumentParser | None = None,
+    supported_eval_modes: list[EvalMode] | None = None,
+    supported_precisions: set[Precision] | None = None,
     available_target_runtimes: list[TargetRuntime]
     | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
     add_output_dir: bool = False,
     default_device: str | None = None,
-    default_server_device: torch.device = torch.device("cpu"),
+    default_host_device: torch.device = torch.device("cpu"),
 ):
+    """
+    Args:
+    - supported_eval_modes: subset of
+    EvalMode.{FP,QUANTSIM,ON_DEVICE,LOCAL_DEVICE}. Default is
+    [EvalMode.FP, EvalMode.ON_DEVICE]. The first value of supported_eval_modes
+    will be the default.
+
+    - supported_precisions: subset of {Precision.float, Precision.w8a8,
+    Precision.w8a16}
+    """
     if not parser:
         parser = get_parser()
 
+    # Add --eval-mode
+    supported_eval_modes = supported_eval_modes or [EvalMode.FP, EvalMode.ON_DEVICE]
+
+    # take the first allowed mode as the default
+    default_mode = supported_eval_modes[0]
+
+    mode_help_lines = ["Run the model in one of the following modes:"]
+    for m in supported_eval_modes:
+        mode_help_lines.append(f"  - {m.value}: {m.description}")
+    mode_help_msg = "\n".join(mode_help_lines)
+
     parser.add_argument(
-        "--on-device",
-        action="store_true",
-        help="If set, will evalute model using a Hub inference job instead of via torch.",
+        "--eval-mode",
+        type=EvalMode.from_string,
+        choices=supported_eval_modes,
+        default=default_mode,
+        help=mode_help_msg,
     )
+
     parser.add_argument(
         "--hub-model-id",
         type=str,
         default=None,
-        help="If running on-device, uses this model Hub model ID."
+        help="If mode==on-device, uses this model Hub model ID."
         " Provide comma separated model-ids if multiple models are required for demo."
         " Run export.py to get on-device demo command with models exported for you.",
-    )
-    parser.add_argument(
-        "--server-device",
-        type=str,
-        default="cpu",
-        help=(
-            "One of cpu,cuda. Run QuantSim or fp32 inference on this server device. "
-            "Not applicable if --on-device is True"
-        ),
     )
 
     _add_device_args(parser, default_device=default_device)
@@ -282,11 +300,13 @@ def get_on_device_demo_parser(
     )
 
     # TODO: This should only include supported precisions.
+    default_precisions = {Precision.float, Precision.w8a8, Precision.w8a16}
+    supported_precisions = supported_precisions or default_precisions
     add_precision_arg(
         parser,
-        {Precision.w8a8, Precision.w8a16, Precision.float},
-        Precision.float,
-        Precision.float,
+        supported_precisions,
+        list(supported_precisions)[0],
+        list(supported_precisions)[0],
     )
 
     return parser
@@ -299,23 +319,22 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
     Intended for use only in CLI scripts.
     Prints error to console and exits if an error is found.
     """
-    if args.on_device and not can_access_qualcomm_ai_hub():
+    is_on_device = args.eval_mode == EvalMode.ON_DEVICE
+    if is_on_device and not can_access_qualcomm_ai_hub():
         print(
-            "On-device demos are not available without Qualcomm® AI Hub access.",
+            "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub access.",
             "Please sign up for Qualcomm® AI Hub at https://myaccount.qualcomm.com/signup .",
             sep=os.linesep,
         )
         sys.exit(1)
 
-    if args.on_device and not getattr(args, "hub_device", None):
-        print(
-            "--device or --chipset must be specified when --on-device flag is provided."
-        )
+    if is_on_device and not getattr(args, "hub_device", None):
+        print("--device or --chipset must be specified with --eval-mode on-device.")
         sys.exit(1)
 
-    if (args.inference_options or args.hub_model_id) and not args.on_device:
+    if (args.inference_options or args.hub_model_id) and not is_on_device:
         print(
-            "A Hub model ID and inference options can be provided only if the --on-device flag is provided."
+            "A Hub model ID and inference options can be provided only with --eval-mode on-device."
         )
         sys.exit(1)
 
@@ -394,7 +413,7 @@ def get_model_kwargs(
     from_pretrained_sig = inspect.signature(model_cls.from_pretrained)
     model_kwargs = {}
     for name in from_pretrained_sig.parameters:
-        if name == "cls" or name not in args_dict:
+        if name in ["cls", "kwargs"] or name not in args_dict:
             continue
         model_kwargs[name] = args_dict.get(name)
     return model_kwargs
@@ -470,7 +489,7 @@ def demo_model_from_cli_args(
     If the model is a BaseModel and an on-device demo is requested,
         the BaseModel will be wrapped in an OnDeviceModel.
     """
-    is_on_device = "on_device" in cli_args and cli_args.on_device
+    is_on_device = "eval_mode" in cli_args and cli_args.eval_mode == EvalMode.ON_DEVICE
     inference_model: FromPretrainedTypeVar | OnDeviceModel
     if is_on_device and issubclass(model_cls, BaseModel):
         device: hub.Device = cli_args.hub_device
@@ -516,7 +535,11 @@ def get_input_spec_kwargs(
     to constructing the model's input_spec.
     """
     get_input_spec_args = inspect.signature(model._get_input_spec_for_instance)
-    if list(get_input_spec_args.parameters.keys()) == ["self", "args", "kwargs"]:
+    if isinstance(model, type):
+        default_args = ["self", "args", "kwargs"]
+    else:
+        default_args = ["args", "kwargs"]
+    if list(get_input_spec_args.parameters.keys()) == default_args:
         # Use get_input_spec args if get_input_spec_for_instance is not defined.
         get_input_spec_args = inspect.signature(model.get_input_spec)
 
@@ -735,6 +758,12 @@ def export_parser(
         default=None,
         help="Directory to store generated assets (e.g. compiled model). "
         "Defaults to `<cwd>/build/<model_name>`.",
+    )
+    parser.add_argument(
+        "--fetch-static-assets",
+        action="store_true",
+        default=False,
+        help="If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.",
     )
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (

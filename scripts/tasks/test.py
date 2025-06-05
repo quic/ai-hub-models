@@ -94,11 +94,21 @@ class PyTestModelTask(CompositeTask):
 
         model_version_reqs = get_model_python_version_requirements(model_name)
         current_py_version = sys.version_info
+
         if check_code_gen_field(model_name, "skip_hub_tests_and_scorecard"):
             tasks.append(  # greater than this python version
                 RunCommandsTask(
-                    f"Skip Model {model_name}",
+                    f"Skip Model {model_name} Hub Tests",
                     f'echo "Skipping Tests For Model {model_name} -- skip_hub_tests_and_scorecard is set in code gen"',
+                )
+            )
+        elif (
+            check_code_gen_field(model_name, "skip_scorecard") and not run_general
+        ):  # For scorecard runs, run_general is set to False because it is a test_compile_all_models task rather than a precheckin task with hub tests.
+            tasks.append(  # greater than this python version
+                RunCommandsTask(
+                    f"Skip Model {model_name} Scorecard",
+                    f'echo "Skipping Scorecard For Model {model_name} -- skip_scorecard is set in code gen"',
                 )
             )
         elif model_version_reqs[0] and current_py_version < model_version_reqs[0]:

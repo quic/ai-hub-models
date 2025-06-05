@@ -154,10 +154,14 @@ def export_model(
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
-    hub_device = hub.Device(
+    hub_devices = hub.get_devices(
         name=device if device and not chipset else "",
         attributes=f"chipset:{chipset}" if chipset else [],
     )
+
+    # Pick a device
+    hub_device = hub_devices[-1]
+
     compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
     profile_options_per_sub_component: dict[str, str] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}

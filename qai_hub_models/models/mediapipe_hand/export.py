@@ -52,6 +52,7 @@ def export_model(
     target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
+    fetch_static_assets: bool = False,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -93,6 +94,7 @@ def export_model(
         target_runtime: Which on-device runtime to target. Default is TFLite.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
+        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
         **additional_model_kwargs: Additional optional kwargs used to customize
             `model_cls.from_pretrained`
 
@@ -116,7 +118,7 @@ def export_model(
     for component_name in components:
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
-    if not can_access_qualcomm_ai_hub():
+    if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "mediapipe_hand",
             "MediaPipe-Hand-Detection",
@@ -131,6 +133,7 @@ def export_model(
             compile_options,
             profile_options,
             component_arg,
+            is_forced_static_asset_fetch=fetch_static_assets,
         )
 
     # On-device perf improves with I/O in channel_last format for runtimes

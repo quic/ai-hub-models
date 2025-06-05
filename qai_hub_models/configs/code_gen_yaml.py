@@ -82,6 +82,8 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     #  - weekly scorecard
     #  - generating perf.yaml
     skip_hub_tests_and_scorecard: bool = False
+    # Second knob for skipping of scorecard generation. Use case, skip scorecard but run hub tests.
+    skip_scorecard: bool = False
 
     # Whether the model uses the pre-compiled pattern instead of the
     # standard pre-trained pattern.

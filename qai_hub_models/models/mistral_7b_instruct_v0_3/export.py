@@ -35,6 +35,7 @@ def export_model(
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
     profile_options: str = "",
+    fetch_static_assets: bool = False,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -64,6 +65,7 @@ def export_model(
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
         profile_options: Additional options to pass when submitting the profile job.
+        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
         **additional_model_kwargs: Additional optional kwargs used to customize
             `model_cls.from_precompiled`
 
@@ -88,7 +90,7 @@ def export_model(
     for component_name in components:
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
-    if not can_access_qualcomm_ai_hub():
+    if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "mistral_7b_instruct_v0_3",
             "Mistral-7B-Instruct-v0.3",
@@ -103,6 +105,7 @@ def export_model(
             "",
             profile_options,
             component_arg,
+            is_forced_static_asset_fetch=fetch_static_assets,
         )
 
     target_runtime = TargetRuntime.QNN

@@ -40,8 +40,7 @@ on-device deployment. This can be run as follows:
 ```bash
 python -m qai_hub_models.models.huggingface_wavlm_base_plus.export
 ```
-Additional options are documented with the `--help` option. Note that the above
-script requires access to Deployment instructions for Qualcomm® AI Hub.
+Additional options are documented with the `--help` option.
 
 
 ## License

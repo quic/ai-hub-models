@@ -90,11 +90,17 @@ class BaseQAIHMConfig(BaseModel):
 
     @classmethod
     def from_yaml(
-        cls: type[BaseQAIHMConfigTypeVar], path: str | Path
+        cls: type[BaseQAIHMConfigTypeVar],
+        path: str | Path,
+        create_empty_if_no_file: bool = False,
     ) -> BaseQAIHMConfigTypeVar:
         """
         Reads the yaml file at the given path and loads it into an instance of this class.
         """
+        if create_empty_if_no_file and (
+            not os.path.exists(path) or os.path.getsize(path) == 0
+        ):
+            return cls()
         return parse_yaml_file_as(cls, path)
 
 

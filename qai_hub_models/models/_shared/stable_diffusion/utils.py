@@ -4,8 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import io
-import os
 import tempfile
 
 import numpy as np
@@ -18,37 +16,6 @@ from transformers import CLIPTokenizer
 from qai_hub_models.models._shared.stable_diffusion.app import (
     run_diffusion_steps_on_latents,
 )
-
-
-def export_onnx_in_memory(
-    torch_model: torch.nn.Module,
-    example_input: tuple[torch.Tensor, ...],
-    input_names: list[str] | None = None,
-    output_names: list[str] | None = None,
-    **kwargs,
-) -> onnx.ModelProto:
-    """
-    Exports a PyTorch model to ONNX format and loads it into memory without saving to disk.
-
-    Args:
-        torch_model: The PyTorch model to export.
-        example_input: A tensor representing the input shape to the model.
-
-    Returns:
-        onnx.ModelProto: The ONNX model loaded in memory.
-    """
-    buffer = io.BytesIO()
-    torch.onnx.export(
-        torch_model,
-        example_input,
-        buffer,
-        export_params=True,
-        input_names=input_names,
-        output_names=output_names,
-    )
-    buffer.seek(0)
-    onnx_model = onnx.load_model(buffer)
-    return onnx_model
 
 
 def clip_extreme_values(
@@ -108,7 +75,8 @@ def clip_extreme_values(
 
 
 def make_calib_data_unet_vae(
-    export_dir,
+    export_path_unet,
+    export_path_vae,
     prompt_path,
     tokenizer,
     text_encoder_hf,
@@ -119,8 +87,6 @@ def make_calib_data_unet_vae(
     guidance_scale: float = 7.5,
 ) -> tuple[str, str]:
     """Generate calibration data for Unet and Vae and save as npz.
-
-    This will generate
 
     Number of samples for unet: num_samples * num_steps * 2 (*2 for cond and
     uncond text embeddings). e.g., 100 samples * 20 steps  * 2 = 4k
@@ -133,12 +99,6 @@ def make_calib_data_unet_vae(
     - export_path_unet
     - export_path_vae
     """
-    export_path_unet = os.path.join(
-        export_dir, f"unet_calib_n{num_samples}_t{num_steps}.npz"
-    )
-    export_path_vae = os.path.join(
-        export_dir, f"vae_calib_n{num_samples}_t{num_steps}.npz"
-    )
     cond_tokens, uncond_token = load_calib_tokens(
         prompt_path, tokenizer, num_samples=num_samples
     )
@@ -150,7 +110,6 @@ def make_calib_data_unet_vae(
 
     calib_unet = dict(
         latent=[],
-        time_emb=[],
         cond_emb=[],
     )  # type: ignore
     if guidance_scale > 0:
@@ -173,7 +132,6 @@ def make_calib_data_unet_vae(
             guidance_scale=guidance_scale,
         )
         calib_unet["latent"].extend(all_steps["latent"])
-        calib_unet["time_emb"].extend(all_steps["time_emb"])
         calib_unet["cond_emb"].extend([cond_emb] * num_steps)
         if guidance_scale > 0:
             calib_unet["uncond_emb"].extend([uncond_emb] * num_steps)
@@ -216,6 +174,28 @@ def load_calib_tokens(
     return cond_tokens, uncond_token
 
 
+def get_timesteps(num_inference_steps: int) -> list[np.ndarray]:
+    """
+    Generate a list of NumPy arrays for Stable Diffusion timesteps.
+    Each timestep is wrapped in its own 1×1 array of dtype float32.
+    If num_inference_steps = 1, returns [array([[0.]], dtype=float32)].
+    Args:
+        num_inference_steps (int): Number of inference steps (N).
+    Returns:
+        list[np.ndarray]: A list of N arrays, each of shape (1,1) and dtype float32,
+                          containing timesteps from 999 down to 0.
+    """
+    num_train_timesteps = 1000  # Default in both v1.5 and v2.1
+    max_t = num_train_timesteps - 1  # 999
+    # Compute float timesteps in [999, 0]
+    if num_inference_steps == 1:
+        values = np.array([0.0], dtype=np.float32)
+    else:
+        values = np.linspace(max_t, 0, num=num_inference_steps, dtype=np.float32)
+    # Wrap each timestep in a (1,1) array
+    return [np.array([[float(v)]], dtype=np.float32) for v in values]
+
+
 def load_unet_calib_dataset_entries(
     path: str, num_samples: int | None = None
 ) -> DatasetEntries:
@@ -223,24 +203,19 @@ def load_unet_calib_dataset_entries(
     num_diffusion_samples = npz["latent"].shape[0]
     latent = np.split(npz["latent"], num_diffusion_samples, axis=0)
     # time embeddings range from 999 to 0
-    time_emb = [
-        np.asarray([[999 - (999 * (i - 1) / (num_diffusion_samples - 1))]]).astype(
-            np.float32
-        )
-        for i in range(1, num_diffusion_samples + 1)
-    ]
+    timestep = get_timesteps(num_diffusion_samples)
     cond_emb = np.split(npz["cond_emb"], num_diffusion_samples, axis=0)
     if "uncond_emb" in npz:
         uncond_emb = np.split(npz["uncond_emb"], num_diffusion_samples, axis=0)
         calib_data = dict(
             latent=latent * 2,
-            timestep=time_emb * 2,
+            timestep=timestep * 2,
             text_emb=cond_emb + uncond_emb,
         )
     else:
         calib_data = dict(
             latent=latent,
-            timestep=time_emb,
+            timestep=timestep,
             text_emb=cond_emb,
         )
     if num_samples is not None and num_samples < len(calib_data["latent"]):

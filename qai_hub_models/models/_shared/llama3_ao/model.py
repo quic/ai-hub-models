@@ -51,6 +51,11 @@ from qai_hub_models.models._shared.llama3_ao.app import RopeEmbedding
 from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.checkpoint import (
+    CheckpointSpec,
+    CheckpointType,
+    determine_checkpoint_type,
+)
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.system_info import has_recommended_memory
@@ -101,30 +106,9 @@ def get_input_prompt_with_tags(
     return prompt
 
 
-def verify_mode_and_checkpoint_match(
-    checkpoint: str | os.PathLike | Path, mode: str
-) -> None:
-    expected_mode = determine_mode(checkpoint)
-    if expected_mode != mode:
-        model_str = "floating point" if expected_mode == "fp" else "quantized"
-        raise ValueError(
-            f"Checkpoint can load a {model_str} model but the mode is specificed as {mode}."
-        )
-
-
-def determine_mode(checkpoint: str | os.PathLike | Path) -> str:
-    if os.path.isdir(checkpoint):
-        encodings_paths = os.path.join(checkpoint, "model.encodings")
-        if os.path.exists(encodings_paths):
-            return "quantsim"
-        else:
-            return "fp"
-    elif is_huggingface_repo(checkpoint):
-        return "fp"
-    else:
-        raise ValueError(
-            f"Checkpoint {checkpoint} is not a valid local path nor Hugging Face repository name."
-        )
+def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
+    checkpoint_type = determine_checkpoint_type(checkpoint)
+    return checkpoint_type in {CheckpointType.DEFAULT, CheckpointType.AIMET_ONNX_EXPORT}
 
 
 def is_huggingface_repo(checkpoint: str | os.PathLike | Path) -> bool:

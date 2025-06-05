@@ -169,6 +169,15 @@ class ScorecardCompilePath(Enum):
         out = ""
         if include_target_runtime:
             out += self.runtime.get_target_runtime_flag(device)
+
+        if self.runtime in [TargetRuntime.QNN, TargetRuntime.QNN_CONTEXT_BINARY]:
+            # Without this flag, graph names are random.
+            # Scorecard job caching relies on models keeping the same md5 hash if they haven't changed.
+            #
+            # By setting this flag, we remove a source of randomness in compiled QNN assets.
+            # THIS ONLY APPLIES TO SCORECARD, NOT USERS DIRECTLY CALLING EXPORT.PY
+            out += " --qnn_options context_enable_graphs=default_graph"
+
         if self == ScorecardCompilePath.ONNX_FP16 and precision:
             out = out + " --quantize_full_type float16 --quantize_io"
 

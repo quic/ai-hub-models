@@ -3,7 +3,7 @@
 
 # [Llama-v3.1-8B-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v3_1_8b_instruct)
 
-Llama 3 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
+Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
 
 This is based on the implementation of Llama-v3.1-8B-Instruct found [here](https://github.com/meta-llama/llama3/tree/main). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
@@ -49,8 +49,7 @@ on-device deployment. This can be run as follows:
 ```bash
 python -m qai_hub_models.models.llama_v3_1_8b_instruct.export
 ```
-Additional options are documented with the `--help` option. Note that the above
-script requires access to Deployment instructions for Qualcomm® AI Hub.
+Additional options are documented with the `--help` option.
 
 
 ## License

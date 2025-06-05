@@ -7,15 +7,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
-import torch.nn as nn
 
+from qai_hub_models.models._shared.cityscapes_segmentation.model import (
+    CityscapesSegmentor,
+)
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     load_image,
 )
-from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -32,12 +33,8 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-class DDRNet(BaseModel):
+class DDRNet(CityscapesSegmentor):
     """Exportable DDRNet image segmenter, end-to-end."""
-
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
 
     @classmethod
     def from_pretrained(cls, checkpoint_path: str | None = None):
@@ -94,25 +91,11 @@ class DDRNet(BaseModel):
 
             return cls(ddrnetslim_model)
 
-    def forward(self, image: torch.Tensor):
-        """
-        Run DDRNet23_Slim on `image`, and produce a predicted segmented image mask.
-
-        Parameters:
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: BGR
-
-        Returns:
-            segmented mask per class: Shape [batch, classes, 128, 256]
-        """
-        return self.model(image)
-
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        height: int = 1280,
-        width: int = 640,
+        height: int = 1024,
+        width: int = 2048,
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be

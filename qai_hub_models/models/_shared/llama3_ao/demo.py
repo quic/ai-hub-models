@@ -4,14 +4,10 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
 
 from qai_hub_models.models._shared.llama3_ao.app import ChatApp as App
-from qai_hub_models.models._shared.llama3_ao.model import (
-    determine_mode,
-    verify_mode_and_checkpoint_match,
-)
+from qai_hub_models.models._shared.llama3_ao.model import is_quantized_checkpoint
 from qai_hub_models.models._shared.llm.model import get_tokenizer
 from qai_hub_models.utils.args import get_model_cli_parser
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
@@ -54,12 +50,6 @@ def llama_chat_demo(
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser.add_argument(
-        "--mode",
-        type=str,
-        choices=["fp", "quantsim"],
-        help="Run the floating point model or simulated quantization.",
-    )
-    parser.add_argument(
         "--prompt",
         type=str,
         default=None,
@@ -89,7 +79,6 @@ def llama_chat_demo(
         help="random seed.",
     )
     args = parser.parse_args([] if is_test else None)
-    mode = args.mode
     if args.prompt is not None and args.prompt_file is not None:
         raise ValueError("Must specify one of --prompt or --prompt-file")
     if args.prompt_file is not None:
@@ -111,17 +100,9 @@ def llama_chat_demo(
     else:
         preprocess_prompt_fn = get_input_prompt_with_tags
 
-    user_specified_checkpoint = "--checkpoint" in sys.argv
-    if (not user_specified_checkpoint or args.checkpoint == "DEFAULT") and mode is None:
-        parser.error("--mode must be specified if --checkpoint is not.")
-
-    if args.checkpoint != "DEFAULT":
+    is_quantized = is_quantized_checkpoint(args.checkpoint)
+    if not args.checkpoint.startswith("DEFAULT"):
         tokenizer = get_tokenizer(args.checkpoint)
-
-        if not mode:
-            mode = determine_mode(args.checkpoint)
-        else:
-            verify_mode_and_checkpoint_match(args.checkpoint, mode)
     else:
         has_model_access(hf_repo_name, hf_repo_url)
         tokenizer = get_tokenizer(hf_repo_name)
@@ -129,12 +110,12 @@ def llama_chat_demo(
     if not is_test:
         print(f"\n{'-' * 85}")
         print(f"** Generating response via {model_id} **")
-        if mode == "fp":
-            print("Variant: FP32 (PyTorch)")
-            print("    This runs the original unquantized model for baseline purposes.")
-        else:
+        if is_quantized:
             print("Variant: QUANTIZED (AIMET-ONNX)")
             print("    This aims to replicate on-device accuracy through simulation.")
+        else:
+            print("Variant: FLOATING POINT (PyTorch)")
+            print("    This runs the original unquantized model for baseline purposes.")
         print()
         print("Prompt:", prompt)
         print("Raw (prompt will be passed in unchanged):", args.raw)
@@ -143,8 +124,8 @@ def llama_chat_demo(
         print(f"{'-' * 85}\n")
 
     extra = {}
-    if mode == "quantsim":
-        if args.checkpoint == "DEFAULT":
+    if is_quantized:
+        if args.checkpoint.startswith("DEFAULT"):
             extra["fp_model"] = fp_model_cls.from_pretrained(
                 sequence_length=args.sequence_length,
                 context_length=args.context_length,
@@ -168,7 +149,7 @@ def llama_chat_demo(
         context_length=args.context_length,
         max_output_tokens=args.max_output_tokens,
         checkpoint=None
-        if args.checkpoint == "DEFAULT" and mode == "fp"
+        if args.checkpoint == "DEFAULT_UNQUANTIZED"
         else args.checkpoint,
         bundled_kvcache=bundled_kvcache,
         model_from_pretrained_extra=extra,

@@ -78,7 +78,10 @@ def get_image_quantization_samples(
 
 
 def get_calibration_data(
-    model: BaseModel, input_spec: InputSpec, num_samples: int | None = None
+    model: BaseModel,
+    input_spec: InputSpec | None = None,
+    num_samples: int | None = None,
+    dataset_options: dict | None = None,
 ) -> DatasetEntries:
     """
     Produces a numpy dataset to be used for calibration data of a quantize job.
@@ -107,8 +110,12 @@ def get_calibration_data(
             + "produce reasonable accuracy without additional calibration data."
         )
         return model.sample_inputs(input_spec, use_channel_last_format=False)
+    input_spec = input_spec or model.get_input_spec()
     batch_size = get_batch_size(input_spec) or 1
-    dataset = get_dataset_from_name(calibration_dataset_name, split=DatasetSplit.TRAIN)
+    dataset_options = dataset_options or {}
+    dataset = get_dataset_from_name(
+        calibration_dataset_name, split=DatasetSplit.TRAIN, **dataset_options
+    )
     num_samples = num_samples or dataset.default_num_calibration_samples()
 
     # Round num samples to largest multiple of batch_size less than number requested
@@ -118,7 +125,7 @@ def get_calibration_data(
     dataloader = DataLoader(torch_dataset, batch_size=batch_size)
     inputs: list[list[torch.Tensor | np.ndarray]] = [[] for _ in range(len(input_spec))]
     for (sample_input, _) in dataloader:
-        if isinstance(sample_input, tuple):
+        if isinstance(sample_input, (tuple, list)):
             for i, tensor in enumerate(sample_input):
                 inputs[i].append(tensor)
         else:

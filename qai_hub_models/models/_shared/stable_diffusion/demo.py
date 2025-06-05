@@ -2,18 +2,21 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import torch
 from PIL import Image
 
 from qai_hub_models.models._shared.stable_diffusion.app import StableDiffusionApp
 from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import (
     demo_model_components_from_cli_args,
+    get_model_cli_parser,
+    get_model_kwargs,
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.base_model import CollectionModel, TargetRuntime
+from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.display import display_or_save_image, to_uint8
+from qai_hub_models.utils.evaluate import EvalMode
 
 DEFAULT_PROMPT = "Painting - She Danced By The Light Of The Moon by Steve Henderson"
 
@@ -22,12 +25,16 @@ DEFAULT_PROMPT = "Painting - She Danced By The Light Of The Moon by Steve Hender
 # AI-generated image based on the description in the prompt.
 def stable_diffusion_demo(
     model_id: str,
-    model_cls: type[CollectionModel],
+    model_cls: type[StableDiffusionBase],
     is_test: bool = False,
     default_guidance_scale: float = 7.5,
     default_num_steps: int = 5,
 ):
+    parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(
+        parser=parser,
+        supported_eval_modes=[EvalMode.QUANTSIM, EvalMode.FP, EvalMode.ON_DEVICE],
+        supported_precisions={Precision.w8a16},
         available_target_runtimes=[TargetRuntime.QNN],
         default_device="Snapdragon X Elite CRD",
         add_output_dir=True,
@@ -50,24 +57,20 @@ def stable_diffusion_demo(
         default=default_guidance_scale,
         help="Guidance scale",
     )
-    parser.add_argument(
-        "--use-torch-fp32", action="store_true", help="Use torch fp32 (no AIMET)"
-    )
     args = parser.parse_args([] if is_test else None)
 
     validate_on_device_demo_args(args, model_id)
 
-    server_device = torch.device(args.server_device)
+    if args.eval_mode == EvalMode.FP:
+        model_kwargs = get_model_kwargs(model_cls, vars(args))
+        # model = model_cls.from_pretrained(**kwargs)
 
-    if args.use_torch_fp32:
-        TextEncoderQuantizable = model_cls.component_classes[0]
-        UnetQuantizable = model_cls.component_classes[1]
-        VaeDecoderQuantizable = model_cls.component_classes[2]
-        text_encoder = TextEncoderQuantizable.make_adapted_torch_model(  # type: ignore
-            server_device=server_device
-        )
-        unet = UnetQuantizable.make_adapted_torch_model(server_device=server_device)  # type: ignore
-        vae_decoder = VaeDecoderQuantizable.make_adapted_torch_model(server_device=server_device)  # type: ignore
+        text_encoder_cls = model_cls.component_classes[0]
+        unet_cls = model_cls.component_classes[1]
+        vae_cls = model_cls.component_classes[2]
+        text_encoder = text_encoder_cls.torch_from_pretrained(**model_kwargs)
+        unet = unet_cls.torch_from_pretrained(**model_kwargs)
+        vae_decoder = vae_cls.torch_from_pretrained(**model_kwargs)
     else:
         text_encoder, unet, vae_decoder = demo_model_components_from_cli_args(
             model_cls, model_id, args
@@ -95,11 +98,11 @@ def stable_diffusion_demo(
 
     pil_img = Image.fromarray(to_uint8(image.detach().cpu().numpy())[0])
 
-    if args.use_torch_fp32:
+    if args.eval_mode == EvalMode.FP:
         default_output_dir = "export/torch_fp32"
-    elif args.on_device:
+    elif args.eval_mode == EvalMode.ON_DEVICE:
         default_output_dir = "export/on_device_e2e"
-    else:
+    else:  # quantsim
         default_output_dir = "export/quantsim"
     output_dir = args.output_dir or default_output_dir
     if not is_test:

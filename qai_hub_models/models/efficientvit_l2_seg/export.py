@@ -48,9 +48,10 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN,
+    target_runtime: TargetRuntime = TargetRuntime.ONNX,
     compile_options: str = "",
     profile_options: str = "",
+    fetch_static_assets: bool = False,
     **additional_model_kwargs,
 ) -> ExportResult | list[str]:
     """
@@ -89,6 +90,7 @@ def export_model(
         target_runtime: Which on-device runtime to target. Default is TFLite.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
+        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
         **additional_model_kwargs: Additional optional kwargs used to customize
             `model_cls.from_pretrained` and `model.get_input_spec`
 
@@ -107,7 +109,7 @@ def export_model(
         hub_device = hub.Device(
             name=device or "", attributes=f"chipset:{chipset}" if chipset else []
         )
-    if not can_access_qualcomm_ai_hub():
+    if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "efficientvit_l2_seg",
             "EfficientViT-l2-seg",
@@ -121,6 +123,7 @@ def export_model(
             precision,
             compile_options,
             profile_options,
+            is_forced_static_asset_fetch=fetch_static_assets,
         )
 
     # On-device perf improves with I/O in channel_last format for runtimes
@@ -258,22 +261,13 @@ def export_model(
     )
 
 
-def main(restrict_to_precision: Precision | None = None):
+def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.QNN,
-            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a16: [],
     }
-
-    if restrict_to_precision:
-        supported_precision_runtimes = {
-            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
-        }
 
     parser = export_parser(
         model_cls=Model,

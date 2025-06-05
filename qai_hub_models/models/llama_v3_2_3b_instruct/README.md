@@ -3,7 +3,7 @@
 
 # [Llama-v3.2-3B-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v3_2_3b_instruct)
 
-Llama 3 is a family of LLMs. The "Chat" at the end indicates that the model is optimized for chatbot-like dialogue. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
+Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
 
 This is based on the implementation of Llama-v3.2-3B-Instruct found [here](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
@@ -11,7 +11,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/l
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
-## Deploying Llama 3.2 on-device
+## Deploying Llama 3.2 3B on-device
 
 Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie) tutorial.
 
@@ -26,7 +26,7 @@ pip install "qai-hub-models[llama-v3-2-3b-instruct]" torch==2.4.1 torchvision==0
 
 Install the GPU package via pip:
 ```bash
-pip install "qai-hub-models[llama-v3-2-3b-instruct]" torch==2.4.1 torchvision==0.19.1 https://github.com/quic/aimet/releases/download/2.6.0/aimet_onnx-2.3.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+pip install "qai-hub-models[llama-v3-2-3b-instruct]" torch==2.4.1 torchvision==0.19.1 https://github.com/quic/aimet/releases/download/2.6.0/aimet_onnx-2.6.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 
@@ -49,8 +49,7 @@ on-device deployment. This can be run as follows:
 ```bash
 python -m qai_hub_models.models.llama_v3_2_3b_instruct.export
 ```
-Additional options are documented with the `--help` option. Note that the above
-script requires access to Deployment instructions for Qualcomm® AI Hub.
+Additional options are documented with the `--help` option.
 
 
 ## License

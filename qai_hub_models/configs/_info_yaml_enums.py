@@ -80,6 +80,7 @@ HF_AVAILABLE_LICENSES = {
     "llama3.1",
     "llama3.2",
     "llama3.3",
+    "stability-ai",
     "gemma",
     "unknown",
     "other",

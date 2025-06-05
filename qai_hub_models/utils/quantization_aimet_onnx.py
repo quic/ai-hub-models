@@ -13,10 +13,7 @@ try:
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
     from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
-    print(
-        "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
-        "Install qai-hub-models on a Linux machine to use quantized models."
-    )
+    pass
 import os
 import shutil
 from collections.abc import Collection
@@ -32,7 +29,7 @@ from qai_hub_models.evaluators.base_evaluators import _DataLoader
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.protocols import PretrainedHubModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
-from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_dir
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
@@ -44,6 +41,10 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     Mixin that allows a model to be quantized & exported to disk using AIMET.
     Inheritor must implement BaseModel for this mixin to function.
     """
+
+    # For pre-calibrated asset lookup
+    model_id: str = ""
+    model_asset_version: int = -1
 
     def __init__(
         self,
@@ -87,7 +88,31 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         """
         Returns .onnx and .encodings paths
         """
-        raise FileNotFoundError()
+        if not cls.model_id or cls.model_asset_version == -1:
+            raise ValueError("model_id and model_asset_version must be defined")
+
+        subfolder = Path(getattr(cls, "default_subfolder", ""))
+
+        # Returns .onnx and .encodings paths
+        onnx_file = CachedWebModelAsset.from_asset_store(
+            cls.model_id,
+            cls.model_asset_version,
+            str(subfolder / "model.onnx"),
+        ).fetch()
+        try:
+            _ = CachedWebModelAsset.from_asset_store(
+                cls.model_id,
+                cls.model_asset_version,
+                str(subfolder / "model.data"),
+            ).fetch()
+        except Exception:
+            pass  # ignore. No external weight.
+        aimet_encodings = CachedWebModelAsset.from_asset_store(
+            cls.model_id,
+            cls.model_asset_version,
+            str(subfolder / "model.encodings"),
+        ).fetch()
+        return onnx_file, aimet_encodings
 
     def quantize(
         self,
@@ -131,6 +156,9 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         data = self.get_calibration_data(target_runtime=TargetRuntime.QNN)
+        if data is None:
+            # Fallback to BaseModel's impl
+            data = super()._sample_inputs_impl(input_spec)  # type: ignore
         assert isinstance(data, dict)
         return data
 
@@ -144,6 +172,37 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         """
         assert self.quant_sim is not None
         return mock_torch_onnx_inference(self.quant_sim.session, *args, **kwargs)
+
+    def save_calibrated_checkpoint(self, output_checkpoint: str) -> None:
+        """
+        Save AIMET-ONNX checkpoint to output_checkpoint/subfolder, if
+        """
+        default_subfolder = getattr(self.__class__, "default_subfolder", "")
+        export_dir = output_checkpoint
+        if default_subfolder:
+            export_dir = str(Path(output_checkpoint) / default_subfolder)
+
+        shutil.rmtree(export_dir, ignore_errors=True)
+        os.makedirs(export_dir, exist_ok=True)
+
+        print(f"Saving quantized {self.__class__.__name__} to {export_dir}")
+        assert self.quant_sim is not None
+        self.quant_sim.export(str(export_dir), "model")
+        print(f"{self.__class__.__name__} saved to {export_dir}")
+
+    def get_ort_providers(
+        device: torch.device,
+    ) -> list[str | tuple[str, dict[str, int]]]:
+        if device.type == "cuda":
+            return (
+                [
+                    ("CUDAExecutionProvider", {"device_id": device.index}),
+                    "CPUExecutionProvider",
+                ]
+                if device.index is not None
+                else ["CUDAExecutionProvider", "CPUExecutionProvider"]
+            )
+        return ["CPUExecutionProvider"]
 
     def convert_to_onnx_and_aimet_encodings(
         self,

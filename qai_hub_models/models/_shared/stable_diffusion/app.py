@@ -41,7 +41,7 @@ class StableDiffusionApp:
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
         channel_last_latent: bool,
-        server_device: torch.device = torch.device("cpu"),
+        host_device: torch.device = torch.device("cpu"),
         time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
     ):
         """
@@ -76,10 +76,8 @@ class StableDiffusionApp:
         self.tokenizer = tokenizer
         self.scheduler = scheduler
         self.channel_last_latent = channel_last_latent
-        self.server_device = server_device
-        self.time_embedding = (
-            time_embedding.to(server_device) if time_embedding else None
-        )
+        self.host_device = host_device
+        self.time_embedding = time_embedding.to(host_device) if time_embedding else None
 
     def _encode_text_prompt(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -202,12 +200,12 @@ class StableDiffusionApp:
             seed=seed,
             guidance_scale=guidance_scale,
             channel_last_latent=self.channel_last_latent,
-            server_device=self.server_device,
+            host_device=self.host_device,
             time_embedding=self.time_embedding,
         )
         # Decode generated image from latent space
         if self.channel_last_latent:
-            latents = _make_channel_last_torch(latents).to(self.server_device)
+            latents = _make_channel_last_torch(latents).to(self.host_device)
         image = self.vae_decoder(latents)
         return image.to("cpu")  # move to cpu in case it was run on gpu
 
@@ -238,7 +236,7 @@ def run_diffusion_steps_on_latents(
     guidance_scale: float = 7.5,
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
-    server_device: torch.device = torch.device("cpu"),
+    host_device: torch.device = torch.device("cpu"),
     time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
 ) -> torch.Tensor | tuple[torch.Tensor, dict[str, list[torch.Tensor]]]:
     """
@@ -288,7 +286,7 @@ def run_diffusion_steps_on_latents(
         # Initialize latent tensor
         latents_shape = (1, 4, OUT_H // 8, OUT_W // 8)
         generator = torch.manual_seed(seed)
-        latents = torch.randn(latents_shape, generator=generator, device=server_device)
+        latents = torch.randn(latents_shape, generator=generator, device=host_device)
         latents = latents * scheduler.init_noise_sigma  # type: ignore[attr-defined]
 
         # Time input
@@ -301,16 +299,14 @@ def run_diffusion_steps_on_latents(
             print(f"\nStep: {i + 1}\n{'-' * 10}")
 
             if time_embedding:
-                time_input = get_time_embedding(time_embedding, t).to(server_device)
+                time_input = get_time_embedding(time_embedding, t).to(host_device)
             else:
-                time_input = torch.as_tensor([[t]], dtype=torch.float32).to(
-                    server_device
-                )
+                time_input = torch.as_tensor([[t]], dtype=torch.float32).to(host_device)
 
             latent_model_input = scheduler.scale_model_input(latents, t)  # type: ignore[attr-defined]
             if channel_last_latent:
                 latent_model_input = _make_channel_last_torch(latent_model_input).to(
-                    server_device
+                    host_device
                 )
             unet_inputs["latent"].append(latent_model_input)
             unet_inputs[time_input_name].append(time_input)
@@ -346,7 +342,7 @@ def run_diffusion_steps_on_latents(
                     noise_pred = unet(latent_model_input, time_input, cond_embeddings)
 
             if channel_last_latent:
-                noise_pred = _make_channel_first_torch(noise_pred).to(server_device)
+                noise_pred = _make_channel_first_torch(noise_pred).to(host_device)
             latents = scheduler.step(noise_pred, t, latents).prev_sample  # type: ignore[attr-defined]
 
         if return_all_steps:

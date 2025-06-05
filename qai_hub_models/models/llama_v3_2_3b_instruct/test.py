@@ -4,11 +4,11 @@
 # ---------------------------------------------------------------------
 import pytest
 
-from qai_hub_models.models.llama_v3_2_3b_instruct.demo import llama_3_2_chat_demo
+from qai_hub_models.models.llama_v3_2_3b_instruct.demo import llama_3_2_3b_chat_demo
 
 
 @pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")
 @pytest.mark.slow_cloud
 def test_demo() -> None:
     # Run demo and verify it does not crash
-    llama_3_2_chat_demo(is_test=True)
+    llama_3_2_3b_chat_demo(is_test=True)

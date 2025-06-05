@@ -71,7 +71,7 @@ def test_cli_device_with_skips(tmp_path) -> None:
         # Compile is called 8 times (4 token parts, 4 prompt parts)
         assert mock_hub.submit_compile_job.call_count == 8
         call_args_list = mock_hub.submit_compile_job.call_args_list
-        assert all(c.kwargs["device"] == device for c in call_args_list)
+        assert all(c.kwargs["device"].name == device.name for c in call_args_list)
 
         # Link 4 times
         assert mock_hub.submit_link_job.call_count == 4
@@ -101,7 +101,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
     )
 
     chipset = "qualcomm-snapdragon-x-elite"
-    device = hub.Device(attributes=f"chipset:{chipset}")
+    device = hub.get_devices(attributes=f"chipset:{chipset}")[0]
     with patch_qai_hub() as mock_hub, patch_model, patch_get_cache:
         export_main(
             [
@@ -110,7 +110,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
                 "--output-dir",
                 tmp_path.name,
                 "--target-runtime",
-                "precompiled-qnn-onnx",
+                "qnn_context_binary",
                 "--compile-options",
                 "compile_extra",
                 "--profile-options",
@@ -132,8 +132,9 @@ def test_cli_chipset_with_options(tmp_path) -> None:
             for i, c in enumerate(mock_hub.submit_link_job.call_args_list)
         )
         mock_comp = mock_model.load_model_part.return_value
+
         assert all(
-            c.args[0] == TargetRuntime.PRECOMPILED_QNN_ONNX
+            c.args[0] == TargetRuntime.QNN_CONTEXT_BINARY
             for c in mock_comp.get_hub_compile_options.call_args_list
         )
         assert all(
@@ -220,7 +221,7 @@ def test_cli_default_device_select_component(tmp_path) -> None:
             }
 
         call_args_list = mock_hub.submit_compile_job.call_args_list
-        assert all(c.kwargs["device"] == device for c in call_args_list)
+        assert all(c.kwargs["device"].name == device.name for c in call_args_list)
 
         assert tmp_path.exists()
         assert tmp_path.is_dir()

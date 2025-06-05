@@ -322,7 +322,7 @@ def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
             mock_hub.submit_profile_job.assert_called()
     """
     # Model
-    model = mock.Mock()
+    model = mock.Mock(hub.Model)
     model.model_id = "mabcd1234"
     model.model_type = model_type
 

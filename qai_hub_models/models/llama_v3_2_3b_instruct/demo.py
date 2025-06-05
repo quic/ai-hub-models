@@ -16,7 +16,7 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.model import HF_REPO_NAME, HF_
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 
 
-def llama_3_2_chat_demo(
+def llama_3_2_3b_chat_demo(
     model_cls: type[BaseModel] = Model,
     fp_model_cls: type[BaseModel] = FP_Model,
     model_id: str = MODEL_ID,
@@ -44,4 +44,4 @@ def llama_3_2_chat_demo(
 
 
 if __name__ == "__main__":
-    llama_3_2_chat_demo()
+    llama_3_2_3b_chat_demo()

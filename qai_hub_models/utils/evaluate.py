@@ -13,8 +13,9 @@ import os
 import shutil
 from collections.abc import Iterator, Sized
 from dataclasses import dataclass
+from enum import Enum, unique
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, cast
+from typing import Callable, Optional, Union, cast
 
 import h5py
 import numpy as np
@@ -343,6 +344,36 @@ def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Datase
     return sampled_dataset
 
 
+class DatasetFromIOTuples(Dataset):
+    """
+    Dataset that takes batched inputs and gts as tuples:
+        tuple(Input of shape [ B, *dims ], Second Input of shape [B, *dims ], ...)
+        tuple(GT of shape [ B, *dims ], Second GT of shape [B, *dims ], ...)
+
+    and converts each to regular tensors (if the tuple has 1 element) when getting a dataset item.
+    """
+
+    def __init__(self, inputs: tuple[torch.Tensor, ...], gt: tuple[torch.Tensor, ...]):
+        self.curr_input = inputs
+        self.curr_gt = gt
+        super().__init__()
+
+    def __len__(self):
+        return self.curr_input[0].shape[0]
+
+    def __getitem__(
+        self, index
+    ) -> tuple[
+        tuple[torch.Tensor, ...] | torch.Tensor, tuple[torch.Tensor, ...] | torch.Tensor
+    ]:
+        inputs = tuple(x[index] for x in self.curr_input)
+        gt = tuple(x[index] for x in self.curr_gt)
+        return (
+            inputs[0] if len(inputs) == 1 else inputs,
+            gt[0] if len(gt) == 1 else gt,
+        )
+
+
 class HubDataset(Dataset):
     """
     Class the behaves like a PyTorch dataset except it is populated with hub datasets.
@@ -360,57 +391,97 @@ class HubDataset(Dataset):
     ):
         self.input_names = input_names
         self.cache_path = get_dataset_cache_filepath(dataset_name)
-        self.samples_per_job = get_dataset_cache_samples_per_job(dataset_name)
-        assert self.samples_per_job is not None, "Dataset cache must be pre-populated"
+        self.samples_per_hub_dataset: int = cast(
+            int, get_dataset_cache_samples_per_job(dataset_name)
+        )
+        assert (
+            self.samples_per_hub_dataset is not None
+        ), "Dataset cache must be pre-populated"
         dataset_ids_filepath = get_dataset_ids_filepath(
-            dataset_name, self.samples_per_job
+            dataset_name, self.samples_per_hub_dataset
         )
         self.input_ids, self.gt_ids = read_dataset_ids(dataset_ids_filepath)
 
         max_splits = len(self.input_ids)
         if num_samples == -1:
-            self.num_splits = max_splits
+            self.num_hub_datasets = max_splits
         else:
-            self.num_splits = int(np.ceil(num_samples / self.samples_per_job))
-            self.num_splits = min(self.num_splits, max_splits)
+            self.num_hub_datasets = int(
+                np.ceil(num_samples / self.samples_per_hub_dataset)
+            )
+            self.num_hub_datasets = min(self.num_hub_datasets, max_splits)
 
         # Only print the warning when doing a partial dataset
-        if self.num_splits < max_splits:
-            if num_samples != self.num_splits * self.samples_per_job:
+        if self.num_hub_datasets < max_splits:
+            if num_samples != self.num_hub_datasets * self.samples_per_hub_dataset:
                 print(
                     "Rounding up number of samples to the nearest multiple of "
-                    f" {self.samples_per_job}: {num_samples} -> "
-                    f"{self.num_splits * self.samples_per_job}."
+                    f" {self.samples_per_hub_dataset}: {num_samples} -> "
+                    f"{self.num_hub_datasets * self.samples_per_hub_dataset}."
                 )
         self.channel_last_input = channel_last_input
+        self.curr_dataset: DatasetFromIOTuples | None = None
+        self.curr_h5_idx = -1
 
     def __len__(self) -> int:
-        return self.num_splits
+        return self.num_hub_datasets * self.samples_per_hub_dataset
 
-    def __getitem__(self, index) -> Any:
-        input_data = load_h5(get_dataset_path(self.cache_path, self.input_ids[index]))
-        if self.channel_last_input:
-            input_data = transpose_channel_last_to_first(
-                self.channel_last_input, input_data
+    def load_hub_dataset_for_sample(self, sample_index) -> DatasetFromIOTuples:
+        """
+        Fetches the AI Hub dataset that stores the sample at the given index,
+        and stores it in memory.
+
+        Returns a tuple of:
+            input batch (torch.Tensor) containing this index
+            ground truth batch (torch.Tensor) containing this index
+            sample index within the returned batch
+        """
+        h5_idx = math.floor(sample_index / self.samples_per_hub_dataset)
+        if self.curr_h5_idx != h5_idx or self.curr_dataset is None:
+            self.curr_h5_idx = h5_idx
+
+            # Convert DatasetEntries from dict{
+            #   "Input0": batch_0, batch_1, ...]
+            #   "Input1": batch_0, abtch_1, ...]
+            # }
+            #
+            # to tuple(input_0_all_batches, input_1_all_batches, ...)
+            input_dataset_entries = load_h5(
+                get_dataset_path(self.cache_path, self.input_ids[sample_index])
             )
-        input_np_data = np.concatenate(list(input_data.values())[0], axis=0)
-        gt_data = load_h5(get_dataset_path(self.cache_path, self.gt_ids[index]))
-        gt_torch_data = []
-        for gt_np_tensor in gt_data.values():
-            gt_torch_data.append(torch.from_numpy(np.concatenate(gt_np_tensor, axis=0)))
+            if self.channel_last_input:
+                input_dataset_entries = transpose_channel_last_to_first(
+                    self.channel_last_input, input_dataset_entries
+                )
+            curr_input = tuple(
+                torch.as_tensor(np.concatenate(input_list, axis=0))
+                for input_list in input_dataset_entries.values()
+            )
 
-        gt_ret = gt_torch_data[0] if len(gt_torch_data) == 1 else tuple(gt_torch_data)
-        return torch.from_numpy(input_np_data), gt_ret
+            # Convert DatasetEntries from dict{
+            #   "Output0": batch_0, batch_1, ...]
+            #   "Output1": batch_0, abtch_1, ...]
+            # }
+            #
+            # to tuple(input_0_all_batches, input_1_all_batches, ...)
+            gt_dataset_entries = load_h5(
+                get_dataset_path(self.cache_path, self.gt_ids[sample_index])
+            )
+            curr_gt = tuple(
+                torch.as_tensor(np.concatenate(gt_list, axis=0))
+                for gt_list in gt_dataset_entries.values()
+            )
+            self.curr_dataset = DatasetFromIOTuples(curr_input, curr_gt)
+        return self.curr_dataset
 
-
-def _make_dataloader(dataset: Dataset, samples_per_job: int) -> DataLoader:
-    if isinstance(dataset, HubDataset):
-        # Each batch should be direct output of __getitem__ without additional batch dim
-        def _collate_fn(x):
-            return x[0]
-
-        return DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=_collate_fn)
-    return DataLoader(dataset, batch_size=samples_per_job, shuffle=False)
+    def __getitem__(
+        self, index
+    ) -> tuple[
+        torch.Tensor | tuple[torch.Tensor, ...], torch.Tensor | tuple[torch.Tensor, ...]
+    ]:
+        curr_dataset = self.load_hub_dataset_for_sample(index)
+        index_in_hub_dataset = index - (self.curr_h5_idx * self.samples_per_hub_dataset)
+        return curr_dataset[index_in_hub_dataset]
 
 
 def evaluate(
@@ -468,20 +539,33 @@ def evaluate(
     batch_size = dataloader.batch_size or 1
     model_batch_size = model_batch_size or batch_size
 
+    if batch_size % model_batch_size != 0:
+        raise ValueError(
+            "The model batch size must evenly divide the DataLoader's batch size. It is otherwise impossible to evaluate the whole dataset on the same batch size."
+        )
+
     # Get each sample from the dataloader. Each sample has batch size batch_size.
     for batch_idx, sample in enumerate(dataloader):
         model_inputs, ground_truth_values, *_ = sample
-        if not isinstance(model_inputs, tuple):
-            model_inputs = tuple([model_inputs])
-        if not isinstance(ground_truth_values, tuple):
-            ground_truth_values = tuple([ground_truth_values])
-        model_inputs = cast(tuple[torch.Tensor, ...], model_inputs)
-        ground_truth_values = cast(tuple[torch.Tensor, ...], ground_truth_values)
+
+        def _torch_io_to_tuple(
+            val: list | tuple | torch.Tensor,
+        ) -> tuple[torch.Tensor, ...]:
+            """
+            Convert torch model I/O of any type to a tuple of inputs / outputs.
+            """
+            if isinstance(val, tuple):
+                return val
+            elif isinstance(val, list):
+                return tuple(val)
+            return tuple([val])
+
+        model_inputs = _torch_io_to_tuple(model_inputs)
+        ground_truth_values = _torch_io_to_tuple(ground_truth_values)
 
         # On device output is computed on the entire batch,
         # Run all on-device models first.
         for model_name, async_model in ai_hub_inference_models.items():
-            hub_dataset = None
             if isinstance(dataloader.dataset, HubDataset):
                 # If the dataloader is a cached dataset, we can just use the cached Hub dataset
                 # instead of uploading the inputs to Hub again.
@@ -507,31 +591,26 @@ def evaluate(
         if len(local_inference_models) == 0:
             continue
 
-        # Run local inference
-        num_local_batches = math.ceil(batch_size / model_batch_size)
-        for single_batch_idx in tqdm(
-            range(0, num_local_batches), total=num_local_batches
-        ):
-            # Break batch into smaller batches for local inference.
-            batch_start_idx = single_batch_idx * model_batch_size
-            batch_end_idx = min(batch_size, (single_batch_idx * model_batch_size) + 1)
-            batch_input = tuple(x[batch_start_idx:batch_end_idx] for x in model_inputs)
-            batch_gt = tuple(
-                x[batch_start_idx:batch_end_idx] for x in ground_truth_values
-            )
-            if len(batch_gt) == 1:
-                # Ground truth should not be a tuple if there is only 1 element.
-                batch_gt = batch_gt[0]
+        # Run local inference on smaller batch size
+        local_dataset = DatasetFromIOTuples(model_inputs, ground_truth_values)
+        local_dataloader = DataLoader(local_dataset, model_batch_size)
+        for sample in tqdm(local_dataloader):
+            local_model_inputs, local_ground_truth_values, *_ = sample
 
             # Run inference on this smaller batch, add to evaluator.
             for model_name, local_model in local_inference_models.items():
-                batch_output = local_model(*batch_input)
-                evaluators[model_name].add_batch(batch_output, batch_gt)
+                if type(local_model_inputs) in [list, tuple]:
+                    batch_output = local_model(*local_model_inputs)
+                else:
+                    batch_output = local_model(local_model_inputs)
+                evaluators[model_name].add_batch(
+                    batch_output, local_ground_truth_values
+                )
 
         if verbose:
             for model_name in local_inference_models:
                 print(
-                    f"Cumulative {model_name} accuracy on {batch_idx * batch_size} samples: "
+                    f"Cumulative {model_name} accuracy on {(batch_idx + 1) * batch_size} samples: "
                     f"{evaluators[model_name].formatted_accuracy()}"
                 )
 
@@ -548,7 +627,7 @@ def evaluate(
 
                 if verbose:
                     print(
-                        f"Cumulative {model_name} accuracy on {batch_idx * batch_size} samples: "
+                        f"Cumulative {model_name} accuracy on {(batch_idx + 1) * batch_size} samples: "
                         f"{evaluators[model_name].formatted_accuracy()}"
                     )
 
@@ -633,12 +712,16 @@ def evaluate_on_dataset(
             on_device_model.input_names,
             on_device_model.channel_last_input,
         )
-        dataloader = _make_dataloader(torch_dataset, samples_per_job)
-        num_samples = len(torch_dataset) * samples_per_job
+        dataloader = DataLoader(
+            torch_dataset, batch_size=samples_per_job, shuffle=False
+        )
+        num_samples = len(torch_dataset)
     else:
         if seed is not None:
             torch_dataset = sample_dataset(source_torch_dataset, num_samples, seed)
-            dataloader = _make_dataloader(torch_dataset, samples_per_job)
+            dataloader = DataLoader(
+                torch_dataset, batch_size=samples_per_job, shuffle=False
+            )
         else:
             dataloader = get_deterministic_sample(
                 source_torch_dataset, num_samples, samples_per_job
@@ -668,3 +751,28 @@ def evaluate_on_dataset(
         scores.get("quant cpu"),
         scores.get("on-device"),
     )
+
+
+@unique
+class EvalMode(Enum):
+    description: str
+
+    FP = ("fp", "run floating point model")
+    QUANTSIM = ("quantsim", "simulated quantization")
+    ON_DEVICE = ("on-device", "physical device via AI Hub (slow)")
+    LOCAL_DEVICE = ("local-device", "running on local device like X Elite")
+
+    def __new__(cls, value: str, description: str):
+        # object.__new__ so we bypass Enum.__init__ machinery
+        obj = object.__new__(cls)
+        obj._value_ = value  # this is the “real” .value
+        obj.description = description  # store your help‐text
+        return obj
+
+    @staticmethod
+    def from_string(string: str) -> EvalMode:
+        key = string.replace("-", "_").upper()
+        return EvalMode[key]
+
+    def __str__(self):
+        return self.value

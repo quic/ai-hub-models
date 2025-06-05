@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 import argparse
 
+from qai_hub_models.datasets.carvana import CarvanaDataset
 from qai_hub_models.datasets.cityscapes import CityscapesDataset
 from qai_hub_models.datasets.face_attrib_dataset import FaceAttribDataset
 from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
@@ -16,6 +17,7 @@ SUPPORTED_DATASETS = [
     "face_attrib_dataset",
     "cityscapes",
     "human_faces",
+    "carvana",
 ]
 
 
@@ -53,6 +55,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         CityscapesDataset(input_images_zip=files[0], input_gt_zip=files[1])
     elif dataset == "human_faces":
         HumanFacesDataset(input_data_zip=files[0])
+    elif dataset == "carvana":
+        CarvanaDataset(input_images_zip=files[0], input_gt_zip=files[1])
     else:
         raise ValueError(f"Invalid dataset {dataset}")
 

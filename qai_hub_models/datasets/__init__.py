@@ -8,7 +8,7 @@ from typing import cast
 
 from .common import BaseDataset, DatasetSplit
 
-_ALL_DATASETS_IMPORT_ERRORS: dict[str, ModuleNotFoundError] = {}
+_ALL_DATASETS_IMPORT_ERRORS: dict[str, Exception] = {}
 DATASET_NAME_MAP: dict[str, type[BaseDataset]] = {}
 
 
@@ -36,6 +36,12 @@ def _try_import_dataset(module_name: str, cls: str):
         # at a later time (when the user requests this dataset).
         _ALL_DATASETS_IMPORT_ERRORS[module_name] = e
         return
+    except NotImplementedError as e:
+        if "AIMET-ONNX" in str(e):
+            # stable diffusion dataset requires aimet-onnx
+            _ALL_DATASETS_IMPORT_ERRORS[module_name] = e
+            return
+        raise e
 
     if x := getattr(module, cls, None):
         xds = cast(type[BaseDataset], x)
@@ -77,12 +83,16 @@ _try_import_dataset(".cocobody", "CocoBodyDataset")
 _try_import_dataset(".cocowholebody", "CocoWholeBodyDataset")
 _try_import_dataset(".cocobody_513x257", "CocoBody513x257Dataset")
 _try_import_dataset(".coco_face_480x640", "CocoFace_480x640Dataset")
+_try_import_dataset(".carvana", "CarvanaDataset")
+_try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetTextEncoder")
+_try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetUnet")
+_try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetVae")
 
 
-def get_dataset_from_name(name: str, split: DatasetSplit) -> BaseDataset:
+def get_dataset_from_name(name: str, split: DatasetSplit, **kwargs) -> BaseDataset:
     dataset_cls = DATASET_NAME_MAP.get(name, None)
     if not dataset_cls:
         if name in _ALL_DATASETS_IMPORT_ERRORS:
             raise _ALL_DATASETS_IMPORT_ERRORS[name]
         raise ValueError(f"Unable to find dataset with name {name}")
-    return dataset_cls(split=split)  # type: ignore[call-arg]
+    return dataset_cls(split=split, **kwargs)  # type: ignore[call-arg]

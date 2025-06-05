@@ -21,7 +21,7 @@ import piqaro.onnx
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.stable_diffusion_v1_5_w8a16_quantized.model import (
+from qai_hub_models.models.stable_diffusion_v1_5.model import (
     TextEncoderQuantizable,
     UnetQuantizable,
     VaeDecoderQuantizable,

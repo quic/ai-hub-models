@@ -46,7 +46,6 @@ def can_access_qualcomm_ai_hub():
 _AIHUB_URL = "https://aihub.qualcomm.com"
 _AIHUB_NAME = "Qualcomm® AI Hub"
 _WARNING_DASH = "=" * 114
-_INFO_DASH = "-" * 55
 
 
 def export_without_hub_access(
@@ -63,36 +62,40 @@ def export_without_hub_access(
     compile_options: str,
     profile_options: str,
     components: Optional[list[str]] = None,
+    is_forced_static_asset_fetch: bool = False,
 ) -> list[str]:
-    print(_WARNING_DASH)
-    print(
-        f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"
-        f"To get access to the complete experience, please sign-up for access at {_AIHUB_URL}."
-    )
-    print(_WARNING_DASH)
+    if not is_forced_static_asset_fetch:
+        print(_WARNING_DASH)
+        print(
+            f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"
+            f"To get access to the complete experience, please sign-up for access at {_AIHUB_URL}."
+        )
+        print(_WARNING_DASH)
 
     if compile_options or profile_options:
         raise RuntimeError(
             f"Jobs with `compile_options` or `profile_options` can only be run with {_AIHUB_NAME} access."
         )
 
+    parsed_perf = None
+    perf_yaml_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "models",
+        model_id,
+        "perf.yaml",
+    )
+    if os.path.exists(perf_yaml_path):
+        parsed_perf = QAIHMModelPerf.from_yaml(perf_yaml_path).precisions[precision]
+
+    if not components:
+        if parsed_perf:
+            components = list(parsed_perf.components.keys())
+        else:
+            components = [model_display_name]
+
     if not skip_profiling and not skip_summary:
-        print("")
-
-        missing_perf = True
-        perf_yaml_path = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "models",
-            model_id,
-            "perf.yaml",
-        )
-        if os.path.exists(perf_yaml_path):
-            parsed_perf = QAIHMModelPerf.from_yaml(perf_yaml_path).precisions[precision]
-
-            if not components:
-                components = [model_display_name]
-
-            print(f"Profiling Results\n{_INFO_DASH}")
+        if parsed_perf is not None:
+            print("\n--- Profiling Results ---")
             for component in components:
                 print(f"{component}")
                 model_perf = parsed_perf.components[component]
@@ -116,43 +119,61 @@ def export_without_hub_access(
                 if not runtime_perf:
                     break
 
-                missing_perf = False
                 print_profile_metrics(
                     device_name,
                     target_runtime,
                     runtime_perf,
                     can_access_qualcomm_ai_hub=False,
                 )
-
-        if missing_perf:
-            print(
-                f"Cannot obtain results for device {device} with runtime {target_runtime.name} without an API token.\n"
-                f"Please sign-up for {_AIHUB_NAME} to get run this configuration on hosted devices."
-            )
-
-        print("")
+                print("")
+        else:
+            if is_forced_static_asset_fetch:
+                print(
+                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without using AI Hub.\n"
+                    f"Run without the --fetch-static-assets flag to target this device."
+                )
+            else:
+                print(
+                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without an API token.\n"
+                    f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
+                )
 
     if not skip_inferencing and not skip_summary:
-        print(
-            f"\nSkipping on-device numerical validation. "
-            f"Please sign-up for {_AIHUB_NAME} to perform numerical validation on hosted devices."
-        )
-
-    paths = []
-    if not skip_downloading:
-        print("")
-        print(
-            f"Downloading model(s) from a previous job on {_AIHUB_NAME}.\n"
-            f"More details are availiable on Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)}"
-        )
-        try:
-            paths = fetch_huggingface_target_model(
-                model_display_name, precision, output_path, target_runtime
+        print("\n--- Skipping on-device numerical validation. ---")
+        if is_forced_static_asset_fetch:
+            print("Run without the --fetch-static-assets flag to run validation.")
+        else:
+            print(
+                f"Please sign-up for {_AIHUB_NAME} to perform numerical validation on hosted devices."
             )
-            print(f"Deployable model(s) saved to: {paths}")
-        except Exception as e:
-            print(f"Download failure: {e}")
-        print("")
+
+    paths: list[str] = []
+    if not skip_downloading:
+        print(
+            f"\n--- Downloading model(s) from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
+        )
+    else:
+        print(
+            f"\n--- Model(s) can be downloaded from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
+        )
+    try:
+        paths, urls = fetch_huggingface_target_model(
+            model_display_name,
+            components,
+            precision,
+            output_path,
+            target_runtime,
+            download=not skip_downloading,
+        )
+        paths_str = "\n    ".join(paths)
+        urls_str = "\n    ".join(urls)
+
+        print(f"Deployable Model URLs:\n    {urls_str}")
+        if paths:
+            print("")
+            print(f"Deployable model(s) saved to:\n    {paths_str}")
+    except Exception as e:
+        print(f"Model fetch failure: {e}")
 
     return paths
 

@@ -8,6 +8,8 @@ from typing import Optional
 
 import torch
 
+from qai_hub_models.evaluators.ade_evaluator import AdeEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -92,3 +94,10 @@ class UNet(BaseModel):
             h, w = input_spec["image"][0][2:]
             image = image.resize((w, h))
         return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return AdeEvaluator(num_classes=2)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["carvana"]
