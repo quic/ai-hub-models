@@ -468,7 +468,7 @@ precisions:
           SA8775P ADP:
             qnn: mnz74l5pq
           RB3 Gen 2 (Proxy):
-            qnn: mn4v6z8zn
+            qnn: mqezperkq
           QCS8275 (Proxy):
             qnn: mqk1xewkm
           QCS8550 (Proxy):
@@ -532,13 +532,13 @@ precisions:
                 npu: 124
           RB3 Gen 2 (Proxy):
             qnn:
-              job_id: jpxnk4j35
+              job_id: jg9jodyl5
               job_status: Passed
-              inference_time_milliseconds: 1.52
-              inferences_per_second: 657.8947368421052
+              inference_time_milliseconds: 8.483
+              inferences_per_second: 117.88282447247435
               estimated_peak_memory_range_mb:
-                min: 0
-                max: 14
+                min: 1
+                max: 12
               primary_compute_unit: NPU
               layer_counts:
                 total: 124
@@ -696,3 +696,37 @@ precisions:
               layer_counts:
                 total: 87
                 npu: 87
+  w8a8:
+    components:
+      Lightweight-Face-Detection:
+        universal_assets:
+          tflite: mn7eygwjm
+        device_assets:
+          RB3 Gen 2 (Proxy):
+            qnn: mn4v6z8zn
+        performance_metrics:
+          RB3 Gen 2 (Proxy):
+            tflite:
+              job_id: j5qe6y8n5
+              job_status: Passed
+              inference_time_milliseconds: 1.257
+              inferences_per_second: 795.5449482895784
+              estimated_peak_memory_range_mb:
+                min: 0
+                max: 19
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 90
+                npu: 90
+            qnn:
+              job_id: jpxnk4j35
+              job_status: Passed
+              inference_time_milliseconds: 1.52
+              inferences_per_second: 657.8947368421052
+              estimated_peak_memory_range_mb:
+                min: 0
+                max: 14
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 124
+                npu: 124
