@@ -8,10 +8,6 @@ import torch
 import torch.nn.functional as F
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
-from qai_hub_models.evaluators.yolo_segmentation_evaluator import (
-    YoloSegmentationOutputEvaluator,
-)
 from qai_hub_models.models._shared.yolo.utils import (
     box_transform_xywh2xyxy_split_input,
     get_most_likely_score,
@@ -114,6 +110,10 @@ class Yolo(BaseModel):
     STRIDE_MULTIPLE = 32
 
     def get_evaluator(self) -> BaseEvaluator:
+        # This is imported here so segmentation models don't have to install
+        # detection evaluator dependencies.
+        from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
+
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return DetectionEvaluator(image_height, image_width, 0.45, 0.7, use_nms=True)
 
@@ -164,6 +164,11 @@ class YoloSeg(Yolo):
         return ["protos"]
 
     def get_evaluator(self) -> BaseEvaluator:
+        # This is imported here so detection models don't have to install the requirements for the segmentation dataset.
+        from qai_hub_models.evaluators.yolo_segmentation_evaluator import (
+            YoloSegmentationOutputEvaluator,
+        )
+
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return YoloSegmentationOutputEvaluator(image_height, image_width, 0.001, 0.7)
 

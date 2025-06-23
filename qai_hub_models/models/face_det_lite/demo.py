@@ -9,7 +9,7 @@ from qai_hub_models.models.face_det_lite.app import FaceDetLiteApp
 from qai_hub_models.models.face_det_lite.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
-    FaceDetLiteModel,
+    FaceDetLite,
 )
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
@@ -28,13 +28,9 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Run face_det_lite model end-to-end on a sample image.
 # The demo will output the face bounding boxes in json files
 # the bounding box represented by left, top, width, and height.
-def main(
-    model_cls: type[FaceDetLiteModel] = FaceDetLiteModel,
-    model_id: str = MODEL_ID,
-    is_test: bool = False,
-):
+def main(is_test: bool = False):
     # Demo parameters
-    parser = get_model_cli_parser(model_cls)
+    parser = get_model_cli_parser(FaceDetLite)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(
         "--image",
@@ -43,7 +39,7 @@ def main(
         help="image file path or URL",
     )
     args = parser.parse_args([] if is_test else None)
-    model = demo_model_from_cli_args(model_cls, MODEL_ID, args)
+    model = demo_model_from_cli_args(FaceDetLite, MODEL_ID, args)
     validate_on_device_demo_args(args, MODEL_ID)
 
     # Load image

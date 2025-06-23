@@ -41,7 +41,6 @@ class MMMLU(BaseDataset):
         context_length: int = 4096,
         num_fewshot: int = 5,
         split: str = "default",
-        device: torch.device = torch.device("cpu"),
         num_samples: int = 0,
         seed: int = 42,
     ):
@@ -59,7 +58,6 @@ class MMMLU(BaseDataset):
         self.dataset = self.dataset.shuffle(seed)
 
         self.preprocess_dataset()
-        self.device = device
 
     def __len__(self) -> int:
         if self.num_samples != 0:
@@ -149,13 +147,8 @@ class MMMLU(BaseDataset):
                 add_special_tokens=True,
             )
 
-            def slice_to_length(t: list[int]):
-                padded = [0] * (self.context_length - len(t))
-                padded.extend(t)
-                return padded[-self.context_length :]
-
             tokenized_question = {
-                k: list(map(lambda field: slice_to_length(field), v))
+                k: list(map(lambda field: [field[-self.context_length :]], v))
                 for k, v in tokenized_question.items()
             }
 

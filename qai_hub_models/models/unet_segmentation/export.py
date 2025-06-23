@@ -261,7 +261,7 @@ def export_model(
     )
 
 
-def main():
+def main(restrict_to_precision: Precision | None = None):
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
@@ -271,7 +271,13 @@ def main():
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
+        Precision.w8a8: [],
     }
+
+    if restrict_to_precision:
+        supported_precision_runtimes = {
+            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
+        }
 
     parser = export_parser(
         model_cls=Model,

@@ -4,54 +4,64 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from tqdm import tqdm
+
+# isort: off
+# This verifies aimet is installed, and this must be included first.
+from qai_hub_models.models._shared.llm.model import (
+    LLM_AIMETOnnx,
+    get_tokenizer,
+    get_llm_config,
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
+)
+
+# isort: on
+import copy
+import gc
 import json
+import math
 import os
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import Any, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 import onnx
 import torch
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel
+
+from packaging.version import Version
+from qai_hub.client import DatasetEntries
 from qai_hub.public_rest_api import DatasetEntries
+from transformers import PretrainedConfig, PreTrainedTokenizer
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig, modeling_llama
 
-from qai_hub_models.models._shared.llama.model import LlamaMixin
-from qai_hub_models.models.common import (
-    SampleInputsType,
-    SourceModelFormat,
-    TargetRuntime,
-)
-from qai_hub_models.utils.aimet.encodings import (
-    map_encodings,
-    propagate_memory_encodings,
-)
-from qai_hub_models.utils.huggingface import (
-    ensure_has_required_transformer,
-    has_model_access,
-)
-from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.system_info import has_recommended_memory
-
-from .model_adaptations import (
+from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.datasets.wikitext import load_calibration_data
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.ppl_evaluator import PerplexityEvaluator
+from qai_hub_models.models._shared.llama3.model_adaptations import (
     QcLlama_apply_rotary_pos_emb,
     SHADynamicCacheNewValueOnly,
     SHALlamaAttention,
 )
-
-MIN_TRANFORMER_VERSION = "4.45.0"
-
-# isort: off
-
-# TODO: 10761 remove transformer version check once AIMET
-# transformer restriction is uplifted.
-ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
-from transformers import (  # noqa: E402
-    AutoConfig,
-    AutoTokenizer,
-    PreTrainedTokenizerBase,
+from qai_hub_models.models._shared.llm.generator import LLM_Generator
+from qai_hub_models.models._shared.llm.model import Embedding, LLMConfigEditor
+from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
+from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.checkpoint import (
+    CheckpointSpec,
+    CheckpointType,
+    determine_checkpoint_type,
 )
+from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
+from qai_hub_models.utils.system_info import has_recommended_memory
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -60,12 +70,8 @@ MODEL_ASSET_VERSION = 1
 AIMET_ENCODINGS_PREFIX = "config"
 AIMET_CONFIG = "default_config_llama"
 
-DEFAULT_SEQUENCE_LENGTH = 128
-DEFAULT_CONTEXT_LENGTH = 4096
-
 DATA_DIR = "data"
 USE_CACHED_DATA = True
-NEGATIVE_MASK_VALUE = -50.0
 
 ## Ref: https://llama.meta.com/docs/model-cards-and-prompt-formats/llama3_1
 BEGIN_TEXT = "<|begin_of_text|>"
@@ -80,6 +86,8 @@ END_TOKENS = {"<|eot_id|>", "<|eot_id|>", "<|end_of_text|>"}
 
 DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
+
+DEFAULT_CALIBRATION_SEQ_LEN = 2048
 
 
 def get_input_prompt_with_tags(
@@ -101,15 +109,45 @@ def get_input_prompt_with_tags(
     return prompt
 
 
-def onnx_counting(i: int) -> str:
-    # Softmax, Softmax_1, Softmax_2, ...
-    if i == 0:
-        return ""
-    else:
-        return f"_{i}"
+def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
+    checkpoint_type = determine_checkpoint_type(checkpoint)
+    return checkpoint_type in {CheckpointType.DEFAULT, CheckpointType.AIMET_ONNX_EXPORT}
 
 
-class RopeEmbedding:
+def is_huggingface_repo(checkpoint: str | os.PathLike | Path) -> bool:
+    from huggingface_hub import repo_exists
+
+    return isinstance(checkpoint, str) and repo_exists(checkpoint)
+
+
+def get_past_key_names(
+    start: int = 0,
+    end: int = 8,
+    num_of_past_key_heads: int = 32,
+    suffix: str = "",
+    bundled_kvcache: bool = True,
+):
+    past_key_val_name = []
+
+    if bundled_kvcache:
+        # Key and Values are concatanated on batch dimension
+        for i in range(start, end):
+            past_key_val_name += [
+                f"past_key_{i}{suffix}",
+                f"past_value_{i}{suffix}",
+            ]
+        return past_key_val_name
+
+    # Key and Values are separate for each head
+    for i in range(start, end):
+        cache_names = [
+            f"past_key_{i}_h{j}{suffix}" for j in range(num_of_past_key_heads)
+        ] + [f"past_value_{i}_h{j}{suffix}" for j in range(num_of_past_key_heads)]
+        past_key_val_name.extend(cache_names)
+    return past_key_val_name
+
+
+class RopeEmbedding(Embedding):
     def __init__(
         self,
         head_dim: int = 128,
@@ -120,7 +158,7 @@ class RopeEmbedding:
 
     def precompute(
         self, head_dim: int, max_length: int, config: LlamaConfig
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> list[torch.Tensor]:
         head_dim = (
             config.head_dim
             if hasattr(config, "head_dim")
@@ -165,16 +203,95 @@ class RopeEmbedding:
         return cos, sin
 
 
-def get_tokenizer(hf_repo_name: str) -> PreTrainedTokenizerBase:
+def get_past_keyval_with_shift(
+    past_key_vals: list[torch.Tensor],
+    new_key_vals: list[torch.Tensor],
+    length: int,
+    device: torch.device = torch.device("cpu"),
+) -> list[torch.Tensor]:
     """
-    Tokenizer to use for Llama3
+    Clip past key value to feed next iteration
     """
-    tokenizer = AutoTokenizer.from_pretrained(hf_repo_name, is_fast=False)
-    tokenizer.padding_side = "left"
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.truncation_side = "left"
-    return tokenizer
+    ret = []
+
+    # Key and Values are concatanated on batch dimension
+    for i in range(0, len(past_key_vals), 2):
+        n = new_key_vals[i].shape[3]
+        m = past_key_vals[i].shape[3]
+        remove = n + m - length
+        key_cache = torch.cat(
+            [past_key_vals[i][:, :, :, remove:].to(device), new_key_vals[i].to(device)],
+            dim=3,
+        )
+        val_cache = torch.cat(
+            [
+                past_key_vals[i + 1][:, :, remove:].to(device),
+                new_key_vals[i + 1].to(device),
+            ],
+            dim=2,
+        )
+
+        ret.append(key_cache)
+        ret.append(val_cache)
+    return ret
+
+
+def sample_input(input_spec, context_length, sequence_length, tokenizer, llm_config):
+    input_prompt = DEFAULT_USER_PROMPT
+    input_prompt_processed = get_input_prompt_with_tags(user_input_prompt=input_prompt)
+    input_tokens = tokenizer(
+        input_prompt_processed,
+        return_tensors="pt",
+        padding="max_length",
+        max_length=context_length,
+    )
+    num_tokens = int(
+        min(
+            torch.sum(
+                input_tokens["attention_mask"]
+            ).item(),  # pyright: ignore [reportArgumentType]
+            sequence_length,
+        )
+    )
+    input_ids = input_tokens[
+        "input_ids"
+    ].type(  # pyright: ignore [reportAttributeAccessIssue]
+        torch.int32
+    )[
+        :, -sequence_length:
+    ]
+
+    padding_size = sequence_length - num_tokens
+    position_ids = [0] * (padding_size) + list(range(0, sequence_length - padding_size))
+    position_ids = (
+        torch.Tensor(position_ids).type(torch.long).reshape(1, sequence_length)
+    )
+    position_ids = (
+        torch.Tensor(position_ids).type(torch.long).reshape(1, sequence_length)
+    )
+    rope_embedding = RopeEmbedding(max_length=context_length, config=llm_config)
+    position_ids_cos, position_ids_sin = rope_embedding.get_embedding(position_ids)
+    attention_mask = torch.zeros((1, context_length))
+    attention_mask[:, -num_tokens:] = 1.0
+    cm_attention_masks = prepare_combined_attention_mask(
+        attention_mask=attention_mask,
+        input_shape=torch.Size([1, sequence_length]),
+        past_key_values_length=context_length - sequence_length,
+    )
+
+    input_dict = {
+        "input_ids": [input_ids.detach().numpy()],
+        "attention_mask": [cm_attention_masks.detach().numpy()],
+        "position_ids_cos": [position_ids_cos.detach().numpy()],
+        "position_ids_sin": [position_ids_sin.detach().numpy()],
+    }
+
+    # Populate the rest with zeros (KV cache input)
+    for k, (shape, _) in input_spec.items():
+        if k.startswith("past_"):
+            input_dict[k] = [np.zeros(shape, dtype=np.float32)]
+
+    return input_dict
 
 
 def prepare_decoder_attention_mask(
@@ -182,7 +299,7 @@ def prepare_decoder_attention_mask(
     input_shape: torch.Size,
     inputs_embeds: torch.Tensor,
     past_key_values_length: int,
-    mask_neg: float = NEGATIVE_MASK_VALUE,
+    mask_neg: float = -50.0,
 ) -> torch.Tensor:
     # Copied from transformers.models.bart.modeling_bart._make_causal_mask
     def _make_causal_mask(
@@ -190,7 +307,7 @@ def prepare_decoder_attention_mask(
         dtype: torch.dtype,
         device: torch.device,
         past_key_values_length: int = 0,
-        mask_neg: float = NEGATIVE_MASK_VALUE,
+        mask_neg: float = -50.0,
     ) -> torch.Tensor:
         """
         Make causal mask used for bi-directional self-attention.
@@ -224,7 +341,7 @@ def prepare_decoder_attention_mask(
     def _expand_mask(
         mask: torch.Tensor,
         dtype: torch.dtype,
-        mask_neg: float = NEGATIVE_MASK_VALUE,
+        mask_neg: float = -50.0,
         tgt_len: Optional[int] = None,
     ) -> torch.Tensor:
         """
@@ -278,7 +395,7 @@ def prepare_combined_attention_mask(
     attention_mask: Optional[torch.Tensor],
     input_shape: torch.Size,
     past_key_values_length: int,
-    mask_neg=NEGATIVE_MASK_VALUE,
+    mask_neg=-50.0,
     dtype=torch.float32,
 ) -> torch.Tensor:
     dummy_embedding = torch.tensor((1.0,)).to(torch.float32)
@@ -286,32 +403,6 @@ def prepare_combined_attention_mask(
         attention_mask, input_shape, dummy_embedding, past_key_values_length, mask_neg
     )
     return new_mask.clamp_min(mask_neg).to(dtype)
-
-
-def get_past_keyval_with_shift(
-    past_key_vals: list[torch.Tensor],
-    new_key_vals: list[torch.Tensor],
-    length: int,
-) -> list[torch.Tensor]:
-    """
-    Clip past key value to feed next iteration
-    """
-    ret = []
-    # Key and Values are concatanated on batch dimension
-    for i in range(0, len(past_key_vals), 2):
-        n = new_key_vals[i].shape[3]
-        m = past_key_vals[i].shape[3]
-        remove = n + m - length
-        key_cache = torch.cat(
-            [past_key_vals[i][:, :, :, remove:], new_key_vals[i]], dim=3
-        )
-        val_cache = torch.cat(
-            [past_key_vals[i + 1][:, :, remove:], new_key_vals[i + 1]], dim=2
-        )
-
-        ret.append(key_cache)
-        ret.append(val_cache)
-    return ret
 
 
 def monkey_patch_huggingface_llama_modeling(
@@ -346,16 +437,16 @@ def monkey_patch_huggingface_llama_modeling(
         modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
 
 
-class Llama3Base(LlamaMixin, ABC):
+class Llama3Base(BaseModel, LLMConfigEditor, ABC):
     def __init__(
         self,
-        huggingface_model_name: str,
+        checkpoint: str | os.PathLike | Path,
         min_memory_recommended: int,
-        aimet_encodings: str,
         sequence_length: int,
         context_length: int,
+        is_token_generator: bool = False,
         load_pretrained: bool = True,
-        _make_small_for_debugging: bool = False,  # construct a small and incorrect network
+        host_device: torch.device | None = None,
         _skip_optimizations: list[str] | None = None,
     ):
         """
@@ -364,9 +455,8 @@ class Llama3Base(LlamaMixin, ABC):
         Parameters
         ----------
 
-        huggingface_model_name:
-            Name of the HuggingFace model. Subclasses should provide a default
-            for this.
+        checkpoint:
+            Can be local folder or Hugging Face repo name.
         min_memory_recommended:
             Minimum recommended memory in GB for running export.
         aimet_encodings:
@@ -381,30 +471,22 @@ class Llama3Base(LlamaMixin, ABC):
             Turn off one or more of {sha_attention, rank4_rms_norm}
         """
 
-        # from transformers.models.llama import modeling_llama
-        self.huggingface_model_name = huggingface_model_name
+        super().__init__()
         self.skip_optimizations = _skip_optimizations
-
-        # Ensure User has access to model,
-        # otherwise point to instructions to get access and error out.
-        has_model_access(self.huggingface_model_name)
+        self.checkpoint = checkpoint
 
         # Ensure User has recommended memory,
         # otherwise, provide warning to user and recommend to increase swap-space as a work-around.
         has_recommended_memory(min_memory_recommended)
 
-        self.llm_config = self._llm_config(
-            _make_small_for_debugging=_make_small_for_debugging
-        )
-
         # TODO: Make this into a context manager
         monkey_patch_huggingface_llama_modeling(skip_optimizations=_skip_optimizations)
-
+        self._verify_ckpt()
         if load_pretrained:
             model = modeling_llama.LlamaForCausalLM.from_pretrained(
-                self.huggingface_model_name,
+                self.checkpoint,
                 config=self.llm_config,
-                ignore_mismatched_sizes=_make_small_for_debugging,
+                ignore_mismatched_sizes=False,
             )
         else:
             model = modeling_llama.LlamaForCausalLM(self.llm_config)
@@ -412,40 +494,36 @@ class Llama3Base(LlamaMixin, ABC):
 
         os.environ["TOKENIZERS_PARALLELISM"] = "0"
 
-        for name, module in model.named_modules():
+        for _, module in model.named_modules():
             if hasattr(module, "prepare_conv"):
                 module.prepare_conv()
             if hasattr(module, "prepare_sha"):
                 module.prepare_sha()
 
-        super().__init__(model, aimet_encodings)
+        model.to(host_device)
 
         self.sequence_length = sequence_length
         self.context_length = context_length
-        self.tokenizer = get_tokenizer(self.huggingface_model_name)
+        self.split_part = 1
+        self.is_token_generator = is_token_generator
+        self.model = model
 
-    def _llm_config(self, _make_small_for_debugging: bool = False) -> LlamaConfig:
-        """
-        Construct and return a HuggingFace LLM config.
-        """
-        llm_config = AutoConfig.from_pretrained(
-            self.huggingface_model_name, trust_remote_code=True
-        )
-        if _make_small_for_debugging:
-            llm_config.num_hidden_layers = 8
-            llm_config.num_attention_heads = 4
-            llm_config.num_key_value_heads = 2
-            llm_config.vocab_size = 13
-            embed_dim = 8
-            llm_config.head_dim = embed_dim * 2
-            llm_config.hidden_size = llm_config.num_attention_heads * embed_dim * 2
-        llm_config._attn_implementation = "eager"
-        llm_config._attn_implementation_internal = "eager"
+    def _verify_ckpt(self):
+        llm_config = get_llm_config(self.checkpoint)
+        self.llm_config = self.edit_llm_config(llm_config)
 
-        # Force use_cache=true for all LLMs
-        llm_config.use_cache = True
-
-        return llm_config
+        if (
+            not (
+                self.llm_config.architectures[0] == "LlamaForCausalLM"
+                and self.llm_config.model_type == "llama"
+            )
+            and self.llm_config.rope_scaling is not None
+            and self.llm_config.rope_scaling["rope_type"] != "llama3"
+        ):
+            raise ValueError(
+                "Model config is not compatible with this model implementation."
+            )
+        self.tokenizer = get_tokenizer(self.checkpoint)
 
     @classmethod
     @abstractmethod
@@ -453,7 +531,6 @@ class Llama3Base(LlamaMixin, ABC):
         cls,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        aimet_encodings: str | None = "DEFAULT",
     ) -> Llama3Base:
         pass
 
@@ -529,10 +606,6 @@ class Llama3Base(LlamaMixin, ABC):
 
         return [out["logits"]] + flat_output_past_key_values
 
-    def get_qnn_graph_name(self) -> Optional[str]:
-        # Graph name of splits is determined by export script
-        return None
-
     @staticmethod
     def _get_input_spec(
         num_hidden_layers: int,
@@ -592,11 +665,27 @@ class Llama3Base(LlamaMixin, ABC):
             )
         return input_spec
 
-    def _use_zip_file(self) -> bool:
-        """
-        Should the return of convert_to_hub_source_model be zipped.
-        """
-        return False
+    @staticmethod
+    def _get_output_names(
+        start: int = 0,
+        end: int = 8,
+        past_key_val_heads: int = 32,
+        bundled_kvcache: bool = True,
+        output_name: str = "",
+    ) -> list[str]:
+        # Clipped hidden layers are named same as first part for all parts
+        # Eventually, each split should have respective names.
+        # layer_start, layer_end = get_hidden_layer_range_from_split(split_part=split_part, model_split_map=model_split_map)
+
+        output_list = [output_name if output_name else f"layers_{end - 1}_add_out_0"]
+        output_list += get_past_key_names(
+            start,
+            end,
+            num_of_past_key_heads=past_key_val_heads,
+            bundled_kvcache=bundled_kvcache,
+            suffix="_out",
+        )
+        return output_list
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
@@ -614,13 +703,72 @@ class Llama3Base(LlamaMixin, ABC):
         # No calibration data needed
         return None
 
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        if not input_spec:
+            input_spec = self.get_input_spec(
+                sequence_length=self.sequence_length,
+                context_length=self.context_length,
+            )
+        input_dict = sample_input(
+            input_spec,
+            self.context_length,
+            self.sequence_length,
+            self.tokenizer,
+            self.llm_config,
+        )
+        return input_dict
+
+    def get_evaluator(self) -> BaseEvaluator:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        return PerplexityEvaluator(
+            self.context_length, self.sequence_length, self.tokenizer, device
+        )
+
+    def __del__(self):
+        # Clean up since it is prone to hang onto GPU memory otherwise
+        if hasattr(self, "model") and self.model is not None:
+            del self.model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+
+class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
+    def __init__(
+        self,
+        sim_model: QuantizationSimModel,
+        host_device: torch.device,
+        checkpoint: str | os.PathLike | Path | None = None,
+        tokenizer: PreTrainedTokenizer | None = None,
+        llm_config: PretrainedConfig | None = None,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+    ):
+        super().__init__(
+            sim_model=sim_model,
+            checkpoint=checkpoint,
+            tokenizer=tokenizer,
+            llm_config=llm_config,
+            sequence_length=sequence_length,
+            context_length=context_length,
+            host_device=host_device,
+        )
+
+    @staticmethod
+    def get_output_names(num_hidden_layers: int):
+        output_names = ["logits"]
+        for layer in range(num_hidden_layers):
+            output_names.append(f"past_key_{layer}_out")
+            output_names.append(f"past_value_{layer}_out")
+        return output_names
+
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
         """
-        Adapt encodings from AIMET Pro to vanilla onnx export.
-
-        Works for the new 3.0 and 3.1 encodings.
+        Make sure AIMET encodings are ready for ONNX split.
         """
         with open(src_encodings_path) as f:
             encodings = json.load(f)
@@ -631,14 +779,8 @@ class Llama3Base(LlamaMixin, ABC):
         for node in model.graph.node:
             model_input_names[node.name] = node.input
 
-        model_names = (
-            {o for x in model.graph.node for o in x.output}
-            | {x.name for x in model.graph.input}
-            | {x.name for x in model.graph.output}
-        )
-        model_param_names = {x.name for x in model.graph.initializer}
+        uses_lists = Version(encodings["version"]) >= Version("1.0.0")
 
-        uses_lists = isinstance(encodings["activation_encodings"], list)
         if uses_lists:
             # Convert encodings to dictionaries for faster look-ups
             encodings["activation_encodings"] = {
@@ -648,325 +790,23 @@ class Llama3Base(LlamaMixin, ABC):
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-        enc_names = set(encodings["activation_encodings"].keys())
-        enc_param_names = set(encodings["param_encodings"].keys())
-
-        new_encodings = {
-            "activation_encodings": {},
-            "excluded_layers": [],
-            "param_encodings": {},
-            "quantizer_args": encodings["quantizer_args"],
-            "version": encodings["version"],
-        }
-
-        all_names = model_param_names | model_names
-        num_attention_heads = self.llm_config.num_attention_heads
-        num_key_value_heads = self.llm_config.num_key_value_heads
-        mapping, rev_mapping, known_unused = map_encodings(
-            [
-                (
-                    r"/model_layers_(\d+)_input_layernorm_Mul_1/Mul_output_0",
-                    "/model/model/layers.{0}/input_layernorm/Mul_1_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_q_proj_conv_Conv/Conv_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/q_proj_sha.{i}/Conv_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_2/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(2 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_1/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(1 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_3/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(3 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Sub/Sub_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Sub{onnx_counting(i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Add/Add_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Add{onnx_counting(i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_k_proj_conv_Conv/Conv_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/k_proj_sha.{i}/Conv_output_0"
-                        for i in range(num_key_value_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_4/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(num_attention_heads * 4 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_6/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(num_attention_heads * 4 + 2 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_5/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(num_attention_heads * 4 + 1 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Mul_7/Mul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Mul{onnx_counting(num_attention_heads * 4 + 3 + i * 4)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Sub_1/Sub_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Sub{onnx_counting(num_attention_heads + i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Add_1/Add_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Add{onnx_counting(num_attention_heads + i)}_output_0"
-                        for i in range(num_key_value_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_v_proj_conv_Conv/Conv_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/v_proj_sha.{i}/Conv_output_0"
-                        for i in range(num_key_value_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_MatMul/MatMul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/MatMul{onnx_counting(i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Div/Div_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Div{onnx_counting(i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Add_2/Add_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Add{onnx_counting(num_attention_heads + num_key_value_heads + i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_Softmax/Softmax_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/Softmax{onnx_counting(i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_MatMul_1/MatMul_output_0",
-                    [
-                        f"/model/model/layers.{{0}}/self_attn/MatMul{onnx_counting(num_attention_heads + i)}_output_0"
-                        for i in range(num_attention_heads)
-                    ],
-                ),
-                (
-                    r"/model_layers_(\d+)_self_attn_o_proj_conv_Conv/Conv_output_0",
-                    "/model/model/layers.{0}/self_attn/o_proj_conv/Conv_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_Add/Add_output_0",
-                    "/model/model/layers.{0}/Add_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_post_attention_layernorm_Mul_1/Mul_output_0",
-                    "/model/model/layers.{0}/post_attention_layernorm/Mul_1_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_gate_proj_conv_Conv/Conv_output_0",
-                    "/model/model/layers.{0}/mlp/gate_proj/MatMul_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_act_fn_Sigmoid/Sigmoid_output_0",
-                    "/model/model/layers.{0}/mlp/act_fn/Sigmoid_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_act_fn_Mul/Mul_output_0",
-                    "/model/model/layers.{0}/mlp/act_fn/Mul_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_up_proj_conv_Conv/Conv_output_0",
-                    "/model/model/layers.{0}/mlp/up_proj/MatMul_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_Mul/Mul_output_0",
-                    "/model/model/layers.{0}/mlp/Mul_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_mlp_down_proj_conv_Conv/Conv_output_0",
-                    "/model/model/layers.{0}/mlp/down_proj/MatMul_output_0",
-                ),
-                (
-                    r"/model_layers_(\d+)_Add_1/Add_output_0",
-                    "/model/model/layers.{0}/Add_1_output_0",
-                ),
-                ("/model_norm_Mul_1/Mul_output_0", "/model/model/norm/Mul_1_output_0"),
-                ("/lm_head_conv_Conv/Conv_output_0", "/model/lm_head/MatMul_output_0"),
-                (r"(.*)", "{0}"),
-            ],
-            enc_names,
-            all_names,
-            src_encodings=encodings["activation_encodings"],
-            dst_encodings=new_encodings["activation_encodings"],
-        )
-
-        def split_weights(
-            src_encodings,
-            dst_encodings,
-            src_name,
-            dst_name,
-            dst_pattern_index,
-            num_patterns,
-            groups,
-        ):
-            if src_name in src_encodings:
-                src_entry = src_encodings[src_name]
-                dst_entry = deepcopy(src_entry)
-                # Slice it!
-                if isinstance(dst_entry, dict):
-                    dst_entry["name"] = dst_name
-                    for key in ["scale", "offset", "per_block_int_scale"]:
-                        n = len(dst_entry[key]) // num_patterns
-                        dst_entry[key] = dst_entry[key][
-                            dst_pattern_index * n : (dst_pattern_index + 1) * n
-                        ]
-
-                    # dst_encodings.append(dst_entry)
-                    dst_encodings[dst_name] = dst_entry
-                else:
-                    n = len(dst_entry) // num_patterns
-                    dst_entry = dst_entry[
-                        dst_pattern_index * n : (dst_pattern_index + 1) * n
-                    ]
-                    dst_encodings[dst_name] = dst_entry
-
-        # These parameters are stored as activations
-        param_mapping, rev_param_mapping, param_known_unused = map_encodings(
-            [
-                (
-                    r"model_layers_(\d+)_(input|post_attention)_layernorm_weight",
-                    "model.model.layers.{0}.{1}_layernorm.weight",
-                ),
-                (r"model_norm_weight", "model.model.norm.weight"),
-            ],
-            enc_names,
-            all_names,
-            src_encodings=encodings["activation_encodings"],
-            dst_encodings=new_encodings["param_encodings"],
-        )
-
-        # Process weight mappings
-        param_mapping, rev_param_mapping, param_known_unused = map_encodings(
-            [
-                ("model_embed_tokens_Gather.weight", "model.model.embed_tokens.weight"),
-                (
-                    r"model_layers_(\d+)_self_attn_(k|v)_proj_conv_Conv.weight",
-                    (
-                        (
-                            [
-                                f"model.model.layers.{{0}}.self_attn.{{1}}_proj_sha.{i}.weight"
-                                for i in range(num_key_value_heads)
-                            ]
-                        ),
-                        split_weights,
-                    ),
-                ),
-                (
-                    r"model_layers_(\d+)_self_attn_q_proj_conv_Conv.weight",
-                    (
-                        (
-                            [
-                                f"model.model.layers.{{0}}.self_attn.q_proj_sha.{i}.weight"
-                                for i in range(num_attention_heads)
-                            ]
-                        ),
-                        split_weights,
-                    ),
-                ),
-                (
-                    r"model_layers_(\d+)_self_attn_o_proj_conv_Conv.weight",
-                    "model.model.layers.{0}.self_attn.o_proj_conv.weight",
-                ),
-                (
-                    r"model_layers_(\d+)_mlp_(gate|up|down)_proj_conv_Conv.weight",
-                    ("/model/model/layers.{0}/mlp/{1}_proj/MatMul", 1),
-                ),
-                (r"lm_head_conv_Conv.weight", ("/model/lm_head/MatMul", 1)),
-            ],
-            enc_param_names,
-            all_names,
-            model_input_names,
-            src_encodings=encodings["param_encodings"],
-            dst_encodings=new_encodings["param_encodings"],
-        )
-
-        # This is needed for subtle reasons.
-        # Gather ops require weights and output range to be the same, so that
-        # it can be implemented as a memory look-up. Therefore, AIMET does not
-        # store the output activation. However, since we may split the model
-        # right after this op, it could lead the input to the second part
-        # without activation encodings.
+        # See _shard/llama3/model.py for why this is needed.
         embed_a_name = "/model/model/embed_tokens/Gather_output_0"
         embed_w_name = "model.model.embed_tokens.weight"
-        new_encodings["activation_encodings"][embed_a_name] = new_encodings[
-            "param_encodings"
-        ][embed_w_name]
-        if uses_lists:
-            new_encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
+        encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
+            encodings["activation_encodings"][embed_w_name]
+        )
+        for key in encodings["activation_encodings"].keys():
+            if "weight" in key:
+                encodings["param_encodings"][key] = copy.deepcopy(
+                    encodings["activation_encodings"][key]
+                )
 
-        # Fill in "zero" encodings for RMSNorm internals. If these are not
-        # collapsed before runtime, it should result in catastophic numerical
-        # results (which is good, since it is better to catch this bug instead
-        # of getting a slightly worse model, which can be hard to detect).
+        if uses_lists:
+            encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
+
         zero_keys = []
+
         for layer in range(self.llm_config.num_hidden_layers):
             for sec in ["input", "post_attention"]:
                 zero_keys += [
@@ -1012,88 +852,68 @@ class Llama3Base(LlamaMixin, ABC):
                         "scale": 1e-20,
                     }
                 ]
-            new_encodings["activation_encodings"][key] = zero_entry
+            encodings["activation_encodings"][key] = zero_entry
 
-        propagate_memory_encodings(new_encodings, model)
+        propagate_memory_encodings(encodings, model)
 
         if uses_lists:
             # convert back
-            new_encodings["activation_encodings"] = list(
-                new_encodings["activation_encodings"].values()
+            encodings["activation_encodings"] = list(
+                encodings["activation_encodings"].values()
             )
-            new_encodings["param_encodings"] = list(
-                new_encodings["param_encodings"].values()
-            )
+            encodings["param_encodings"] = list(encodings["param_encodings"].values())
 
         with open(dst_encodings_path, "w") as write_file:
-            json.dump(new_encodings, write_file, indent=4, sort_keys=True)
+            json.dump(encodings, write_file, indent=4, sort_keys=True)
 
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        if not input_spec:
-            input_spec = self.get_input_spec(
-                sequence_length=self.sequence_length,
-                context_length=self.context_length,
-            )
-        input_prompt = DEFAULT_USER_PROMPT
-        input_prompt_processed = get_input_prompt_with_tags(
-            user_input_prompt=input_prompt
+    def _sample_inputs_impl(self, input_spec: InputSpec | None = None):
+        if input_spec is None:
+            input_spec = self.input_specs
+        return sample_input(
+            input_spec,
+            self.context_length,
+            self.sequence_length,
+            self.tokenizer,
+            self.llm_config,
         )
-        input_tokens = self.tokenizer(
-            input_prompt_processed,
-            return_tensors="pt",
-            padding="max_length",
-            max_length=self.context_length,
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return PerplexityEvaluator(
+            self.context_length, self.sequence_length, self.tokenizer, self.host_device
         )
-        num_tokens = int(
-            min(
-                torch.sum(
-                    input_tokens["attention_mask"]
-                ).item(),  # pyright: ignore [reportArgumentType]
-                self.sequence_length,
-            )
+
+    def get_calibration_data(
+        self,
+        target_runtime: TargetRuntime | None = None,
+        input_spec: InputSpec | None = None,
+    ) -> DatasetEntries | None:
+        dataloader = load_calibration_data(
+            model=self,
+            split=DatasetSplit.TRAIN,
+            num_samples=math.ceil(80000 / self.context_length),
         )
-        input_ids = input_tokens[
-            "input_ids"
-        ].type(  # pyright: ignore [reportAttributeAccessIssue]
-            torch.int32
-        )[
-            :, -self.sequence_length :
+
+        input_spec = self.get_input_spec(
+            sequence_length=self.sequence_length,
+            context_length=self.context_length,
+        )
+        assert input_spec is not None
+        inputs: list[list[torch.Tensor | np.ndarray]] = [
+            [] for _ in range(len(input_spec))
         ]
 
-        padding_size = self.sequence_length - num_tokens
-        position_ids = [0] * (padding_size) + list(
-            range(0, self.sequence_length - padding_size)
-        )
-        position_ids = (
-            torch.Tensor(position_ids).type(torch.long).reshape(1, self.sequence_length)
-        )
-        position_ids = (
-            torch.Tensor(position_ids).type(torch.long).reshape(1, self.sequence_length)
-        )
-        rope_embedding = RopeEmbedding(
+        rope_embeddings = RopeEmbedding(
             max_length=self.context_length, config=self.llm_config
         )
-        position_ids_cos, position_ids_sin = rope_embedding.get_embedding(position_ids)
-        attention_mask = torch.zeros((1, self.context_length))
-        attention_mask[:, -num_tokens:] = 1.0
-        cm_attention_masks = prepare_combined_attention_mask(
-            attention_mask=attention_mask,
-            input_shape=torch.Size([1, self.sequence_length]),
-            past_key_values_length=self.context_length - self.sequence_length,
-        )
+        generator = LLM_Generator([self], self.tokenizer, rope_embeddings)
 
-        input_dict = {
-            "input_ids": [input_ids.detach().numpy()],
-            "attention_mask": [cm_attention_masks.detach().numpy()],
-            "position_ids_cos": [position_ids_cos.detach().numpy()],
-            "position_ids_sin": [position_ids_sin.detach().numpy()],
-        }
+        # for data in dataloader
+        for sample in tqdm(
+            dataloader, total=len(dataloader), desc="Pre-filling calibration data"
+        ):
+            input_ids, attention_mask, _ = sample
+            for prefilled_inputs in generator.prefill(input_ids, attention_mask):
+                for i, tensor in enumerate(prefilled_inputs):
+                    inputs[i].append(tensor)
 
-        # Populate the rest with zeros (KV cache input)
-        for k, (shape, _) in input_spec.items():
-            if k.startswith("past_"):
-                input_dict[k] = [np.zeros(shape, dtype=np.float32)]
-
-        return input_dict
+        return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))

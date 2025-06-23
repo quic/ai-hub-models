@@ -13,21 +13,13 @@ collate_fn = wikitext_collate_fn
 
 
 class WikiText_Japanese(WikiText):
-    def load_raw_dataset(self):
-        self.dataset = load_dataset("range3/wikipedia-ja-20230101")["train"]
+    def load_raw_dataset(self) -> Dataset:
+        dataset = load_dataset("range3/wikipedia-ja-20230101")["train"]
         if self.split_str == "test":
-            self.dataset = self.dataset[20000:20080]
+            return dataset[20000:20080]
         elif self.split_str == "train":
-            self.dataset = Dataset.from_dict(self.dataset[0:20000])
+            return Dataset.from_dict(self.dataset[0:20000])
         else:
             raise ValueError(
                 "Wikitext Japanese dataset currently only supports `test` and `train` split"
-            )
-        if self.split_str == "train":
-            self._preprocess_train_dataset()
-        else:
-            self.tokens = self.tokenizer(
-                "\n\n".join(self.dataset["text"]),
-                return_tensors="pt",
-                add_special_tokens=True,
             )

@@ -111,7 +111,7 @@ def export_model(
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "dla102x",
-            "dla102x",
+            "DLA-102-X",
             hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,

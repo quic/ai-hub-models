@@ -9,7 +9,7 @@ import os
 from collections.abc import Mapping, ValuesView
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 import qai_hub as hub
@@ -23,7 +23,10 @@ from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, Target
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, make_hub_dataset_entries
 from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
-from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
+from qai_hub_models.utils.transpose_channel import (
+    transpose_channel_last_to_first,
+    transpose_channel_last_to_first_input_specs,
+)
 
 try:
     from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
@@ -399,6 +402,28 @@ class AsyncOnDeviceModel:
             self.output_names,
         )
 
+    def get_input_spec(self) -> InputSpec:
+        """
+        Get the input specs for this model.
+
+        OnDeviceModel will adapt channel-first pyTorch input to channel last. Thus
+        channel-last shapes in the Hub model will always be returned in channel-first format.
+        """
+        if self.model.producer is None:
+            raise ValueError(
+                "Unable to extract input shape from a model that was not compiled with AI Hub."
+            )
+        if isinstance(self.model.producer, hub.QuantizeJob):
+            out = cast(InputSpec, self.model.producer.shapes)
+        elif isinstance(self.model.producer, hub.CompileJob):
+            out = cast(InputSpec, self.model.producer.target_shapes)
+        else:
+            raise NotImplementedError(
+                f"Can't extract shapes from producer job of type {self.model.producer.job_type}"
+            )
+
+        return transpose_channel_last_to_first_input_specs(out, self.channel_last_input)
+
 
 class OnDeviceModel(ExecutableModelProtocol):
     """
@@ -454,6 +479,15 @@ class OnDeviceModel(ExecutableModelProtocol):
     ) -> torch.Tensor | tuple[torch.Tensor, ...]:
         async_result = self.async_model(*args)
         return async_result.wait()
+
+    def get_input_spec(self) -> InputSpec:
+        """
+        Get the input specs for this model.
+
+        OnDeviceModel will adapt channel-first pyTorch input to channel last. Thus
+        channel-last shapes in the Hub model will always be returned in channel-first format.
+        """
+        return self.async_model.get_input_spec()
 
 
 def get_uploaded_precompiled_model(

@@ -21,10 +21,6 @@ from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 # Pydantic can't understand "dict".
 _outputs_to_skip_validation_type: TypeAlias = "Optional[Dict[int, str]]"
 
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_export_test_model_kwargs_type: TypeAlias = "Optional[Dict[str, str]]"
-
 
 class QAIHMModelCodeGen(BaseQAIHMConfig):
     """
@@ -45,7 +41,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # compilation
     num_calibration_samples: Optional[int] = None
 
-    # Whether the model's demo supports running on device with the `--on-device` flag.
+    # Whether the model's demo supports running on device with the `--eval-mode on-device` option.
     has_on_target_demo: bool = False
 
     # Should print a statement at the end of export script to point to genie tutorial or not.
@@ -68,10 +64,6 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # Omit printing PSNR in `export.py` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
     outputs_to_skip_validation: _outputs_to_skip_validation_type = None
-
-    # Additional arguments to initialize the model when unit testing export.
-    # This is commonly used to test a smaller variant in the unit test.
-    export_test_model_kwargs: _export_test_model_kwargs_type = None
 
     # True for Collection model comprises of components, such as Whisper model's
     # encoder and decoder.

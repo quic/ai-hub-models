@@ -1,11 +1,11 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [SqueezeNet-1_1: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/squeezenet1_1)
+# [SqueezeNet-1.1: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/squeezenet1_1)
 
 SqueezeNet is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.
 
-This is based on the implementation of SqueezeNet-1_1 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/squeezenet.py). This repository contains scripts for optimized on-device
+This is based on the implementation of SqueezeNet-1.1 found [here](https://github.com/pytorch/vision/blob/main/torchvision/models/squeezenet.py). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/squeezenet1_1).
 
@@ -44,7 +44,7 @@ Additional options are documented with the `--help` option.
 
 
 ## License
-* The license for the original implementation of SqueezeNet-1_1 can be found
+* The license for the original implementation of SqueezeNet-1.1 can be found
   [here](https://github.com/pytorch/vision/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

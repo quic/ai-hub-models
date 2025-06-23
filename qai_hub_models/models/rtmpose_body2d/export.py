@@ -112,7 +112,7 @@ def export_model(
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "rtmpose_body2d",
-            "RTMPose_Body2d",
+            "RTMPose-Body2d",
             hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,

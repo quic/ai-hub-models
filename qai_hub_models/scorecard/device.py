@@ -122,6 +122,7 @@ class ScorecardDevice:
         ANDROID = "Android"
         WINDOWS = "Windows"
         LINUX = "Linux"
+        QC_LINUX = "Qualcomm Linux"
 
     class OperatingSystem(BaseQAIHMConfig):
         ostype: "ScorecardDevice.OperatingSystemType"
@@ -577,6 +578,7 @@ cs_auto_lemans_8650 = ScorecardDevice(
 cs_auto_lemans_8775 = ScorecardDevice(
     name="cs_auto_lemans_8775",
     reference_device_name="SA8775P ADP",
+    npu_count=2,
 )
 
 
@@ -605,7 +607,6 @@ cs_9075 = ScorecardDevice(
     name="cs_9075",
     reference_device_name="QCS9075 (Proxy)",
     mirror_device=cs_auto_lemans_8775,
-    npu_count=2,
 )
 
 

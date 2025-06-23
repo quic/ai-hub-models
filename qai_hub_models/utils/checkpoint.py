@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from transformers import PreTrainedModel
 
 
-CheckpointSpec = Union[str, Path, Literal["DEFAULT", "DEFAULT_UNQUANTIZED"]]
+CheckpointSpec = Union[os.PathLike, Literal["DEFAULT", "DEFAULT_UNQUANTIZED"]]
 
 
 @unique
@@ -96,7 +96,7 @@ def determine_checkpoint_type(
     if checkpoint in ["DEFAULT", CheckpointType.DEFAULT]:
         return CheckpointType.DEFAULT
 
-    # 2) Non-existent strings → remote HF lookup
+    # 2) Non-existent strings -> remote HF lookup
     if isinstance(checkpoint, str):
         cp_path = Path(checkpoint)
         if not cp_path.exists():
@@ -289,7 +289,9 @@ class FromPretrainedMixin(Generic[T]):
             )
 
             input_spec = cls.get_input_spec()  # type: ignore
+
             example_input = tuple(make_torch_inputs(input_spec))  # type: ignore
+            example_input = tuple([t.to(host_device) for t in example_input])
 
             torch_to_onnx_options = torch_to_onnx_options or {}
             with qaihm_temp_dir() as tmpdir:

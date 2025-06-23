@@ -310,7 +310,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
-                " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
+                " Only Precompile QNN ONNX or QNN runtime is supported for LLMs for now."
             )
         if precision != Precision.w8a16:
             raise RuntimeError("Only w8a16 precision is supported")

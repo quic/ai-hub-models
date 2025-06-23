@@ -19,7 +19,7 @@ from qai_hub_models.models._shared.stable_diffusion.utils import (
     make_calib_data_unet_vae,
 )
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, CachedWebModelAsset
-from qai_hub_models.utils.checkpoint import CheckpointType
+from qai_hub_models.utils.checkpoint import CheckpointSpec, CheckpointType
 
 PROMPT_ASSET_VERSION = 1
 
@@ -39,7 +39,7 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         sd_cls: type[StableDiffusionBase],
         num_samples: int = 100,
         num_steps: int = 20,
-        checkpoint: str | CheckpointType = CheckpointType.DEFAULT,
+        checkpoint: CheckpointSpec = "DEFAULT",
         split: DatasetSplit = DatasetSplit.VAL,
         host_device: torch.device | str = torch.device("cpu"),
     ):
@@ -60,7 +60,8 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         self.checkpoint = checkpoint
         if isinstance(checkpoint, CheckpointType):
             checkpoint_str = checkpoint.name
-        else:
+        else:  # checkpoint is str
+            assert isinstance(checkpoint, str)
             checkpoint_str = checkpoint.replace("/", "_")  # Handle / in HF repo
 
         self.sd_cls = sd_cls
@@ -97,7 +98,7 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
     def _download_data(self) -> None:
         # Generate data by running the torch models
         tokenizer = self.sd_cls.make_tokenizer()
-        scheduler = self.sd_cls.make_scheduler()
+        scheduler = self.sd_cls.make_scheduler(self.checkpoint)
 
         text_encoder_cls = self.sd_cls.component_classes[0]
         text_encoder_hf = text_encoder_cls.torch_from_pretrained(  # type: ignore

@@ -9,7 +9,7 @@ import warnings
 
 from qai_hub_models.models._shared.llama3.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.llama_v3_taide_8b_chat import MODEL_ID, Model
+from qai_hub_models.models.llama_v3_taide_8b_chat import MODEL_ID, FP_Model, Model
 from qai_hub_models.models.llama_v3_taide_8b_chat.model import (
     MODEL_ASSET_VERSION,
     NUM_LAYERS_PER_SPLIT,
@@ -46,7 +46,14 @@ def main():
         help="Wait for each command to finish before submitting new.",
     )
     parser = enable_model_caching(parser)
+    parser.set_defaults(_skip_quantsim_creation=True)
     args = parser.parse_args()
+    additional_model_kwargs = vars(args)
+    if additional_model_kwargs["checkpoint"] == "DEFAULT":
+        additional_model_kwargs["fp_model"] = FP_Model.from_pretrained(  # type: ignore[index]
+            sequence_length=args.sequence_length,
+            context_length=args.context_length,
+        )
     export_model(
         model_cls=Model,
         model_name=MODEL_ID,
@@ -54,7 +61,7 @@ def main():
         components=ALL_COMPONENTS,
         sub_components=ALL_SUB_COMPONENTS,
         num_layers_per_split=NUM_LAYERS_PER_SPLIT,
-        **vars(args),
+        **additional_model_kwargs,
     )
 
 

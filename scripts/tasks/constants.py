@@ -58,7 +58,7 @@ STATIC_MODELS_ROOT = os.path.join(
 )
 
 PUBLIC_BENCH_MODELS = os.path.join(
-    PY_PACKAGE_SRC_ROOT, "scorecard", "internal", "public_bench_models_float.txt"
+    PY_PACKAGE_SRC_ROOT, "scorecard", "internal", "pytorch_bench_models_float.txt"
 )
 
 # Requirements Path

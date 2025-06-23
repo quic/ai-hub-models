@@ -41,9 +41,7 @@ def main(restrict_to_precision: Precision | None = None):
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a16: [
-            TargetRuntime.ONNX,
-        ],
+        Precision.w8a16: [],
     }
 
     if restrict_to_precision:

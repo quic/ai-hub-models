@@ -24,7 +24,6 @@ from qai_hub_models.scorecard import (
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.scorecard.internal.hub_clients import get_default_hub_deployment
 from qai_hub_models.scorecard.path_compile import DEFAULT_QAIRT_VERSION_ENVVAR
 from qai_hub_models.scorecard.results.yaml import (
     ENVIRONMENT_ENV_BASE,
@@ -34,6 +33,7 @@ from qai_hub_models.scorecard.results.yaml import (
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
+from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,

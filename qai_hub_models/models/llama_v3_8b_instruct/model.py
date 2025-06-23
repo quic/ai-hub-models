@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch
 
-from qai_hub_models.models._shared.llama3_ao.model import (
+from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
     Llama3Base,

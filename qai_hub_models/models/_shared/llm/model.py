@@ -19,7 +19,7 @@ import glob
 import os
 import shutil
 import tempfile
-from abc import ABC
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import onnx
@@ -94,9 +94,7 @@ def get_tokenizer(
     return tokenizer
 
 
-def get_llm_config(
-    model_ckpt: str | os.PathLike | Path | None, _make_small_for_debugging: bool = False
-) -> LlamaConfig:
+def get_llm_config(model_ckpt: str | os.PathLike | Path | None) -> LlamaConfig:
     """
     Construct and return a HuggingFace LLM config.
     """
@@ -105,14 +103,6 @@ def get_llm_config(
     print()
     print(f"Loading model config from {model_ckpt}")
     llm_config = AutoConfig.from_pretrained(model_ckpt, trust_remote_code=True)
-    if _make_small_for_debugging:
-        llm_config.num_hidden_layers = 8
-        llm_config.num_attention_heads = 4
-        llm_config.num_key_value_heads = 2
-        llm_config.vocab_size = 13
-        embed_dim = 8
-        llm_config.head_dim = embed_dim * 2
-        llm_config.hidden_size = llm_config.num_attention_heads * embed_dim * 2
     llm_config._attn_implementation = "eager"
     llm_config._attn_implementation_internal = "eager"
 
@@ -188,7 +178,22 @@ def get_onnx_model(
     return onnx_model if return_model else None
 
 
-class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
+class Embedding(ABC):
+    @abstractmethod
+    def get_embedding(
+        self,
+        position_ids: torch.Tensor,
+        dtype: torch.dtype = torch.float32,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        pass
+
+
+class LLMConfigEditor:
+    def edit_llm_config(self, llm_config: PretrainedConfig) -> PretrainedConfig:
+        return llm_config  # no change by default
+
+
+class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
     def __init__(
         self,
         sim_model: QuantSimOnnx | None,
@@ -210,7 +215,8 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         ) or checkpoint is not None, f"{self.__class__.__name__} is unable to instantiate tokenizer/config. Must pass either checkpoint or tokenizer/config explicitly."
 
         self.tokenizer = tokenizer or get_tokenizer(checkpoint)
-        self.llm_config = llm_config or get_llm_config(checkpoint)
+        llm_config = llm_config or get_llm_config(checkpoint)
+        self.llm_config = self.edit_llm_config(llm_config)
 
         self.checkpoint = checkpoint
 
@@ -323,6 +329,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, BaseModel, ABC):
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
         pass
+
+    def _use_zip_file(self) -> bool:
+        return False
 
     @classmethod
     def create_quantsim(

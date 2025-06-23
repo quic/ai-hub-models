@@ -28,10 +28,9 @@ from qai_hub_models.scorecard.results.yaml import (
     COMPILE_YAML_BASE,
     get_scorecard_job_yaml,
 )
-from qai_hub_models.utils.asset_loaders import load_yaml
+from qai_hub_models.utils.asset_loaders import load_yaml, qaihm_temp_dir
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.file_hash import file_hashes_are_identical
-from qai_hub_models.utils.testing import qaihm_temp_dir
 
 # If a model has many outputs, how many of them to store PSNR for
 MAX_PSNR_VALUES = 10

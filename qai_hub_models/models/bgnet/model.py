@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.camouflage_evaluator import CamouflageEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -86,6 +88,13 @@ class BGNet(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["mask"]
+
+    def get_evaluator(self, name: str | None = None) -> BaseEvaluator:
+        return CamouflageEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["camouflage_dataset"]
 
 
 def res2net50_v1b_26w_4s(pretrained=False, **kwargs):

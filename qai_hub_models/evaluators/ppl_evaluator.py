@@ -7,13 +7,14 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-import qai_hub as hub
 import torch
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
+from transformers import PreTrainedTokenizer
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
-from qai_hub_models.models._shared.llama3_ao.app import get_past_keyval_with_shift
+from qai_hub_models.models._shared.llm.generator import LLM_Generator
 
 
 class PerplexityEvaluator(BaseEvaluator):
@@ -24,35 +25,22 @@ class PerplexityEvaluator(BaseEvaluator):
 
     def __init__(
         self,
-        input_specs: hub.InputSpecs,
         context_length: int,
         block_size: int,
+        tokenizer: PreTrainedTokenizer,
         device: torch.device,
     ):
         self.context_length = context_length
         self.block_size = block_size
         self.device = device
-        self.past_key_values = []
-
-        # Store KV cache shape
-        for k, (shape, _) in input_specs.items():
-            if k.startswith("past_"):
-                self.past_key_values.append(shape)
+        self.tokenizer = tokenizer
 
         self.reset()
 
-    def add_batch(self, output: list[torch.tensor], gt: torch.tensor):
+    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.tensor):
         self.batch_index += 1
-        logits = output[0]
+        logits = output.logits
         # This kv cache is needed to maintain the context between multiple blocks.
-        num_blocks = self.context_length // self.block_size
-        self.kv_cache: list[torch.tensor] = (
-            [torch.zeros(shape) for shape in self.past_key_values]
-            if self.batch_index % num_blocks == 0
-            else get_past_keyval_with_shift(
-                self.kv_cache, output[1:], length=self.context_length - self.block_size
-            )
-        )
         lm_logits = logits.reshape(1, -1, logits.shape[-1])
         shift_logits = lm_logits[..., :-1, :].contiguous().to(dtype=torch.float32)
         shift_labels = gt[..., 1:].contiguous().to(shift_logits.device)
@@ -66,7 +54,6 @@ class PerplexityEvaluator(BaseEvaluator):
     def reset(self):
         self.loss = 0.0
         self.batch_index = 0
-        self.kv_cache = [torch.zeros(shape) for shape in self.past_key_values]
 
     def get_accuracy_score(self) -> float:
         average_loss = self.loss / self.batch_index
@@ -77,15 +64,14 @@ class PerplexityEvaluator(BaseEvaluator):
 
     def for_each_batch(
         self,
-        model: torch.nn.Module,
+        generator: LLM_Generator,
         data: _DataLoader,
         num_samples: int | None = None,
         callback: Callable[
-            [list[torch.tensor], list[torch.tensor], list[torch.tensor]], None
+            [list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None
         ]
         | None = None,
     ) -> None:
-        model.to(self.device)
         total_samples = 0
         batch_size = 1
         num_samples = num_samples or len(data)
@@ -94,13 +80,10 @@ class PerplexityEvaluator(BaseEvaluator):
             desc="Number of samples completed",
         ) as pbar:
             for sample in data:
-                inputs, ground_truth, *_ = sample
-                inputs = list(inputs)
-                inputs.extend(self.kv_cache)
-                inputs = [input.to(self.device) for input in inputs]
-                outputs = model(*inputs)
-                assert isinstance(ground_truth, torch.Tensor)
-                ground_truth = ground_truth.to(self.device)
+                input_ids, attention_mask, ground_truth = sample  # type:ignore[misc]
+                inputs = [input_ids, attention_mask]
+                inputs = [inp.to(self.device) for inp in inputs]
+                outputs = generator(*inputs)
                 if callback:
                     callback(inputs, outputs, ground_truth)
                 total_samples += 1
@@ -110,13 +93,15 @@ class PerplexityEvaluator(BaseEvaluator):
 
     def add_from_dataset(
         self,
-        model: torch.nn.Module,
+        generator: LLM_Generator,
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
         def _add_batch(
-            _: torch.Tensor, outputs: torch.Tensor, ground_truth: torch.Tensor
+            _: list[torch.Tensor],
+            outputs: CausalLMOutputWithPast,
+            ground_truth: torch.Tensor,
         ):
             self.add_batch(outputs, ground_truth)
 
-        self.for_each_batch(model, data, eval_iterations, _add_batch)
+        self.for_each_batch(generator, data, eval_iterations, _add_batch)

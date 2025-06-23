@@ -10,7 +10,7 @@ import numpy as np
 from podm.metrics import BoundingBox
 
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
-from qai_hub_models.models._shared.body_detection.app import postprocess
+from qai_hub_models.models.gear_guard_net.app import postprocess
 
 
 class PpeEvaluator(DetectionEvaluator):

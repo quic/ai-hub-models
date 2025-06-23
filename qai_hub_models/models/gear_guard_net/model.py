@@ -2,15 +2,17 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
+from copy import deepcopy
 from typing import Optional
 
 import torch
 import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.ppe_evaluator import PpeEvaluator
-from qai_hub_models.models._shared.body_detection.model import Model
+from qai_hub_models.evaluators.gear_guard_evaluator import GearGuardNetEvaluator
+from qai_hub_models.models.gear_guard_net.layers import build_gear_guard_net_model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -25,16 +27,40 @@ DEFAULT_WEIGHTS = CachedWebModelAsset.from_asset_store(
 class GearGuardNet(BaseModel):
     """GearGuardNet model"""
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model_cfg: dict, ch: int = 3) -> None:
         """
-        Initialize GearGuardNet
+        Initialize person/face detection model.
 
         Inputs:
-            model: nn.Module
-                GearGuardNet model.
+            ch: int
+                Input channels.
+            model_cfg: dict
+                Model configuration
         """
         super().__init__()
-        self.model = model
+        self.model, self.save = build_gear_guard_net_model(deepcopy(model_cfg), ch=[ch])
+
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
+        """
+        Forward computation of Model.
+
+        Inputs:
+            x: torch.Tensor.
+                Input image.
+        Outputs: list[torch.Tensor]
+            Multi-scale object detection output.
+        """
+        y: list[Optional[int]] = []
+        for m in self.model:
+            if m.f != -1:
+                x = (
+                    y[m.f]
+                    if isinstance(m.f, int)
+                    else [x if j == -1 else y[j] for j in m.f]
+                )
+            x = m(x)
+            y.append(x if m.i in self.save else None)
+        return x
 
     @classmethod
     def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> nn.Module:
@@ -86,26 +112,14 @@ class GearGuardNet(BaseModel):
                 [[17, 20, 23], 1, "Detect", ["nc", "anchors"]],
             ],
         }
-        model = Model(cfg)
+        model = GearGuardNet(cfg)
         checkpoint_to_load = (
             DEFAULT_WEIGHTS if checkpoint_path is None else checkpoint_path
         )
         ckpt = load_torch(checkpoint_to_load)
         model.load_state_dict(ckpt)
         model.eval()
-        return cls(model)
-
-    def forward(self, image: torch.Tensor) -> list[torch.Tensor]:
-        """
-        Forward computation of GearGuardNet.
-
-        Inputs:
-            image: torch.Tensor
-                Input image.
-        Outputs: list[torch.Tensor]
-            Multi-scale detection result.
-        """
-        return self.model(image)
+        return model
 
     @staticmethod
     def get_input_spec(
@@ -131,9 +145,13 @@ class GearGuardNet(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["bbox_8x", "bbox_16x", "bbox_32x"]
 
-    def get_evaluator(self) -> BaseEvaluator:
-        return PpeEvaluator(*self.get_input_spec()["image"][0][2:])
+    def get_evaluator(self, name: str | None = None) -> BaseEvaluator:
+        return GearGuardNetEvaluator(*self.get_input_spec()["image"][0][2:])
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return ["ppe"]
+        return ["gear_guard_dataset"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "gear_guard_dataset"

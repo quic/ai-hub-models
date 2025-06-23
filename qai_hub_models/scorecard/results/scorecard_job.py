@@ -194,11 +194,6 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
         )
 
     @cached_property
-    def inferences_per_second(self) -> float:
-        """Get the throughput from the profile job."""
-        return (1000 / float(self.inference_time_milliseconds)) * self._device.npu_count
-
-    @cached_property
     def layer_counts(self) -> QAIHMModelPerf.PerformanceDetails.LayerCounts:
         """Count layers per compute unit."""
 
@@ -230,16 +225,15 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
         metrics = QAIHMModelPerf.PerformanceDetails(
             job_id=self.job_id,
             job_status=self.job_status,
-            inference_time_milliseconds=self.inference_time_milliseconds
-            if self.success
-            else None,
-            inferences_per_second=self.inferences_per_second if self.success else None,
-            estimated_peak_memory_range_mb=self.estimated_peak_memory_range_mb
-            if self.success
-            else None,
-            primary_compute_unit=self.layer_counts.primary_compute_unit
-            if self.success
-            else None,
+            inference_time_milliseconds=(
+                self.inference_time_milliseconds if self.success else None
+            ),
+            estimated_peak_memory_range_mb=(
+                self.estimated_peak_memory_range_mb if self.success else None
+            ),
+            primary_compute_unit=(
+                self.layer_counts.primary_compute_unit if self.success else None
+            ),
             layer_counts=self.layer_counts if self.success else None,
         )
         return metrics

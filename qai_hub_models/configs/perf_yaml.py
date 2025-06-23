@@ -84,7 +84,6 @@ class QAIHMModelPerf(BaseQAIHMConfig):
 
         # Only set for successful non-LLM jobs.
         inference_time_milliseconds: Optional[float] = None
-        inferences_per_second: Optional[float] = None
         estimated_peak_memory_range_mb: Optional[
             QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB
         ] = None

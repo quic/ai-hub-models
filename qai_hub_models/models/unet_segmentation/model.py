@@ -101,3 +101,7 @@ class UNet(BaseModel):
     @staticmethod
     def eval_datasets() -> list[str]:
         return ["carvana"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "carvana"

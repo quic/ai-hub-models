@@ -294,7 +294,7 @@ def get_on_device_demo_parser(
     default_runtime = _get_default_runtime(available_runtimes=available_target_runtimes)
     add_target_runtime_arg(
         parser,
-        help="The runtime to demo (if --on-device is specified).",
+        help="The runtime to demo (if `--eval-mode on-device` is specified).",
         default=default_runtime,
         available_target_runtimes=available_target_runtimes,
     )
@@ -665,7 +665,11 @@ def _evaluate_export_common_parser(
         if issubclass(model_cls, BaseModel):
             parser = get_model_input_spec_parser(model_cls, parser)
 
-        supported_precisions = set(supported_precision_runtimes.keys())
+        supported_precisions = {
+            precision
+            for precision, rts in supported_precision_runtimes.items()
+            if len(rts) > 0
+        }
         non_float_precision = _get_non_float_precision(supported_precisions)
         add_precision_arg(
             parser,
@@ -816,7 +820,7 @@ def evaluate_parser(
         uses_quantize_job=uses_quantize_job,
         num_calibration_samples=num_calibration_samples,
     )
-    _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen2")
+    _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen3")
     if len(supported_datasets) == 0:
         return parser
     parser.add_argument(

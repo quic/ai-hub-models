@@ -1,3 +1,9 @@
+scorecard_path_to_website_runtime:
+  tflite: tflite
+  qnn: qnn
+  qnn_context_binary: qnn
+  onnx: onnx
+  precompiled_qnn_onnx: onnx
 form_factors:
   Phone:
     display_name: Phone
@@ -402,6 +408,7 @@ devices:
     form_factor: Auto
     vendor: qualcomm
     icon: Car
+    npu_count: 2
   SA7255P ADP:
     chipset: qualcomm-sa7255p
     os:
@@ -427,6 +434,22 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Chip
+  Dragonwing RB3 Gen 2:
+    chipset: qualcomm-qcs6490
+    os:
+      ostype: Qualcomm Linux
+      version: '1.3'
+    form_factor: IoT
+    vendor: qualcomm
+    icon: IoT_Drone
+  Dragonwing QCS8550:
+    chipset: qualcomm-qcs8550
+    os:
+      ostype: Qualcomm Linux
+      version: '1.0'
+    form_factor: IoT
+    vendor: qualcomm
+    icon: IoT_Drone
 chipsets:
   qualcomm-snapdragon-845:
     aliases:
@@ -600,4 +623,14 @@ chipsets:
     aliases:
     - qualcomm-qcs8275-proxy
     marketing_name: Qualcomm® QCS8275 (Proxy)
+    world: IoT
+  qualcomm-qcs6490:
+    aliases:
+    - qualcomm-qcs6490
+    marketing_name: Qualcomm® QCS6490
+    world: IoT
+  qualcomm-qcs8550:
+    aliases:
+    - qualcomm-qcs8550
+    marketing_name: Qualcomm® QCS8550
     world: IoT

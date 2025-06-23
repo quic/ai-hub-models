@@ -19,7 +19,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 SOURCE_REPOSITORY = "https://github.com/Megvii-BaseDetection/YOLOX"
 SOURCE_REPO_COMMIT = "d872c71bf63e1906ef7b7bb5a9d7a529c7a59e6a"
 MODEL_ID = __name__.split(".")[-2]
-DEFAULT_WEIGHTS = "yolox_m.pth"
+DEFAULT_WEIGHTS = "yolox_s.pth"
 MODEL_ASSET_VERSION = 1
 
 
@@ -66,7 +66,9 @@ class YoloX(Yolo):
             MODEL_ID, MODEL_ASSET_VERSION, weights_name
         ).fetch()
         # Load PyTorch model from disk
-        yolox_model = _load_yolox_source_model_from_weights(str(checkpoint_path))
+        yolox_model = _load_yolox_source_model_from_weights(
+            str(checkpoint_path), weights_name
+        )
         return cls(yolox_model, include_postprocessing, split_output)
 
     def yolox_head_forward_with_split_outputs(
@@ -234,7 +236,9 @@ class YoloX(Yolo):
         )
 
 
-def _load_yolox_source_model_from_weights(weights_name: str) -> torch.nn.Module:
+def _load_yolox_source_model_from_weights(
+    weights_path: str, weights_name: str
+) -> torch.nn.Module:
     # Load Yolox model from the source repository using the given weights.
     # Returns <source repository>.models.yolo.Model
     with SourceAsRoot(
@@ -245,9 +249,10 @@ def _load_yolox_source_model_from_weights(weights_name: str) -> torch.nn.Module:
     ):
         from yolox.exp import get_exp
 
-        exp = get_exp(exp_name="yolox-m")
+        weights_name = weights_name.replace("_", "-").replace(".pth", "")
+        exp = get_exp(exp_name=weights_name)
         model = exp.get_model()
-        ckpt = torch.load(weights_name, map_location="cpu")
+        ckpt = torch.load(weights_path, map_location="cpu")
         model.load_state_dict(ckpt["model"])
         model.to("cpu").eval()
 

@@ -1,11 +1,11 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [Facial-Landmark-Detection: Facial landmark predictor with 3DMM](https://aihub.qualcomm.com/models/facemap_3dmm)
+# [Facial-Landmark-Detection: Real-time 3D facial landmark detection optimized for mobile and edge](https://aihub.qualcomm.com/models/facemap_3dmm)
 
-Real-time 3D facial landmark detection optimized for mobile and edge.
+Detects facial landmarks (eg, nose, mouth, etc.). This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset of faces, but can be used on any image.
 
-This is based on the implementation of Facial-Landmark-Detection found [here](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/facemap_3dmm/model.py). This repository contains scripts for optimized on-device
+This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/facemap_3dmm).
 
@@ -47,10 +47,6 @@ Additional options are documented with the `--help` option.
 * The license for the original implementation of Facial-Landmark-Detection can be found
   [here](https://github.com/quic/ai-hub-models/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
-
-
-## References
-* [Source Model Implementation](https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/facemap_3dmm/model.py)
 
 
 

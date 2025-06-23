@@ -107,6 +107,8 @@ class HfWhisperApp:
 
         # encoder
         kv_cache_cross = self.encoder(input_features)
+        if not isinstance(kv_cache_cross, tuple):
+            kv_cache_cross = (kv_cache_cross,)
 
         sot = self.config.decoder_start_token_id
         num_decoder_blocks = self.config.decoder_layers
@@ -120,7 +122,7 @@ class HfWhisperApp:
         output_logits = []
         output_length = output_ids.shape[1]
 
-        position_ids = torch.tensor([0])
+        position_ids = torch.tensor([0], dtype=torch.int32)
         attention_mask = torch.full(
             (1, 1, 1, self.mean_decode_len),
             mask_neg,
@@ -152,7 +154,7 @@ class HfWhisperApp:
 
         for n in range(self.mean_decode_len - 1):
             # get current token
-            input_ids = output_ids[:, n : n + 1]
+            input_ids = output_ids[:, n : n + 1].to(torch.int32)
 
             # update attention_mask
             attention_mask[:, :, :, self.mean_decode_len - n - 1] = 0.0
@@ -172,7 +174,15 @@ class HfWhisperApp:
                 + flattened_kv_cache_cross
                 + (position_ids,)
             )
-            logits, kv_cache_self = self.decoder(*decoder_input)
+
+            decoder_output = self.decoder(*decoder_input)
+            if isinstance(decoder_output, tuple):
+                logits, kv_cache_self = decoder_output
+            else:
+                logits = decoder_output[0]
+                kv_cache_self = tuple(
+                    decoder_output[i : i + 2] for i in range(1, len(decoder_output), 2)
+                )
 
             # update output_logits
             output_logits.append(logits.detach().clone())
@@ -190,7 +200,7 @@ class HfWhisperApp:
             position_ids += 1
 
         # Exclude start / end tokens
-        return self.tokenizer.decode(output_ids[0][4:-1])
+        return self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
 
 def chunk_and_resample_audio(

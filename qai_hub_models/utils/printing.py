@@ -250,7 +250,7 @@ def print_on_target_demo_cmd(
     )
     print(
         f"python {model_folder / 'demo.py'} "
-        "--on-device "
+        "--eval-mode on-device "
         f"--hub-model-id {target_model_id_str} ",
         end="",
     )

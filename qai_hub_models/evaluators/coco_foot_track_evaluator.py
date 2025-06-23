@@ -18,11 +18,9 @@ from pycocotools.coco import COCO
 
 from qai_hub_models.datasets.coco_foot_track_dataset import CocoFootTrackDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.models._shared.foot_track_net.app import BBox_landmarks
+from qai_hub_models.models.foot_track_net.app import CLASSNAME_TO_ID_MAP, BBox_landmarks
 from qai_hub_models.utils.bounding_box_processing import get_iou
 from qai_hub_models.utils.printing import suppress_stdout
-
-CLASSNAME_TO_ID_MAP = {"face": 0, "person": 1}
 
 
 class CocoFootTrackNetEvaluator(BaseEvaluator):

@@ -194,4 +194,4 @@ class CocoDataset(BaseDataset):
         """
         The default value for how many samples to run in each inference job.
         """
-        return 250
+        return 300

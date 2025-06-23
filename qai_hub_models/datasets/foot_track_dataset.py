@@ -18,7 +18,7 @@ from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
 FOOTTRACK_DATASET_VERSION = 1
 FOOTTRACK_DATASET_ID = "foottrack_dataset"
-DATASET_DIR_NAME = "foottrack_trainvaltest"
+FOOTTRACK_DATASET_DIR_NAME = "foottrack_trainvaltest"
 
 CLASS_STR2IDX = {"face": "0", "person": "1", "hand": "2"}
 
@@ -37,8 +37,8 @@ class FootTrackDataset(BaseDataset):
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FOOTTRACK_DATASET_ID, FOOTTRACK_DATASET_VERSION, "data"
         )
-        self.images_path = self.data_path / DATASET_DIR_NAME
-        self.gt_path = self.data_path / DATASET_DIR_NAME
+        self.images_path = self.data_path / FOOTTRACK_DATASET_DIR_NAME
+        self.gt_path = self.data_path / FOOTTRACK_DATASET_DIR_NAME
 
         self.input_data_zip = input_data_zip
         self.max_boxes = max_boxes
@@ -134,7 +134,7 @@ class FootTrackDataset(BaseDataset):
             "This should only be needed the first time you run this on the machine."
         )
         if self.input_data_zip is None or not self.input_data_zip.endswith(
-            DATASET_DIR_NAME + ".zip"
+            FOOTTRACK_DATASET_DIR_NAME + ".zip"
         ):
             raise no_zip_error
 

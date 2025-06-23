@@ -9,11 +9,11 @@ Items defined in this file require that AIMET-ONNX be installed.
 from __future__ import annotations
 
 try:
-    import onnxruntime as ort
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
     from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
     pass
+import gc
 import os
 import shutil
 from collections.abc import Collection
@@ -34,6 +34,7 @@ from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
 
 
 class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
@@ -114,6 +115,32 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         ).fetch()
         return onnx_file, aimet_encodings
 
+    def _apply_seq_mse(self, data: _DataLoader, num_batches: int):
+        assert self.quant_sim is not None
+        params = SeqMseParams(num_batches=num_batches)
+        seq_mse = SequentialMse(self.quant_sim.model, self.quant_sim, params, data)
+        seq_mse.apply_seq_mse_algo()
+
+    def _apply_calibration(self, data: DataLoader, num_batches: int):
+        assert self.quant_sim is not None
+
+        def _forward(session, _):
+            wrapper = OnnxSessionTorchWrapper(session, quantize_io=False)
+            assert data.batch_size is not None
+            for i, batch in tqdm(enumerate(data), total=num_batches):
+                if num_batches and i * data.batch_size >= num_batches:
+                    break
+
+                if isinstance(batch, torch.Tensor):
+                    batch = (batch,)
+
+                wrapper.forward(*batch)
+
+                gc.collect()
+                torch.cuda.empty_cache()
+
+        self.quant_sim.compute_encodings(_forward, tuple())
+
     def quantize(
         self,
         data: _DataLoader | None = None,
@@ -139,18 +166,11 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         num_iterations = num_samples or len(data)
 
-        def _forward(session, _):
-            run_onnx_inference(session, data, num_iterations)
-
         if use_seq_mse:
-            assert self.quant_sim is not None
-            params = SeqMseParams(num_batches=num_iterations)
-            seq_mse = SequentialMse(self.quant_sim.model, self.quant_sim, params, data)
-            seq_mse.apply_seq_mse_algo()
+            self._apply_seq_mse(data=data, num_batches=num_iterations)
 
         print(f"Start QuantSim calibration for {self.__class__.__name__}")
-        assert self.quant_sim is not None
-        self.quant_sim.compute_encodings(_forward, tuple())
+        self._apply_calibration(data=data, num_batches=num_iterations)
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
@@ -281,30 +301,3 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         AI Hub quantize options recommended for the model.
         """
         return ""
-
-
-def run_onnx_inference(
-    session: ort.InferenceSession,
-    dataloader: DataLoader,
-    num_samples: int,
-) -> None:
-    input_names = [input.name for input in session.get_inputs()]
-
-    assert dataloader.batch_size is not None
-    for i, batch in tqdm(enumerate(dataloader), total=num_samples):
-        if num_samples and i * dataloader.batch_size >= num_samples:
-            break
-
-        if isinstance(batch, torch.Tensor):
-            batch = (batch,)
-
-        if len(batch) != len(input_names):
-            raise ValueError(
-                "The number of inputs from DataLoader does not match the ONNX model's inputs."
-            )
-
-        inputs = {
-            input_name: batch[i].numpy() for i, input_name in enumerate(input_names)
-        }
-
-        session.run(None, inputs)

@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from diffusers import AutoencoderKL, EulerDiscreteScheduler, UNet2DConditionModel
+from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
 
 from qai_hub_models.models._shared.stable_diffusion.model import (
@@ -69,10 +69,8 @@ class VaeDecoderQuantizable(VaeDecoderQuantizableBase):
 @CollectionModel.add_component(UnetQuantizable, "unet")
 @CollectionModel.add_component(VaeDecoderQuantizable, "vae")
 class StableDiffusionV1_5_Quantized(StableDiffusionBase):
+    hf_repo_id = HF_REPO
+
     @staticmethod
     def make_tokenizer():
         return make_tokenizer()
-
-    @staticmethod
-    def make_scheduler() -> EulerDiscreteScheduler:
-        return EulerDiscreteScheduler.from_pretrained(HF_REPO, subfolder="scheduler")

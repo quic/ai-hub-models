@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import sys
 from collections.abc import Callable
 
 import cv2
@@ -31,6 +32,11 @@ def capture_and_display_processed_frames(
         cap_device: int
             Identifier for the camera to use to capture frames.
     """
+    if sys.platform.startswith("win"):
+        print(
+            "WARNING: On windows, it make take up to a minute for camera capture to start and display on screen."
+        )
+
     cv2.namedWindow(window_display_name)
     capture = cv2.VideoCapture(cap_device)
     if not capture.isOpened():

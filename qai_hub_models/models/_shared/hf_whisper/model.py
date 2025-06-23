@@ -63,15 +63,15 @@ class HfWhisperEncoder(BaseModel):
     """
 
     def __init__(
-        self,
-        model: QcWhisperEncoder,
+        self, config: WhisperConfig, model: QcWhisperEncoder | None = None
     ) -> None:
         super().__init__()
         self.encoder = model
-        self.config = model.config
+        self.config = config
 
     def forward(self, input_features: torch.Tensor) -> tuple[torch.Tensor, ...]:
         # Return cross attention key and value cache tensors
+        assert self.encoder is not None, "model is None"
         kv_cache_cross = self.encoder(input_features)[0]
         return kv_cache_cross
 
@@ -104,7 +104,7 @@ class HfWhisperEncoder(BaseModel):
     @classmethod
     def from_pretrained(cls):
         hf_whisper = HfWhisper.from_pretrained()
-        return cls(hf_whisper.encoder)
+        return cls(hf_whisper.config, hf_whisper.encoder)
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -129,14 +129,14 @@ class HfWhisperEncoder(BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
-        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+        if precision == Precision.float and target_runtime in {
+            TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        }:
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )
-            if target_runtime == TargetRuntime.QNN:
-                compile_options = (
-                    compile_options + " --target_runtime qnn_context_binary"
-                )
         return compile_options
 
 
@@ -148,12 +148,11 @@ class HfWhisperDecoder(BaseModel):
     """
 
     def __init__(
-        self,
-        model: QcWhisperDecoder,
+        self, config: WhisperConfig, model: QcWhisperDecoder | None = None
     ) -> None:
         super().__init__()
         self.decoder = model
-        self.config = model.config
+        self.config = config
 
     @property
     def num_blocks(self) -> int:
@@ -194,6 +193,7 @@ class HfWhisperDecoder(BaseModel):
         - logits: of shape [1, 51865, 1, 1]
         - kv_cache_self_new: updated key value cache for self attention
         """
+        assert self.decoder is not None, "model is None"
         input_ids = args[0]
         attention_mask = args[1]
         kv_caches = args[2:-1]
@@ -282,7 +282,7 @@ class HfWhisperDecoder(BaseModel):
     @classmethod
     def from_pretrained(cls):
         hf_whisper = HfWhisper.from_pretrained()
-        return cls(hf_whisper.decoder)
+        return cls(hf_whisper.config, hf_whisper.decoder)
 
     def get_hub_compile_options(
         self,
@@ -294,14 +294,14 @@ class HfWhisperDecoder(BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
-        if target_runtime in {TargetRuntime.QNN, TargetRuntime.PRECOMPILED_QNN_ONNX}:
+        if precision == Precision.float and target_runtime in {
+            TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        }:
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )
-            if target_runtime == TargetRuntime.QNN:
-                compile_options = (
-                    compile_options + " --target_runtime qnn_context_binary"
-                )
         return compile_options
 
 
@@ -337,8 +337,8 @@ class HfWhisper(CollectionModel):
         whisper_model = orig_whisper.model
         monkey_patch_model(whisper_model)
 
-        encoder = HfWhisperEncoder(whisper_model.get_encoder())
-        decoder = HfWhisperDecoder(whisper_model.get_decoder())
+        encoder = HfWhisperEncoder(orig_whisper.config, whisper_model.get_encoder())
+        decoder = HfWhisperDecoder(orig_whisper.config, whisper_model.get_decoder())
 
         encoder.eval()
         decoder.eval()

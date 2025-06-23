@@ -11,7 +11,9 @@ import qai_hub as hub
 from pydantic import Field
 from typing_extensions import assert_never
 
+from qai_hub_models.models.common import InferenceEngine
 from qai_hub_models.scorecard.device import ScorecardDevice
+from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
@@ -189,6 +191,9 @@ class ChipsetYaml(BaseQAIHMConfig):
 
 
 class DevicesAndChipsetsYaml(BaseQAIHMConfig):
+    scorecard_path_to_website_runtime: dict[
+        ScorecardProfilePath, InferenceEngine
+    ] = Field(default_factory=dict)
     form_factors: dict[ScorecardDevice.FormFactor, FormFactorYaml] = Field(
         default_factory=dict
     )
@@ -196,11 +201,17 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     chipsets: dict[str, ChipsetYaml] = Field(default_factory=dict)
 
     @staticmethod
-    def from_all_hub_devices() -> DevicesAndChipsetsYaml:
+    def from_all_runtimes_and_devices() -> DevicesAndChipsetsYaml:
         out = DevicesAndChipsetsYaml()
         out.form_factors = {
             ff: FormFactorYaml.from_form_factor(ff) for ff in ScorecardDevice.FormFactor
         }
+
+        for profile_path in ScorecardProfilePath.all_paths():
+            if profile_path.include_in_perf_yaml:
+                out.scorecard_path_to_website_runtime[
+                    profile_path
+                ] = profile_path.runtime.inference_engine
 
         # For each hub device...
         for hub_device in hub.get_devices():

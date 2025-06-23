@@ -281,7 +281,6 @@ def run_diffusion_steps_on_latents(
     """
     with torch.no_grad():
         scheduler.set_timesteps(num_steps)  # type: ignore[attr-defined]
-        scheduler.config.prediction_type = "epsilon"  # type: ignore[attr-defined]
 
         # Initialize latent tensor
         latents_shape = (1, 4, OUT_H // 8, OUT_W // 8)

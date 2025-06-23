@@ -11,6 +11,12 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/s
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
+## Deploy to Snapdragon X Elite NPU
+Please follow the [Stable Diffusion Windows App](https://github.com/quic/ai-hub-apps/tree/main/apps/windows/python/StableDiffusion) tutorial to quantize model with custom weights.
+
+## Quantize and Deploy Your Own Fine-Tuned Stable Diffusion
+
+Please follow the [Quantize Stable Diffusion]({REPOSITORY_URL}/tutorials/stable_diffusion/quantize_stable_diffusion.md) tutorial to quantize model with custom weights.
 
 
 

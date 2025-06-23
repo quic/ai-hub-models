@@ -19,6 +19,7 @@ from typing import Callable, Optional, Union, cast
 
 import h5py
 import numpy as np
+import onnxruntime
 import qai_hub as hub
 import torch
 from qai_hub.public_rest_api import DatasetEntries
@@ -41,7 +42,11 @@ from qai_hub_models.utils.inference import (
     AsyncOnDeviceResult,
     dataset_entries_from_batch,
 )
-from qai_hub_models.utils.onnx_torch_wrapper import OnnxModelTorchWrapper
+from qai_hub_models.utils.onnx_helpers import extract_io_types_from_onnx_model
+from qai_hub_models.utils.onnx_torch_wrapper import (
+    OnnxModelTorchWrapper,
+    OnnxSessionTorchWrapper,
+)
 from qai_hub_models.utils.transpose_channel import transpose_channel_last_to_first
 
 CACHE_SAMPLES_PER_JOB_FILE = "current_samples_per_job.txt"
@@ -776,3 +781,57 @@ class EvalMode(Enum):
 
     def __str__(self):
         return self.value
+
+
+def evaluate_session_on_dataset(
+    session: onnxruntime.InferenceSession,
+    torch_model: BaseModel | CollectionModel,
+    dataset_name: str,
+    num_samples: int | None = None,
+) -> tuple[float, str]:
+    f"""
+    Evaluate model accuracy on a dataset using ONNX runtime.
+
+    Parameters:
+        session: ONNX session to evaluate.
+        torch_model: The torch model to evaluate locally to compare accuracy.
+        dataset_name: The name of the dataset to use for evaluation.
+        num_samples: The number of samples to use for evaluation.
+            If not set, uses the minimum of the samples_per_job and {DEFAULT_NUM_EVAL_SAMPLES}
+
+    Returns:
+        Tuple of accuracy(in float), formatted accuracy (as a string)
+    """
+    assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
+    assert isinstance(
+        torch_model, BaseModel
+    ), "Evaluation is not yet supported for CollectionModels."
+    source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
+    num_samples = num_samples or DEFAULT_NUM_EVAL_SAMPLES
+
+    _validate_inputs(num_samples, source_torch_dataset)
+
+    dataloader = get_deterministic_sample(source_torch_dataset, num_samples, None)
+
+    print(f"Evaluating on {num_samples} samples.")
+    evaluator = torch_model.get_evaluator()
+    inputs, outputs = extract_io_types_from_onnx_model(session)
+    session_wrapper = OnnxSessionTorchWrapper(session, inputs, outputs)
+
+    for i, sample in enumerate(dataloader):
+        model_inputs, ground_truth_values, *_ = sample
+
+        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+            if isinstance(ground_truth_values, torch.Tensor):
+                ground_truth = ground_truth_values[j : j + 1]
+            else:
+                ground_truth = tuple(val[j : j + 1] for val in ground_truth_values)
+            torch_input = model_input.unsqueeze(0)
+
+            onnx_out = session_wrapper(torch_input)
+            evaluator.add_batch(onnx_out, ground_truth)
+
+    accuracy = evaluator.get_accuracy_score()
+    formatted_accuracy = evaluator.formatted_accuracy()
+
+    return accuracy, formatted_accuracy

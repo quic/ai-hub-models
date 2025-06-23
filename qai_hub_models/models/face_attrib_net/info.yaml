@@ -3,7 +3,7 @@ id: face_attrib_net
 status: public
 headline: Comprehensive facial analysis by extracting face features.
 domain: Computer Vision
-description: Facial feature extraction and additional attributes including liveness, eyeclose, mask and glasses detection for face recognition.
+description: Detects attributes (liveness, eye closeness, mask presence, glasses presence, sunglasses presence) that apply to a given face. This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset of faces, but can be used on any image.
 use_case: Object Detection
 tags:
 - real-time
@@ -20,12 +20,10 @@ dataset: []
 technical_details:
   Model checkpoint: multitask_FR_state_dict.pt
   Input resolution: 128x128
-  Input channel number: '1'
   Number of parameters: 11.6M
   Model size (float): 47.6MB
   Model size (w8a8): 47.6MB
 license_type: bsd-3-clause
-source_repo: https://github.com/quic/ai-hub-models/blob/main/qai_hub_models/models/face_attrib_net/model.py
 license: https://github.com/quic/ai-hub-models/blob/main/LICENSE
 deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
 deploy_license_type: ai-hub-models-license

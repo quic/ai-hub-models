@@ -8,7 +8,7 @@ from qai_hub_models.models.face_det_lite.demo import main as demo_main
 from qai_hub_models.models.face_det_lite.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
-    FaceDetLiteModel,
+    FaceDetLite,
 )
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -23,7 +23,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 # Verify that the output from Torch is as expected.
 def test_task() -> None:
-    app = FaceDetLiteApp(FaceDetLiteModel.from_pretrained())
+    app = FaceDetLiteApp(FaceDetLite.from_pretrained())
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_tensor, _ = app.run_inference_on_image(original_image)
     output_tensor_oracle: dict[str, str] = load_json(OUTPUT_IMAGE_ADDRESS)

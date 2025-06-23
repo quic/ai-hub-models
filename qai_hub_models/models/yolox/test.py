@@ -16,7 +16,7 @@ from qai_hub_models.utils.bounding_box_processing import get_iou
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 GT_BOXES = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "yolox_boxes.npy"
+    MODEL_ID, MODEL_ASSET_VERSION, "yolo_boxes_s.npy"
 )
 
 

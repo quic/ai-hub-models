@@ -9,7 +9,7 @@ from pathlib import Path
 
 import torch
 
-from qai_hub_models.models._shared.llama3_ao.model import (
+from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
     Llama3Base,
@@ -65,6 +65,7 @@ class Llama3_2_3B(Llama3Base):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         host_device: torch.device | None = None,
         _skip_optimizations: list[str] | None = None,
+        load_pretrained: bool = True,
     ) -> Llama3_2_3B:
         """
         Load a pre-trained Llama 3.2 (3B) model from Meta via HuggingFace.
@@ -90,6 +91,7 @@ class Llama3_2_3B(Llama3Base):
             context_length=context_length,
             host_device=host_device,
             _skip_optimizations=_skip_optimizations,
+            load_pretrained=load_pretrained,
         )
 
     @staticmethod

@@ -1,11 +1,11 @@
 [![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
 
 
-# [RTMPose_Body2d: Human pose estimation](https://aihub.qualcomm.com/models/rtmpose_body2d)
+# [RTMPose-Body2d: Human pose estimation](https://aihub.qualcomm.com/models/rtmpose_body2d)
 
 RTMPose is a machine learning model that detects human pose and returns a location and confidence for each of 133 joints.
 
-This is based on the implementation of RTMPose_Body2d found [here](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmpose). This repository contains scripts for optimized on-device
+This is based on the implementation of RTMPose-Body2d found [here](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmpose). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/rtmpose_body2d).
 
@@ -44,7 +44,7 @@ Additional options are documented with the `--help` option.
 
 
 ## License
-* The license for the original implementation of RTMPose_Body2d can be found
+* The license for the original implementation of RTMPose-Body2d can be found
   [here](https://github.com/open-mmlab/mmpose/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

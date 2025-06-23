@@ -12,14 +12,19 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 
 # isort: on
 
+import json
 import math
+from pathlib import Path
 from typing import Optional
 
+import diffusers
 import torch
 from aimet_common.defs import QuantScheme
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 from aimet_onnx.quantsim import load_encodings_to_sim
-from diffusers import AutoencoderKL, DPMSolverMultistepScheduler, UNet2DConditionModel
+from diffusers import AutoencoderKL, UNet2DConditionModel
+from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
+from huggingface_hub import hf_hub_download
 from onnxsim import simplify
 from qai_hub.client import Device
 
@@ -34,7 +39,13 @@ from qai_hub_models.utils.base_model import (
     PretrainedCollectionModel,
     TargetRuntime,
 )
-from qai_hub_models.utils.checkpoint import CheckpointSpec, FromPretrainedMixin
+from qai_hub_models.utils.checkpoint import (
+    CheckpointSpec,
+    CheckpointType,
+    FromPretrainedMixin,
+    determine_checkpoint_type,
+    hf_repo_exists,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
 
@@ -433,18 +444,63 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         return "stable_diffusion_calib_vae"
 
 
+def make_scheduler(
+    checkpoint: CheckpointSpec,
+    subfolder: str,
+    revision: str | None = None,
+):
+    """
+    Load and instantiate the scheduler from a Hugging Face repo or a local path.
+
+    Args:
+      checkpoint: Hugging Face repo ID or local path.
+      subfolder: Subdirectory where scheduler_config.json is located.
+      revision: Git branch, tag, or commit (only used for HF repos).
+
+    Returns:
+      A scheduler instance (subclass of SchedulerMixin).
+    """
+    if hf_repo_exists(str(checkpoint)):
+        config_path = hf_hub_download(
+            repo_id=str(checkpoint),
+            filename=f"{subfolder}/{SCHEDULER_CONFIG_NAME}",
+            revision=revision,
+        )
+    else:
+        config_path = str(Path(checkpoint) / subfolder / SCHEDULER_CONFIG_NAME)
+
+    with open(config_path, encoding="utf-8") as f:
+        cfg = json.load(f)
+
+    cls_name = cfg.pop("_class_name")
+    scheduler_cls = getattr(diffusers, cls_name)
+    return scheduler_cls.from_config(cfg)
+
+
 class StableDiffusionBase(PretrainedCollectionModel):
     """
     Put glue modules here to aid app/demo code.
     """
 
-    guidance_scale = 7.5
-    default_num_steps = 20
+    guidance_scale: float = 7.5
+    default_num_steps: int = 20
+    hf_repo_id: str = ""
 
     @staticmethod
     def make_tokenizer():
         raise NotImplementedError()
 
-    @staticmethod
-    def make_scheduler() -> DPMSolverMultistepScheduler:
-        raise NotImplementedError()
+    @classmethod
+    def make_scheduler(cls, checkpoint: CheckpointSpec, subfolder: str = "scheduler"):
+        checkpoint = cls.handle_default_checkpoint(checkpoint)
+        return make_scheduler(checkpoint, subfolder)
+
+    @classmethod
+    def handle_default_checkpoint(cls, checkpoint: CheckpointSpec) -> CheckpointSpec:
+        """Convert DEFAULT checkpoint to HF_REPO id"""
+        ckpt_type = determine_checkpoint_type(checkpoint)
+        if ckpt_type in [CheckpointType.DEFAULT, CheckpointType.DEFAULT_UNQUANTIZED]:
+            if cls.hf_repo_id == "":
+                raise ValueError("hf_repo_id is not defined.")
+            return cls.hf_repo_id  # type: ignore
+        return checkpoint

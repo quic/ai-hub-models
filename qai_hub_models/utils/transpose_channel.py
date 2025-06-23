@@ -6,6 +6,8 @@
 import numpy as np
 import qai_hub as hub
 
+from qai_hub_models.utils.input_spec import InputSpec
+
 
 def _transpose_channel(
     io_names: list[str],
@@ -54,3 +56,17 @@ def transpose_channel_last_to_first(
     job_outputs: hub.client.DatasetEntries,
 ) -> dict[str, list[np.ndarray]]:
     return _transpose_channel(io_names, job_outputs, False)
+
+
+def transpose_channel_last_to_first_input_specs(
+    input_specs: InputSpec, channel_last_inputs: list[str]
+) -> InputSpec:
+    out: InputSpec = dict()
+    for input, (shape, type) in input_specs.items():
+        if input in channel_last_inputs:
+            if len(shape) == 3:
+                shape = (shape[2], shape[0], shape[1])
+            elif len(shape) in (4, 5):
+                shape = (shape[0], shape[-1], *shape[1:-1])
+        out[input] = (shape, type)
+    return out

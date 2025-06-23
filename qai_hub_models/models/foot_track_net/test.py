@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch
 
-from qai_hub_models.models._shared.foot_track_net.app import FootTrackNet_App
+from qai_hub_models.models.foot_track_net.app import FootTrackNet_App
 from qai_hub_models.models.foot_track_net.demo import main as demo_main
 from qai_hub_models.models.foot_track_net.model import (
     MODEL_ASSET_VERSION,

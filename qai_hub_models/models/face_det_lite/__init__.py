@@ -4,4 +4,4 @@
 # ---------------------------------------------------------------------
 from .app import FaceDetLiteApp as App  # noqa: F401
 from .model import MODEL_ID  # noqa: F401
-from .model import FaceDetLiteModel as Model  # noqa: F401
+from .model import FaceDetLite as Model  # noqa: F401

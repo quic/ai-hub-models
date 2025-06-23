@@ -22,7 +22,6 @@ class TinyMMLU(BaseDataset):
         block_size: int = 128,
         context_length: int = 4096,
         split: DatasetSplit = DatasetSplit.TEST,
-        device: torch.device = torch.device("cpu"),
         num_samples: int = 0,
     ):
         self.block_size = block_size
@@ -39,8 +38,6 @@ class TinyMMLU(BaseDataset):
             path="tinyBenchmarks/tinyMMLU", split=self.split_str
         )
         self.preprocess_dataset()
-
-        self.device = device
 
     def __len__(self) -> int:
         if self.num_samples != 0:
@@ -60,13 +57,8 @@ class TinyMMLU(BaseDataset):
                 add_special_tokens=True,
             )
 
-            def slice_to_length(t: list[int]):
-                padded = [0] * (self.context_length - len(t))
-                padded.extend(t)
-                return padded[-self.context_length :]
-
             tokenized_question = {
-                k: list(map(lambda field: slice_to_length(field), v))
+                k: list(map(lambda field: [field[-self.context_length :]], v))
                 for k, v in tokenized_question.items()
             }
 

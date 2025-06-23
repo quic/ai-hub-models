@@ -184,6 +184,8 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Validate (used as repo name for HF as well)
         if " " in self.name:
             raise ValueError("Model Name must not have a space.")
+        if "_" in self.name:
+            raise ValueError("Model Name should use dashes (-) instead of underscores.")
 
         # Headline should end with period
         if not self.headline.endswith("."):
@@ -267,7 +269,12 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             if not os.path.exists(self.get_package_path() / "info.yaml"):
                 raise ValueError("All public models must have an info.yaml")
 
-            if not os.path.exists(self.get_package_path() / "perf.yaml"):
+            # If a model is not running in scorecard and is public,
+            # there must be a perf yaml
+            if (
+                self.code_gen_config.skip_hub_tests_and_scorecard
+                and not os.path.exists(self.get_package_path() / "perf.yaml")
+            ):
                 raise ValueError("All public models must have a perf.yaml")
 
             if not self.code_gen_config.supports_at_least_1_runtime:

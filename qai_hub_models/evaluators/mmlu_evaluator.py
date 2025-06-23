@@ -9,15 +9,10 @@ from typing import Callable
 import torch
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
-from qai_hub_models.models._shared.llama3_ao.app import (
-    RopeEmbedding,
-    get_past_keyval_with_shift,
-)
-from qai_hub_models.models._shared.llama3_ao.model import (
-    prepare_combined_attention_mask,
-)
+from qai_hub_models.models._shared.llm.generator import LLM_Generator
 
 
 class MMLUEvaluator(BaseEvaluator):
@@ -36,6 +31,7 @@ class MMLUEvaluator(BaseEvaluator):
         self.block_size = block_size
         self.device = device
         self.choices = self._get_choices(tokenizer)
+        self.tokenizer = tokenizer
         self.reset()
 
     @staticmethod
@@ -54,9 +50,9 @@ class MMLUEvaluator(BaseEvaluator):
             tokenize_letter("D"),
         )
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.Tensor):
         self.batch_index += 1
-        logits = output[0]
+        logits = output.logits
 
         lm_logits = logits.reshape(1, -1, logits.shape[-1])
         last_logit = lm_logits[0, -1, :].flatten()
@@ -80,13 +76,14 @@ class MMLUEvaluator(BaseEvaluator):
 
     def for_each_batch(
         self,
-        model: torch.nn.Module,
+        generator: LLM_Generator,
         data: _DataLoader,
         num_samples: int | None = None,
-        callback: Callable[[list[torch.tensor], torch.Tensor, torch.Tensor], None]
+        callback: Callable[
+            [list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None
+        ]
         | None = None,
     ) -> None:
-        model.to(self.device)
         total_samples = 0
         batch_size = 1
         num_samples = num_samples or len(data)
@@ -98,7 +95,7 @@ class MMLUEvaluator(BaseEvaluator):
                 input_ids, attention_mask, ground_truth = sample  # type:ignore[misc]
                 inputs = [input_ids, attention_mask]
                 inputs = [inp.to(self.device) for inp in inputs]
-                outputs = self.slice_and_shift_inputs(model, *inputs)
+                outputs = generator(*inputs)
                 if callback:
                     callback(inputs, outputs, ground_truth)
                 total_samples += 1
@@ -108,100 +105,15 @@ class MMLUEvaluator(BaseEvaluator):
 
     def add_from_dataset(
         self,
-        model: torch.nn.Module,
+        generator: LLM_Generator,
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
         def _add_batch(
-            _: list[torch.Tensor], outputs: torch.Tensor, ground_truth: torch.Tensor
+            _: list[torch.Tensor],
+            outputs: CausalLMOutputWithPast,
+            ground_truth: torch.Tensor,
         ):
             self.add_batch(outputs, ground_truth)
 
-        self.for_each_batch(model, data, eval_iterations, _add_batch)
-
-    def slice_and_shift_inputs(
-        self,
-        model: torch.nn.Module,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-    ) -> torch.Tensor:
-        # Helper function to slice the input into chunks, and perform inference on each one
-        # while maintaining the KV cache context
-
-        input_specs = model.get_input_spec(
-            sequence_length=self.block_size,
-            context_length=self.context_length,
-        )
-
-        rope_embeddings = RopeEmbedding(
-            max_length=model.context_length, config=model.llm_config
-        )
-
-        kv_cache_shape = []
-        for k, (shape, _) in input_specs.items():
-            if k.startswith("past_"):
-                kv_cache_shape.append(shape)
-        kv_cache = [torch.zeros(shape) for shape in kv_cache_shape]
-
-        num_inferences = self.context_length // self.block_size
-        for inf_idx in range(num_inferences):
-            start_idx = inf_idx * self.block_size
-            end_idx = (inf_idx + 1) * self.block_size
-            sliced_input_ids = (
-                input_ids[start_idx:end_idx]
-                .unsqueeze(0)
-                .to(device=self.device, dtype=torch.int32)
-            )
-
-            sliced_attention_mask = (
-                attention_mask[0:end_idx].unsqueeze(0).to(self.device)
-            )
-            attention_mask_padding = torch.zeros(
-                (1, self.context_length - sliced_attention_mask.shape[-1])
-            ).to(self.device)
-            padded_attention_mask = torch.cat(
-                [attention_mask_padding, sliced_attention_mask], dim=-1
-            )
-            # skip this inference if all tokens are masked
-            if torch.all(padded_attention_mask == 0):
-                continue
-
-            # Use rope embeddings to get the position ids
-            sliced_position_ids = torch.cumsum(attention_mask, dim=-1)[
-                start_idx:end_idx
-            ]
-            position_ids = sliced_position_ids.type(torch.long).reshape(
-                1, self.block_size
-            )
-            position_ids_cos, position_ids_sin = rope_embeddings.get_embedding(
-                position_ids
-            )
-
-            cm_attn_mask = prepare_combined_attention_mask(
-                padded_attention_mask,
-                (1, self.block_size),
-                self.context_length - self.block_size,
-                -50.0,
-                torch.float,
-            )
-
-            model.to(self.device)
-            inputs = [
-                sliced_input_ids,
-                cm_attn_mask,
-                position_ids_cos,
-                position_ids_sin,
-            ]
-            inputs.extend([kv for kv in kv_cache])
-            inputs = [inp.to(self.device) for inp in inputs]
-
-            output = model(*inputs)
-
-            # This kv cache is needed to maintain the context between multiple blocks.
-            kv_cache = get_past_keyval_with_shift(
-                kv_cache,
-                output[1:],
-                length=self.context_length - self.block_size,
-            )
-
-        return output[0]
+        self.for_each_batch(generator, data, eval_iterations, _add_batch)

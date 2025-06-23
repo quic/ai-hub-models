@@ -12,7 +12,7 @@ import torch
 from podm.metrics import BoundingBox
 
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
-from qai_hub_models.models._shared.foot_track_net.app import postprocess
+from qai_hub_models.models.foot_track_net.app import postprocess
 
 
 class FootTrackNetEvaluator(DetectionEvaluator):

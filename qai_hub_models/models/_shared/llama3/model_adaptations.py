@@ -145,6 +145,18 @@ class SHALlamaAttention(LlamaAttention):
             del self.o_proj
 
     def prepare_sha(self):
+
+        # Ensure conv preparation is done first
+        if not (
+            hasattr(self, "q_proj_conv")
+            and hasattr(self, "k_proj_conv")
+            and hasattr(self, "o_proj_conv")
+            and hasattr(self, "v_proj_conv")
+        ):
+            raise RuntimeError(
+                "The method 'prepare_sha' cannot be run on model without running 'prepare_conv' first."
+            )
+
         if not hasattr(self, "forward_mha"):
             self.q_proj_sha = nn.ModuleList(
                 [
@@ -168,8 +180,6 @@ class SHALlamaAttention(LlamaAttention):
                 self.o_proj_conv = nn.Conv2d(
                     self.num_heads * self.head_dim, self.hidden_size, 1, bias=False
                 )
-                self.o_proj_conv.weight.data.copy_(self.o_proj.weight[:, :, None, None])
-                del self.o_proj
 
             self.forward_mha = cast(  # type: ignore[misc]
                 Callable[
@@ -189,7 +199,6 @@ class SHALlamaAttention(LlamaAttention):
                 ],
                 self.forward,  # type: ignore[has-type]
             )
-
             # pyright doesn't like that self.forward_sha doesn't take kwargs
             self.forward = (
                 self.forward_sha

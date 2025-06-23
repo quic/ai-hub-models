@@ -78,7 +78,7 @@ def stable_diffusion_demo(
 
     assert issubclass(model_cls, StableDiffusionBase)
     tokenizer = model_cls.make_tokenizer()
-    scheduler = model_cls.make_scheduler()
+    scheduler = model_cls.make_scheduler(args.checkpoint)
 
     app = StableDiffusionApp(
         text_encoder=text_encoder,

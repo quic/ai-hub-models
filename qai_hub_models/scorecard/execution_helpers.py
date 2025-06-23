@@ -15,13 +15,19 @@ import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
-from qai_hub_models.scorecard.internal.scripts.sync_model_assets import (
-    get_bench_pytorch_w8a8_models,
-)
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
+
+try:
+    from qai_hub_models.scorecard.internal.scripts.sync_model_assets import (
+        get_bench_pytorch_w8a8_models,
+    )
+except ImportError:
+
+    def get_bench_pytorch_w8a8_models() -> list[str]:  # type: ignore[misc]
+        return []
 
 
 @unique

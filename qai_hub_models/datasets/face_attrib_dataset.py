@@ -15,7 +15,7 @@ from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
 FACEATTRIB_DATASET_VERSION = 1
 FACEATTRIB_DATASET_ID = "faceattrib_dataset"
-DATASET_DIR_NAME = "faceattrib_trainvaltest"
+FACEATTRIB_DATASET_DIR_NAME = "faceattrib_trainvaltest"
 
 
 class FaceAttribDataset(BaseDataset):
@@ -32,7 +32,7 @@ class FaceAttribDataset(BaseDataset):
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FACEATTRIB_DATASET_ID, FACEATTRIB_DATASET_VERSION, "data"
         )
-        self.images_path = self.data_path / DATASET_DIR_NAME
+        self.images_path = self.data_path / FACEATTRIB_DATASET_DIR_NAME
         self.input_data_zip = input_data_zip
         self.max_boxes = max_boxes
 
@@ -83,7 +83,7 @@ class FaceAttribDataset(BaseDataset):
         )
 
         if self.input_data_zip is None or not self.input_data_zip.endswith(
-            DATASET_DIR_NAME + ".zip"
+            FACEATTRIB_DATASET_DIR_NAME + ".zip"
         ):
             raise no_zip_error
 

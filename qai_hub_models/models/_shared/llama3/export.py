@@ -21,8 +21,8 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
 )
 from qai_hub_models.models._shared.llama3.split_onnx_utils import utils
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
-from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
 from qai_hub_models.utils.printing import (
@@ -54,7 +54,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN,
+    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
     synchronous: bool = False,
@@ -122,6 +122,7 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
+
     num_splits = len(components)
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     hub_devices = hub.get_devices(
@@ -200,8 +201,8 @@ def export_model(
         )
         assert source_model is not None
         source_model_path = Path(source_model)
-
         input_onnx_path = glob.glob((source_model_path / "*.onnx").as_posix())[0]
+
         encodings_files = glob.glob((source_model_path / "*.encodings").as_posix())
         input_encodings_path = encodings_files[0] if encodings_files else None
 

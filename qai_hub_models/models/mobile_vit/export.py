@@ -112,7 +112,7 @@ def export_model(
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             "mobile_vit",
-            "Mobile_Vit",
+            "Mobile-VIT",
             hub_device.name or f"Device (Chipset {chipset})",
             skip_profiling,
             skip_inferencing,

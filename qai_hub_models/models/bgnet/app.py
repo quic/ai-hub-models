@@ -70,21 +70,8 @@ class BGNetApp:
         if isinstance(pred_masks, tuple):
             pred_masks = pred_masks[0]
 
-        # Upsample pred mask to original image size
-        # Need to upsample in the probability space, not in class labels
-        pred_masks = F.interpolate(
-            input=pred_masks,
-            size=NCHW_fp32_torch_frames.shape[-2:],
-            mode="bilinear",
-            align_corners=False,
-        )
-
-        # Create color map and convert segmentation mask to RGB image
-        pred_masks = pred_masks.sigmoid().squeeze()
-        pred_masks = (pred_masks - pred_masks.min()) / (
-            pred_masks.max() - pred_masks.min() + 1e-8
-        )
-        pred_mask_img = (pred_masks * 255).to(torch.uint8).unsqueeze(0)
+        pred_mask_img = postprocess_masks(pred_masks, NCHW_fp32_torch_frames.shape[-2:])
+        # Create color map
         color_map = create_color_map(pred_mask_img.max().item() + 1)
         out = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
@@ -96,3 +83,37 @@ class BGNetApp:
                 )
             )
         return out
+
+
+def postprocess_masks(
+    pred_masks: torch.Tensor, input_size: tuple[int, int]
+) -> torch.Tensor:
+    """
+    Process raw model outputs into segmentation masks by resizing,
+    converting logits to probabilities
+
+    Args:
+        pred_masks: Raw outputs [N, C, H, W]
+        input_size: Output resolution (height, width)
+
+    Returns:
+        torch.Tensor: Masks [N, H, W], uint8
+    """
+    # Upsample pred mask to original image size
+    # Need to upsample in the probability space, not in class labels
+
+    pred_masks = F.interpolate(
+        input=pred_masks,
+        size=input_size,
+        mode="bilinear",
+        align_corners=False,
+    )
+
+    pred_masks = pred_masks.sigmoid().squeeze(0)
+    pred_masks = (pred_masks - pred_masks.min()) / (
+        pred_masks.max() - pred_masks.min() + 1e-8
+    )
+    # convert segmentation mask to RGB image
+    pred_mask_img = (pred_masks * 255).to(torch.uint8)
+
+    return pred_mask_img
