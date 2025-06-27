@@ -130,7 +130,6 @@ class QuantizableModelProtocol(Protocol):
     @abstractmethod
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         """

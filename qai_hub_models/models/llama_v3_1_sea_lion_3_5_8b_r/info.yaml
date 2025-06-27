@@ -1,0 +1,53 @@
+name: Llama-SEA-LION-v3.5-8B-R
+id: llama_v3_1_sea_lion_3_5_8b_r
+status: public
+headline: Llama-SEA-LION-v3.5-8B-R is a hybrid model offering versatile functionality, handling both complex reasoning tasks and general text generation, with mode selection managed through the tokenizer's chat template.
+domain: Generative AI
+description: SEA-LION is a collection of Large Language Models (LLMs) which have been pretrained and instruct-tuned for the Southeast Asia (SEA) region. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
+use_case: Text Generation
+tags:
+- llm
+- generative-ai
+applicable_scenarios:
+- Dialogue
+- Content Generation
+- Customer Support
+related_models:
+- llama_v3_1_8b_instruct
+- llama_v3_8b_instruct
+- llama_v3_2_3b_instruct
+form_factors:
+- Phone
+- Tablet
+has_static_banner: true
+has_animated_banner: true
+dataset: []
+technical_details:
+  Input sequence length for Prompt Processor: '128'
+  Context length: '4096'
+  Number of parameters: 8B
+  Model size: 4.8GB
+  Precision: w4a16 + w8a16 (few layers)
+  Num of key-value heads: '8'
+  Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
+  Prompt processor input: 128 tokens + position embeddings + attention mask + KV cache inputs
+  Prompt processor output: 128 output tokens + KV cache outputs
+  Model-2 (Token Generator): Llama-TokenGenerator-Quantized
+  Token generator input: 1 input token + position embeddings + attention mask + KV cache inputs
+  Token generator output: 1 output token + KV cache outputs
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Minimum QNN SDK version required: 2.27.7
+  Language(s) supported: Burmese, Chinese, English, Filipino, Indonesia, Javanese, Khmer, Lao, Malay, Sundanese, Tamil, Thai, Vietnamese.
+  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  Response Rate: Rate of response generation after the first response token.
+license_type: llama3
+source_repo: https://github.com/aisingapore/sealion/blob/main/models/sea-lion-v3.5/llama-sea-lion-v3.5-8B.md
+license: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/LICENSE
+deploy_license: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/LICENSE
+deploy_license_type: llama3
+restrict_model_sharing: true
+model_type_llm: true
+llm_details:
+  call_to_action: View Readme
+  genie_compatible: true
+  devices: {}

@@ -203,7 +203,7 @@ def export_model(
                 quant_calibration_data = None
             else:
                 quant_calibration_data = component.get_calibration_data(
-                    target_runtime, input_spec=input_spec
+                    input_spec=input_spec
                 )
 
             # 2. Compile the models to an on-device asset

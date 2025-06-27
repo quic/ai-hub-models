@@ -318,6 +318,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
+        compile_options += " --quantize_full_type w8a16"
         graph_name = self.get_qnn_graph_name()
 
         if graph_name is not None:
