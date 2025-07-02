@@ -33,7 +33,7 @@ def get_basic_speedup_report(
                                 ScorecardProfilePath.ONNX: QAIHMModelPerf.PerformanceDetails(
                                     job_id=JOB_ID, inference_time_milliseconds=5.0
                                 ),
-                                ScorecardProfilePath.QNN: QAIHMModelPerf.PerformanceDetails(
+                                ScorecardProfilePath.QNN_DLC: QAIHMModelPerf.PerformanceDetails(
                                     job_id=JOB_ID,
                                     inference_time_milliseconds=onnx_ort_qnn_inference_time,
                                 ),

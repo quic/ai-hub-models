@@ -74,8 +74,13 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     #  - weekly scorecard
     #  - generating perf.yaml
     skip_hub_tests_and_scorecard: bool = False
+
     # Second knob for skipping of scorecard generation. Use case, skip scorecard but run hub tests.
     skip_scorecard: bool = False
+
+    # If set to true, Scorecard will still run this model, but perf.yaml and associated code-gen.yaml / README.md changes will not be written to disk.
+    # This is useful for models whose assets cannot be changed in a release, but we still want to continue testing said models.
+    freeze_perf_yaml: bool = False
 
     # Whether the model uses the pre-compiled pattern instead of the
     # standard pre-trained pattern.
@@ -152,10 +157,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         """
         Return the reason a model failed or None if the model did not fail.
         """
-        if self.is_precompiled and runtime not in [
-            TargetRuntime.QNN,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-        ]:
+        if self.is_precompiled and runtime != TargetRuntime.QNN_CONTEXT_BINARY:
             return "Precompiled models are only supported via the QNN path."
 
         if precision and not runtime.supports_precision(precision):
@@ -167,7 +169,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         if not self.requires_aot_prepare and runtime.is_aot_compiled:
             # Only the JIT path is tested if this model does not require AOT prepare.
             # All AOT paths will fail if QNN fails.
-            runtime = TargetRuntime.QNN
+            runtime = TargetRuntime.QNN_DLC
 
         if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
             if reason.has_failure:

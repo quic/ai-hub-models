@@ -114,7 +114,10 @@ def get_calibration_data(
     batch_size = get_batch_size(input_spec) or 1
     dataset_options = dataset_options or {}
     dataset = get_dataset_from_name(
-        calibration_dataset_name, split=DatasetSplit.TRAIN, **dataset_options
+        calibration_dataset_name,
+        split=DatasetSplit.TRAIN,
+        input_spec=input_spec,
+        **dataset_options,
     )
     num_samples = num_samples or dataset.default_num_calibration_samples()
 

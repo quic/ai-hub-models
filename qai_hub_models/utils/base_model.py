@@ -449,7 +449,10 @@ class BaseModel(
         compile_options = ""
         if "--target_runtime" not in other_compile_options:
             compile_options = target_runtime.get_target_runtime_flag(device)
-        if QAIRTVersion.HUB_FLAG not in other_compile_options:
+        if (
+            QAIRTVersion.HUB_FLAG not in other_compile_options
+            and target_runtime.qairt_version_changes_compilation
+        ):
             compile_options = (
                 compile_options + f" {target_runtime.default_qairt_version.hub_option}"
             )

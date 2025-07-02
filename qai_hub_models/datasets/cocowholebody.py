@@ -68,8 +68,7 @@ class CocoWholeBodyDataset(CocoBodyDataset):
         inputs = self.inference.preprocess(NHWC_int_numpy_frames, batch_size=1)
         proc_inputs, _ = list(inputs)[0]
         proc_inputs_ = proc_inputs["inputs"][0]
-        x = proc_inputs_[[2, 1, 0]]
-        image = x.to(dtype=torch.float32)
+        image = proc_inputs_.to(dtype=torch.float32)
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]
         scale = proc_inputs["data_samples"][0].gt_instances.bbox_scales[0]
         return image, (image_id, category_id, scale, bbox)

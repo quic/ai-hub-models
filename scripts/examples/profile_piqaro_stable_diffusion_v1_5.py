@@ -176,7 +176,7 @@ if __name__ == "__main__":
         )
 
     compile_options = component.get_hub_compile_options(
-        TargetRuntime.QNN, precision=Precision.w8a16
+        TargetRuntime.QNN_CONTEXT_BINARY, precision=Precision.w8a16
     )
 
     compile_jobs = []

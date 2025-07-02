@@ -21,7 +21,7 @@ from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTy
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 try:
-    from qai_hub_models.scorecard.internal.scripts.sync_model_assets import (
+    from qai_hub_models.scorecard.internal.list_models import (
         get_bench_pytorch_w8a8_models,
     )
 except ImportError:
@@ -73,9 +73,9 @@ def for_each_scorecard_path_and_device(
             all_paths = [None]  # type: ignore[list-item]
 
         for path in all_paths:
-            if include_paths and path not in include_paths:
+            if include_paths is not None and path not in include_paths:
                 continue
-            if exclude_paths and path in exclude_paths:
+            if exclude_paths is not None and path in exclude_paths:
                 continue
 
             for device in ScorecardDevice.all_devices(
@@ -89,9 +89,9 @@ def for_each_scorecard_path_and_device(
                 else None,
                 is_mirror=None if include_mirror_devices else False,
             ):
-                if include_devices and device not in include_devices:
+                if include_devices is not None and device not in include_devices:
                     continue
-                if exclude_devices and device in exclude_devices:
+                if exclude_devices is not None and device in exclude_devices:
                     continue
 
                 callback(precision, path, device)  # type: ignore[arg-type]
@@ -108,7 +108,7 @@ def get_enabled_test_precisions(
         extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
     if precisions_var is None:
-        precisions_var = os.getenv("QAIHM_TEST_PRECISIONS", "DEFAULT")
+        precisions_var = os.getenv("QAIHM_TEST_PRECISIONS", "default")
     precisions_set = {x.lower() for x in precisions_var.split(",")}
     special_setting = None
     # Make a copy of the set so we can alter the original during iteration
@@ -269,7 +269,7 @@ def get_model_test_parameterizations(
     ret: list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]] = []
     if include_unsupported_paths is None:
         include_unsupported_paths = bool(
-            os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0)
+            int(os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0))
         )
 
     # Get the precisions enabled for this model in this test environment.

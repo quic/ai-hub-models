@@ -6,25 +6,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Annotated, Callable, Optional
+from typing import Callable, Optional
 
-from pydantic import Field, PlainSerializer
+from pydantic import Field
 
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
-
-# TODO(#14896): Remove this hack when the website supports more runtime names
-#
-# Scorecard never runs AOT and JIT paths for the same model.
-# AOT path names (eg. precompiled_qnn_onnx) must
-#  be mapped to special names (onnx) so the website can display
-#  AOT runs properly.
-#
-_PerfScorecardProfilePath = Annotated[
-    ScorecardProfilePath, PlainSerializer(lambda x: x.perf_yaml_name, return_type=str)
-]
 
 
 class QAIHMModelPerf(BaseQAIHMConfig):
@@ -91,15 +80,13 @@ class QAIHMModelPerf(BaseQAIHMConfig):
         layer_counts: Optional[QAIHMModelPerf.PerformanceDetails.LayerCounts] = None
 
     class ComponentDetails(BaseQAIHMConfig):
-        universal_assets: dict[_PerfScorecardProfilePath, str] = Field(
+        universal_assets: dict[ScorecardProfilePath, str] = Field(default_factory=dict)
+        device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = Field(
             default_factory=dict
         )
-        device_assets: dict[
-            ScorecardDevice, dict[_PerfScorecardProfilePath, str]
-        ] = Field(default_factory=dict)
         performance_metrics: dict[
             ScorecardDevice,
-            dict[_PerfScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
+            dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
         ] = Field(default_factory=dict)
 
     class PrecisionDetails(BaseQAIHMConfig):

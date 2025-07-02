@@ -26,7 +26,7 @@ from qai_hub_models.models.llama_v2_7b_chat.modeling_llama import (  # type: ign
     LlamaModel,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.huggingface import (
     ensure_has_required_transformer,
     has_model_access,
@@ -463,7 +463,6 @@ class Llama2_PromptProcessor_1(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -566,7 +565,6 @@ class Llama2_PromptProcessor_2(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -669,7 +667,6 @@ class Llama2_PromptProcessor_3(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -772,7 +769,6 @@ class Llama2_PromptProcessor_4(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -962,7 +958,6 @@ class Llama2_TokenGenerator_1(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -1119,7 +1114,6 @@ class Llama2_TokenGenerator_2(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -1275,7 +1269,6 @@ class Llama2_TokenGenerator_3(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """
@@ -1432,7 +1425,6 @@ class Llama2_TokenGenerator_4(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
         """

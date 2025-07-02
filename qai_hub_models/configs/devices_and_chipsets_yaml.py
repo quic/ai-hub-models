@@ -191,6 +191,17 @@ class ChipsetYaml(BaseQAIHMConfig):
 
 
 class DevicesAndChipsetsYaml(BaseQAIHMConfig):
+    """
+    This class stores definitions / attributes of valid:
+        * devices
+        * chipsets
+        * form factors
+        * scorecard paths
+
+    That the website reads from AI Hub Models perf.yaml files
+    to create model card webpages.
+    """
+
     scorecard_path_to_website_runtime: dict[
         ScorecardProfilePath, InferenceEngine
     ] = Field(default_factory=dict)
@@ -202,6 +213,10 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
 
     @staticmethod
     def from_all_runtimes_and_devices() -> DevicesAndChipsetsYaml:
+        """
+        Re-generate a DevicesAndChipsetsYaml configuration from the current
+        set of devices / runtimes that are valid in AI Hub Models perf.yaml files.
+        """
         out = DevicesAndChipsetsYaml()
         out.form_factors = {
             ff: FormFactorYaml.from_form_factor(ff) for ff in ScorecardDevice.FormFactor
@@ -236,3 +251,12 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
                 out.chipsets[device.chipset] = ChipsetYaml.from_device(device)
 
         return out
+
+    @staticmethod
+    def load():
+        """Load this configuration from its standard YAML location in the AI Hub Models python package."""
+        return DevicesAndChipsetsYaml.from_yaml(SCORECARD_DEVICE_YAML_PATH)
+
+    def save(self):
+        """Save this configuration to its standard YAML location in the AI Hub Models python package."""
+        return self.to_yaml(SCORECARD_DEVICE_YAML_PATH)

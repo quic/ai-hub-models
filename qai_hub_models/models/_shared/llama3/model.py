@@ -697,7 +697,6 @@ class Llama3Base(BaseModel, LLMConfigEditor, ABC):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         # No calibration data needed
@@ -884,7 +883,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         dataloader = load_calibration_data(

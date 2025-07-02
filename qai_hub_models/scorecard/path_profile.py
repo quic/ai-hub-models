@@ -5,13 +5,14 @@
 from __future__ import annotations
 
 import os
-from enum import Enum, unique
+from collections.abc import Generator
+from enum import Enum, EnumMeta, unique
 from functools import cached_property
-from typing import Optional
+from typing import Optional, cast
 
 from typing_extensions import assert_never
 
-from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.path_compile import (
     DEFAULT_QAIRT_VERSION_ENVVAR,
     QAIRTVersion,
@@ -20,14 +21,28 @@ from qai_hub_models.scorecard.path_compile import (
 from qai_hub_models.utils.base_config import EnumListWithParseableAll
 
 
+class ScorecardProfilePathMeta(EnumMeta):
+    def __iter__(self) -> Generator[ScorecardProfilePath]:
+        return (  # type:ignore[var-annotated]
+            cast(ScorecardProfilePath, member)
+            for member in super().__iter__()
+            if cast(ScorecardProfilePath, member)
+            != ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN
+        )
+
+
 @unique
-class ScorecardProfilePath(Enum):
+class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
     TFLITE = "tflite"
-    QNN = "qnn"
+    QNN_DLC = "qnn_dlc"
     QNN_CONTEXT_BINARY = "qnn_context_binary"
     ONNX = "onnx"
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
     ONNX_DML_GPU = "onnx_dml_gpu"
+    QNN_DLC_GPU = "qnn_dlc_gpu"
+
+    # This is a hack to enable us to sanitize perf.yaml for the website. It cannot be used as a real path.
+    _FOR_WEBSITE_ONLY_QNN = "qnn"
 
     def __str__(self):
         return self.name.lower()
@@ -37,28 +52,20 @@ class ScorecardProfilePath(Enum):
         """
         Returns the name used for the 'runtime' column in the scorecard results spreadsheet.
         """
-        # QNN and QNN_CONTEXT_BINARY are nearly the same and hence map to the same value
-        if self in [ScorecardProfilePath.QNN, ScorecardProfilePath.QNN_CONTEXT_BINARY]:
-            return InferenceEngine.QNN.value
+        if self in [
+            ScorecardProfilePath.ONNX_DML_GPU,
+            ScorecardProfilePath.QNN_DLC_GPU,
+        ]:
+            return self.value
 
-        # Otherwise use the path name
-        return self.value
-
-    @property
-    def perf_yaml_name(self) -> str:
-        """
-        Returns the name used for this runtime in serialized perf.yaml files.
-        """
-        # The website only supports listing runs for each inference
-        # engine, so always use the inference engine name.
         return self.runtime.inference_engine.value
 
     @property
     def enabled(self) -> bool:
-        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
+        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "all").lower()
         if (
             not self.enabled_only_if_explicitly_selected
-            and valid_test_runtimes == "ALL"
+            and valid_test_runtimes == "all"
         ):
             return True
 
@@ -67,6 +74,15 @@ class ScorecardProfilePath(Enum):
             self.runtime.inference_engine.value in valid_test_runtime_names
             or self.value in valid_test_runtime_names
         )
+
+    def supports_precision(self, precision: Precision) -> bool:
+        """
+        Whether this profile path applies to the given model precision.
+        """
+        if self == ScorecardProfilePath.QNN_DLC_GPU:
+            return precision.has_float_activations
+
+        return self.compile_path.supports_precision(precision)
 
     @property
     def is_force_enabled(self) -> bool:
@@ -83,7 +99,7 @@ class ScorecardProfilePath(Enum):
         if self.value == self.runtime.inference_engine.value:
             return False
 
-        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "ALL")
+        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "all").lower()
         valid_test_runtime_names = [x.lower() for x in valid_test_runtimes.split(",")]
         return self.value in valid_test_runtime_names
 
@@ -93,7 +109,10 @@ class ScorecardProfilePath(Enum):
         Return true if this path is enabled only when the user
         selects it explicitly in QAIHM_TEST_RUNTIMES.
         """
-        return self == ScorecardProfilePath.ONNX_DML_GPU
+        return self in [
+            ScorecardProfilePath.ONNX_DML_GPU,
+            ScorecardProfilePath.QNN_DLC_GPU,
+        ]
 
     @staticmethod
     def all_paths(
@@ -111,7 +130,7 @@ class ScorecardProfilePath(Enum):
             if (enabled is None or path.enabled == enabled)
             and (
                 supports_precision is None
-                or path.compile_path.supports_precision(supports_precision)
+                or path.supports_precision(supports_precision)
             )
             and (
                 is_aot_compiled is None
@@ -122,7 +141,7 @@ class ScorecardProfilePath(Enum):
     @property
     def include_in_perf_yaml(self) -> bool:
         return self in [
-            ScorecardProfilePath.QNN,
+            ScorecardProfilePath.QNN_DLC,
             ScorecardProfilePath.QNN_CONTEXT_BINARY,
             ScorecardProfilePath.ONNX,
             ScorecardProfilePath.PRECOMPILED_QNN_ONNX,
@@ -140,10 +159,15 @@ class ScorecardProfilePath(Enum):
             return TargetRuntime.ONNX
         if self == ScorecardProfilePath.PRECOMPILED_QNN_ONNX:
             return TargetRuntime.PRECOMPILED_QNN_ONNX
-        if self == ScorecardProfilePath.QNN:
-            return TargetRuntime.QNN
+        if self == ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN:
+            raise NotImplementedError()
         if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
             return TargetRuntime.QNN_CONTEXT_BINARY
+        if (
+            self == ScorecardProfilePath.QNN_DLC
+            or self == ScorecardProfilePath.QNN_DLC_GPU
+        ):
+            return TargetRuntime.QNN_DLC
         assert_never(self)
 
     @property
@@ -156,10 +180,15 @@ class ScorecardProfilePath(Enum):
             return ScorecardCompilePath.PRECOMPILED_QNN_ONNX
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return ScorecardCompilePath.ONNX_FP16
-        if self == ScorecardProfilePath.QNN:
-            return ScorecardCompilePath.QNN
+        if self == ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN:
+            raise NotImplementedError()
         if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
             return ScorecardCompilePath.QNN_CONTEXT_BINARY
+        if (
+            self == ScorecardProfilePath.QNN_DLC
+            or self == ScorecardProfilePath.QNN_DLC_GPU
+        ):
+            return ScorecardCompilePath.QNN_DLC
         assert_never(self)
 
     @cached_property
@@ -208,9 +237,17 @@ class ScorecardProfilePath(Enum):
         out = ""
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             out = out + " --onnx_execution_providers directml"
+        if self == ScorecardProfilePath.QNN_DLC_GPU:
+            out = (
+                out
+                + " --compute_unit gpu --qnn_options default_graph_gpu_precision=FLOAT16"
+            )
 
         qairt_version = QAIRTVersion(
-            os.getenv(DEFAULT_QAIRT_VERSION_ENVVAR, QAIRTVersion.DEFAULT_TAG)
+            os.getenv(
+                DEFAULT_QAIRT_VERSION_ENVVAR,
+                QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION,
+            )
         )
         out = out + f" {qairt_version.hub_option}"
         return out.strip()

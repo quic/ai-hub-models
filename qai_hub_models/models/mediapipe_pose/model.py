@@ -76,9 +76,6 @@ class PoseDetector(BaseModel):
         self.anchors = anchors
 
     def forward(self, image: torch.Tensor):
-        import numpy as np
-
-        np.save("build/sample_detector_inputs", image.numpy())
         return self.detector(image)
 
     @classmethod
@@ -138,9 +135,6 @@ class PoseLandmarkDetector(BaseModel):
         self.detector = detector
 
     def forward(self, image: torch.Tensor):
-        import numpy as np
-
-        np.save("build/sample_landmark_inputs", image.numpy())
         output = self.detector(image)
         return output[0], output[1]
 
@@ -181,6 +175,15 @@ class PoseLandmarkDetector(BaseModel):
 @CollectionModel.add_component(PoseDetector)
 @CollectionModel.add_component(PoseLandmarkDetector)
 class MediaPipePose(CollectionModel):
+    def __init__(
+        self,
+        pose_detector: PoseDetector,
+        pose_landmark_detector: PoseLandmarkDetector,
+    ) -> None:
+        super().__init__(pose_detector, pose_landmark_detector)
+        self.pose_detector = pose_detector
+        self.pose_landmark_detector = pose_landmark_detector
+
     @classmethod
     def from_pretrained(
         cls,

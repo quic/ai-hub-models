@@ -11,10 +11,8 @@ import torch
 import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.pose_evaluator import (
-    CocoBodyPoseEvaluator,
-    MPIIPoseEvaluator,
-)
+from qai_hub_models.evaluators.hrnet_evaluator import HRNetPoseEvaluator
+from qai_hub_models.evaluators.pose_evaluator import MPIIPoseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -123,7 +121,7 @@ class HRNetPose(BaseModel):
         if self.variant == "mpii":
             return MPIIPoseEvaluator()
         else:
-            return CocoBodyPoseEvaluator()
+            return HRNetPoseEvaluator()
 
     @staticmethod
     def eval_datasets() -> list[str]:

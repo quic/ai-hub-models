@@ -692,16 +692,19 @@ def evaluate_on_dataset(
     assert isinstance(
         torch_model, BaseModel
     ), "Evaluation is not yet supported for CollectionModels."
-    source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
-    samples_per_job = samples_per_job or source_torch_dataset.default_samples_per_job()
-    num_samples = num_samples or min(samples_per_job, DEFAULT_NUM_EVAL_SAMPLES)
 
-    _validate_inputs(num_samples, source_torch_dataset)
     input_names = list(torch_model.get_input_spec().keys())
     output_names = torch_model.get_output_names()
     on_device_model = AsyncOnDeviceModel(
         compiled_model, input_names, hub_device, profile_options, output_names
     )
+
+    source_torch_dataset = get_dataset_from_name(
+        dataset_name, DatasetSplit.VAL, input_spec=on_device_model.get_input_spec()
+    )
+    samples_per_job = samples_per_job or source_torch_dataset.default_samples_per_job()
+    num_samples = num_samples or min(samples_per_job, DEFAULT_NUM_EVAL_SAMPLES)
+    _validate_inputs(num_samples, source_torch_dataset)
 
     if use_cache:
         _populate_data_cache(

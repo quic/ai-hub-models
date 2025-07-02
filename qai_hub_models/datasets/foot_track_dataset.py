@@ -16,9 +16,9 @@ from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
-FOOTTRACK_DATASET_VERSION = 1
+FOOTTRACK_DATASET_VERSION = 3
 FOOTTRACK_DATASET_ID = "foottrack_dataset"
-FOOTTRACK_DATASET_DIR_NAME = "foottrack_trainvaltest"
+FOOTTRACK_DATASET_DIR_NAME = "foottrackv3_trainvaltest"
 
 CLASS_STR2IDX = {"face": "0", "person": "1", "hand": "2"}
 
@@ -146,4 +146,4 @@ class FootTrackDataset(BaseDataset):
         """
         The default value for how many samples to run in each inference job.
         """
-        return 20
+        return 1000

@@ -340,7 +340,9 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
 
 
 def get_model_cli_parser(
-    cls: type[FromPretrainedTypeVar], parser: QAIHMArgumentParser | None = None
+    cls: type[FromPretrainedTypeVar],
+    parser: QAIHMArgumentParser | None = None,
+    suppress_help_arguments: list | None = None,
 ) -> QAIHMArgumentParser:
     """
     Generate the argument parser to create this model from an argparse namespace.
@@ -353,10 +355,16 @@ def get_model_cli_parser(
     for name, param in from_pretrained_sig.parameters.items():
         if name == "cls":
             continue
-
         help = (
             f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
         )
+
+        def get_help(arg_name: str) -> str:
+            # Suppress help for argument that need not be exposed for model.
+            if suppress_help_arguments is not None:
+                if arg_name in suppress_help_arguments:
+                    return argparse.SUPPRESS
+            return help
 
         # Determining type from param.annotation is non-trivial (it can be a
         # strings like "Optional[str]" or "bool | None").
@@ -391,14 +399,16 @@ def get_model_cli_parser(
             type_ = str
 
         if bool_action:
-            parser.add_argument(arg_name, dest=name, action=bool_action, help=help)
+            parser.add_argument(
+                arg_name, dest=name, action=bool_action, help=get_help(arg_name)
+            )
         else:
             parser.add_argument(
                 arg_name,
                 dest=name,
                 type=type_,
                 default=param.default,
-                help=help,
+                help=get_help(arg_name),
             )
     return parser
 

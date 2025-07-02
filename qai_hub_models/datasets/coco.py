@@ -2,9 +2,10 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 from enum import Enum
 from pathlib import Path
-from typing import Union
 
 import torch
 import torch.nn.functional as F
@@ -12,7 +13,9 @@ from PIL import Image
 from torch.utils.data.dataloader import default_collate
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
+from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW, Yolo
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
 
@@ -55,8 +58,8 @@ class CocoDataset(BaseDataset):
 
     def __init__(
         self,
-        target_image_size: Union[int, tuple[int, int]] = 640,
         split: DatasetSplit = DatasetSplit.TRAIN,
+        input_spec: InputSpec | None = None,
         max_boxes: int = 100,
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
@@ -101,11 +104,11 @@ class CocoDataset(BaseDataset):
                 self.label_map[line.strip()] = counter
                 counter += 1
 
-        self.target_image_size = (
-            target_image_size
-            if isinstance(target_image_size, tuple)
-            else (target_image_size, target_image_size)
-        )
+        input_spec = input_spec or Yolo.get_input_spec()
+        # input_spec is (h, w) and target_image_size is (w, h)
+        self.target_image_size = (input_spec["image"][0][3], input_spec["image"][0][2])
+        self.x_ratio = self.target_image_size[0] / DEFAULT_YOLO_IMAGE_INPUT_HW
+        self.y_ratio = self.target_image_size[1] / DEFAULT_YOLO_IMAGE_INPUT_HW
         self.max_boxes = max_boxes
 
     def __getitem__(self, item):
@@ -135,7 +138,14 @@ class CocoDataset(BaseDataset):
                     print(f"Warning: Invalid label {annotation.label}")
                     continue
                 x, y, w, h = annotation.bounding_box
-                boxes.append([x, y, x + w, y + h])
+                boxes.append(
+                    [
+                        x * self.x_ratio,
+                        y * self.y_ratio,
+                        (x + w) * self.x_ratio,
+                        (y + h) * self.y_ratio,
+                    ]
+                )
                 # Convert string label to int idx
                 labels.append(self.label_map[annotation.label])
         boxes = torch.tensor(boxes)

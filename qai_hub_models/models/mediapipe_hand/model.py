@@ -190,6 +190,15 @@ class HandLandmarkDetector(BaseModel):
 @CollectionModel.add_component(HandDetector)
 @CollectionModel.add_component(HandLandmarkDetector)
 class MediaPipeHand(PretrainedCollectionModel):
+    def __init__(
+        self,
+        hand_detector: HandDetector,
+        hand_landmark_detector: HandLandmarkDetector,
+    ) -> None:
+        super().__init__(hand_detector, hand_landmark_detector)
+        self.hand_detector = hand_detector
+        self.hand_landmark_detector = hand_landmark_detector
+
     @classmethod
     def from_pretrained(
         cls,

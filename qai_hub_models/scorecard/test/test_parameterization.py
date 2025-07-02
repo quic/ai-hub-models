@@ -78,7 +78,7 @@ def test_get_compile_precisions(monkeypatch):
     compile_precisions = [path[0] for path in compile_paths]
     assert set(compile_precisions) == {Precision.float, Precision.w8a8}
 
-    monkeypatch.setenv("QAIHM_TEST_PRECISIONS", "BENCH")
+    monkeypatch.setenv("QAIHM_TEST_PRECISIONS", "bench")
     compile_paths = get_compile_parameterized_pytest_config(
         "", {k: [] for k in [Precision.float, Precision.w8a8]}, {}
     )

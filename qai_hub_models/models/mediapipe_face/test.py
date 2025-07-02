@@ -30,7 +30,7 @@ def test_face_app() -> None:
     expected_output = load_image(
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
-    app = MediaPipeFaceApp(MediaPipeFace.from_pretrained())
+    app = MediaPipeFaceApp.from_pretrained(MediaPipeFace.from_pretrained())
     actual_output = app.predict_landmarks_from_image(input)[0]
     assert isinstance(actual_output, np.ndarray)
     assert np.allclose(actual_output, np.asarray(expected_output))

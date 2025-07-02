@@ -56,8 +56,15 @@ def capture_and_display_processed_frames(
         cv2.imshow(window_display_name, processed_frame[:, :, ::-1])
 
         has_frame, frame = capture.read()
+
+        # detect if user closes GUI window (https://stackoverflow.com/a/45564409)
+        gui_close = cv2.getWindowProperty(window_display_name, cv2.WND_PROP_VISIBLE) < 1
+
+        # or hits escape key
         key = cv2.waitKey(1)
-        if key == ESCAPE_KEY_ID:
+        escape_close = key == ESCAPE_KEY_ID
+
+        if escape_close or gui_close:
             break
 
     capture.release()

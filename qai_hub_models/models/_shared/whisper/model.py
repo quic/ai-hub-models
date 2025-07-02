@@ -140,10 +140,10 @@ class WhisperEncoderInf(BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
-        if precision == Precision.float and target_runtime in {
-            TargetRuntime.QNN,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
-        }:
+        if (
+            precision == Precision.float
+            and target_runtime.compilation_uses_qnn_converters
+        ):
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )
@@ -343,10 +343,10 @@ class WhisperDecoderInf(BaseModel):
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
-        if precision == Precision.float and target_runtime in {
-            TargetRuntime.QNN,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
-        }:
+        if (
+            precision == Precision.float
+            and target_runtime.compilation_uses_qnn_converters
+        ):
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )

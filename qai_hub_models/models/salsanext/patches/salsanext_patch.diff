@@ -1,0 +1,40 @@
+diff --git a/train/common/laserscan.py b/train/common/laserscan.py
+index e5c4312..5c1e99c 100644
+--- a/train/common/laserscan.py
++++ b/train/common/laserscan.py
+@@ -245,13 +245,13 @@ class SemLaserScan(LaserScan):
+         self.proj_sem_label = np.zeros((self.proj_H, self.proj_W),
+                                        dtype=np.int32)  # [H,W]  label
+         self.proj_sem_color = np.zeros((self.proj_H, self.proj_W, 3),
+-                                       dtype=np.float)  # [H,W,3] color
++                                       dtype=float)  # [H,W,3] color
+ 
+         # projection color with instance labels
+         self.proj_inst_label = np.zeros((self.proj_H, self.proj_W),
+                                         dtype=np.int32)  # [H,W]  label
+         self.proj_inst_color = np.zeros((self.proj_H, self.proj_W, 3),
+-                                        dtype=np.float)  # [H,W,3] color
++                                        dtype=float)  # [H,W,3] color
+ 
+     def open_label(self, filename):
+         """ Open raw scan and fill in attributes
+diff --git a/train/tasks/semantic/modules/SalsaNext.py b/train/tasks/semantic/modules/SalsaNext.py
+index 9b86970..9ee6431 100644
+--- a/train/tasks/semantic/modules/SalsaNext.py
++++ b/train/tasks/semantic/modules/SalsaNext.py
+@@ -2,7 +2,7 @@
+ # This file is covered by the LICENSE file in the root of this project.
+ import imp
+ 
+-import __init__ as booger
++#import __init__ as booger
+ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+@@ -211,4 +211,4 @@ class SalsaNext(nn.Module):
+ 
+         logits = logits
+         logits = F.softmax(logits, dim=1)
+-        return logits
+\ No newline at end of file
++        return logits

@@ -7,7 +7,11 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
+from qai_hub_models.models._shared.yolo.model import (
+    DEFAULT_YOLO_IMAGE_INPUT_HW,
+    Yolo,
+    yolo_detect_postprocess,
+)
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import (
     SourceAsRoot,
@@ -50,6 +54,8 @@ class YoloV8Detector(Yolo):
         ckpt_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
+        height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
+        width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
     ):
         with SourceAsRoot(
             SOURCE_REPO,
@@ -103,9 +109,8 @@ class YoloV8Detector(Yolo):
             assert isinstance(model.model, torch.nn.Module)
             detect_module = model.model._modules["22"]
             assert isinstance(detect_module, Detect)
-            _, _, h, w = cls.get_input_spec()["image"][0]
             make_anchors_input = [
-                torch.randn((1, 1, int(h // stride), int(w // stride)))
+                torch.randn((1, 1, int(height // stride), int(width // stride)))
                 for stride in detect_module.stride
             ]
             detect_module.anchors, detect_module.strides = (

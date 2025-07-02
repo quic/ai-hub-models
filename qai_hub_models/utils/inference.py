@@ -22,7 +22,6 @@ from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, VersionType
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, make_hub_dataset_entries
-from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 from qai_hub_models.utils.transpose_channel import (
     transpose_channel_last_to_first,
     transpose_channel_last_to_first_input_specs,
@@ -361,9 +360,7 @@ class AsyncOnDeviceModel:
 
     @property
     def target_runtime(self) -> TargetRuntime:
-        return (
-            TargetRuntime.QNN if is_qnn_hub_model(self.model) else TargetRuntime.TFLITE
-        )
+        return TargetRuntime.from_hub_model_type(self.model.model_type)
 
     def __call__(
         self,
@@ -413,16 +410,18 @@ class AsyncOnDeviceModel:
             raise ValueError(
                 "Unable to extract input shape from a model that was not compiled with AI Hub."
             )
-        if isinstance(self.model.producer, hub.QuantizeJob):
-            out = cast(InputSpec, self.model.producer.shapes)
-        elif isinstance(self.model.producer, hub.CompileJob):
-            out = cast(InputSpec, self.model.producer.target_shapes)
-        else:
-            raise NotImplementedError(
-                f"Can't extract shapes from producer job of type {self.model.producer.job_type}"
+        if self.model.producer._job_type == hub.JobType.QUANTIZE:
+            return cast(InputSpec, cast(hub.QuantizeJob, self.model.producer).shapes)
+        elif self.model.producer._job_type == hub.JobType.COMPILE:
+            out = cast(
+                InputSpec, cast(hub.CompileJob, self.model.producer).target_shapes
             )
-
-        return transpose_channel_last_to_first_input_specs(out, self.channel_last_input)
+            return transpose_channel_last_to_first_input_specs(
+                out, self.channel_last_input
+            )
+        raise NotImplementedError(
+            f"Can't extract shapes from producer job of type {self.model.producer.job_type}"
+        )
 
 
 class OnDeviceModel(ExecutableModelProtocol):

@@ -9,16 +9,15 @@ from importlib import reload
 
 import torch
 
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.models._shared.cityscapes_segmentation.model import (
+    CityscapesSegmentor,
+)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
     find_replace_in_repo,
-    load_image,
     load_torch,
 )
-from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
 
 SINET_SOURCE_REPOSITORY = "https://github.com/clovaai/ext_portrait_segmentation"
@@ -33,15 +32,8 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-class SINet(BaseModel):
+class SINet(CityscapesSegmentor):
     """Exportable SINet portrait segmentation application, end-to-end."""
-
-    def __init__(
-        self,
-        sinet_model: torch.nn.Module,
-    ) -> None:
-        super().__init__()
-        self.model = sinet_model
 
     @classmethod
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> SINet:
@@ -83,25 +75,12 @@ class SINet(BaseModel):
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
-    def get_output_names() -> list[str]:
-        return ["mask"]
+    def eval_datasets() -> list[str]:
+        return ["eg1800"]
 
     @staticmethod
-    def get_channel_last_inputs() -> list[str]:
-        return ["image"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["mask"]
-
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        image = load_image(INPUT_IMAGE_ADDRESS)
-        if input_spec is not None:
-            h, w = input_spec["image"][0][2:]
-            image = image.resize((w, h))
-        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
+    def calibration_dataset_name() -> str:
+        return "eg1800"
 
 
 def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):

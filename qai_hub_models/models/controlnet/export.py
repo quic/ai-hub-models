@@ -19,11 +19,79 @@ import qai_hub as hub
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.controlnet import Model
 from qai_hub_models.utils.args import export_parser, validate_precision_runtime
+from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
+
+
+def profile_model(
+    model_name: str,
+    hub_device: hub.Device,
+    components: list[str],
+    profile_options: dict[str, str],
+    target_runtime: TargetRuntime,
+    uploaded_models: dict[str, hub.Model],
+) -> dict[str, hub.client.ProfileJob]:
+    profile_jobs: dict[str, hub.client.ProfileJob] = {}
+    for component_name in components:
+        print(f"Profiling model {component_name} on a hosted device.")
+        submitted_profile_job = hub.submit_profile_job(
+            model=uploaded_models[component_name],
+            device=hub_device,
+            name=f"{model_name}_{component_name}",
+            options=profile_options.get(component_name, ""),
+        )
+        profile_jobs[component_name] = cast(
+            hub.client.ProfileJob, submitted_profile_job
+        )
+    return profile_jobs
+
+
+def inference_model(
+    model: CollectionModel,
+    model_name: str,
+    hub_device: hub.Device,
+    components: list[str],
+    profile_options: str,
+    target_runtime: TargetRuntime,
+    uploaded_models: dict[str, hub.Model],
+) -> dict[str, hub.client.InferenceJob]:
+    inference_jobs: dict[str, hub.client.InferenceJob] = {}
+    for component_name in components:
+        print(
+            f"Running inference for {component_name} on a hosted device with example inputs."
+        )
+        profile_options_all = model.components[component_name].get_hub_profile_options(
+            target_runtime, profile_options
+        )
+        sample_inputs = model.components[component_name].sample_inputs(
+            use_channel_last_format=target_runtime.channel_last_native_execution
+        )
+        submitted_inference_job = hub.submit_inference_job(
+            model=uploaded_models[component_name],
+            inputs=sample_inputs,
+            device=hub_device,
+            name=f"{model_name}_{component_name}",
+            options=profile_options_all,
+        )
+        inference_jobs[component_name] = cast(
+            hub.client.InferenceJob, submitted_inference_job
+        )
+    return inference_jobs
+
+
+def download_model(
+    output_path: Path,
+    compile_jobs: dict[str, hub.client.CompileJob],
+) -> None:
+    os.makedirs(output_path, exist_ok=True)
+    for component_name, compile_job in compile_jobs.items():
+        target_model = compile_job.get_target_model()
+        assert target_model is not None
+        target_model.download(str(output_path / component_name))
 
 
 def export_model(
@@ -100,7 +168,7 @@ def export_model(
             False,
             skip_summary,
             output_path,
-            TargetRuntime.QNN,
+            TargetRuntime.QNN_CONTEXT_BINARY,
             Precision.w8a16,
             "",
             profile_options,
@@ -108,8 +176,7 @@ def export_model(
             is_forced_static_asset_fetch=fetch_static_assets,
         )
 
-    target_runtime = TargetRuntime.QNN
-
+    target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
@@ -122,10 +189,10 @@ def export_model(
         print(f"The {component_name} model is saved here: {dst_path}")
 
     # 3. Upload model assets to hub
-    uploaded_models = {}
+    uploaded_models: dict[str, hub.Model] = {}
     if not skip_profiling or not skip_inferencing:
         print("Uploading model assets on hub")
-        path_for_uploaded_models = {}
+        path_for_uploaded_models: dict[str, hub.Model] = {}
         for component_name in components:
             path = model.components[component_name].get_target_model_path()
             if path not in path_for_uploaded_models:
@@ -135,20 +202,19 @@ def export_model(
     # 4. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
-        for component_name in components:
-            profile_options_all = model.components[
-                component_name
-            ].get_hub_profile_options(target_runtime, profile_options)
-            print(f"Profiling model {component_name} on a hosted device.")
-            submitted_profile_job = hub.submit_profile_job(
-                model=uploaded_models[component_name],
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            profile_jobs[component_name] = cast(
-                hub.client.ProfileJob, submitted_profile_job
-            )
+        profile_jobs = profile_model(
+            model_name,
+            hub_device,
+            components,
+            {
+                component_name: model.components[
+                    component_name
+                ].get_hub_profile_options(target_runtime, profile_options)
+                for component_name in components
+            },
+            target_runtime,
+            uploaded_models,
+        )
 
     # 5. Summarizes the results from profiling
     if not skip_summary and not skip_profiling:
@@ -170,7 +236,6 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a16: [
-            TargetRuntime.QNN,
             TargetRuntime.QNN_CONTEXT_BINARY,
         ],
     }

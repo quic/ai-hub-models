@@ -55,15 +55,7 @@ def fetch_huggingface_target_model(
 ) -> tuple[list[str], list[str]]:
     fs = HfFileSystem()
     hf_path = config.get_huggingface_path(model_name)
-
-    if runtime_path == TargetRuntime.TFLITE:
-        file_types = ["tflite"]
-    elif runtime_path == TargetRuntime.QNN:
-        file_types = ["so", "bin"]
-    elif runtime_path == TargetRuntime.ONNX:
-        file_types = ["onnx"]
-    else:
-        raise NotImplementedError()
+    file_types = [runtime_path.file_extension]
 
     files = []
     for component_name in model_components or [None]:  # type: ignore[list-item]

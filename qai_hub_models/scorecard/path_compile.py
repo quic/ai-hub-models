@@ -20,7 +20,7 @@ DEFAULT_QAIRT_VERSION_ENVVAR = "QAIHM_TEST_QAIRT_VERSION"
 @unique
 class ScorecardCompilePath(Enum):
     TFLITE = "tflite"
-    QNN = "qnn"
+    QNN_DLC = "qnn_dlc"
     QNN_CONTEXT_BINARY = "qnn_context_binary"
     ONNX = "onnx"
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
@@ -28,21 +28,6 @@ class ScorecardCompilePath(Enum):
 
     def __str__(self):
         return self.name.lower()
-
-    @property
-    def perf_yaml_name(self):
-        """
-        Returns the name used for this runtime in serialized perf.yaml files.
-        """
-        if self in [ScorecardCompilePath.QNN, ScorecardCompilePath.QNN_CONTEXT_BINARY]:
-            return "qnn"
-        elif self in [
-            ScorecardCompilePath.ONNX,
-            ScorecardCompilePath.PRECOMPILED_QNN_ONNX,
-            ScorecardCompilePath.ONNX_FP16,
-        ]:
-            return "onnx"
-        return self.value
 
     @property
     def enabled(self) -> bool:
@@ -104,14 +89,14 @@ class ScorecardCompilePath(Enum):
             return TargetRuntime.PRECOMPILED_QNN_ONNX
         if self == ScorecardCompilePath.QNN_CONTEXT_BINARY:
             return TargetRuntime.QNN_CONTEXT_BINARY
-        if self == ScorecardCompilePath.QNN:
-            return TargetRuntime.QNN
+        if self == ScorecardCompilePath.QNN_DLC:
+            return TargetRuntime.QNN_DLC
         assert_never(self)
 
     @property
     def is_universal(self) -> bool:
         """Whether a single asset produced by this path is applicable to any device."""
-        return not self.runtime.is_aot_compiled and self != ScorecardCompilePath.QNN
+        return not self.runtime.is_aot_compiled
 
     @cached_property
     def aot_equivalent(self) -> ScorecardCompilePath | None:
@@ -170,7 +155,7 @@ class ScorecardCompilePath(Enum):
         if include_target_runtime:
             out += self.runtime.get_target_runtime_flag(device)
 
-        if self.runtime in [TargetRuntime.QNN, TargetRuntime.QNN_CONTEXT_BINARY]:
+        if self.runtime == TargetRuntime.QNN_CONTEXT_BINARY:
             # Without this flag, graph names are random.
             # Scorecard job caching relies on models keeping the same md5 hash if they haven't changed.
             #
@@ -183,7 +168,10 @@ class ScorecardCompilePath(Enum):
 
         if self.runtime.qairt_version_changes_compilation:
             qairt_version = QAIRTVersion(
-                os.getenv(DEFAULT_QAIRT_VERSION_ENVVAR, QAIRTVersion.DEFAULT_TAG)
+                os.getenv(
+                    DEFAULT_QAIRT_VERSION_ENVVAR,
+                    QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION,
+                )
             )
             if qairt_version.is_default:
                 qairt_version = self.runtime.default_qairt_version

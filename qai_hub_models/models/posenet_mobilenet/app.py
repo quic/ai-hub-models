@@ -13,7 +13,6 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from qai_hub_models.models.posenet_mobilenet.model import OUTPUT_STRIDE
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
@@ -82,6 +81,7 @@ CONNECTED_PART_NAMES = [
 ]
 
 CONNECTED_PART_INDICES = [(PART_IDS[a], PART_IDS[b]) for a, b in CONNECTED_PART_NAMES]
+OUTPUT_STRIDE = 16
 
 
 def traverse_to_targ_keypoint(
@@ -555,7 +555,6 @@ class PosenetApp:
         tensor = transforms.ToTensor()(image)
         tensor = tensor.reshape(1, 3, self.input_height, self.input_width)
 
-        np.save("build/posenet_inputs", tensor.numpy())
         (
             heatmaps_result,
             offsets_result,

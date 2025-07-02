@@ -14,12 +14,10 @@ from typing import Any, Optional, TypeVar, Union
 import numpy as np
 import qai_hub as hub
 from prettytable import PrettyTable
-from qai_hub.client import SourceModelType
 from qai_hub.public_rest_api import DatasetEntries
 from tabulate import tabulate
 
 from qai_hub_models.configs.devices_and_chipsets_yaml import (
-    SCORECARD_DEVICE_YAML_PATH,
     DeviceDetailsYaml,
     DevicesAndChipsetsYaml,
     ScorecardDevice,
@@ -27,7 +25,6 @@ from qai_hub_models.configs.devices_and_chipsets_yaml import (
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
-from qai_hub_models.utils.qnn_helpers import is_qnn_hub_model
 
 _INFO_DASH = "-" * 60
 
@@ -111,15 +108,7 @@ def print_profile_metrics_from_job(
     print(f"Performance results on-device for {profile_job.name.title()}.")
     print(_INFO_DASH)
 
-    if profile_job.model.model_type == SourceModelType.TFLITE:
-        runtime = TargetRuntime.TFLITE
-    elif is_qnn_hub_model(profile_job.model):
-        runtime = TargetRuntime.QNN
-    elif profile_job.model.model_type == SourceModelType.ONNX:
-        runtime = TargetRuntime.ONNX
-    else:
-        raise NotImplementedError()
-
+    runtime = TargetRuntime.from_hub_model_type(profile_job.model.model_type)
     perf_details = QAIHMModelPerf.PerformanceDetails(
         job_id=profile_job.job_id,
         inference_time_milliseconds=execution_summary["estimated_inference_time"]
@@ -148,9 +137,7 @@ def get_profile_metrics(
 ) -> str:
     if not can_access_qualcomm_ai_hub:
         device_name = device_name.removesuffix(" (Family)")
-        device_info = DevicesAndChipsetsYaml.from_yaml(
-            SCORECARD_DEVICE_YAML_PATH
-        ).devices[device_name]
+        device_info = DevicesAndChipsetsYaml.load().devices[device_name]
     else:
         device_info = DeviceDetailsYaml.from_device(
             ScorecardDevice.get(device_name, return_unregistered=True)

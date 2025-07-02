@@ -65,9 +65,7 @@ def main(is_test: bool = False):
     print("Use Ctrl+C in your terminal to exit.")
 
     # Load app
-    app = MediaPipePoseApp(
-        MediaPipePose.from_pretrained(), args.score_threshold, args.iou_threshold
-    )
+    app = MediaPipePoseApp.from_pretrained(MediaPipePose.from_pretrained())
     print("Model and App Loaded")
 
     if args.image:

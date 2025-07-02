@@ -10,12 +10,14 @@ from typing import Any, Optional
 import qai_hub as hub
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
+from typing_extensions import assert_never
 
-from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
+_FRAMEWORK_ATTR_PREFIX = "framework"
 _DEVICE_CACHE: dict[str, hub.Device] = {}
 UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
@@ -241,9 +243,9 @@ class ScorecardDevice:
         Whether the scorecard should include this scorecard device.
         This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
         """
-        valid_test_devices = os.environ.get("QAIHM_TEST_DEVICES", "ALL")
+        valid_test_devices = os.environ.get("QAIHM_TEST_DEVICES", "all").lower()
         return self.name in ScorecardDevice._registry and (
-            valid_test_devices == "ALL"
+            valid_test_devices == "all"
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
             or self.name in valid_test_devices.split(",")
         )
@@ -412,70 +414,51 @@ class ScorecardDevice:
 
         runtimes = []
         for attr in self.reference_device.attributes:
-            if attr.startswith("framework:"):
-                rt_name = attr[10:].upper()
-                try:
-                    runtimes.append(TargetRuntime[rt_name])
-                except KeyError:
-                    print(
-                        f"WARNING: Unable to determine supported runtime associated with framework {rt_name}"
-                    )
-
-        # The previous code will have added all supported JIT runtimes to "runtimes"
-        # If a JIT runtime is supported, the associated AOT runtime is also supported.
-        if TargetRuntime.QNN in runtimes:
-            runtimes.append(TargetRuntime.QNN_CONTEXT_BINARY)
-            if TargetRuntime.ONNX in runtimes:
-                runtimes.append(TargetRuntime.PRECOMPILED_QNN_ONNX)
+            if attr.startswith(_FRAMEWORK_ATTR_PREFIX):
+                fw_name = attr[len(_FRAMEWORK_ATTR_PREFIX) + 1 :].lower()
+                runtimes.extend(
+                    [x for x in TargetRuntime if x.inference_engine.value == fw_name]
+                )
 
         return runtimes
 
     @cached_property
     def profile_paths(self) -> list[ScorecardProfilePath]:
-        """All profile paths supported by this device."""
+        """
+        All profile paths supported by this device.
+
+        Note that we exclude some paths that are "supported" by Hub devices
+        because we don't want to test them in scorecard. For example, we don't
+        run ONNX on auto devices even though this is supported by AI Hub.
+        """
         if self.mirror_device:
             return self.mirror_device.profile_paths
 
         if self._profile_paths is not None:
             return self._profile_paths
 
-        paths: list[ScorecardProfilePath]
-        if self.form_factor in [
-            ScorecardDevice.FormFactor.PHONE,
-            ScorecardDevice.FormFactor.TABLET,
-        ]:
-            paths = [
-                ScorecardProfilePath.ONNX,
-                ScorecardProfilePath.QNN,
-                ScorecardProfilePath.TFLITE,
-            ]
-        elif self.form_factor == ScorecardDevice.FormFactor.AUTO:
-            paths = [ScorecardProfilePath.QNN, ScorecardProfilePath.TFLITE]
-        elif self.form_factor == ScorecardDevice.FormFactor.XR:
-            paths = [ScorecardProfilePath.QNN, ScorecardProfilePath.TFLITE]
+        inference_engines_to_test: list[InferenceEngine] = []
+        if (
+            self.form_factor == ScorecardDevice.FormFactor.PHONE
+            or self.form_factor == ScorecardDevice.FormFactor.TABLET
+        ):
+            inference_engines_to_test = [i for i in InferenceEngine]
+        elif (
+            self.form_factor == ScorecardDevice.FormFactor.AUTO
+            or self.form_factor == ScorecardDevice.FormFactor.IOT
+            or self.form_factor == ScorecardDevice.FormFactor.XR
+        ):
+            inference_engines_to_test = [InferenceEngine.QNN, InferenceEngine.TFLITE]
         elif self.form_factor == ScorecardDevice.FormFactor.COMPUTE:
-            paths = [
-                ScorecardProfilePath.ONNX,
-                ScorecardProfilePath.ONNX_DML_GPU,
-                ScorecardProfilePath.QNN,
-            ]
-        elif self.form_factor == ScorecardDevice.FormFactor.IOT:
-            paths = [ScorecardProfilePath.TFLITE, ScorecardProfilePath.QNN]
+            inference_engines_to_test = [InferenceEngine.QNN, InferenceEngine.ONNX]
         else:
-            raise NotImplementedError(
-                f"Unsupported device form factor: {self.form_factor}"
-            )
-
-        # The previous code will have added all supported JIT paths to "paths"
-        # If a JIT path is supported, the associated AOT path is also supported.
-        paths_with_aot: list[ScorecardProfilePath] = []
-        for path in paths:
-            paths_with_aot.append(path)
-            if path.aot_equivalent is not None:
-                paths_with_aot.append(path.aot_equivalent)
+            assert_never(self.form_factor)
 
         return [
-            path for path in paths_with_aot if path.runtime in self.supported_runtimes
+            path
+            for path in ScorecardProfilePath
+            if path.runtime in self.supported_runtimes
+            and path.runtime.inference_engine in inference_engines_to_test
         ]
 
     @cached_property

@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import cast
+from typing import Callable, cast
 
 import torch
 
@@ -17,12 +17,13 @@ from qai_hub_models.models.mediapipe_pose.model import (
     POSE_KEYPOINT_INDEX_START,
     POSE_LANDMARK_CONNECTIONS,
     ROTATION_VECTOR_OFFSET_RADS,
-    MediaPipePose,
 )
+from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.bounding_box_processing import (
     compute_box_corners_with_rotation,
 )
 from qai_hub_models.utils.image_processing import compute_vector_rotation
+from qai_hub_models.utils.input_spec import InputSpec
 
 
 class MediaPipePoseApp(MediaPipeApp):
@@ -38,7 +39,13 @@ class MediaPipePoseApp(MediaPipeApp):
 
     def __init__(
         self,
-        model: MediaPipePose,
+        pose_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
+        pose_landmark_detector: Callable[
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor]
+        ],
+        anchors: torch.Tensor,
+        pose_detector_input_spec: InputSpec,
+        landmark_detector_input_spec: InputSpec,
         min_detector_pose_box_score: float = 0.75,
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
@@ -53,18 +60,16 @@ class MediaPipePoseApp(MediaPipeApp):
             See parent initializer for further parameter documentation.
         """
         super().__init__(
-            model.components["PoseDetector"],  # type: ignore
-            model.components["PoseDetector"].anchors,  # type: ignore
-            model.components["PoseLandmarkDetector"],  # type: ignore
+            pose_detector,
+            anchors,
+            pose_landmark_detector,
             cast(
                 tuple[int, int],
-                model.components["PoseDetector"].get_input_spec()["image"][0][-2:],  # type: ignore
+                pose_detector_input_spec["image"][0][-2:],
             ),
             cast(
                 tuple[int, int],
-                model.components["PoseLandmarkDetector"].get_input_spec()["image"][0][  # type: ignore
-                    -2:
-                ],
+                landmark_detector_input_spec["image"][0][-2:],
             ),
             POSE_KEYPOINT_INDEX_START,
             POSE_KEYPOINT_INDEX_END,
@@ -80,19 +85,19 @@ class MediaPipePoseApp(MediaPipeApp):
 
     def _compute_object_roi(
         self,
-        batched_selected_boxes: list[torch.Tensor | None],
-        batched_selected_keypoints: list[torch.Tensor | None],
-    ) -> list[torch.Tensor | None]:
+        batched_selected_boxes: list[torch.Tensor],
+        batched_selected_keypoints: list[torch.Tensor],
+    ) -> list[torch.Tensor]:
         """
         See parent function for base functionality and parameter documentation.
 
         The MediaPipe pose pipeline computes the ROI not from the detector bounding box,
         but from specific detected keypoints. This override implements that behavior.
         """
-        batched_selected_roi: list[torch.Tensor | None] = []
+        batched_selected_roi: list[torch.Tensor] = []
         for boxes, keypoints in zip(batched_selected_boxes, batched_selected_keypoints):
-            if boxes is None or keypoints is None:
-                batched_selected_roi.append(None)
+            if boxes.nelement() == 0 or keypoints.nelement() == 0:
+                batched_selected_roi.append(torch.Tensor())
                 continue
 
             # Compute bounding box center and rotation
@@ -116,3 +121,16 @@ class MediaPipePoseApp(MediaPipeApp):
             )
 
         return batched_selected_roi
+
+    @classmethod
+    def from_pretrained(cls, model: CollectionModel) -> MediaPipePoseApp:
+        from qai_hub_models.models.mediapipe_pose.model import MediaPipePose
+
+        assert isinstance(model, MediaPipePose)
+        return cls(
+            model.pose_detector,
+            model.pose_landmark_detector,
+            model.pose_detector.anchors,
+            model.pose_detector.get_input_spec(),
+            model.pose_landmark_detector.get_input_spec(),
+        )

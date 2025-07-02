@@ -30,7 +30,7 @@ from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.protocols import PretrainedHubModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_dir
-from qai_hub_models.utils.base_model import Precision, TargetRuntime
+from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
@@ -70,7 +70,6 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime,
         input_spec: InputSpec | None = None,
         num_samples: int | None = None,
     ) -> DatasetEntries | None:
@@ -154,9 +153,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         must be implemented.
         """
         if data is None:
-            calib_data = self.get_calibration_data(
-                target_runtime=TargetRuntime.PRECOMPILED_QNN_ONNX
-            )
+            calib_data = self.get_calibration_data()
             if calib_data is None:
                 raise ValueError(
                     "`data` must be specified if "
@@ -175,7 +172,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        data = self.get_calibration_data(target_runtime=TargetRuntime.QNN)
+        data = self.get_calibration_data()
         if data is None:
             # Fallback to BaseModel's impl
             data = super()._sample_inputs_impl(input_spec)  # type: ignore

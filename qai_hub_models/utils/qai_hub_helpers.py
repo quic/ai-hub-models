@@ -110,9 +110,7 @@ def export_without_hub_access(
 
                 runtime_perf = None
                 for path, path_runtime_perf in device_perf.items():
-                    # TODO(#14896): Remove this hack when the website supports more runtime names
-                    # We only use the JIT runtime names in perf yaml for now.
-                    if path.runtime == target_runtime.jit_equivalent:
+                    if path.runtime == target_runtime:
                         runtime_perf = path_runtime_perf
                         break
 

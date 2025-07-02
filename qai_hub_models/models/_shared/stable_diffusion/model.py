@@ -473,6 +473,10 @@ def make_scheduler(
         cfg = json.load(f)
 
     cls_name = cfg.pop("_class_name")
+    # Replace PNDMScheduler with EulerDiscreteScheduler for more creative /
+    # faster generation
+    if cls_name == "PNDMScheduler":
+        cls_name = "EulerDiscreteScheduler"
     scheduler_cls = getattr(diffusers, cls_name)
     return scheduler_cls.from_config(cfg)
 

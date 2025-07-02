@@ -22,7 +22,7 @@ from qai_hub_models.utils.args import (
     get_model_kwargs,
     validate_precision_runtime,
 )
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
@@ -32,6 +32,109 @@ from qai_hub_models.utils.qai_hub_helpers import (
     can_access_qualcomm_ai_hub,
     export_without_hub_access,
 )
+
+
+def compile_model(
+    model: CollectionModel,
+    model_name: str,
+    hub_device: hub.Device,
+    components: list[str],
+    compile_options: str,
+    target_runtime: TargetRuntime,
+    output_path: Path,
+) -> dict[str, hub.client.CompileJob]:
+    compile_jobs: dict[str, hub.client.CompileJob] = {}
+    for component_name in components:
+        component = model.components[component_name]
+        assert isinstance(component, BaseModel)
+        input_spec = component.get_input_spec()
+        # Trace the model
+        source_model = component.convert_to_hub_source_model(
+            target_runtime, output_path, input_spec
+        )
+
+        model_compile_options = component.get_hub_compile_options(
+            target_runtime, Precision.w8a16, compile_options, hub_device
+        )
+        print(f"Optimizing model {component_name} to run on-device")
+        submitted_compile_job = hub.submit_compile_job(
+            model=source_model,
+            input_specs=input_spec,
+            device=hub_device,
+            name=f"{model_name}_{component_name}",
+            options=model_compile_options,
+        )
+        compile_jobs[component_name] = cast(
+            hub.client.CompileJob, submitted_compile_job
+        )
+    return compile_jobs
+
+
+def profile_model(
+    model_name: str,
+    hub_device: hub.Device,
+    components: list[str],
+    profile_options: dict[str, str],
+    target_runtime: TargetRuntime,
+    compile_jobs: dict[str, hub.client.CompileJob],
+) -> dict[str, hub.client.ProfileJob]:
+    profile_jobs: dict[str, hub.client.ProfileJob] = {}
+    for component_name in components:
+        print(f"Profiling model {component_name} on a hosted device.")
+        submitted_profile_job = hub.submit_profile_job(
+            model=compile_jobs[component_name].get_target_model(),
+            device=hub_device,
+            name=f"{model_name}_{component_name}",
+            options=profile_options.get(component_name, ""),
+        )
+        profile_jobs[component_name] = cast(
+            hub.client.ProfileJob, submitted_profile_job
+        )
+    return profile_jobs
+
+
+def inference_model(
+    model: CollectionModel,
+    model_name: str,
+    hub_device: hub.Device,
+    components: list[str],
+    profile_options: str,
+    target_runtime: TargetRuntime,
+    compile_jobs: dict[str, hub.client.CompileJob],
+) -> dict[str, hub.client.InferenceJob]:
+    inference_jobs: dict[str, hub.client.InferenceJob] = {}
+    for component_name in components:
+        print(
+            f"Running inference for {component_name} on a hosted device with example inputs."
+        )
+        profile_options_all = model.components[component_name].get_hub_profile_options(
+            target_runtime, profile_options
+        )
+        sample_inputs = model.components[component_name].sample_inputs(
+            use_channel_last_format=target_runtime.channel_last_native_execution
+        )
+        submitted_inference_job = hub.submit_inference_job(
+            model=compile_jobs[component_name].get_target_model(),
+            inputs=sample_inputs,
+            device=hub_device,
+            name=f"{model_name}_{component_name}",
+            options=profile_options_all,
+        )
+        inference_jobs[component_name] = cast(
+            hub.client.InferenceJob, submitted_inference_job
+        )
+    return inference_jobs
+
+
+def download_model(
+    output_path: Path,
+    compile_jobs: dict[str, hub.client.CompileJob],
+) -> None:
+    os.makedirs(output_path, exist_ok=True)
+    for component_name, compile_job in compile_jobs.items():
+        target_model = compile_job.get_target_model()
+        assert target_model is not None
+        target_model.download(str(output_path / component_name))
 
 
 def export_model(
@@ -127,88 +230,55 @@ def export_model(
             is_forced_static_asset_fetch=fetch_static_assets,
         )
 
-    # On-device perf improves with I/O in channel_last format for runtimes
-    # that execute natively in channel_last format.
-    use_channel_last_format = target_runtime.channel_last_native_execution
-
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
-    model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
+    model = Model.from_pretrained(
+        **get_model_kwargs(Model, dict(**additional_model_kwargs, precision=precision))
+    )
 
     # 2. Compiles the model to an asset that can be run on device
-    compile_jobs: dict[str, hub.client.CompileJob] = {}
-    for component_name in components:
-        component = model.components[component_name]
-        assert isinstance(component, BaseModel)
-        input_spec = component.get_input_spec()
-        # Trace the model
-        source_model = component.convert_to_hub_source_model(
-            target_runtime, output_path, input_spec
-        )
-
-        model_compile_options = component.get_hub_compile_options(
-            target_runtime, Precision.w8a16, compile_options, hub_device
-        )
-        print(f"Optimizing model {component_name} to run on-device")
-        submitted_compile_job = hub.submit_compile_job(
-            model=source_model,
-            input_specs=input_spec,
-            device=hub_device,
-            name=f"{model_name}_{component_name}",
-            options=model_compile_options,
-        )
-        compile_jobs[component_name] = cast(
-            hub.client.CompileJob, submitted_compile_job
-        )
+    compile_jobs = compile_model(
+        model,
+        model_name,
+        hub_device,
+        components,
+        compile_options,
+        target_runtime,
+        output_path,
+    )
 
     # 3. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
-        for component_name in components:
-            profile_options_all = model.components[
-                component_name
-            ].get_hub_profile_options(target_runtime, profile_options)
-            print(f"Profiling model {component_name} on a hosted device.")
-            submitted_profile_job = hub.submit_profile_job(
-                model=compile_jobs[component_name].get_target_model(),
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            profile_jobs[component_name] = cast(
-                hub.client.ProfileJob, submitted_profile_job
-            )
+        profile_jobs = profile_model(
+            model_name,
+            hub_device,
+            components,
+            {
+                component_name: model.components[
+                    component_name
+                ].get_hub_profile_options(target_runtime, profile_options)
+                for component_name in components
+            },
+            target_runtime,
+            compile_jobs,
+        )
 
     # 4. Inferences the model on sample inputs
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
     if not skip_inferencing:
-        for component_name in components:
-            print(
-                f"Running inference for {component_name} on a hosted device with example inputs."
-            )
-            profile_options_all = model.components[
-                component_name
-            ].get_hub_profile_options(target_runtime, profile_options)
-            sample_inputs = model.components[component_name].sample_inputs(
-                use_channel_last_format=use_channel_last_format
-            )
-            submitted_inference_job = hub.submit_inference_job(
-                model=compile_jobs[component_name].get_target_model(),
-                inputs=sample_inputs,
-                device=hub_device,
-                name=f"{model_name}_{component_name}",
-                options=profile_options_all,
-            )
-            inference_jobs[component_name] = cast(
-                hub.client.InferenceJob, submitted_inference_job
-            )
+        inference_jobs = inference_model(
+            model,
+            model_name,
+            hub_device,
+            components,
+            profile_options,
+            target_runtime,
+            compile_jobs,
+        )
 
     # 5. Downloads the model asset to the local directory
     if not skip_downloading:
-        os.makedirs(output_path, exist_ok=True)
-        for component_name, compile_job in compile_jobs.items():
-            target_model = compile_job.get_target_model()
-            assert target_model is not None
-            target_model.download(str(output_path / component_name))
+        download_model(output_path, compile_jobs)
 
     # 6. Summarizes the results from profiling and inference
     if not skip_summary and not skip_profiling:
@@ -227,7 +297,7 @@ def export_model(
             torch_out = torch_inference(
                 component,
                 sample_inputs,
-                return_channel_last_output=use_channel_last_format,
+                return_channel_last_output=target_runtime.channel_last_native_execution,
             )
             assert inference_job.wait().success, "Job failed: " + inference_job.url
             inference_result = inference_job.download_output_data()

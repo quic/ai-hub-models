@@ -65,11 +65,7 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
         args.image = INPUT_IMAGE_ADDRESS
 
     # Load app
-    app = MediaPipeFaceApp(
-        model_cls.from_pretrained(),
-        args.score_threshold,
-        args.iou_threshold,
-    )
+    app = MediaPipeFaceApp.from_pretrained(model_cls.from_pretrained())
     print("Model and App Loaded")
 
     if args.image:

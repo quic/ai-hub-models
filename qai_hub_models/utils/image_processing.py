@@ -110,9 +110,18 @@ def numpy_image_to_torch(image: np.ndarray, to_float: bool = True) -> torch.Tens
 
     if len(image.shape) == 3:
         image_torch = image_torch.unsqueeze(0)
+    image_torch = image_torch.permute(0, 3, 1, 2)
     if to_float:
-        return image_torch.permute(0, 3, 1, 2).float() / 255.0
-    return image_torch.permute(0, 3, 1, 2)
+        return image_torch.float() / 255.0
+    return image_torch
+
+
+def torch_image_to_numpy(image: torch.Tensor, to_int: bool = True) -> np.ndarray:
+    """Convert a pyTorch tensor (shape NCHW) with range [0, 1] to a Numpy image (dtype uint8, shape [N H W C])."""
+    assert len(image.shape) == 4
+    if to_int:
+        image = (image * 255.0).byte()
+    return image.permute(0, 2, 3, 1).numpy().squeeze(0)
 
 
 def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:

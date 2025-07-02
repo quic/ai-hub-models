@@ -2,9 +2,13 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 import importlib
+import inspect
 from typing import cast
+
+from qai_hub_models.utils.input_spec import InputSpec
 
 from .common import BaseDataset, DatasetSplit
 
@@ -87,16 +91,26 @@ _try_import_dataset(".cocobody_513x257", "CocoBody513x257Dataset")
 _try_import_dataset(".coco_face_480x640", "CocoFace_480x640Dataset")
 _try_import_dataset(".carvana", "CarvanaDataset")
 _try_import_dataset(".camouflage_dataset", "CamouflageDataset")
+_try_import_dataset(".eg1800", "eg1800SegmentationDataset")
 _try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetTextEncoder")
 _try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetUnet")
 _try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetVae")
 _try_import_dataset(".celebahq", "CelebAHQDataset")
 
 
-def get_dataset_from_name(name: str, split: DatasetSplit, **kwargs) -> BaseDataset:
+def get_dataset_from_name(
+    name: str, split: DatasetSplit, input_spec: InputSpec | None = None, **kwargs
+) -> BaseDataset:
     dataset_cls = DATASET_NAME_MAP.get(name, None)
     if not dataset_cls:
         if name in _ALL_DATASETS_IMPORT_ERRORS:
             raise _ALL_DATASETS_IMPORT_ERRORS[name]
         raise ValueError(f"Unable to find dataset with name {name}")
+
+    # Some datasets can be configured to different input specs
+    if (
+        input_spec is not None
+        and "input_spec" in inspect.signature(dataset_cls.__init__).parameters
+    ):
+        kwargs["input_spec"] = input_spec
     return dataset_cls(split=split, **kwargs)  # type: ignore[call-arg]

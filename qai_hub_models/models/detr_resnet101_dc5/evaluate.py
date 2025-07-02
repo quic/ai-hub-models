@@ -28,7 +28,7 @@ def main():
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.QNN,
+            TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,

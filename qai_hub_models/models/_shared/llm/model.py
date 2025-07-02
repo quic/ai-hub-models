@@ -499,10 +499,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         other_compile_options: str = "",
         device: Device | None = None,
     ) -> str:
-        if (
-            target_runtime != TargetRuntime.QNN_CONTEXT_BINARY
-            and target_runtime != TargetRuntime.QNN
-            and target_runtime != TargetRuntime.PRECOMPILED_QNN_ONNX
+        if not (
+            target_runtime.is_aot_compiled
+            and target_runtime.compilation_uses_qnn_converters
         ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."

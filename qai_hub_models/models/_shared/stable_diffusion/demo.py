@@ -35,7 +35,7 @@ def stable_diffusion_demo(
         parser=parser,
         supported_eval_modes=[EvalMode.QUANTSIM, EvalMode.FP, EvalMode.ON_DEVICE],
         supported_precisions={Precision.w8a16},
-        available_target_runtimes=[TargetRuntime.QNN],
+        available_target_runtimes=[TargetRuntime.QNN_CONTEXT_BINARY],
         default_device="Snapdragon X Elite CRD",
         add_output_dir=True,
     )

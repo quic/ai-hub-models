@@ -271,10 +271,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
             # If a model is not running in scorecard and is public,
             # there must be a perf yaml
-            if (
-                self.code_gen_config.skip_hub_tests_and_scorecard
-                and not os.path.exists(self.get_package_path() / "perf.yaml")
-            ):
+            if not os.path.exists(self.get_package_path() / "perf.yaml"):
                 raise ValueError("All public models must have a perf.yaml")
 
             if not self.code_gen_config.supports_at_least_1_runtime:
@@ -373,7 +370,12 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Get the metadata for huggingface model cards.
         hf_metadata: dict[str, Union[str, list[str]]] = dict()
         hf_metadata["library_name"] = "pytorch"
-        hf_metadata["license"] = self.license_type.huggingface_name
+        # All HF models are tagged with "OTHER" because they use the AI Hub Models license.
+        hf_metadata["license"] = (
+            self.license_type.huggingface_name
+            if self.license_type.is_copyleft
+            else "other"
+        )
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata

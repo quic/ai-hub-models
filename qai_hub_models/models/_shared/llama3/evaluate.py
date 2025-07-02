@@ -117,7 +117,9 @@ def llama3_evaluate(
     quantized_model_cls: type[BaseModel],
     fp_model_cls: type[BaseModel],
 ):
-    parser = get_model_cli_parser(quantized_model_cls)
+    parser = get_model_cli_parser(
+        quantized_model_cls, suppress_help_arguments=["--host-device", "--fp-model"]
+    )
     parser.add_argument(
         "--task",
         type=str,

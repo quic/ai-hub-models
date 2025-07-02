@@ -85,18 +85,13 @@ class LiteHRNetApp:
         # In older versions of the MM modules the center is directly a member
         # of gt_instances and does not need to be computed.
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]
-        center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-
+        input_size = proc_inputs["data_samples"][0].metainfo["input_size"]
         scale = proc_inputs["data_samples"][0].gt_instances.bbox_scales[0]
 
         # perform refinement
-        keypoints = refine_keypoints(
-            predictions.unsqueeze(0).detach().numpy(), heatmaps.detach().numpy()
+        keypoints = refine_and_transform_keypoints(
+            predictions, heatmaps, bbox, scale, input_size
         )
-        scale_factor = np.array([4.0, 4.0])
-        keypoints = keypoints * scale_factor
-        input_size = proc_inputs["data_samples"][0].metainfo["input_size"]
-        keypoints = keypoints / input_size * scale + center - 0.5 * scale
         keypoints = np.round(keypoints).astype(np.int32)
 
         if raw_output:
@@ -107,3 +102,41 @@ class LiteHRNetApp:
             draw_points(img, keypoints[i], color=(255, 0, 0), size=6)
             predicted_images.append(fromarray(img))
         return predicted_images
+
+
+def refine_and_transform_keypoints(
+    predictions: torch.Tensor,
+    heatmaps: torch.Tensor,
+    bbox: torch.Tensor,
+    scale: torch.Tensor,
+    input_size=(192, 256),
+) -> np.ndarray:
+    """
+    keypoint refinement and coordinate transformation
+
+    Args:
+        keypoints: Raw keypoints [batch, 17, 2]
+        heatmaps: Heatmaps [batch, 17, 64, 48]
+        bboxes: Bounding boxes [batch, 4] in (x1,y1,x2,y2)
+        scales: Scale factors [batch, 2]
+        input_size: Model input size (width, height)
+        scale_factor: Output stride scaling factor
+
+    Returns:
+        refined_keypoints [batch, 17, 2]
+    """
+    predictions = (
+        predictions.numpy() if isinstance(predictions, torch.Tensor) else predictions
+    )
+    heatmaps = heatmaps.numpy() if isinstance(heatmaps, torch.Tensor) else heatmaps
+    bbox = bbox.numpy() if isinstance(bbox, torch.Tensor) else bbox
+    scale = scale.numpy() if isinstance(scale, torch.Tensor) else scale
+
+    input_size = np.array(input_size)
+
+    keypoints = refine_keypoints(predictions, heatmaps.squeeze(0))
+    scale_factor = np.array([4.0, 4.0])
+    keypoints = keypoints * scale_factor
+    center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
+    keypoints = keypoints / input_size * scale + center - 0.5 * scale
+    return keypoints

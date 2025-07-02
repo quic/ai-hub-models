@@ -119,7 +119,7 @@ def update_code_gen_failure_reasons(
     # Add new failure reasons
     for precision in supported_precisions:
         for path in export_paths:
-            if not path.compile_path.supports_precision(precision):
+            if not path.supports_precision(precision):
                 path_failure_reason = (
                     f"{path.runtime} does not support {str(precision)}"
                 )

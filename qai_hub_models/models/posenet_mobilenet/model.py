@@ -11,7 +11,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
+from qai_hub_models.evaluators.posenet_mobilenet_evaluator import (
+    PosenetMobilenetEvaluator,
+)
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -103,7 +105,7 @@ class PosenetMobilenet(BaseModel):
         return ["image"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        return CocoBodyPoseEvaluator()
+        return PosenetMobilenetEvaluator(*self.get_input_spec()["image"][0][2:])
 
     @staticmethod
     def eval_datasets() -> list[str]:

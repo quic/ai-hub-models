@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Union
+from __future__ import annotations
 
 import cv2
 import numpy as np
@@ -12,6 +12,7 @@ from PIL import Image
 from qai_hub_models.datasets.coco import CocoDataset, CocoDatasetClass
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.input_spec import InputSpec
 
 
 class CocoSegDataset(CocoDataset):
@@ -25,15 +26,15 @@ class CocoSegDataset(CocoDataset):
 
     def __init__(
         self,
-        target_image_size: Union[int, tuple[int, int]] = 640,
         split: DatasetSplit = DatasetSplit.TRAIN,
+        input_spec: InputSpec | None = None,
         max_boxes: int = 100,
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
         label_types: list[str] = ["segmentations"],
     ):
         super().__init__(
-            target_image_size, split, max_boxes, num_samples, num_classes, label_types
+            split, input_spec, max_boxes, num_samples, num_classes, label_types
         )
 
     def __getitem__(self, item):

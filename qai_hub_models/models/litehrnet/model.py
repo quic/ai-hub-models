@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.litehrnet_evaluator import LiteHRNetPoseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
@@ -74,18 +76,20 @@ class LiteHRNet(BaseModel):
         # Model prediction
         heatmaps = self.model._forward(x)
 
-        # Convert from heatmap to keypoints and scores
-        # heatmap is 1 x 17 x 64 x 48, BxKxHxW
-        heatmaps = torch.squeeze(heatmaps)
-        heatmaps_flatten = heatmaps.flatten(1)
-        indices = torch.argmax(heatmaps_flatten, dim=1)
-        # get the (x,y) coords of the maxes in the original heatmap shape - (H, W)
+        batch_size = heatmaps.shape[0]
+        num_keypoints = heatmaps.shape[1]
+
+        # Reshape heatmaps to [B, K, H*W]
+        heatmaps_flatten = heatmaps.view(batch_size, num_keypoints, -1)
+
+        # Get max indices and values for each keypoint in each image
+        scores, indices = torch.max(heatmaps_flatten, dim=2)
+
+        # Convert flat indices to (x,y) coordinates
         y_locs = (indices // self.H).type(torch.float32)
         x_locs = (indices % self.H).type(torch.float32)
 
-        # get the max scores and corresponding keypoints
-        scores, _ = torch.max(heatmaps_flatten, dim=1)
-        keypoints = torch.stack((x_locs, y_locs), dim=-1)
+        keypoints = torch.stack((x_locs, y_locs), dim=-1)  # [B, K, 2]
 
         return keypoints, scores, heatmaps
 
@@ -109,3 +113,14 @@ class LiteHRNet(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["keypoints", "scores", "heatmaps"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return LiteHRNetPoseEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cocowholebody"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cocowholebody"

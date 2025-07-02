@@ -23,6 +23,9 @@ from qai_hub_models.scorecard import (
 JobTypeVar = TypeVar(
     "JobTypeVar", hub.ProfileJob, hub.InferenceJob, hub.CompileJob, hub.QuantizeJob
 )
+ScorecardPathTypeVar = TypeVar(
+    "ScorecardPathTypeVar", ScorecardCompilePath, ScorecardProfilePath
+)
 ScorecardPathOrNoneTypeVar = TypeVar(
     "ScorecardPathOrNoneTypeVar", ScorecardCompilePath, ScorecardProfilePath, None
 )
@@ -192,6 +195,18 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
         return float(
             self.profile_results["execution_summary"]["estimated_inference_time"] / 1000
         )
+
+    @cached_property
+    def first_load_time_milliseconds(self) -> float:
+        """Get the first load time from the profile job."""
+        return float(
+            self.profile_results["execution_summary"]["first_load_time"] / 1000
+        )
+
+    @cached_property
+    def warm_load_time_milliseconds(self) -> float:
+        """Get the warm load time from the profile job."""
+        return float(self.profile_results["execution_summary"]["warm_load_time"] / 1000)
 
     @cached_property
     def layer_counts(self) -> QAIHMModelPerf.PerformanceDetails.LayerCounts:

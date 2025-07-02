@@ -29,7 +29,7 @@ def llama_chat_demo(
     hf_repo_url: str,
     default_prompt: str,
     is_test: bool = False,
-    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN],
+    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
     bundled_kvcache: bool = True,
 ):
     """

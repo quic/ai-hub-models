@@ -32,10 +32,10 @@ def test_pose_app() -> None:
     expected_output = load_image(
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
-    app = MediaPipePoseApp(MediaPipePose.from_pretrained())
+    app = MediaPipePoseApp.from_pretrained(MediaPipePose.from_pretrained())
     actual_output = app.predict_landmarks_from_image(input)[0]
     assert isinstance(actual_output, np.ndarray)
-    assert np.allclose(actual_output, np.asarray(expected_output))
+    np.testing.assert_allclose(actual_output, np.asarray(expected_output))
 
 
 @skip_clone_repo_check

@@ -66,6 +66,8 @@ class ResultsSpreadsheet(list):
         profile_status: str
         profile_url: str | None
         inference_time: float | None
+        first_load_time: float | None
+        warm_load_time: float | None
         NPU: int | None
         GPU: int | None
         CPU: int | None
@@ -293,12 +295,16 @@ class ResultsSpreadsheet(list):
 
                 # Profile job results
                 if profile_job.success:
-                    inference_time = float(profile_job.inference_time_milliseconds)
+                    inference_time = profile_job.inference_time_milliseconds
+                    first_load_time = profile_job.first_load_time_milliseconds
+                    warm_load_time = profile_job.warm_load_time_milliseconds
                     NPU = profile_job.layer_counts.npu
                     GPU = profile_job.layer_counts.gpu
                     CPU = profile_job.layer_counts.cpu
                 else:
                     inference_time = None
+                    first_load_time = None
+                    warm_load_time = None
                     NPU = None
                     GPU = None
                     CPU = None
@@ -321,6 +327,8 @@ class ResultsSpreadsheet(list):
                     ),  # remove commas for CSV compatibliity
                     profile_url=profile_url,
                     inference_time=inference_time,
+                    first_load_time=first_load_time,
+                    warm_load_time=warm_load_time,
                     NPU=NPU,
                     GPU=GPU,
                     CPU=CPU,

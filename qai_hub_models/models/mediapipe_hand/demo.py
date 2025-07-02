@@ -65,9 +65,7 @@ def main(is_test: bool = False):
         args.image = INPUT_IMAGE_ADDRESS
 
     # Load app
-    app = MediaPipeHandApp(
-        MediaPipeHand.from_pretrained(), args.score_threshold, args.iou_threshold
-    )
+    app = MediaPipeHandApp.from_pretrained(MediaPipeHand.from_pretrained())
     print("Model and App Loaded")
 
     if args.image:

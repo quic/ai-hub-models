@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import os
+from pathlib import Path
+
 import cv2
 import numpy as np
 from PIL import Image
@@ -71,14 +74,19 @@ def facemap_3dmm_demo(
 
     if not is_test:
         # Annotated lmk
-        np.savetxt(
-            "build/demo_output_lmk.txt",
-            lmk.detach().numpy(),
-        )
+        if args.output_dir:
+            os.makedirs(args.output_dir, exist_ok=True)
+            annotation_path = Path(args.output_dir) / "demo_output_lmk.txt"
+            np.savetxt(
+                annotation_path,
+                lmk.detach().numpy(),
+            )
+            print("Saving annotations to", annotation_path)
 
         # Annotated image
         display_or_save_image(
             Image.fromarray(cv2.cvtColor(output, cv2.COLOR_BGR2RGB)),
+            args.output_dir,
             filename="demo_output_img.png",
         )
 

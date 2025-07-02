@@ -35,25 +35,33 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 
     def add_batch(
         self, output: tuple[torch.Tensor] | torch.Tensor, gt: list[torch.Tensor]
+    ) -> None:
+        """Processes a batch of model outputs and ground truth"""
+        raise NotImplementedError("add_batch must be implemented in subclass")
+
+    def _store_predictions(
+        self,
+        preds: np.ndarray,
+        maxvals: np.ndarray,
+        image_ids: torch.Tensor,
+        category_ids: torch.Tensor,
     ):
         """
-        Collects model predictions in COCO format, handling both single and batched keypoints.
+        Store pose predictions in COCO evaluation format.
 
-        Args:
-            output: Raw model outputs (heatmaps).
-            gt_data: Ground truth data from dataset containing (image_id, category_id, area, center, scale, keypoints, bbox).
+        args:
+            preds: Array of predicted keypoints in image coordinates
+                Shape: [batch_size, num_joints, 2] where last dim is (x,y)
+            maxvals: Array of confidence scores for each keypoint
+                    Shape: [batch_size, num_joints, 1]
+            image_ids: Tensor containing COCO image_id for each prediction
+                    Shape: [batch_size]
+            category_ids: Tensor containing COCO category IDs (typically all 1 for person)
+                        Shape: [batch_size]
+
         """
-        if isinstance(output, tuple):
-            output = output[0]
-        batch_size = output.shape[0]
 
-        # Extract batched ground truth values
-        image_ids, category_ids, center, scale = gt
-
-        # Convert heatmaps to keypoints
-        preds, maxvals = get_final_preds(output.numpy(), center.numpy(), scale.numpy())
-
-        for idx in range(batch_size):
+        for idx in range(preds.shape[0]):
             image_id = int(image_ids[idx])
             category_id = int(category_ids[idx])
 
@@ -83,8 +91,6 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
                 "image_id": image_id,
                 "category_id": category_id,
                 "keypoints": keypoints_list,
-                "center": list(center[idx]),
-                "scale": list(scale[idx]),
                 "score": float(final_score),
             }
 

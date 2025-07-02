@@ -118,7 +118,6 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
 
     def get_calibration_data(
         self,
-        target_runtime: TargetRuntime | None = None,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         # No calibration data needed

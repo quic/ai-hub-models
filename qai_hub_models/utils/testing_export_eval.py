@@ -1272,7 +1272,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
 
 
 def torch_accuracy_on_dataset(
-    model: BaseModel | CollectionModel,
+    model: BaseModel,
     dataset_name: str,
     torch_evaluate_mock_outputs: list[torch.Tensor | tuple[torch.Tensor, ...]],
     model_id: str,
@@ -1305,7 +1305,11 @@ def torch_accuracy_on_dataset(
     )
     with torch_call_patch, cache_path_patch:
         evaluate_result = evaluate_on_dataset(
-            compiled_model=mock.MagicMock(),
+            compiled_model=mock.MagicMock(
+                producer=mock.MagicMock(
+                    target_shapes=model.get_input_spec(), _job_type=hub.JobType.COMPILE
+                )
+            ),
             torch_model=model,
             hub_device=hub.Device(),  # unused
             dataset_name=dataset_name,
@@ -1321,7 +1325,7 @@ def torch_accuracy_on_dataset(
 
 
 def sim_accuracy_on_dataset(
-    model: BaseModel | CollectionModel,
+    model: BaseModel,
     dataset_name: str,
     model_id: str,
     precision: Precision,
@@ -1367,7 +1371,11 @@ def sim_accuracy_on_dataset(
     qdq_model = list(quantize_jobs.values())[0].get_target_model()
     assert qdq_model is not None
     fake_model = mock.MagicMock(spec=hub.Model)
-    fake_compile_job = mock.MagicMock(spec=hub.CompileJob)
+    fake_compile_job = mock.MagicMock(
+        spec=hub.CompileJob,
+        _job_type=hub.JobType.COMPILE,
+        target_shapes=model.get_input_spec(),
+    )
     fake_model.producer = fake_compile_job
     fake_compile_job.model = qdq_model
     fake_compile_job.options = ""

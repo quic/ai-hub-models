@@ -43,6 +43,7 @@ MANUAL_EDGES = {
     "qai_hub_models/datasets/__init__.py": [
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
+    "qai_hub_models/models/common.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
@@ -328,9 +329,9 @@ def get_all_models() -> set[str]:
     static_models = {x[:-5] for x in os.listdir(bench_dir) if x.endswith(".yaml")}
 
     # Select a subset of models based on user input
-    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", None)
-    if allowed_models_str and allowed_models_str.upper() not in ["ALL", "PYTORCH"]:
-        if allowed_models_str.upper() == "BENCH":
+    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", None).lower()
+    if allowed_models_str and allowed_models_str not in ["all", "pytorch"]:
+        if allowed_models_str == "bench":
             with open(PUBLIC_BENCH_MODELS) as f:
                 model_names = set(f.read().strip().split("\n"))
         else:
@@ -341,7 +342,7 @@ def get_all_models() -> set[str]:
                     raise ValueError(f"Unknown model selected: {model}")
             model_names = allowed_models
 
-    if os.environ.get("QAIHM_TEST_PRECISIONS", "DEFAULT") != "DEFAULT":
+    if os.environ.get("QAIHM_TEST_PRECISIONS", "default").lower() != "default":
         cleaned_models: set[str] = set()
         for model in model_names:
             if model not in static_models and get_is_hub_quantized(model):

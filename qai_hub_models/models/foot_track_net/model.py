@@ -10,9 +10,7 @@ import torch
 import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.evaluators.coco_foot_track_evaluator import (
-    CocoFootTrackNetEvaluator,
-)
+from qai_hub_models.evaluators.foot_track_evaluator import FootTrackNetEvaluator
 from qai_hub_models.models.foot_track_net.layers import (
     CBAModule,
     DetectModule,
@@ -231,12 +229,15 @@ class FootTrackNet(BaseModel):
         return ["heatmap", "bbox", "landmark", "landmark_visibility"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        return CocoFootTrackNetEvaluator()
+        input_spec = self.get_input_spec()
+        return FootTrackNetEvaluator(
+            input_spec["image"][0][2], input_spec["image"][0][3]
+        )
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return ["coco_foot_track_dataset", "foot_track_dataset"]
+        return ["foot_track_dataset"]
 
     @staticmethod
     def calibration_dataset_name() -> str:
-        return "coco_foot_track_dataset"
+        return "foot_track_dataset"
