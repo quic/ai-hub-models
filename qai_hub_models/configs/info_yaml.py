@@ -370,12 +370,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Get the metadata for huggingface model cards.
         hf_metadata: dict[str, Union[str, list[str]]] = dict()
         hf_metadata["library_name"] = "pytorch"
-        # All HF models are tagged with "OTHER" because they use the AI Hub Models license.
-        hf_metadata["license"] = (
-            self.license_type.huggingface_name
-            if self.license_type.is_copyleft
-            else "other"
-        )
+        hf_metadata["license"] = self.license_type.huggingface_name
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata
