@@ -31,6 +31,4 @@ class ConditionalDETRResNet50(DETR):
         :return: An instance of the DetectionEvaluator class
         """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
-        return DetectionEvaluator(
-            image_height, image_width, 0.45, 0.7, use_nms=False, score_threshold=0.4
-        )
+        return DetectionEvaluator(image_height, image_width, score_threshold=0.4)

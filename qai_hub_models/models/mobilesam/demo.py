@@ -7,15 +7,16 @@ import argparse
 
 import torch
 
+from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
+from qai_hub_models.models._shared.sam.utils import show_image
 from qai_hub_models.models.mobilesam.model import (
     DEFAULT_MODEL_TYPE,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     SMALL_MODEL_TYPE,
     MobileSAM,
+    ResizeLongestSide,
 )
-from qai_hub_models.models.sam.app import SAMApp, SAMInputImageLayout
-from qai_hub_models.models.sam.utils import show_image
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
 IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -67,6 +68,7 @@ def main(is_test: bool = False):
         SAMInputImageLayout[wrapper.sam.image_format],
         [wrapper.encoder],
         wrapper.decoder,
+        ResizeLongestSide,
     )
 
     # Load Image

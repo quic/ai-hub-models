@@ -9,7 +9,7 @@ import os
 from collections.abc import Mapping, ValuesView
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 import qai_hub as hub
@@ -226,17 +226,36 @@ def dataset_entries_from_batch(
     """
     Given a batch from a torch dataloader with the standard (inputs, gt) format,
 
-    return a tuple of DatasetEntries for inputs and gt that can be uploaded to hub.
+    Inputs will be converted to a format compatible with inference of a compiled
+    model on AI Hub. Inputs will be broken into N tensors with a batch size of 1, since
+    compiled models require a batch size of 1.
+
+    GT data will be left as-is (1 tensor with a batch dim of size N), as it's not passed to the model.
+
+    Return a tuple of DatasetEntries for inputs and gt that can be uploaded to hub.
     """
+    model_inputs: torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor]
     model_inputs, ground_truth_values, *_ = batch
-    if isinstance(ground_truth_values, list) or isinstance(ground_truth_values, tuple):
+    if not isinstance(model_inputs, (list, tuple)):
+        # Generalize: treat "single-input" model as a list of 1 input.
+        # This allows us to support single and multi-input models in 1 loop.
+        model_inputs = [model_inputs]
+    model_inputs_split_by_batch = tuple(
+        cast(
+            Union[np.ndarray, tuple[np.ndarray]],
+            np.array_split(x.numpy(), x.shape[0], axis=0),
+        )
+        for x in model_inputs
+    )
+
+    if isinstance(ground_truth_values, (list, tuple)):
         output_names = [f"output_{i}" for i in range(len(ground_truth_values))]
         ground_truth_values = tuple(ground_truth_values)
     else:
         output_names = ["output_0"]
         ground_truth_values = (ground_truth_values,)
     input_entries = make_hub_dataset_entries(
-        (model_inputs.split(1, dim=0),),
+        model_inputs_split_by_batch,
         input_names,
         channel_last_input,
     )

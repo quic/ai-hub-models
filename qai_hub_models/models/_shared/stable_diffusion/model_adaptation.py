@@ -579,6 +579,35 @@ def optimized_get_output_for_continuous_inputs(
     return hidden_states + residual
 
 
+def get_timestep_embedding(sample: torch.Tensor, timestep: torch.Tensor):
+    """
+    Adapted from diffusers.models.get_timestep_embedding.
+    Removes parameters unused by our implementation and supports batching.
+    """
+    embedding_dim = 320  # TODO: Extract from last unet layers
+    MAX_PERIOD = 10000
+    half_dim = embedding_dim // 2
+    exponent = -math.log(MAX_PERIOD) * torch.arange(
+        start=0, end=half_dim, dtype=torch.float32, device=timestep.device
+    )
+    exponent = exponent / half_dim
+
+    emb = torch.exp(exponent)
+    emb = timestep.float() * emb
+
+    # concat sine and cosine embeddings
+    emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
+
+    # flip sine and cosine embeddings
+    emb = torch.cat([emb[:, half_dim:], emb[:, :half_dim]], dim=-1)
+
+    # zero pad
+    if embedding_dim % 2 == 1:
+        emb = torch.nn.functional.pad(emb, (0, 1, 0, 0))
+
+    return emb
+
+
 def monkey_patch_model(model: UNet2DConditionModel):
     """
     1. Apply monkey patches

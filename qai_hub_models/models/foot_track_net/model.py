@@ -229,10 +229,7 @@ class FootTrackNet(BaseModel):
         return ["heatmap", "bbox", "landmark", "landmark_visibility"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        input_spec = self.get_input_spec()
-        return FootTrackNetEvaluator(
-            input_spec["image"][0][2], input_spec["image"][0][3]
-        )
+        return FootTrackNetEvaluator()
 
     @staticmethod
     def eval_datasets() -> list[str]:

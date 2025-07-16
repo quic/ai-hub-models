@@ -14,6 +14,10 @@ from hydra import initialize
 from hydra.core.global_hydra import GlobalHydra
 from qai_hub.client import Device
 
+from qai_hub_models.models._shared.sam.model_patches import (
+    Conv2DInplaceLinearSAMMaskDecoderMLP,
+    SplitHeadSAMDecoderAttention,
+)
 from qai_hub_models.models.sam2.model_patches import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
@@ -25,10 +29,6 @@ from qai_hub_models.models.sam2.model_patches import (
     sam_decoder_predict_masks,
 )
 from qai_hub_models.models.sam2.utils import copy_configs
-from qai_hub_models.models.sam.model_patches import (
-    Conv2DInplaceLinearSAMMaskDecoderMLP,
-    SplitHeadSAMDecoderAttention,
-)
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import (
     BaseModel,
@@ -355,9 +355,7 @@ class SAM2Loader:
         )
 
     @staticmethod
-    def _patch_sam2_for_qnn_comatibility(
-        sam2: Sam2, patch_encoder: bool = True
-    ) -> None:
+    def _patch_sam2_for_qnn_comatibility(sam2: Sam2) -> None:
         """Apply a patch to the SAM2 Encoder class for compatibility with QNN."""
 
         ###
@@ -366,11 +364,10 @@ class SAM2Loader:
         # All below optimizations either optimize for QNN inference speed,
         # or fix failures that occur when compiling to QNN.
         ###
-        if patch_encoder:
-            for block in sam2.image_encoder.trunk.blocks:
-                assert isinstance(block, SAM2_Encoder_Block)
-                block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
-                block.attn = SplitHeadSAMEncoderAttention(block.attn)
+        for block in sam2.image_encoder.trunk.blocks:
+            assert isinstance(block, SAM2_Encoder_Block)
+            block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
+            block.attn = SplitHeadSAMEncoderAttention(block.attn)
 
         sam2.sam_mask_decoder.predict_masks = functools.partial(
             sam_decoder_predict_masks, sam2.sam_mask_decoder

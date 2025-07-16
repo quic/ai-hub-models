@@ -11,25 +11,17 @@ import torch
 # podm comes from the object-detection-metrics pip package
 from podm.metrics import BoundingBox
 
-from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
+from qai_hub_models.evaluators.detection_evaluator import mAPEvaluator
 from qai_hub_models.models.gear_guard_net.app import postprocess
 
 
-class GearGuardNetEvaluator(DetectionEvaluator):
+class GearGuardNetEvaluator(mAPEvaluator):
     """Evaluator for comparing a batched image output."""
 
-    def __init__(
-        self,
-        image_height: int,
-        image_width: int,
-    ):
-        self.threshhold = 0.7
-        self.iou_thr = 0.5
-        self.scale_x = 1 / image_width
-        self.scale_y = 1 / image_height
-        DetectionEvaluator.__init__(
-            self, image_height, image_width, self.threshhold, self.iou_thr
-        )
+    def __init__(self, nms_iou_threshold: float = 0.5, score_threshold: float = 0.7):
+        super().__init__()
+        self.nms_iou_threshold = nms_iou_threshold
+        self.score_threshold = score_threshold
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         image_ids, scales, paddings, all_bboxes, all_classes, all_num_boxes = gt
@@ -59,7 +51,11 @@ class GearGuardNetEvaluator(DetectionEvaluator):
 
             output_single = [o[i : i + 1].permute(0, 2, 3, 1).detach() for o in output]
             result = postprocess(
-                output_single, scales[i], paddings[i], self.threshhold, self.iou_thr
+                output_single,
+                scales[i],
+                paddings[i],
+                self.score_threshold,
+                self.nms_iou_threshold,
             )
 
             pd_bb_entry = []
@@ -77,5 +73,4 @@ class GearGuardNetEvaluator(DetectionEvaluator):
                     )
                 )
 
-            # Compute mean average precision
-            self._update_mAP(gt_bb_entry, pd_bb_entry)
+            self.store_bboxes_for_eval(gt_bb_entry, pd_bb_entry)

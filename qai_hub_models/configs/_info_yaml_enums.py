@@ -152,7 +152,7 @@ class MODEL_LICENSE(Enum):
         if self == MODEL_LICENSE.CC_BY_NON_COMMERCIAL_4_0:
             hf_str = "cc-by-nc-4.0"
         elif self == MODEL_LICENSE.UNLICENSED:
-            hf_str = "unlicense"
+            hf_str = "unknown"
         else:
             hf_str = str(self)
         if hf_str in HF_AVAILABLE_LICENSES:

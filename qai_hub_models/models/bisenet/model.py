@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -13,7 +15,10 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
 )
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    normalize_image_torchvision,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 
 BISENET_PROXY_REPOSITORY = "https://github.com/ooooverflow/BiSeNet.git"
@@ -51,8 +56,7 @@ class BiseNet(BaseModel):
         Returns:
             predict mask per class: Shape [batch,classes,height, width]
         """
-        predict = self.model(image)
-        return predict
+        return self.model(normalize_image_torchvision(image))
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
@@ -82,6 +86,17 @@ class BiseNet(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return SegmentationOutputEvaluator(num_classes=12, resize_to_gt=True)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["camvid"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "camvid"
 
 
 def _load_bisenet_source_model_from_weights(

@@ -83,7 +83,11 @@ class CollectionModel:
         self.components = components
 
     @staticmethod
-    def add_component(component_class: type, component_name: str | None = None):
+    def add_component(
+        component_class: type,
+        component_name: str | None = None,
+        subfolder_hf: str | None = None,
+    ):
         """
         Decorator to add a component (a subclass of BaseModel or
         BasePrecompiledModel) to a CollectionModel.  The component is
@@ -91,6 +95,18 @@ class CollectionModel:
         so that the outer decorator appears first.
 
         See test_base_model.py for usage examples.
+
+        Args:
+
+        - component_name: Name the component. By default uses
+        component_class.__name__
+
+        - subfolder_hf: By default the same as component_name. Specify this
+        only when Huggingface uses a different subfolder name than the desired
+        component_name.  (e.g., in ControlNet the ControlNet model is not in
+        any subfolder on HF, so subfolder_hf = "" even though we want
+        to name our component "controlnet")
+
         """
 
         def decorator(subclass):
@@ -101,9 +117,16 @@ class CollectionModel:
             subclass.component_classes.insert(0, component_class)
             subclass.component_class_names.insert(0, name)
 
-            # Component class from_pretrained would look for this folder
-            # under checkpoint dir
-            setattr(component_class, "default_subfolder", name)
+            # Component class from_pretrained would look for default_subfolder
+            # under checkpoint dir if checkpoint is local, or
+            # default_subfolder_hf if checkpoint is on HF. Typically
+            # default_subfolder == default_subfolder_hf
+            # Allow @add_component(Klass, "") to enforce having no subfolder.
+            # This is needed for controlnet where the controlnet is from a
+            # different repo without subfolders
+            subfolder = subfolder_hf if subfolder_hf is not None else name
+            setattr(component_class, "default_subfolder", component_name)
+            setattr(component_class, "default_subfolder_hf", subfolder)
             return subclass
 
         return decorator
@@ -448,7 +471,7 @@ class BaseModel(
         """
         compile_options = ""
         if "--target_runtime" not in other_compile_options:
-            compile_options = target_runtime.get_target_runtime_flag(device)
+            compile_options = target_runtime.aihub_target_runtime_flag
         if (
             QAIRTVersion.HUB_FLAG not in other_compile_options
             and target_runtime.qairt_version_changes_compilation

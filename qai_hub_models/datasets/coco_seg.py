@@ -42,7 +42,7 @@ class CocoSegDataset(CocoDataset):
         Returns a tuple of input image tensor and label data.
 
         Label data is a tuple with the following entries:
-          - mask data with shape (self.max_boxes, self.target_image_size, self.target_image_size)
+          - mask data with shape (self.max_boxes, self.target_h, self.target_w)
           - labels with shape (self.max_boxes,)
           - number of actual boxes present
         """
@@ -51,7 +51,7 @@ class CocoSegDataset(CocoDataset):
         sample = self.dataset[item : item + 1].first()
         assert isinstance(sample, SampleView)
         image = Image.open(sample.filepath).convert("RGB")
-        image = image.resize(self.target_image_size)
+        image = image.resize((self.target_w, self.target_h))
         width, height = image.size
 
         masks = []
@@ -87,9 +87,9 @@ class CocoSegDataset(CocoDataset):
 
         num_boxes = len(labels)
         if num_boxes == 0:
-            masks = torch.zeros(
-                (self.max_boxes, self.target_image_size[0], self.target_image_size[1])
-            ).to(torch.uint8)
+            masks = torch.zeros((self.max_boxes, self.target_h, self.target_w)).to(
+                torch.uint8
+            )
             labels = torch.zeros(self.max_boxes).to(torch.uint8)
         elif num_boxes > self.max_boxes:
             raise ValueError(
@@ -100,8 +100,8 @@ class CocoSegDataset(CocoDataset):
             extra_masks = torch.zeros(
                 (
                     self.max_boxes - num_boxes,
-                    self.target_image_size[0],
-                    self.target_image_size[1],
+                    self.target_h,
+                    self.target_w,
                 )
             ).to(torch.uint8)
             extra_labels = torch.zeros(self.max_boxes - num_boxes).to(torch.uint8)

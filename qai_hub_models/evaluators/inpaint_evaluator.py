@@ -38,8 +38,8 @@ class InpaintEvaluator(BaseEvaluator):
         Compute accuracy for the real and fake images
 
         Args:
-            fake_images(torch.Tensor): model output with shape (B, 3, 512, 512)
-            real_images(torch.Tensor): ground truth with shape (B, 3, 512, 512)
+            fake_images(torch.Tensor): model output with shape (B, 3, 512, 512) and range [0, 1]
+            real_images(torch.Tensor): ground truth with shape (B, 3, 512, 512) and range [0, 1]
         """
         fake_np = self.postprocess(fake_images)
         real_np = self.postprocess(real_images)
@@ -51,9 +51,15 @@ class InpaintEvaluator(BaseEvaluator):
             self.fake_images.append(fake_np)
             self.real_images.append(real_np)
 
-    def _update_metrics(self, real, fake):
-        """Calculate and store all metrics for one image pair."""
+    def _update_metrics(self, real: np.ndarray, fake: np.ndarray):
+        """
+        Calculate and store all metrics for one image pair.
 
+
+        Args:
+            real: Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255]
+            fake: Model output image with shape (512, 512, 3), type of uint8, and range [0, 255]
+        """
         if "mae" in self.metrics:
             real_fp, fake_fp = real.astype(np.float32), fake.astype(np.float32)
             mae = np.mean(np.abs(real_fp - fake_fp)) / 255.0
@@ -66,7 +72,7 @@ class InpaintEvaluator(BaseEvaluator):
 
         if "ssim" in self.metrics:
             self.results["ssim"].append(
-                structural_similarity(real, fake, multichannel=True, data_range=255)
+                structural_similarity(real, fake, channel_axis=-1, data_range=255)
             )
 
     def mae(self) -> float:

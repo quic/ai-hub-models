@@ -4,13 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from qai_hub_models.models._shared.llama3.demo import llama_chat_demo
-from qai_hub_models.models._shared.llama3.model import (
-    DEFAULT_USER_PROMPT,
-    END_TOKENS,
-    get_input_prompt_with_tags,
-    prepare_combined_attention_mask,
-)
+from qai_hub_models.models._shared.llama3.model import DEFAULT_USER_PROMPT, END_TOKENS
+from qai_hub_models.models._shared.llm.demo import llm_chat_demo
+from qai_hub_models.models._shared.llm.model import prepare_combined_attention_mask
 from qai_hub_models.models.llama_v3_2_3b_instruct import MODEL_ID, FP_Model, Model
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import HF_REPO_NAME, HF_REPO_URL
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
@@ -27,11 +23,10 @@ def llama_3_2_3b_chat_demo(
     is_test: bool = False,
     available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
 ):
-    llama_chat_demo(
+    llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,
         model_id=model_id,
-        get_input_prompt_with_tags=get_input_prompt_with_tags,
         prepare_combined_attention_mask=prepare_combined_attention_mask,
         end_tokens=end_tokens,
         hf_repo_name=hf_repo_name,

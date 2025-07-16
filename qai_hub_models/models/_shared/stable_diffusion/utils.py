@@ -4,18 +4,27 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import os
 import tempfile
+from collections import defaultdict
+from typing import DefaultDict
 
+import cv2
+import diffusers
 import numpy as np
 import onnx
+import PIL
 import torch
+from diffusers.utils import PIL_INTERPOLATION
 from qai_hub.client import DatasetEntries
 from tqdm import tqdm
 from transformers import CLIPTokenizer
 
 from qai_hub_models.models._shared.stable_diffusion.app import (
+    UNET_EXTRA_INPUT_NAMES,
     run_diffusion_steps_on_latents,
 )
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 
 
 def clip_extreme_values(
@@ -74,80 +83,86 @@ def clip_extreme_values(
     return model
 
 
-def make_calib_data_unet_vae(
-    export_path_unet,
-    export_path_vae,
-    prompt_path,
-    tokenizer,
-    text_encoder_hf,
-    unet_hf,
-    scheduler,
+def make_calib_data(
+    export_path_unet: str | os.PathLike,
+    export_path_vae: str | os.PathLike,
+    prompt_path: str,
+    tokenizer: CLIPTokenizer,
+    text_encoder_hf: ExecutableModelProtocol,
+    unet_hf: ExecutableModelProtocol,
+    scheduler: diffusers.DPMSolverMultistepScheduler,
     num_steps: int = 20,
     num_samples: int = 100,
     guidance_scale: float = 7.5,
-) -> tuple[str, str]:
-    """Generate calibration data for Unet and Vae and save as npz.
-
-    Number of samples for unet: num_samples * num_steps * 2 (*2 for cond and
-    uncond text embeddings). e.g., 100 samples * 20 steps  * 2 = 4k
-
-    Number of samples for vae: num_samples.
-
-    num_samples: up to 500 (the number of prompts in our dataset)
-
-    Returns:
-    - export_path_unet
-    - export_path_vae
+    controlnet_hf: ExecutableModelProtocol | None = None,
+    export_path_controlnet: str | os.PathLike = "",
+    image_cond_path: str | os.PathLike = "",
+) -> None:
     """
+    Generate calibration data for Unet, Vae, and controlnet if specified.
+
+    Args:
+
+    - export_path_*: must end with .pt
+
+    - prompt_path: txt file where each line is a prompt
+
+    - image_cond_path: .pth file which is a list of canny images in NCHW
+    torch.Tensor. Required for controlnet. Must have the same length as
+    prompts in prompt_path
+    """
+    for path in [export_path_unet, export_path_vae, export_path_controlnet]:
+        assert str(path).endswith(".pt") or str(path) == ""
+
+    use_controlnet = controlnet_hf is not None
     cond_tokens, uncond_token = load_calib_tokens(
         prompt_path, tokenizer, num_samples=num_samples
     )
-
-    # uncond_emb doesn't change for each prompt
-    uncond_emb = None
+    uncond_emb: torch.Tensor | None = None
     if guidance_scale > 0:
         uncond_emb = text_encoder_hf(uncond_token)
 
-    calib_unet = dict(
-        latent=[],
-        cond_emb=[],
-    )  # type: ignore
-    if guidance_scale > 0:
-        calib_unet["uncond_emb"] = []
-    calib_vae = dict(latent=[])  # type: ignore
+    calib_unet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+    calib_vae: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+    if use_controlnet:
+        calib_controlnet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+        image_conds = torch.load(image_cond_path, weights_only=False)
 
     for i, cond_token in tqdm(
         enumerate(cond_tokens),
-        total=len(cond_tokens),
-        desc=f"Running {num_steps} diffusion steps on {len(cond_tokens)} samples",
+        desc=f"Running {num_steps} diffusion steps on " f"{len(cond_tokens)} samples",
     ):
         cond_emb = text_encoder_hf(cond_token)
-        latent, all_steps = run_diffusion_steps_on_latents(
+        extra_inputs = {}
+        if use_controlnet:
+            extra_inputs["controlnet"] = controlnet_hf
+            extra_inputs["cond_image"] = image_conds[i]
+
+        latent, intermediates = run_diffusion_steps_on_latents(
             unet_hf,
             scheduler=scheduler,
             cond_embeddings=cond_emb,
             uncond_embeddings=uncond_emb,
             num_steps=num_steps,
-            return_all_steps=True,
             guidance_scale=guidance_scale,
+            return_all_steps=True,
+            **extra_inputs,  # type: ignore
         )
-        calib_unet["latent"].extend(all_steps["latent"])
-        calib_unet["cond_emb"].extend([cond_emb] * num_steps)
-        if guidance_scale > 0:
-            calib_unet["uncond_emb"].extend([uncond_emb] * num_steps)
-        calib_vae["latent"].append(latent)
 
-    for k in list(calib_unet.keys()):
-        calib_unet[k] = np.concatenate([v.detach().numpy() for v in calib_unet[k]])
-    for k in list(calib_vae.keys()):
-        calib_vae[k] = np.concatenate([v.detach().numpy() for v in calib_vae[k]])
+        # Add the output to calib_*
+        components = [
+            ("unet", calib_unet, export_path_unet),
+            ("vae", calib_vae, export_path_vae),
+        ]
 
-    np.savez(export_path_unet, **calib_unet)
-    np.savez(export_path_vae, **calib_vae)
+        if use_controlnet:
+            components.append(("controlnet", calib_controlnet, export_path_controlnet))
 
-    print(f"Data saved to {export_path_unet}")
-    print(f"Data saved to {export_path_vae}")
-    return export_path_unet, export_path_vae
+        for name, calib, export_path in components:
+            for k, v in intermediates[name].items():
+                calib[k].extend(v)
+            torch.save(calib, export_path)
+            print(f"Data saved to {export_path}")
 
 
 def load_calib_tokens(
@@ -174,67 +189,56 @@ def load_calib_tokens(
     return cond_tokens, uncond_token
 
 
-def get_timesteps(num_inference_steps: int) -> list[np.ndarray]:
-    """
-    Generate a list of NumPy arrays for Stable Diffusion timesteps.
-    Each timestep is wrapped in its own 1×1 array of dtype float32.
-    If num_inference_steps = 1, returns [array([[0.]], dtype=float32)].
-    Args:
-        num_inference_steps (int): Number of inference steps (N).
-    Returns:
-        list[np.ndarray]: A list of N arrays, each of shape (1,1) and dtype float32,
-                          containing timesteps from 999 down to 0.
-    """
-    num_train_timesteps = 1000  # Default in both v1.5 and v2.1
-    max_t = num_train_timesteps - 1  # 999
-    # Compute float timesteps in [999, 0]
-    if num_inference_steps == 1:
-        values = np.array([0.0], dtype=np.float32)
-    else:
-        values = np.linspace(max_t, 0, num=num_inference_steps, dtype=np.float32)
-    # Wrap each timestep in a (1,1) array
-    return [np.array([[float(v)]], dtype=np.float32) for v in values]
-
-
 def load_unet_calib_dataset_entries(
     path: str, num_samples: int | None = None
 ) -> DatasetEntries:
-    npz = np.load(path)
-    num_diffusion_samples = npz["latent"].shape[0]
-    latent = np.split(npz["latent"], num_diffusion_samples, axis=0)
-    # time embeddings range from 999 to 0
-    timestep = get_timesteps(num_diffusion_samples)
-    cond_emb = np.split(npz["cond_emb"], num_diffusion_samples, axis=0)
-    if "uncond_emb" in npz:
-        uncond_emb = np.split(npz["uncond_emb"], num_diffusion_samples, axis=0)
-        calib_data = dict(
-            latent=latent * 2,
-            timestep=timestep * 2,
-            text_emb=cond_emb + uncond_emb,
-        )
-    else:
-        calib_data = dict(
-            latent=latent,
-            timestep=timestep,
-            text_emb=cond_emb,
-        )
+    """
+    Load calib data. If uncond_emb is present, duplicate the other inputs
+    (latent, timestep etc)
+    """
+    dict_data = torch.load(path, weights_only=False)
+    num_copies = 1
+    text_emb = dict_data["cond_emb"]
+    if "uncond_emb" in dict_data:
+        text_emb.extend(dict_data["uncond_emb"])
+        num_copies = 2
+    calib_data = {}
+    for name in ["latent", "timestep"]:
+        calib_data[name] = dict_data[name] * num_copies
+    calib_data["text_emb"] = text_emb
+    for name in UNET_EXTRA_INPUT_NAMES:
+        if name in dict_data:
+            calib_data[name] = dict_data[name] * num_copies
+
+    # torch.Tensor -> numpy
+    for k, v in calib_data.items():
+        calib_data[k] = [v.detach().numpy() for v in calib_data[k]]
+
     if num_samples is not None and num_samples < len(calib_data["latent"]):
         rng = np.random.RandomState(42)
-        idx = rng.choice(num_diffusion_samples * 2, num_samples, replace=False)
+        idx = rng.choice(len(calib_data["latent"]), num_samples, replace=False)
         calib_data = {k: [v[i] for i in idx] for k, v in calib_data.items()}
     return calib_data
 
 
-def load_vae_calib_dataset_entries(
+def load_calib_dataset_entries(
     path: str, num_samples: int | None = None
 ) -> DatasetEntries:
-    npz = np.load(path)
-    num_diffusion_samples = npz["latent"].shape[0]
-    calib_data = dict(latent=np.split(npz["latent"], num_diffusion_samples, axis=0))
-    if num_samples is not None and num_samples < num_diffusion_samples:
+    """
+    Use this for vae and controlnet data where we don't need to duplicate
+    inputs for cond vs uncond text emb
+    """
+    calib_data = torch.load(path, weights_only=False)
+    # torch.Tensor -> np.ndarray
+    for input_name, input_list in calib_data.items():
+        calib_data[input_name] = [v.numpy() for v in input_list]
+
+    num_total = len(calib_data["latent"])
+    if num_samples is not None and num_samples < num_total:
         rng = np.random.RandomState(42)
-        idx = rng.choice(num_diffusion_samples, num_samples, replace=False)
+        idx = rng.choice(num_total, num_samples, replace=False)
         calib_data = {k: [v[i] for i in idx] for k, v in calib_data.items()}
+
     return calib_data
 
 
@@ -284,3 +288,30 @@ def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
         The number of nodes in the model whose op_type matches the given string.
     """
     return sum(1 for node in model.graph.node if node.op_type == op_type)
+
+
+def make_canny(
+    image: PIL.Image.Image,
+    target_height: int,
+    target_width: int,
+    low_threshold: int = 100,
+    high_threshold: int = 200,
+) -> torch.Tensor:
+    """
+    Resize and convert from PIL Image to NCHW torch.Tensor.
+    """
+    img = np.array(image)
+    img = cv2.Canny(img, low_threshold, high_threshold)
+    img = img[:, :, None]
+    canny_image = np.concatenate([img, img, img], axis=2)
+    canny_image = PIL.Image.fromarray(canny_image)
+
+    # Normalize and make it NCHW
+    canny_image = canny_image.convert("RGB")
+    canny_image = canny_image.resize(
+        (target_width, target_height), resample=PIL_INTERPOLATION["lanczos"]
+    )
+    canny_image = np.array(canny_image)[None, :].astype(np.float32) / 255.0
+    # NHWC -> NCHW
+    canny_image = canny_image.transpose(0, 3, 1, 2)
+    return torch.from_numpy(canny_image)

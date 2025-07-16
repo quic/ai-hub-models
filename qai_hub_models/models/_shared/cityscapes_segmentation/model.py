@@ -10,9 +10,7 @@ import torch
 from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.models._shared.cityscapes_segmentation.evaluator import (
-    CityscapesSegmentationEvaluator,
-)
+from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
@@ -51,7 +49,7 @@ class CityscapesSegmentor(BaseModel):
         self.model = model
 
     def get_evaluator(self) -> BaseEvaluator:
-        return CityscapesSegmentationEvaluator(CITYSCAPES_NUM_CLASSES)
+        return SegmentationOutputEvaluator(CITYSCAPES_NUM_CLASSES, resize_to_gt=True)
 
     def forward(self, image: torch.Tensor):
         """

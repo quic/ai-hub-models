@@ -23,7 +23,7 @@ import torch
 from transformers import AutoConfig
 from transformers.models.llama import LlamaConfig
 
-from qai_hub_models.models._shared.llama3.export import export_model
+from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models.llama_v3_2_3b_chat import MODEL_ID as model_id_orig
 from qai_hub_models.models.llama_v3_2_3b_chat.model import MODEL_ASSET_VERSION, Llama3_2
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs

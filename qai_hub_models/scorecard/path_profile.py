@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
 from collections.abc import Generator
 from enum import Enum, EnumMeta, unique
 from functools import cached_property
@@ -13,9 +12,10 @@ from typing import Optional, cast
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.scorecard.envvars import EnabledPathsEnvvar, SpecialPathSetting
 from qai_hub_models.scorecard.path_compile import (
-    DEFAULT_QAIRT_VERSION_ENVVAR,
     QAIRTVersion,
+    QAIRTVersionEnvvar,
     ScorecardCompilePath,
 )
 from qai_hub_models.utils.base_config import EnumListWithParseableAll
@@ -62,17 +62,19 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
 
     @property
     def enabled(self) -> bool:
-        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "all").lower()
+        valid_test_runtimes = EnabledPathsEnvvar.get()
+        if SpecialPathSetting.ALL in valid_test_runtimes:
+            return True
+
         if (
             not self.enabled_only_if_explicitly_selected
-            and valid_test_runtimes == "all"
+            and SpecialPathSetting.DEFAULT in valid_test_runtimes
         ):
             return True
 
-        valid_test_runtime_names = [x.lower() for x in valid_test_runtimes.split(",")]
         return (
-            self.runtime.inference_engine.value in valid_test_runtime_names
-            or self.value in valid_test_runtime_names
+            self.runtime.inference_engine.value in valid_test_runtimes
+            or self.value in valid_test_runtimes
         )
 
     def supports_precision(self, precision: Precision) -> bool:
@@ -99,15 +101,13 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         if self.value == self.runtime.inference_engine.value:
             return False
 
-        valid_test_runtimes = os.environ.get("QAIHM_TEST_RUNTIMES", "all").lower()
-        valid_test_runtime_names = [x.lower() for x in valid_test_runtimes.split(",")]
-        return self.value in valid_test_runtime_names
+        return self.value in EnabledPathsEnvvar.get()
 
     @property
     def enabled_only_if_explicitly_selected(self) -> bool:
         """
         Return true if this path is enabled only when the user
-        selects it explicitly in QAIHM_TEST_RUNTIMES.
+        selects it explicitly in QAIHM_TEST_PATHS.
         """
         return self in [
             ScorecardProfilePath.ONNX_DML_GPU,
@@ -232,8 +232,9 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             f"There is no JIT equivalent for profile path {self.value}"
         )
 
-    @property
-    def profile_options(self) -> str:
+    def get_profile_options(
+        self, include_default_qaihm_qnn_version: bool = False
+    ) -> str:
         out = ""
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             out = out + " --onnx_execution_providers directml"
@@ -243,13 +244,27 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
                 + " --compute_unit gpu --qnn_options default_graph_gpu_precision=FLOAT16"
             )
 
-        qairt_version = QAIRTVersion(
-            os.getenv(
-                DEFAULT_QAIRT_VERSION_ENVVAR,
-                QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION,
-            )
-        )
-        out = out + f" {qairt_version.hub_option}"
+        qairt_version_str = QAIRTVersionEnvvar.get()
+        if qairt_version_str == QAIRTVersion.DEFAULT_QAIHM_TAG:
+            # We typically don't want the default QAIRT version added here if it matches with the AI Hub models default.
+            # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.
+            #
+            # Static models do need this included explicitly because they don't rely on export scripts.
+            if include_default_qaihm_qnn_version:
+                # Certain runtimes use their own default version of QAIRT.
+                # If the user picks our the qaihm_default tag, we need use the runtime's
+                # default QAIRT version instead.
+                qairt_version = self.runtime.default_qairt_version
+                out = out + f" {qairt_version.explicit_hub_option}"
+        else:
+            qairt_version = QAIRTVersion(qairt_version_str)
+
+            # The explicit option will always pass `--qairt_version 2.XX`,
+            # regardless of whether this is the AI Hub default.
+            #
+            # This is useful for tracking what QAIRT version applies for scorecard jobs.
+            out = out + f" {qairt_version.explicit_hub_option}"
+
         return out.strip()
 
 

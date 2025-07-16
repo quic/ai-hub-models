@@ -146,8 +146,12 @@ class FromPretrainedMixin(Generic[T]):
     Expects subclasses to define:
       - hf_repo_id:         default repo id e.g., "stabilityai/stable-diffusion-2-1-base"
       - hf_model_cls:       a transformers.PreTrainedModel subclass
-      - default_subfolder:  str (automatically defined by
-              CollectionModel.add_component)
+      - default_subfolder:  str (automatically defined by CollectionModel.add_component)
+      - default_subfolder_hf:  str (automatically defined by CollectionModel.add_component)
+
+    default_subfolder_hf is used when checkpoint is HF repo, default_subfolder
+    is used when checkpoint is local. Typically, default_subfolder ==
+    default_subfolder_hf
 
     Optionally, a subclass can implement:
       @classmethod
@@ -163,6 +167,7 @@ class FromPretrainedMixin(Generic[T]):
     hf_repo_id: str = ""
     hf_model_cls: type[PreTrainedModel]
     default_subfolder: str = ""
+    default_subfolder_hf: str = ""
 
     def __init__(self, model: torch.nn.Module):
         self.model = model
@@ -175,8 +180,9 @@ class FromPretrainedMixin(Generic[T]):
         host_device: Union[torch.device, str] = torch.device("cpu"),
         adapt_torch_model_options: dict | None = None,
     ) -> torch.nn.Module:
-        subfolder = subfolder or cls.default_subfolder
-        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder)
+        subfolder_hf = subfolder or cls.default_subfolder_hf
+        subfolder_local = subfolder or cls.default_subfolder
+        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder_local)
 
         if ckpt_type == CheckpointType.TORCH_STATE_DICT:
             raise NotImplementedError(
@@ -206,15 +212,18 @@ class FromPretrainedMixin(Generic[T]):
                 )
             model = cls.hf_model_cls.from_pretrained(
                 cls.hf_repo_id,
-                subfolder=subfolder,
+                # Use HF subfolder
+                subfolder=subfolder_hf,
             )
         elif ckpt_type == CheckpointType.HF_REPO:
             model = cls.hf_model_cls.from_pretrained(
                 checkpoint,
-                subfolder=subfolder,
+                subfolder=subfolder_hf,
             )
         else:  # ckpt_type == CheckpointType.HF_LOCAL
-            model = cls.hf_model_cls.from_pretrained(str(Path(checkpoint) / subfolder))
+            model = cls.hf_model_cls.from_pretrained(
+                str(Path(checkpoint) / subfolder_local)
+            )
 
         # 3) move to target device
         model = model.to(torch.device(host_device)).eval()
@@ -257,9 +266,10 @@ class FromPretrainedMixin(Generic[T]):
         Returns
         - onnx_model, aimet_encodings_path
         """
-        subfolder = subfolder or cls.default_subfolder
+        subfolder_hf = subfolder or cls.default_subfolder_hf
+        subfolder_local = subfolder or cls.default_subfolder
         host_device = torch.device(host_device)
-        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder)
+        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder_local)
 
         is_quantized_src = ckpt_type in (
             CheckpointType.DEFAULT,
@@ -284,7 +294,8 @@ class FromPretrainedMixin(Generic[T]):
                 cp = "DEFAULT"
             fp_model = cls.torch_from_pretrained(
                 checkpoint=cp,
-                subfolder=subfolder,
+                # Use subfolder_hf to fetch from HF repo
+                subfolder=subfolder_hf,
                 host_device=host_device,
             )
 

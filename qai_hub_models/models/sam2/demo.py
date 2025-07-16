@@ -9,6 +9,7 @@ from typing import cast
 import numpy as np
 import torch
 
+from qai_hub_models.models._shared.sam.utils import show_image
 from qai_hub_models.models.sam2.app import SAM2App, SAM2InputImageLayout
 from qai_hub_models.models.sam2.model import (
     MODEL_ASSET_VERSION,
@@ -17,7 +18,6 @@ from qai_hub_models.models.sam2.model import (
     TINY_MODEL_TYPE,
 )
 from qai_hub_models.models.sam2.model_patches import SAM2ImagePredictor
-from qai_hub_models.models.sam2.utils import show_image
 from qai_hub_models.utils.args import demo_model_from_cli_args, get_model_cli_parser
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 

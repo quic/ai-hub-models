@@ -11,7 +11,10 @@ import numpy as np
 import torch
 
 from qai_hub_models.models.facemap_3dmm.model import FaceMap_3DMM
-from qai_hub_models.models.facemap_3dmm.utils import project_landmark
+from qai_hub_models.models.facemap_3dmm.utils import (
+    project_landmark,
+    transform_landmark_coordinates,
+)
 
 
 class FaceMap_3DMMApp:
@@ -55,8 +58,6 @@ class FaceMap_3DMMApp:
         Returns:
             lmk_images: numpy array -- images with predicted landmarks displayed.
         """
-        height = y1 - y0 + 1
-        width = x1 - x0 + 1
 
         resized_height, resized_width = FaceMap_3DMM.get_input_spec()["image"][0][2:]
 
@@ -71,13 +72,12 @@ class FaceMap_3DMMApp:
         output = self.model(CHW_fp32_torch_crop_image.permute(2, 0, 1).unsqueeze(0))
 
         landmark = project_landmark(output[0])
-
-        landmark[:, 0] = (
-            landmark[:, 0] + resized_width / 2
-        ) * width / resized_width + x0
-        landmark[:, 1] = (
-            landmark[:, 1] + resized_height / 2
-        ) * height / resized_height + y0
+        transform_landmark_coordinates(
+            landmark,
+            (int(x0), int(y0), int(x1), int(y1)),
+            resized_height,
+            resized_width,
+        )
 
         # Draw landmark
         output_image = cv2.cvtColor(_image, cv2.COLOR_RGB2BGR)

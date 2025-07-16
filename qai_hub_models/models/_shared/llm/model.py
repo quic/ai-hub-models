@@ -16,27 +16,47 @@ except (ImportError, ModuleNotFoundError):
 
 import gc
 import glob
+import math
 import os
 import shutil
 import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Any, Optional
 
+import numpy as np
 import onnx
 import torch
 from onnx.external_data_helper import load_external_data_for_model
-from qai_hub.client import Device
+from qai_hub.client import DatasetEntries, Device
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 from transformers import AutoConfig, PretrainedConfig, PreTrainedTokenizer
+from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig
 
-from qai_hub_models.models.common import SampleInputsType
+from qai_hub_models.datasets import get_dataset_from_name
+from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.datasets.mmmlu import mmmlu_split_lookup
+from qai_hub_models.datasets.wikitext import collate_fn
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.mmlu_evaluator import MMLUEvaluator
+from qai_hub_models.evaluators.ppl_evaluator import PerplexityEvaluator
+from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
+from qai_hub_models.utils.checkpoint import (
+    CheckpointSpec,
+    CheckpointType,
+    determine_checkpoint_type,
+)
 from qai_hub_models.utils.huggingface import ensure_has_required_transformer
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import (
     torch_onnx_export_with_large_model_size_check,
 )
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
+from qai_hub_models.utils.system_info import has_recommended_memory
 
 AIMET_ONNX_INSTALLED = False
 try:
@@ -66,6 +86,8 @@ MIN_TRANFORMER_VERSION = "4.45.0"
 DEFAULT_SEQUENCE_LENGTH = 128
 DEFAULT_CONTEXT_LENGTH = 4096
 
+DEFAULT_CALIBRATION_SEQ_LEN = 2048
+
 # TODO: 10761 remove transformer version check once AIMET
 # transformer restriction is uplifted.
 ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
@@ -74,6 +96,185 @@ from transformers import (  # noqa: E402
     AutoTokenizer,
     PreTrainedTokenizerBase,
 )
+
+
+def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
+    checkpoint_type = determine_checkpoint_type(checkpoint)
+    return checkpoint_type in {CheckpointType.DEFAULT, CheckpointType.AIMET_ONNX_EXPORT}
+
+
+def prepare_decoder_attention_mask(
+    attention_mask: Optional[torch.Tensor],
+    input_shape: torch.Size,
+    inputs_embeds: torch.Tensor,
+    past_key_values_length: int,
+    mask_neg: float = -50.0,
+) -> torch.Tensor:
+    # Copied from transformers.models.bart.modeling_bart._make_causal_mask
+    def _make_causal_mask(
+        input_ids_shape: torch.Size,
+        dtype: torch.dtype,
+        device: torch.device,
+        past_key_values_length: int = 0,
+        mask_neg: float = -50.0,
+    ) -> torch.Tensor:
+        """
+        Make causal mask used for bi-directional self-attention.
+        """
+        bsz, tgt_len = input_ids_shape[0], input_ids_shape[1]
+        # mask = torch.full((tgt_len, tgt_len), torch.tensor(torch.finfo(dtype).min, device=device), device=device)
+        mask = torch.full(  # pyright: ignore [reportCallIssue]
+            (tgt_len, tgt_len),
+            torch.tensor(mask_neg, device=device),
+            device=device,  # pyright: ignore [reportArgumentType]
+        )
+        mask_cond = torch.arange(mask.size(-1), device=device)
+        mask.masked_fill_(mask_cond < (mask_cond + 1).view(mask.size(-1), 1), 0)
+        mask = mask.to(dtype)
+
+        if past_key_values_length > 0:
+            mask = torch.cat(
+                [
+                    torch.zeros(
+                        tgt_len, past_key_values_length, dtype=dtype, device=device
+                    ),
+                    mask,
+                ],
+                dim=-1,
+            )
+        return mask[None, None, :, :].expand(
+            bsz, 1, tgt_len, tgt_len + past_key_values_length
+        )
+
+    # Copied from transformers.models.bart.modeling_bart._expand_mask
+    def _expand_mask(
+        mask: torch.Tensor,
+        dtype: torch.dtype,
+        mask_neg: float = -50.0,
+        tgt_len: Optional[int] = None,
+    ) -> torch.Tensor:
+        """
+        Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`.
+        """
+        bsz, src_len = mask.size()
+        tgt_len = tgt_len if tgt_len is not None else src_len
+
+        expanded_mask = (
+            mask[:, None, None, :].expand(bsz, 1, tgt_len, src_len).to(dtype)
+        )
+
+        inverted_mask = 1.0 - expanded_mask
+
+        # return inverted_mask.masked_fill(inverted_mask.to(torch.bool), torch.finfo(dtype).min)
+        return inverted_mask.masked_fill(inverted_mask.to(torch.bool), mask_neg)
+
+    # create causal mask
+    # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
+    combined_attention_mask = None
+    if input_shape[-1] > 1:
+        combined_attention_mask = _make_causal_mask(
+            input_shape,
+            inputs_embeds.dtype,
+            device=inputs_embeds.device,
+            past_key_values_length=past_key_values_length,
+            mask_neg=mask_neg,
+        )
+
+    if attention_mask is not None:
+        # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
+
+        expanded_attn_mask = _expand_mask(
+            attention_mask,
+            inputs_embeds.dtype,
+            tgt_len=input_shape[1],
+            mask_neg=mask_neg,
+        ).to(inputs_embeds.device)
+
+        combined_attention_mask = (
+            expanded_attn_mask
+            if combined_attention_mask is None
+            else expanded_attn_mask + combined_attention_mask
+        )
+
+    assert combined_attention_mask is not None
+    return combined_attention_mask
+
+
+def prepare_combined_attention_mask(
+    attention_mask: Optional[torch.Tensor],
+    input_shape: torch.Size,
+    past_key_values_length: int,
+    mask_neg=-50.0,
+    dtype=torch.float32,
+) -> torch.Tensor:
+    dummy_embedding = torch.tensor((1.0,)).to(torch.float32)
+    new_mask = prepare_decoder_attention_mask(
+        attention_mask, input_shape, dummy_embedding, past_key_values_length, mask_neg
+    )
+    return new_mask.clamp_min(mask_neg).to(dtype)
+
+
+def sample_input(
+    input_spec,
+    input_prompt_processed,
+    context_length,
+    sequence_length,
+    tokenizer,
+    llm_config,
+    embedding: Embedding,
+):
+    input_tokens = tokenizer(
+        input_prompt_processed,
+        return_tensors="pt",
+        padding="max_length",
+        max_length=context_length,
+    )
+    num_tokens = int(
+        min(
+            torch.sum(
+                input_tokens["attention_mask"]
+            ).item(),  # pyright: ignore [reportArgumentType]
+            sequence_length,
+        )
+    )
+    input_ids = input_tokens[
+        "input_ids"
+    ].type(  # pyright: ignore [reportAttributeAccessIssue]
+        torch.int32
+    )[
+        :, -sequence_length:
+    ]
+
+    padding_size = sequence_length - num_tokens
+    position_ids = [0] * (padding_size) + list(range(0, sequence_length - padding_size))
+    position_ids = (
+        torch.Tensor(position_ids).type(torch.long).reshape(1, sequence_length)
+    )
+    position_ids = (
+        torch.Tensor(position_ids).type(torch.long).reshape(1, sequence_length)
+    )
+    position_ids_cos, position_ids_sin = embedding.get_embedding(position_ids)
+    attention_mask = torch.zeros((1, context_length))
+    attention_mask[:, -num_tokens:] = 1.0
+    cm_attention_masks = prepare_combined_attention_mask(
+        attention_mask=attention_mask,
+        input_shape=torch.Size([1, sequence_length]),
+        past_key_values_length=context_length - sequence_length,
+    )
+
+    input_dict = {
+        "input_ids": [input_ids.detach().numpy()],
+        "attention_mask": [cm_attention_masks.detach().numpy()],
+        "position_ids_cos": [position_ids_cos.detach().numpy()],
+        "position_ids_sin": [position_ids_sin.detach().numpy()],
+    }
+
+    # Populate the rest with zeros (KV cache input)
+    for k, (shape, _) in input_spec.items():
+        if k.startswith("past_"):
+            input_dict[k] = [np.zeros(shape, dtype=np.float32)]
+
+    return input_dict
 
 
 def get_tokenizer(
@@ -150,7 +351,9 @@ def get_onnx_model(
             tuple(example_input),
             path,
             input_names=list(input_specs.keys()),
-            output_names=fp_model.get_output_names(),
+            output_names=fp_model._get_output_names(
+                fp_model.llm_config.num_hidden_layers
+            ),
             opset_version=17,
         )
 
@@ -179,6 +382,14 @@ def get_onnx_model(
 
 
 class Embedding(ABC):
+    def __init__(
+        self,
+        head_dim: int = 128,
+        max_length: int = 2048,
+        config: Any = None,
+    ) -> None:
+        pass
+
     @abstractmethod
     def get_embedding(
         self,
@@ -193,7 +404,355 @@ class LLMConfigEditor:
         return llm_config  # no change by default
 
 
+class SHADynamicCacheNewValueOnly(DynamicCache):
+    """
+    Version of DynamicCache that stores the cache as lists for the separate
+    heads (so as to avoid concats/splits for SHA) and returning only the
+    new values without accumulation.
+    """
+
+    def update(
+        self,
+        key_states: torch.Tensor,
+        value_states: torch.Tensor,
+        layer_idx: int,
+        cache_kwargs: Optional[dict[str, Any]] = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Update the number of seen tokens
+        if layer_idx == 0:
+            # self._seen_tokens += key_states.shape[-2]
+            # This line is updated
+            self._seen_tokens += key_states[0].shape[-2]
+
+        # Update the cache
+        if len(self.key_cache) <= layer_idx:
+            self.key_cache.append(key_states)
+            self.value_cache.append(value_states)
+        else:
+            # Do not concatenate the cache, we only need the latest entry
+            self.key_cache[layer_idx] = key_states
+            self.value_cache[layer_idx] = value_states
+
+        return self.key_cache[layer_idx], self.value_cache[layer_idx]
+
+    def get_seq_length(self, layer_idx: Optional[int] = 0) -> int:
+        """Returns the sequence length of the cached states. A layer index can be optionally passed."""
+        if layer_idx is None:
+            layer_idx = 0
+        if len(self.key_cache) <= layer_idx:
+            return 0
+        # [0] added to get shape since the outermost is list
+        return self.key_cache[layer_idx][0].shape[-2]
+
+
+class LLMBase(BaseModel, LLMConfigEditor, ABC):
+    # The Hugging Face LLM class (e.g., LlamaForCausalLM)
+    LMClass: Any | None = None
+
+    # Embedding subclass
+    EmbeddingClass: type[Embedding] | None = None
+
+    # Minimum recommended memory for exporting (in GB)
+    min_memory_recommended: int = 0
+
+    @staticmethod
+    def get_input_prompt_with_tags(
+        user_input_prompt: str = "",
+        system_context_prompt: str = "",
+    ) -> str:
+        return user_input_prompt
+
+    def __init__(
+        self,
+        checkpoint: str | os.PathLike | Path,
+        sequence_length: int,
+        context_length: int,
+        is_token_generator: bool = False,
+        load_pretrained: bool = True,
+        host_device: torch.device | None = None,
+        _skip_optimizations: list[str] | None = None,
+    ):
+        """
+        This is an abstract base class of all LLM models.
+
+        Parameters
+        ----------
+
+        checkpoint:
+            Can be local folder or Hugging Face repo name.
+        aimet_encodings:
+            AIMET encodings file.
+        sequence_length:
+            Input sequence length (in tokens).
+        context_length:
+            Total context length (in tokens).
+        load_pretrained:
+            Load a pre-trained model as opposed to a randomly initialized.
+        _skip_optimizations:
+            Turn off one or more of {sha_attention, rank4_rms_norm}
+        """
+
+        super().__init__()
+        self.skip_optimizations = _skip_optimizations
+        self.checkpoint = checkpoint
+
+        # Ensure User has recommended memory,
+        # otherwise, provide warning to user and recommend to increase swap-space as a work-around.
+        has_recommended_memory(self.min_memory_recommended)
+
+        # TODO: Make this into a context manager
+        self.monkey_patch(skip_optimizations=self.skip_optimizations)
+        llm_config = get_llm_config(self.checkpoint)
+        self.llm_config = self.edit_llm_config(llm_config)
+        self._verify_ckpt()
+        self.tokenizer = get_tokenizer(checkpoint)
+        assert self.LMClass is not None
+        if load_pretrained:
+            model = self.LMClass.from_pretrained(
+                self.checkpoint,
+                config=self.llm_config,
+                ignore_mismatched_sizes=False,
+            )
+        else:
+            model = self.LMClass(self.llm_config)
+        model.eval()
+
+        assert self.EmbeddingClass is not None
+        self.embedding = self.EmbeddingClass(
+            max_length=context_length, config=llm_config
+        )
+
+        os.environ["TOKENIZERS_PARALLELISM"] = "0"
+
+        for _, module in model.named_modules():
+            if hasattr(module, "prepare_conv"):
+                module.prepare_conv()
+            if hasattr(module, "prepare_sha"):
+                module.prepare_sha()
+
+        model.to(host_device)
+
+        self.sequence_length: int = sequence_length
+        self.context_length: int = context_length
+        self.split_part = 1
+        self.is_token_generator = is_token_generator
+        self.model = model
+
+    @staticmethod
+    def monkey_patch(
+        skip_optimizations: list[str] | None = None,
+    ) -> None:
+        pass
+
+    def _verify_ckpt(self):
+        # Override in baseclass to verify compatibility with config
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_pretrained(
+        cls,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+    ) -> LLMBase:
+        pass
+
+    @staticmethod
+    def _get_output_names(num_hidden_layers: int) -> list[str]:
+        output_names = ["logits"]
+        for layer in range(num_hidden_layers):
+            output_names.append(f"past_key_{layer}_out")
+            output_names.append(f"past_value_{layer}_out")
+        return output_names
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        position_ids_cos: torch.Tensor,
+        position_ids_sin: torch.Tensor,
+        *past_key_values: torch.Tensor,
+    ):
+        assert isinstance(self.llm_config.num_key_value_heads, int)
+        if self.skip_optimizations and "sha_attention" in self.skip_optimizations:
+            kv_cache = DynamicCache()
+            for layer_idx, (k, v) in enumerate(
+                zip(past_key_values[::2], past_key_values[1::2])
+            ):
+                k_split = [
+                    k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                v_split = [
+                    v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                k = torch.cat(k_split, axis=1).permute(0, 1, 3, 2)
+                v = torch.cat(v_split, axis=1)
+
+                kv_cache.update(
+                    k, v, layer_idx, {}
+                )  # pyright: ignore [reportArgumentType]
+        else:
+            kv_cache = SHADynamicCacheNewValueOnly()
+            for layer_idx, (k, v) in enumerate(
+                zip(past_key_values[::2], past_key_values[1::2])
+            ):
+                k_split = [
+                    k[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+                v_split = [
+                    v[i : i + 1] for i in range(self.llm_config.num_key_value_heads)
+                ]
+
+                # kv_cache doesn't report supporting lists of tensors, but it seems to work
+                kv_cache.update(
+                    k_split, v_split, layer_idx, {}
+                )  # pyright: ignore [reportArgumentType]
+
+        out = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=[position_ids_cos, position_ids_sin],
+            past_key_values=kv_cache,
+        )
+
+        out_cache = out["past_key_values"]
+        flat_output_past_key_values = []
+        for layer in range(len(out_cache)):
+            if self.skip_optimizations and "sha_attention" in self.skip_optimizations:
+                k = out_cache.key_cache[layer][:, :, -128:, :].permute(1, 0, 3, 2)
+                v = out_cache.value_cache[layer][:, :, -128:, :].permute(1, 0, 2, 3)
+            else:
+
+                k = torch.cat(out_cache.key_cache[layer], dim=0)
+                v = torch.cat(out_cache.value_cache[layer], dim=0)
+            flat_output_past_key_values += [k, v]
+
+        return [out["logits"]] + flat_output_past_key_values
+
+    @staticmethod
+    def _get_input_spec(
+        num_hidden_layers: int,
+        sequence_length: int,
+        context_length: int,
+        hidden_size: int,
+        num_key_value_heads: int,
+        num_attention_heads: int,
+    ) -> InputSpec:
+        embed_dim = hidden_size // num_attention_heads // 2
+        input_spec = {
+            "input_ids": ((1, sequence_length), "int32"),
+            "attention_mask": (
+                (1, 1, sequence_length, context_length),
+                "float32",
+            ),
+            # These are half the length of the hidden size per head because
+            # each cos/sin are applied to a half-sliced copy of the hidden size
+            # and then concatenated.
+            "position_ids_cos": (
+                (1, 1, sequence_length, embed_dim),
+                "float32",
+            ),
+            "position_ids_sin": (
+                (1, 1, sequence_length, embed_dim),
+                "float32",
+            ),
+        }
+
+        # TODO: We could support sequence_length == CONTEXT_LENGTH, but the
+        # KV cache input needs to be removed.
+        assert (
+            sequence_length < context_length
+        ), "It is currently not supported to set input sequence length to the same as or longer than context length. There should be no KV cache input at all in such case."
+
+        for layer in range(num_hidden_layers):
+            past_k_name = f"past_key_{layer}_in"
+            input_spec[past_k_name] = (
+                (
+                    num_key_value_heads,
+                    1,
+                    embed_dim * 2,
+                    context_length - sequence_length,
+                ),
+                "float32",
+            )
+
+            past_v_name = f"past_value_{layer}_in"
+            input_spec[past_v_name] = (
+                (
+                    num_key_value_heads,
+                    1,
+                    context_length - sequence_length,
+                    embed_dim * 2,
+                ),
+                "float32",
+            )
+        return input_spec
+
+    def preferred_hub_source_model_format(
+        self, target_runtime: TargetRuntime
+    ) -> SourceModelFormat:
+        """
+        Source model format preferred for conversion on AI Hub.
+        """
+        return SourceModelFormat.ONNX
+
+    def get_calibration_data(
+        self,
+        input_spec: InputSpec | None = None,
+    ) -> DatasetEntries | None:
+        # No calibration data needed
+        return None
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        if not input_spec:
+            input_spec = self.get_input_spec(
+                sequence_length=self.sequence_length,
+                context_length=self.context_length,
+            )
+        input_dict = sample_input(
+            input_spec,
+            self.get_input_prompt_with_tags(),
+            self.context_length,
+            self.sequence_length,
+            self.tokenizer,
+            self.llm_config,
+            self.embedding,
+        )
+        return input_dict
+
+    def get_evaluator(
+        self, task: str = "wikitext-ppl", device: torch.device = torch.device("cpu")
+    ) -> BaseEvaluator:
+        if "wikitext" in task:
+            return PerplexityEvaluator(
+                self.context_length, self.sequence_length, self.tokenizer, device
+            )
+        return MMLUEvaluator(
+            self.context_length, self.sequence_length, self.tokenizer, device
+        )
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        mmmlu_datasets = [
+            "mmmlu-" + language_code for language_code in mmmlu_split_lookup.keys()
+        ]
+        return mmmlu_datasets + ["wikitext", "wikitext-ja", "tiny-mmlu", "mmlu"]
+
+    def __del__(self):
+        # Clean up since it is prone to hang onto GPU memory otherwise
+        if hasattr(self, "model") and self.model is not None:
+            del self.model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+
 class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
+    # Embedding subclass
+    EmbeddingClass: type[Embedding] | None = None
+
     def __init__(
         self,
         sim_model: QuantSimOnnx | None,
@@ -354,7 +913,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         # Ignore Slice and Constant outputs
         quantsim.op_outputs_to_ignore.append("Slice")
         quantsim.op_outputs_to_ignore.append("Constant")
-        qs.encoding_version = "0.6.1"
+        qs.encoding_version = "1.0.0"
         quant_sim = QuantSimOnnx(
             model=onnx_model,
             quant_scheme=QuantScheme.post_training_tf,
@@ -411,6 +970,8 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         )
         self.llm_config.save_pretrained(output_checkpoint)
         self.tokenizer.save_pretrained(output_checkpoint)
+
+        # Add metadata to correctly load the QuantSim
 
     @classmethod
     def create_onnx_models(
@@ -495,7 +1056,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
-        precision: Precision = Precision.w8a16,
+        precision: Precision = Precision.w4a16,
         other_compile_options: str = "",
         device: Device | None = None,
     ) -> str:
@@ -507,8 +1068,8 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
-        if precision != Precision.w8a16:
-            raise RuntimeError("Only w8a16 precision is supported")
+        if precision not in {Precision.w4a16, Precision.w4}:
+            raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -525,3 +1086,63 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         )
         profile_options += " --max_profiler_iterations 50"
         return profile_options
+
+    def get_calibration_data(
+        self,
+        input_spec: InputSpec | None = None,
+    ) -> DatasetEntries | None:
+        from qai_hub_models.models._shared.llm.generator import LLM_Generator
+
+        dataset = get_dataset_from_name(
+            name="wikitext",
+            split=DatasetSplit.TRAIN,
+            tokenizer=self.tokenizer,
+            block_size=self.sequence_length,
+            context_length=self.context_length,
+            num_samples=math.ceil(80000 / self.context_length),
+        )
+        dataloader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
+
+        input_spec = self.get_input_spec(
+            sequence_length=self.sequence_length,
+            context_length=self.context_length,
+        )
+        assert input_spec is not None
+        inputs: list[list[torch.Tensor | np.ndarray]] = [
+            [] for _ in range(len(input_spec))
+        ]
+
+        assert self.EmbeddingClass is not None
+        rope_embeddings = self.EmbeddingClass(
+            max_length=self.context_length, config=self.llm_config
+        )
+        generator = LLM_Generator([self], self.tokenizer, rope_embeddings)
+
+        # for data in dataloader
+        for sample in tqdm(
+            dataloader, total=len(dataloader), desc="Pre-filling calibration data"
+        ):
+            input_ids, attention_mask, _ = sample
+            for prefilled_inputs in generator.prefill(input_ids, attention_mask):
+                for i, tensor in enumerate(prefilled_inputs):
+                    inputs[i].append(tensor)
+
+        return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
+
+    def get_evaluator(
+        self, task: str = "wikitext-ppl", device: torch.device = torch.device("cpu")
+    ) -> BaseEvaluator:
+        if "wikitext" in task:
+            return PerplexityEvaluator(
+                self.context_length, self.sequence_length, self.tokenizer, device
+            )
+        return MMLUEvaluator(
+            self.context_length, self.sequence_length, self.tokenizer, device
+        )
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        mmmlu_datasets = [
+            "mmmlu-" + language_code for language_code in mmmlu_split_lookup.keys()
+        ]
+        return mmmlu_datasets + ["wikitext", "wikitext-ja", "tiny-mmlu", "mmlu"]

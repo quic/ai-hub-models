@@ -47,8 +47,6 @@ def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx):
     for weight in _get_lm_head_weights(quantsim_model.model.model):
         quantizer = quantsim_model.qc_quantize_op_dict[weight.name]
         quantizer.set_bitwidth(8)
-        quantizer.quant_info.blockSize = 0
-        quantizer.quant_info.blockAxis = -1
         quantizer.enable_per_channel_quantization()
 
 

@@ -14,7 +14,10 @@ from xtcocotools.cocoeval import COCOeval
 from qai_hub_models.datasets.coco_face import CocoFaceDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.utils.pose import FACE_SIGMAS
-from qai_hub_models.models.facemap_3dmm.utils import project_landmark
+from qai_hub_models.models.facemap_3dmm.utils import (
+    project_landmark,
+    transform_landmark_coordinates,
+)
 from qai_hub_models.utils.printing import suppress_stdout
 
 
@@ -50,19 +53,9 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
 
         for idx in range(batch_size):
             face_landmark = project_landmark(output[idx])
-
-            x0, y0, x1, y1 = bbox[idx]
-            bbox_height = y1 - y0 + 1
-            bbox_width = x1 - x0 + 1
-
-            # resize the landmark to original size
-            face_landmark[:, 0] = (
-                face_landmark[:, 0] + self.width / 2
-            ) * bbox_width / self.width + x0
-            face_landmark[:, 1] = (
-                face_landmark[:, 1] + self.height / 2
-            ) * bbox_height / self.height + y0
-
+            transform_landmark_coordinates(
+                face_landmark, bbox[idx], self.width, self.height
+            )
             # added score as 1
             face_landmark = torch.concat([face_landmark, torch.ones(68, 1)], dim=1)
             face_landmark = list(face_landmark.reshape(-1))

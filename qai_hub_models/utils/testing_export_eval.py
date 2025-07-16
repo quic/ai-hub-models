@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import itertools
-import os
+import math
 from collections.abc import Mapping
 from contextlib import nullcontext
 from typing import Callable, Literal, Union, cast
@@ -24,7 +24,10 @@ from qai_hub_models.scorecard import (
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.scorecard.path_compile import DEFAULT_QAIRT_VERSION_ENVVAR
+from qai_hub_models.scorecard.envvars import (
+    IgnoreDeviceJobCacheEnvvar,
+    QAIRTVersionEnvvar,
+)
 from qai_hub_models.scorecard.results.yaml import (
     ENVIRONMENT_ENV_BASE,
     INFERENCE_YAML_BASE,
@@ -153,7 +156,7 @@ def patch_hub_with_cached_jobs(
         patch_compile: bool
             Whether to patch previously cached compile jobs.
 
-       patch_profile: bool
+        patch_profile: bool
             Whether to patch previously cached profile jobs.
 
         patch_inference: bool
@@ -167,76 +170,81 @@ def patch_hub_with_cached_jobs(
     Raises:
         ValueError if jobs are will running or if any job failed.
     """
+    device_patch = mock.patch(
+        "qai_hub.get_devices", return_value=[device.reference_device]
+    )
+
+    if not is_hub_testing_async():
+        return tuple([device_patch, *[nullcontext() for _ in range(5)]])
     calibration_datas_to_patch: list[hub.Dataset] = []
     quantize_jobs_to_patch: list[hub.QuantizeJob] = []
     compile_jobs_to_patch: list[hub.CompileJob] = []
     profile_jobs_to_patch: list[hub.ProfileJob] = []
     inference_jobs_to_patch: list[hub.InferenceJob] = []
 
-    if is_hub_testing_async():
-        if patch_quantization:
-            # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
-            if quantize_jobs := fetch_async_test_jobs(
-                hub.JobType.QUANTIZE,
-                model_id,
-                precision,
-                None,
-                device,
-                component_names,
-                raise_if_not_successful=True,
-            ):
-                pre_quantize_compile_jobs = {
-                    component_name: cast(
-                        hub.CompileJob,
-                        component_job.model.producer,
-                    )
-                    for component_name, component_job in quantize_jobs.items()
-                }
-                # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
-                compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
-                quantize_jobs_to_patch.extend(quantize_jobs.values())
-                calibration_datas_to_patch.extend(
-                    [x.calibration_dataset for x in quantize_jobs.values()]
+    if patch_quantization:
+        # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
+        if quantize_jobs := fetch_async_test_jobs(
+            hub.JobType.QUANTIZE,
+            model_id,
+            precision,
+            None,
+            device,
+            component_names,
+            raise_if_not_successful=True,
+        ):
+            pre_quantize_compile_jobs = {
+                component_name: cast(
+                    hub.CompileJob,
+                    component_job.model.producer,
                 )
+                for component_name, component_job in quantize_jobs.items()
+            }
+            # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
+            compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
+            quantize_jobs_to_patch.extend(quantize_jobs.values())
+            calibration_datas_to_patch.extend(
+                [x.calibration_dataset for x in quantize_jobs.values()]
+            )
 
-        if patch_compile:
-            assert path
-            if compile_jobs := fetch_async_test_jobs(
-                hub.JobType.COMPILE,
-                model_id,
-                precision,
-                path,
-                device,
-                component_names,
-                raise_if_not_successful=True,
-            ):
-                compile_jobs_to_patch.extend(compile_jobs.values())
+    if patch_compile:
+        assert path
+        if compile_jobs := fetch_async_test_jobs(
+            hub.JobType.COMPILE,
+            model_id,
+            precision,
+            path,
+            device,
+            component_names,
+            raise_if_not_successful=True,
+        ):
+            compile_jobs_to_patch.extend(compile_jobs.values())
 
-        if patch_profile:
-            assert path
-            if profile_jobs := fetch_async_test_jobs(
-                hub.JobType.PROFILE,
-                model_id,
-                precision,
-                path,
-                device,
-                component_names,
-                raise_if_not_successful=True,
-            ):
-                profile_jobs_to_patch.extend(profile_jobs.values())
+    if patch_profile:
+        assert path
+        if profile_jobs := fetch_async_test_jobs(
+            hub.JobType.PROFILE,
+            model_id,
+            precision,
+            path,
+            device,
+            component_names,
+            raise_if_not_successful=True,
+        ):
+            profile_jobs_to_patch.extend(profile_jobs.values())
 
-        if patch_inference:
-            assert path
-            if inference_jobs := fetch_async_test_jobs(
-                hub.JobType.INFERENCE,
-                model_id,
-                precision,
-                path,
-                device,
-                component_names,
-                raise_if_not_successful=True,
-            ):
-                inference_jobs_to_patch.extend(inference_jobs.values())
+    if patch_inference:
+        assert path
+        if inference_jobs := fetch_async_test_jobs(
+            hub.JobType.INFERENCE,
+            model_id,
+            precision,
+            path,
+            device,
+            component_names,
+            raise_if_not_successful=True,
+        ):
+            inference_jobs_to_patch.extend(inference_jobs.values())
 
     calib_side_effect = itertools.chain(
         calibration_datas_to_patch, itertools.repeat(mock_get_calibration_data)
@@ -254,7 +262,7 @@ def patch_hub_with_cached_jobs(
             "qai_hub.submit_quantize_job",
             side_effect=callable_side_effect(quantize_side_effect),
         )
-        if quantize_jobs_to_patch
+        if patch_quantization or quantize_jobs_to_patch
         else nullcontext()
     )
 
@@ -276,7 +284,7 @@ def patch_hub_with_cached_jobs(
             "qai_hub.submit_compile_job",
             side_effect=callable_side_effect(compile_side_effect),
         )
-        if compile_jobs_to_patch
+        if patch_compile or compile_jobs_to_patch
         else nullcontext()
     )
 
@@ -288,7 +296,7 @@ def patch_hub_with_cached_jobs(
             "qai_hub.submit_profile_job",
             side_effect=callable_side_effect(profile_side_effect),
         )
-        if profile_jobs_to_patch
+        if patch_profile or profile_jobs_to_patch
         else nullcontext()
     )
 
@@ -300,12 +308,8 @@ def patch_hub_with_cached_jobs(
             "qai_hub.submit_inference_job",
             side_effect=callable_side_effect(inference_side_effect),
         )
-        if inference_jobs_to_patch
+        if patch_inference or inference_jobs_to_patch
         else nullcontext()
-    )
-
-    device_patch = mock.patch(
-        "qai_hub.get_devices", return_value=[device.reference_device]
     )
 
     return (
@@ -489,7 +493,7 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
     # Previous scorecard QAIRT version is stored at /scorecard/intermediates/environment.env dump.
     environment_str = str(load_yaml(ENVIRONMENT_ENV_BASE))
     env_dict = dict([pair.split("=") for pair in environment_str.split()])
-    is_override = os.getenv("QAIHM_TEST_IGNORE_JOB_CACHE") == "true"
+    is_override = IgnoreDeviceJobCacheEnvvar.get()
 
     if (
         #
@@ -499,8 +503,9 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
         # only prod jobs are cached
         or get_default_hub_deployment() != "prod"
         #
-        # if the default QNN version changed, profiling for all paths must be re-run
-        or QAIRTVersion("default").api_version != env_dict[DEFAULT_QAIRT_VERSION_ENVVAR]
+        # if the chosen QNN version does not match, profiling for all paths must be re-run
+        or QAIRTVersion(QAIRTVersionEnvvar.get()).api_version
+        != env_dict[QAIRTVersionEnvvar.VARNAME]
     ):
         return None
 
@@ -647,7 +652,7 @@ def profile_via_export(
                     skip_inferencing=True,
                     skip_summary=True,
                     compile_options=scorecard_path.compile_path.get_compile_options(),
-                    profile_options=scorecard_path.profile_options,
+                    profile_options=scorecard_path.get_profile_options(),
                     target_runtime=scorecard_path.runtime,
                 )
             )
@@ -732,11 +737,11 @@ def inference_via_export(
                 chipset=device.chipset,
                 precision=precision,
                 skip_downloading=True,
-                skip_profiling=False,
-                skip_inferencing=True,
+                skip_profiling=True,
+                skip_inferencing=False,
                 skip_summary=True,
                 compile_options=scorecard_path.compile_path.get_compile_options(),
-                profile_options=scorecard_path.profile_options,
+                profile_options=scorecard_path.get_profile_options(),
                 target_runtime=scorecard_path.runtime,
             )
         )
@@ -912,17 +917,39 @@ def torch_inference_for_accuracy_validation(
     assert isinstance(
         model, BaseModel
     ), "This function is not yet supported for CollectionModel."
+
+    # Get the first dim of the first input. This is always the batch size.
+    compiled_batch_size = next(iter(model.get_input_spec().values()))[0][0]
+
     inputs, *_ = next(iter(get_torch_val_dataloader(dataset_name)))
+    if not isinstance(inputs, list) and not isinstance(inputs, tuple):
+        # Generalize: treat "single-input" model as a list of 1 input.
+        # This allows us to support single and multi-input models in 1 loop.
+        inputs = [inputs]
+
+    num_batches = inputs[0].shape[0]
     output_names = model.get_output_names()
-    all_outputs: list[list[np.ndarray]] = [[] for _ in output_names]
-    for input_tensor in inputs.split(1, dim=0):
-        model_outputs = model(input_tensor)
-        if isinstance(model_outputs, tuple):
-            for i, out in enumerate(model_outputs):
-                all_outputs[i].append(out.numpy())
-        else:
-            all_outputs[0].append(model_outputs.numpy())
-    hub_entries = dict(zip(output_names, all_outputs))
+    outputs: list[list[np.ndarray]] = [[] for _ in output_names]
+    for b in range(0, math.ceil(num_batches / compiled_batch_size)):
+        # Complete N batches at a time to substantially reduces memory pressure
+        # (not all inputs / outputs need to be in memory at once)
+        # Without this, scorecard jobs can easily run OOM.
+        #
+        # TODO(#15497): We should strive to disable single-batch inference. Multi-batch inference is much faster.
+        model_inputs = [
+            x[b * compiled_batch_size : min((b + 1) * compiled_batch_size, x.shape[0])]
+            for x in inputs
+        ]
+        model_outputs: torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor] = model(
+            *model_inputs
+        )
+        if not isinstance(model_outputs, (list, tuple)):
+            # Generalize: treat "single-output" model as a list of 1 output.
+            # This allows us to support single and multi-output models in 1 loop.
+            model_outputs = [model_outputs]
+        for i, output in enumerate(model_outputs):
+            outputs[i].append(output.numpy())
+    hub_entries = dict(zip(output_names, outputs))
     cache_dataset(model_id, "torch_val", hub.upload_dataset(hub_entries))
 
 
@@ -1068,9 +1095,7 @@ def accuracy_on_sample_inputs_via_export(
             skip_profiling=True,
         )
 
-    write_accuracy(
-        model_id, device.chipset, precision, scorecard_path.runtime, psnr_values
-    )
+    write_accuracy(model_id, device.chipset, precision, scorecard_path, psnr_values)
 
 
 def _get_dataset_cache_patch(
@@ -1167,7 +1192,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
             model_id,
             device.chipset,
             precision,
-            scorecard_path.runtime,
+            scorecard_path,
             [],
             torch_acc,
             None,
@@ -1263,7 +1288,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
         model_id,
         device.chipset,
         precision,
-        scorecard_path.runtime,
+        scorecard_path,
         psnr_values,
         torch_acc,
         evaluate_result.device_accuracy,

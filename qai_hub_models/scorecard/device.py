@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import os
 from enum import Enum, unique
 from functools import cached_property
 from typing import Any, Optional
@@ -13,6 +12,7 @@ from pydantic_core import core_schema
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
+from qai_hub_models.scorecard.envvars import EnabledDevicesEnvvar, SpecialDeviceSetting
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -243,11 +243,11 @@ class ScorecardDevice:
         Whether the scorecard should include this scorecard device.
         This applies both to submitted jobs and analyses applied to an existing scorecard job yaml.
         """
-        valid_test_devices = os.environ.get("QAIHM_TEST_DEVICES", "all").lower()
+        valid_test_devices = EnabledDevicesEnvvar.get()
         return self.name in ScorecardDevice._registry and (
-            valid_test_devices == "all"
+            SpecialDeviceSetting.ALL in valid_test_devices
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
-            or self.name in valid_test_devices.split(",")
+            or self.name in valid_test_devices
         )
 
     @cached_property

@@ -10,10 +10,12 @@ import os
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet_onnx import (
     AIMETOnnxQuantizableMixin,
+    set_aimet_log_level,
 )
 
 # isort: on
 
+import logging
 from typing import Optional
 
 import onnx
@@ -131,7 +133,8 @@ class WhisperEncoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncode
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = encodings_path
             # Load the AIMET encodings into the QuantizationSimModel instance
-            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
+            with set_aimet_log_level(logging.WARN):
+                load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
 
         return cls(fp_encoder.config, quant_sim)
 
@@ -245,7 +248,8 @@ class WhisperDecoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecode
             if aimet_encodings == "DEFAULT":
                 aimet_encodings = encodings_path
             # Load the AIMET encodings into the QuantizationSimModel instance
-            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
+            with set_aimet_log_level(logging.WARN):
+                load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
 
         return cls(fp_decoder.config, quant_sim)
 

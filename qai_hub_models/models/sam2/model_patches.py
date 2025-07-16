@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import Normalize
 
-from qai_hub_models.models.sam.model_patches import Conv2DInplaceLinear
+from qai_hub_models.models._shared.sam.model_patches import Conv2DInplaceLinear
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
 
 SAM2_SOURCE_REPO = "https://github.com/facebookresearch/sam2"

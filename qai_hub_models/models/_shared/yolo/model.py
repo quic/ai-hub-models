@@ -115,7 +115,9 @@ class Yolo(BaseModel):
         from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
 
         image_height, image_width = self.get_input_spec()["image"][0][2:]
-        return DetectionEvaluator(image_height, image_width, 0.45, 0.7, use_nms=True)
+        return DetectionEvaluator(
+            image_height, image_width, score_threshold=0.25, nms_iou_threshold=0.7
+        )
 
     @staticmethod
     def get_input_spec(

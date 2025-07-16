@@ -11,7 +11,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 set_strict_mode
 
 install_aws_cli
-run_as_root apt-get install -y python3-opencv cmake libportaudio2
+run_as_root apt-get install -y python3-opencv cmake libportaudio2 ffmpeg
 
 start_group "Ubuntu install: uv"
     if [ ! -x /usr/local/bin/uv ] || [ "$(uv --version)" != "uv 0.6.14" ]; then

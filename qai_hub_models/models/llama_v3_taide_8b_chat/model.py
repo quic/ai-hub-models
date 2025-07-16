@@ -12,9 +12,9 @@ import torch
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
+    Llama3_Optimizations,
     Llama3Base,
     Llama3Base_AIMETOnnx,
-    sample_input,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
@@ -41,12 +41,13 @@ MIN_MEMORY_RECOMMENDED = 80
 
 
 class Llama3_TAIDE(Llama3Base):
+    min_memory_recommended = MIN_MEMORY_RECOMMENDED
+
     def __init__(
         self, checkpoint: str | os.PathLike | Path = HF_REPO_NAME, *args, **kwargs
     ):
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
-            min_memory_recommended=MIN_MEMORY_RECOMMENDED,
             *args,
             **kwargs,
         )
@@ -65,7 +66,8 @@ class Llama3_TAIDE(Llama3Base):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         host_device: torch.device | None = None,
-        _skip_optimizations: list[str] | None = None,
+        _skip_optimizations: list[str]
+        | None = [Llama3_Optimizations.MLP_LINEAR_TO_CONV],
     ) -> Llama3_TAIDE:
         """
         Load a pre-trained Llama-SEA-LION-v3.5-8B-R model via HuggingFace.
@@ -96,8 +98,8 @@ class Llama3_TAIDE(Llama3Base):
         )
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
-        return Llama3Base.get_output_names(num_hidden_layers=num_hidden_layers)
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(
@@ -171,8 +173,8 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         )
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
-        return Llama3Base_AIMETOnnx.get_output_names(num_hidden_layers)
+    def get_output_names():
+        return Llama3Base_AIMETOnnx._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(
@@ -186,15 +188,4 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
             hidden_size=HIDDEN_SIZE,
             num_key_value_heads=NUM_KEY_VALUE_HEADS,
             num_attention_heads=NUM_ATTN_HEADS,
-        )
-
-    def _sample_inputs_impl(self, input_spec: InputSpec | None = None):
-        if input_spec is None:
-            input_spec = self.input_specs
-        return sample_input(
-            input_spec,
-            self.context_length,
-            self.sequence_length,
-            self.tokenizer,
-            self.llm_config,
         )

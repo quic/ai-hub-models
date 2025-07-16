@@ -23,14 +23,26 @@ from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
 
-def main():
+def main(restrict_to_precision: Precision | None = None):
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
         ],
+        Precision.w8a8: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
     }
+
+    if restrict_to_precision:
+        supported_precision_runtimes = {
+            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
+        }
 
     parser = evaluate_parser(
         model_cls=Model,
@@ -74,6 +86,7 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        compute_quant_cpu_accuracy=args.compute_quant_cpu_accuracy,
         skip_device_accuracy=args.skip_device_accuracy,
         skip_torch_accuracy=args.skip_torch_accuracy,
     )

@@ -38,7 +38,7 @@ from tasks.task import (
     Task,
 )
 from tasks.test import PyTestModelsTask, PyTestQAIHMTask
-from tasks.util import echo, run
+from tasks.util import echo, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
@@ -268,6 +268,8 @@ class TaskLibrary:
     @public_task("Model Test Setup")
     @depends(
         ["install_deps", "generate_global_requirements", "download_private_datasets"]
+        if on_ci()
+        else ["install_deps", "generate_global_requirements"]
     )
     def model_test_setup(self, plan: Plan, step_id: str = "model_test_setup") -> str:
         return plan.add_step(step_id, NoOpTask())

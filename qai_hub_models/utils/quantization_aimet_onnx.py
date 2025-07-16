@@ -9,6 +9,7 @@ Items defined in this file require that AIMET-ONNX be installed.
 from __future__ import annotations
 
 try:
+    from aimet_common.utils import AimetLogger
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
     from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
@@ -17,6 +18,7 @@ import gc
 import os
 import shutil
 from collections.abc import Collection
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +37,20 @@ from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
 from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
+
+
+@contextmanager
+def set_aimet_log_level(log_level: int):
+    area_log_levels = {}
+    for area in AimetLogger.LogAreas:
+        area_log_levels[area] = AimetLogger.get_area_logger(area).level
+
+    try:
+        AimetLogger.set_level_for_all_areas(log_level)
+        yield
+    finally:
+        for area, level in area_log_levels.items():
+            AimetLogger.set_area_logger_level(area, level)
 
 
 class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):

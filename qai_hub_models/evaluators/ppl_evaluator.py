@@ -6,15 +6,19 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import torch
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
-from transformers import PreTrainedTokenizer
-from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
-from qai_hub_models.models._shared.llm.generator import LLM_Generator
+
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizer
+    from transformers.modeling_outputs import CausalLMOutputWithPast
+
+    from qai_hub_models.models._shared.llm.generator import LLM_Generator
 
 
 class PerplexityEvaluator(BaseEvaluator):

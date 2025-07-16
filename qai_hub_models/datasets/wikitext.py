@@ -8,7 +8,6 @@ import math
 
 import torch
 from datasets import Dataset, load_dataset
-from torch.utils.data import DataLoader
 from transformers import PreTrainedTokenizerBase
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
@@ -83,23 +82,3 @@ class WikiText(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 1
-
-
-def load_calibration_data(
-    split: DatasetSplit,
-    model: torch.nn.Module,
-    num_samples: int,
-    dataset_cls: type[WikiText] = WikiText,
-):
-    """
-    This loads the dataset for calibration. The floating point torch model is passed here so that the
-    kv_cache input can be generated since its the output of the previous model.
-    """
-    dataset = dataset_cls(
-        tokenizer=model.tokenizer,
-        block_size=model.sequence_length,
-        context_length=model.context_length,
-        split=split,
-        num_samples=num_samples,
-    )
-    return DataLoader(dataset, batch_size=1, collate_fn=collate_fn)

@@ -4,17 +4,21 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any, Optional
+from collections import defaultdict
+from typing import Any
 
 import diffusers
 import torch
-from diffusers.models.embeddings import get_timestep_embedding
 from transformers import CLIPTokenizer
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.inference import OnDeviceModel
 
 OUT_H, OUT_W = 512, 512
+
+UNET_EXTRA_INPUT_NAMES = []
+UNET_EXTRA_INPUT_NAMES.extend([f"controlnet_downblock{i}" for i in range(12)])
+UNET_EXTRA_INPUT_NAMES.append("controlnet_midblock")
 
 
 class StableDiffusionApp:
@@ -42,7 +46,7 @@ class StableDiffusionApp:
         scheduler: diffusers.DPMSolverMultistepScheduler,
         channel_last_latent: bool,
         host_device: torch.device = torch.device("cpu"),
-        time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
+        controlnet: ExecutableModelProtocol | None = None,
     ):
         """
         Initializes StableDiffusionApp with required neural networks for end-to-end pipeline.
@@ -65,9 +69,6 @@ class StableDiffusionApp:
         channel_last_latent:
             True if unet outputs latent of shape like (1, 64, 64, 4). False
             for (1, 4, 64, 64)
-        time_embedding:
-            Projects time-step into embedding used during denoising in latent space.
-            Optional; if this is None, then the time embedding should be baked into the unet model.
         """
 
         self.text_encoder = text_encoder
@@ -77,7 +78,7 @@ class StableDiffusionApp:
         self.scheduler = scheduler
         self.channel_last_latent = channel_last_latent
         self.host_device = host_device
-        self.time_embedding = time_embedding.to(host_device) if time_embedding else None
+        self.controlnet = controlnet
 
     def _encode_text_prompt(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
         """
@@ -148,6 +149,7 @@ class StableDiffusionApp:
         num_steps: int = 50,
         seed: int = 0,
         guidance_scale: float = 7.5,
+        cond_image: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Generate an image using the PyTorch reference neural networks. This
@@ -201,29 +203,14 @@ class StableDiffusionApp:
             guidance_scale=guidance_scale,
             channel_last_latent=self.channel_last_latent,
             host_device=self.host_device,
-            time_embedding=self.time_embedding,
+            controlnet=self.controlnet,
+            cond_image=cond_image,
         )
         # Decode generated image from latent space
         if self.channel_last_latent:
             latents = _make_channel_last_torch(latents).to(self.host_device)
         image = self.vae_decoder(latents)
         return image.to("cpu")  # move to cpu in case it was run on gpu
-
-
-def get_time_embedding(
-    time_embedding: diffusers.embeddings.TimeEmbedding, timestep: int  # type: ignore[name-defined]
-) -> torch.Tensor:
-    """
-    Since these time embeddings aren't dependent on prompt, they can be
-    pre-computed (for a pre-defined set of timesteps) in deployment and
-    skip these computation. We include them in demo for better clarity.
-    """
-    timestep_tensor = torch.tensor([timestep])
-    # TODO: pull 320 from UNet block output dim
-    t_emb = get_timestep_embedding(timestep_tensor, 320, True, 0)
-    emb = time_embedding(t_emb)
-
-    return emb
 
 
 def run_diffusion_steps_on_latents(
@@ -237,15 +224,22 @@ def run_diffusion_steps_on_latents(
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
     host_device: torch.device = torch.device("cpu"),
-    time_embedding: Optional[diffusers.embeddings.TimeEmbedding] = None,  # type: ignore[name-defined]
-) -> torch.Tensor | tuple[torch.Tensor, dict[str, list[torch.Tensor]]]:
+    controlnet: ExecutableModelProtocol | None = None,
+    cond_image: torch.Tensor | None = None,
+) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
     """
     Runs the diffusion steps on latents to generate the final latent sample.
 
     When guidance_scale is nonzero, classifier-free guidance is applied by computing
     both conditional and unconditional noise predictions. In that case, `uncond_embeddings`
     must be provided. If guidance_scale is 0, no guidance is applied and only the conditional
-    branch is used.
+    branch is used. If return_all_steps is True, this function returns a tuple of the
+    final latent and a dictionary of intermediate inputs.
+
+    The returned intermediates has:
+    - intermediates["unet"]: dict with keys "latent", "cond_emb", and optionally "uncond_emb",
+      each a list of torch.Tensor matching each diffusion step's inputs to the UNet.
+    - intermediates["vae"]: the final latent input to the VAE decoder.
 
     Parameters
     ----------
@@ -267,85 +261,132 @@ def run_diffusion_steps_on_latents(
     channel_last_latent:
         True if the unet outputs latents in channel-last format.
     return_all_steps:
-        If True, returns intermediate latents and time embeddings for calibration.
-    time_embedding:
-        Projects time-step into embedding used during denoising in latent space.
-        Optional; if this is None, then the time embedding should be baked into the unet model.
+        If True, returns intermediate inputs for calibration along with final latent.
+    host_device:
+        Device on which to perform computation.
+    cond_image:
+        canny image in NCHW torch.Tensor.
 
     Returns
     -------
     torch.Tensor
         Final latent sample.
-    dict[str, list[torch.Tensor]]
-        Intermediate inputs (only if return_all_steps is True).
+    tuple[torch.Tensor, dict[str, Any]]
+        Tuple of final latent and intermediates dict (only if return_all_steps is True).
     """
+    use_controlnet = controlnet is not None
+    unet_extra_input_names = []
+    if use_controlnet:
+        unet_extra_input_names = UNET_EXTRA_INPUT_NAMES[:]
     with torch.no_grad():
+        # Prepare scheduler and initial noise
         scheduler.set_timesteps(num_steps)  # type: ignore[attr-defined]
-
-        # Initialize latent tensor
         latents_shape = (1, 4, OUT_H // 8, OUT_W // 8)
         generator = torch.manual_seed(seed)
         latents = torch.randn(latents_shape, generator=generator, device=host_device)
         latents = latents * scheduler.init_noise_sigma  # type: ignore[attr-defined]
 
-        # Time input
-        time_input_name = "time_embed" if time_embedding else "timestep"
+        # Initialize storage for UNet calibration data
+        unet_inputs = defaultdict(list)
 
-        # For calibration purposes, store intermediate inputs if needed
-        unet_inputs: dict[str, list[torch.Tensor]] = {"latent": [], time_input_name: []}
+        if use_controlnet:
+            controlnet_inputs = defaultdict(list)
 
         for i, t in enumerate(scheduler.timesteps):  # type: ignore[attr-defined]
             print(f"\nStep: {i + 1}\n{'-' * 10}")
 
-            if time_embedding:
-                time_input = get_time_embedding(time_embedding, t).to(host_device)
-            else:
-                time_input = torch.as_tensor([[t]], dtype=torch.float32).to(host_device)
+            time_input = torch.as_tensor([[t]], dtype=torch.float32).to(host_device)
 
-            latent_model_input = scheduler.scale_model_input(latents, t)  # type: ignore[attr-defined]
+            latent_input = scheduler.scale_model_input(  # type: ignore[attr-defined]
+                latents, t
+            )
             if channel_last_latent:
-                latent_model_input = _make_channel_last_torch(latent_model_input).to(
-                    host_device
-                )
-            unet_inputs["latent"].append(latent_model_input)
-            unet_inputs[time_input_name].append(time_input)
+                latent_input = _make_channel_last_torch(latent_input).to(host_device)
 
-            # Check if guidance should be applied.
+            controlnet_out: tuple[torch.Tensor, ...] = tuple()
+            if use_controlnet:
+                controlnet_inputs["latent"].append(latent_input)
+                controlnet_inputs["timestep"].append(time_input)
+                controlnet_inputs["text_emb"].append(cond_embeddings)
+                controlnet_inputs["image_cond"].append(cond_image)
+                assert controlnet is not None
+                controlnet_out = controlnet(
+                    latent_input, time_input, cond_embeddings, cond_image
+                )
+                if channel_last_latent:
+                    controlnet_out = tuple(
+                        _make_channel_first_torch(v) for v in controlnet_out
+                    )
+
+            # Store inputs for calibration
+            unet_inputs["latent"].append(latent_input)
+            unet_inputs["timestep"].append(time_input)
+            unet_inputs["cond_emb"].append(cond_embeddings)
+            if use_controlnet:
+                for i, name in enumerate(unet_extra_input_names):
+                    unet_inputs[name].append(controlnet_out[i])
+
             if guidance_scale != 0:
                 if uncond_embeddings is None:
                     raise ValueError(
-                        "uncond_embeddings must be provided when guidance_scale is nonzero"
+                        "uncond_embeddings must be provided when guidance_scale"
+                        " is nonzero"
                     )
-                # Use both conditional and unconditional embeddings.
+
+                unet_inputs["uncond_emb"].append(uncond_embeddings)
+
                 if isinstance(unet, OnDeviceModel):
-                    # Batch data into one inference job.
+                    # Batch data into one inference job
+                    unet_extra_inputs = tuple([t, t] for t in controlnet_out)
                     noise = unet(
-                        [latent_model_input, latent_model_input],
+                        [latent_input, latent_input],
                         [time_input, time_input],
                         [cond_embeddings, uncond_embeddings],
+                        *unet_extra_inputs,
                     )
                     noise_cond, noise_uncond = torch.split(noise, 1, 0)
                 else:
-                    noise_cond = unet(latent_model_input, time_input, cond_embeddings)
+                    noise_cond = unet(
+                        latent_input, time_input, cond_embeddings, *controlnet_out
+                    )
                     noise_uncond = unet(
-                        latent_model_input, time_input, uncond_embeddings
+                        latent_input, time_input, uncond_embeddings, *controlnet_out
                     )
                 noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
             else:
-                # No guidance: only process conditional embeddings.
                 if isinstance(unet, OnDeviceModel):
+                    # Batch data into one inference job
+                    unet_extra_inputs = tuple([t] for t in controlnet_out)
                     noise_pred = unet(
-                        [latent_model_input], [time_input], [cond_embeddings]
+                        [latent_input],
+                        [time_input],
+                        [cond_embeddings],
+                        *unet_extra_inputs,
                     )
                 else:
-                    noise_pred = unet(latent_model_input, time_input, cond_embeddings)
+                    noise_pred = unet(
+                        latent_input, time_input, cond_embeddings, *controlnet_out
+                    )
 
             if channel_last_latent:
                 noise_pred = _make_channel_first_torch(noise_pred).to(host_device)
-            latents = scheduler.step(noise_pred, t, latents).prev_sample  # type: ignore[attr-defined]
+            latents = scheduler.step(  # type: ignore[attr-defined]
+                noise_pred, t, latents
+            ).prev_sample
 
         if return_all_steps:
-            return latents, unet_inputs
+            vae_inputs = {"latent": [latents]}
+            intermediates = {"unet": unet_inputs, "vae": vae_inputs}
+            if use_controlnet:
+                intermediates["controlnet"] = controlnet_inputs
+            # Detach grad and move to cpu
+            for model, inputs in intermediates.items():
+                for input_name, input_list in intermediates[model].items():
+                    intermediates[model][input_name] = [
+                        v.detach().cpu() for v in input_list
+                    ]
+            return latents, intermediates
+
         return latents
 
 

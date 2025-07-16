@@ -56,7 +56,7 @@ class FaceDetLiteDataset(BaseDataset):
             range  - [0, 1]
         gt_list:
             0 - image_id_tensor:
-                integer value to represnet image id, not used
+                integer value to represent image id, not used
             1 - scale_tensor:
                 floating value to represent image scale b/w original size and [480, 640]
             2 - padding_tensor
@@ -64,7 +64,7 @@ class FaceDetLiteDataset(BaseDataset):
             3 - boundingboxes_tensor
                 fixed number (self.max_boxes) bounding boxes on original image size - [self.max_boxes, 4]
             4 - labels_tensor
-                fixed number labels to represnet the label of box - [self.max_boxes]
+                fixed number labels to represent the label of box - [self.max_boxes]
             5 - box_numbers_tensor
                 fixed number valid box number to represent how many boxes are valid - [self.max_boxes]
         """

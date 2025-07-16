@@ -35,7 +35,7 @@ class DETR(BaseModel):
         :return: An instance of the DetectionEvaluator class
         """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
-        return DetectionEvaluator(image_height, image_width, 0.45, 0.7, use_nms=False)
+        return DetectionEvaluator(image_height, image_width, score_threshold=0.5)
 
     def detr_postprocess(self, logits, boxes, image_shape):
         """

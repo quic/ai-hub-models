@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import numpy as np
-import samplerate
 import torch
+from scipy.signal import resample_poly
 
 from qai_hub_models.models._shared.hf_whisper.model import (
     CHUNK_LENGTH,
@@ -231,7 +231,7 @@ def chunk_and_resample_audio(
     List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
     """
     if audio_sample_rate != model_sample_rate:
-        audio = samplerate.resample(audio, model_sample_rate / audio_sample_rate)
+        audio = resample_poly(audio, model_sample_rate, audio_sample_rate)
         audio_sample_rate = model_sample_rate
 
     number_of_full_length_audio_chunks = (

@@ -84,6 +84,7 @@ def test_qairt_version():
         ai_hub_default = QAIRTVersion.default()
         assert ai_hub_default.tags == [QAIRTVersion.DEFAULT_AIHUB_TAG]
         assert ai_hub_default.hub_option == ""  # empty because it's the hub default
+        assert ai_hub_default.explicit_hub_option == "--qairt_version 2.32"
         assert ai_hub_default == QAIRTVersion.DEFAULT_AIHUB_TAG
         assert ai_hub_default == ai_hub_default.api_version
         assert ai_hub_default == ai_hub_default.full_version
@@ -97,6 +98,7 @@ def test_qairt_version():
             # Test default
             qaihm_default = QAIRTVersion.qaihm_default()
             assert qaihm_default.hub_option == "--qairt_version latest"
+            assert qaihm_default.explicit_hub_option == "--qairt_version 2.33"
             assert qaihm_default != QAIRTVersion.default()
             assert not qaihm_default.is_default
             assert qaihm_default.is_qaihm_default
@@ -116,6 +118,7 @@ def test_qairt_version():
         ):
             qaihm_default = QAIRTVersion.qaihm_default()
             assert qaihm_default.hub_option == ""  # empty because it's the hub default
+            assert qaihm_default.explicit_hub_option == "--qairt_version 2.32"
             assert qaihm_default == QAIRTVersion.default()
             assert QAIRTVersion.DEFAULT_AIHUB_TAG in qaihm_default.tags
             assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
@@ -127,6 +130,7 @@ def test_qairt_version():
         ):
             qaihm_default = QAIRTVersion.qaihm_default()
             assert qaihm_default.hub_option == "--qairt_version 2.31"
+            assert qaihm_default.explicit_hub_option == "--qairt_version 2.31"
 
         # Verify "too old" QAIHM default behavior
         with mock.patch(
@@ -162,6 +166,7 @@ def test_qairt_version():
         latest = QAIRTVersion.latest()
         assert latest.tags == [QAIRTVersion.LATEST_AIHUB_TAG]
         assert latest.hub_option == f"--qairt_version {QAIRTVersion.LATEST_AIHUB_TAG}"
+        assert latest.explicit_hub_option == "--qairt_version 2.33"
 
         # Untagged
         standard_version = QAIRTVersion("2.31")
@@ -169,6 +174,7 @@ def test_qairt_version():
         assert standard_version == standard_version_2
         assert standard_version_2.api_version == standard_version.api_version
         assert standard_version.hub_option == "--qairt_version 2.31"
+        assert standard_version.explicit_hub_option == "--qairt_version 2.31"
 
         # All Versions
         assert QAIRTVersion.all() == [QAIRTVersion(f.api_version) for f in frameworks]

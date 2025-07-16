@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import warnings
 
-from qai_hub_models.models._shared.llama3.export import export_model
+from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.qwen2_5_7b_instruct import MODEL_ID, Model
 from qai_hub_models.models.qwen2_5_7b_instruct.model import (

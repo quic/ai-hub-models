@@ -169,7 +169,8 @@ class FaceDetLite(BaseModel):
         return ["heatmap", "bbox", "landmark"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        return FaceDetLiteEvaluator(*self.get_input_spec()["input"][0][2:])
+        h, w = self.get_input_spec()["input"][0][2:4]
+        return FaceDetLiteEvaluator(h, w)
 
     @staticmethod
     def eval_datasets() -> list[str]:

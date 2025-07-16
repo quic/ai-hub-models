@@ -4,9 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from enum import Enum, unique
 from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Optional, TypeVar
@@ -15,6 +13,11 @@ import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
+from qai_hub_models.scorecard.envvars import (
+    EnabledPrecisionsEnvvar,
+    IgnoreKnownFailuresEnvvar,
+    SpecialPrecisionSetting,
+)
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
@@ -28,32 +31,6 @@ except ImportError:
 
     def get_bench_pytorch_w8a8_models() -> list[str]:  # type: ignore[misc]
         return []
-
-
-@unique
-class SpecialPrecisionSetting(Enum):
-    """
-    When specifying precision on a scorecard run, users can supply
-    specific precisions (e.g. w8a8) or one of these special keyword settings.
-
-    These can also be combined (e.g. default,w8a8) to stack on top of one another.
-
-    The meaning for each keyword is described below.
-    """
-
-    # Run all of the precisions defined in code-gen.yaml for each model
-    DEFAULT = "default"
-
-    # Run all of the precisions defined in code-gen.yaml for each model, except float
-    DEFAULT_MINUS_FLOAT = "default_minus_float"
-
-    # For models that have w8a16 in supported precisions, run them in w8a16
-    # For all other models, run in w8a16
-    DEFAULT_QUANTIZED = "default_quantized"
-
-    # Runs all models in float except the models specified in
-    # pytorch_bench_models_w8a8.txt which will also run in w8a8
-    BENCH = "bench"
 
 
 def for_each_scorecard_path_and_device(
@@ -97,9 +74,9 @@ def for_each_scorecard_path_and_device(
                 callback(precision, path, device)  # type: ignore[arg-type]
 
 
-def get_enabled_test_precisions(
-    precisions_var: str | None = None,
-) -> tuple[SpecialPrecisionSetting | None, list[Precision]]:
+def get_enabled_test_precisions() -> tuple[
+    SpecialPrecisionSetting | None, list[Precision]
+]:
     """
     Determine what precisions are enabled based on the test environment.
 
@@ -107,26 +84,20 @@ def get_enabled_test_precisions(
         special_precision_setting: Any special precision setting with which the run was configured.
         extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
-    if precisions_var is None:
-        precisions_var = os.getenv("QAIHM_TEST_PRECISIONS", "default")
-    precisions_set = {x.lower() for x in precisions_var.split(",")}
-    special_setting = None
-    # Make a copy of the set so we can alter the original during iteration
-    for precision in set(precisions_set):
-        try:
-            curr_special_setting = SpecialPrecisionSetting(precision)
-        except ValueError:
-            # This precision is not one of the special keywords
-            continue
-        precisions_set.remove(precision)
-        if special_setting is None:
-            special_setting = curr_special_setting
-        else:
-            raise ValueError(
-                "Multiple special settings found in precision list."
-                f"Cannot set both {curr_special_setting.value} and {special_setting.value}."
-            )
-    return special_setting, [Precision.parse(p.strip()) for p in precisions_set]
+    precisions_set = EnabledPrecisionsEnvvar.get()
+    precisions_special_settings = [
+        p for p in precisions_set if isinstance(p, SpecialPrecisionSetting)
+    ]
+    if len(precisions_special_settings) > 1:
+        raise ValueError(
+            "Multiple special settings found in precision list."
+            f"Cannot set both {precisions_special_settings[0].value} and {precisions_special_settings[1].value}."
+        )
+
+    return (
+        precisions_special_settings[0] if precisions_special_settings else None,
+        [Precision.parse(p.strip()) for p in precisions_set if isinstance(p, str)],
+    )
 
 
 def get_quantized_bench_models_path() -> Path:
@@ -255,7 +226,7 @@ def get_model_test_parameterizations(
             * Only include items enabled in this environment via env variables
                 (each arg is a comma separated list)
                 - QAIHM_TEST_PRECISIONS (enabled precisions, default is DEFAULT (only include precisions supported by each model)
-                - QAIHM_TEST_RUNTIMES (enabled runtimes, default is ALL)
+                - QAIHM_TEST_PATHS (enabled runtimes, default is ALL)
                 - QAIHM_TEST_DEVICES (enabled devices, default is ALL)
 
             * Be compatible with each other:
@@ -268,9 +239,7 @@ def get_model_test_parameterizations(
     """
     ret: list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]] = []
     if include_unsupported_paths is None:
-        include_unsupported_paths = bool(
-            int(os.environ.get("QAIHM_TEST_RUN_ALL_SKIPPED_MODELS", 0))
-        )
+        include_unsupported_paths = IgnoreKnownFailuresEnvvar.get()
 
     # Get the precisions enabled for this model in this test environment.
     model_supported_precisions = set(supported_paths.keys())

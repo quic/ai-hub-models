@@ -13,8 +13,11 @@ from PIL import Image
 from torch.utils.data.dataloader import default_collate
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
-from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW, Yolo
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    resize_pad,
+    transform_resize_pad_normalized_coordinates,
+)
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
@@ -104,48 +107,64 @@ class CocoDataset(BaseDataset):
                 self.label_map[line.strip()] = counter
                 counter += 1
 
-        input_spec = input_spec or Yolo.get_input_spec()
         # input_spec is (h, w) and target_image_size is (w, h)
-        self.target_image_size = (input_spec["image"][0][3], input_spec["image"][0][2])
-        self.x_ratio = self.target_image_size[0] / DEFAULT_YOLO_IMAGE_INPUT_HW
-        self.y_ratio = self.target_image_size[1] / DEFAULT_YOLO_IMAGE_INPUT_HW
+        input_spec = input_spec or {"image": ((1, 3, 640, 640), "")}
+        self.target_h = input_spec["image"][0][2]
+        self.target_w = input_spec["image"][0][3]
         self.max_boxes = max_boxes
 
-    def __getitem__(self, item):
+    def __getitem__(
+        self, item
+    ) -> tuple[
+        torch.Tensor, tuple[int, int, int, torch.Tensor, torch.Tensor, torch.Tensor]
+    ]:
         """
         Returns a tuple of input image tensor and label data.
 
+        The image:
+            Is scaled & (center) padded to fit the desired model input shape (self.target_h, self.target_w).
+            Is converted to RGB floating point with range [0, 1]
+            Has shape [1, 3, self.target_h, self.target_w] (NHWC)
+
         Label data is a tuple with the following entries:
           - Image ID within the original dataset
-          - height (in pixels)
-          - width (in pixels)
+          - returned image height (in pixels)
+          - returned image width (in pixels)
           - bounding box data with shape (self.max_boxes, 4)
-            - The 4 should be normalized (x, y, w, h)
+              The 4 are (x1, y1, x2, y2), and are normalized [0, 1] fp values.
+              Box coordinates are normalized to reflect their locations in the resized & padded image.
           - labels with shape (self.max_boxes,)
           - number of actual boxes present
         """
         from fiftyone.core.sample import SampleView
 
-        sample = self.dataset[item : item + 1].first()
-        assert isinstance(sample, SampleView)
+        # Open PIL image sample.
+        sample: SampleView = self.dataset[item : item + 1].first()
         image = Image.open(sample.filepath).convert("RGB")
-        width, height = image.size
+        src_image_w, src_image_h = image.size
+
+        # Convert to torch (NCHW, range [0, 1]) tensor.
+        torch_image = app_to_net_image_inputs(image)[1]
+        # Scale and center-pad image to user-requested target image shape.
+        scaled_padded_torch_image, scale_factor, pad = resize_pad(
+            torch_image, (self.target_h, self.target_w)
+        )
+
         boxes = []
         labels = []
         if sample.ground_truth is not None:
             for annotation in sample.ground_truth.detections:
-                if annotation.label not in self.label_map:
-                    print(f"Warning: Invalid label {annotation.label}")
-                    continue
                 x, y, w, h = annotation.bounding_box
-                boxes.append(
-                    [
-                        x * self.x_ratio,
-                        y * self.y_ratio,
-                        (x + w) * self.x_ratio,
-                        (y + h) * self.y_ratio,
-                    ]
+                coords = torch.Tensor([[x, y], [x + w, y + h]])
+                transformed_coords = transform_resize_pad_normalized_coordinates(
+                    coords,
+                    (src_image_w, src_image_h),
+                    scaled_padded_torch_image.shape[2:4][::-1],
+                    scale_factor,
+                    pad,
                 )
+                boxes.append(list(transformed_coords.flatten()))
+
                 # Convert string label to int idx
                 labels.append(self.label_map[annotation.label])
         boxes = torch.tensor(boxes)
@@ -154,8 +173,8 @@ class CocoDataset(BaseDataset):
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)
         if num_boxes == 0:
-            boxes = torch.zeros((100, 4))
-            labels = torch.zeros(100)
+            boxes = torch.zeros((self.max_boxes, 4))
+            labels = torch.zeros(self.max_boxes)
         elif num_boxes > self.max_boxes:
             raise ValueError(
                 f"Sample has more boxes than max boxes {self.max_boxes}. "
@@ -165,12 +184,10 @@ class CocoDataset(BaseDataset):
             boxes = F.pad(boxes, (0, 0, 0, self.max_boxes - num_boxes), value=0)
             labels = F.pad(labels, (0, self.max_boxes - num_boxes), value=0)
 
-        image = image.resize(self.target_image_size)
-        image = app_to_net_image_inputs(image)[1].squeeze(0)
-        return image, (
+        return scaled_padded_torch_image.squeeze(0), (
             int(Path(sample.filepath).name[:-4]),
-            height,
-            width,
+            self.target_h,
+            self.target_w,
             boxes,
             labels,
             torch.tensor([num_boxes]),

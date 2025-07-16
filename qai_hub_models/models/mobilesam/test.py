@@ -9,16 +9,17 @@ from typing import cast
 import numpy as np
 import torch
 
+from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
+from qai_hub_models.models.mobilesam.demo import IMAGE_ADDRESS
 from qai_hub_models.models.mobilesam.demo import main as demo_main
 from qai_hub_models.models.mobilesam.model import (
     SMALL_MODEL_TYPE,
     MobileSAM,
     MobileSAMLoader,
+    ResizeLongestSide,
     SamOnnxModel,
     SamPredictor,
 )
-from qai_hub_models.models.sam.app import SAMApp, SAMInputImageLayout
-from qai_hub_models.models.sam.demo import IMAGE_ADDRESS
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
 
@@ -40,6 +41,7 @@ def test_e2e_numerical() -> None:
         SAMInputImageLayout[qaihm_sam.sam.image_format],
         [qaihm_sam.encoder],
         qaihm_sam.decoder,
+        ResizeLongestSide,
     )
 
     #

@@ -13,17 +13,17 @@ from qai_hub.client import DatasetEntries
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
 from qai_hub_models.models._shared.stable_diffusion.utils import (
+    load_calib_dataset_entries,
     load_calib_tokens,
     load_unet_calib_dataset_entries,
-    load_vae_calib_dataset_entries,
-    make_calib_data_unet_vae,
+    make_calib_data,
 )
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, CachedWebModelAsset
 from qai_hub_models.utils.checkpoint import CheckpointSpec, CheckpointType
 
 PROMPT_ASSET_VERSION = 1
 
-PROMPT_PATH = CachedWebModelAsset.from_asset_store(
+PROMPT_PATH_SD = CachedWebModelAsset.from_asset_store(
     "stable_diffusion_v1_5", PROMPT_ASSET_VERSION, "calibration_prompts_500.txt"
 )
 
@@ -42,6 +42,9 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         checkpoint: CheckpointSpec = "DEFAULT",
         split: DatasetSplit = DatasetSplit.VAL,
         host_device: torch.device | str = torch.device("cpu"),
+        use_controlnet: bool = False,
+        prompt_path: str | os.PathLike = "",
+        image_cond_path: str | os.PathLike = "",
     ):
         """
         Args:
@@ -66,6 +69,10 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
 
         self.sd_cls = sd_cls
         self.host_device = host_device
+        self.use_controlnet = use_controlnet
+
+        self.prompt_path = str(prompt_path or PROMPT_PATH_SD.fetch())
+        self.image_cond_path = image_cond_path
 
         # Version dataset by
         #   - model class (e.g., StableDiffusionV2_1)
@@ -75,8 +82,9 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             sd_cls.__name__, checkpoint_str, f"data_n{num_samples}_t{num_steps}"
         )
-        self.unet_calib_path = self.data_path / "unet_calib.npz"
-        self.vae_calib_path = self.data_path / "vae_calib.npz"
+        self.unet_calib_path = self.data_path / "unet_calib.pt"
+        self.vae_calib_path = self.data_path / "vae_calib.pt"
+        self.controlnet_calib_path = self.data_path / "controlnet_calib.pt"
         BaseDataset.__init__(self, self.data_path, split=DatasetSplit.VAL)
 
     def __getitem__(self, index):
@@ -111,11 +119,20 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
             host_device=self.host_device,
         )
 
+        controlnet_hf = None
+        if self.use_controlnet:
+            controlnet_cls = self.sd_cls.component_classes[3]
+            controlnet_hf = controlnet_cls.torch_from_pretrained(  # type: ignore
+                checkpoint=self.checkpoint,
+                adapt_torch_model_options={"on_device_opt": False},
+                host_device=self.host_device,
+            )
+
         os.makedirs(self.data_path, exist_ok=True)
-        make_calib_data_unet_vae(
+        make_calib_data(
             self.unet_calib_path,
             self.vae_calib_path,
-            PROMPT_PATH.fetch(),
+            self.prompt_path,
             tokenizer,
             text_encoder_hf,
             unet_hf,
@@ -123,10 +140,14 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
             num_steps=self.num_steps,
             num_samples=self.num_samples,
             guidance_scale=self.sd_cls.guidance_scale,
+            controlnet_hf=controlnet_hf,
+            export_path_controlnet=self.controlnet_calib_path,
+            image_cond_path=self.image_cond_path,
         )
 
 
-# StableDiffusionCalibDatasetUnet and StableDiffusionCalibDatasetVae share the
+# StableDiffusionCalibDatasetUnet, StableDiffusionCalibDatasetVae, and
+# StableDiffusionCalibDatasetControlNet share the
 # same data generation (StableDiffusionCalibDataset._download_data) and
 # on-disk caches, but they are loaded differently, resulting in different
 # dataset
@@ -156,9 +177,7 @@ class StableDiffusionCalibDatasetVae(StableDiffusionCalibDatasetBase):
             return False
 
         # Load data
-        self.ds: DatasetEntries = load_vae_calib_dataset_entries(
-            path=self.vae_calib_path
-        )
+        self.ds: DatasetEntries = load_calib_dataset_entries(path=self.vae_calib_path)
         return True
 
     @staticmethod
@@ -170,11 +189,31 @@ class StableDiffusionCalibDatasetVae(StableDiffusionCalibDatasetBase):
         return "stable_diffusion_calib_vae"
 
 
+class StableDiffusionCalibDatasetControlNet(StableDiffusionCalibDatasetBase):
+    def _validate_data(self) -> bool:
+        if not self.controlnet_calib_path.exists():
+            return False
+
+        # Load data
+        self.ds: DatasetEntries = load_calib_dataset_entries(
+            path=self.controlnet_calib_path
+        )
+        return True
+
+    @staticmethod
+    def default_samples_per_job() -> int:
+        return 200
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        return "stable_diffusion_calib_controlnet"
+
+
 class StableDiffusionCalibDatasetTextEncoder(StableDiffusionCalibDatasetBase):
     def _validate_data(self) -> bool:
         tokenizer = self.sd_cls.make_tokenizer()
         cond_tokens, uncond_token = load_calib_tokens(
-            PROMPT_PATH.fetch(), tokenizer, num_samples=self.num_samples
+            self.prompt_path, tokenizer, num_samples=self.num_samples
         )
         self.ds: DatasetEntries = dict(
             tokens=[t.numpy() for t in cond_tokens] + [uncond_token.numpy()]

@@ -29,8 +29,7 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
         self.reset()
 
     def reset(self):
-        self.preds = []
-        self.expected = []
+        self.metric = MeanAveragePrecision(iou_type="segm")
 
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         """
@@ -65,33 +64,33 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
 
         for batch_idx in range(len(pred_masks)):
             # Process mask and upsample to input shape
-            pred_masks[batch_idx] = process_mask(
+            pred_mask_single = process_mask(
                 proto[batch_idx],
                 pred_masks[batch_idx],
                 pred_boxes[batch_idx],
                 (self.image_height, self.image_width),
                 upsample=True,
-            )
+            ).to(torch.uint8)
 
-            self.preds.append(
-                {
-                    "masks": pred_masks[batch_idx].to(torch.uint8),
-                    "scores": pred_scores[batch_idx],
-                    "labels": pred_class_idx[batch_idx].to(torch.uint8),
-                }
-            )
-            self.expected.append(
-                {
-                    "masks": gt_mask[batch_idx][: num_box[batch_idx]],
-                    "labels": gt_label[batch_idx][: num_box[batch_idx]],
-                }
+            self.metric.update(
+                [
+                    {
+                        "masks": pred_mask_single,
+                        "scores": pred_scores[batch_idx],
+                        "labels": pred_class_idx[batch_idx].to(torch.uint8),
+                    }
+                ],
+                [
+                    {
+                        "masks": gt_mask[batch_idx][: num_box[batch_idx]],
+                        "labels": gt_label[batch_idx][: num_box[batch_idx]],
+                    }
+                ],
             )
 
     def get_accuracy_score(self) -> float:
         # Calculate mAP_mask[0.5-0.95]
-        metric = MeanAveragePrecision(iou_type="segm")
-        metric.update(self.preds, self.expected)
-        results = metric.compute()
+        results = self.metric.compute()
         mAP = results["map"]
         return mAP
 

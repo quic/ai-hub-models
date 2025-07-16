@@ -20,7 +20,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Verify that the output from Torch is as expected.
 @skip_clone_repo_check
 def test_task():
-    app = SegmentationApp(BiseNet.from_pretrained())
+    app = SegmentationApp(BiseNet.from_pretrained(), False)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.segment_image(original_image)[0]
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)
@@ -33,7 +33,7 @@ def test_task():
 @pytest.mark.trace
 @skip_clone_repo_check
 def test_trace():
-    app = SegmentationApp(BiseNet.from_pretrained().convert_to_torchscript())
+    app = SegmentationApp(BiseNet.from_pretrained().convert_to_torchscript(), False)
     original_image = load_image(INPUT_IMAGE_ADDRESS)
     output_image = app.segment_image(original_image)[0]
     output_image_oracle = load_image(OUTPUT_IMAGE_ADDRESS)

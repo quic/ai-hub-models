@@ -233,6 +233,7 @@ def export_torch_to_onnx_zip(
 
     if not f.name.endswith(".onnx"):
         f = f.with_suffix(".onnx")
+
     if total_bytes < threshold_bytes:
         # For models under 2GB, export as a single ONNX file.
         start_time = time.time()
@@ -246,6 +247,17 @@ def export_torch_to_onnx_zip(
         )
         export_time = time.time() - start_time
         print(f"ONNX exported to {f} in {export_time:.1f} seconds")
+
+        # Apply transforms if provided
+        if onnx_transforms is not None:
+            transform_start = time.time()
+            print("Running onnx transforms on single file...")
+            model_proto = onnx.load(str(f))
+            model_proto = onnx_transforms(model_proto)
+            onnx.save_model(model_proto, str(f))
+            transform_time = time.time() - transform_start
+            print(f"ONNX transform finished in {transform_time:.1f} seconds")
+
         return str(f)
     else:
         # Export with external data using two temporary directories.

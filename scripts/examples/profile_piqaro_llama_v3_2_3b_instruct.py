@@ -13,13 +13,15 @@ import logging
 import os
 import shutil
 from pathlib import Path
+from typing import Optional
 
 import piqaro
 import torch
 from transformers import PretrainedConfig
 
-from qai_hub_models.models._shared.llama3.export import export_model
 from qai_hub_models.models._shared.llama3.model import Llama3Base
+from qai_hub_models.models._shared.llm.export import export_model
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v3_2_3b_instruct import MODEL_ID
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -34,6 +36,7 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
+from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
 
 # Set up logging
 logging.basicConfig(
@@ -47,7 +50,7 @@ MODEL_NAME = "llama_v3_2_3b"
 
 HF_REPO_NAME = "meta-llama/Llama-3.2-3B-Instruct"
 
-NUM_LAYERS_TRUNC = 1
+NUM_LAYERS_TRUNC = 2
 
 
 if __name__ == "__main__":
@@ -113,7 +116,6 @@ if __name__ == "__main__":
             context_length: int = DEFAULT_CONTEXT_LENGTH,
         ) -> Llama3_2_3B:
             hub_model_fp = cls(
-                min_memory_recommended=0,
                 checkpoint=HF_REPO_NAME,
                 sequence_length=sequence_length,
                 context_length=context_length,
@@ -126,25 +128,6 @@ if __name__ == "__main__":
                 optimized_fx_graph = piqaro.optimize(hub_model_fp, dummy_input)
                 hub_model_fp.model = optimized_fx_graph
             return hub_model_fp
-
-        def convert_to_torchscript(
-            self, input_spec: InputSpec | None = None, check_trace: bool = True
-        ):
-            """
-            Converts the torch module to a torchscript trace, which
-            is the format expected by qai hub.
-
-            This is a default implementation that may be overriden by a subclass.
-            """
-            if not input_spec:
-                input_spec = self.get_input_spec()
-
-            for param in self.parameters():
-                param.requires_grad = False
-
-            return torch.jit.trace(
-                self, make_torch_inputs(input_spec), check_trace=check_trace
-            )
 
         @staticmethod
         def get_input_spec(
@@ -160,6 +143,50 @@ if __name__ == "__main__":
                 num_key_value_heads=NUM_KEY_VALUE_HEADS,
                 num_attention_heads=NUM_ATTN_HEADS,
             )
+
+        def convert_to_hub_source_model(
+            self,
+            target_runtime: TargetRuntime,
+            output_path: str | Path,
+            input_spec: InputSpec | None = None,
+            check_trace: bool = True,
+            external_onnx_weights: bool = False,
+            output_names: Optional[list[str]] = None,
+        ) -> Optional[str]:
+            """
+            Convert to a AI Hub source model appropriate for the export method.
+            """
+
+            def apply_piqaro_onnx(onnx_model):
+                import onnxsim
+
+                onnx_model, _ = onnxsim.simplify(onnx_model)
+                return piqaro.onnx.optimize(onnx_model)
+
+            onnx_transforms = apply_piqaro_onnx if args.opt == "piqaro_onnx" else None
+            dummy_input = tuple(make_torch_inputs(input_spec))
+            # Need to export to {output_path}/model.onnx
+            output_dir = Path(output_path)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_dir = export_torch_to_onnx_zip(
+                self,
+                output_dir / "model.onnx",
+                dummy_input,
+                input_names=list(input_spec.keys()),
+                output_names=output_names,
+                onnx_transforms=onnx_transforms,
+                skip_zip=True,
+            )
+            return str(output_path)
+
+        @staticmethod
+        def get_output_names() -> list[str]:
+            num_hidden_layers = NUM_LAYERS_TRUNC if truncate_model else NUM_LAYERS
+            output_names = ["logits"]
+            for layer in range(num_hidden_layers):
+                output_names.append(f"past_key_{layer}_out")
+                output_names.append(f"past_value_{layer}_out")
+            return output_names
 
     model_cls = Llama3_2_PiQaro_FP
     model_name = MODEL_ID + f"_{args.opt}"
@@ -182,9 +209,9 @@ if __name__ == "__main__":
     }
 
     devices = [
+        "Snapdragon X Elite CRD",
         "Samsung Galaxy S23 (Family)",
         "Samsung Galaxy S24 (Family)",
-        "Snapdragon X Elite CRD",
     ]
 
     for i, device in enumerate(devices):
@@ -203,5 +230,4 @@ if __name__ == "__main__":
             skip_inferencing=True,
             skip_downloading=True,
             model_cache_mode=cache,
-            # _skip_quantsim_creation=True,
         )

@@ -9,21 +9,25 @@ from qai_hub_models.datasets.celebahq import CelebAHQDataset
 from qai_hub_models.datasets.cityscapes import CityscapesDataset
 from qai_hub_models.datasets.face_attrib_dataset import FaceAttribDataset
 from qai_hub_models.datasets.face_det_lite import FaceDetLiteDataset
+from qai_hub_models.datasets.facemap_3dmm_dataset import FaceMap3DMMDataset
 from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
 from qai_hub_models.datasets.gear_guard_dataset import GearGuardDataset
 from qai_hub_models.datasets.human_faces import HumanFacesDataset
 from qai_hub_models.datasets.nyuv2 import NyUv2Dataset
+from qai_hub_models.datasets.semantic_kitti import SemanticKittiDataset
 
 SUPPORTED_DATASETS = [
     "nyuv2",
     "foot_track_dataset",
     "gear_guard_dataset",
+    "facemap_3dmm_dataset",
     "face_attrib_dataset",
     "cityscapes",
     "human_faces",
     "carvana",
     "celebahq",
     "face_det_lite",
+    "semantic_kitti",
 ]
 
 
@@ -57,6 +61,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         FootTrackDataset(input_data_zip=files[0])
     elif dataset == "gear_guard_dataset":
         GearGuardDataset(input_data_zip=files[0])
+    elif dataset == "facemap_3dmm_dataset":
+        FaceMap3DMMDataset(input_data_zip=files[0])
     elif dataset == "face_attrib_dataset":
         FaceAttribDataset(input_data_zip=files[0])
     elif dataset == "cityscapes":
@@ -69,6 +75,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         CelebAHQDataset(input_images_zip=files[0])
     elif dataset == "face_det_lite":
         FaceDetLiteDataset(input_data_zip=files[0])
+    elif dataset == "semantic_kitti":
+        SemanticKittiDataset(input_lidars_zip=files[0], input_gt_zip=files[1])
     else:
         raise ValueError(f"Invalid dataset {dataset}")
 

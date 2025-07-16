@@ -22,14 +22,11 @@ dataset: []
 technical_details:
   Input sequence length for Prompt Processor: '1024'
   Context length: '1024'
-  Number of parameters: 7B
   Precision: w4a16 + w8a16 (few layers)
   Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
-  Prompt processor model size: 3.6 GB
   Prompt processor input: 1024 tokens
   Prompt processor output: 1024 output tokens + KVCache for token generator
   Model-2 (Token Generator): Llama-TokenGenerator-KVCache-Quantized
-  Token generator model size: 3.6 GB
   Token generator input: 1 input token + past KVCache
   Token generator output: 1 output token + KVCache for next iteration
   Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.

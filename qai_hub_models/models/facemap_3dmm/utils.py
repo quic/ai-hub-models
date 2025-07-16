@@ -116,3 +116,28 @@ def project_landmark(output):
     f = torch.tensor([f, f]).float()
     landmark = vertices[:, 0:2] * f / tZ
     return landmark
+
+
+def transform_landmark_coordinates(
+    landmark: torch.Tensor,
+    bbox: tuple[int, int, int, int],
+    resized_height: int,
+    resized_width: int,
+):
+    """
+    Transforms landmark coordinates from resized image space to original image space.
+
+    Args:
+        landmark: The landmark coordinates in the resized image space.
+        bbox: The bounding box coordinates (x0, y0, x1, y1).
+        resized_height: The height of the resized image.
+        resized_width: The width of the resized image.
+    """
+
+    x0, y0, x1, y1 = bbox
+    height = y1 - y0 + 1
+    width = x1 - x0 + 1
+    landmark[:, 0] = (landmark[:, 0] + resized_width / 2) * width / resized_width + x0
+    landmark[:, 1] = (
+        landmark[:, 1] + resized_height / 2
+    ) * height / resized_height + y0

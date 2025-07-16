@@ -8,6 +8,7 @@ Utilities for evaluating model accuracy on device.
 
 from __future__ import annotations
 
+import gc
 import math
 import os
 import shutil
@@ -15,7 +16,7 @@ from collections.abc import Iterator, Sized
 from dataclasses import dataclass
 from enum import Enum, unique
 from pathlib import Path
-from typing import Callable, Optional, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import h5py
 import numpy as np
@@ -27,7 +28,12 @@ from qai_hub.util.dataset_entries_converters import dataset_entries_to_h5
 from torch.utils.data import DataLoader, Dataset, Sampler, random_split
 from tqdm import tqdm
 
-from qai_hub_models.datasets import BaseDataset, DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets import (
+    DATASET_NAME_MAP,
+    BaseDataset,
+    DatasetSplit,
+    get_dataset_from_name,
+)
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
@@ -252,7 +258,7 @@ def _populate_data_cache_impl(
 
 
 def _populate_data_cache(
-    dataset: BaseDataset,
+    dataset_from_name_args: tuple[Any, ...],
     samples_per_job: int,
     seed: Optional[int],
     input_names: list[str],
@@ -277,14 +283,14 @@ def _populate_data_cache(
     be downloaded to the local cache instead of creating new hub datasets.
 
     Parameters:
-        dataset: The torch dataset with the samples to cache.
+        dataset_from_name_args: Args to instantiate the pyTorch dataset (if it is not cached) by calling get_dataset_from_name.
         samples_per_job: The maximum size of each hub.Dataset.
         seed: The random seed used to create the splits.
         input_names: The input names of the model.
         channel_last_input:
             Comma separated list of input names to have channel transposed.
     """
-    dataset_name = dataset.__class__.dataset_name()
+    dataset_name = dataset_from_name_args[0]
     os.makedirs(get_hub_datasets_path() / dataset_name, exist_ok=True)
     dataset_ids_path = get_dataset_ids_filepath(dataset_name, samples_per_job)
     dataset_ids_valid = _validate_dataset_ids_path(dataset_ids_path)
@@ -303,8 +309,9 @@ def _populate_data_cache(
         os.makedirs(tmp_cache_path)
         if not dataset_ids_valid:
             tmp_dataset_ids_path = Path(tmp_dir) / "dataset_ids.txt"
+            torch_dataset = get_dataset_from_name(*dataset_from_name_args)
             _populate_data_cache_impl(
-                dataset,
+                torch_dataset,
                 samples_per_job,
                 seed,
                 input_names,
@@ -452,7 +459,7 @@ class HubDataset(Dataset):
             #
             # to tuple(input_0_all_batches, input_1_all_batches, ...)
             input_dataset_entries = load_h5(
-                get_dataset_path(self.cache_path, self.input_ids[sample_index])
+                get_dataset_path(self.cache_path, self.input_ids[self.curr_h5_idx])
             )
             if self.channel_last_input:
                 input_dataset_entries = transpose_channel_last_to_first(
@@ -462,6 +469,8 @@ class HubDataset(Dataset):
                 torch.as_tensor(np.concatenate(input_list, axis=0))
                 for input_list in input_dataset_entries.values()
             )
+            input_dataset_entries = None  # type: ignore[assignment]
+            gc.collect()  # delete h5 file data immediately to reduce memory pressure
 
             # Convert DatasetEntries from dict{
             #   "Output0": batch_0, batch_1, ...]
@@ -470,17 +479,21 @@ class HubDataset(Dataset):
             #
             # to tuple(input_0_all_batches, input_1_all_batches, ...)
             gt_dataset_entries = load_h5(
-                get_dataset_path(self.cache_path, self.gt_ids[sample_index])
+                get_dataset_path(self.cache_path, self.gt_ids[self.curr_h5_idx])
             )
             curr_gt = tuple(
                 torch.as_tensor(np.concatenate(gt_list, axis=0))
                 for gt_list in gt_dataset_entries.values()
             )
+            gt_dataset_entries = None  # type: ignore[assignment]
+            gc.collect()  # delete h5 file data immediately to reduce memory pressure
+
             self.curr_dataset = DatasetFromIOTuples(curr_input, curr_gt)
+
         return self.curr_dataset
 
     def __getitem__(
-        self, index
+        self, index: int
     ) -> tuple[
         torch.Tensor | tuple[torch.Tensor, ...], torch.Tensor | tuple[torch.Tensor, ...]
     ]:
@@ -699,16 +712,22 @@ def evaluate_on_dataset(
         compiled_model, input_names, hub_device, profile_options, output_names
     )
 
-    source_torch_dataset = get_dataset_from_name(
-        dataset_name, DatasetSplit.VAL, input_spec=on_device_model.get_input_spec()
+    dataset_from_name_args = (
+        dataset_name,
+        DatasetSplit.VAL,
+        on_device_model.get_input_spec(),
     )
-    samples_per_job = samples_per_job or source_torch_dataset.default_samples_per_job()
+    samples_per_job = (
+        samples_per_job or DATASET_NAME_MAP[dataset_name].default_samples_per_job()
+    )
     num_samples = num_samples or min(samples_per_job, DEFAULT_NUM_EVAL_SAMPLES)
-    _validate_inputs(num_samples, source_torch_dataset)
 
     if use_cache:
+        # When the cache is enabled, we don't want to load the torch dataset unless
+        # the cache is out of date. Therefore we pass the args of get_dataset_from_name to
+        # the function that populates the cache, so it can instantiate the dataset only if necessary.
         _populate_data_cache(
-            source_torch_dataset,
+            dataset_from_name_args,
             samples_per_job,
             seed,
             on_device_model.input_names,
@@ -725,6 +744,10 @@ def evaluate_on_dataset(
         )
         num_samples = len(torch_dataset)
     else:
+        source_torch_dataset = get_dataset_from_name(*dataset_from_name_args)
+        if num_samples == -1:
+            num_samples = len(source_torch_dataset)
+        _validate_inputs(num_samples, source_torch_dataset)
         if seed is not None:
             torch_dataset = sample_dataset(source_torch_dataset, num_samples, seed)
             dataloader = DataLoader(

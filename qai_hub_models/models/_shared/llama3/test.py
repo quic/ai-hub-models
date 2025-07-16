@@ -6,16 +6,20 @@ import os
 import sys
 from inspect import signature
 from pathlib import Path
+from typing import Callable
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
+import qai_hub as hub
 
+from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
 
 
-def _mock_from_pretrained(model_cls, context_length, sequence_length):
+def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
     model = MagicMock()
     model.__signature__ = signature(model_cls.from_pretrained)
     mock_from_pretrained = Mock()
@@ -29,7 +33,13 @@ def _mock_glob(path):
 
 
 # reusable patching function
-def _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path):
+def _create_patches(
+    model_cls: type[LLM_AIMETOnnx],
+    base_name: str,
+    context_length: int,
+    sequence_length: int,
+    tmp_path: Path,
+):
     mock_from_pretrained = _mock_from_pretrained(
         model_cls, context_length, sequence_length
     )
@@ -50,13 +60,13 @@ def _create_patches(model_cls, base_name, context_length, sequence_length, tmp_p
     patch_glob = patch("glob.glob", side_effect=_mock_glob)
     patch_onnx_checker = patch("onnx.checker.check_model")
     patch_split_onnx = patch(
-        "qai_hub_models.models._shared.llama3.split_onnx_utils.utils.split_onnx"
+        "qai_hub_models.models._shared.llm.split_onnx_utils.utils.split_onnx"
     )
     patch_onnx_files = patch.object(
-        Path, "glob", return_value=[Path(tmp_path / "onnx_file.onnx")]
+        Path, "glob", return_value=[tmp_path / "onnx_file.onnx"]
     )
     patch_get_or_create_cached_model = patch(
-        "qai_hub_models.models._shared.llama3.export.get_or_create_cached_model",
+        "qai_hub_models.models._shared.llm.export.get_or_create_cached_model",
         return_value=Mock(),
     )
 
@@ -73,7 +83,10 @@ def _create_patches(model_cls, base_name, context_length, sequence_length, tmp_p
 
 
 def test_cli_device_with_skips_unsupported_device(
-    export_main, model_cls, tmp_path, base_name
+    export_main: Callable,
+    model_cls: type[LLM_AIMETOnnx],
+    tmp_path: Path,
+    base_name: str,
 ):
     (
         _,
@@ -113,14 +126,14 @@ def test_cli_device_with_skips_unsupported_device(
 
 
 def test_cli_device_with_skips(
-    export_main,
-    model_cls,
-    tmp_path,
-    base_name,
-    parts,
-    device,
-    skip_inferencing,
-    skip_profiling,
+    export_main: Callable,
+    model_cls: type[LLM_AIMETOnnx],
+    tmp_path: Path,
+    base_name: str,
+    parts: int,
+    device: hub.Device,
+    skip_inferencing: bool,
+    skip_profiling: bool,
 ):
     context_length = 4096
     sequence_length = 128
@@ -195,17 +208,16 @@ def test_cli_device_with_skips(
 
 
 def test_cli_chipset_with_options(
-    export_main,
-    model_cls,
-    tmp_path,
-    base_name,
-    parts,
-    chipset,
-    context_length,
-    sequence_length,
+    export_main: Callable,
+    model_cls: type[LLM_AIMETOnnx],
+    tmp_path: Path,
+    base_name: str,
+    parts: int,
+    chipset: str,
+    context_length: int,
+    sequence_length: int,
+    precision: Precision = Precision.w4a16,
 ):
-    context_length = 4096
-    sequence_length = 128
     (
         mock_from_pretrained,
         patch_model,
@@ -285,8 +297,7 @@ def test_cli_chipset_with_options(
         # TODO (#15223): Wrong precision call(<TargetRuntime.QNN_CONTEXT_BINARY: 'qnn_context_binary'>, w8a16, 'compile_extra'): Should be w4a16
         assert mock_get_hub_compile_options.call_count == parts * 2
         assert all(
-            call.args
-            == (TargetRuntime.QNN_CONTEXT_BINARY, Precision.w8a16, compile_options)
+            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list
         )
 
@@ -322,21 +333,21 @@ def test_cli_chipset_with_options(
             mock_from_pretrained.call_args_list[0].kwargs["sequence_length"]
             == sequence_length
         )
-        # In instantiations list (160) from _shared/llama3/export.py
+        # In instantiations list (160) from _shared/llm/export.py
         assert mock_from_pretrained.call_args_list[1].kwargs["sequence_length"] == 1
 
 
 # for llama3 all components are tested, i.e. no option to select individual components 'part_1_of_5', 'part_2_of_5', 'part_3_of_5', 'part_4_of_5', 'part_5_of_5'
 def test_cli_default_device_select_component(
-    export_main,
-    model_cls,
-    tmp_path,
-    base_name,
-    parts,
-    device,
-    cache_mode,
-    skip_download,
-    skip_summary,
+    export_main: Callable,
+    model_cls: type[LLM_AIMETOnnx],
+    tmp_path: Path,
+    base_name: str,
+    parts: int,
+    device: hub.Device,
+    cache_mode: CacheMode,
+    skip_download: bool,
+    skip_summary: bool,
 ):
     context_length = 4096
     sequence_length = 128

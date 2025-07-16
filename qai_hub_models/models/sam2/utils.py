@@ -7,8 +7,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from qai_hub_models.models.sam.utils import _draw_mask, show_image  # noqa: F401
-
 
 def copy_configs(src: str, dst: Path) -> None:
 

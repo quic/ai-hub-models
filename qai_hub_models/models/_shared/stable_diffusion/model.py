@@ -13,9 +13,7 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 # isort: on
 
 import json
-import math
 from pathlib import Path
-from typing import Optional
 
 import diffusers
 import torch
@@ -30,12 +28,12 @@ from qai_hub.client import Device
 
 from qai_hub_models.models._shared.stable_diffusion import utils
 from qai_hub_models.models._shared.stable_diffusion.model_adaptation import (
+    get_timestep_embedding,
     monkey_patch_model,
 )
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import (
     BaseModel,
-    Precision,
     PretrainedCollectionModel,
     TargetRuntime,
 )
@@ -135,7 +133,7 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(host_device.type == "cuda"),
+            providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings:
             load_encodings_to_sim(quant_sim, aimet_encodings)
@@ -145,77 +143,35 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
     def calibration_dataset_name() -> str:
         return "stable_diffusion_calib_text_encoder"
 
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        quantization_flags = " --quantize_full_type w8a16"
-        return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, precision, other_compile_options, device
-            )
-            + quantization_flags
-        )
-
 
 class UnetBase(BaseModel, FromPretrainedMixin):
-    def forward(self, latent, time_emb, text_emb) -> torch.Tensor:
-        return self.model(latent, time_emb, text_emb)
-
     @classmethod
     def adapt_torch_model(
         cls, model: torch.nn.Module, on_device_opt: bool = True
     ) -> torch.nn.Module:
-        model.config.return_dict = False
-
-        embedding_dim = 320  # TODO: Extract from last unet layers
-
-        def get_timestep_embedding(sample: torch.Tensor, timestep: torch.Tensor):
-            """
-            Adapted from diffusers.models.get_timestep_embedding.
-            Removes parameters unused by our implementation and supports batching.
-            """
-            MAX_PERIOD = 10000
-            half_dim = embedding_dim // 2
-            exponent = -math.log(MAX_PERIOD) * torch.arange(
-                start=0, end=half_dim, dtype=torch.float32, device=timestep.device
-            )
-            exponent = exponent / half_dim
-
-            emb = torch.exp(exponent)
-            emb = timestep.float() * emb
-
-            # concat sine and cosine embeddings
-            emb = torch.cat([torch.sin(emb), torch.cos(emb)], dim=-1)
-
-            # flip sine and cosine embeddings
-            emb = torch.cat([emb[:, half_dim:], emb[:, :half_dim]], dim=-1)
-
-            # zero pad
-            if embedding_dim % 2 == 1:
-                emb = torch.nn.functional.pad(emb, (0, 1, 0, 0))
-
-            return emb
-
+        """The torch model is used to generate data in addition to generating
+        the onnx model"""
         model.get_time_embed = get_timestep_embedding
 
         if on_device_opt:
             monkey_patch_model(model)
 
         class UNet2DConditionModelWrapper(torch.nn.Module):
-            """Just to unpack the output dict with key "sample" """
+            """Call with return_dict=false and unpack the output tuple"""
 
             def __init__(self, model: UNet2DConditionModel):
                 super().__init__()
                 self.model = model
 
             def forward(self, latent, timestep, text_emb):
-                return self.model(latent, timestep, text_emb)["sample"]  # type: ignore
+                return self.model(  # type: ignore
+                    latent, timestep, text_emb, return_dict=False
+                )[0]
 
         return UNet2DConditionModelWrapper(model)
+
+    def forward(self, latent, time_emb, text_emb) -> torch.Tensor:
+        return self.model(latent, time_emb, text_emb)
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -240,21 +196,6 @@ class UnetBase(BaseModel, FromPretrainedMixin):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["output_latent"]
-
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        quantization_flags = " --quantize_full_type w8a16"
-        return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, precision, other_compile_options, device
-            )
-            + quantization_flags
-        )
 
 
 class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
@@ -301,27 +242,11 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(host_device.type == "cuda"),
+            providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings is not None:
             load_encodings_to_sim(quant_sim, aimet_encodings)
         return cls(quant_sim, host_device=host_device)
-
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        quantization_flags = " --quantize_full_type w8a16"
-        return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, precision, other_compile_options, device
-            )
-            + quantization_flags
-            # need to use context bin to avoid OOM from on-device compile
-        )
 
     @staticmethod
     def calibration_dataset_name() -> str:
@@ -413,26 +338,11 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
             default_activation_bw=16,
             default_param_bw=8,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
-            use_cuda=(host_device.type == "cuda"),
+            providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings:
             load_encodings_to_sim(quant_sim, aimet_encodings)
         return cls(quant_sim, host_device=host_device)
-
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        quantization_flags = " --quantize_full_type w8a16"
-        return (
-            super().get_hub_compile_options(  # type: ignore
-                target_runtime, precision, other_compile_options, device
-            )
-            + quantization_flags
-        )
 
     def get_unsupported_reason(
         self, target_runtime: TargetRuntime, device: Device

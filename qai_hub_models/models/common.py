@@ -95,6 +95,11 @@ class QAIRTVersion:
         )
 
     @property
+    def explicit_hub_option(self) -> str:
+        """String flag to pass to hub to use this Hub version. This flag always uses the "API version" number, never the tag."""
+        return f"{QAIRTVersion.HUB_FLAG} {self.api_version}"
+
+    @property
     def is_qaihm_default(self) -> bool:
         """
         Whether this is the default QAIRT version used by AI Hub Models.
@@ -106,7 +111,7 @@ class QAIRTVersion:
     @property
     def is_default(self) -> bool:
         """Whether this is the default AI Hub QAIRT version."""
-        return bool(self.tags) and QAIRTVersion.DEFAULT_AIHUB_TAG in self.tags
+        return QAIRTVersion.DEFAULT_AIHUB_TAG in self.tags
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -317,10 +322,8 @@ class TargetRuntime(Enum):
             TargetRuntime.QNN_CONTEXT_BINARY,
         ]
 
-    def get_target_runtime_flag(
-        self,
-        device: Optional[hub.Device] = None,
-    ) -> str:
+    @property
+    def aihub_target_runtime_flag(self) -> str:
         """
         AI Hub job flag for compiling to this runtime.
         """

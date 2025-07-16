@@ -253,15 +253,27 @@ class PyTestModelsTask(CompositeTask):
         # (submit all jobs for all models at once, rather than one model at a time).
         test_hub_async: bool = os.environ.get("QAIHM_TEST_HUB_ASYNC", 0)
 
-        if test_hub_async and run_export_compile and not on_ci():
-            # Clean previous (cached) compile test jobs.
-            filename = {os.environ["COMPILE_JOBS_FILE"]}
-            tasks.append(
-                RunCommandsTask(
-                    "Delete stored compile jobs from past test runs.",
-                    f'if [ -f "{filename}" ]; then rm "{filename}"; fi',
-                )
-            )
+        if test_hub_async and not on_ci():
+            for (run_test, job_type) in [
+                (run_export_quantize, "quantize"),
+                (run_export_compile, "compile"),
+                (run_export_profile, "profile"),
+                (run_export_inference, "inference"),
+            ]:
+                if run_test:
+                    # Clean previous cached test jobs.
+                    filename = os.getenv(
+                        "QAIHM_TEST_ARTIFACTS_DOR",
+                        os.path.join(
+                            os.getcwd(), "qaihm_test_artifacts", f"{job_type}-jobs.yaml"
+                        ),
+                    )
+                    tasks.append(
+                        RunCommandsTask(
+                            "Delete stored compile jobs from past test runs.",
+                            f'if [ -f "{filename}" ]; then rm "{filename}"; fi',
+                        )
+                    )
 
         has_venv = base_test_venv is not None
         if not has_venv and (not venv_for_each_model or test_hub_async):

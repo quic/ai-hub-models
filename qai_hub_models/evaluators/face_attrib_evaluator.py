@@ -91,4 +91,4 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         return np.mean(cos_sim)
 
     def formatted_accuracy(self) -> str:
-        return f"{self.get_accuracy_score():.3f} mAP"
+        return f"{self.get_accuracy_score():.3f} Cosine Similarity"

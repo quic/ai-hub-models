@@ -11,25 +11,25 @@ import torch
 # podm comes from the object-detection-metrics pip package
 from podm.metrics import BoundingBox
 
-from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
+from qai_hub_models.evaluators.detection_evaluator import mAPEvaluator
 from qai_hub_models.models.face_det_lite.utils import detect
 
 
-class FaceDetLiteEvaluator(DetectionEvaluator):
+class FaceDetLiteEvaluator(mAPEvaluator):
     """Evaluator for comparing a batched image output."""
 
     def __init__(
         self,
         image_height: int,
         image_width: int,
+        nms_iou_threshold: float = 0.2,
+        score_threshold: float = 0.55,
     ):
-        self.threshhold = 0.55
-        self.iou_thr = 0.2
-        self.image_width = image_width
+        super().__init__()
+        self.nms_iou_threshold = nms_iou_threshold
+        self.score_threshold = score_threshold
         self.image_height = image_height
-        DetectionEvaluator.__init__(
-            self, image_height, image_width, self.threshhold, self.iou_thr
-        )
+        self.image_width = image_width
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
@@ -85,8 +85,8 @@ class FaceDetLiteEvaluator(DetectionEvaluator):
                 hm[i].unsqueeze(0),
                 box[i].unsqueeze(0),
                 landmark[i].unsqueeze(0),
-                threshold=self.threshhold,
-                nms_iou=self.iou_thr,
+                threshold=self.score_threshold,
+                nms_iou=self.nms_iou_threshold,
                 stride=8,
             )
 
@@ -147,5 +147,4 @@ class FaceDetLiteEvaluator(DetectionEvaluator):
                     )
                 )
 
-            # Compute mean average precision
-            self._update_mAP(gt_bb_entry, pd_bb_entry)
+            self.store_bboxes_for_eval(gt_bb_entry, pd_bb_entry)

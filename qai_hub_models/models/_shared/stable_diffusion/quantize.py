@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import shutil
 from pathlib import Path
+from typing import Any
 
 import torch
 from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
@@ -43,7 +44,10 @@ def maybe_save_scheduler_config(checkpoint: CheckpointSpec, output_dir: str | Pa
 
 
 def stable_diffusion_quantize(
-    model_cls: type[StableDiffusionBase], model_id: str, default_num_steps: int
+    model_cls: type[StableDiffusionBase],
+    model_id: str,
+    default_num_steps: int,
+    use_controlnet: bool = False,
 ):
     # Args
     parser = argparse.ArgumentParser()
@@ -89,6 +93,28 @@ def stable_diffusion_quantize(
         default="cuda" if torch.cuda.is_available() else "cpu",
         help=("One of cpu,cuda. Run QuantSim calibration on this host device. "),
     )
+
+    # --prompt and --image-cond are required for controlnet
+    if use_controlnet:
+        kwargs: dict[str, Any] = {"required": True}
+    else:
+        kwargs = {"default": ""}
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        help=(
+            "Path to a plain text file where each line is a prompt. "
+            "The default uses a preset of 500 prompts"
+        ),
+        **kwargs,
+    )
+    if use_controlnet:
+        parser.add_argument(
+            "--image-cond",
+            type=str,
+            required=True,
+            help=(".pt path containing a list of canny torch.Tensor NCHW images"),
+        )
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -105,6 +131,9 @@ def stable_diffusion_quantize(
         num_samples=args.num_samples,
         num_steps=args.num_steps,
         checkpoint=args.checkpoint,
+        use_controlnet=use_controlnet,
+        prompt_path=args.prompt,
+        image_cond_path=args.image_cond,
     )
 
     # get_calibration_data is also used in submit_quantize_job for non-aimet

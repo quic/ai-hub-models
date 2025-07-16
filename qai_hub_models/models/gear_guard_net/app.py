@@ -66,7 +66,7 @@ def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
 def postprocess(
     output: list[torch.Tensor],
     scale: float,
-    pad: list[int],
+    pad: tuple[int, int],
     conf_thr: float,
     iou_thr: float,
 ) -> np.ndarray:

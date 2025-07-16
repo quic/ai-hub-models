@@ -48,6 +48,7 @@ def quantize_model(
 ) -> hub.client.QuantizeJob | None:
     quantize_job = None
     if precision != Precision.float:
+        output_names = model.get_output_names()
         source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
         print(f"Quantizing model {model_name}.")
         onnx_compile_job = hub.submit_compile_job(
@@ -55,7 +56,7 @@ def quantize_model(
             input_specs=input_spec,
             device=hub_device,
             name=model_name,
-            options="--target_runtime onnx",
+            options=f"--target_runtime onnx --output_names {','.join(output_names)}",
         )
 
         if not precision.activations_type or not precision.weights_type:
@@ -353,9 +354,7 @@ def main(restrict_to_precision: Precision | None = None):
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a16: [
-            TargetRuntime.ONNX,
-        ],
+        Precision.w8a16: [],
     }
 
     if restrict_to_precision:

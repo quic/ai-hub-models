@@ -22,6 +22,10 @@ from qai_hub_models.scorecard import (
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
+from qai_hub_models.scorecard.envvars import (
+    ArtifactsDirEnvvar,
+    EnableAsyncTestingEnvvar,
+)
 from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardJob
 from qai_hub_models.scorecard.results.yaml import (
@@ -71,24 +75,15 @@ def append_line_to_file(path: os.PathLike, line: str) -> None:
 
 
 def is_hub_testing_async() -> bool:
-    return bool(os.environ.get("QAIHM_TEST_HUB_ASYNC", 0))
+    return EnableAsyncTestingEnvvar.get()
 
 
-def get_artifacts_dir_opt() -> Path | None:
-    adir = os.environ.get("QAIHM_TEST_ARTIFACTS_DIR", None)
-    return Path(adir) if adir else None
-
-
-def get_artifacts_dir() -> Path:
-    adir = get_artifacts_dir_opt()
-    assert (
-        adir
-    ), "Attempted to access artifacts dir, but $QAIHM_TEST_ARTIFACTS_DIR cli variable is not set"
-    return Path(adir)
+def get_artifacts_dir_opt() -> Path:
+    return ArtifactsDirEnvvar.get()
 
 
 def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
-    dir = Path(artifacts_dir or get_artifacts_dir())
+    dir = Path(artifacts_dir or get_artifacts_dir_opt())
     os.makedirs(dir, exist_ok=True)
     path = dir / filename
     path.touch()
@@ -556,13 +551,13 @@ def write_accuracy(
     model_name: str,
     chipset: str,
     precision: Precision,
-    runtime: TargetRuntime,
+    path: ScorecardProfilePath,
     psnr_values: list[str],
     torch_accuracy: float | None = None,
     device_accuracy: float | None = None,
     sim_accuracy: float | None = None,
 ) -> None:
-    line = f"{model_name},{str(precision)},{runtime.name.lower()},"
+    line = f"{model_name},{str(precision)},{path.spreadsheet_name},"
     line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
     line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
     line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","

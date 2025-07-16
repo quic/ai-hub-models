@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-import os
 from enum import Enum, unique
 from functools import cached_property
 from typing import Optional
@@ -13,8 +12,7 @@ import qai_hub as hub
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
-
-DEFAULT_QAIRT_VERSION_ENVVAR = "QAIHM_TEST_QAIRT_VERSION"
+from qai_hub_models.scorecard.envvars import QAIRTVersionEnvvar
 
 
 @unique
@@ -150,10 +148,11 @@ class ScorecardCompilePath(Enum):
         precision: Precision = Precision.float,
         device: hub.Device | None = None,
         include_target_runtime: bool = False,
+        include_default_qaihm_qnn_version: bool = False,
     ) -> str:
         out = ""
         if include_target_runtime:
-            out += self.runtime.get_target_runtime_flag(device)
+            out += self.runtime.aihub_target_runtime_flag
 
         if self.runtime == TargetRuntime.QNN_CONTEXT_BINARY:
             # Without this flag, graph names are random.
@@ -167,15 +166,25 @@ class ScorecardCompilePath(Enum):
             out = out + " --quantize_full_type float16 --quantize_io"
 
         if self.runtime.qairt_version_changes_compilation:
-            qairt_version = QAIRTVersion(
-                os.getenv(
-                    DEFAULT_QAIRT_VERSION_ENVVAR,
-                    QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION,
-                )
-            )
-            if qairt_version.is_default:
-                qairt_version = self.runtime.default_qairt_version
+            qairt_version_str = QAIRTVersionEnvvar.get()
+            if qairt_version_str == QAIRTVersion.DEFAULT_QAIHM_TAG:
+                # We typically don't want the default QAIRT version added here if it matches with the AI Hub models default.
+                # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.
+                #
+                # Static models do need this included explicitly because they don't rely on export scripts.
+                if include_default_qaihm_qnn_version:
+                    # Certain runtimes use their own default version of QAIRT.
+                    # If the user picks our the qaihm_default tag, we need use the runtime's
+                    # default QAIRT version instead.
+                    qairt_version = self.runtime.default_qairt_version
+                    out = out + f" {qairt_version.explicit_hub_option}"
+            else:
+                qairt_version = QAIRTVersion(qairt_version_str)
 
-            out = out + f" {qairt_version.hub_option}"
+                # The explicit option will always pass `--qairt_version 2.XX`,
+                # regardless of whether this is the AI Hub default.
+                #
+                # This is useful for tracking what QAIRT version applies for scorecard jobs.
+                out = out + f" {qairt_version.explicit_hub_option}"
 
         return out.strip()

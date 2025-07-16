@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import warnings
 
-from qai_hub_models.models._shared.llama3.export import export_model
+from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import MODEL_ID, FP_Model, Model
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.model import (

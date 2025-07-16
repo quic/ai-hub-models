@@ -2,10 +2,17 @@
 # Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from typing import Union
+
 from PIL import Image
 
-from qai_hub_models.models._shared.stable_diffusion.app import StableDiffusionApp
+from qai_hub_models.models._shared.stable_diffusion.app import (
+    OUT_H,
+    OUT_W,
+    StableDiffusionApp,
+)
 from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.models._shared.stable_diffusion.utils import make_canny
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import (
     demo_model_components_from_cli_args,
@@ -29,7 +36,14 @@ def stable_diffusion_demo(
     is_test: bool = False,
     default_guidance_scale: float = 7.5,
     default_num_steps: int = 5,
+    use_controlnet: bool = False,
+    default_prompt: str = DEFAULT_PROMPT,
+    default_image: Union[str, None] = None,
 ):
+    """
+    Args:
+        default_image is only used if use_controlnet is True
+    """
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(
         parser=parser,
@@ -42,9 +56,17 @@ def stable_diffusion_demo(
     parser.add_argument(
         "--prompt",
         type=str,
-        default=DEFAULT_PROMPT,
+        default=default_prompt,
         help="Prompt for stable diffusion",
     )
+    if use_controlnet:
+        # TODO: provide default for this
+        parser.add_argument(
+            "--image",
+            type=str,
+            default=default_image,
+            help="Use canny image generated from this image as conditional image.",
+        )
     parser.add_argument(
         "--num-steps",
         type=int,
@@ -61,20 +83,35 @@ def stable_diffusion_demo(
 
     validate_on_device_demo_args(args, model_id)
 
+    canny_image = None
+    if use_controlnet:
+        # TODO: load this into torch.Tensor
+        canny_image = Image.open(args.image)
+        canny_image = make_canny(canny_image, OUT_H, OUT_W)
+
+    controlnet = None
     if args.eval_mode == EvalMode.FP:
         model_kwargs = get_model_kwargs(model_cls, vars(args))
         # model = model_cls.from_pretrained(**kwargs)
 
         text_encoder_cls = model_cls.component_classes[0]
-        unet_cls = model_cls.component_classes[1]
-        vae_cls = model_cls.component_classes[2]
         text_encoder = text_encoder_cls.torch_from_pretrained(**model_kwargs)
+
+        unet_cls = model_cls.component_classes[1]
         unet = unet_cls.torch_from_pretrained(**model_kwargs)
+
+        vae_cls = model_cls.component_classes[2]
         vae_decoder = vae_cls.torch_from_pretrained(**model_kwargs)
+
+        if use_controlnet:
+            controlnet_cls = model_cls.component_classes[3]
+            controlnet = controlnet_cls.torch_from_pretrained(**model_kwargs)
     else:
-        text_encoder, unet, vae_decoder = demo_model_components_from_cli_args(
-            model_cls, model_id, args
-        )
+        models = demo_model_components_from_cli_args(model_cls, model_id, args)
+        if use_controlnet:
+            text_encoder, unet, vae_decoder, controlnet = models
+        else:
+            text_encoder, unet, vae_decoder = models
 
     assert issubclass(model_cls, StableDiffusionBase)
     tokenizer = model_cls.make_tokenizer()
@@ -88,12 +125,14 @@ def stable_diffusion_demo(
         scheduler=scheduler,
         # OnDeviceModel account for channel_last already
         channel_last_latent=False,
+        controlnet=controlnet,
     )
 
     image = app.generate_image(
         args.prompt,
         num_steps=args.num_steps,
         guidance_scale=args.guidance_scale,
+        cond_image=canny_image,
     )
 
     pil_img = Image.fromarray(to_uint8(image.detach().cpu().numpy())[0])

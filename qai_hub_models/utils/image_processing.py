@@ -185,10 +185,18 @@ def pad_to_square(frame: np.ndarray) -> np.ndarray:
 
 
 def resize_pad(
-    image: torch.Tensor, dst_size: tuple[int, int], pad_mode: str = "constant"
-):
+    image: torch.Tensor,
+    dst_size: tuple[int, int],
+    pad_mode: str = "constant",
+    pad_value=0.0,
+) -> tuple[torch.Tensor, float, tuple[int, int]]:
     """
     Resize and pad image to be shape [..., dst_size[0], dst_size[1]]
+
+    This will not warp or crop the image. It will be resized as large as it can
+    possibly be without being cropped and while maintaining aspect ratio.
+    The image is then padded so that it's in the center of the returned image "frame"
+    of the desired size (dst_size).
 
     Parameters:
         image: (..., H, W)
@@ -198,9 +206,14 @@ def resize_pad(
             Size to which the image should be reshaped.
 
     Returns:
-        rescaled_padded_image: torch.Tensor (..., dst_size[0], dst_size[1])
-        scale: scale factor between original image and dst_size image, (w, h)
-        pad: pixels of padding added to the rescaled image: (left_padding, top_padding)
+        rescaled_padded_image:
+            torch.Tensor (..., dst_size[0], dst_size[1])
+
+        scale:
+            scale factor between original image and dst_size image
+
+        pad:
+            pixels of padding added to the rescaled image: (left_padding, top_padding)
 
     Based on https://github.com/zmurez/MediaPipePyTorch/blob/master/blazebase.py
     """
@@ -236,6 +249,7 @@ def resize_pad(
         rescaled_image,
         (pad_left, pad_right, pad_top, pad_bottom),
         mode=pad_mode,
+        value=pad_value,
     )
     padding = (pad_left, pad_top)
 
@@ -265,6 +279,63 @@ def undo_resize_pad(
     ]
 
     return cropped_image
+
+
+def transform_resize_pad_coordinates(
+    coordinates: torch.Tensor, scale_factor: float, pad: torch.Tensor | tuple[int, int]
+) -> torch.Tensor:
+    """
+    Transform integer (pixel space) coordinates from their location in an image
+    to the equivalent location in a scaled / padded version of the same image.
+
+    Params:
+        coordinates:
+            Coordinate tensor of shape [..., 2], where 2 == [x. y].
+            Coordinates must be in pixel space.
+        pad:
+            [padding_left, padding_top], in pixel space.
+
+        NOTE: x and y can be swapped (passed in order of y, x) if padding order is also swapped.
+
+    Returns:
+        Modified coordinates.
+        The returned coordinate are in pixel space.
+    """
+    return coordinates * scale_factor + torch.Tensor([*pad]).int()
+
+
+def transform_resize_pad_normalized_coordinates(
+    coordinates: torch.Tensor,
+    src_image_shape: torch.Tensor | torch.Size | tuple[int, int],
+    resized_image_shape: torch.Tensor | torch.Size | tuple[int, int],
+    scale_factor: float,
+    pad: tuple[int, int],
+) -> torch.Tensor:
+    """
+    Convert normalized ([0-1] float space) coordinates from their location in an image
+    to the equivalent location in a scaled / padded version of the same image.
+
+    Params:
+        coordinates:
+            Coordinate tensor of shape [..., 2], where 2 == [x. y].
+            Coordinates must be in normalized [0-1] float space.
+        pad:
+            [padding_left, padding_top], in PIXEL space.
+        src_image_shape:
+            Source image shape (width, height).
+        resized_image_shape:
+            Resized image shape (width, height).
+
+        NOTE: x and y can be swapped (passed in order of y, x) if shape and padding order are also swapped.
+
+    Returns:
+        Modified coordinates.
+        The returned coordinate are in normalized [0-1] float space.
+    """
+    coordinates = coordinates * torch.Tensor([*src_image_shape]).int()
+    coordinates = transform_resize_pad_coordinates(coordinates, scale_factor, pad)
+    coordinates /= torch.Tensor([*resized_image_shape]).int()
+    return coordinates
 
 
 def pil_resize_pad(

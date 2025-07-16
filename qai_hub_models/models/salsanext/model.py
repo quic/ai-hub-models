@@ -9,6 +9,8 @@ import os
 import torch
 import yaml  # type: ignore
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.semantic_kitti_evaluator import SemanticKittiEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel
@@ -124,6 +126,22 @@ class SalsaNext(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["lidar"]
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["semantic_kitti"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "semantic_kitti"
+
+    def get_evaluator(self) -> BaseEvaluator | None:
+        with open(DATA_ADDRESS) as f:
+            data = yaml.safe_load(f)
+        n_classes = len(data["learning_map_inv"])
+        return SemanticKittiEvaluator(
+            n_classes, data["learning_map"], data["learning_ignore"]
+        )
 
 
 def _load_salsanext_source_model_from_weights(

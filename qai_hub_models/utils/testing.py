@@ -45,7 +45,6 @@ from qai_hub_models.utils.quantization import get_calibration_data
 from qai_hub_models.utils.testing_async_utils import (  # noqa: F401
     append_line_to_file,
     get_artifact_filepath,
-    get_artifacts_dir,
     get_artifacts_dir_opt,
     get_compile_job_ids_file,
     get_dataset_ids_file,
@@ -195,7 +194,7 @@ def get_and_sync_datasets_cache_dir(
     folder_name = "hub_datasets"
     if not has_channel_transpose:
         folder_name += "_nt"
-    dir_path = get_artifacts_dir() / folder_name / dataset_name
+    dir_path = get_artifacts_dir_opt() / folder_name / dataset_name
     if dir_path.exists():
         return dir_path
     with qaihm_temp_dir() as tmp_dir:

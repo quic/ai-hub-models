@@ -7,7 +7,7 @@ from qai_hub_models.models.bisenet.model import INPUT_IMAGE_ADDRESS, MODEL_ID, B
 
 
 def main(is_test: bool = False):
-    segmentation_demo(BiseNet, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test)
+    segmentation_demo(BiseNet, MODEL_ID, INPUT_IMAGE_ADDRESS, is_test, False)
 
 
 if __name__ == "__main__":

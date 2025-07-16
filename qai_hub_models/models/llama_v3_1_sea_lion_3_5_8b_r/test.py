@@ -7,9 +7,6 @@ import qai_hub as hub
 
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import MODEL_ID, Model
-from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.demo import (
-    llama_v3_1_sea_lion_3_5_8b_r_chat_demo,
-)
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.export import (
     DEFAULT_EXPORT_DEVICE,
     NUM_SPLITS,
@@ -18,13 +15,6 @@ from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.export import (
     main as export_main,
 )
 from qai_hub_models.utils.model_cache import CacheMode
-
-
-@pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")
-@pytest.mark.slow_cloud
-def test_demo() -> None:
-    # Run demo and verify it does not crash
-    llama_v3_1_sea_lion_3_5_8b_r_chat_demo(is_test=True)
 
 
 @pytest.mark.unmarked

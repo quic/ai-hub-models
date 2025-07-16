@@ -52,6 +52,7 @@ def quantize_model(
             component = model.components[component_name]
             assert isinstance(component, BaseModel)
             input_spec = component.get_input_spec()
+            output_names = component.get_output_names()
             source_model = torch.jit.trace(
                 component.to("cpu"), make_torch_inputs(input_spec)
             )
@@ -61,7 +62,7 @@ def quantize_model(
                 input_specs=input_spec,
                 device=hub_device,
                 name=f"{model_name}_{component_name}",
-                options="--target_runtime onnx",
+                options=f"--target_runtime onnx --output_names {','.join(output_names)}",
             )
 
             if not precision.activations_type or not precision.weights_type:

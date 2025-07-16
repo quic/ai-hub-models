@@ -15,13 +15,13 @@ from qai_hub.client import Device
 from qai_hub.public_rest_api import DatasetEntries
 from transformers import AutoConfig, PretrainedConfig
 
-from qai_hub_models.models._shared.llama3.model import (
+from qai_hub_models.models._shared.llama3.model import Llama3Base
+from qai_hub_models.models._shared.llama.model import LlamaMixin
+from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
-    Llama3Base,
     get_tokenizer,
 )
-from qai_hub_models.models._shared.llama.model import LlamaMixin
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
@@ -124,8 +124,8 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         return None
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
-        return Llama3Base.get_output_names(num_hidden_layers=num_hidden_layers)
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(

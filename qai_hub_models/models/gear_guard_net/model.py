@@ -145,8 +145,8 @@ class GearGuardNet(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["bbox_8x", "bbox_16x", "bbox_32x"]
 
-    def get_evaluator(self, name: str | None = None) -> BaseEvaluator:
-        return GearGuardNetEvaluator(*self.get_input_spec()["image"][0][2:])
+    def get_evaluator(self) -> BaseEvaluator:
+        return GearGuardNetEvaluator()
 
     @staticmethod
     def eval_datasets() -> list[str]:

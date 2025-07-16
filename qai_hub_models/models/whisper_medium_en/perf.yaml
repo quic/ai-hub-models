@@ -1,6 +1,5 @@
 supported_devices:
 - Snapdragon 8 Elite QRD
-- Snapdragon X Elite CRD
 - Samsung Galaxy S24
 - Samsung Galaxy S24 Ultra
 - Samsung Galaxy S24+
@@ -16,16 +15,13 @@ supported_devices:
 - Samsung Galaxy S21
 - Samsung Galaxy S21 Ultra
 - Samsung Galaxy S21+
-- Snapdragon X Plus 8-Core CRD
 - SA8295P ADP
 supported_chipsets:
 - qualcomm-snapdragon-8-elite
-- qualcomm-snapdragon-x-elite
 - qualcomm-snapdragon-8gen3
 - qualcomm-snapdragon-8gen2
 - qualcomm-snapdragon-8gen1
 - qualcomm-snapdragon-888
-- qualcomm-snapdragon-x-plus-8-core
 - qualcomm-sa8295p
 precisions:
   float:
@@ -33,7 +29,6 @@ precisions:
       WhisperEncoderInf:
         universal_assets:
           tflite: mn16ggkvq
-          onnx: mm50ggekq
         performance_metrics:
           SA8295P ADP:
             tflite:
@@ -74,22 +69,9 @@ precisions:
                 total: 1991
                 gpu: 1980
                 cpu: 11
-          Snapdragon X Elite CRD:
-            onnx:
-              job_id: j57lyoerg
-              job_status: Passed
-              inference_time_milliseconds: 1545.124
-              estimated_peak_memory_range_mb:
-                min: 953
-                max: 953
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 2444
-                npu: 2444
       WhisperDecoderInf:
         universal_assets:
           tflite: mn0vee78m
-          onnx: mn77vv43n
         performance_metrics:
           SA8295P ADP:
             tflite:
@@ -127,15 +109,3 @@ precisions:
               layer_counts:
                 total: 6377
                 npu: 6377
-          Snapdragon X Elite CRD:
-            onnx:
-              job_id: jp4dleylp
-              job_status: Passed
-              inference_time_milliseconds: 66.789
-              estimated_peak_memory_range_mb:
-                min: 566
-                max: 566
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 5867
-                npu: 5867
