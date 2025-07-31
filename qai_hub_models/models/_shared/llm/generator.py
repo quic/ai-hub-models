@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import itertools
@@ -252,6 +253,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         )
 
         input_specs = self.selected_model.get_input_spec(
+            llm_config=self.selected_model.llm_config.to_dict(),
             sequence_length=sequence_length,
             context_length=context_length,
         )

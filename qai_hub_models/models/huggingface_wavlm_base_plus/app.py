@@ -1,15 +1,15 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import numpy as np
 import torch
+from transformers import Wav2Vec2Processor
 
-from qai_hub_models.models.huggingface_wavlm_base_plus.model import (
-    DEFAULT_INPUT_LENGTH_SECONDS,
-)
+DEFAULT_INPUT_LENGTH_SECONDS = 10
 
 
 class HuggingFaceWavLMBasePlusApp:
@@ -20,19 +20,18 @@ class HuggingFaceWavLMBasePlusApp:
         * HuggingFaceWavLMBasePlus
 
     For a given audio input, the app will:
-        * Run HuggingFaceWavLMBasePlus inference on the input and return the output feature vectors
+        * Run HuggingFaceWavLMBasePlus inference on the input and return the transciptions
     """
 
     def __init__(self, wavlm_model):
         self.model = wavlm_model
+        self.processor = get_processor()
 
     def predict(self, *args, **kwargs):
         # See predict_features.
         return self.predict_features(*args, **kwargs)
 
-    def predict_features(
-        self, input: np.ndarray, sampling_rate=16000.0
-    ) -> torch.Tensor:
+    def predict_features(self, input: np.ndarray, sampling_rate=16000.0) -> str:
         """
         Predict a feature vector from an audio sample
 
@@ -43,10 +42,7 @@ class HuggingFaceWavLMBasePlusApp:
                 sampling_rate: the sampling rate of the audio - default 16kHz
 
         Returns:
-                feature_vec: a tuple of tensors
-                         1x999x768
-                         1x999x512
-                        features detected in the audio stream
+            str: The transcribed text from the audio input
         """
 
         # preprocess audio
@@ -60,5 +56,18 @@ class HuggingFaceWavLMBasePlusApp:
 
         # Run prediction
         features = self.model(audio_tensor)
+        pred_ids = torch.argmax(features[0], dim=-1)
+        transcriptions = self.processor.batch_decode(pred_ids)[0]
+        return transcriptions
 
-        return features
+
+def get_processor(
+    default_weights="patrickvonplaten/wavlm-libri-clean-100h-base-plus",
+) -> Wav2Vec2Processor:
+    """
+    Static method to get the Wav2Vec2Processor instance with default weights.
+
+    Returns:
+        Wav2Vec2Processor: The initialized processor
+    """
+    return Wav2Vec2Processor.from_pretrained(default_weights)

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [3D-Deep-BOX: Real-time 3D object detection](https://aihub.qualcomm.com/models/deepbox)
 
 3D Deep Box is a machine learning model that predicts 3D bounding boxes and classes of objects in an image.

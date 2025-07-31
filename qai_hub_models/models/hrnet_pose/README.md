@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [HRNetPose: Perform accurate human pose estimation](https://aihub.qualcomm.com/models/hrnet_pose)
 
 HRNet performs pose estimation in high-resolution representations.

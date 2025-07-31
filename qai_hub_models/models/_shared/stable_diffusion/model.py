@@ -1,13 +1,15 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet_onnx import (
     AIMETOnnxQuantizableMixin,
+    ensure_max_aimet_onnx_version,
 )
 
 # isort: on
@@ -46,6 +48,9 @@ from qai_hub_models.utils.checkpoint import (
 )
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
+
+MAX_AIMET_ONNX_VERSION = "2.6.0"
+ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION)
 
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):

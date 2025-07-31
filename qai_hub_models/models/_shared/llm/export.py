@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 from __future__ import annotations
 
@@ -15,10 +16,20 @@ import numpy as np
 import onnx
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
+from transformers import PretrainedConfig
 
-from qai_hub_models.models._shared.llm.model import DEFAULT_SEQUENCE_LENGTH, LLMBase
+from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_SEQUENCE_LENGTH,
+    LLMBase,
+    PositionProcessorBase,
+)
 from qai_hub_models.models._shared.llm.split_onnx_utils import utils
-from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.common import (
+    ExportResult,
+    Precision,
+    QAIRTVersion,
+    TargetRuntime,
+)
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
@@ -45,6 +56,7 @@ def export_model(
     sub_components: dict[str, list[str]],
     num_layers_per_split: int,
     precision: Precision,
+    position_processor_cls: type[PositionProcessorBase] | None = None,
     device: Optional[str] = None,
     chipset: Optional[str] = None,
     skip_profiling: bool = False,
@@ -58,9 +70,7 @@ def export_model(
     synchronous: bool = False,
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
-) -> Mapping[
-    str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-] | list[str]:
+) -> Mapping[str, ExportResult]:
     """
     In this workflow, two instantiations of the LLM model are exported (AR-1,
     AR-128). AR-<seq_len> refers to a model with input sequence length <seq_len>.
@@ -107,7 +117,7 @@ def export_model(
             from profiling and inference.
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
-        target_runtime: Which on-device runtime to target. Default is TFLite.
+        target_runtime: Which on-device runtime to target.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
         synchronous: Let each job finish before submitting the next.
@@ -130,29 +140,26 @@ def export_model(
 
     # Pick a device
     hub_device = hub_devices[-1]
-
-    # Check that the hexagon version supports weight sharing
-    # TODO (#13929): Use weight sharing attribute
-    hexagon_versions = [
-        int(x[len("hexagon:v") :])
-        for x in hub_device.attributes
-        if x.startswith("hexagon:")
-    ]
-
-    assert len(hexagon_versions) == 1
-    allow_weight_sharing = (
-        "chipset:qualcomm-sa8295p" in hub_device.attributes or hexagon_versions[0] >= 73
-    )
-    if not allow_weight_sharing:
+    # Check if weight sharing is supported.
+    if "htp-supports-weight-sharing:true" not in hub_device.attributes:
         raise ValueError(
             "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
         )
 
-    # Instantiation names and input sequence length
+    fp_model_params = dict(
+        sequence_length=additional_model_kwargs["sequence_length"],
+        context_length=additional_model_kwargs["context_length"],
+    )
+    if hub_device.name == "SA8295P ADP":
+        fp_model_params["_skip_optimizations"] = None
+    if additional_model_kwargs["checkpoint"] == "DEFAULT":
+        additional_model_kwargs["fp_model"] = additional_model_kwargs["fp_model_cls"].from_pretrained(  # type: ignore[index]
+            **fp_model_params
+        )
 
+    # Instantiation names and input sequence length
     # 1. Initialize PyTorch model
     model_params = dict(get_model_kwargs(model_cls, additional_model_kwargs))
-
     prompt_sequence_length = model_params.pop(
         "sequence_length", DEFAULT_SEQUENCE_LENGTH
     )
@@ -169,32 +176,39 @@ def export_model(
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}
     profile_options_per_instantiation: dict[str, str] = {}
+    onnx_model_path_from_sub_component_name: dict[str, str] = {}
+    llm_config: PretrainedConfig | None = None
 
     sub_component_names: dict[str, list[str]] = {}
     component_from_sub_component_names = {}
+    input_encodings_path: str | None = None
+
+    # Always target context binaries
+    hub_target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
 
     for instantiation_name, seq_len in instantiations:
         full_name = f"{model_name}_{instantiation_name}"
         model = model_cls.from_pretrained(sequence_length=seq_len, **model_params)
-
+        llm_config = model.llm_config
         sub_component_names[instantiation_name] = []
 
         profile_options_per_instantiation[
             instantiation_name
-        ] = model.get_hub_profile_options(target_runtime, profile_options)
+        ] = model.get_hub_profile_options(hub_target_runtime, profile_options)
 
         input_spec = model.get_input_spec(
             **{
                 **get_input_spec_kwargs(model, additional_model_kwargs),
                 "sequence_length": seq_len,
                 "context_length": model.context_length,
+                "llm_config": model.llm_config.to_dict(),
             },
         )
 
         # Export the full model to ONNX model
         sub_output_path = output_path / instantiation_name
         source_model = model.convert_to_hub_source_model(
-            target_runtime,
+            hub_target_runtime,
             sub_output_path,
             input_spec,
             external_onnx_weights=True,
@@ -255,6 +269,12 @@ def export_model(
                 # or encodings). Change aimet_path to that onnx directly
                 aimet_path = onnx_path
 
+            onnx_model_path_from_sub_component_name[sub_component_name] = str(onnx_path)
+            if (
+                target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX
+                and QAIRTVersion.HUB_FLAG not in compile_options
+            ):
+                compile_options += f" {target_runtime.default_qairt_version.hub_option}"
             model_compile_options = (
                 model.get_hub_compile_options(
                     target_runtime, precision, compile_options
@@ -325,6 +345,13 @@ def export_model(
                         f"Link job {link_job.job_id} failed. Please go to {link_job.url} and consult the error log."
                     )
                 full_name = f"{model_name}_{sub_component_name}"
+                if (
+                    target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX
+                    and QAIRTVersion.HUB_FLAG not in profile_options
+                ):
+                    profile_options += (
+                        f" {target_runtime.default_qairt_version.hub_option}"
+                    )
                 submitted_profile_job = hub.submit_profile_job(
                     model=link_job.get_target_model(),
                     device=hub_device,
@@ -428,15 +455,40 @@ def export_model(
                 torch_out,
             )
 
-    print(
-        "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
-    )
+    if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+        assert position_processor_cls is not None
+        assert llm_config is not None
+        assert input_encodings_path is not None
+
+        hub_model = next(iter(link_jobs.values())).get_target_model()
+        assert hub_model is not None
+        qairt_version = hub_model.metadata[hub.ModelMetadataKey.QAIRT_SDK_VERSION]
+
+        model.prepare_ort_genai_assets(
+            model_name=model_name,
+            llm_config=llm_config,
+            position_processor_cls=position_processor_cls,
+            encodings_path=input_encodings_path,
+            context_length=model_params["context_length"],
+            prompt_sequence_length=prompt_sequence_length,
+            onnx_model_path_from_sub_component_name=onnx_model_path_from_sub_component_name,
+            num_splits=num_splits,
+            qairt_version=qairt_version,
+            output_dir=output_path,
+        )
+        print(
+            "These models can be deployed on-device using ONNX Runtime with the GenAI extension."
+        )
+    else:
+        print(
+            "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
+        )
 
     return {
-        sub_component_name: (
-            link_jobs[component_name],
-            profile_jobs.get(sub_component_name),
-            inference_jobs.get(sub_component_name),
+        sub_component_name: ExportResult(
+            link_job=link_jobs[component_name],
+            profile_job=profile_jobs.get(sub_component_name, None),
+            inference_job=inference_jobs.get(sub_component_name, None),
         )
         for component_name in components
         for sub_component_name in sub_components[component_name]

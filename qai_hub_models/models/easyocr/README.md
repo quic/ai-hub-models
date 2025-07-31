@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [EasyOCR: Ready-to-use OCR with 80+ supported languages and all popular writing scripts](https://aihub.qualcomm.com/models/easyocr)
 
 EasyOCR is a machine learning model that can recognize text in images. It supports 80+ supported languages and all popular writing scripts.

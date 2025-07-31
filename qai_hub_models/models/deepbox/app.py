@@ -1,11 +1,13 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
 
+import cv2
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -69,11 +71,11 @@ class DeepBoxApp:
         Inputs:
             bbox2D_dectector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
                 The 2D boundary box dectection model.
-                Input is an image [N C H W], channel layout is BGR, output is [pred_boxes, pred_scores, pred_class_idx].
+                Input is an image [N C H W], channel layout is RGB [0-1], output is [pred_boxes, pred_scores, pred_class_idx].
 
             bbox3D_dectector: Callable[[torch.Tensor], tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[list]]],
                 The 3D boundary box dectection model.
-                Input is an image [N C H W], channel layout is BGR, output is [proj_matrix, orient, dim, location].
+                Input is an image [N C H W], channel layout is RGB [0-1], output is [proj_matrix, orient, dim, location].
 
             nms_score_threshold: float
                 Score threshold for when NMS is run on the detector output boxes.
@@ -179,7 +181,7 @@ class DeepBoxApp:
 
     def detect_3d_bboxes(
         self,
-        numpy_image: np.ndarray,
+        numpy_image: np.ndarray,  # H W C, int8 [0, 255] image
         pred_boxes: torch.Tensor,
         pred_class_idx: torch.Tensor,
     ) -> tuple[
@@ -210,18 +212,26 @@ class DeepBoxApp:
         if not averages.recognized_class(detected_class):
             return None
 
-        # convert from BGR to RGB
-        image_bgr = numpy_image[..., ::-1]
         detectedObject = Dataset.DetectedObject(
-            image_bgr, detected_class, box_2d, calib_file
+            numpy_image, detected_class, box_2d, calib_file
         )
-
         theta_ray = detectedObject.theta_ray
-        input_img = detectedObject.img
         proj_matrix = detectedObject.proj_matrix
 
+        # Crop to detected bounding box, reshape to input of vgg net
+        pt1 = box_2d[0]
+        pt2 = box_2d[1]
+        cropped_image = numpy_image[pt1[1] : pt2[1] + 1, pt1[0] : pt2[0] + 1]
+        # Note that this resize does not preserve aspect ratio. While odd, this is the implementation in the original paper, so we kept it.
+        cropped_image = cv2.resize(
+            cropped_image, dsize=(224, 224), interpolation=cv2.INTER_CUBIC
+        )
+        cropped_image = cropped_image.astype(np.float32) / 255.0
+
         # detect the 3d bbox
-        [orient, conf, dim] = self.vgg(input_img.unsqueeze(0))
+        [orient, conf, dim] = self.vgg(
+            torch.as_tensor(cropped_image.transpose(2, 0, 1)).unsqueeze(0)
+        )
         orient = orient.numpy()[0, :, :]
         conf = conf.numpy()[0, :]
         dim = dim.numpy()[0, :]

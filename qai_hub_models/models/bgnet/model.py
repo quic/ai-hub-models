@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -18,7 +19,7 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
-    normalize_image_transform,
+    normalize_image_torchvision,
 )
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -54,13 +55,12 @@ class BGNet(BaseModel):
         Parameters:
             image: Pixel values for encoder consumption.
                    Range: float[0, 1]
-                   3-channel Color Space: BGR
+                   3-channel Color Space: RGB
 
         Returns:
             segmented mask per class: Shape [batch, classes, height, width]
         """
-        input_transform = normalize_image_transform()
-        image = input_transform(image)
+        image = normalize_image_torchvision(image)
         _, _, res, e = self.model(image)
         return res
 

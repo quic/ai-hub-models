@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -54,7 +55,6 @@ class FootTrackDataset(BaseDataset):
         gt_path = self.gt_list[index]
         image = Image.open(image_path)
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
-        image_tensor *= 255.0
 
         labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
         for key, value in CLASS_STR2IDX.items():

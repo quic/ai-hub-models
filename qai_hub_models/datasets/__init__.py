@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import importlib
@@ -26,10 +27,19 @@ def _try_import_dataset(module_name: str, cls: str):
     """
     try:
         module = importlib.import_module(module_name, package="qai_hub_models.datasets")
-    except ModuleNotFoundError as e:
+    except NotImplementedError as e:
+        if "AIMET-ONNX" in str(e):
+            # stable diffusion dataset requires aimet-onnx
+            _ALL_DATASETS_IMPORT_ERRORS[module_name] = e
+            return
+        raise e
+    except Exception as e:
         if module_name.startswith("."):
             module_name = module_name[1:]
-        if str(e) == f"No module named 'qai_hub_models.datasets.{module_name}":
+        if (
+            isinstance(e, ModuleNotFoundError)
+            and str(e) == f"No module named 'qai_hub_models.datasets.{module_name}"
+        ):
             # this module legitimately does not exist
             raise e
 
@@ -40,12 +50,6 @@ def _try_import_dataset(module_name: str, cls: str):
         # at a later time (when the user requests this dataset).
         _ALL_DATASETS_IMPORT_ERRORS[module_name] = e
         return
-    except NotImplementedError as e:
-        if "AIMET-ONNX" in str(e):
-            # stable diffusion dataset requires aimet-onnx
-            _ALL_DATASETS_IMPORT_ERRORS[module_name] = e
-            return
-        raise e
 
     if x := getattr(module, cls, None):
         xds = cast(type[BaseDataset], x)
@@ -107,6 +111,7 @@ _try_import_dataset(".wikitext_ja", "WikiText_Japanese")
 _try_import_dataset(".tiny_mmlu", "TinyMMLU")
 _try_import_dataset(".mmlu", "MMLU")
 _try_import_dataset(".mmmlu", "MMMLU")
+_try_import_dataset(".libri_speech", "LibriSpeechDataset")
 
 
 def get_dataset_from_name(

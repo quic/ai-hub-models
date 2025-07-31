@@ -1,20 +1,26 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
 from collections.abc import Callable
 from pathlib import Path
 
-import cv2
 import numpy as np
 import numpy.typing as npt
 import torch
+from PIL.Image import Image
+from PIL.Image import fromarray as pil_image_from_array
 
 from qai_hub_models.utils.bounding_box_processing import get_iou
+from qai_hub_models.utils.draw import draw_box_from_xyxy, draw_points
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
 
+GREEN_COLOR = (170, 255, 0)
+RED_COLOR = (255, 0, 0)
 LABELS_PATH = (
     Path(os.path.dirname(__file__)).parent.parent
     / "labels"
@@ -114,6 +120,54 @@ class BBox_landmarks:
     def box(self, newvalue):
         self.x, self.y, self.r, self.b = newvalue
 
+    def draw_box(self, frame: np.ndarray, box_text: bool = True, color=GREEN_COLOR):
+        """
+        Draw the given bbox on the frame.
+        Frame should be an RGB, integer [0:255], numpy array of shape [H, W, 3].
+        """
+        x, y, r, b = (int(bb + 0.5) for bb in np.array(self.box).astype(int))
+
+        # 3DMM adjustment,  reuse the bbox structure
+        if self.label_prop == 0:
+            cx, cy = (r + x) // 2, (b + y) // 2
+            offset = max(r - x, b - y) // 2
+            x = int(cx - offset)
+            y = int(cy - offset)
+            r = int(cx + offset)
+            b = int(cy + offset)
+
+        draw_box_from_xyxy(
+            frame,
+            (x, y),
+            (r, b),
+            color,
+            size=2,
+            text=id_to_classname(int(self.label_prop)) if box_text else None,
+        )
+
+    def draw_landmarks(
+        self,
+        frame: np.ndarray,
+        landmark_idx: int | list[int] | np.ndarray = [0, 15, 16],
+        score_thr: float | list[float] | np.ndarray = 0.05,
+        color=GREEN_COLOR,
+    ):
+        """
+        Draw the given landmarks on the frame.
+        Frame should be an RGB, integer [0:255], numpy array of shape [H, W, 3].
+        """
+        if self.landmark is None:
+            return
+
+        landmarks = np.asarray(self.landmark)
+        if self.vis is not None:
+            vis = np.asarray(self.vis)
+            landmarks = landmarks[
+                np.intersect1d(np.nonzero(np.where(vis >= score_thr)), landmark_idx)
+            ]
+        if len(landmarks) > 0:
+            draw_points(frame, landmarks, color, size=5)
+
 
 def nms_bbox_landmark(
     objs: list[BBox_landmarks], iou: float = 0.5
@@ -144,58 +198,6 @@ def nms_bbox_landmark(
             ):
                 flags[j] = 1
     return keep
-
-
-def drawbbox(
-    image: np.ndarray,
-    bbox: BBox_landmarks,
-    color: list[float] | tuple[float],
-    thickness: int = 2,
-    landmarkcolor: tuple | list = (0, 0, 255),
-    visibility: list | np.ndarray | None = None,
-    joint_to_visualize: list = [0, 15, 16],
-    visibility_thresh: float = 0.05,
-) -> np.ndarray:
-    """
-    draw a bounding box and landmarks on the input image based on the detection result in BBox_landmarks.
-    parameters:
-        image: the input image in cv2 format.
-        bbox: the detection result in format of BBox_landmarks
-        color:the color for the result
-        thickness: the thickness of the boundary
-        landmarkcolor: the color for the landmark
-        visiblity: the visibility of the landmarks.
-        joint_to_visualize: which joint to be visualized.
-        visibility_thresh: the thresh to deem as the landmark visible or not when drawing it.
-    return:
-        the image after drawing the result
-    """
-
-    x, y, r, b = (int(bb + 0.5) for bb in np.array(bbox.box).astype(int))
-    # 3DMM adjustment,  reuse the bbox structure
-    if bbox.label_prop == 0:
-        cx, cy = (r + x) // 2, (b + y) // 2
-        offset = max(r - x, b - y) // 2
-        x2 = int(cx - offset)
-        y2 = int(cy - offset)
-        r2 = int(cx + offset)
-        b2 = int(cy + offset)
-        cv2.rectangle(image, (x2, y2, r2 - x2 + 1, b2 - y2 + 1), color, thickness, 16)
-
-    else:
-        cv2.rectangle(image, (x, y, r - x + 1, b - y + 1), color, thickness, 16)
-
-    if bbox.landmark is not None:
-        for i in range(len(bbox.landmark)):
-            x, y = bbox.landmark[i][:2]
-
-            if not joint_to_visualize or i not in joint_to_visualize:
-                continue
-            if visibility is not None and visibility[i] > visibility_thresh:
-                cv2.circle(image, (int(x), int(y)), 4, landmarkcolor, -1, 16)
-            else:
-                cv2.circle(image, (int(x), int(y)), 4, (0, 0, 255), -1, 16)
-    return image
 
 
 def detect_images_multiclass_fb(
@@ -300,7 +302,12 @@ def detect_images_multiclass_fb(
 
 
 def postprocess(
-    output, threshhold, iou_thr
+    heatmap: torch.Tensor,
+    bbox: torch.Tensor,
+    landmark: torch.Tensor,
+    landmark_visibility: torch.Tensor,
+    threshhold: list[float],
+    iou_thr: list[float],
 ) -> tuple[list[BBox_landmarks], list[BBox_landmarks]]:
     """
     Get the detection result from the model raw output tensors.
@@ -312,11 +319,6 @@ def postprocess(
         face result: list[BBox_landmarks]
         person result: list[BBox_landmarks]
     """
-    heatmap = output[0]
-    bbox = output[1]
-    landmark = output[2]
-    landmark_visiblity = output[3]
-
     stride = 4
     num_landmarks = 17
     objs = detect_images_multiclass_fb(
@@ -326,7 +328,7 @@ def postprocess(
         threshold=threshhold,
         stride=stride,
         n_lmk=num_landmarks,
-        vis=landmark_visiblity,
+        vis=landmark_visibility,
     )
 
     objs_face = []
@@ -345,6 +347,26 @@ def postprocess(
     return objs_face, objs_person
 
 
+def undo_resize_pad_bbox(bbox: BBox_landmarks, scale: float, padding: tuple[int, int]):
+    """
+    undo the resize and pad in place of the BBox_landmarks object.
+    operation in place to replace the inner coordinates
+    Parameters:
+        scale: single scale from original to target image.
+        pad: left, top padding size
+    Return:
+        None.
+    """
+    if bbox.landmark is not None:
+        for lmk in bbox.landmark:
+            lmk[0] = (lmk[0] - padding[0]) / scale
+            lmk[1] = (lmk[1] - padding[1]) / scale
+    bbox.x = (bbox.x - padding[0]) / scale
+    bbox.y = (bbox.y - padding[1]) / scale
+    bbox.r = (bbox.r - padding[0]) / scale
+    bbox.b = (bbox.b - padding[1]) / scale
+
+
 class FootTrackNet_App:
     """
     This class consists of light-weight "app code" that is required to perform end to end inference with DDRNet.
@@ -358,35 +380,113 @@ class FootTrackNet_App:
         * Convert the output to two lists of BBox_landmarks objects for face and body.
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor], if_norm=True):
+    def __init__(
+        self,
+        model: Callable[
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ],
+        compiled_image_input_size: tuple[int, int] | None = None,
+        if_norm=True,
+    ):
         """
         model: the input model
+        compiled_image_input_size: model input size (H, W)
         if_norm: if do the image normalization
         """
         self.model = model
         self.threshhold = [0.6, 0.7, 0.7]  # threshold for each detector, 0.6 original
         self.iou_thr = [0.2, 0.5, 0.5]  # iou threshold
         self.if_norm = if_norm
+        self.compiled_image_input_size = compiled_image_input_size
 
     def predict(self, *args, **kwargs):
-        return self.det_image(*args, **kwargs)
+        return self.predict_bbox_landmarks(*args, **kwargs)
 
-    def det_image(
-        self, pixel_values: torch.Tensor
+    def _predict_bbox_landmarks(
+        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image
+    ) -> tuple[list[np.ndarray], list[BBox_landmarks], list[BBox_landmarks]]:
+        # Convert from PIL / torch/ etc. to NHWC, RGB numpy frames, which is the required input type.
+        NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
+            pixel_values_or_image
+        )
+        assert (
+            NCHW_fp32_torch_frames.shape[0] == 1
+        ), "This app supports only a batch size of 1."
+
+        # Center-pad & scale image to fit compiled network input image size.
+        if self.compiled_image_input_size:
+            NCHW_fp32_torch_frames, scale, padding = resize_pad(
+                NCHW_fp32_torch_frames, self.compiled_image_input_size
+            )
+        else:
+            scale, padding = 1, (0, 0)
+
+        heatmap, bbox, landmark, landmark_visibility = self.model(
+            NCHW_fp32_torch_frames
+        )
+        objs_face, objs_person = postprocess(
+            heatmap, bbox, landmark, landmark_visibility, self.threshhold, self.iou_thr
+        )
+
+        # Translate coordinates back to the original image.
+        for obj_face in objs_face:
+            undo_resize_pad_bbox(obj_face, scale, padding)
+        for obj_person in objs_person:
+            undo_resize_pad_bbox(obj_person, scale, padding)
+
+        return NHWC_int_numpy_frames, objs_face, objs_person
+
+    def predict_bbox_landmarks(
+        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image
     ) -> tuple[list[BBox_landmarks], list[BBox_landmarks]]:
         """
         return two lists,  objs_face, objs_person.
         Each list contains the object of BBox_landmarks which contains the bbox and landmark info. Please refer to BBox definition.
 
         Parameters:
-            pixel_values
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+            pixel_values_or_image: torch.Tensor
+                PIL image
+                or
+                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+                or
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
 
         Returns:
             objs_face: a list of BBox_landmarks for face  list[BBox_landmarks]
             objs_person: a list of BBox_landmarks for person  list[BBox_landmarks]
         """
+        _, objs_face, objs_person = self._predict_bbox_landmarks(pixel_values_or_image)
+        return objs_face, objs_person
 
-        output = self.model(pixel_values)
+    def predict_and_draw_bbox_landmarks(
+        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image
+    ) -> Image:
+        """
+        Predict BBoxes + Coordinates and draw them on the input image.
 
-        return postprocess(output, self.threshhold, self.iou_thr)
+        Parameters:
+            pixel_values_or_image: torch.Tensor
+                PIL image
+                or
+                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+                or
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
+
+        Returns:
+            PIL Image with boxes & landmarks drawn.
+        """
+        NHWC_int_numpy_frames, objs_face, objs_person = self._predict_bbox_landmarks(
+            pixel_values_or_image
+        )
+
+        frame = NHWC_int_numpy_frames[0].copy()
+        for object in objs_person:
+            object.draw_box(frame, color=RED_COLOR)
+            object.draw_landmarks(frame, score_thr=0, color=RED_COLOR)
+
+        for object in objs_face:
+            object.draw_box(frame)
+            object.draw_landmarks(frame)
+
+        return pil_image_from_array(frame)

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [DLA-102-X: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/dla102x)
 
 dla is a machine learning model that can classify images from the Imagenet dataset. It is a architecture which can be used as backbone.

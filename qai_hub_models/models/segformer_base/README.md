@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Segformer-Base: Real-time object segmentation](https://aihub.qualcomm.com/models/segformer_base)
 
 Segformer Base is a machine learning model that predicts masks and classes of objects in an image.

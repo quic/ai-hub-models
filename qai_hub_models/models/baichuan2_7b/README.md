@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Baichuan2-7B: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/baichuan2_7b)
 
 Baichuan2-7B is a family of LLMs. It achieves the state-of-the-art performance of its size on standard Chinese and English authoritative benchmarks (C-EVAL/MMLU). 4-bit weights and 16-bit activations making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Baichuan2-PromptProcessor-Quantized's latency and average time per addition token is Baichuan2-TokenGenerator-Quantized's latency.

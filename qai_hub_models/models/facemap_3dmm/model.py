@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -46,14 +47,13 @@ class FaceMap_3DMM(BaseModel):
 
         Parameters:
             image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 255]
+                   Range: float[0, 1]
                    3-channel Color Space: RGB
 
         Returns:
             3DMM model parameters for facial landmark reconstruction: Shape [batch, 265]
         """
-        self.image = image
-        return self.model(image)
+        return self.model(image * 255)
 
     @staticmethod
     def get_input_spec(

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 from __future__ import annotations
 
@@ -9,7 +10,12 @@ import warnings
 
 from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.llama_v3_8b_instruct import MODEL_ID, FP_Model, Model
+from qai_hub_models.models.llama_v3_8b_instruct import (
+    MODEL_ID,
+    FP_Model,
+    Model,
+    PositionProcessor,
+)
 from qai_hub_models.models.llama_v3_8b_instruct.model import (
     MODEL_ASSET_VERSION,
     NUM_LAYERS_PER_SPLIT,
@@ -36,7 +42,10 @@ def main():
     parser = export_parser(
         model_cls=Model,
         supported_precision_runtimes={
-            Precision.w4a16: [TargetRuntime.QNN_CONTEXT_BINARY]
+            Precision.w4a16: [
+                TargetRuntime.QNN_CONTEXT_BINARY,
+                TargetRuntime.PRECOMPILED_QNN_ONNX,
+            ]
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
@@ -49,13 +58,10 @@ def main():
     parser.set_defaults(_skip_quantsim_creation=True)
     args = parser.parse_args()
     additional_model_kwargs = vars(args)
-    if additional_model_kwargs["checkpoint"] == "DEFAULT":
-        additional_model_kwargs["fp_model"] = FP_Model.from_pretrained(  # type: ignore[index]
-            sequence_length=args.sequence_length,
-            context_length=args.context_length,
-        )
+    additional_model_kwargs["fp_model_cls"] = FP_Model
     export_model(
         model_cls=Model,
+        position_processor_cls=PositionProcessor,
         model_name=MODEL_ID,
         model_asset_version=MODEL_ASSET_VERSION,
         components=ALL_COMPONENTS,

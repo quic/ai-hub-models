@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Facial-Attribute-Detection: Comprehensive facial analysis by extracting face features](https://aihub.qualcomm.com/models/face_attrib_net)
 
 Detects attributes (liveness, eye closeness, mask presence, glasses presence, sunglasses presence) that apply to a given face. This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset of faces, but can be used on any image.

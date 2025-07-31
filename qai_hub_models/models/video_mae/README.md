@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Video-MAE: Sports and human action recognition in videos](https://aihub.qualcomm.com/models/video_mae)
 
 Video MAE (Masked Auto Encoder) is a network for doing video classification that uses the ViT (Vision Transformer) backbone.

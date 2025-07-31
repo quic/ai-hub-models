@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Llama-v3.1-8B-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v3_1_8b_instruct)
 
 Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
@@ -21,12 +18,12 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[llama-v3-1-8b-instruct]" torch==2.4.1 torchvision==0.19.1 aimet-onnx==2.6.0
+pip install "qai-hub-models[llama-v3-1-8b-instruct]"
 ```
 
 Install the GPU package via pip:
 ```bash
-pip install "qai-hub-models[llama-v3-1-8b-instruct]" torch==2.4.1 torchvision==0.19.1 https://github.com/quic/aimet/releases/download/2.6.0/aimet_onnx-2.6.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+pip install "qai-hub-models[llama-v3-1-8b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.10.0/aimet_onnx-2.10.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 

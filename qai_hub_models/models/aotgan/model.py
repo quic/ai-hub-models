@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -30,7 +31,7 @@ AOTGAN_SOURCE_PATCHES = [
 MODEL_ID = __name__.split(".")[-2]
 SUPPORTED_PRETRAINED_MODELS = {"celebahq", "places2"}
 DEFAULT_WEIGHTS = "celebahq"
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 
 class AOTGAN(RepaintModel):
@@ -81,9 +82,9 @@ class AOTGAN(RepaintModel):
         and generates new high-resolution in-painted image.
 
         Parameters:
-            image: Pixel values pre-processed of shape [N, C, H, W]
+            image: Image to which the mask should be applied. [N, C, H, W]
                     Range: float[0, 1]
-                    3-channel color Space: BGR
+                    3-channel color Space: RGB
             mask: Pixel values pre-processed to have have mask values either 0. or 1.
                     Range: float[0, 1] and only values of 0. or 1.
                     1-channel binary image.
@@ -93,7 +94,18 @@ class AOTGAN(RepaintModel):
             Range: float[0, 1]
             3-channel color space: RGB
         """
-        return self.model(image, mask)
+        image_normalized_rgb = image * 2 - 1
+        image_normalized_bgr = torch.flip(image_normalized_rgb, dims=[1])
+        image_masked_normalized_bgr = (image_normalized_bgr * (1 - mask).float()) + mask
+
+        pred_bgr = self.model(image_masked_normalized_bgr, mask)
+        # Uncomment to overlay the mask over the prediction. Useful for debugging.
+        # pred_bgr = pred_bgr * mask + image * (1 - mask)
+
+        pred_rgb = torch.flip(pred_bgr, dims=[1])
+        pred_rgb_clamped = torch.clamp(pred_rgb, -1, 1)
+        pred_rgb_unnormalized = (pred_rgb_clamped + 1) / 2
+        return pred_rgb_unnormalized
 
     def get_evaluator(self) -> BaseEvaluator:
         return InpaintEvaluator()

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 import glob
 import pathlib
@@ -21,7 +22,7 @@ exec(open(version_path).read(), version_locals)
 
 
 # Non-Python Files to Add to the Wheel
-data_file_extensions = ["yaml", "txt", "json", "diff"]
+data_file_extensions = ["yaml", "txt", "json", "diff", "md", "j2", "env"]
 
 
 def get_data_files() -> list[str]:

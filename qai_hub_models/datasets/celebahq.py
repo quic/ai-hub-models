@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import math
@@ -69,10 +70,10 @@ class CelebAHQDataset(BaseDataset):
             ] = 1
         mask = Image.fromarray(mask_array).convert("L")
 
-        gt = app_to_net_image_inputs(image)[1].squeeze(0) * 2.0 - 1.0
+        gt = app_to_net_image_inputs(image)[1].squeeze(0)
         inputs = preprocess_inputs(image, mask)
         img_tensor, mask_tensor = inputs["image"].squeeze(0), inputs["mask"].squeeze(0)
-        img_tensor = img_tensor * 2.0 - 1.0
+        img_tensor = img_tensor
         return (img_tensor, mask_tensor), gt
 
     def random_stroke(self, img_width, img_height):

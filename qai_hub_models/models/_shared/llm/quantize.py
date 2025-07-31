@@ -1,7 +1,9 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import argparse
 import gc
 
@@ -14,6 +16,71 @@ from qai_hub_models.models._shared.llm.model import (
     LLMBase,
 )
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+
+
+def quantize(
+    quantized_model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    context_length: int,
+    seq_len: int,
+    output_dir: str,
+    checkpoint: str | None = None,
+    use_seq_mse: bool = False,
+    apply_mlp_linear_to_conv: bool = False,
+    allow_cpu_to_quantize: bool = False,
+):
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    if device.type != "cuda":
+        if not allow_cpu_to_quantize:
+            raise ValueError(
+                "This model requires a CUDA GPU (V100/A100) on it to do quantization. Please re-try with GPU machine."
+            )
+        if use_seq_mse:
+            raise ValueError(
+                "The quantization technique Sequential MSE requires a CUDA GPU (V100/A100). Please re-try with GPU machine."
+            )
+
+    _skip_optimizations = None if apply_mlp_linear_to_conv else ["mlp_linear_to_conv"]
+    # Create the floating point model
+    extra = dict(
+        sequence_length=seq_len,
+        context_length=context_length,
+        _skip_optimizations=_skip_optimizations,
+    )
+    if checkpoint:
+        extra["checkpoint"] = checkpoint  # type: ignore[assignment]
+
+    fp_model = fp_model_cls.from_pretrained(**extra).to(torch.device("cpu")).eval()  # type: ignore[arg-type]
+    torch.cuda.empty_cache()
+
+    model_quant = quantized_model_cls.from_pretrained(
+        context_length=context_length,
+        sequence_length=seq_len,
+        checkpoint=None,
+        host_device=device,
+        fp_model=fp_model,
+    )
+
+    calib_data = model_quant.get_calibration_data()
+    assert calib_data is not None
+    dataloader = dataset_entries_to_dataloader(calib_data)
+
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # Do calibration (and Sequential MSE if flag is set)
+    if use_seq_mse:
+        print()
+        print(
+            "WARNING: Sequential MSE takes about 4.5 for model with 3B parameters and about 8 hours for model with 8B parameters."
+        )
+
+    model_quant.quantize(
+        data=dataloader,
+        use_seq_mse=use_seq_mse,
+    )
+
+    model_quant.save_calibrated_checkpoint(output_dir, fp_model=fp_model)
 
 
 def llm_quantize(
@@ -61,63 +128,17 @@ def llm_quantize(
     )
     args = parser.parse_args()
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    if device.type != "cuda":
-        if not allow_cpu_to_quantize:
-            raise ValueError(
-                "This model requires a CUDA GPU (V100/A100) on it to do quantization. Please re-try with GPU machine."
-            )
-        if args.use_seq_mse:
-            raise ValueError(
-                "The quantization technique Sequential MSE requires a CUDA GPU (V100/A100). Please re-try with GPU machine."
-            )
-
-    context_length = args.context_length
-    seq_len = args.calibration_sequence_length
-    _skip_optimizations = (
-        None if args.apply_mlp_linear_to_conv else ["mlp_linear_to_conv"]
-    )
-    # Create the floating point model
-    extra = dict(
-        sequence_length=seq_len,
-        context_length=context_length,
-        _skip_optimizations=_skip_optimizations,
-    )
-
-    if args.checkpoint:
-        extra["checkpoint"] = args.checkpoint
-
-    fp_model = fp_model_cls.from_pretrained(**extra).to(torch.device("cpu")).eval()
-    torch.cuda.empty_cache()
-
-    model_quant = quantized_model_cls.from_pretrained(
-        context_length=context_length,
-        sequence_length=seq_len,
-        checkpoint=None,
-        host_device=device,
-        fp_model=fp_model,
-    )
-
-    calib_data = model_quant.get_calibration_data()
-    assert calib_data is not None
-    dataloader = dataset_entries_to_dataloader(calib_data)
-
-    gc.collect()
-    torch.cuda.empty_cache()
-
-    # Do calibration (and Sequential MSE if flag is set)
-    if args.use_seq_mse:
-        print()
-        print(
-            "WARNING: Sequential MSE takes about 4.5 for model with 3B parameters and about 8 hours for model with 8B parameters."
-        )
-
-    model_quant.quantize(
-        data=dataloader,
+    quantize(
+        quantized_model_cls=quantized_model_cls,
+        fp_model_cls=fp_model_cls,
+        context_length=args.context_length,
+        seq_len=args.calibration_sequence_length,
+        output_dir=args.output_dir,
+        checkpoint=args.checkpoint,
         use_seq_mse=args.use_seq_mse,
+        apply_mlp_linear_to_conv=args.apply_mlp_linear_to_conv,
+        allow_cpu_to_quantize=allow_cpu_to_quantize,
     )
-
-    model_quant.save_calibrated_checkpoint(args.output_dir, fp_model=fp_model)
     print("Quantization completed successfully.")
     print()
     print(

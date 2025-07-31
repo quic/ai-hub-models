@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from qai_hub_models.configs.info_yaml import MODEL_USE_CASE, QAIHMModelInfo
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 

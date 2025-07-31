@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 # isort: off
@@ -37,7 +38,8 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
     QCLlamaMLP,
     SHALlamaAttention,
 )
-from qai_hub_models.models._shared.llm.model import Embedding
+from qai_hub_models.models._shared.llama3.ort_genai import create_ort_genai_assets
+from qai_hub_models.models._shared.llm.model import Embedding, PositionProcessorBase
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 
 MODEL_ID = __name__.split(".")[-2]
@@ -127,6 +129,32 @@ class RopeEmbedding(Embedding):
         return cos, sin
 
 
+class LlamaPositionProcessor(PositionProcessorBase):
+    """
+    Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI.
+    """
+
+    def __init__(self, context_length: int):
+        super().__init__(context_length)
+        self.context_len = context_length
+        self.rope_embedding = RopeEmbedding(max_length=self.context_len)
+
+    def forward(self, attention_mask_before_processor, position_ids):
+        from qai_hub_models.models._shared.llm.model import (
+            prepare_combined_attention_mask,
+        )
+
+        position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
+            position_ids
+        )
+        attention_mask = prepare_combined_attention_mask(
+            attention_mask_before_processor,
+            position_ids.shape,
+            attention_mask_before_processor.shape[1] - position_ids.shape[1],
+        )
+        return attention_mask, position_ids_cos, position_ids_sin
+
+
 class Llama3Base(LLMBase):
     LMClass = modeling_llama.LlamaForCausalLM
     EmbeddingClass = RopeEmbedding
@@ -193,8 +221,8 @@ class Llama3Base(LLMBase):
         # This can be used to convert the remaining Linears to Convs.
         # This is useful for hardware devices that don't support PCQ MatMuls natively.
         if (
-            skip_optimizations
-            and Llama3_Optimizations.MLP_LINEAR_TO_CONV not in skip_optimizations
+            skip_optimizations is None
+            or Llama3_Optimizations.MLP_LINEAR_TO_CONV not in skip_optimizations
         ):
             print("Applying mlp_linear_to_conv optimization.")
             modeling_llama.LlamaMLP = QCLlamaMLP
@@ -347,3 +375,29 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
+
+    @classmethod
+    def prepare_ort_genai_assets(
+        cls,
+        model_name: str,
+        position_processor_cls: type[PositionProcessorBase],
+        encodings_path: str | Path,
+        context_length: int,
+        prompt_sequence_length: int,
+        onnx_model_path_from_sub_component_name: dict[str, str],
+        num_splits: int,
+        qairt_version: str,
+        output_dir: str | Path,
+    ):
+        return create_ort_genai_assets(
+            model_name,
+            cls.llm_config,
+            position_processor_cls,
+            encodings_path,
+            context_length,
+            prompt_sequence_length,
+            onnx_model_path_from_sub_component_name,
+            num_splits,
+            qairt_version,
+            output_dir,
+        )

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Simple-Bev: Construct a bird's eye view from sensors mounted on a vehicle](https://aihub.qualcomm.com/models/simple_bev_cam)
 
 Simple-Bev is a machine learning model for generating a bird's eye view representation from the sensors (cameras) mounted on a vehicle. It uses ResNet-101 as the backbone and segnet as a segmentation model for specific use cases.

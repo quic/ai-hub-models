@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -46,7 +47,7 @@ class GearGuardNet(BaseModel):
 
         Inputs:
             x: torch.Tensor.
-                Input image.
+                Input image. RGB, range [0 - 1], shape [N, C, H, W]
         Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """

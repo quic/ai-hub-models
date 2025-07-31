@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Collection
@@ -44,14 +45,14 @@ class FootTrackNetEvaluator(mAPEvaluator):
         output = list(output)
 
         for i in range(len(image_ids)):
-            output_i = [
+            output_i = (
                 output[0][i : i + 1],
                 output[1][i : i + 1],
                 output[2][i : i + 1],
                 output[3][i : i + 1],
-            ]
+            )
             face_result, person_result = postprocess(
-                output_i, self.threshhold, self.iou_thr
+                *output_i, self.threshhold, self.iou_thr
             )
 
             image_id = image_ids[i]

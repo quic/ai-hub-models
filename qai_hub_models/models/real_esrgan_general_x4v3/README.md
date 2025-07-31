@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Real-ESRGAN-General-x4v3: Upscale images and remove image noise](https://aihub.qualcomm.com/models/real_esrgan_general_x4v3)
 
 Real-ESRGAN is a machine learning model that upscales an image with minimal loss in quality.

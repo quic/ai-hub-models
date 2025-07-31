@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from typing import Callable
@@ -444,7 +445,8 @@ class EasyOCRApp:
         # TODO
         NHWC_int_numpy_frame = NHWC_int_numpy_frames[0]
 
-        img, img_cv_grey = reformat_input(NHWC_int_numpy_frame)
+        img_bgr, img_cv_grey = reformat_input(NHWC_int_numpy_frame)
+        img = img_bgr[:, :, ::-1]  # bgr -> rgb
 
         # detector
         input_tensor, infos = self.detector_preprocess(img)

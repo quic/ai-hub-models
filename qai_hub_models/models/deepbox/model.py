@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from qai_hub_models.utils.base_model import (
     CollectionModel,
     PretrainedCollectionModel,
 )
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -101,7 +103,14 @@ class VGG3DDetection(BaseModel):
         return cls(vgg_model)
 
     def forward(self, image: torch.Tensor):
-        out = self.model(image)
+        """
+        Inputs:
+            image: RGB image of range[0, 1] and shape [1, 3, H, W]
+        """
+        # The original implementation of DeepBox applies RGB torchvision constants to BGR input images.
+        image_bgr = torch.flip(image, dims=[1])
+        norm_image_bgr = normalize_image_torchvision(image_bgr)
+        out = self.model(norm_image_bgr)
         return out[0], out[1], out[2]
 
     @staticmethod

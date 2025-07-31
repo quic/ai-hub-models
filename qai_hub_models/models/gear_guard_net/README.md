@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [PPE-Detection: Object detection for personal protective equipments (PPE)](https://aihub.qualcomm.com/models/gear_guard_net)
 
 Detect if a person is wearing personal protective equipments (PPE) in real-time.  This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset, but can be used on any image.

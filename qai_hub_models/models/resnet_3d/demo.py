@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from qai_hub_models.models._shared.video_classifier.demo import kinetics_classifier_demo
 from qai_hub_models.models.resnet_3d.model import (
     MODEL_ASSET_VERSION,

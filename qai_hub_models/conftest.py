@@ -1,7 +1,9 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "compile: Run compile tests.")
     config.addinivalue_line("markers", "quantize: Run quantize tests.")

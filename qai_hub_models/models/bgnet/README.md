@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [BGNet: Segment images in real-time on device](https://aihub.qualcomm.com/models/bgnet)
 
 BGNet or Boundary-Guided Network, is a model designed for camouflaged object detection. It leverages edge semantics to enhance the representation learning process, making it more effective at identifying objects that blend into their surroundings

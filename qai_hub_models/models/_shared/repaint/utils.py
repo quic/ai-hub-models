@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,4 @@ def preprocess_inputs(
         )
 
     # Mask input image
-    image_masked = (
-        NCHW_fp32_torch_frames * (1 - NCHW_fp32_torch_masks) + NCHW_fp32_torch_masks
-    )
-    return {"image": image_masked, "mask": NCHW_fp32_torch_masks}
+    return {"image": NCHW_fp32_torch_frames, "mask": NCHW_fp32_torch_masks}

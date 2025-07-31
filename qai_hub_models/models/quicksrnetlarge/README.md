@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [QuickSRNetLarge: Upscale images and remove image noise](https://aihub.qualcomm.com/models/quicksrnetlarge)
 
 QuickSRNet Large is designed for upscaling images on mobile platforms to sharpen in real-time.

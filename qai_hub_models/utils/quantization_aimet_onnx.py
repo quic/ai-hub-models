@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 """
 Items defined in this file require that AIMET-ONNX be installed.
 """
@@ -9,9 +10,9 @@ Items defined in this file require that AIMET-ONNX be installed.
 from __future__ import annotations
 
 try:
+    import aimet_onnx
     from aimet_common.utils import AimetLogger
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-    from aimet_onnx.sequential_mse.seq_mse import SeqMseParams, SequentialMse
 except (ImportError, ModuleNotFoundError):
     pass
 import gc
@@ -23,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import torch
+from packaging import version
 from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader
 from tqdm.autonotebook import tqdm
@@ -35,8 +37,28 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_d
 from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx_helpers import kwargs_to_dict, mock_torch_onnx_inference
 from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
+
+
+def ensure_min_aimet_onnx_version(expected_version):
+    import aimet_onnx
+
+    if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
+        raise RuntimeError(
+            f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {str(aimet_onnx.__version__)}\n"
+            f"Please run `pip install transformers=={expected_version}`"
+        )
+
+
+def ensure_max_aimet_onnx_version(expected_version):
+    import aimet_onnx
+
+    if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
+        raise RuntimeError(
+            f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {str(aimet_onnx.__version__)}\n"
+            f"Please run `pip install transformers=={expected_version}`"
+        )
 
 
 @contextmanager
@@ -132,9 +154,20 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     def _apply_seq_mse(self, data: _DataLoader, num_batches: int):
         assert self.quant_sim is not None
-        params = SeqMseParams(num_batches=num_batches)
-        seq_mse = SequentialMse(self.quant_sim.model, self.quant_sim, params, data)
-        seq_mse.apply_seq_mse_algo()
+        ensure_min_aimet_onnx_version("2.8.0")
+
+        input_names = [inp.name for inp in self.quant_sim.session.get_inputs()]
+
+        onnx_data = []
+        for i, batch in tqdm(enumerate(data), total=num_batches):
+            onnx_data.append(
+                {
+                    k: v.cpu().detach().numpy()
+                    for k, v in kwargs_to_dict(input_names, *batch).items()
+                }
+            )
+
+        aimet_onnx.apply_seq_mse(self.quant_sim, onnx_data)
 
     def _apply_calibration(self, data: DataLoader, num_batches: int):
         assert self.quant_sim is not None
@@ -154,6 +187,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
                 gc.collect()
                 torch.cuda.empty_cache()
 
+        # TODO: Update AIMET-ONNX version for Stable Diffision.
+        # Updae the calibration API to not use the forward calback
         self.quant_sim.compute_encodings(_forward, tuple())
 
     def quantize(

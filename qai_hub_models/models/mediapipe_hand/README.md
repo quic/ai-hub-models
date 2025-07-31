@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [MediaPipe-Hand-Detection: Real-time hand detection optimized for mobile and edge](https://aihub.qualcomm.com/models/mediapipe_hand)
 
 The MediaPipe Hand Landmark Detector is a machine learning pipeline that predicts bounding boxes and pose skeletons of hands in an image.

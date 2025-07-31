@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from enum import Enum, unique
 from functools import cached_property
 from typing import Any, Optional
@@ -141,11 +142,11 @@ class ScorecardDevice:
         disabled_models: list[str] = [],
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
+        always_produce_aot_assets: bool = False,
         mirror_device: "Optional[ScorecardDevice]" = None,
         npu_count: Optional[int] = None,
         public: bool = True,
         register: bool = True,
-        is_cache_enabled: bool = False,
     ):
         """
         Parameters
@@ -160,6 +161,10 @@ class ScorecardDevice:
             compile_paths: The set of compile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
             profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
+
+            always_produce_aot_assets: If true, models that usually target JIT paths will compile assets for this device when the scorecard path setting is "DEFAULT_WITH_AOT_ASSETS".
+                                       These assets are included in perf.yaml and Hugging Face if the associated JIT asset succeeds. For example, a context binary would be
+                                       included in the release if DLC can profile succesfully.
 
             mirror_device: If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
 
@@ -192,12 +197,12 @@ class ScorecardDevice:
         )
         self.reference_device_name = reference_device_name
         self.execution_device_name = execution_device_name
+        self.always_produce_aot_assets = always_produce_aot_assets
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
         self.mirror_device: Optional[ScorecardDevice] = mirror_device
         self._npu_count = npu_count
         self.public = public
-        self.is_cache_enabled = is_cache_enabled
 
         if register:
             ScorecardDevice._registry[name] = self
@@ -532,7 +537,9 @@ cs_8_elite = ScorecardDevice(
 # Compute Chipsets (cs)
 ##
 cs_x_elite = ScorecardDevice(
-    name="cs_x_elite", reference_device_name="Snapdragon X Elite CRD"
+    name="cs_x_elite",
+    reference_device_name="Snapdragon X Elite CRD",
+    always_produce_aot_assets=True,
 )
 
 
@@ -571,6 +578,7 @@ cs_auto_lemans_8775 = ScorecardDevice(
 cs_6490 = ScorecardDevice(
     name="cs_6490",
     reference_device_name="RB3 Gen 2 (Proxy)",
+    always_produce_aot_assets=True,
 )
 
 cs_8250 = ScorecardDevice(

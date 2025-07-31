@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 """
 Utilities for evaluating model accuracy on device.
 """
@@ -37,6 +38,7 @@ from qai_hub_models.datasets import (
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
+    extract_zip_file,
     get_hub_datasets_path,
     load_h5,
     load_raw_file,
@@ -198,10 +200,19 @@ def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
     assert qdq_model is not None, "Model must be from a quantize job."
     local_dir = Path("build/qdq_cache_dir")
     local_dir.mkdir(exist_ok=True)
-    local_path = local_dir / f"{qdq_model.model_id}.onnx"
-    if not local_path.exists():
-        qdq_model.download(str(local_path))
-    return OnnxModelTorchWrapper.OnCPU(local_path)
+    local_path = local_dir / f"{qdq_model.model_id}"
+    output_path = qdq_model.download(str(local_path))
+    if output_path.endswith(".zip"):
+        zip_path = extract_zip_file(output_path)
+        contents = os.listdir(zip_path)
+        # Sometimes an extraneous subfolder is created
+        if len(contents) == 1:
+            onnx_path = str(zip_path / contents[0] / "model.onnx")
+        else:
+            onnx_path = str(zip_path / "model.onnx")
+    else:
+        onnx_path = output_path
+    return OnnxModelTorchWrapper.OnCPU(onnx_path)
 
 
 def _validate_dataset_ids_path(path: Path) -> bool:
@@ -565,6 +576,7 @@ def evaluate(
     # Get each sample from the dataloader. Each sample has batch size batch_size.
     for batch_idx, sample in enumerate(dataloader):
         model_inputs, ground_truth_values, *_ = sample
+        cumulative_samples = len(model_inputs) + batch_idx * batch_size
 
         def _torch_io_to_tuple(
             val: list | tuple | torch.Tensor,
@@ -628,7 +640,7 @@ def evaluate(
         if verbose:
             for model_name in local_inference_models:
                 print(
-                    f"Cumulative {model_name} accuracy on {(batch_idx + 1) * batch_size} samples: "
+                    f"Cumulative {model_name} accuracy on {cumulative_samples} samples: "
                     f"{evaluators[model_name].formatted_accuracy()}"
                 )
 
@@ -643,9 +655,10 @@ def evaluate(
                 model_output = batched_async_model_outputs[batch_idx].wait()
                 evaluators[model_name].add_batch(model_output, ground_truth_values)
 
+                cumulative_samples = len(model_output) + batch_idx * batch_size
                 if verbose:
                     print(
-                        f"Cumulative {model_name} accuracy on {(batch_idx + 1) * batch_size} samples: "
+                        f"Cumulative {model_name} accuracy on {cumulative_samples} samples: "
                         f"{evaluators[model_name].formatted_accuracy()}"
                     )
 

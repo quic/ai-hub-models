@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [AOT-GAN: High resolution image in-painting on-device](https://aihub.qualcomm.com/models/aotgan)
 
 AOT-GAN is a machine learning model that allows to erase and in-paint part of given input image.

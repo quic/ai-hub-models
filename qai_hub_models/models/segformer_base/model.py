@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from transformers import SegformerForSemanticSegmentation
@@ -42,6 +43,8 @@ class SegformerBase(BaseModel):
 
         Parameters:
             image: A [1, 3, height, width] image.
+                Range: float[0, 1]
+                3-channel Color Space: RGB
 
         Returns:
             Raw logit probabilities as a tensor of shape
@@ -70,6 +73,10 @@ class SegformerBase(BaseModel):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
+        return ["class_logits"]
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

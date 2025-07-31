@@ -1,5 +1,4 @@
 supported_devices:
-- Snapdragon X Elite CRD
 - Samsung Galaxy S24
 - Samsung Galaxy S24 Ultra
 - Samsung Galaxy S24+
@@ -15,7 +14,6 @@ supported_devices:
 - Samsung Galaxy S21
 - Samsung Galaxy S21 Ultra
 - Samsung Galaxy S21+
-- Snapdragon X Plus 8-Core CRD
 - QCS8550 (Proxy)
 - SA8775P ADP
 - SA8650 (Proxy)
@@ -27,12 +25,10 @@ supported_devices:
 - SA7255P ADP
 - SA8295P ADP
 supported_chipsets:
-- qualcomm-snapdragon-x-elite
 - qualcomm-snapdragon-8gen3
 - qualcomm-snapdragon-8gen2
 - qualcomm-snapdragon-8gen1
 - qualcomm-snapdragon-888
-- qualcomm-snapdragon-x-plus-8-core
 - qualcomm-qcs8550-proxy
 - qualcomm-sa8775p
 - qualcomm-sa8650p-proxy
@@ -48,7 +44,9 @@ precisions:
       WhisperEncoderInf:
         universal_assets:
           tflite: mq3kggvrm
-          qnn_dlc: mqv52y9ln
+        asset_tool_versions:
+          tflite:
+            tflite: 2.16.1
         performance_metrics:
           QCS8275 (Proxy):
             tflite:
@@ -63,6 +61,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           QCS8450 (Proxy):
             tflite:
               job_id: jp31joxxg
@@ -76,6 +76,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           QCS8550 (Proxy):
             tflite:
               job_id: jgl2vwoep
@@ -89,6 +91,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           QCS9075 (Proxy):
             tflite:
               job_id: jgkqe6oyg
@@ -102,6 +106,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           SA7255P ADP:
             tflite:
               job_id: jpx6k0mjp
@@ -115,6 +121,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           SA8255 (Proxy):
             tflite:
               job_id: jgnm61ovp
@@ -128,6 +136,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           SA8295P ADP:
             tflite:
               job_id: jp29ko4xg
@@ -141,6 +151,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           SA8650 (Proxy):
             tflite:
               job_id: jp02zod25
@@ -154,6 +166,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           SA8775P ADP:
             tflite:
               job_id: jgkqe6oyg
@@ -167,6 +181,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           Samsung Galaxy S23:
             tflite:
               job_id: j5w3eyxzp
@@ -180,6 +196,8 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
+              tool_versions:
+                tflite: 2.17.0
           Samsung Galaxy S24:
             tflite:
               job_id: jp1w4o3kg
@@ -193,22 +211,14 @@ precisions:
                 total: 911
                 gpu: 900
                 cpu: 11
-          Snapdragon X Elite CRD:
-            qnn_dlc:
-              job_id: jp1w4o7kg
-              job_status: Passed
-              inference_time_milliseconds: 545.405
-              estimated_peak_memory_range_mb:
-                min: 381
-                max: 381
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 1455
-                npu: 1455
+              tool_versions:
+                tflite: 2.17.0
       WhisperDecoderInf:
         universal_assets:
           tflite: mqev1174m
-          qnn_dlc: mqp511ggn
+        asset_tool_versions:
+          tflite:
+            tflite: 2.16.1
         performance_metrics:
           QCS8275 (Proxy):
             tflite:
@@ -222,6 +232,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506-auto
+                tflite: 2.17.0
           QCS8450 (Proxy):
             tflite:
               job_id: jgon2do4p
@@ -234,6 +247,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0
           QCS8550 (Proxy):
             tflite:
               job_id: j56zyorvg
@@ -246,6 +262,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0
           QCS9075 (Proxy):
             tflite:
               job_id: j5qr64z7p
@@ -258,6 +277,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506-auto
+                tflite: 2.17.0
           SA7255P ADP:
             tflite:
               job_id: j5m6n94yg
@@ -270,6 +292,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506-auto
+                tflite: 2.17.0
           SA8255 (Proxy):
             tflite:
               job_id: jpr2vxov5
@@ -282,6 +307,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0
           SA8295P ADP:
             tflite:
               job_id: jpyj18qrp
@@ -294,6 +322,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506-auto
+                tflite: 2.17.0
           SA8650 (Proxy):
             tflite:
               job_id: jp8mqj6z5
@@ -306,6 +337,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0
           SA8775P ADP:
             tflite:
               job_id: j5qr64z7p
@@ -318,6 +352,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506-auto
+                tflite: 2.17.0
           Samsung Galaxy S23:
             tflite:
               job_id: jg9ylo8q5
@@ -330,6 +367,9 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0
           Samsung Galaxy S24:
             tflite:
               job_id: jgdqx60k5
@@ -342,15 +382,6 @@ precisions:
               layer_counts:
                 total: 2573
                 npu: 2573
-          Snapdragon X Elite CRD:
-            qnn_dlc:
-              job_id: jgdqx68k5
-              job_status: Passed
-              inference_time_milliseconds: 34.427
-              estimated_peak_memory_range_mb:
-                min: 1205
-                max: 1205
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 2255
-                npu: 2255
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+                tflite: 2.17.0

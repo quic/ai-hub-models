@@ -1,14 +1,18 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import sys
 
 import torch
 
-from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
+from qai_hub_models.models._shared.super_resolution.model import (
+    DEFAULT_SCALE_FACTOR,
+    SuperResolutionModel,
+)
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -27,30 +31,35 @@ DEFAULT_WEIGHTS_URL = CachedWebModelAsset(
     MODEL_ASSET_VERSION,
     "RealESRGAN_x4plus.pth",
 )
+x2PLUS_WEIGHTS = "RealESRGAN_x2plus"
+x2PLUS_WEIGHTS_URL = CachedWebModelAsset(
+    "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
+    MODEL_ID,
+    MODEL_ASSET_VERSION,
+    "RealESRGAN_x2plus.pth",
+)
 PRE_PAD = 10
-SCALING_FACTOR = 4
 
 
 class Real_ESRGAN_x4plus(SuperResolutionModel):
     """Exportable RealESRGAN upscaler, end-to-end."""
 
-    def __init__(
-        self,
-        realesrgan_model: torch.nn.Module,
-    ) -> None:
-        super().__init__(realesrgan_model, scale_factor=SCALING_FACTOR)
-
     @classmethod
     def from_pretrained(
-        cls,
-        weight_path: str = DEFAULT_WEIGHTS,
+        cls, scale_factor: int = DEFAULT_SCALE_FACTOR
     ) -> Real_ESRGAN_x4plus:
         """Load RealESRGAN from a weightfile created by the source RealESRGAN repository."""
 
         # Load PyTorch model from disk
-        realesrgan_model = _load_realesrgan_source_model_from_weights(weight_path)
+        if scale_factor == 4:
+            weights_name = DEFAULT_WEIGHTS  # RealESRGAN_x4plus
+        elif scale_factor == 2:
+            weights_name = x2PLUS_WEIGHTS  # RealESRGAN_x2plus
+        else:
+            raise ValueError(f"Unsupported scale_factor: {scale_factor}")
+        realesrgan_model = _load_realesrgan_source_model_from_weights(weights_name)
 
-        return cls(realesrgan_model)
+        return cls(realesrgan_model, scale_factor)
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         return super().forward(image).clamp_(0, 1)
@@ -60,6 +69,8 @@ def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
     """Convert from names of weights files to the url for the weights file"""
     if weights_name == DEFAULT_WEIGHTS:
         return DEFAULT_WEIGHTS_URL
+    elif weights_name == x2PLUS_WEIGHTS:
+        return x2PLUS_WEIGHTS_URL
     return ""
 
 
@@ -89,6 +100,13 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
         # ----
 
         # necessary import. `archs` comes from the realesrgan repo.
+        if weights_name == DEFAULT_WEIGHTS:  # "RealESRGAN_x4plus"
+            scale_factor = 4
+        elif weights_name == x2PLUS_WEIGHTS:  # "RealESRGAN_x2plus"
+            scale_factor = 2
+        else:
+            raise ValueError(f"Unknown weights name for model creation: {weights_name}")
+
         from basicsr.archs.rrdbnet_arch import RRDBNet
 
         realesrgan_model = RRDBNet(
@@ -97,7 +115,7 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
             num_feat=64,
             num_block=23,
             num_grow_ch=32,
-            scale=SCALING_FACTOR,
+            scale=scale_factor,
         )
         pretrained_dict = load_torch(weights_url)
 

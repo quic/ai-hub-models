@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 import sys
 from collections.abc import Callable
@@ -26,7 +27,7 @@ def capture_and_display_processed_frames(
     Inputs:
         frame_processor: Callable[[np.ndarray], np.ndarray]
             Processes frames.
-            Input and output are numpy arrays of shape (H W C) with BGR channel layout and dtype uint8 / byte.
+            Input and output are numpy arrays of shape (H W C) with RGB channel layout and dtype uint8 / byte.
         window_display_name: str
             Name of the window used to display frames.
         cap_device: int

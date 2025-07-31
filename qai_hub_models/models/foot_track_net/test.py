@@ -1,12 +1,12 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import json
 
 import numpy as np
 import pytest
-import torch
 
 from qai_hub_models.models.foot_track_net.app import FootTrackNet_App
 from qai_hub_models.models.foot_track_net.demo import main as demo_main
@@ -20,7 +20,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
     load_path,
 )
-from qai_hub_models.utils.image_processing import resize_pad
+from qai_hub_models.utils.image_processing import pil_resize_pad
 from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
 
 INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -41,12 +41,9 @@ def test_task() -> None:
     rtol = 0.1
 
     app = FootTrackNet_App(FootTrackNet.from_pretrained())
-
     (_, _, height, width) = FootTrackNet.get_input_spec()["image"][0]
-    orig_image = np.array(load_image(INPUT_IMAGE_ADDRESS))
-    orig_image = torch.from_numpy(orig_image).permute(2, 0, 1).unsqueeze_(0)
-    image, scale, padding = resize_pad(orig_image, (height, width))
-    objs_face, objs_person = app.det_image(image)
+    image, *_ = pil_resize_pad(load_image(INPUT_IMAGE_ADDRESS), (height, width))
+    objs_face, objs_person = app.predict_bbox_landmarks(image)
 
     pth = load_path(OUTPUT_RST_ADDRESS, "tmp")
     with open(pth) as f:
@@ -106,10 +103,8 @@ def test_trace() -> None:
     rtol = 0.1
     app = FootTrackNet_App(FootTrackNet.from_pretrained().convert_to_torchscript())
     (_, _, height, width) = FootTrackNet.get_input_spec()["image"][0]
-    orig_image = np.array(load_image(INPUT_IMAGE_ADDRESS))
-    orig_image = torch.from_numpy(orig_image).permute(2, 0, 1).unsqueeze_(0)
-    image, scale, padding = resize_pad(orig_image, (height, width))
-    objs_face, objs_person = app.det_image(image)
+    image, *_ = pil_resize_pad(load_image(INPUT_IMAGE_ADDRESS), (height, width))
+    objs_face, objs_person = app.predict_bbox_landmarks(image)
 
     pth = load_path(OUTPUT_RST_ADDRESS, "tmp")
     with open(pth) as f:

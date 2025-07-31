@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [SalsaNext: Semantic segmentation model optimized for LiDAR point cloud data](https://aihub.qualcomm.com/models/salsanext)
 
 SalsaNext is a LiDAR-based semantic segmentation model designed for efficient and accurate

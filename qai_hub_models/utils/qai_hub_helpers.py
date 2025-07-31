@@ -1,11 +1,12 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
-import os
 import re
+import shlex
 import shutil
 import time
 import zipfile
@@ -19,18 +20,17 @@ import qai_hub as hub
 import torch
 from qai_hub.client import APIException, DatasetEntries, Device, UserError
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
-from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.scorecard.device import ScorecardDevice
-from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, qaihm_temp_dir
-from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
+from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.onnx_helpers import (
     torch_onnx_export_with_large_model_size_check,
 )
-from qai_hub_models.utils.printing import print_profile_metrics
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401
     transpose_channel_first_to_last,
 )
+
+_AIHUB_URL = "https://aihub.qualcomm.com"
+_AIHUB_NAME = "Qualcomm® AI Hub"
 
 
 def can_access_qualcomm_ai_hub():
@@ -41,139 +41,6 @@ def can_access_qualcomm_ai_hub():
     except UserError:
         return False
     return True
-
-
-_AIHUB_URL = "https://aihub.qualcomm.com"
-_AIHUB_NAME = "Qualcomm® AI Hub"
-_WARNING_DASH = "=" * 114
-
-
-def export_without_hub_access(
-    model_id: str,
-    model_display_name: str,
-    device: str,
-    skip_profiling: bool,
-    skip_inferencing: bool,
-    skip_downloading: bool,
-    skip_summary: bool,
-    output_path: str | Path,
-    target_runtime: TargetRuntime,
-    precision: Precision,
-    compile_options: str,
-    profile_options: str,
-    components: Optional[list[str]] = None,
-    is_forced_static_asset_fetch: bool = False,
-) -> list[str]:
-    if not is_forced_static_asset_fetch:
-        print(_WARNING_DASH)
-        print(
-            f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"
-            f"To get access to the complete experience, please sign-up for access at {_AIHUB_URL}."
-        )
-        print(_WARNING_DASH)
-
-    if compile_options or profile_options:
-        raise RuntimeError(
-            f"Jobs with `compile_options` or `profile_options` can only be run with {_AIHUB_NAME} access."
-        )
-
-    parsed_perf = None
-    perf_yaml_path = os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        "models",
-        model_id,
-        "perf.yaml",
-    )
-    if os.path.exists(perf_yaml_path):
-        parsed_perf = QAIHMModelPerf.from_yaml(perf_yaml_path).precisions[precision]
-
-    if not components:
-        if parsed_perf:
-            components = list(parsed_perf.components.keys())
-        else:
-            components = [model_display_name]
-
-    if not skip_profiling and not skip_summary:
-        if parsed_perf is not None:
-            print("\n--- Profiling Results ---")
-            for component in components:
-                print(f"{component}")
-                model_perf = parsed_perf.components[component]
-
-                # Device families aren't stored in perf yamls. Replace with the original device name.
-                device_name = device.replace(" (Family)", "")
-                device_perf = model_perf.performance_metrics.get(
-                    ScorecardDevice.get(device_name)
-                )
-                if not device_perf:
-                    break
-
-                runtime_perf = None
-                for path, path_runtime_perf in device_perf.items():
-                    if path.runtime == target_runtime:
-                        runtime_perf = path_runtime_perf
-                        break
-
-                if not runtime_perf:
-                    break
-
-                print_profile_metrics(
-                    device_name,
-                    target_runtime,
-                    runtime_perf,
-                    can_access_qualcomm_ai_hub=False,
-                )
-                print("")
-        else:
-            if is_forced_static_asset_fetch:
-                print(
-                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without using AI Hub.\n"
-                    f"Run without the --fetch-static-assets flag to target this device."
-                )
-            else:
-                print(
-                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without an API token.\n"
-                    f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
-                )
-
-    if not skip_inferencing and not skip_summary:
-        print("\n--- Skipping on-device numerical validation. ---")
-        if is_forced_static_asset_fetch:
-            print("Run without the --fetch-static-assets flag to run validation.")
-        else:
-            print(
-                f"Please sign-up for {_AIHUB_NAME} to perform numerical validation on hosted devices."
-            )
-
-    paths: list[str] = []
-    if not skip_downloading:
-        print(
-            f"\n--- Downloading model(s) from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
-        )
-    else:
-        print(
-            f"\n--- Model(s) can be downloaded from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
-        )
-    try:
-        paths, urls = fetch_huggingface_target_model(
-            model_display_name,
-            components,
-            precision,
-            output_path,
-            target_runtime,
-            download=not skip_downloading,
-        )
-        paths_str = "\n    ".join(paths)
-        urls_str = "\n    ".join(urls)
-
-        print(f"Deployable Model URLs:\n    {urls_str}")
-        if paths:
-            print("")
-            print(f"Deployable model(s) saved to:\n    {paths_str}")
-    except Exception as e:
-        print(f"Model fetch failure: {e}")
-
-    return paths
 
 
 def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -399,3 +266,52 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
             "Diffusion VaeDecoder. "
         )
     return None
+
+
+def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
+    """
+    Get a dictionary of all options passed for this job.
+    Options that are not passed explicitly in the hub job options (that Hub will treat as defaults) are not included in the dictionary.
+
+    Example:
+        If a hub job is submitted with options "--qairt_version 2.33 --dequantize_outputs --dict_input='w=x;y=z'"
+        Then the returned dict would be:
+          {
+            "qairt_version": "2.33",
+            "dequantize_outputs": True
+            "dict_input": "w=x;y=z"
+          }
+    """
+    out = dict()
+
+    model_options = shlex.split(job.options.strip())
+    for i in range(len(model_options)):
+        option = model_options[i]
+        if option.startswith("--"):
+            value: str | bool
+            if "=" in option:
+                # Handle args of form "--blah=blah"
+                #
+                # If the option starts with '--' and has an =, then it must be in the format --x=y.
+                # If the option was in the format --x y=x, then it would be parsed as two different options by shlex.
+                # So we can safely split this option on the first '=' in the string to get the option key and value.
+                key, value = option.split("=", maxsplit=1)
+                if (value.startswith("'") and value.endswith("'")) or (
+                    value.startswith('"') and value.endswith('"')
+                ):
+                    value = value[1 : len(value) - 1]
+            elif i == len(model_options) - 1 or model_options[i + 1].startswith("--"):
+                # Either:
+                #   - this is the last arg and has no value
+                #   - this --arg is immediately followed by another --arg
+                # Therefore it must be a boolean. All Hub booleans are true if explicitly passed as an option.
+                key = option
+                value = True
+            else:
+                # This is a standard --key value pair.
+                key = option
+                value = model_options[i + 1]
+            # Strip "--" from arg name.
+            out[key[2:]] = value
+
+    return out

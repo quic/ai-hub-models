@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Stable-Diffusion-v1.5: State-of-the-art generative AI model used to generate detailed images conditioned on text descriptions](https://aihub.qualcomm.com/models/stable_diffusion_v1_5)
 
 Generates high resolution images from text prompts using a latent diffusion model. This model uses CLIP ViT-L/14 as text encoder, U-Net based latent denoising, and VAE based decoder to generate the final image.

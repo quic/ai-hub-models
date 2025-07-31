@@ -1,13 +1,13 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
 
 import torch
-from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.segmentation_evaluator import SegmentationOutputEvaluator
@@ -44,10 +44,6 @@ TEST_CITYSCAPES_LIKE_IMAGE_ASSET = CachedWebModelAsset.from_asset_store(
 
 
 class CityscapesSegmentor(BaseModel):
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
     def get_evaluator(self) -> BaseEvaluator:
         return SegmentationOutputEvaluator(CITYSCAPES_NUM_CLASSES, resize_to_gt=True)
 
@@ -56,7 +52,7 @@ class CityscapesSegmentor(BaseModel):
         Predict semantic segmentation an input `image`.
 
         Parameters:
-            image: A [1, 3, height, width] image.
+            image: A [1, 3, height, width] RGB image, with range [0, 1].
                    Assumes image has been resized and normalized using the
                    Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 

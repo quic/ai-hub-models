@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -77,5 +78,4 @@ class RepaintMaskApp:
             pixel_values_or_image, mask_pixel_values_or_image
         )
         out = self.model(inputs["image"], inputs["mask"])
-
         return [torch_tensor_to_PIL_image(img) for img in out]

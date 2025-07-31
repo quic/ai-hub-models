@@ -1,16 +1,20 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
 from transformers import LevitForImageClassification
 
-from qai_hub_models.models._shared.imagenet_classifier.model import ImagenetClassifier
+from qai_hub_models.models._shared.imagenet_classifier.model import (
+    ImagenetClassifier,
+    normalize_image_torchvision,
+)
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 DEFAULT_WEIGHTS = "facebook/levit-128S"
 
 
@@ -28,13 +32,13 @@ class LeViT(ImagenetClassifier):
 
         Parameters:
             image: A [1, 3, 224, 224] image.
-                   Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
-                   3-channel Color Space: RGB
+                    Pixel values pre-processed for encoder consumption.
+                    Range: float[0, 1]
+                    3-channel Color Space: RGB
 
         Returns:
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
-        predictions = self.net(image, return_dict=False)
+        predictions = self.net(normalize_image_torchvision(image), return_dict=False)
         return predictions[0]

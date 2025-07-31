@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Llama3-TAIDE-LX-8B-Chat-Alpha1: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v3_taide_8b_chat)
 
 The Llama3-TAIDE-LX-8B-Chat-Alpha1 LLM model is based on Meta's released LLaMA3-8b model, fine-tuned on Traditional Chinese data, and enhanced for office tasks and multi-turn dialogue capabilities through instruction tuning. The TAIDE model is incorporating text and training materials from various fields in Taiwan to enhance the model's ability to respond in Traditional Chinese and perform specific tasks such as automatic summarization, writing emails, articles, and translating between Chinese and English.

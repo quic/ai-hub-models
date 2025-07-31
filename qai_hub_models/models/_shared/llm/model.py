@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 # isort: off
@@ -63,13 +64,19 @@ try:
     import aimet_common.quantsim as qs
     from aimet_common.defs import QuantScheme
     from aimet_onnx import quantsim
-    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-    from aimet_onnx.quantsim import load_encodings_to_sim
+    from aimet_onnx.quantsim import (
+        QuantizationSimModel,
+        QuantScheme,
+        load_encodings_to_sim,
+    )
 
     from qai_hub_models.models._shared.llm._utils import (
         _set_lm_head_to_8b,
         _set_tensors_to_output_8b_sym,
         _tie_quantizers_for_kv_cache,
+    )
+    from qai_hub_models.utils.quantization_aimet_onnx import (
+        ensure_min_aimet_onnx_version,
     )
 
     AIMET_ONNX_INSTALLED = True
@@ -80,7 +87,7 @@ except (ImportError, ModuleNotFoundError):
     )
 
 MIN_TRANFORMER_VERSION = "4.45.0"
-
+MIN_AIMET_ONNX_VERSION = "2.8.0"
 # isort: off
 
 DEFAULT_SEQUENCE_LENGTH = 128
@@ -91,6 +98,9 @@ DEFAULT_CALIBRATION_SEQ_LEN = 2048
 # TODO: 10761 remove transformer version check once AIMET
 # transformer restriction is uplifted.
 ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
+ensure_min_aimet_onnx_version(MIN_AIMET_ONNX_VERSION)
+
+
 from transformers import (  # noqa: E402
     AutoConfig,
     AutoTokenizer,
@@ -331,6 +341,7 @@ def get_onnx_model(
     fp_model.to(device)
 
     input_specs = fp_model.get_input_spec(
+        llm_config=fp_model.llm_config.to_dict(),
         context_length=context_length,
         sequence_length=sequence_length,
     )
@@ -397,6 +408,18 @@ class Embedding(ABC):
         dtype: torch.dtype = torch.float32,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         pass
+
+
+class PositionProcessorBase(torch.nn.Module):
+    """
+    Prepares positions (Embedding and attention mask preparation); used by ORT GenAI.
+    """
+
+    def __init__(self, context_length: int):
+        super().__init__()
+
+    def forward(self, attention_mask_before_processor, position_ids):
+        raise NotImplementedError("Must be implemented by subclass")
 
 
 class LLMConfigEditor:
@@ -710,6 +733,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
             input_spec = self.get_input_spec(
                 sequence_length=self.sequence_length,
                 context_length=self.context_length,
+                llm_config=self.llm_config.to_dict(),
             )
         input_dict = sample_input(
             input_spec,
@@ -755,7 +779,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
     def __init__(
         self,
-        sim_model: QuantSimOnnx | None,
+        sim_model: QuantizationSimModel | None,
         checkpoint: str | os.PathLike | Path | None,
         sequence_length: int,
         context_length: int,
@@ -842,6 +866,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                         path=onnx_tmpfile,
                         return_model=True,
                     )
+
             else:
                 print()
                 print(f"Loading onnx model from {onnx_path}")
@@ -874,6 +899,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                     load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         else:
             quant_sim = None
+
         return cls(
             sim_model=quant_sim,
             sequence_length=sequence_length,
@@ -895,7 +921,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
     @classmethod
     def create_quantsim(
         cls, onnx_model: onnx.ModelProto, host_device: torch.device
-    ) -> QuantSimOnnx:
+    ) -> QuantizationSimModel:
         """
         onnx_model: ONNX Model to create QuantSim model.
         host_device: Device that the QuantSim model must be placed on.
@@ -914,11 +940,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         quantsim.op_outputs_to_ignore.append("Slice")
         quantsim.op_outputs_to_ignore.append("Constant")
         qs.encoding_version = "1.0.0"
-        quant_sim = QuantSimOnnx(
+
+        quant_sim = QuantizationSimModel(
             model=onnx_model,
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=4,
+            param_type="int4",
+            activation_type="int16",
+            quant_scheme=QuantScheme.min_max,
             config_file=default_config,
             providers=cls.get_ort_providers(host_device),
         )
@@ -929,7 +956,6 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         _set_lm_head_to_8b(quant_sim)
         # Tie kv_cache
         _tie_quantizers_for_kv_cache(quant_sim)
-
         return quant_sim
 
     def save_calibrated_checkpoint(
@@ -970,8 +996,6 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         )
         self.llm_config.save_pretrained(output_checkpoint)
         self.tokenizer.save_pretrained(output_checkpoint)
-
-        # Add metadata to correctly load the QuantSim
 
     @classmethod
     def create_onnx_models(
@@ -1068,9 +1092,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile ONN ONNX or QNN runtime is supported for Llama for now."
             )
+
         if precision not in {Precision.w4a16, Precision.w4}:
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
+        if precision == Precision.w4:
+            other_compile_options = " --quantize_full_type float16 --quantize_io"
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
@@ -1104,6 +1131,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         dataloader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
 
         input_spec = self.get_input_spec(
+            llm_config=self.llm_config.to_dict(),
             sequence_length=self.sequence_length,
             context_length=self.context_length,
         )
@@ -1146,3 +1174,19 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             "mmmlu-" + language_code for language_code in mmmlu_split_lookup.keys()
         ]
         return mmmlu_datasets + ["wikitext", "wikitext-ja", "tiny-mmlu", "mmlu"]
+
+    @classmethod
+    def prepare_ort_genai_assets(
+        cls,
+        model_name: str,
+        llm_config: PretrainedConfig,
+        position_processor_cls: type[PositionProcessorBase],
+        encodings_path: str | Path,
+        context_length: int,
+        prompt_sequence_length: int,
+        onnx_model_path_from_sub_component_name: dict[str, str],
+        num_splits: int,
+        qairt_version: str,
+        output_dir: str | Path,
+    ):
+        raise NotImplementedError()

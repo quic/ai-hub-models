@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [QuickSRNetMedium: Upscale images and remove image noise](https://aihub.qualcomm.com/models/quicksrnetmedium)
 
 QuickSRNet Medium is designed for upscaling images on mobile platforms to sharpen in real-time.

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 """
 This is a sample script showing how to profile various optimizations for Stable
 Diffusion v1.5.

@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 # THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY.
@@ -20,11 +20,9 @@ from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.qwen2_7b_instruct import Model
 from qai_hub_models.utils.args import export_parser, validate_precision_runtime
 from qai_hub_models.utils.base_model import CollectionModel
+from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
-from qai_hub_models.utils.qai_hub_helpers import (
-    can_access_qualcomm_ai_hub,
-    export_without_hub_access,
-)
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
 def profile_model(

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [RF-DETR: Transformer based object detection model architecture developed by Roboflow](https://aihub.qualcomm.com/models/rf_detr)
 
 DETR is a machine learning model that can detect objects (trained on COCO dataset).

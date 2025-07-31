@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [SINet: Lightweight portrait segmentation for background removal](https://aihub.qualcomm.com/models/sinet)
 
 SINet is a machine learning model that is designed to segment people from close-up portrait images in real time.

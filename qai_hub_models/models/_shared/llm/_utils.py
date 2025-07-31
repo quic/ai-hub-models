@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
@@ -9,6 +10,7 @@ from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 def _tie_quantizers_for_kv_cache(quantsim_model: QuantSimOnnx) -> None:
     quantizer_mapping = dict()
+
     for input_name in quantsim_model.model.graph().input:
         if "past_key" in input_name.name or "past_value" in input_name.name:
             output_name = input_name.name.replace("in", "out")

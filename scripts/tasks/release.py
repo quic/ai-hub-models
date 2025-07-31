@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -9,7 +10,7 @@ import pathlib
 import shutil
 from typing import Optional
 
-from .constants import BUILD_ROOT
+from .constants import BUILD_ROOT, REPO_ROOT
 from .task import CompositeTask
 from .util import get_pip
 from .venv import (
@@ -25,7 +26,7 @@ version_locals: dict[str, str] = {}
 exec(open(version_path).read(), version_locals)
 __version__ = version_locals["__version__"]
 
-DEFAULT_RELEASE_DIRECTORY = "./build/release"
+DEFAULT_RELEASE_DIRECTORY = os.path.join(BUILD_ROOT, "release")
 RELEASE_DIRECTORY_VARNAME = "QAIHM_RELEASE_DIR"
 REMOTE_REPOSITORY_URL_VARNAME = "QAIHM_REMOTE_URL"
 PYPI_VARNAME = "QAIHM_PYPI_URL"
@@ -209,37 +210,57 @@ class BuildWheelTask(CompositeTask):
     If no directory is provided, assumes the release directory defined above.
     """
 
-    def __init__(self, venv: Optional[str], python_executable: Optional[str]):
+    def __init__(
+        self,
+        venv: Optional[str],
+        python_executable: Optional[str],
+        use_repo_root: bool = False,
+        overwrite_if_exists: bool = True,
+    ):
         tasks = []
 
         if not venv:
             # Create Venv
             venv = os.path.join(BUILD_ROOT, "test", "release_venv")
             tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
+            # Install minimal build dependencies only for the wheel building.
+            tasks.append(
+                RunCommandsWithVenvTask(
+                    "Install build dependencies",
+                    venv=venv,
+                    commands=["pip install setuptools wheel build"],
+                )
+            )
 
         # Build Wheel
-        repo_dir = _get_release_repository_dir()
-        wheel_dir = _get_wheel_dir()
+        if use_repo_root:
+            repo_dir = REPO_ROOT
+            wheel_dir = os.path.join(BUILD_ROOT, "wheel")
+        else:
+            repo_dir = _get_release_repository_dir()
+            wheel_dir = _get_wheel_dir()
+
         relative_wheel_dir = os.path.relpath(wheel_dir, repo_dir)
 
-        if os.path.exists(wheel_dir):
-            shutil.rmtree(wheel_dir)
+        # Some sanity checking to make sure we don't accidentally "rm -rf /"
+        assert wheel_dir.startswith(BUILD_ROOT) and " " not in wheel_dir
 
-        tasks.append(
-            RunCommandsWithVenvTask(
-                "Build Wheel",
-                venv=venv,
-                env=os.environ,
-                commands=[
-                    f"cd {repo_dir} && "
-                    f"python setup.py "
-                    f"build --build-base {relative_wheel_dir} "
-                    f"egg_info --egg-base {relative_wheel_dir} "
-                    f"bdist_wheel --dist-dir {relative_wheel_dir}",
-                ],
+        if overwrite_if_exists or not os.path.exists(wheel_dir):
+            tasks.append(
+                RunCommandsWithVenvTask(
+                    "Build Wheel",
+                    venv=venv,
+                    env=os.environ,
+                    commands=[
+                        f"rm -rf {wheel_dir}",
+                        f"cd {repo_dir} && "
+                        f"python setup.py "
+                        f"build --build-base {relative_wheel_dir} "
+                        f"egg_info --egg-base {relative_wheel_dir} "
+                        f"bdist_wheel --dist-dir {relative_wheel_dir}",
+                    ],
+                )
             )
-        )
 
         super().__init__(f"Build Wheel to: {wheel_dir}", tasks)
 

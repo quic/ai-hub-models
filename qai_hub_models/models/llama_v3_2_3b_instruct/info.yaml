@@ -1,9 +1,15 @@
 name: Llama-v3.2-3B-Instruct
 id: llama_v3_2_3b_instruct
 status: public
-headline: State-of-the-art large language model useful on a variety of language understanding and generation tasks.
+headline: State-of-the-art large language model useful on a variety of language understanding
+  and generation tasks.
 domain: Generative AI
-description: Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights and 16-bit activations) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
+description: Llama 3 is a family of LLMs. The model is quantized to w4a16 (4-bit weights
+  and 16-bit activations) and part of the model is quantized to w8a16 (8-bit weights
+  and 16-bit activations) making it suitable for on-device deployment. For Prompt
+  and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's
+  latency and average time per addition token is Llama-TokenGenerator-Quantized's
+  latency.
 use_case: Text Generation
 tags:
 - llm
@@ -18,15 +24,22 @@ technical_details:
   Precision: w4a16 + w8a16 (few layers)
   Num of key-value heads: 8
   Model-1 (Prompt Processor): Llama-PromptProcessor-Quantized
-  Prompt processor input: 128 tokens + position embeddings + attention mask + KV cache inputs
+  Prompt processor input: 128 tokens + position embeddings + attention mask + KV cache
+    inputs
   Prompt processor output: 128 output tokens + KV cache outputs
   Model-2 (Token Generator): Llama-TokenGenerator-Quantized
-  Token generator input: 1 input token + position embeddings + attention mask + KV cache inputs
+  Token generator input: 1 input token + position embeddings + attention mask + KV
+    cache inputs
   Token generator output: 1 output token + KV cache outputs
-  Use: Initiate conversation with prompt-processor and then token generator for subsequent iterations.
+  Use: Initiate conversation with prompt-processor and then token generator for subsequent
+    iterations.
   Minimum QNN SDK version required: 2.27.7
   Supported languages: English.
-  TTFT: Time To First Token is the time it takes to generate the first response token. This is expressed as a range because it varies based on the length of the prompt. The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of the prompt processor) and the upper bound is for a prompt using the full context length (4096 tokens).
+  TTFT: Time To First Token is the time it takes to generate the first response token.
+    This is expressed as a range because it varies based on the length of the prompt.
+    The lower bound is for a short prompt (up to 128 tokens, i.e., one iteration of
+    the prompt processor) and the upper bound is for a prompt using the full context
+    length (4096 tokens).
   Response Rate: Rate of response generation after the first response token.
 applicable_scenarios:
 - Dialogue
@@ -35,7 +48,6 @@ applicable_scenarios:
 related_models:
 - llama_v3_8b_instruct
 - llama_v3_1_8b_instruct
-- llama_v3_2_1b_instruct
 form_factors:
 - Phone
 - Tablet

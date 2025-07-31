@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from qai_hub_models.models._shared.yolo.demo import yolo_detection_demo
 from qai_hub_models.models.yolov7.app import YoloV7DetectionApp
 from qai_hub_models.models.yolov7.model import MODEL_ASSET_VERSION, MODEL_ID, YoloV7

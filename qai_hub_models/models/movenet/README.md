@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Movenet: Perform accurate human pose estimation](https://aihub.qualcomm.com/models/movenet)
 
 Movenet performs pose estimation on human images.

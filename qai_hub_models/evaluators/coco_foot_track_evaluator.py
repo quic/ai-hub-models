@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import copy
@@ -42,11 +43,12 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
         """Resets the collected predictions."""
         self.predictions = []
 
-    def undo_resize_pad_BBox(self, bbox: BBox_landmarks, scale: float, padding: list):
+    def undo_resize_pad_bbox(self, bbox: BBox_landmarks, scale: float, padding: list):
         """
         undo the resize and pad in place of the BBox_landmarks object.
         operation in place to replace the inner coordinates
         Parameters:
+            bbox: bounding box
             scale: single scale from original to target image.
             pad: left, top padding size
         Return:
@@ -100,7 +102,7 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
                     objs_person.append(obj)
             objs_person = self.nms_bbox_landmark(objs_person, iou=iou_thr[1])
             for obj in objs_person:
-                self.undo_resize_pad_BBox(obj, scale[idx], [0, 0])
+                self.undo_resize_pad_bbox(obj, scale[idx], [0, 0])
                 x, y, r, b = (int(bb + 0.5) for bb in np.array(obj.box).astype(int))
                 b_box = [x, y, r - x + 1, b - y + 1]
                 keypoints = []

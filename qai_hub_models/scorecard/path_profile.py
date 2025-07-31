@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Generator
@@ -66,9 +67,10 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         if SpecialPathSetting.ALL in valid_test_runtimes:
             return True
 
-        if (
-            not self.enabled_only_if_explicitly_selected
-            and SpecialPathSetting.DEFAULT in valid_test_runtimes
+        if not self.enabled_only_if_explicitly_selected and any(
+            x
+            in [SpecialPathSetting.DEFAULT, SpecialPathSetting.DEFAULT_WITH_AOT_ASSETS]
+            for x in valid_test_runtimes
         ):
             return True
 
@@ -200,37 +202,68 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         if self.runtime.is_aot_compiled:
             return self
 
-        aot_runtime = self.runtime.aot_equivalent
-        if not aot_runtime:
-            return None
-        for path in ScorecardProfilePath:
-            if path.runtime == aot_runtime:
-                return path
+        if (
+            not self.has_nonstandard_profile_options
+            and not self.compile_path.has_nonstandard_compile_options
+        ):
+            if aot_runtime := self.runtime.aot_equivalent:
+                for path in ScorecardProfilePath:
+                    if path.runtime == aot_runtime:
+                        return path
 
-        # This line should never actually execute.
-        # There is an equivalent path for every AOT runtime.
-        raise NotImplementedError(
-            f"There is no AOT equivalent for profile path {self.value}"
-        )
+        return None
 
     @cached_property
-    def jit_equivalent(self) -> ScorecardProfilePath:
+    def jit_equivalent(self) -> ScorecardProfilePath | None:
         """
         Returns the equivalent path that is compiled "just in time" on device.
+        Returns None if there is no equivalent path that is compiled "just in time".
         """
         if not self.runtime.is_aot_compiled:
             return self
 
-        jit_runtime = self.runtime.jit_equivalent
-        for path in ScorecardProfilePath:
-            if path.runtime == jit_runtime:
-                return path
+        if (
+            not self.has_nonstandard_profile_options
+            and not self.compile_path.has_nonstandard_compile_options
+        ):
+            jit_runtime = self.runtime.jit_equivalent
+            for path in ScorecardProfilePath:
+                if path.runtime == jit_runtime:
+                    return path
 
-        # This line should never actually execute.
-        # There is an equivalent path for every JIT runtime.
-        raise NotImplementedError(
-            f"There is no JIT equivalent for profile path {self.value}"
-        )
+        return None
+
+    @cached_property
+    def paths_with_same_toolchain(self) -> list[ScorecardProfilePath] | None:
+        """
+        Returns all profile paths that use the same toolchain.
+
+        For example, QNN_DLC, QNN_CONTEXT_BINARY, and PRECOMPILED_QNN_ONNX are all
+        considered to use the same toolchain.
+
+        While these apply at different stages (offline or on-device), all 3 paths use
+        the QNN Converters to create a graph, use QNN to compile to a binary, then use
+        QNN to execute that binary.
+        """
+        if (
+            self.has_nonstandard_profile_options
+            or self.compile_path.has_nonstandard_compile_options
+        ):
+            return [self]
+
+        return [
+            x
+            for x in ScorecardProfilePath
+            if x.runtime.conversion_toolchain == self.runtime.conversion_toolchain
+        ]
+
+    @property
+    def has_nonstandard_profile_options(self):
+        """
+        If this path passes additional options beyond what the underlying TargetRuntime
+        passes (eg --compute_unit), then it's considered nonstandard.
+        """
+        return self.value not in TargetRuntime._value2member_map_
 
     def get_profile_options(
         self, include_default_qaihm_qnn_version: bool = False

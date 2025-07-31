@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import itertools
@@ -35,7 +36,11 @@ from qai_hub_models.scorecard.results.yaml import (
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
-from qai_hub_models.utils.evaluate import evaluate_on_dataset, get_torch_val_dataloader
+from qai_hub_models.utils.evaluate import (
+    DEFAULT_NUM_EVAL_SAMPLES,
+    evaluate_on_dataset,
+    get_torch_val_dataloader,
+)
 from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
@@ -884,6 +889,7 @@ def on_device_inference_for_accuracy_validation(
             get_dataset_ids_file(),
             model,
             apply_channel_transpose=scorecard_path.runtime.channel_last_native_execution,
+            num_samples=_get_num_eval_samples(dataset_name),
         )
         ijob = hub.submit_inference_job(
             device=device.execution_device,
@@ -921,7 +927,11 @@ def torch_inference_for_accuracy_validation(
     # Get the first dim of the first input. This is always the batch size.
     compiled_batch_size = next(iter(model.get_input_spec().values()))[0][0]
 
-    inputs, *_ = next(iter(get_torch_val_dataloader(dataset_name)))
+    inputs, *_ = next(
+        iter(
+            get_torch_val_dataloader(dataset_name, _get_num_eval_samples(dataset_name))
+        )
+    )
     if not isinstance(inputs, list) and not isinstance(inputs, tuple):
         # Generalize: treat "single-input" model as a list of 1 input.
         # This allows us to support single and multi-input models in 1 loop.
@@ -1104,17 +1114,27 @@ def _get_dataset_cache_patch(
     model_cls: type[BaseModel] | type[CollectionModel],
 ):
     # Patch input eval dataset to use a cached dataset if it exists
-    dataset_cls = DATASET_NAME_MAP.get(dataset_name, None)
-    assert dataset_cls is not None
     dataset_dir = get_and_sync_datasets_cache_dir(
         scorecard_path.runtime.channel_last_native_execution,
         dataset_name,
-        dataset_cls.default_samples_per_job(),
+        _get_num_eval_samples(dataset_name),
         model_cls,
     )
     return mock.patch(
         "qai_hub_models.utils.evaluate.get_hub_datasets_path",
         return_value=dataset_dir.parent,
+    )
+
+
+def _get_num_eval_samples(dataset_name: str) -> int:
+    """
+    Resolve how many samples to evaluate for a given dataset.
+
+    This needs to be set in multiple callsites and for both num_samples and samples_per_job.
+    """
+    return min(
+        DATASET_NAME_MAP[dataset_name].default_samples_per_job(),
+        DEFAULT_NUM_EVAL_SAMPLES,
     )
 
 
@@ -1225,6 +1245,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
     )
 
     # Run eval script to collect accuracy metrics
+    num_samples = _get_num_eval_samples(dataset_name)
     with cache_path_patch, dataset_download_patch, on_device_call_patch, torch_call_patch:
         inference_job = inference_jobs[None]
         evaluate_result = evaluate_on_dataset(
@@ -1235,6 +1256,8 @@ def accuracy_on_dataset_via_evaluate_and_export(
             use_cache=True,
             skip_torch_accuracy=True,
             compute_quant_cpu_accuracy=False,
+            num_samples=num_samples,
+            samples_per_job=num_samples,
         )
 
     # Patch previous jobs
@@ -1328,6 +1351,7 @@ def torch_accuracy_on_dataset(
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
     )
+    num_samples = _get_num_eval_samples(dataset_name)
     with torch_call_patch, cache_path_patch:
         evaluate_result = evaluate_on_dataset(
             compiled_model=mock.MagicMock(
@@ -1341,6 +1365,8 @@ def torch_accuracy_on_dataset(
             use_cache=True,
             skip_device_accuracy=True,
             compute_quant_cpu_accuracy=False,
+            num_samples=num_samples,
+            samples_per_job=num_samples,
         )
     cache_key = _get_torch_cpu_key(model_id)
     append_line_to_file(
@@ -1405,6 +1431,7 @@ def sim_accuracy_on_dataset(
     fake_compile_job.model = qdq_model
     fake_compile_job.options = ""
 
+    num_samples = _get_num_eval_samples(dataset_name)
     with cache_path_patch:
         evaluate_result = evaluate_on_dataset(
             compiled_model=fake_model,
@@ -1415,6 +1442,8 @@ def sim_accuracy_on_dataset(
             skip_device_accuracy=True,
             skip_torch_accuracy=True,
             compute_quant_cpu_accuracy=True,
+            num_samples=num_samples,
+            samples_per_job=num_samples,
         )
         cache_key = _get_sim_cpu_key(model_id, precision)
         append_line_to_file(

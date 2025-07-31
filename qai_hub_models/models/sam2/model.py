@@ -1,12 +1,12 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import functools
 import os
-from pathlib import Path
 from typing import Optional, cast
 
 import torch
@@ -37,6 +37,7 @@ from qai_hub_models.utils.base_model import (
     TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 BASE_PLUS_MODEL_TYPE = "base_plus"
 LARGE_MODEL_TYPE = "large"
@@ -332,14 +333,16 @@ class SAM2Loader:
         Get the SAM2 described by the given model type.
         SAM2 will be patched for QNN compatibility.
         """
-        model_cfg_path = "configs/sam2.1"
+        model_cfg_path = "build/configs/sam2.1"
         GlobalHydra.instance().clear()
         initialize(
             config_path=str(model_cfg_path),
             job_name="sam2_inference",
             version_base=None,
         )
-        copy_configs(os.path.join(repo_path, "sam2", "configs", "sam2.1"), Path.cwd())
+        config_dir = QAIHM_MODELS_ROOT / MODEL_ID / "build"
+        os.makedirs(config_dir, exist_ok=True)
+        copy_configs(os.path.join(repo_path, "sam2", "configs", "sam2.1"), config_dir)
         if model_type not in MODEL_REGISTERY.keys():
             raise RuntimeError(f"Weights not found for model type `{model_type}`.")
 

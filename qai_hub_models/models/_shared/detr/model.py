@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -83,7 +84,7 @@ class DETR(BaseModel):
         Run DETR on `image` and produce high quality detection results.
 
         Parameters:
-            image: Image tensor to run detection on.
+            image: Image tensor to run detection on. RGB, Range[0-1].
             threshold: Prediction score threshold.
 
         Returns:

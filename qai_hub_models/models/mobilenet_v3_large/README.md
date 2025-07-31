@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [MobileNet-v3-Large: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/mobilenet_v3_large)
 
 MobileNet-v3-Large is a machine learning model that can classify images from the Imagenet dataset. It can also be used as a backbone in building more complex models for specific use cases.

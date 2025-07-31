@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Person-Foot-Detection: Multi-task Human detector](https://aihub.qualcomm.com/models/foot_track_net)
 
 Real-time multiple person detection with accurate feet localization optimized for mobile and edge.

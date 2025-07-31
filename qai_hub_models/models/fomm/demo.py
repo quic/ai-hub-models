@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
@@ -49,7 +50,7 @@ def main(is_test: bool = False):
 
     # run the model
     app = FOMMApp(model_from_cli_args(FOMM, args))
-    source_image_arr = np.array(source_image)
+    source_image_arr = np.array(source_image) / 255
     output_image_list = app.copy_motion_to_video(source_image_arr, driving_video_frames)
     resized_source = resize_frame(np.array(source_image_arr))
     concat_frames = [

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -51,11 +52,13 @@ class RTMPosebody2d(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
-            Forward pass for processing the inout image ad obtaining the model outputs.
-            Args :
-            -image (torch.Tensor) : Input tensor of shape (N, C, H, W)
-        .
-            Returns:
+        Forward pass for processing the inout image ad obtaining the model outputs.
+        Parameters:
+            image: Pixel values pre-processed for encoder consumption.
+                    Range: float[0, 1]
+                    3-channel Color Space: RGB
+
+        Returns:
             -tuple[torch.Tensor, torch.Tensor]: A tuple containg:
                 -output 1: SimCC x- axis predictions with shaoe (N, 17, 384), where :
                     N = batch size ,

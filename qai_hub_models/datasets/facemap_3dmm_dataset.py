@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -48,7 +49,8 @@ class FaceMap3DMMDataset(BaseDataset):
         image_tensor:
             shape  - [3, 128, 128]
             layout - [C, H, W]
-            range  - [0, 255]
+            range  - [0, 1]
+            channel layout - [RGB]
         gt_list:
             0 - image_id_tensor:
                 integer value to represent image id, not used
@@ -98,10 +100,12 @@ class FaceMap3DMMDataset(BaseDataset):
             interpolation=cv2.INTER_LINEAR,
         )
         image_tensor = torch.from_numpy(image_array).float().permute(2, 0, 1)
+        image_tensor_rgb = torch.flip(image_tensor, dims=[0])
+        image_tensor_rgb_norm = image_tensor_rgb / 255  # [0-1] -> [0-255]
 
         image_id = abs(hash(str(image_path.name[:-4]))) % (10**8)
 
-        return image_tensor, [
+        return image_tensor_rgb_norm, [
             image_id,
             torch.tensor(landmark_position[:68, :], dtype=torch.float32),
             torch.tensor(bbox, dtype=torch.float32),

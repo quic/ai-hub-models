@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -59,6 +60,7 @@ class FOMMDetector(BaseModel):
         Parameters:
             image: torch.Tensor
                    BxCxHxW
+                   RGB, range [0 - 1]
                    Image to detect keypoints in
 
         Returns:
@@ -69,7 +71,7 @@ class FOMMDetector(BaseModel):
                        B x Num keypoints x 2 x 2
                        Jacobian matrix around each keypoint
         """
-        result = self.model(image)
+        result = self.model(image * 255)
         keypoints = result["value"]
         jacobian = result["jacobian"]
         return keypoints, jacobian
@@ -119,6 +121,7 @@ class FOMMGenerator(BaseModel):
         Parameters:
             image:            torch.Tensor
                               BxCxHxW
+                              RGB, range [0 - 1]
                               The source image
             source_keypoint_values: torch.Tensor
                                     B x num keypoints x 2
@@ -145,7 +148,7 @@ class FOMMGenerator(BaseModel):
             value=source_keypoint_values, jacobian=source_keypoint_jacobians
         )
         kp_norm = dict(value=kp_norm_values, jacobian=kp_norm_jacobians)
-        out = self.model(image, kp_source=source_kp, kp_driving=kp_norm)
+        out = self.model(image * 255, kp_source=source_kp, kp_driving=kp_norm)
         prediction = out["prediction"]
         # For the purposes of tracing we return only the prediction element of the dictionary
         # as this is the only part that the app uses

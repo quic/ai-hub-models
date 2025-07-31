@@ -1,19 +1,22 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import math
 
 import numpy as np
 import torch
-from transformers import WavLMModel
+from transformers import WavLMForCTC
 from transformers.models.wavlm.modeling_wavlm import WavLMGroupNormConvLayer
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.libri_speech_evaluator import LibriSpeechEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 OPENPOSE_SOURCE_REPOSITORY = (
@@ -25,7 +28,7 @@ MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
 
 DEFAULT_INPUT_VEC_LENGTH = 320000
-DEFAULT_INPUT_LENGTH_SECONDS = 20
+DEFAULT_INPUT_LENGTH_SECONDS = 10
 HUGGINGFACE_WAVLM_DATASET = "hf-internal-testing/librispeech_asr_demo"
 SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs.npz"
@@ -53,11 +56,11 @@ class HuggingFaceWavLMBasePlus(BaseModel):
         if weights_path is None:
             weights_path = "patrickvonplaten/wavlm-libri-clean-100h-base-plus"
 
-        model = WavLMModel.from_pretrained(weights_path, torchscript=True)
+        model = WavLMForCTC.from_pretrained(weights_path, torchscript=True)
 
         return cls(model, apply_npu_opt)
 
-    def forward(self, input: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
         Run WAvLM on `input`, and produce feature vector
 
@@ -66,16 +69,15 @@ class HuggingFaceWavLMBasePlus(BaseModel):
                    20 seconds of audio sampled at 16kHz
 
         Returns:
-            Tuple of tensors of features detected in the audio stream:
-                feature_vector_1: Shape (1, 249, 768)
-                feature_vector_2: Shape (1, 249, 512)
+            torch.Tensor: Logits tensor of shape (1, sequence_length, vocab_size)
+            Where sequence_length = 499 , vocab_size = 31 , representing the predicted token probabilities
         """
         return self.model(input)
 
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
-        sample_length: int = 80000,
+        sample_length: int = 160000,
     ) -> InputSpec:
         # This can be used with the qai_hub python API to declare
         # the model input specification upon submitting a profile job.
@@ -83,7 +85,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["feature_vector_1", "feature_vector_2"]
+        return ["output"]
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
@@ -93,6 +95,13 @@ class HuggingFaceWavLMBasePlus(BaseModel):
             length = input_spec["input"][0][1]
             audio = audio[:length]
         return {"input": [np.expand_dims(audio, axis=0)]}
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return LibriSpeechEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["libri_speech"]
 
 
 # Modules used to override Huggingface WavLM to be NPU friendly
@@ -187,22 +196,33 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
         x = torch.concat(torch.unbind(x, axis=2), axis=-1)
         return x[:, :, :-1]
 
+    def get_hub_profile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_profile_options: str = "",
+    ) -> str:
+        profile_options = super().get_hub_profile_options(
+            target_runtime, other_profile_options
+        )
+        options = " --compute_unit cpu"  # Accuracy no regained on NPU
+        return profile_options + options
 
-def convert_to_wavlm_npu(model: WavLMModel):
+
+def convert_to_wavlm_npu(model: WavLMForCTC):
     """
     Apply changes to make model NPU friendly
     """
-    assert isinstance(model, WavLMModel)
-    conv_layer = model.feature_extractor.conv_layers[0]
+    assert isinstance(model, WavLMForCTC)
+    conv_layer = model.wavlm.feature_extractor.conv_layers[0]
     assert isinstance(conv_layer, WavLMGroupNormConvLayer)
     # Replace with NPU friendly implementation
     conv_layer_npu = WavLMGroupNormConvLayerNPU(conv_layer)
-    model.feature_extractor.conv_layers[0] = conv_layer_npu
+    model.wavlm.feature_extractor.conv_layers[0] = conv_layer_npu
 
-    conv_layer1 = model.feature_extractor.conv_layers[1].conv
+    conv_layer1 = model.wavlm.feature_extractor.conv_layers[1].conv
     assert isinstance(conv_layer1, torch.nn.Conv1d)
     # Replace with NPU friendly implementation
     conv_layer1_npu = SliceConv1d(conv_layer1)
-    model.feature_extractor.conv_layers[1].conv = conv_layer1_npu
+    model.wavlm.feature_extractor.conv_layers[1].conv = conv_layer1_npu
 
     return model

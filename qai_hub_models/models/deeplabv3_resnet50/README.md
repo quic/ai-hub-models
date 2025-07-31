@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [DeepLabV3-ResNet50: Deep Convolutional Neural Network model for semantic segmentation](https://aihub.qualcomm.com/models/deeplabv3_resnet50)
 
 DeepLabV3 is designed for semantic segmentation at multiple scales, trained on the COCO dataset. It uses ResNet50 as a backbone.

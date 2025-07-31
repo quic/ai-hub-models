@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import copy
@@ -51,13 +52,17 @@ class TrOCREncoder(BaseModel):
         Run the encoder on `pixel_values`, and produce a cross attention key/value cache that can be used as decoder input.
 
         Parameters:
-            pixel_values: Pixel values pre-processed for encoder consumption.
+            pixel_values:
+                Pixel values pre-processed for encoder consumption.
+                Range: float[0, 1]
+                3-channel Color Space: RGB
 
         Returns:
             cross_attn_kv_cache: tuple[kv_cache_cross_attn_0_key, kv_cache_cross_attn_0_val, kv_cache_cross_attn_1_key, ...]
                 KV Cache for cross attention layers.
                 len(tuple) == 2 * number of source model decoder layers.
         """
+        pixel_values = pixel_values * 2 - 1
         encoder_hidden_states = self.encoder(pixel_values, return_dict=False)[0]
         kv_cache = []
         batch_size = encoder_hidden_states.shape[0]
@@ -308,6 +313,11 @@ class TrOCR(CollectionModel):
         self.encoder = encoder
         self.decoder = decoder
         self.io_processor = io_processor
+
+        # We want all models in our repo to take [0, 1] image inputs
+        # and normalize in the model.
+        self.io_processor.image_processor.image_mean = [0.0, 0.0, 0.0]  # type: ignore[attr-defined]
+        self.io_processor.image_processor.image_std = [1.0, 1.0, 1.0]  # type: ignore[attr-defined]
         self.pad_token_id = pad_token_id
         self.eos_token_id = eos_token_id
         self.start_token_id = start_token_id

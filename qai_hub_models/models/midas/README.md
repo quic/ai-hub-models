@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Midas-V2: Deep Convolutional Neural Network model for depth estimation](https://aihub.qualcomm.com/models/midas)
 
 Midas is designed for estimating depth at each point in an image.

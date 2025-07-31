@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from enum import Enum, unique
@@ -12,7 +13,11 @@ import qai_hub as hub
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
-from qai_hub_models.scorecard.envvars import QAIRTVersionEnvvar
+from qai_hub_models.scorecard.envvars import (
+    EnabledPathsEnvvar,
+    QAIRTVersionEnvvar,
+    SpecialPathSetting,
+)
 
 
 @unique
@@ -34,7 +39,15 @@ class ScorecardCompilePath(Enum):
         profile_paths = [
             x for x in ScorecardProfilePath if x.enabled and x.compile_path == self
         ]
-        return len(profile_paths) > 0
+        if len(profile_paths) > 0:
+            return True
+
+        if SpecialPathSetting.DEFAULT_WITH_AOT_ASSETS in EnabledPathsEnvvar.get():
+            if self.jit_equivalent == self:
+                return False  # Avoids recursion on the next line.
+            return self.jit_equivalent is not None and self.jit_equivalent.enabled
+
+        return False
 
     @property
     def is_force_enabled(self) -> bool:
@@ -105,43 +118,44 @@ class ScorecardCompilePath(Enum):
         if self.runtime.is_aot_compiled:
             return self
 
-        aot_runtime = self.runtime.aot_equivalent
-        if not aot_runtime:
-            return None
-        for path in ScorecardCompilePath:
-            if path.runtime == aot_runtime:
-                return path
+        if not self.has_nonstandard_compile_options:
+            if aot_runtime := self.runtime.aot_equivalent:
+                for path in ScorecardCompilePath:
+                    if path.runtime == aot_runtime:
+                        return path
 
-        # This line should never actually execute.
-        # There is an equivalent path for every AOT runtime.
-        raise NotImplementedError(
-            f"There is no AOT equivalent for compile path {self.value}"
-        )
+        return None
 
     @cached_property
-    def jit_equivalent(self) -> ScorecardCompilePath:
+    def jit_equivalent(self) -> ScorecardCompilePath | None:
         """
         Returns the equivalent path that is compiled "just in time" on device.
+        Returns None if there is no equivalent path that is compiled "just in time".
         """
         if not self.runtime.is_aot_compiled:
             return self
 
-        jit_runtime = self.runtime.jit_equivalent
-        for path in ScorecardCompilePath:
-            if path.runtime == jit_runtime:
-                return path
+        if not self.has_nonstandard_compile_options:
+            jit_runtime = self.runtime.jit_equivalent
+            for path in ScorecardCompilePath:
+                if path.runtime == jit_runtime:
+                    return path
 
-        # This line should never actually execute.
-        # There is an equivalent path for every JIT runtime.
-        raise NotImplementedError(
-            f"There is no JIT equivalent for compile path {self.value}"
-        )
+        return None
 
     def supports_precision(self, precision: Precision) -> bool:
         if self == ScorecardCompilePath.ONNX_FP16:
             return precision.has_float_activations
 
         return self.runtime.supports_precision(precision)
+
+    @property
+    def has_nonstandard_compile_options(self):
+        """
+        If this path passes additional options beyond what the underlying TargetRuntime
+        passes (eg --compute_unit), then it's considered nonstandard.
+        """
+        return self.value not in TargetRuntime._value2member_map_
 
     def get_compile_options(
         self,

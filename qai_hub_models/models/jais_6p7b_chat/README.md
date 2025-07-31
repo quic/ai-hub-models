@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [JAIS-6p7b-Chat: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/jais_6p7b_chat)
 
 JAIS 6.7B is a bilingual large language model (LLM) for both Arabic and English developed by Inception, a G42 company in partnership with MBZUAI and Cerebras. This is a 6.7 billion parameter LLM, trained on a dataset containing 141 billion Arabic tokens and 339 billion English/code tokens. The model is based on transformer-based decoder-only (GPT-3) architecture and uses SwiGLU non-linearity. It implements ALiBi position embeddings, enabling the model to extrapolate to long sequence lengths, providing improved context handling and model precision. The JAIS family of models is a comprehensive series of bilingual English-Arabic LLMs. These models are optimized to excel in Arabic while having strong English capabilities.

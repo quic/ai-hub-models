@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -15,6 +16,7 @@ from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
 from typing_extensions import TypeAlias
 
+from qai_hub_models.configs.perf_yaml import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -35,6 +37,7 @@ from qai_hub_models.scorecard.results.yaml import (
 from qai_hub_models.utils.asset_loaders import load_yaml, qaihm_temp_dir
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.file_hash import file_hashes_are_identical
+from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
 
 # If a model has many outputs, how many of them to store PSNR for
 MAX_PSNR_VALUES = 10
@@ -719,20 +722,46 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
         if current_compile_job.get_status().failure:
             return False
 
+        if ToolVersions.from_job(previous_compile_job) != ToolVersions.from_job(
+            current_compile_job
+        ):
+            return False
+
         # The temporary directory and all its contents will be automatically cleaned up when the 'with' block is exited
         with qaihm_temp_dir() as tmp_dir:
-            current_model = cast(
+            current_model_file = cast(
                 str,
                 current_compile_job.download_target_model(
                     os.path.join(tmp_dir, "current_model")
                 ),
             )
-            previous_model = cast(
+            previous_model_file = cast(
                 str,
                 previous_compile_job.download_target_model(
                     os.path.join(tmp_dir, "previous_model")
                 ),
             )
 
+            # ONNX zip files from hub don't have stable hashes,
+            # but the model.onnx and model.data _do_ have stable hashes.
+            # Unzip if necessary, then compare each model file.
+            current_model_files: list[os.PathLike | str] = []
+            previous_model_files: list[os.PathLike | str] = []
+            for model_file, model_files in [
+                (current_model_file, current_model_files),
+                (previous_model_file, previous_model_files),
+            ]:
+                if model_file.endswith(".onnx.zip"):
+                    model_files.extend(
+                        [x for x in extract_onnx_zip(model_file) if os.path.exists(x)]
+                    )
+                else:
+                    model_files.append(model_file)
+
             # Compare the MD5 hashes of the compiled models
-            return file_hashes_are_identical(current_model, previous_model)
+            return all(
+                file_hashes_are_identical(current_model, previous_model)
+                for current_model, previous_model in zip(
+                    current_model_files, previous_model_files
+                )
+            )

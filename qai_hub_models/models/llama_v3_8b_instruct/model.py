@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -43,13 +44,19 @@ class Llama3_8B(Llama3Base):
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
 
     def __init__(
-        self, checkpoint: str | os.PathLike | Path = HF_REPO_NAME, *args, **kwargs
+        self,
+        checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
+        *args,
+        **kwargs,
     ):
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
             *args,
             **kwargs,
         )
+
+    def _verify_ckpt(self):
+        super()._verify_ckpt()
         if not (
             self.llm_config.num_hidden_layers == NUM_LAYERS
             and self.llm_config.hidden_size == HIDDEN_SIZE
@@ -85,8 +92,6 @@ class Llama3_8B(Llama3Base):
             prompt. However, it also hurts runtime performance (both time-to-
             first-token and tokens-per-second), so this is a tradeoff that may
             depend on the use case.
-        aimet_encodings:
-            Path to AIMET quantization encodings file.
         """
         return cls(
             checkpoint=checkpoint,
@@ -97,21 +102,22 @@ class Llama3_8B(Llama3Base):
         )
 
     @staticmethod
-    def get_output_names():
-        return Llama3Base._get_output_names(NUM_LAYERS)
+    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
+        return Llama3Base._get_output_names(num_hidden_layers)
 
     @staticmethod
     def get_input_spec(
+        llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
-            num_hidden_layers=NUM_LAYERS,
+            num_hidden_layers=llm_config["num_hidden_layers"],
             sequence_length=sequence_length,
             context_length=context_length,
-            hidden_size=HIDDEN_SIZE,
-            num_key_value_heads=NUM_KEY_VALUE_HEADS,
-            num_attention_heads=NUM_ATTN_HEADS,
+            hidden_size=llm_config["hidden_size"],
+            num_key_value_heads=llm_config["num_key_value_heads"],
+            num_attention_heads=llm_config["num_attention_heads"],
         )
 
 
@@ -164,19 +170,20 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         )
 
     @staticmethod
-    def get_output_names():
-        return Llama3Base_AIMETOnnx._get_output_names(NUM_LAYERS)
+    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
+        return Llama3Base._get_output_names(num_hidden_layers)
 
     @staticmethod
     def get_input_spec(
+        llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
-            num_hidden_layers=NUM_LAYERS,
+            num_hidden_layers=llm_config["num_hidden_layers"],
             sequence_length=sequence_length,
             context_length=context_length,
-            hidden_size=HIDDEN_SIZE,
-            num_key_value_heads=NUM_KEY_VALUE_HEADS,
-            num_attention_heads=NUM_ATTN_HEADS,
+            hidden_size=llm_config["hidden_size"],
+            num_key_value_heads=llm_config["num_key_value_heads"],
+            num_attention_heads=llm_config["num_attention_heads"],
         )

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -82,14 +83,14 @@ class MediaPipeApp(BaseCollectionApp):
         Parameters:
             detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
                 The bounding box and keypoint detector model.
-                Input is an image [N C H W], channel layout is BGR, output is [coordinates, scores].
+                Input is an image [N C H W], channel layout is RGB, output is [coordinates, scores].
 
             detector_anchors: torch.Tensor
                 Detector anchors, for decoding predictions from anchor points to boxes.
 
             landmark_detector: Callable[[torch.Tensor], tuple[torch.Tensor, ...]]
                 The landmark detector model. Input is an image [N C H W],
-                channel layout is BGR, output is [scores, landmarks].
+                channel layout is RGB, output is [scores, landmarks].
 
             detector_input_dims: tuple[int, int]
                 Input dimensionality (W, H) of the bounding box detector.
@@ -164,9 +165,9 @@ class MediaPipeApp(BaseCollectionApp):
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
                 or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
             raw_output: bool
                 See "returns" doc section for details.
@@ -174,7 +175,7 @@ class MediaPipeApp(BaseCollectionApp):
         Returns:
             If raw_output is false, returns:
                 images:
-                    A list of predicted images (one for each batch), with NHWC shape and BGR channel layout.
+                    A list of predicted images (one for each batch), with NHWC shape and RGB channel layout.
                     Each image will have landmarks, roi, and bounding boxes drawn, if they are detected.
 
             Otherwise, returns several "batched" (one element per input image) lists:
@@ -290,7 +291,7 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters:
             NCHW_fp32_torch_frames: torch.Tensor
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
         Returns:
             batched_selected_boxes:
@@ -457,7 +458,7 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters:
             NHWC_int_numpy_frames:
-                List of numpy arrays of shape (H W C x uint8) -- BGR channel layout
+                List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
                 Length of list is # of batches (the number of input images)
 
                 batched_roi_4corners:
@@ -555,7 +556,7 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters:
             NHWC_int_numpy_frame:
-                Numpy array of shape (H W C x uint8) -- BGR channel layout
+                Numpy array of shape (H W C x uint8) -- RGB channel layout
 
             selected_boxes:
                 Selected object bounding box coordinates. Shape is [num_selected_boxes, 2, 2].
@@ -597,7 +598,7 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters:
             NHWC_int_numpy_frame:
-                Numpy array of shape (H W C x uint8) -- BGR channel layout
+                Numpy array of shape (H W C x uint8) -- RGB channel layout
 
             selected_landmarks
                 Selected landmarks. Organized like the following:
@@ -639,7 +640,7 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters:
             NHWC_int_numpy_frames:
-                List of numpy arrays of shape (H W C x uint8) -- BGR channel layout
+                List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
                 Length of list is # of batches (the number of input images)
 
             batched_selected_boxes: list[torch.Tensor]

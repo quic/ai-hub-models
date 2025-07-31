@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [BiseNet: Segment images or video by class in real-time on device](https://aihub.qualcomm.com/models/bisenet)
 
 BiSeNet (Bilateral Segmentation Network) is a novel architecture designed for real-time semantic segmentation. It addresses the challenge of balancing spatial resolution and receptive field by employing a Spatial Path to preserve high-resolution features and a context path to capture sufficient receptive field.

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -61,13 +62,16 @@ class FaceMap_3DMMApp:
 
         resized_height, resized_width = FaceMap_3DMM.get_input_spec()["image"][0][2:]
 
-        CHW_fp32_torch_crop_image = torch.from_numpy(
-            cv2.resize(
-                _image[y0 : y1 + 1, x0 : x1 + 1],
-                (resized_height, resized_width),
-                interpolation=cv2.INTER_LINEAR,
-            )
-        ).float()
+        CHW_fp32_torch_crop_image = (
+            torch.from_numpy(
+                cv2.resize(
+                    _image[y0 : y1 + 1, x0 : x1 + 1],
+                    (resized_height, resized_width),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+            ).float()
+            / 255
+        )
 
         output = self.model(CHW_fp32_torch_crop_image.permute(2, 0, 1).unsqueeze(0))
 

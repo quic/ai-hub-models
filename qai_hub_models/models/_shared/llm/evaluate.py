@@ -1,9 +1,12 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+
 import importlib
+from collections.abc import Mapping
+from typing import Any
 
 import torch
 from torch.utils.data import DataLoader
@@ -18,6 +21,7 @@ from qai_hub_models.utils.base_model import BaseModel
 
 
 def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
+
     # Get dataset by name
     eval_dataset = task.replace("-ppl", "").replace("-", "_")
     kwargs = dict(
@@ -31,7 +35,8 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
     # Load dataset.
     if eval_dataset not in {"wikitext", "wikitext_ja", "tiny_mmlu"}:
         kwargs["num_fewshot"] = 5
-    elif eval_dataset.startswith("mmmlu"):
+    if eval_dataset.startswith("mmmlu"):
+        eval_dataset = "mmmlu"
         language_code = task.replace("mmmlu-", "")
         try:
             split_str = mmmlu_split_lookup[language_code]
@@ -41,7 +46,6 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
                 "Example: --task mmmlu-ja"
             ) from exc
         kwargs["split"] = split_str
-
     dataset = get_dataset_from_name(
         name=eval_dataset,
         **kwargs,
@@ -54,6 +58,61 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
         dataset, shuffle=False, batch_size=1, collate_fn=dataset_module.collate_fn
     )
     return dataloader
+
+
+def evaluate(
+    quantized_model_cls: type[BaseModel],
+    fp_model_cls: type[BaseModel],
+    num_samples: int,
+    task: str,
+    kwargs: Mapping[str, Any],
+) -> tuple[float, str]:
+
+    if num_samples is None:
+        num_samples = 0 if "ppl" in task else 100
+
+    is_quantized = is_quantized_checkpoint(kwargs["checkpoint"])
+
+    host_device = (
+        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    )
+    if host_device.type == "cpu":
+        print()
+        print(
+            "WARNING: Evaluation of this model (floating point or QuantSim) takes a long time on CPU. Doing it on a CUDA-enabled machine will be faster."
+        )
+
+    if is_quantized:
+        if kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+            kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
+                sequence_length=kwargs["sequence_length"],
+                context_length=kwargs["context_length"],
+            )
+        model_cls = quantized_model_cls
+    else:
+        del kwargs["_skip_quantsim_creation"]  # type: ignore[index, attr-defined]
+        del kwargs["fp_model"]  # type: ignore[index, attr-defined]
+        model_cls = fp_model_cls
+
+    if kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+        del kwargs["checkpoint"]  # type: ignore[attr-defined]
+
+    model = model_cls.from_pretrained(**kwargs).to(host_device)
+    eval_dataloader = get_dataset(model, task, num_samples)
+    evaluator = model.get_evaluator(
+        task, torch.device("cpu") if is_quantized else host_device
+    )
+
+    embedding = fp_model_cls.EmbeddingClass(
+        max_length=kwargs["context_length"],
+        config=model.llm_config,
+    )
+    generator = LLM_Generator([model], model.tokenizer, embedding)
+
+    evaluator.add_from_dataset(
+        generator=generator, data=eval_dataloader, eval_iterations=len(eval_dataloader)
+    )
+    return evaluator.get_accuracy_score(), evaluator.formatted_accuracy()
 
 
 def llm_evaluate(
@@ -86,54 +145,15 @@ def llm_evaluate(
     # Use a higher default sequence length for efficiency
     parser.set_defaults(sequence_length=default_calibration_seqlen)
     args = parser.parse_args()
-    num_samples = args.num_samples
-    task = args.task
-
-    if num_samples is None:
-        num_samples = 0 if "ppl" in task else 100
-
-    is_quantized = is_quantized_checkpoint(args.checkpoint)
-
-    host_device = (
-        torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    )
-    if host_device.type == "cpu":
-        print()
-        print(
-            "WARNING: Evaluation of this model (floating point or QuantSim) takes a long time on CPU. Doing it on a CUDA-enabled machine will be faster."
-        )
 
     kwargs = get_model_kwargs(quantized_model_cls, vars(args))
-    if is_quantized:
-        if args.checkpoint.startswith("DEFAULT"):
-            kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
-                sequence_length=args.sequence_length,
-                context_length=args.context_length,
-            )
-        model_cls = quantized_model_cls
-    else:
-        del kwargs["_skip_quantsim_creation"]  # type: ignore[index, attr-defined]
-        del kwargs["fp_model"]  # type: ignore[index, attr-defined]
-        model_cls = fp_model_cls
 
-    kwargs["sequence_length"] = args.sequence_length  # type: ignore[index]
-
-    if kwargs["checkpoint"].startswith("DEFAULT"):
-        del kwargs["checkpoint"]  # type: ignore[attr-defined]
-
-    model = model_cls.from_pretrained(**kwargs).to(host_device)
-    eval_dataloader = get_dataset(model, task, num_samples)
-    evaluator = model.get_evaluator(
-        args.task, torch.device("cpu") if is_quantized else host_device
+    _, formatted_accuracy = evaluate(
+        quantized_model_cls=quantized_model_cls,
+        fp_model_cls=fp_model_cls,
+        num_samples=args.num_samples,
+        task=args.task,
+        kwargs=kwargs,
     )
 
-    embedding = fp_model_cls.EmbeddingClass(
-        max_length=args.context_length,
-        config=model.llm_config,
-    )
-    generator = LLM_Generator([model], model.tokenizer, embedding)
-
-    evaluator.add_from_dataset(
-        generator=generator, data=eval_dataloader, eval_iterations=len(eval_dataloader)
-    )
-    print(evaluator.formatted_accuracy())
+    print(formatted_accuracy)

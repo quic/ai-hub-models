@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,7 +31,7 @@ class InpaintEvaluator(BaseEvaluator):
         self.fake_images = []
 
     def postprocess(self, image):
-        image = (torch.clamp(image, -1.0, 1.0) + 1) / 2.0 * 255.0
+        image = image * 255.0
         return image.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
 
     def add_batch(self, fake_images: torch.Tensor, real_images: torch.Tensor):

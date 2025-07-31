@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [ResNet-3D: Sports and human action recognition in videos](https://aihub.qualcomm.com/models/resnet_3d)
 
 ResNet 3D is a network with 3D convolutions used for video understanding.

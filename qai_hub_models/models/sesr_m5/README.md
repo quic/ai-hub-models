@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [SESR-M5: Upscale images in real time](https://aihub.qualcomm.com/models/sesr_m5)
 
 SESR M5 performs efficient on-device upscaling of images.

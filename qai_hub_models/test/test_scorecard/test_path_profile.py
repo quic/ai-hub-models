@@ -1,9 +1,9 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import os
-from unittest import mock
 
 from qai_hub.public_api_pb2 import Framework
 
@@ -13,6 +13,7 @@ from qai_hub_models.scorecard.path_profile import (
     ScorecardProfilePath,
     TargetRuntime,
 )
+from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_patches
 from qai_hub_models.test.utils.set_env import set_temp_env
 
 
@@ -47,73 +48,59 @@ def test_profile_qnn_version():
     ]
 
     # Test working AI Hub instance
-    with mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._load_frameworks",
-        mock.MagicMock(return_value=("blah", frameworks)),
-    ):
-        profile_path = ScorecardProfilePath.TFLITE
-        assert not profile_path.runtime.qairt_version_changes_compilation
+    for api_version in (None, "2.32", "2.31"):
+        with reset_hub_frameworks_patches(frameworks, api_version):
+            profile_path = ScorecardProfilePath.TFLITE
+            assert not profile_path.runtime.qairt_version_changes_compilation
 
-        # fmt: off
-        # PRECOMPILED_QNN_ONNX has a special QAIRT version that differs from AI Hub Models' default.
-        profile_path_with_different_qairt_version = ScorecardProfilePath.PRECOMPILED_QNN_ONNX
-        assert profile_path_with_different_qairt_version.runtime.qairt_version_changes_compilation
-        precompiled_qnn_onnx_flag = TargetRuntime.PRECOMPILED_QNN_ONNX.default_qairt_version.explicit_hub_option
+            # fmt: off
+            # PRECOMPILED_QNN_ONNX has a special QAIRT version that differs from AI Hub Models' default.
+            profile_path_with_different_qairt_version = ScorecardProfilePath.PRECOMPILED_QNN_ONNX
+            assert profile_path_with_different_qairt_version.runtime.qairt_version_changes_compilation
+            precompiled_qnn_onnx_flag = TargetRuntime.PRECOMPILED_QNN_ONNX.default_qairt_version.explicit_hub_option
 
-        def _verify_qairt_version():
-            default_qaihm_qnn_flag = QAIRTVersion.qaihm_default().explicit_hub_option
+            if api_version is not None:
+                default_qaihm_qnn_flag = QAIRTVersion.qaihm_default().explicit_hub_option
 
-            # QAIRT version set to QAIHM default
-            with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.DEFAULT_QAIHM_TAG}):
-                assert QAIRTVersion.HUB_FLAG not in profile_path.get_profile_options()
-                assert default_qaihm_qnn_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
-                assert QAIRTVersion.HUB_FLAG not in profile_path_with_different_qairt_version.get_profile_options()
-                assert precompiled_qnn_onnx_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
+                # QAIRT version set to QAIHM default
+                with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.DEFAULT_QAIHM_TAG}):
+                    assert QAIRTVersion.HUB_FLAG not in profile_path.get_profile_options()
+                    assert default_qaihm_qnn_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
+                    assert QAIRTVersion.HUB_FLAG not in profile_path_with_different_qairt_version.get_profile_options()
+                    assert precompiled_qnn_onnx_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
 
-            # No flag set (same behavior as if flag was the same as the default QAIRT version)
-            with set_temp_env({QAIRTVersionEnvvar.VARNAME: None}):
-                assert QAIRTVersion.HUB_FLAG not in profile_path.get_profile_options()
-                assert default_qaihm_qnn_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
-                assert QAIRTVersion.HUB_FLAG not in profile_path_with_different_qairt_version.get_profile_options()
-                assert precompiled_qnn_onnx_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
+                # No flag set (same behavior as if flag was the same as the default QAIRT version)
+                with set_temp_env({QAIRTVersionEnvvar.VARNAME: None}):
+                    assert QAIRTVersion.HUB_FLAG not in profile_path.get_profile_options()
+                    assert default_qaihm_qnn_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
+                    assert QAIRTVersion.HUB_FLAG not in profile_path_with_different_qairt_version.get_profile_options()
+                    assert precompiled_qnn_onnx_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
 
-            # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag.
-            with set_temp_env({QAIRTVersionEnvvar.VARNAME: "2.31"}):
-                os.environ[QAIRTVersionEnvvar.VARNAME] = "2.31"
-                override_qairt_flag = QAIRTVersion("2.31").explicit_hub_option
-                assert override_qairt_flag in profile_path.get_profile_options()
-                assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
+                # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag.
+                with set_temp_env({QAIRTVersionEnvvar.VARNAME: "2.31"}):
+                    os.environ[QAIRTVersionEnvvar.VARNAME] = "2.31"
+                    override_qairt_flag = QAIRTVersion("2.31").explicit_hub_option
+                    assert override_qairt_flag in profile_path.get_profile_options()
+                    assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
 
-            # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag
-            # It is still explicit even if it's the default AI Hub version.
-            with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.DEFAULT_AIHUB_TAG}):
-                os.environ[QAIRTVersionEnvvar.VARNAME] = QAIRTVersion.DEFAULT_AIHUB_TAG
-                override_qairt_flag = QAIRTVersion(QAIRTVersion.DEFAULT_AIHUB_TAG).explicit_hub_option
-                assert override_qairt_flag in profile_path.get_profile_options()
-                assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
+                # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag
+                # It is still explicit even if it's the default AI Hub version.
+                with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.DEFAULT_AIHUB_TAG}):
+                    os.environ[QAIRTVersionEnvvar.VARNAME] = QAIRTVersion.DEFAULT_AIHUB_TAG
+                    override_qairt_flag = QAIRTVersion(QAIRTVersion.DEFAULT_AIHUB_TAG).explicit_hub_option
+                    assert override_qairt_flag in profile_path.get_profile_options()
+                    assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
 
-            # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag.
-            # It is still explicit even if the selected API version is the same as the AI Hub Models default tag.
-            with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.qaihm_default().api_version}):
-                override_qairt_flag = QAIRTVersion.qaihm_default().explicit_hub_option
-                assert override_qairt_flag in profile_path.get_profile_options()
-                assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
-                assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
-        # fmt: on
-
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            QAIRTVersion.default().api_version,
-        ):
-            _verify_qairt_version()
-
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            "2.31",
-        ):
-            _verify_qairt_version()
+                # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag.
+                # It is still explicit even if the selected API version is the same as the AI Hub Models default tag.
+                with set_temp_env({QAIRTVersionEnvvar.VARNAME: QAIRTVersion.qaihm_default().api_version}):
+                    override_qairt_flag = QAIRTVersion.qaihm_default().explicit_hub_option
+                    assert override_qairt_flag in profile_path.get_profile_options()
+                    assert override_qairt_flag in profile_path.get_profile_options(include_default_qaihm_qnn_version=True)
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options()
+                    assert override_qairt_flag in profile_path_with_different_qairt_version.get_profile_options(include_default_qaihm_qnn_version=True)
+                # fmt: on

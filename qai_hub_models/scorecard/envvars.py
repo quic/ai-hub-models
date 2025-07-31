@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -133,6 +134,12 @@ class EnabledPrecisionsEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialPrecisionSetting]
 class SpecialPathSetting(Enum):
     # Enable default set of profile paths (tflite, qnn_dlc or qnn_context_binary, onnx or precompiled_qnn_onnx) used in standard scorecards.
     DEFAULT = "default"
+
+    # Enable the default set of profile paths (same as the "default" settings). Always enables AOT --COMPILE-- paths (eg. context binary)
+    # even if they don't correspond to an applicable profile path.
+    #
+    # This is typically used to generate pre-compiled assets for upload to Hugging Face (or aihub.qualcomm.com), when the equivalent JIT path is profiled.
+    DEFAULT_WITH_AOT_ASSETS = "default_with_aot_assets"
 
     # Enable all profile paths.
     ALL = "all"

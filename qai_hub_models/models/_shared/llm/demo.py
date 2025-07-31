@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -15,6 +16,7 @@ from qai_hub_models.models._shared.llm.model import (
 )
 from qai_hub_models.utils.args import get_model_cli_parser
 from qai_hub_models.utils.base_model import TargetRuntime
+from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.huggingface import has_model_access
 
 # Max output tokens to generate
@@ -31,7 +33,7 @@ def llm_chat_demo(
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str,
-    is_test: bool = False,
+    test_checkpoint: CheckpointSpec | None = None,
     available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
     bundled_kvcache: bool = True,
 ):
@@ -81,7 +83,9 @@ def llm_chat_demo(
         default=42,
         help="random seed.",
     )
-    args = parser.parse_args([] if is_test else None)
+    args = parser.parse_args([] if test_checkpoint is not None else None)
+    checkpoint = args.checkpoint if test_checkpoint is None else test_checkpoint
+    max_output_tokens = args.max_output_tokens if test_checkpoint is None else 10
     if args.prompt is not None and args.prompt_file is not None:
         raise ValueError("Must specify one of --prompt or --prompt-file")
     if args.prompt_file is not None:
@@ -103,14 +107,15 @@ def llm_chat_demo(
     else:
         preprocess_prompt_fn = fp_model_cls.get_input_prompt_with_tags
 
-    is_quantized = is_quantized_checkpoint(args.checkpoint)
-    if not args.checkpoint.startswith("DEFAULT"):
-        tokenizer = get_tokenizer(args.checkpoint)
+    assert checkpoint is not None
+    is_quantized = is_quantized_checkpoint(checkpoint)
+    if checkpoint not in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+        tokenizer = get_tokenizer(checkpoint)
     else:
         has_model_access(hf_repo_name, hf_repo_url)
         tokenizer = get_tokenizer(hf_repo_name)
 
-    if not is_test:
+    if test_checkpoint is None:
         print(f"\n{'-' * 85}")
         print(f"** Generating response via {model_id} **")
         if is_quantized:
@@ -127,8 +132,9 @@ def llm_chat_demo(
         print(f"{'-' * 85}\n")
 
     extra = {}
+
     if is_quantized:
-        if args.checkpoint.startswith("DEFAULT"):
+        if checkpoint in {"DEFAULT", "DEFAULT_QUANTIZED"}:
             extra["fp_model"] = fp_model_cls.from_pretrained(
                 sequence_length=args.sequence_length,
                 context_length=args.context_length,
@@ -148,9 +154,7 @@ def llm_chat_demo(
     app.generate_output_prompt(
         prompt,
         context_length=args.context_length,
-        max_output_tokens=args.max_output_tokens,
-        checkpoint=None
-        if args.checkpoint == "DEFAULT_UNQUANTIZED"
-        else args.checkpoint,
+        max_output_tokens=max_output_tokens,
+        checkpoint=checkpoint,
         model_from_pretrained_extra=extra,
     )

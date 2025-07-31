@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [ESRGAN: Upscale images and remove image noise](https://aihub.qualcomm.com/models/esrgan)
 
 ESRGAN is a machine learning model that upscales an image with minimal loss in quality.

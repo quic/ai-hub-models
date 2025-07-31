@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import functools
@@ -34,7 +35,7 @@ def app_to_net_image_inputs(
 ) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor]:
     """
     Convert the provided images to application inputs.
-    ~~This does not change channel order. RGB stays RGB, BGR stays BGR, etc~~
+    ~~This does not change channel order. RGB stays RGB etc~~
 
     Parameters:
         pixel_values_or_image: torch.Tensor
@@ -42,9 +43,9 @@ def app_to_net_image_inputs(
             or
             list of PIL images
             or
-            numpy array (H W C x uint8) or (N H W C x uint8) -- both BGR or grayscale channel layout
+            numpy array (H W C x uint8) or (N H W C x uint8) -- both RGB or grayscale channel layout
             or
-            pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR or grayscale channel layout
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB or grayscale channel layout
 
         to_float: bool (default=True)
             Whether to denormalize images to [0,1] (fp32) or keep as uint8.
@@ -52,11 +53,11 @@ def app_to_net_image_inputs(
 
     Returns:
         NHWC_int_numpy_frames: list[numpy.ndarray]
-            List of numpy arrays (one per input image with uint8 dtype, [H W C] shape, and BGR or grayscale layout.
+            List of numpy arrays (one per input image with uint8 dtype, [H W C] shape, and RGB or grayscale layout.
             This output is typically used for use of drawing/displaying images with PIL and CV2
 
         NCHW_fp32_torch_frames: torch.Tensor
-            Tensor of images in fp32 (range 0:1), with shape [Batch, Channels, Height, Width], and BGR or grayscale layout.
+            Tensor of images in fp32 (range 0:1), with shape [Batch, Channels, Height, Width], and RGB or grayscale layout.
 
     Based on https://github.com/zmurez/MediaPipePyTorch/blob/master/blazebase.py
     """
@@ -88,7 +89,7 @@ def app_to_net_image_inputs(
 
 def preprocess_PIL_image(image: Image, to_float: bool = True) -> torch.Tensor:
     """Convert a PIL image into a pyTorch tensor with range [0, 1] and shape NCHW."""
-    transform = transforms.PILToTensor()  # bgr image
+    transform = transforms.PILToTensor()  # rgb image
     img = transform(image).unsqueeze(0)
     if to_float:
         return img.float() / 255.0  # int 0 - 255 to float 0.0 - 1.0

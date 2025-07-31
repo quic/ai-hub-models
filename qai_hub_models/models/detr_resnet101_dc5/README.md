@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [DETR-ResNet101-DC5: Transformer based object detector with ResNet101 backbone (dilated C5 stage)](https://aihub.qualcomm.com/models/detr_resnet101_dc5)
 
 DETR is a machine learning model that can detect objects (trained on COCO dataset).

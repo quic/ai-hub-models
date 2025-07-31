@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import numpy as np
 import pytest
 import torch
@@ -57,13 +58,13 @@ def test_task(
 ):
     """Verify that raw (numeric) outputs of both networks are the same."""
     source_out = source_huggingface_model.generate(
-        torch.from_numpy(processed_sample_image)
+        torch.from_numpy(processed_sample_image) * 2 - 1
     ).numpy()
     qaihm_out = trocr_app.predict_text_from_image(
         processed_sample_image, raw_output=True
     )
-
-    assert np.allclose(source_out, qaihm_out)
+    assert isinstance(qaihm_out, np.ndarray)
+    np.testing.assert_allclose(source_out, qaihm_out)
 
 
 def test_demo() -> None:

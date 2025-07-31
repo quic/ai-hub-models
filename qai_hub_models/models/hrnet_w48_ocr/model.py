@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -111,6 +112,7 @@ class HRNET_W48_OCR(CityscapesSegmentor):
 
         Parameters:
             image: A [1, 3, height, width] image.
+                   RGB, range [0 - 1]
                    Assumes image has been resized and normalized using the
                    Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 

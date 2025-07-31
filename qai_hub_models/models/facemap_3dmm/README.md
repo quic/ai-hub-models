@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Facial-Landmark-Detection: Real-time 3D facial landmark detection optimized for mobile and edge](https://aihub.qualcomm.com/models/facemap_3dmm)
 
 Detects facial landmarks (eg, nose, mouth, etc.). This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset of faces, but can be used on any image.

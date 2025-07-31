@@ -1,7 +1,10 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
+from contextlib import contextmanager, nullcontext
 from unittest import mock
 
 import pytest
@@ -9,6 +12,39 @@ from qai_hub import QuantizeDtype
 from qai_hub.public_api_pb2 import Framework
 
 from qai_hub_models.models.common import Precision, QAIRTVersion
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
+
+
+@contextmanager
+def reset_hub_frameworks_patches(
+    frameworks, default_qaihm_version: str | None = None, api_url: str | None = None
+):
+    version_patch = (
+        mock.patch(
+            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
+            default_qaihm_version,
+        )
+        if default_qaihm_version is not None
+        else nullcontext()
+    )
+    api_url_patch = (
+        mock.patch("qai_hub.hub._global_client.config.api_url", api_url)
+        if api_url is not None
+        else nullcontext()
+    )
+    with mock.patch(
+        "qai_hub_models.models.common.get_framework_list",
+        mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
+    ), mock.patch(
+        "qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", dict()
+    ), mock.patch(
+        "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", dict()
+    ), mock.patch(
+        "qai_hub_models.models.common.QAIRTVersion._QAIHM_DEFAULT_FRAMEWORK", dict()
+    ), mock.patch(
+        "qai_hub.hub._global_client.config.api_url", "https://app.aihub.qualcomm.com"
+    ), version_patch, api_url_patch:
+        yield
 
 
 def test_precision_has_float():
@@ -76,10 +112,7 @@ def test_qairt_version():
     ]
 
     # Test working AI Hub instance
-    with mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._load_frameworks",
-        mock.MagicMock(return_value=("blah", frameworks)),
-    ):
+    with reset_hub_frameworks_patches(frameworks):
         # Get default from tag
         ai_hub_default = QAIRTVersion.default()
         assert ai_hub_default.tags == [QAIRTVersion.DEFAULT_AIHUB_TAG]
@@ -89,63 +122,7 @@ def test_qairt_version():
         assert ai_hub_default == ai_hub_default.api_version
         assert ai_hub_default == ai_hub_default.full_version
         assert ai_hub_default.is_default
-
-        # Verify QAIHM default behavior
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            "2.33",
-        ):
-            # Test default
-            qaihm_default = QAIRTVersion.qaihm_default()
-            assert qaihm_default.hub_option == "--qairt_version latest"
-            assert qaihm_default.explicit_hub_option == "--qairt_version 2.33"
-            assert qaihm_default != QAIRTVersion.default()
-            assert not qaihm_default.is_default
-            assert qaihm_default.is_qaihm_default
-            assert not ai_hub_default.is_qaihm_default
-            assert QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG) == qaihm_default
-            assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
-
-            # fallback is to the QAIHM default over the Hub default
-            default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
-            assert qaihm_default == default_backup
-            assert default_backup.is_qaihm_default
-
-        # Verify QAIHM default behavior with same version as the AI Hub default
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            ai_hub_default.api_version,
-        ):
-            qaihm_default = QAIRTVersion.qaihm_default()
-            assert qaihm_default.hub_option == ""  # empty because it's the hub default
-            assert qaihm_default.explicit_hub_option == "--qairt_version 2.32"
-            assert qaihm_default == QAIRTVersion.default()
-            assert QAIRTVersion.DEFAULT_AIHUB_TAG in qaihm_default.tags
-            assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
-
-        # Verify QAIHM default behavior when the QAIHM default has no tags on Hub
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            "2.31",
-        ):
-            qaihm_default = QAIRTVersion.qaihm_default()
-            assert qaihm_default.hub_option == "--qairt_version 2.31"
-            assert qaihm_default.explicit_hub_option == "--qairt_version 2.31"
-
-        # Verify "too old" QAIHM default behavior
-        with mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            "2.30",
-        ):
-            with pytest.raises(ValueError):
-                QAIRTVersion.qaihm_default()
-            with pytest.raises(ValueError):
-                QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG)
-
-            # fallback is to the Hub default since the QAIHM default is not available
-            default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
-            assert ai_hub_default == default_backup
-            assert default_backup.is_default
+        assert ai_hub_default.sdk_flavor is None
 
         # Get default using the api version
         aihub_default_api = QAIRTVersion(ai_hub_default.api_version)
@@ -156,6 +133,17 @@ def test_qairt_version():
         aihub_default_fullapi = QAIRTVersion(ai_hub_default.full_version)
         assert ai_hub_default == aihub_default_fullapi
         assert aihub_default_fullapi.is_default
+        assert aihub_default_fullapi.sdk_flavor is None
+        assert aihub_default_fullapi != ai_hub_default.full_version + "-auto"
+
+        # Get default using the full api version (auto flavor)
+        aihub_default_fullapi_auto = QAIRTVersion(ai_hub_default.full_version + "-auto")
+        assert ai_hub_default != aihub_default_fullapi_auto
+        assert aihub_default_fullapi_auto.is_default
+        assert aihub_default_fullapi_auto.sdk_flavor == "auto"
+        assert aihub_default_fullapi != aihub_default_fullapi_auto
+        assert aihub_default_fullapi_auto == ai_hub_default.full_version + "-auto"
+        assert aihub_default_fullapi_auto != ai_hub_default.full_version
 
         # 0.0 does not exist, so it returns the default as a backup
         default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
@@ -183,20 +171,75 @@ def test_qairt_version():
         with pytest.raises(ValueError):
             QAIRTVersion("0.0")
 
+        # Version that does not exist (no verification)
+        assert (
+            QAIRTVersion("1.1", validate_exists_on_ai_hub=False).full_version == "1.1"
+        )
+
+    # Verify QAIHM default behavior
+    with reset_hub_frameworks_patches(frameworks, "2.33"):
+        # Test default
+        qaihm_default = QAIRTVersion.qaihm_default()
+        assert qaihm_default.hub_option == "--qairt_version latest"
+        assert qaihm_default.explicit_hub_option == "--qairt_version 2.33"
+        assert qaihm_default != QAIRTVersion.default()
+        assert not qaihm_default.is_default
+        assert qaihm_default.is_qaihm_default
+        assert not ai_hub_default.is_qaihm_default
+        assert QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG) == qaihm_default
+        assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
+
+        # fallback is to the QAIHM default over the Hub default
+        default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
+        assert qaihm_default == default_backup
+        assert default_backup.is_qaihm_default
+
+    # Verify QAIHM default behavior with same version as the AI Hub default
+    with reset_hub_frameworks_patches(
+        frameworks, default_qaihm_version=ai_hub_default.api_version
+    ):
+        qaihm_default = QAIRTVersion.qaihm_default()
+        assert qaihm_default.hub_option == ""  # empty because it's the hub default
+        assert qaihm_default.explicit_hub_option == "--qairt_version 2.32"
+        assert qaihm_default == QAIRTVersion.default()
+        assert QAIRTVersion.DEFAULT_AIHUB_TAG in qaihm_default.tags
+        assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
+
+    # Verify QAIHM default behavior when the QAIHM default has no tags on Hub
+    with reset_hub_frameworks_patches(frameworks, "2.31"):
+        qaihm_default = QAIRTVersion.qaihm_default()
+        assert qaihm_default.hub_option == "--qairt_version 2.31"
+        assert qaihm_default.explicit_hub_option == "--qairt_version 2.31"
+
+    # Verify "too old" QAIHM default behavior
+    with reset_hub_frameworks_patches(frameworks, "2.30"):
+        with pytest.raises(ValueError):
+            QAIRTVersion.qaihm_default()
+        with pytest.raises(ValueError):
+            QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG)
+
+        # fallback is to the Hub default since the QAIHM default is not available
+        default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
+        assert ai_hub_default == default_backup
+        assert default_backup.is_default
+
 
 def test_qairt_version_without_aihub_access():
     # Patch frameworks so this test continues to work regardless of AI Hub version changes.
-    with mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._load_frameworks",
-        mock.MagicMock(return_value=("", [])),
-    ):
+    with reset_hub_frameworks_patches([], api_url=""):
         # Get default from tag
         ai_hub_default = QAIRTVersion.default()
         assert ai_hub_default.tags == [QAIRTVersion.DEFAULT_AIHUB_TAG]
         assert (
             str(ai_hub_default)
-            == "QAIRT vUNKNOWN | UNVERIFIED - NO AI HUB ACCESS | default"
+            == "QAIRT v0.0 | UNVERIFIED - NO AI HUB ACCESS | default"
         )
+
+        # Get from full version
+        full_version = QAIRTVersion("2.31.0.250130151446_114721-auto")
+        assert full_version.api_version == "2.31"
+        assert full_version.full_version == "2.31.0.250130151446_114721"
+        assert full_version.sdk_flavor == "auto"
 
         # Untagged
         standard_version = QAIRTVersion("2.31")
@@ -215,3 +258,32 @@ def test_qairt_version_without_aihub_access():
 
         # All Versions
         assert QAIRTVersion.all() == []
+
+
+def test_qairt_version_pydantic_roundtrip():
+    """
+    Verifies that QAIRT versions are roundtripped to and from config files as-is,
+    and aren't auto-resolved to current AI Hub QAIRT versions.
+    """
+
+    class VersionConfig(BaseQAIHMConfig):
+        version: QAIRTVersion
+
+    full_version = QAIRTVersion(
+        "2.31.0.250130151446_114721-auto", validate_exists_on_ai_hub=False
+    )
+    assert (
+        VersionConfig.model_validate_json(
+            VersionConfig(version=full_version).model_dump_json()
+        ).version
+        == full_version
+    )
+
+    partial_version = QAIRTVersion("2.31.0-auto", validate_exists_on_ai_hub=False)
+    assert partial_version.full_version_with_flavor == "2.31.0-auto"
+    assert (
+        VersionConfig.model_validate_json(
+            VersionConfig(version=partial_version).model_dump_json()
+        ).version
+        == partial_version
+    )

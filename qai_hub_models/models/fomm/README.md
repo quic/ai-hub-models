@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [First-Order-Motion-Model: Animation of Still Image from Source Video](https://aihub.qualcomm.com/models/fomm)
 
 FOMM is a machine learning model that animates a still image to mirror the movements from a target video.

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [MediaPipe-Pose-Estimation: Detect and track human body poses in real-time images and video streams](https://aihub.qualcomm.com/models/mediapipe_pose)
 
 The MediaPipe Pose Landmark Detector is a machine learning pipeline that predicts bounding boxes and pose skeletons of poses in an image.

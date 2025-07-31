@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -133,9 +134,10 @@ class FOMMApp:
             source image mirroring the movements in the driving video.
 
         Parameters:
-            source_image: numpy array (H W C x uint8)
+            source_image: numpy array (H W C x float[0 - 1], RGB)
 
-            driving_video: List of numpy array frames of the target animation
+            driving_video: List of numpy array frames of the target animation.
+                List[np.ndarray]. Each array is shape (C, H, W). float[0 - 1], RGB
 
         Returns:
             predictions: list[numpy array H W C x float32 [0, 1]]

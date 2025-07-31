@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import argparse
 import logging
 import os
@@ -18,7 +19,7 @@ from tasks.changes import (
     get_all_models,
     get_models_to_test,
 )
-from tasks.constants import VENV_PATH
+from tasks.constants import BUILD_ROOT, VENV_PATH
 from tasks.plan import (
     ALL_TASKS,
     PUBLIC_TASKS,
@@ -29,7 +30,7 @@ from tasks.plan import (
     public_task,
     task,
 )
-from tasks.release import ReleaseTask
+from tasks.release import BuildWheelTask, ReleaseTask, _get_wheel_dir
 from tasks.task import (
     ConditionalTask,
     ListTasksTask,
@@ -38,7 +39,7 @@ from tasks.task import (
     Task,
 )
 from tasks.test import PyTestModelsTask, PyTestQAIHMTask
-from tasks.util import echo, on_ci, run
+from tasks.util import echo, get_env_bool, get_pip, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
@@ -219,8 +220,52 @@ class TaskLibrary:
         )
 
     @public_task("Install dependencies for model zoo.")
-    @depends(["create_venv"])
+    @depends(
+        ["create_venv", "mock_release"]
+        if on_ci() and get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL")
+        else ["create_venv"]
+    )
     def install_deps(self, plan: Plan, step_id: str = "install_deps") -> str:
+        if on_ci():
+            use_public_wheel = get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL") or False
+
+            if use_public_wheel:
+                # Install the public wheel
+                return plan.add_step(
+                    step_id,
+                    RunCommandsWithVenvTask(
+                        "Install QAIHM from public wheel",
+                        self.venv_path,
+                        [
+                            f"find {_get_wheel_dir()} -name 'qai_hub_models-*.whl' -exec {get_pip()} install {{}}[dev] \\;"
+                        ],
+                    ),
+                )
+            else:
+                # On CI and private wheel: Build wheel first, then install deps using wheel
+                plan.add_step(
+                    "build_wheel_for_deps",
+                    BuildWheelTask(
+                        None,  # Let BuildWheelTask create its own venv
+                        self.python_executable,
+                        use_repo_root=True,
+                        overwrite_if_exists=False,
+                    ),
+                )
+
+                # Install the private wheel
+                return plan.add_step(
+                    step_id,
+                    RunCommandsWithVenvTask(
+                        "Install QAIHM from private wheel",
+                        self.venv_path,
+                        [
+                            f"find {os.path.join(BUILD_ROOT, 'wheel')} -name 'qai_hub_models-*.whl' -exec {get_pip()} install {{}}[dev] \\;"
+                        ],
+                    ),
+                )
+
+        # Default: Use editable install and private repository (Dev environment)
         return plan.add_step(
             step_id,
             SyncLocalQAIHMVenvTask(
@@ -582,17 +627,47 @@ class TaskLibrary:
         )
 
     @public_task("Mock Release QAIHM (build repo & wheel, but do not push them)")
-    @depends(["install_deps"])
     def mock_release(self, plan: Plan, step_id: str = "mock_release") -> str:
+        # Create a separate venv for the mock release to avoid circular dependencies
+        mock_release_venv = os.path.join(BUILD_ROOT, "mock_release_venv")
+
+        plan.add_step(
+            "create_mock_release_venv",
+            CreateVenvTask(mock_release_venv, self.python_executable),
+        )
+
+        plan.add_step(
+            "install_mock_release_deps",
+            RunCommandsWithVenvTask(
+                "Install dependencies for mock release",
+                mock_release_venv,
+                [
+                    f"{get_pip()} install -e .[dev]",
+                ],
+            ),
+        )
+
         return plan.add_step(
             step_id,
             ReleaseTask(
-                self.venv_path,
+                mock_release_venv,
                 self.python_executable,
                 build_repository=True,
                 push_repository=False,
                 build_wheel=True,
                 publish_wheel=False,
+            ),
+        )
+
+    @public_task("Build Python Wheel (build repository and create wheel)")
+    @depends(["install_deps"])
+    def build_wheel(self, plan: Plan, step_id: str = "build_wheel") -> str:
+        return plan.add_step(
+            step_id,
+            BuildWheelTask(
+                self.venv_path,
+                self.python_executable,
+                use_repo_root=True,
             ),
         )
 

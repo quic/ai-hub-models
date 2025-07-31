@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from datasets import Dataset, load_dataset
@@ -18,7 +19,7 @@ class WikiText_Japanese(WikiText):
         if self.split_str == "test":
             return dataset[20000:20080]
         elif self.split_str == "train":
-            return Dataset.from_dict(self.dataset[0:20000])
+            return dataset[0:20000]
         else:
             raise ValueError(
                 "Wikitext Japanese dataset currently only supports `test` and `train` split"

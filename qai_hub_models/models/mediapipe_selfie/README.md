@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [MediaPipe-Selfie-Segmentation: Segments the person from background in a selfie image and realtime background segmentation in video conferencing](https://aihub.qualcomm.com/models/mediapipe_selfie)
 
 Light-weight model that segments a person from the background in square or landscape selfie and video conference imagery.

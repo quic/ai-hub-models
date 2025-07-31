@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -22,7 +23,7 @@ def draw_points(
 
     Parameters:
         frame: np.ndarray
-            np array (H W C x uint8, BGR)
+            np array (H W C x uint8, RGB)
 
         points: np.ndarray | torch.Tensor
             array (N, 2) where layout is
@@ -69,7 +70,7 @@ def draw_connections(
 
     Parameters:
         frame:
-            np array (H W C x uint8, BGR)
+            np array (H W C x uint8, RGB)
 
         points:
             array (N, 2) where layout is
@@ -110,7 +111,7 @@ def draw_box_from_corners(
 
     Parameters:
         frame: np.ndarray
-            np array (H W C x uint8, BGR)
+            np array (H W C x uint8, RGB)
 
         corners: np.ndarray | torch.Tensor
             array (4, 2) where layout is
@@ -120,7 +121,7 @@ def draw_box_from_corners(
                 x1, y1, x2, y2
 
         color: tuple[int, int, int]
-            Color of drawn points and connection lines (BGR)
+            Color of drawn points and connection lines (RGB)
 
         size: int
             Size of drawn points and connection lines
@@ -143,7 +144,7 @@ def draw_box_from_xywh(
 
     Parameters:
         frame: np.ndarray
-            np array (H W C x uint8, BGR)
+            np array (H W C x uint8, RGB)
 
         box: np.ndarray | torch.Tensor
             array (4), where layout is
@@ -177,7 +178,7 @@ def draw_box_from_xyxy(
 
     Parameters:
         frame: np.ndarray
-            np array (H W C x uint8, BGR)
+            np array (H W C x uint8, RGB)
 
         box: np.ndarray | torch.Tensor
             array (4), where layout is
@@ -187,7 +188,7 @@ def draw_box_from_xyxy(
             Color of drawn points and connection lines (RGB)
 
         size: int
-            Size of drawn points and connection lines BGR channel layout
+            Size of drawn points and connection lines RGB channel layout
 
         text: None | str
             Overlay text at the top of the box.

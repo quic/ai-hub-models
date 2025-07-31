@@ -1,10 +1,9 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2024-2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from __future__ import annotations
 
-import torch.nn as nn
+from __future__ import annotations
 
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -26,10 +25,6 @@ OUTPUT_STRIDE = 16
 
 
 class Movenet(BaseModel):
-    def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
     @classmethod
     def from_pretrained(
         cls,
@@ -55,7 +50,7 @@ class Movenet(BaseModel):
         """
         This method performs forward inference on the Movenet_pytorch model.
         Args :
-            -image (torch.Tensor) : Input tensor of shape (N, C, H, W) in RGB format of shape `(1, 3, 192, 192)`
+            -image (torch.Tensor) : Input tensor of shape (N, C, H, W) with range [0, 1] in RGB format of shape `(1, 3, 192, 192)`
         Returns : Dictionary with the key `'kpt_with_conf'` having a tensor of shape `(1, 1, 17, 3)`,
 
             - `1` -> batch size

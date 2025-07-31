@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import numpy as np
 
 from qai_hub_models.models._shared.super_resolution.app import SuperResolutionApp
@@ -33,6 +34,13 @@ def test_task():
         np.array(output_img).astype(np.float32),
         diff_tol=0.01,
     )
+
+    # x2 feature
+    x2_model = Real_ESRGAN_x4plus.from_pretrained(scale_factor=2)
+    app = SuperResolutionApp(model=x2_model)
+    output_img = app.upscale_image(image)[0]
+
+    assert output_img.size[0] == 256
 
 
 @skip_clone_repo_check

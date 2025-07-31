@@ -1,5 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](https://aihub.qualcomm.com)
-
 # [Qualcomm® AI Hub Models](https://aihub.qualcomm.com/)
 
 [![Release](https://img.shields.io/github/v/release/quic/ai-hub-models)](https://github.com/quic/ai-hub-models/releases/latest)
@@ -319,6 +317,7 @@ and many more.
 | [Llama-v2-7B-Chat](https://aihub.qualcomm.com/models/llama_v2_7b_chat) | [qai_hub_models.models.llama_v2_7b_chat](qai_hub_models/models/llama_v2_7b_chat/README.md) |
 | [Llama-v3-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_8b_instruct) | [qai_hub_models.models.llama_v3_8b_instruct](qai_hub_models/models/llama_v3_8b_instruct/README.md) |
 | [Llama-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_1_8b_instruct) | [qai_hub_models.models.llama_v3_1_8b_instruct](qai_hub_models/models/llama_v3_1_8b_instruct/README.md) |
+| [Llama-v3.2-1B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_1b_instruct) | [qai_hub_models.models.llama_v3_2_1b_instruct](qai_hub_models/models/llama_v3_2_1b_instruct/README.md) |
 | [Llama-v3.2-3B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_3b_instruct) | [qai_hub_models.models.llama_v3_2_3b_instruct](qai_hub_models/models/llama_v3_2_3b_instruct/README.md) |
 | [Llama3-TAIDE-LX-8B-Chat-Alpha1](https://aihub.qualcomm.com/models/llama_v3_taide_8b_chat) | [qai_hub_models.models.llama_v3_taide_8b_chat](qai_hub_models/models/llama_v3_taide_8b_chat/README.md) |
 | [Ministral-3B](https://aihub.qualcomm.com/models/ministral_3b) | [qai_hub_models.models.ministral_3b](qai_hub_models/models/ministral_3b/README.md) |

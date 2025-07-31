@@ -1,17 +1,18 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
+import os
 
 DEFAULT_CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 
 
 def hash_file(
-    path: str | Path,
+    path: str | os.PathLike,
     hash: hashlib._Hash | None = None,
     read_chunk_size=DEFAULT_CHUNK_SIZE,
 ) -> hashlib._Hash:
@@ -40,7 +41,9 @@ def hash_file(
 
 
 def file_hashes_are_identical(
-    path1: str | Path, path2: str | Path, read_chunk_size=DEFAULT_CHUNK_SIZE
+    path1: str | os.PathLike,
+    path2: str | os.PathLike,
+    read_chunk_size=DEFAULT_CHUNK_SIZE,
 ) -> bool:
     """
     Compare the MD5 hashes of two model files.

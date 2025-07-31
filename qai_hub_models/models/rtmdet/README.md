@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [RTMDet: Real-time object detection optimized for mobile and edge](https://aihub.qualcomm.com/models/rtmdet)
 
 RTMDet is a highly efficient model for real-time object detection,capable of predicting both the bounding boxes and classes of objects within an image.It is highly optimized for real-time applications, making it reliable for industrial and commercial use

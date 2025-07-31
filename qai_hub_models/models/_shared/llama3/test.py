@@ -1,7 +1,9 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import os
 import sys
 from inspect import signature
@@ -13,7 +15,8 @@ import numpy as np
 import pytest
 import qai_hub as hub
 
-from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx
+from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx, LLMBase
+from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
@@ -134,6 +137,7 @@ def test_cli_device_with_skips(
     device: hub.Device,
     skip_inferencing: bool,
     skip_profiling: bool,
+    target_runtime: TargetRuntime,
 ):
     context_length = 4096
     sequence_length = 128
@@ -168,6 +172,8 @@ def test_cli_device_with_skips(
             device.name,
             "--output-dir",
             tmp_path.name,
+            "--target-runtime",
+            target_runtime.value,
         ]
         if skip_inferencing:
             sys.argv.append("--skip-inferencing")
@@ -216,6 +222,7 @@ def test_cli_chipset_with_options(
     chipset: str,
     context_length: int,
     sequence_length: int,
+    target_runtime: TargetRuntime,
     precision: Precision = Precision.w4a16,
 ):
     (
@@ -247,12 +254,9 @@ def test_cli_chipset_with_options(
         sys.argv = [
             "export.py",  # script name
             "--chipset",
-            # "qualcomm-snapdragon-8gen2",
             chipset,
             "--output-dir",
             tmp_path.name,
-            "--target-runtime",
-            "qnn_context_binary",
             "--compile-options",
             compile_options,
             "--profile-options",
@@ -261,6 +265,8 @@ def test_cli_chipset_with_options(
             str(sequence_length),
             "--context-length",
             str(context_length),
+            "--target-runtime",
+            target_runtime.value,
         ]
 
         mock_hub.submit_compile_job.return_value.target_shapes = {
@@ -294,10 +300,9 @@ def test_cli_chipset_with_options(
             mock_from_pretrained.return_value.get_hub_compile_options
         )
 
-        # TODO (#15223): Wrong precision call(<TargetRuntime.QNN_CONTEXT_BINARY: 'qnn_context_binary'>, w8a16, 'compile_extra'): Should be w4a16
         assert mock_get_hub_compile_options.call_count == parts * 2
         assert all(
-            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
+            call.args == (target_runtime, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list
         )
 
@@ -320,7 +325,6 @@ def test_cli_chipset_with_options(
 
         # TODO (#15224): Remove from_pretrained as part of inference?
         assert mock_from_pretrained.call_count == 4
-
         assert (
             mock_from_pretrained.call_args_list[0].kwargs["context_length"]
             == context_length
@@ -348,6 +352,7 @@ def test_cli_default_device_select_component(
     cache_mode: CacheMode,
     skip_download: bool,
     skip_summary: bool,
+    target_runtime: TargetRuntime,
 ):
     context_length = 4096
     sequence_length = 128
@@ -389,8 +394,9 @@ def test_cli_default_device_select_component(
             str(cache_mode.name.lower()),
             "--device",
             device.name,
+            "--target-runtime",
+            target_runtime.value,
         ]
-
         if skip_download:
             sys.argv.append("--skip-downloading")
         if skip_summary:
@@ -426,7 +432,7 @@ def test_cli_default_device_select_component(
             assert call.kwargs["model_name"] == base_name
             assert call.kwargs["cache_mode"] == cache_mode
 
-        # check compil jobs have correct device name.
+        # check compile jobs have correct device name.
         assert all(
             call.kwargs["device"].name == device.name
             for call in mock_hub.submit_compile_job.call_args_list
@@ -434,3 +440,28 @@ def test_cli_default_device_select_component(
 
         assert tmp_path.exists()
         assert tmp_path.is_dir()
+
+
+def setup_test_quantization(
+    model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    output_path: str,
+    checkpoint: str | None = None,
+) -> str:
+    if not (
+        (Path(output_path) / "model.encodings").exists()
+        and (Path(output_path) / "model.data").exists()
+        and (Path(output_path) / "model_seqlen1_cl4096.onnx").exists()
+        and (Path(output_path) / "model_seqlen128_cl4096.onnx").exists()
+    ):
+        quantize(
+            quantized_model_cls=model_cls,
+            fp_model_cls=fp_model_cls,
+            context_length=4096,
+            seq_len=2048,
+            output_dir=output_path,
+            allow_cpu_to_quantize=True,
+            checkpoint=checkpoint,
+        )
+
+    return output_path

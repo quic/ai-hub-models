@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [XLSR: Upscale images in real time](https://aihub.qualcomm.com/models/xlsr)
 
 XLSR is designed for lightweight real-time upscaling of images.

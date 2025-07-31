@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import fileinput
@@ -1057,7 +1058,9 @@ def copyfile(src: str, dst: str, num_retries: int = 4):
     return dst
 
 
-def extract_zip_file(filepath_str: str, out_path: Path | None = None) -> Path:
+def extract_zip_file(
+    filepath_str: os.PathLike | str, out_path: Path | None = None
+) -> Path:
     """
     Given a local filepath to a zip file, extract its contents. into a folder
     in the same directory. The directory with the contents will have the same

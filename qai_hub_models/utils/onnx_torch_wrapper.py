@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import dataclasses
@@ -22,6 +23,7 @@ import pkg_resources
 import torch
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
+from qai_hub_models.utils.asset_loaders import extract_zip_file
 from qai_hub_models.utils.onnx_helpers import (
     extract_io_types_from_onnx_model,
     kwargs_to_dict,
@@ -125,6 +127,55 @@ def _input_val_to_onnx_session_string_option(input_val: Any) -> str:
         return str(input_val.resolve().absolute())
     else:
         return str(input_val)
+
+
+def extract_onnx_zip(
+    path: os.PathLike | str, out_path: Path | None = None, validate_exists: bool = True
+) -> tuple[Path, Path]:
+    """
+    Extract the zip file at the given path and returns the paths
+    where the `model.onnx` and `model.data` files can be found.
+
+    Parameters:
+        path:
+            a folder to validate or zip file to unzip.
+            The zip should have been created by AI Hub, or the
+            folder should be an unzipped version of a zip
+            created by AI Hub.
+
+        out_path:
+            Folder to which the zip file should be unzipped.
+            If None, defaults to the same folder the zip file is in.
+
+        validate:
+            If True, raises an error if the .onnx file can't be found.
+
+    Returns:
+        tuple(
+            model path (always exists if validate_exists is true)
+            model weights path (may not exist, even if validate_exists is true)
+        )
+    """
+    if os.path.splitext(path)[1].endswith(".zip"):
+        path = extract_zip_file(path, out_path)
+    else:
+        path = Path(path)
+
+    contents = os.listdir(path=path)
+    # Sometimes an extraneous subfolder is created
+    if len(contents) == 1:
+        onnx_path = path / contents[0]
+    else:
+        onnx_path = path
+
+    model_path = onnx_path / "model.onnx"
+    weights_path = onnx_path / "model.data"
+    if validate_exists and not os.path.exists(model_path):
+        raise ValueError(
+            f"model.onnx could not be found at path {model_path}. Was the parent directory created by AI Hub?"
+        )
+
+    return (model_path, weights_path)
 
 
 @dataclass()

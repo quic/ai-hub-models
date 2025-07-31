@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [EfficientViT-l2-seg: Semantic segmentation in higher resuolution](https://aihub.qualcomm.com/models/efficientvit_l2_seg)
 
 EfficientViT is a machine learning model that can segment images from the Cityscape dataset. It has lightweight and hardware-efficient operations and thus delivers significant speedup on diverse hardware platforms

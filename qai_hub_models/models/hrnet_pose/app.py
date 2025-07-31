@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -116,7 +117,7 @@ class HRNetPoseApp:
         proc_inputs, _ = list(inputs)[0]
         proc_inputs_ = proc_inputs["inputs"][0]
 
-        # RGB -> BGR
+        # BGR -> RGB
         x = proc_inputs_[[2, 1, 0]]
         # Convert to expected model input distrubtion
         x = x.float() / 255.0

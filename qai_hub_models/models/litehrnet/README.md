@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [LiteHRNet: Human pose estimation](https://aihub.qualcomm.com/models/litehrnet)
 
 LiteHRNet is a machine learning model that detects human pose and returns a location and confidence for each of 17 joints.

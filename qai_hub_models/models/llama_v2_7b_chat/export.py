@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 from __future__ import annotations
 
@@ -25,16 +26,14 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_on_target_demo_cmd,
     print_profile_metrics_from_job,
 )
-from qai_hub_models.utils.qai_hub_helpers import (
-    can_access_qualcomm_ai_hub,
-    export_without_hub_access,
-)
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 ALL_COMPONENTS = [
     "Llama2_Part1_Quantized",

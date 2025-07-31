@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [TrOCR: Transformer based model for state-of-the-art optical character recognition (OCR) on both printed and handwritten text](https://aihub.qualcomm.com/models/trocr)
 
 End-to-end text recognition approach with pre-trained image transformer and text transformer models for both image understanding and wordpiece-level text generation.

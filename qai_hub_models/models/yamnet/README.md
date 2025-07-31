@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [YamNet: Audio Event classification Model](https://aihub.qualcomm.com/models/yamnet)
 
 An audio event classifier trained on the AudioSet dataset to predict audio events from the AudioSet ontology employing the Mobilenet_v1 depthwise-separable convolution architecture.

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 
 from __future__ import annotations
 
@@ -49,11 +50,7 @@ def main():
     parser.set_defaults(_skip_quantsim_creation=True)
     args = parser.parse_args()
     additional_model_kwargs = vars(args)
-    if additional_model_kwargs["checkpoint"] == "DEFAULT":
-        additional_model_kwargs["fp_model"] = FP_Model.from_pretrained(  # type: ignore[index]
-            sequence_length=args.sequence_length,
-            context_length=args.context_length,
-        )
+    additional_model_kwargs["fp_model_cls"] = FP_Model
     export_model(
         model_cls=Model,
         model_name=MODEL_ID,

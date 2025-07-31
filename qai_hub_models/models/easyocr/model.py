@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import torch
@@ -15,7 +16,7 @@ from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 LANG_LIST = ["en"]
 MODEL_STORAGE_DIRECTORY = None
 USER_NETWORK_DIRECTORY = None
@@ -50,7 +51,7 @@ class EasyOCRDetector(BaseModel):
         Parameters:
             image: Pixel values pre-processed for detector consumption.
                    Range: float[0, 1]
-                   3-channel Color Space: BGR
+                   3-channel Color Space: RGB
         """
         if isinstance(self.model, CRAFTDetector):
             return self.model(image)

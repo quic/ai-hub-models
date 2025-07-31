@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -109,19 +110,23 @@ class FootTrackNet(BaseModel):
         self.landmark = HeadModule(wide, 2 * n_lmk, has_ext=has_ext)
         self.landmark_vis = HeadModule(wide, n_lmk, has_ext=has_ext)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, ...]:
+    def forward(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Forward computation of FootTrackNet.
 
         Inputs:
             image: torch.Tensor
-                Input image.
+                Input image. RGB, range [0 - 1], shape [N, C, H, W]
+
         Outputs: List[torch.Tensor]
             heatmap: N,C,H,W the heatmap for the person/face detection.
             bbox: N,C*4, H,W the bounding box coordinate as a map.
             landmark: N,C*34,H,W the coordinates of landmarks as a map.
             landmark_visibility: N,C*17,H,W the visibility of the landmark as a map.
         """
+        x = x * 255.0
         x = self.conv_layer(x * 1.0)  # conv to float
         x = self.bn2(x)
         s4, s8, s16, s32 = self.bb(x)

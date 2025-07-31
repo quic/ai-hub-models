@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [YOLOv8-Segmentation: Real-time object segmentation optimized for mobile and edge by Ultralytics](https://aihub.qualcomm.com/models/yolov8_seg)
 
 Ultralytics YOLOv8 is a machine learning model that predicts bounding boxes, segmentation masks and classes of objects in an image.

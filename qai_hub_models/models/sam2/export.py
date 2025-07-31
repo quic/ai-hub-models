@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 # THIS FILE WAS AUTO-GENERATED. DO NOT EDIT MANUALLY.
@@ -27,15 +27,13 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
 )
-from qai_hub_models.utils.qai_hub_helpers import (
-    can_access_qualcomm_ai_hub,
-    export_without_hub_access,
-)
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
 def quantize_model(

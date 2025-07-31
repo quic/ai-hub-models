@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [PidNet: Segment images or video by class in real-time on device](https://aihub.qualcomm.com/models/pidnet)
 
 PIDNet (Proportional-Integral-Derivative Network) is a real-time semantic segmentation model based on  PID controllers

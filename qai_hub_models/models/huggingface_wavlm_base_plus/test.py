@@ -1,8 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-import numpy as np
+
 import pytest
 
 from qai_hub_models.models.huggingface_wavlm_base_plus.app import (
@@ -10,42 +10,19 @@ from qai_hub_models.models.huggingface_wavlm_base_plus.app import (
 )
 from qai_hub_models.models.huggingface_wavlm_base_plus.demo import demo_main
 from qai_hub_models.models.huggingface_wavlm_base_plus.model import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
     SAMPLE_INPUTS,
     HuggingFaceWavLMBasePlus,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
+from qai_hub_models.utils.asset_loaders import load_numpy
 from qai_hub_models.utils.testing import skip_clone_repo_check
-
-OUTPUT_TENSOR_1 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "output_tensor_1.npy"
-)
-OUTPUT_TENSOR_2 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "output_tensor_2.npy"
-)
 
 
 def _test_impl(app: HuggingFaceWavLMBasePlusApp) -> None:
     x = load_numpy(SAMPLE_INPUTS)["audio"]
 
-    # Run inference
-    app_output_features = app.predict_features(x)
-
-    # Compare outputs
-    np.testing.assert_allclose(
-        np.asarray(app_output_features[0].detach().numpy(), dtype=np.float32),
-        load_numpy(OUTPUT_TENSOR_1),
-        rtol=0.02,
-        atol=0.2,
-    )
-
-    np.testing.assert_allclose(
-        np.asarray(app_output_features[1].detach().numpy(), dtype=np.float32),
-        load_numpy(OUTPUT_TENSOR_2),
-        rtol=0.02,
-        atol=0.2,
-    )
+    app_output = app.predict_features(x)
+    expected_text = "and so my fellow americas ask not what your country can do for you ask what you can do for your"
+    assert app_output == expected_text
 
 
 @skip_clone_repo_check

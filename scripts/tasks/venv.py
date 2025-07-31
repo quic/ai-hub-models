@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -10,7 +11,7 @@ from collections.abc import Iterable
 
 from .constants import PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_MODELS_ROOT, REPO_ROOT
 from .task import RunCommandsTask, RunCommandsWithVenvTask
-from .util import get_code_gen_str_field, get_pip
+from .util import get_code_gen_str_field, get_env_bool, get_pip, on_ci
 
 
 class CreateVenvTask(RunCommandsTask):
@@ -104,15 +105,27 @@ class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
         pre_install: str | None = None,
     ) -> None:
         extras_str = f"[{','.join(extras)}]" if extras else ""
-        commands = [
-            f'{get_pip()} install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" '
-            + (flags or "")
-        ]
+
+        # Use wheel on CI, editable install for local development
+        if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
+            # On CI: Find wheel file and install it (use relative path to work in both local and CI)
+            commands = [
+                f'{get_pip()} install $(ls build/wheel/qai_hub_models-*.whl){extras_str} {flags or ""}'
+            ]
+            install_method = "wheel"
+        else:
+            # Local development: Use editable install
+            commands = [
+                f'{get_pip()} install -e "{PY_PACKAGE_INSTALL_ROOT}{extras_str}" {flags or ""}'
+            ]
+            install_method = "editable"
         if pre_install:
             commands.insert(0, f"{get_pip()} install {pre_install}")
 
         super().__init__(
-            group_name=f"Install QAIHM{extras_str}", venv=venv_path, commands=commands
+            group_name=f"Install QAIHM{extras_str} ({install_method})",
+            venv=venv_path,
+            commands=commands,
         )
 
 

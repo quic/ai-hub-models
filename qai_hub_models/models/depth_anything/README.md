@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Depth-Anything: Deep Convolutional Neural Network model for depth estimation](https://aihub.qualcomm.com/models/depth_anything)
 
 Depth Anything is designed for estimating depth at each point in an image.

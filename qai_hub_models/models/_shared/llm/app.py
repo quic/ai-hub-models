@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import shutil
@@ -13,6 +14,7 @@ from transformers import GenerationConfig, TextStreamer, set_seed
 
 from qai_hub_models.models._shared.llm.generator import LLM_Generator, LLM_Loader
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.checkpoint import CheckpointSpec
 
 
 class IndentedTextStreamer(TextStreamer):
@@ -95,7 +97,7 @@ class ChatApp:
         input_prompt: str,
         context_length: int,
         max_output_tokens: int,
-        checkpoint: str | None = None,
+        checkpoint: CheckpointSpec | None = None,
         model_from_pretrained_extra: dict = {},
     ):
         set_seed(self.seed)
@@ -115,6 +117,7 @@ class ChatApp:
             "host_device": host_device,
             **model_from_pretrained_extra,
         }
+        checkpoint = None if checkpoint == "DEFAULT_UNQUANTIZED" else checkpoint
         if checkpoint is not None:
             model_params["checkpoint"] = checkpoint
 

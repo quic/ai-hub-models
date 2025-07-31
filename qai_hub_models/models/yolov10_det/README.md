@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [YOLOv10-Detection: Real-time object detection optimized for mobile and edge by Ultralytics](https://aihub.qualcomm.com/models/yolov10_det)
 
 Ultralytics YOLOv10 is a machine learning model that predicts bounding boxes and classes of objects in an image.

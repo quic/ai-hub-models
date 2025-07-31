@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 import numpy as np
 
 from qai_hub_models.models.easyocr.app import EasyOCRApp
@@ -43,7 +44,6 @@ def test_task():
     app = EasyOCRApp(ch_model.detector, ch_model.recognizer, ch_model.lang_list)
     image = load_image(CHINESE_INPUT_IMAGE_ADDRESS)
     results = app.predict_text_from_image(image)
-    output_image = load_image(OUTPUT_IMAGE_ADDRESS)
 
     # Checking recognition text
     assert results[1][0][1] == "西"

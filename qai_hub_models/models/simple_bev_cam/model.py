@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -125,7 +126,7 @@ class SimpleBev(BaseModel):
         pix_T_cams = pix_T_cams
         cam0_T_camXs = cam0_T_camXs
         """
-        Run Segnet model and return the transformed and segmented object data for generating a 2D bird's eye view(BEV) of the environment around the  vehicle
+        Run Segnet model and return the transformed and segmented object data for generating a 2D bird's eye view(BEV) of the environment around the vehicle
 
         Parameters:
             B = batch size, S = number of cameras, C = 3, H = img height, W = img width
@@ -139,7 +140,7 @@ class SimpleBev(BaseModel):
         Returns:
             raw_e_results : Raw feature data:  torch.Tensor of shape (1,k,Z,X)
             feat_e_results: Processed feature data: torch.Tensor of shape (1,k,Z,X)
-            seg_e_results: Segmented objects (foreground/background):   torch.Tensor of shape (1,1,Z,X)
+            seg_e_results: Segmented objects (foreground/background): torch.Tensor of shape (1,1,Z,X)
             center_e_results:Position (1D) of each segmented object. torch.Tensor of shape (1,1,Z,X)
             offset_e_results:Offset position (2D) of each segmented object. torch.Tensor of shape (1,2,Z,X)
 

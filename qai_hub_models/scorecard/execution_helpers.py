@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,8 +15,10 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.envvars import (
+    EnabledPathsEnvvar,
     EnabledPrecisionsEnvvar,
     IgnoreKnownFailuresEnvvar,
+    SpecialPathSetting,
     SpecialPrecisionSetting,
 )
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
@@ -247,6 +250,10 @@ def get_model_test_parameterizations(
         model_id, model_supported_precisions, can_use_quantize_job
     )
 
+    default_with_aot_assets_enabled = (
+        SpecialPathSetting.DEFAULT_WITH_AOT_ASSETS in EnabledPathsEnvvar.get()
+    )
+
     # For each enabled test precision...
     for precision in test_precisions:
         # Get all enabled paths that support this precision
@@ -262,12 +269,16 @@ def get_model_test_parameterizations(
                 for path in path_list
                 if path.runtime.is_aot_compiled or path.is_force_enabled
             ]
+        elif path_type == ScorecardCompilePath and default_with_aot_assets_enabled:
+            # Don't filter. We compile both AOT and JIT paths.
+            pass
         else:
             # If both AOT and JIT paths are in the list, only include the JIT path.
             path_list = [
                 path
                 for path in path_list
                 if not path.runtime.is_aot_compiled
+                or path.jit_equivalent is None
                 or path.jit_equivalent not in path_list
                 or path.is_force_enabled
             ]
@@ -289,34 +300,28 @@ def get_model_test_parameterizations(
 
         # For each test path...
         for sc_path in path_list:
-            if devices:
-                # If there is a pre-determined list of test devices, use those
-                for device in devices:
-                    if not device.enabled or not device.npu_supports_precision(
-                        precision
-                    ):
-                        continue
-                    if (
-                        sc_path not in device.compile_paths
-                        and sc_path not in device.profile_paths
-                    ):
-                        continue
-                    ret.append((precision, sc_path, device))
-            else:
-                # Otherwise, get all enabled & compatible devices and test those
-                all_compatible_devices = ScorecardDevice.all_devices(
-                    enabled=True,
-                    npu_supports_precision=precision,
-                    supports_compile_path=sc_path
-                    if isinstance(sc_path, ScorecardCompilePath)
-                    else None,
-                    supports_profile_path=sc_path
-                    if isinstance(sc_path, ScorecardProfilePath)
-                    else None,
-                    is_mirror=False,
-                )
-                for device in all_compatible_devices:
-                    ret.append((precision, sc_path, device))
+            for device in devices or ScorecardDevice.all_devices(is_mirror=False):
+                if not device.enabled or not device.npu_supports_precision(precision):
+                    continue
+                if (
+                    sc_path not in device.compile_paths
+                    and sc_path not in device.profile_paths
+                ):
+                    continue
+
+                # This "if" block is applicable for the DEFAULT_WITH_AOT_ASSETS enabled path. mode
+                # It selectively enables AOT compilation for specific devices. These devices are
+                # offered as pre-generated context binaries in each release (via Hugging Face).
+                if (
+                    not only_include_aot_paths  # the model is not AOT-only
+                    and path_type == ScorecardCompilePath  # we are running compile jobs
+                    and sc_path.runtime.is_aot_compiled  # this scorecard path is compiled AOT
+                    and default_with_aot_assets_enabled  # the scorecard is producing AOT assets that it will not profile
+                    and not device.always_produce_aot_assets  # the device should not produce AOT assets in this scorecard mode
+                    and not sc_path.is_force_enabled  # the AOT path isn't "force enabled" (requested explicitly by the user)
+                ):
+                    continue
+                ret.append((precision, sc_path, device))
 
     return ret
 

@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Lightweight-Face-Detection: Lightweight and efficient face detector](https://aihub.qualcomm.com/models/face_det_lite)
 
 A small and accurate model for detecting bounding boxes for faces in images. This model's architecture was developed by Qualcomm. The model was trained by Qualcomm on a proprietary dataset of faces, but can be used on any image.

@@ -1,7 +1,8 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import os
@@ -20,6 +21,8 @@ def get_huggingface_model_filename(
     model_name: str,
     component: str | None,
     precision: Precision,
+    chipset: str | None = None,
+    precompiled: bool = False,
 ):
     """
     Get the model file name (without the extension) that we upload to Hugging Face for the given parameters.
@@ -36,17 +39,34 @@ def get_huggingface_model_filename(
 
     precision:
         Model precision.
+
+    chipset:
+        Chipset this model is optimized for, or None if not applicable.
+
+    precompiled:
+        Whether or not this chipset is pre-compiled for a specific chipset.
+        If set, chipset must also be provided.
     """
     precision_ext = f"_{precision}" if precision != Precision.float else ""
-    if component == model_name or component is None:
-        return f"{model_name}{precision_ext}"
-    return f"{model_name}_{component}{precision_ext}"
+    component_ext = (
+        f"_{component}" if component != model_name and component is not None else ""
+    )
+
+    if precompiled:
+        assert (
+            chipset is not None
+        ), "You must specify a chipset to get the file name of pre-compiled model."
+
+    precompiled_folder_prefix = "precompiled/" if precompiled else ""
+    chipset_folder_prefix = f"{chipset}/" if chipset is not None else ""
+    return f"{precompiled_folder_prefix}{chipset_folder_prefix}{model_name}{component_ext}{precision_ext}"
 
 
 def fetch_huggingface_target_model(
     model_name: str,
     model_components: list[str] | None,
     precision: Precision,
+    chipset: str | None,
     dst_folder: str | Path,
     runtime_path: TargetRuntime = TargetRuntime.TFLITE,
     config: ModelZooAssetConfig = ASSET_CONFIG,
@@ -63,7 +83,7 @@ def fetch_huggingface_target_model(
             files += fs.glob(
                 os.path.join(
                     hf_path,
-                    f"{get_huggingface_model_filename(model_name, component_name, precision)}.{file_type}",
+                    f"{get_huggingface_model_filename(model_name, component_name, precision, chipset if runtime_path.is_aot_compiled else None, runtime_path.is_aot_compiled)}.{file_type}",
                 )
             )
 

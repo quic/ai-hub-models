@@ -1,14 +1,18 @@
 # ---------------------------------------------------------------------
-# Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+
 from __future__ import annotations
 
 import pprint
 from collections.abc import Iterable
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+import qai_hub as hub
+from qai_hub.client import JobType
+
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -395,9 +399,11 @@ class ModelPrecisionPerfSummary(
     ) -> tuple[
         dict[ScorecardProfilePath, str],
         dict[ScorecardDevice, dict[ScorecardProfilePath, str]],
+        dict[ScorecardProfilePath, ToolVersions],
     ]:
         universal_assets: dict[ScorecardProfilePath, str] = {}
         device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = {}
+        asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = {}
         for runs_per_device in self.runs_per_component_device[
             component or self.model_id
         ].values():
@@ -415,8 +421,18 @@ class ModelPrecisionPerfSummary(
                     device_assets[runs_per_device.device][
                         path
                     ] = path_run.job.model.model_id
+                if path not in asset_tool_versions:
+                    # We extract the toolchain version from the compiled model instead of the job,
+                    # in case the job uses a different toolchain version than the compiled asset.
+                    if (
+                        path_run.job.model.producer is not None
+                        and path_run.job.model.producer._job_type == JobType.COMPILE
+                    ):
+                        asset_tool_versions[path] = ToolVersions.from_compiled_model(
+                            path_run.job.model
+                        )
 
-        return universal_assets, device_assets
+        return universal_assets, device_assets, asset_tool_versions
 
     def get_perf_card(
         self,
@@ -451,12 +467,17 @@ class ModelPrecisionPerfSummary(
             component_name = (
                 component_id if component_id != self.model_id else (model_name or "")
             )
-            universal_assets, device_assets = self.get_target_assets(
+            (
+                universal_assets,
+                device_assets,
+                asset_tool_versions,
+            ) = self.get_target_assets(
                 exclude_paths, exclude_form_factors, component_id
             )
             components[component_name] = QAIHMModelPerf.ComponentDetails(
                 universal_assets=universal_assets,
                 device_assets=device_assets,
+                asset_tool_versions=asset_tool_versions,
                 performance_metrics=component_perf_card,
             )
 
@@ -651,6 +672,60 @@ class DeviceCompileSummary(
             path = path.compile_path
         return super().get_run(path)
 
+    def extend_perf_card_with_aot_assets(
+        self,
+        aot_paths: list[ScorecardProfilePath],
+        ccard: QAIHMModelPerf.ComponentDetails,
+    ):
+        # If this device didn't profile successfully, then don't assume AOT paths work.
+        if self.device not in ccard.performance_metrics:
+            return
+
+        # Walk through the card and append any assets for the given aot paths.
+        device_assets = ccard.device_assets.get(self.device, dict())
+        for path in aot_paths:
+            assert path.runtime.is_aot_compiled
+
+            # Don't overwrite if an asset already exists.
+            if path in device_assets:
+                continue
+
+            if run := self.run_per_path.get(path.compile_path):
+                # Verify there is an asset to add to the card.
+                if not run.success:
+                    continue
+
+                # Skip this path if no comparable equivalent runtime succeeded.
+                equiv_paths = [
+                    x
+                    for x in (path.paths_with_same_toolchain or [])
+                    if x in ccard.performance_metrics[self.device]
+                ]
+                if all(
+                    ccard.performance_metrics[self.device][
+                        x
+                    ].inference_time_milliseconds
+                    is None
+                    for x in equiv_paths
+                ):
+                    continue
+
+                hub_model = cast(hub.Model, run.job.get_target_model())
+                device_assets[path] = hub_model.model_id
+                # We extract the QAIRT version from the compiled model instead of using path_run.qairt_version
+                # in case the profile job uses a different QAIRT version than the compiled asset.
+                if (
+                    hub_model.producer is not None
+                    and hub_model.producer._job_type == JobType.COMPILE
+                ):
+                    ccard.asset_tool_versions[path] = ToolVersions.from_compiled_model(
+                        hub_model
+                    )
+
+        # Set the device assets dict in case it didn't previously exist.
+        if device_assets:
+            ccard.device_assets[self.device] = device_assets
+
 
 class ModelPrecisionCompileSummary(
     ScorecardModelPrecisionSummary[
@@ -677,6 +752,34 @@ class ModelPrecisionCompileSummary(
         ):
             run = super().get_run(cs_universal, path, component)
         return run
+
+    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf.PrecisionDetails):
+        """
+        Walks through the card and appends any compiled AOT assets
+        if the equivalent JIT asset profiled succesfully.
+        """
+        for component, per_device_summary in self.runs_per_component_device.items():
+            if not self.has_components and len(card.components) == 1:
+                # If there are no components, then this summary
+                # has a single entry: { model_id: per_device_summary }
+                #
+                # A perf card may reference the model name rather than the model ID.
+                #
+                # To deal with this mismatch, we get the only element in the components
+                # list in the given perf card, and assume that matches with this summary.
+                component = next(card.components.keys().__iter__())
+
+            if ccard := card.components.get(component):
+                aot_paths: list[ScorecardProfilePath] = []
+                for path in ccard.universal_assets:
+                    aot_paths.extend(
+                        x
+                        for x in (path.paths_with_same_toolchain or [])
+                        if x.runtime.is_aot_compiled
+                    )
+
+                for dsummary in per_device_summary.values():
+                    dsummary.extend_perf_card_with_aot_assets(aot_paths, ccard)
 
 
 class ModelCompileSummary(
@@ -707,6 +810,15 @@ class ModelCompileSummary(
         return self.__class__.scorecard_job_type(
             self.model_id, precision, None, device, False, None, path
         )
+
+    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf):
+        """
+        Walks through the card and appends any compiled AOT assets
+        if the equivalent JIT asset profiled succesfully.
+        """
+        for precision, pcard in card.precisions.items():
+            if psummary := self.summaries_per_precision.get(precision):
+                psummary.extend_perf_card_with_aot_assets(pcard)
 
 
 # --------------------------------------

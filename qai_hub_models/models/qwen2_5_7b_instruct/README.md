@@ -1,6 +1,3 @@
-[![Qualcomm® AI Hub Models](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/quic-logo.jpg)](../../README.md)
-
-
 # [Qwen2.5-7B-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/qwen2_5_7b_instruct)
 
 The Qwen2.5-7B-Instruct is a state-of-the-art multilingual language model with 7 billion parameters, excelling in language understanding, generation, coding, and mathematics. AI Hub provides with four QNN context binaries (shared weights) that can be deployed on Snapdragon 8 Elite with Genie SDK.
