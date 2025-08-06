@@ -24,12 +24,14 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
-from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
 )
-from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
+from qai_hub_models.utils.qai_hub_helpers import (
+    can_access_qualcomm_ai_hub,
+    export_without_hub_access,
+)
 
 
 def compile_model(

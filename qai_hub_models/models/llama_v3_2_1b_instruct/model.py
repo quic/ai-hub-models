@@ -14,7 +14,6 @@ import torch
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
-    Llama3_Optimizations,
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
@@ -89,8 +88,8 @@ class Llama3_2_1B(Llama3Base):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         host_device: torch.device | None = None,
-        _skip_optimizations: list[str]
-        | None = [Llama3_Optimizations.MLP_LINEAR_TO_CONV],
+        load_pretrained: bool = True,
+        _skip_optimizations: list[str] | None = None,
     ) -> Llama3_2_1B:
         """
         Load a pre-trained Llama 3.2 (1B) model from Meta via HuggingFace.
@@ -115,12 +114,13 @@ class Llama3_2_1B(Llama3Base):
             sequence_length=sequence_length,
             context_length=context_length,
             host_device=host_device,
+            load_pretrained=load_pretrained,
             _skip_optimizations=_skip_optimizations,
         )
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
-        return Llama3Base._get_output_names(num_hidden_layers)
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(
@@ -239,8 +239,8 @@ class Llama3_2_1B_AIMETOnnx(Llama3Base_AIMETOnnx):
         return quant_sim
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = NUM_LAYERS):
-        return Llama3Base._get_output_names(num_hidden_layers)
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(

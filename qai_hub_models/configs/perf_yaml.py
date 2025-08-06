@@ -11,7 +11,6 @@ from typing import Callable, Optional
 
 from pydantic import Field
 
-from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -19,8 +18,6 @@ from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 
 class QAIHMModelPerf(BaseQAIHMConfig):
-    """Schema for perf.yaml files."""
-
     class PerformanceDetails(BaseQAIHMConfig):
         class TimeToFirstTokenRangeMillieconds(BaseQAIHMConfig):
             min: float
@@ -83,22 +80,9 @@ class QAIHMModelPerf(BaseQAIHMConfig):
         primary_compute_unit: Optional[str] = None
         layer_counts: Optional[QAIHMModelPerf.PerformanceDetails.LayerCounts] = None
 
-        # Can be set for LLMs or for successful jobs.
-        # The tool versions used by the profile jobs to execute this model.
-        # All jobs will include QAIRT version, + the inference engine version used (tflite, onnx ,etc.)
-        tool_versions: ToolVersions = Field(default_factory=ToolVersions)
-
     class ComponentDetails(BaseQAIHMConfig):
         universal_assets: dict[ScorecardProfilePath, str] = Field(default_factory=dict)
         device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = Field(
-            default_factory=dict
-        )
-        # The tool versions used by a compile jobs to generate the
-        # assets defined in universal_assets and device_assets.
-        # Eg:
-        #  * For .dlc and .bin models, the QAIRT SDK version is included here.
-        #  * For .onnx, ONNX and ONNX Runtime versions are included, but not QAIRT (since QAIRT is not used for compilation to ONNX).
-        asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = Field(
             default_factory=dict
         )
         performance_metrics: dict[

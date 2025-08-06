@@ -98,7 +98,8 @@ DEFAULT_CALIBRATION_SEQ_LEN = 2048
 # TODO: 10761 remove transformer version check once AIMET
 # transformer restriction is uplifted.
 ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
-ensure_min_aimet_onnx_version(MIN_AIMET_ONNX_VERSION)
+if AIMET_ONNX_INSTALLED:
+    ensure_min_aimet_onnx_version(MIN_AIMET_ONNX_VERSION)
 
 
 from transformers import (  # noqa: E402
@@ -225,12 +226,12 @@ def prepare_combined_attention_mask(
 
 
 def sample_input(
-    input_spec,
-    input_prompt_processed,
-    context_length,
-    sequence_length,
-    tokenizer,
-    llm_config,
+    input_spec: InputSpec,
+    input_prompt_processed: str,
+    context_length: int,
+    sequence_length: int,
+    tokenizer: PreTrainedTokenizer,
+    llm_config: PretrainedConfig,
     embedding: Embedding,
 ):
     input_tokens = tokenizer(
@@ -562,6 +563,14 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
         self.model = model
 
     @staticmethod
+    def get_input_spec(
+        llm_config: dict,
+        sequence_length: int,
+        context_length: int,
+    ) -> InputSpec:
+        raise NotImplementedError
+
+    @staticmethod
     def monkey_patch(
         skip_optimizations: list[str] | None = None,
     ) -> None:
@@ -721,6 +730,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
 
     def get_calibration_data(
         self,
+        num_samples: int = 0,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         # No calibration data needed
@@ -800,8 +810,39 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         self.tokenizer = tokenizer or get_tokenizer(checkpoint)
         llm_config = llm_config or get_llm_config(checkpoint)
         self.llm_config = self.edit_llm_config(llm_config)
-
+        assert self.EmbeddingClass is not None
+        self.embedding = self.EmbeddingClass(
+            max_length=context_length, config=llm_config
+        )
         self.checkpoint = checkpoint
+
+    @staticmethod
+    def get_input_spec(
+        llm_config: dict,
+        sequence_length: int,
+        context_length: int,
+    ) -> InputSpec:
+        raise NotImplementedError
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        if not input_spec:
+            input_spec = self.get_input_spec(
+                sequence_length=self.sequence_length,
+                context_length=self.context_length,
+                llm_config=self.llm_config.to_dict(),
+            )
+        input_dict = sample_input(
+            input_spec,
+            self.get_input_prompt_with_tags(),
+            self.context_length,
+            self.sequence_length,
+            self.tokenizer,
+            self.llm_config,
+            self.embedding,
+        )
+        return input_dict
 
     def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         # This must be defined by the HubModelProtocol protocol via BaseModel
@@ -1096,8 +1137,11 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         if precision not in {Precision.w4a16, Precision.w4}:
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
+        # TODO:#15781 Remove this when AI Hub switches to compiling QNN context binary via QNN DLC.
         if precision == Precision.w4:
             other_compile_options = " --quantize_full_type float16 --quantize_io"
+        if precision == Precision.w4a16:
+            other_compile_options = " --quantize_full_type w8a16 --quantize_io"
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
@@ -1116,17 +1160,20 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
     def get_calibration_data(
         self,
+        num_samples: int = 0,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         from qai_hub_models.models._shared.llm.generator import LLM_Generator
 
+        if num_samples == 0:
+            num_samples = math.ceil(80000 / self.context_length)
         dataset = get_dataset_from_name(
             name="wikitext",
             split=DatasetSplit.TRAIN,
             tokenizer=self.tokenizer,
             block_size=self.sequence_length,
             context_length=self.context_length,
-            num_samples=math.ceil(80000 / self.context_length),
+            num_samples=num_samples,
         )
         dataloader = DataLoader(dataset, batch_size=1, collate_fn=collate_fn)
 

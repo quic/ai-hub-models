@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import shutil
+from collections import defaultdict
 from collections.abc import Callable
 from functools import partial
 from pathlib import Path
@@ -325,6 +326,7 @@ def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     model = mock.Mock(hub.Model)
     model.model_id = "mabcd1234"
     model.model_type = model_type
+    model.metadata = defaultdict(lambda: "2.33")
 
     def _store_device(mock_obj, *args, **kwargs):
         if "device" in kwargs:

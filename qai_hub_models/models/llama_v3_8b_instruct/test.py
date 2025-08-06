@@ -13,7 +13,7 @@ import torch
 from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llama3 import test
-from qai_hub_models.models._shared.llama3.model import Llama3_Optimizations
+from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v3_8b_instruct import MODEL_ID, FP_Model, Model
@@ -40,6 +40,8 @@ from qai_hub_models.utils.model_cache import CacheMode
         (True, False, TargetRuntime.QNN_CONTEXT_BINARY),
         (False, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (False, False, TargetRuntime.QNN_CONTEXT_BINARY),
+        (False, True, TargetRuntime.PRECOMPILED_QNN_ONNX),
+        (False, False, TargetRuntime.PRECOMPILED_QNN_ONNX),
     ],
 )
 def test_cli_device_with_skips(
@@ -75,6 +77,8 @@ def test_cli_device_with_skips_unsupported_device(
     [
         ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.QNN_CONTEXT_BINARY),
         ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.QNN_CONTEXT_BINARY),
+        ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.PRECOMPILED_QNN_ONNX),
+        ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.PRECOMPILED_QNN_ONNX),
     ],
 )
 def test_cli_chipset_with_options(
@@ -104,6 +108,9 @@ def test_cli_chipset_with_options(
         (CacheMode.ENABLE, True, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (CacheMode.DISABLE, True, False, TargetRuntime.QNN_CONTEXT_BINARY),
         (CacheMode.OVERWRITE, False, False, TargetRuntime.QNN_CONTEXT_BINARY),
+        (CacheMode.ENABLE, True, True, TargetRuntime.PRECOMPILED_QNN_ONNX),
+        (CacheMode.DISABLE, True, False, TargetRuntime.PRECOMPILED_QNN_ONNX),
+        (CacheMode.OVERWRITE, False, False, TargetRuntime.PRECOMPILED_QNN_ONNX),
     ],
 )
 def test_cli_default_device_select_component(
@@ -130,7 +137,7 @@ def test_cli_default_device_select_component(
 # Dummy Model
 class TestLlama3(FP_Model):
     def edit_llm_config(self, llm_config: PretrainedConfig) -> PretrainedConfig:
-        llm_config.num_hidden_layers = 2
+        llm_config.num_hidden_layers = 1
         return llm_config
 
     @classmethod
@@ -138,14 +145,11 @@ class TestLlama3(FP_Model):
         cls,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        _skip_optimizations: list[str]
-        | None = [Llama3_Optimizations.MLP_LINEAR_TO_CONV],
     ) -> FP_Model:
         return cls(
             checkpoint=HF_REPO_NAME,
             sequence_length=sequence_length,
             context_length=context_length,
-            _skip_optimizations=_skip_optimizations,
             host_device="cpu",
             load_pretrained=False,
         )
@@ -153,11 +157,15 @@ class TestLlama3(FP_Model):
     def _verify_ckpt(self):
         pass
 
+    @staticmethod
+    def get_output_names():
+        return Llama3Base._get_output_names(1)
+
 
 @pytest.fixture(scope="session")
 def setup_dummy_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"{MODEL_ID}_dummy_ckpt")
-    return test.setup_test_quantization(Model, TestLlama3, path)
+    return test.setup_test_quantization(Model, TestLlama3, path, num_samples=1)
 
 
 @pytest.mark.skipif(

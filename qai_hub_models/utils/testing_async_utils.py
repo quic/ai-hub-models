@@ -16,7 +16,6 @@ from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
 from typing_extensions import TypeAlias
 
-from qai_hub_models.configs.perf_yaml import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -720,11 +719,6 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
             return False
 
         if current_compile_job.get_status().failure:
-            return False
-
-        if ToolVersions.from_job(previous_compile_job) != ToolVersions.from_job(
-            current_compile_job
-        ):
             return False
 
         # The temporary directory and all its contents will be automatically cleaned up when the 'with' block is exited

@@ -24,9 +24,9 @@ def quantize(
     context_length: int,
     seq_len: int,
     output_dir: str,
+    num_samples: int = 0,
     checkpoint: str | None = None,
     use_seq_mse: bool = False,
-    apply_mlp_linear_to_conv: bool = False,
     allow_cpu_to_quantize: bool = False,
 ):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -40,12 +40,10 @@ def quantize(
                 "The quantization technique Sequential MSE requires a CUDA GPU (V100/A100). Please re-try with GPU machine."
             )
 
-    _skip_optimizations = None if apply_mlp_linear_to_conv else ["mlp_linear_to_conv"]
     # Create the floating point model
     extra = dict(
         sequence_length=seq_len,
         context_length=context_length,
-        _skip_optimizations=_skip_optimizations,
     )
     if checkpoint:
         extra["checkpoint"] = checkpoint  # type: ignore[assignment]
@@ -60,8 +58,7 @@ def quantize(
         host_device=device,
         fp_model=fp_model,
     )
-
-    calib_data = model_quant.get_calibration_data()
+    calib_data = model_quant.get_calibration_data(num_samples=num_samples)
     assert calib_data is not None
     dataloader = dataset_entries_to_dataloader(calib_data)
 
@@ -121,10 +118,10 @@ def llm_quantize(
         help="Add to apply Sequential MSE.",
     )
     parser.add_argument(
-        "--apply-mlp-linear-to-conv",
-        action="store_true",
-        default=False,
-        help="Apply MLP Linear to Conv adaptation.",
+        "--num-samples",
+        type=int,
+        default=0,
+        help="Number of samples to be used for calibration.",
     )
     args = parser.parse_args()
 
@@ -134,9 +131,9 @@ def llm_quantize(
         context_length=args.context_length,
         seq_len=args.calibration_sequence_length,
         output_dir=args.output_dir,
+        num_samples=args.num_samples,
         checkpoint=args.checkpoint,
         use_seq_mse=args.use_seq_mse,
-        apply_mlp_linear_to_conv=args.apply_mlp_linear_to_conv,
         allow_cpu_to_quantize=allow_cpu_to_quantize,
     )
     print("Quantization completed successfully.")

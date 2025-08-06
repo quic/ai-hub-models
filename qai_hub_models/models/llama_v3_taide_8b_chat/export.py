@@ -10,7 +10,12 @@ import warnings
 
 from qai_hub_models.models._shared.llm.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.llama_v3_taide_8b_chat import MODEL_ID, FP_Model, Model
+from qai_hub_models.models.llama_v3_taide_8b_chat import (
+    MODEL_ID,
+    FP_Model,
+    Model,
+    PositionProcessor,
+)
 from qai_hub_models.models.llama_v3_taide_8b_chat.model import (
     MODEL_ASSET_VERSION,
     NUM_LAYERS_PER_SPLIT,
@@ -37,7 +42,10 @@ def main():
     parser = export_parser(
         model_cls=Model,
         supported_precision_runtimes={
-            Precision.w4a16: [TargetRuntime.QNN_CONTEXT_BINARY]
+            Precision.w4a16: [
+                TargetRuntime.QNN_CONTEXT_BINARY,
+                TargetRuntime.PRECOMPILED_QNN_ONNX,
+            ]
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
@@ -58,6 +66,7 @@ def main():
         components=ALL_COMPONENTS,
         sub_components=ALL_SUB_COMPONENTS,
         num_layers_per_split=NUM_LAYERS_PER_SPLIT,
+        position_processor_cls=PositionProcessor,
         **additional_model_kwargs,
     )
 

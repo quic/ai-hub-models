@@ -150,8 +150,6 @@ def export_model(
         sequence_length=additional_model_kwargs["sequence_length"],
         context_length=additional_model_kwargs["context_length"],
     )
-    if hub_device.name == "SA8295P ADP":
-        fp_model_params["_skip_optimizations"] = None
     if additional_model_kwargs["checkpoint"] == "DEFAULT":
         additional_model_kwargs["fp_model"] = additional_model_kwargs["fp_model_cls"].from_pretrained(  # type: ignore[index]
             **fp_model_params
@@ -462,6 +460,7 @@ def export_model(
 
         hub_model = next(iter(link_jobs.values())).get_target_model()
         assert hub_model is not None
+
         qairt_version = hub_model.metadata[hub.ModelMetadataKey.QAIRT_SDK_VERSION]
 
         model.prepare_ort_genai_assets(

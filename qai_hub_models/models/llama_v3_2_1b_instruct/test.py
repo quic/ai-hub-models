@@ -13,7 +13,7 @@ import torch
 from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llama3 import test
-from qai_hub_models.models._shared.llama3.model import Llama3_Optimizations
+from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models.common import TargetRuntime
@@ -141,29 +141,27 @@ class TestLlama3_2(Llama3_2_1B):
         pass
 
     @staticmethod
-    def get_output_names(num_hidden_layers: int = 1):
-        return Llama3_2_1B.get_output_names(num_hidden_layers)
+    def get_output_names():
+        return Llama3Base._get_output_names(1)
 
     @classmethod
     def from_pretrained(
         cls,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        _skip_optimizations: list[str]
-        | None = [Llama3_Optimizations.MLP_LINEAR_TO_CONV],
     ) -> Llama3_2_1B:
         return cls(
             checkpoint=HF_REPO_NAME,
             sequence_length=sequence_length,
             context_length=context_length,
-            _skip_optimizations=_skip_optimizations,
+            load_pretrained=False,
         )
 
 
 @pytest.fixture(scope="session")
 def setup_dummy_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"dummy_{MODEL_ID}_ckpt")
-    return test.setup_test_quantization(Model, TestLlama3_2, path)
+    return test.setup_test_quantization(Model, TestLlama3_2, path, num_samples=1)
 
 
 @pytest.mark.skipif(

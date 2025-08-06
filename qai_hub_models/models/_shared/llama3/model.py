@@ -70,7 +70,6 @@ DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
 class Llama3_Optimizations(str, Enum):  # Inherit from str and Enum
     SHA_ATTENTION = "sha_attention"
     RMS_NORM_4_RANK = "rank4_rms_norm"
-    MLP_LINEAR_TO_CONV = "mlp_linear_to_conv"
 
 
 class RopeEmbedding(Embedding):
@@ -156,7 +155,7 @@ class LlamaPositionProcessor(PositionProcessorBase):
 
 
 class Llama3Base(LLMBase):
-    LMClass = modeling_llama.LlamaForCausalLM
+    LMClass = QCLlamaForCausalLM
     EmbeddingClass = RopeEmbedding
 
     @staticmethod
@@ -218,16 +217,8 @@ class Llama3Base(LLMBase):
         else:
             modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
 
-        # This can be used to convert the remaining Linears to Convs.
-        # This is useful for hardware devices that don't support PCQ MatMuls natively.
-        if (
-            skip_optimizations is None
-            or Llama3_Optimizations.MLP_LINEAR_TO_CONV not in skip_optimizations
-        ):
-            print("Applying mlp_linear_to_conv optimization.")
-            modeling_llama.LlamaMLP = QCLlamaMLP
-            modeling_llama.LlamaForCausalLM = QCLlamaForCausalLM
-            Llama3Base.LMClass = QCLlamaForCausalLM
+        modeling_llama.LlamaMLP = QCLlamaMLP
+        modeling_llama.LlamaForCausalLM = QCLlamaForCausalLM
 
     def _verify_ckpt(self):
         if (
@@ -265,6 +256,25 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             context_length=context_length,
             host_device=host_device,
         )
+
+    @staticmethod
+    def get_input_prompt_with_tags(
+        user_input_prompt: str = DEFAULT_USER_PROMPT,
+        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
+    ) -> str:
+        """
+        Get prompt to set context and initialize prompt-processor
+        """
+        prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
+
+{system_context_prompt}
+{START_HEADER}{USER_ID}{END_HEADER}
+
+{user_input_prompt}{EOT_ID}{START_HEADER}{ASSISTANT_ID}{END_HEADER}
+
+
+"""
+        return prompt
 
     @staticmethod
     def _get_output_names(num_hidden_layers: int):

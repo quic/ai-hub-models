@@ -301,6 +301,8 @@ def test_cli_chipset_with_options(
         )
 
         assert mock_get_hub_compile_options.call_count == parts * 2
+        if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            compile_options += " --qairt_version 2.33"
         assert all(
             call.args == (target_runtime, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list
@@ -447,6 +449,7 @@ def setup_test_quantization(
     fp_model_cls: type[LLMBase],
     output_path: str,
     checkpoint: str | None = None,
+    num_samples: int = 0,
 ) -> str:
     if not (
         (Path(output_path) / "model.encodings").exists()
@@ -462,6 +465,7 @@ def setup_test_quantization(
             output_dir=output_path,
             allow_cpu_to_quantize=True,
             checkpoint=checkpoint,
+            num_samples=num_samples,
         )
 
     return output_path

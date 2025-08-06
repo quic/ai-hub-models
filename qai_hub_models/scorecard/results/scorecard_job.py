@@ -13,7 +13,7 @@ from typing import Any, Generic, Optional, TypeVar, cast
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -147,10 +147,6 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         return self._device.reference_device
 
     @cached_property
-    def tool_versions(self) -> ToolVersions:
-        return ToolVersions.from_job(self.job, parse_version_tags=True)
-
-    @cached_property
     def chipset(self) -> str:
         """Chipset the job was run on."""
         if self.skipped:
@@ -255,7 +251,6 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
                 self.layer_counts.primary_compute_unit if self.success else None
             ),
             layer_counts=self.layer_counts if self.success else None,
-            tool_versions=self.tool_versions,
         )
         return metrics
 
