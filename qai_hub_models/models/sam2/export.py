@@ -269,7 +269,7 @@ def export_model(
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
     model_name = create_model_identifier("sam2", Model,
-                                         additional_model_kwargs, custom_identifier_args=["model_type"])
+                                         additional_model_kwargs, custom_identifier_args="model_type")
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Snapdragon 8 Elite QRD")

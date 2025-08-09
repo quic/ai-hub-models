@@ -49,7 +49,7 @@ def main():
     parser = enable_model_caching(parser)
     args = parser.parse_args()
     args_dict = vars(args)
-    model_name = create_model_identifier(MODEL_ID, Model, args_dict, custom_identifier_args=["huggingface_model_name"])
+    model_name = create_model_identifier(MODEL_ID, Model, args_dict, custom_identifier_args="huggingface_model_name")
     export_model(
         model_cls=Model,
         model_name=model_name,

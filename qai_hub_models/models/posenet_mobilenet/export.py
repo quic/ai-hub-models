@@ -228,7 +228,7 @@ def export_model(
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
     model_name = create_model_identifier("posenet_mobilenet", Model,
-                                         additional_model_kwargs, custom_identifier_args=["model_id"])
+                                         additional_model_kwargs, custom_identifier_args="model_id")
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Samsung Galaxy S24 (Family)")

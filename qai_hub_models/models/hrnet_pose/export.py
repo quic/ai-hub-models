@@ -227,7 +227,7 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = create_model_identifier("hrnet_pose", Model, additional_model_kwargs, custom_identifier_args=["variant"])
+    model_name = create_model_identifier("hrnet_pose", Model, additional_model_kwargs, custom_identifier_args="variant")
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Samsung Galaxy S24 (Family)")

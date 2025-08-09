@@ -17,7 +17,7 @@ from collections.abc import Mapping
 from functools import partial
 from pathlib import Path
 from pydoc import locate
-from typing import Any, Optional, TypeVar, List
+from typing import Any, Optional, TypeVar, Tuple
 
 import qai_hub as hub
 import torch
@@ -923,7 +923,7 @@ def validate_precision_runtime(
 
 
 def create_model_identifier(default_model_name: str, model_cls: type[FromPretrainedTypeVar],
-                                   model_kwargs: dict[str, Any]=None, *, custom_identifier_args: Optional[List[str]] = None) -> str:
+                                   model_kwargs: dict[str, Any]=None, *, custom_identifier_args: Optional[Tuple[str] | str] = None) -> str:
     """
     Parse the name of the weights provided by the user if any,
     and appends the default model name to it,
@@ -943,20 +943,20 @@ def create_model_identifier(default_model_name: str, model_cls: type[FromPretrai
         return default_model_name
 
     from_pretrained_sig = inspect.signature(model_cls.from_pretrained)
-    default_checkpoint_names = (
-        "ckpt", "weights"
-    )
 
-    def name_checker(name: str) -> bool:
-        if custom_identifier_args is not None:
-            return name in custom_identifier_args
-        return name.startswith(default_checkpoint_names)
+    identifier_args =  (
+        custom_identifier_args
+        if isinstance(custom_identifier_args, tuple)
+        else tuple(custom_identifier_args)
+        if custom_identifier_args is not None
+        else ("ckpt", "weights")
+    )
 
     for name, param in from_pretrained_sig.parameters.items():
         if (
             name != "cls"
             and param.annotation == "str"
-            and name_checker(name)
+            and name.startswith(identifier_args)
             and name in model_kwargs
         ):
             return f"{Path(model_kwargs[name]).stem}_{default_model_name}"
