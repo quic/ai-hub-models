@@ -15,8 +15,9 @@ import os
 import sys
 from collections.abc import Mapping
 from functools import partial
+from pathlib import Path
 from pydoc import locate
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, List
 
 import qai_hub as hub
 import torch
@@ -919,3 +920,45 @@ def validate_precision_runtime(
         raise ValueError(
             f"Model does not support runtime {runtime} with precision {precision}. These combinations are supported: {supported_precision_runtimes}"
         )
+
+
+def create_model_identifier(default_model_name: str, model_cls: type[FromPretrainedTypeVar],
+                                   model_kwargs: dict[str, Any]=None, *, custom_identifier_args: Optional[List[str]] = None) -> str:
+    """
+    Parse the name of the weights provided by the user if any,
+    and appends the default model name to it,
+    otherwise return just the given `default_model_name`.
+
+    Args:
+        custom_identifier_args (List[str], optional): List of arguments to be used to identify the model.
+        default_model_name (str): The default name to use if no weights are provided.
+        model_cls (type[FromPretrainedTypeVar]): The model class with a `from_pretrained` method.
+        **model_kwargs: Keyword arguments passed in by the user.
+
+    Returns:
+        str: A name derived from the provided weights, or the default model name.
+    """
+
+    if not hasattr(model_cls, "from_pretrained") or model_kwargs is None:
+        return default_model_name
+
+    from_pretrained_sig = inspect.signature(model_cls.from_pretrained)
+    default_checkpoint_names = (
+        "ckpt", "weights"
+    )
+
+    def name_checker(name: str) -> bool:
+        if custom_identifier_args is not None:
+            return name in custom_identifier_args
+        return name.startswith(default_checkpoint_names)
+
+    for name, param in from_pretrained_sig.parameters.items():
+        if (
+            name != "cls"
+            and param.annotation == "str"
+            and name_checker(name)
+            and name in model_kwargs
+        ):
+            return f"{Path(model_kwargs[name]).stem}_{default_model_name}"
+
+    return default_model_name
