@@ -16,11 +16,7 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
-from qai_hub_models.models._shared.llm.model import (
-    determine_precision_from_checkpoint,
-    get_default_precision,
-    get_supported_precisions,
-)
+from qai_hub_models.models._shared.llm.model import determine_precision_from_checkpoint
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
@@ -40,8 +36,8 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
 MIN_MEMORY_RECOMMENDED = 50
-DEFAULT_PRECISION = get_default_precision(MODEL_ID)
-SUPPORTED_PRECISIONS = get_supported_precisions(MODEL_ID)
+DEFAULT_PRECISION = Precision.w4a16
+SUPPORTED_PRECISIONS = [Precision.w4a16]
 DEFAULT_CHECKPOINT = {Precision.w4a16: "llama32_ckpt_w4a16"}
 
 

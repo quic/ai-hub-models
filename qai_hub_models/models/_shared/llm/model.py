@@ -39,7 +39,6 @@ from transformers import AutoConfig, PretrainedConfig, PreTrainedTokenizer
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig
 
-from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.datasets.mmmlu import mmmlu_split_lookup
@@ -108,22 +107,6 @@ from transformers import (  # noqa: E402
     AutoTokenizer,
     PreTrainedTokenizerBase,
 )
-
-
-def get_supported_precisions(model_id: str) -> list[Precision]:
-    precisions = QAIHMModelCodeGen.from_model(model_id).supported_precisions
-    assert (
-        Precision.float not in precisions
-    ), "Supported precision for LLMs cannot be float (specify supported_precisions in code-gen.yml correctly)."
-    return precisions
-
-
-def get_default_precision(model_id: str) -> Precision:
-    default_precision = QAIHMModelCodeGen.from_model(model_id).default_precision
-    assert (
-        default_precision != Precision.float
-    ), "Default Precision cannot be float (first entry for supported_precisions in code-gen.yml is picked as default)."
-    return default_precision
 
 
 def determine_precision_from_checkpoint(checkpoint: str) -> Precision | None:
