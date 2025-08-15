@@ -13,7 +13,11 @@ import torch
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
+from qai_hub_models.evaluators.base_evaluators import (
+    BaseEvaluator,
+    MetricMetadata,
+    _DataLoader,
+)
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer
@@ -72,10 +76,10 @@ class PerplexityEvaluator(BaseEvaluator):
         generator: LLM_Generator,
         data: _DataLoader,
         num_samples: int | None = None,
-        callback: Callable[
-            [list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None
-        ]
-        | None = None,
+        callback: (
+            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            | None
+        ) = None,
     ) -> None:
         total_samples = 0
         batch_size = 1
@@ -110,3 +114,10 @@ class PerplexityEvaluator(BaseEvaluator):
             self.add_batch(outputs, ground_truth)
 
         self.for_each_batch(generator, data, eval_iterations, _add_batch)
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Perplexity",
+            unit="PPL",
+            description="A measure of how likely the model is to predict a given sequence of words. Lower is better.",
+        )

@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -82,3 +82,10 @@ class ADESegmentationDataset(BaseDataset):
     @staticmethod
     def default_samples_per_job() -> int:
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://ade20k.csail.mit.edu/",
+            split_description="validation split",
+        )

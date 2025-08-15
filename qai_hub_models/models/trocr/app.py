@@ -54,7 +54,8 @@ class TrOCRApp:
         """Convert a raw image (resize, normalize) into a pyTorch tensor that can be used as input to TrOCR inference.
         This also converts the image to RGB, which is the expected input channel layout for TrOCR.
 
-        For more information on preprocessing, see https://huggingface.co/docs/transformers/preprocessing."""
+        For more information on preprocessing, see https://huggingface.co/docs/transformers/preprocessing.
+        """
         assert (
             self.io_processor is not None
         ), "TrOCR processor most be provided to use type Image as an input."
@@ -167,9 +168,13 @@ class TrOCRApp:
 
             input_ids = np.expand_dims(next_tokens, -1)
             output_ids = np.concatenate([output_ids, input_ids], axis=-1)
-            yield self.io_processor.batch_decode(
-                torch.from_numpy(output_ids), skip_special_tokens=True
-            ) if self.io_processor and not raw_output else output_ids
+            yield (
+                self.io_processor.batch_decode(
+                    torch.from_numpy(output_ids), skip_special_tokens=True
+                )
+                if self.io_processor and not raw_output
+                else output_ids
+            )
 
             # if eos_token was found in one sentence, set sentence to finished
             if eos_token_id_tensor is not None:

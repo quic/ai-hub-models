@@ -14,7 +14,7 @@ from mmpose.codecs.utils import get_simcc_maximum
 from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocowholebody import CocoWholeBodyDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.pose import (
     BODY_SIGMAS,
     FACE_SIGMAS,
@@ -196,3 +196,10 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
         """Formats the mAP score for display."""
         results = self.get_coco_mAP()
         return f"mAP: {results['AP']:.3f}, AP@.5: {results['AP@.5']:.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Percentage of keypoints that are close to the expected location.",
+        )

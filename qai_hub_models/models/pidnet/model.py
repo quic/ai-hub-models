@@ -31,7 +31,6 @@ class PidNet(CityscapesSegmentor):
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> PidNet:
-
         """Load pidnet from a weightfile created by the source pidnet repository."""
         # Load PyTorch model from disk
         pidnet_model = _load_pidnet_source_model_from_weights(weights_path)

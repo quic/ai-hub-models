@@ -14,7 +14,7 @@ from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llama3.model import Llama3Base
-from qai_hub_models.models._shared.llm.evaluate import evaluate
+from qai_hub_models.models._shared.llm.evaluate import create_quantsim, evaluate
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v3_2_3b_instruct import MODEL_ID, Model
@@ -26,12 +26,15 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.export import (
 from qai_hub_models.models.llama_v3_2_3b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_PRECISION,
     DEFAULT_SEQUENCE_LENGTH,
     HF_REPO_NAME,
     Llama3_2_3B,
 )
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.model_cache import CacheMode
+
+DEFAULT_EVAL_SEQLEN = 2048
 
 
 @pytest.mark.unmarked
@@ -166,7 +169,13 @@ class TestLlama3_2(Llama3_2_3B):
 @pytest.fixture(scope="session")
 def setup_dummy_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"dummy_{MODEL_ID}_ckpt")
-    return test.setup_test_quantization(Model, TestLlama3_2, path, num_samples=1)
+    return test.setup_test_quantization(
+        Model,
+        TestLlama3_2,
+        path,
+        precision=DEFAULT_PRECISION,
+        num_samples=1,
+    )
 
 
 @pytest.mark.skipif(
@@ -179,6 +188,7 @@ def test_cpu() -> None:
             fp_model_cls=TestLlama3_2,
             context_length=128,
             seq_len=64,
+            precision=DEFAULT_PRECISION,
             output_dir="fail_on_cpu",
             checkpoint=None,
         )
@@ -188,17 +198,27 @@ def test_cpu() -> None:
 def test_dummy_model_evaluate(
     task: str, setup_dummy_quantized_checkpoints: CheckpointSpec
 ) -> None:
-    actual_metric, _ = evaluate(
+    model, is_quantized, host_device = create_quantsim(
         quantized_model_cls=Model,
+        fp_model_cls=TestLlama3_2,
+        kwargs=dict(
+            _skip_quantsim_creation=False,
+            checkpoint=setup_dummy_quantized_checkpoints,
+            sequence_length=DEFAULT_EVAL_SEQLEN,
+            context_length=DEFAULT_CONTEXT_LENGTH,
+            fp_model=None,
+        ),
+    )
+    actual_metric, _ = evaluate(
         fp_model_cls=TestLlama3_2,
         num_samples=2,
         task=task,
         kwargs=dict(
-            _skip_quantsim_creation=False,
-            checkpoint=setup_dummy_quantized_checkpoints,
-            sequence_length=2048,
             context_length=4096,
         ),
+        model=model,
+        is_quantized=is_quantized,
+        host_device=host_device,
     )
     assert isinstance(actual_metric, float) and actual_metric >= 0.0
 
@@ -218,7 +238,38 @@ def setup_quantized_checkpoints(tmpdir_factory) -> str:
         Model,
         Llama3_2_3B,
         path,
-        "Bllossom/llama-3.2-Korean-Bllossom-3B",
+        precision=DEFAULT_PRECISION,
+        checkpoint="Bllossom/llama-3.2-Korean-Bllossom-3B",
+    )
+
+
+@pytest.fixture(scope="session")
+def setup_create_quantsim_default():
+    return create_quantsim(
+        quantized_model_cls=Model,
+        fp_model_cls=Llama3_2_3B,
+        kwargs=dict(
+            _skip_quantsim_creation=False,
+            checkpoint="DEFAULT",
+            sequence_length=DEFAULT_EVAL_SEQLEN,
+            context_length=DEFAULT_CONTEXT_LENGTH,
+            fp_model=None,
+        ),
+    )
+
+
+@pytest.fixture(scope="session")
+def setup_create_default_unquantized():
+    return create_quantsim(
+        quantized_model_cls=Model,
+        fp_model_cls=Llama3_2_3B,
+        kwargs=dict(
+            _skip_quantsim_creation=False,
+            checkpoint="DEFAULT_UNQUANTIZED",
+            sequence_length=DEFAULT_EVAL_SEQLEN,
+            context_length=DEFAULT_CONTEXT_LENGTH,
+            fp_model=None,
+        ),
     )
 
 
@@ -226,34 +277,62 @@ def setup_quantized_checkpoints(tmpdir_factory) -> str:
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "checkpoint,task,expected_metric,num_samples",
+    "task,expected_metric,num_samples",
     [
-        # HuggingFace Model (Default floating point)
-        ("DEFAULT_UNQUANTIZED", "wikitext-ppl", 10.164, 0),
-        ("DEFAULT_UNQUANTIZED", "tiny-mmlu", 0.45, 0),
-        # Grab and Go Encodings
-        ("DEFAULT", "wikitext-ppl", 12.18, 0),
-        ("DEFAULT", "mmlu", 0.52, 1000),
+        ("wikitext-ppl", 11.997, 0),
+        ("mmlu", 0.566, 1000),
+        ("tiny-mmlu", 0.53, 0),
     ],
 )
-def test_evaluate(
-    checkpoint: CheckpointSpec,
+def test_evaluate_default(
+    setup_create_quantsim_default,
     task: str,
     expected_metric: float,
     num_samples: int,
 ) -> None:
+    model, is_quantized, host_device = setup_create_quantsim_default
     actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=Llama3_2_3B,
         num_samples=num_samples,
         task=task,
+        model=model,
         kwargs=dict(
-            _skip_quantsim_creation=False,
-            checkpoint=checkpoint,
-            sequence_length=DEFAULT_SEQUENCE_LENGTH,
             context_length=DEFAULT_CONTEXT_LENGTH,
-            fp_model=None,
         ),
+        fp_model_cls=Llama3_2_3B,
+        is_quantized=is_quantized,
+        host_device=host_device,
+    )
+    np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="This test can be run on GPU only."
+)
+@pytest.mark.parametrize(
+    "task,expected_metric,num_samples",
+    [
+        ("wikitext-ppl", 10.165, 0),
+        ("mmlu", 0.613, 1000),
+        ("tiny-mmlu", 0.64, 0),
+    ],
+)
+def test_evaluate_default_unquantized(
+    setup_create_default_unquantized,
+    task: str,
+    expected_metric: float,
+    num_samples: int,
+) -> None:
+    model, is_quantized, host_device = setup_create_default_unquantized
+    actual_metric, _ = evaluate(
+        num_samples=num_samples,
+        task=task,
+        model=model,
+        kwargs=dict(
+            context_length=DEFAULT_CONTEXT_LENGTH,
+        ),
+        fp_model_cls=Llama3_2_3B,
+        is_quantized=is_quantized,
+        host_device=host_device,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
@@ -264,11 +343,9 @@ def test_evaluate(
 def test_evaluate_quantized_checkpoint(
     setup_quantized_checkpoints: str,
 ) -> None:
-    actual_metric, _ = evaluate(
+    model, is_quantized, host_device = create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_2_3B,
-        task="mmmlu-ko",
-        num_samples=100,
         kwargs=dict(
             _skip_quantsim_creation=False,
             checkpoint=setup_quantized_checkpoints,
@@ -276,6 +353,17 @@ def test_evaluate_quantized_checkpoint(
             context_length=DEFAULT_CONTEXT_LENGTH,
             fp_model=None,
         ),
+    )
+    actual_metric, _ = evaluate(
+        fp_model_cls=Llama3_2_3B,
+        task="mmmlu-ko",
+        num_samples=100,
+        kwargs=dict(
+            context_length=DEFAULT_CONTEXT_LENGTH,
+        ),
+        model=model,
+        is_quantized=is_quantized,
+        host_device=host_device,
     )
     np.testing.assert_allclose(actual_metric, 0.3, rtol=1e-02, atol=1e-02)
 

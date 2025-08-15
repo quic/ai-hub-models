@@ -68,15 +68,15 @@ def get_split_tensors(
             valid splitting points
     """
 
-    def get_nodes() -> tuple[
-        dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]
-    ]:
+    def get_nodes() -> (
+        tuple[dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]]
+    ):
         model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
         nodes = {i.name: i for i in model.graph.node}
         seq = {i.name: idx for idx, i in enumerate(model.graph.node)}
-        producers: collections.defaultdict[
-            str, Optional[str]
-        ] = collections.defaultdict(lambda: None)
+        producers: collections.defaultdict[str, Optional[str]] = (
+            collections.defaultdict(lambda: None)
+        )
         producers.update({i.output[0]: i.name for i in model.graph.node})
         return nodes, seq, producers
 

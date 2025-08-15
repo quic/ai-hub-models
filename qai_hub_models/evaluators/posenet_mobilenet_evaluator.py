@@ -17,7 +17,6 @@ from qai_hub_models.utils.image_processing import (
 
 
 class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
-
     """Evaluator for Posenet Mobilenet estimation models"""
 
     def __init__(self, image_height: int, image_width: int, in_vis_thre: float = 0.2):
@@ -33,7 +32,6 @@ class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
         ],
         gt: list[torch.Tensor],
     ) -> None:
-
         """Process a batch of Posenet Mobilenet model outputs and ground truth data.
 
         Args:

@@ -1,0 +1,25 @@
+metrics:
+- dataset_name: nyuv2
+  dataset_link: https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html
+  dataset_split_description: validation split
+  metric_name: Delta Threshold Accuracy
+  metric_description: The percentage of pixels where the predicted depth is within 25% of the expected.
+  metric_unit: δ1
+  num_partial_samples: 100
+  partial_torch_metric: 88.1
+  device_metric:
+    Samsung Galaxy S24:
+      w8a8:
+        tflite:
+          partial_metric: 88.1
+        qnn_dlc:
+          partial_metric: 88.0
+        onnx:
+          partial_metric: 88.2
+      float:
+        tflite:
+          partial_metric: 88.1
+        qnn_dlc:
+          partial_metric: 88.1
+        onnx:
+          partial_metric: 88.1

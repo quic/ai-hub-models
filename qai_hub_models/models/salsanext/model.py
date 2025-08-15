@@ -55,7 +55,6 @@ class SalsaNext(BaseModel):
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> SalsaNext:
-
         """Load salsanext from a weightfile created by the source salsanext repository."""
         # Load PyTorch model from disk
         salsanext_model = _load_salsanext_source_model_from_weights(weights_path)

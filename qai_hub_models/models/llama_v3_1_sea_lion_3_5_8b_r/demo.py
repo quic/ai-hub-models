@@ -12,6 +12,7 @@ from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import MODEL_ID, FP_Mode
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.model import (
     HF_REPO_NAME,
     HF_REPO_URL,
+    SUPPORTED_PRECISIONS,
 )
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.checkpoint import CheckpointSpec
@@ -34,6 +35,7 @@ def llama_v3_1_sea_lion_3_5_8b_r_chat_demo(
         model_id=model_id,
         prepare_combined_attention_mask=prepare_combined_attention_mask,
         end_tokens=end_tokens,
+        supported_precisions=SUPPORTED_PRECISIONS,
         hf_repo_name=hf_repo_name,
         hf_repo_url=hf_repo_url,
         default_prompt=default_prompt,

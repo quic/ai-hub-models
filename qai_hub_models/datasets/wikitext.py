@@ -11,7 +11,7 @@ import torch
 from datasets import Dataset, load_dataset
 from transformers import PreTrainedTokenizerBase
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 
 
 def collate_fn(batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -83,3 +83,10 @@ class WikiText(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 1
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://huggingface.co/datasets/mindchain/wikitext2",
+            split_description="test split",
+        )

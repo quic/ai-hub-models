@@ -9,7 +9,7 @@ import torch
 from torchmetrics.detection import MeanAveragePrecision
 from ultralytics.utils.ops import process_mask
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.utils.bounding_box_processing import batched_nms
 
 
@@ -97,3 +97,10 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} mAP"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Ratio of objects where the IOU of the predicted mask against the gt is >0.5.",
+        )

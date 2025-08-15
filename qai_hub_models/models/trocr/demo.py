@@ -6,16 +6,10 @@
 import time
 
 from qai_hub_models.models.trocr.app import TrOCRApp
-from qai_hub_models.models.trocr.model import (
-    HUGGINGFACE_TROCR_MODEL,
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    TrOCR,
-)
+from qai_hub_models.models.trocr.model import MODEL_ASSET_VERSION, MODEL_ID, TrOCR
 from qai_hub_models.utils.args import get_model_cli_parser, model_from_cli_args
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 
-HUGGINGFACE_TROCR_MODEL = "microsoft/trocr-small-stage1"
 DEFAULT_SAMPLE_IMAGE = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "sample_text.jpg"
 )

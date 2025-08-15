@@ -308,7 +308,7 @@ and many more.
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1) | [qai_hub_models.models.stable_diffusion_v2_1](qai_hub_models/models/stable_diffusion_v2_1/README.md) |
 | | |
 | **Text Generation**
-| [Allam-7B](https://aihub.qualcomm.com/models/allam_7b) | [qai_hub_models.models.allam_7b](qai_hub_models/models/allam_7b/README.md) |
+| [ALLaM-7B](https://aihub.qualcomm.com/models/allam_7b) | [qai_hub_models.models.allam_7b](qai_hub_models/models/allam_7b/README.md) |
 | [Baichuan2-7B](https://aihub.qualcomm.com/models/baichuan2_7b) | [qai_hub_models.models.baichuan2_7b](qai_hub_models/models/baichuan2_7b/README.md) |
 | [IBM-Granite-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct) | [qai_hub_models.models.ibm_granite_v3_1_8b_instruct](qai_hub_models/models/ibm_granite_v3_1_8b_instruct/README.md) |
 | [IndusQ-1.1B](https://aihub.qualcomm.com/models/indus_1b) | [qai_hub_models.models.indus_1b](qai_hub_models/models/indus_1b/README.md) |
@@ -324,7 +324,7 @@ and many more.
 | [Mistral-3B](https://aihub.qualcomm.com/models/mistral_3b) | [qai_hub_models.models.mistral_3b](qai_hub_models/models/mistral_3b/README.md) |
 | [Mistral-7B-Instruct-v0.3](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3) | [qai_hub_models.models.mistral_7b_instruct_v0_3](qai_hub_models/models/mistral_7b_instruct_v0_3/README.md) |
 | [PLaMo-1B](https://aihub.qualcomm.com/models/plamo_1b) | [qai_hub_models.models.plamo_1b](qai_hub_models/models/plamo_1b/README.md) |
-| [Phi-3.5-mini-instruct](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct) | [qai_hub_models.models.phi_3_5_mini_instruct](qai_hub_models/models/phi_3_5_mini_instruct/README.md) |
+| [Phi-3.5-Mini-Instruct](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct) | [qai_hub_models.models.phi_3_5_mini_instruct](qai_hub_models/models/phi_3_5_mini_instruct/README.md) |
 | [Qwen2-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_7b_instruct) | [qai_hub_models.models.qwen2_7b_instruct](qai_hub_models/models/qwen2_7b_instruct/README.md) |
 | [Qwen2.5-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_5_7b_instruct) | [qai_hub_models.models.qwen2_5_7b_instruct](qai_hub_models/models/qwen2_5_7b_instruct/README.md) |
 

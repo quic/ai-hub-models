@@ -1,0 +1,30 @@
+metrics:
+- dataset_name: coco
+  dataset_link: https://cocodataset.org/
+  dataset_split_description: val2017 split
+  metric_name: Mean Average Precision
+  metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
+  metric_unit: mAP@0.5:0.95
+  num_partial_samples: 300
+  partial_torch_metric: 0.333
+  device_metric:
+    Samsung Galaxy S24:
+      w8a16:
+        qnn_dlc:
+          partial_metric: 0.332
+        onnx:
+          partial_metric: 0.333
+      float:
+        tflite:
+          partial_metric: 0.331
+        qnn_dlc:
+          partial_metric: 0.331
+        onnx:
+          partial_metric: 0.331
+      w8a8:
+        tflite:
+          partial_metric: 0.294
+        qnn_dlc:
+          partial_metric: 0.288
+        onnx:
+          partial_metric: 0.287

@@ -14,6 +14,7 @@ from qai_hub_models.models._shared.llm.model import (
     get_tokenizer,
     is_quantized_checkpoint,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.checkpoint import CheckpointSpec
@@ -33,6 +34,7 @@ def llm_chat_demo(
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str,
+    supported_precisions: list[Precision],
     test_checkpoint: CheckpointSpec | None = None,
     available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
     bundled_kvcache: bool = True,
@@ -53,7 +55,10 @@ def llm_chat_demo(
         bundled_kvcache: KV-cache for each head is concatenated.
     """
     # Demo parameters
-    parser = get_model_cli_parser(model_cls)
+    parser = get_model_cli_parser(
+        model_cls,
+        suppress_help_arguments=["--host-device", "--fp-model", "--precision"],
+    )
     parser.add_argument(
         "--prompt",
         type=str,
@@ -83,6 +88,7 @@ def llm_chat_demo(
         default=42,
         help="random seed.",
     )
+
     args = parser.parse_args([] if test_checkpoint is not None else None)
     checkpoint = args.checkpoint if test_checkpoint is None else test_checkpoint
     max_output_tokens = args.max_output_tokens if test_checkpoint is None else 10

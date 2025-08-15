@@ -12,7 +12,11 @@ from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
+from qai_hub_models.evaluators.base_evaluators import (
+    BaseEvaluator,
+    MetricMetadata,
+    _DataLoader,
+)
 
 if TYPE_CHECKING:
     from qai_hub_models.models._shared.llm.generator import LLM_Generator
@@ -82,10 +86,10 @@ class MMLUEvaluator(BaseEvaluator):
         generator: LLM_Generator,
         data: _DataLoader,
         num_samples: int | None = None,
-        callback: Callable[
-            [list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None
-        ]
-        | None = None,
+        callback: (
+            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            | None
+        ) = None,
     ) -> None:
         total_samples = 0
         batch_size = 1
@@ -120,3 +124,10 @@ class MMLUEvaluator(BaseEvaluator):
             self.add_batch(outputs, ground_truth)
 
         self.for_each_batch(generator, data, eval_iterations, _add_batch)
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Massive Multitask Language Understanding",
+            unit="MMLU",
+            description="A measure of how well the model can answer multiple choice questions.",
+        )

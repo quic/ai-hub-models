@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
 
 class ClassificationEvaluator(BaseEvaluator):
@@ -49,3 +49,10 @@ class ClassificationEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"{self.top1() * 100:.1f}% (Top 1), {self.top5() * 100:.1f}% (Top 5)"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Classification Accuracy",
+            unit="%",
+            description="Percentage of inputs that were correctly classified.",
+        )

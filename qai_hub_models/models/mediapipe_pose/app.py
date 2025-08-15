@@ -14,6 +14,7 @@ from qai_hub_models.models.mediapipe_pose.model import (
     DETECT_DSCALE,
     DETECT_DXY,
     DETECT_SCORE_SLIPPING_THRESHOLD,
+    DRAW_POSE_KEYPOINT_INDICES,
     POSE_KEYPOINT_INDEX_END,
     POSE_KEYPOINT_INDEX_START,
     POSE_LANDMARK_CONNECTIONS,
@@ -82,6 +83,7 @@ class MediaPipePoseApp(MediaPipeApp):
             nms_iou_threshold,
             min_landmark_score,
             POSE_LANDMARK_CONNECTIONS,
+            DRAW_POSE_KEYPOINT_INDICES,
         )
 
     def _compute_object_roi(

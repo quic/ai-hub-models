@@ -30,7 +30,6 @@ class SAM2InputImageLayout(Enum):
 
 
 class PrepPromptContext:
-
     """
     A context class to provide necessary attributes for _prep_prompts.
 
@@ -79,7 +78,6 @@ class SAM2App:
             tuple[torch.Tensor, torch.Tensor],
         ],
     ) -> None:
-
         """
         Initializes the segmentation model with encoder and decoder components.
 
@@ -117,7 +115,6 @@ class SAM2App:
         point_labels: torch.Tensor,
         return_logits: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-
         """
         Predicts segmentation masks from input image(s) and point-based prompts.
 
@@ -167,7 +164,6 @@ class SAM2App:
     def predict_embeddings(
         self, pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, tuple[int, int]]:
-
         """
         Generates image embeddings and high-resolution features from input image(s).
 
@@ -241,7 +237,6 @@ class SAM2App:
         input_images_original_size: tuple[int, int],
         return_logits: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-
         """
         Predicts segmentation masks from image embeddings and point-based prompts.
 

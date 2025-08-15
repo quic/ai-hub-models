@@ -27,11 +27,8 @@ def main(restrict_to_precision: Precision | None = None):
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
-        Precision.float: [
-            TargetRuntime.TFLITE,
-        ],
+        Precision.float: [],
         Precision.w8a8: [
-            TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,

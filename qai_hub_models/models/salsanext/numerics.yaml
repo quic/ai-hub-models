@@ -1,0 +1,21 @@
+metrics:
+- dataset_name: semantic_kitti
+  dataset_link: https://semantic-kitti.org/
+  dataset_split_description: 'sequence #01 of 22'
+  metric_name: Mean Intersection Over Union
+  metric_description: Overlap of predicted and expected segmentation divided by the union size.
+  metric_unit: mIOU
+  num_partial_samples: 50
+  partial_torch_metric: 0.495
+  device_metric:
+    Samsung Galaxy S24:
+      w8a16:
+        qnn_dlc:
+          partial_metric: 0.495
+      float:
+        tflite:
+          partial_metric: 0.495
+        qnn_dlc:
+          partial_metric: 0.495
+        onnx:
+          partial_metric: 0.495

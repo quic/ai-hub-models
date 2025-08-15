@@ -8,7 +8,7 @@ import subprocess
 
 from torchvision.datasets import ImageNet
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
@@ -107,3 +107,10 @@ class ImagenetDataset(BaseDataset, ImageNet):
         The default value for how many samples to run in each inference job.
         """
         return 2500
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.image-net.org/",
+            split_description="validation split",
+        )

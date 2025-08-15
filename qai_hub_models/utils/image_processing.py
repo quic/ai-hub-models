@@ -13,7 +13,6 @@ import cv2
 import numpy as np
 import numpy.typing as npt
 import torch
-import torchvision.transforms as transforms
 from PIL.Image import Image
 from PIL.Image import fromarray as ImageFromArray
 from torch.nn.functional import interpolate, pad

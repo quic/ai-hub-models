@@ -105,7 +105,6 @@ def _query_yes_no(question, default="yes"):
 
     Sourced from https://stackoverflow.com/questions/3041986/apt-command-line-interface-like-yes-no-input
     """
-    global _always_answer
     if _always_answer is not None:
         return _always_answer
 
@@ -1131,15 +1130,25 @@ def callback_with_retry(
 
 
 @contextmanager
-def qaihm_temp_dir():
+def qaihm_temp_dir(debug_base_dir: str | None = None):
     """
     Keep temp file under LOCAL_STORE_DEFAULT_PATH instead of /tmp which has
     limited space.
+
+    Parameters:
+        debug_base_dir: If provided, use this directory instead of creating a temp directory.
+                       If None, creates a temporary directory as usual.
     """
-    path = os.path.join(LOCAL_STORE_DEFAULT_PATH, "tmp")
-    os.makedirs(path, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=path) as tempdir:
-        yield tempdir
+    if debug_base_dir is not None:
+        # Use the debug directory directly
+        os.makedirs(debug_base_dir, exist_ok=True)
+        yield debug_base_dir
+    else:
+        # Use temporary directory as before
+        path = os.path.join(LOCAL_STORE_DEFAULT_PATH, "tmp")
+        os.makedirs(path, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=path) as tempdir:
+            yield tempdir
 
 
 PathType = Union[str, Path, CachedWebAsset]

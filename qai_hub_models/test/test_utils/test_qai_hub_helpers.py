@@ -2,43 +2,30 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
-import numpy as np
+from unittest.mock import MagicMock
 
-from qai_hub_models.utils.transpose_channel import (
-    transpose_channel_first_to_last,
-    transpose_channel_last_to_first,
-)
+import qai_hub as hub
 
-
-def test_transpose_case1():
-    array = np.random.random((4, 3, 2))
-    inp = dict(a=[array])
-    result = transpose_channel_first_to_last(["a"], inp)
-    assert list(result.keys())[0] == "a"
-    assert result["a"][0].shape == (3, 2, 4)
-    result = transpose_channel_last_to_first(["a"], result)
-    assert inp["a"][0].shape == result["a"][0].shape
-    assert np.allclose(inp["a"][0], result["a"][0])
+from qai_hub_models.utils.qai_hub_helpers import extract_job_options
 
 
-def test_transpose_case2():
-    array = np.random.random((4, 3, 2, 5))
-    inp = dict(a=[array])
-    result = transpose_channel_first_to_last(["a"], inp)
-    assert list(result.keys())[0] == "a"
-    assert result["a"][0].shape == (4, 2, 5, 3)
-    result = transpose_channel_last_to_first(["a"], result)
-    assert inp["a"][0].shape == result["a"][0].shape
-    assert np.allclose(inp["a"][0], result["a"][0])
+def assert_options_eq(options: str, options_dict: dict[str, str | bool]):
+    assert extract_job_options(MagicMock(spec=hub.Job, options=options)) == options_dict
 
 
-def test_transpose_case3():
-    array = np.random.random((4, 3, 2, 5, 6))
-    inp = dict(a=[array])
-    result = transpose_channel_first_to_last(["a"], inp)
-    assert list(result.keys())[0] == "a"
-    assert result["a"][0].shape == (4, 2, 5, 6, 3)
-    result = transpose_channel_last_to_first(["a"], result)
-    assert inp["a"][0].shape == result["a"][0].shape
-    assert np.allclose(inp["a"][0], result["a"][0])
+def test_extract_job_options():
+    assert_options_eq("", {})
+    assert_options_eq("--boolean_flag", {"boolean_flag": True})
+    assert_options_eq(
+        "--blah text --boolean_flag", {"blah": "text", "boolean_flag": True}
+    )
+    assert_options_eq(
+        "--boolean_flag --dict-input='blah=true;x=y'",
+        {"dict-input": "blah=true;x=y", "boolean_flag": True},
+    )
+    assert_options_eq("--dict-input 'blah=true;x=y'", {"dict-input": "blah=true;x=y"})
+    assert_options_eq('--dict-input "blah=true;x=y"', {"dict-input": "blah=true;x=y"})
+    assert_options_eq('--dict-input="blah=true;x=y"', {"dict-input": "blah=true;x=y"})
+    assert_options_eq("--dict-input=blah=true;x=y", {"dict-input": "blah=true;x=y"})

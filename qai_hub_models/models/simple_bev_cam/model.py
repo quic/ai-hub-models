@@ -155,7 +155,6 @@ class SimpleBev(BaseModel):
         height: int = 224 * 2,
         width: int = 400 * 2,
     ) -> InputSpec:
-
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub.

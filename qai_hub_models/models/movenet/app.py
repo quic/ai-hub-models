@@ -136,7 +136,6 @@ def draw_skel_and_kp(
 
 
 class MovenetApp:
-
     """
     This class consists of light-weight "app code" that is required to perform end to end inference with Posenet.
 
@@ -189,7 +188,7 @@ class MovenetApp:
                     Image with keypoints drawn.
         """
         images = [image]
-        _, NCHW_torch_images = app_to_net_image_inputs(images, to_float=False)
+        _, NCHW_torch_images = app_to_net_image_inputs(images)
 
         NCHW_torch_images_resized = []
         for image in NCHW_torch_images:

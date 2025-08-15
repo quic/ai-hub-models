@@ -9,6 +9,7 @@ from __future__ import annotations
 import warnings
 
 from qai_hub_models.models._shared.llm.export import export_model
+from qai_hub_models.models._shared.llm.model import determine_precision_from_checkpoint
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import (
     MODEL_ID,
@@ -17,6 +18,7 @@ from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import (
     PositionProcessor,
 )
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.model import (
+    DEFAULT_PRECISION,
     MODEL_ASSET_VERSION,
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
@@ -48,6 +50,7 @@ def main():
             ]
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
+        uses_link_job=True,
     )
     parser.add_argument(
         "--synchronous",
@@ -58,7 +61,21 @@ def main():
     parser.set_defaults(_skip_quantsim_creation=True)
     args = parser.parse_args()
     additional_model_kwargs = vars(args)
-    additional_model_kwargs["fp_model_cls"] = FP_Model
+    fp_model_params = dict(
+        sequence_length=additional_model_kwargs["sequence_length"],
+        context_length=additional_model_kwargs["context_length"],
+    )
+    if isinstance(
+        additional_model_kwargs["checkpoint"], str
+    ) and additional_model_kwargs["checkpoint"].startswith("DEFAULT"):
+        additional_model_kwargs["fp_model"] = FP_Model.from_pretrained(  # type: ignore[index]
+            **fp_model_params
+        )
+        additional_model_kwargs["precision"] = (
+            determine_precision_from_checkpoint(additional_model_kwargs["checkpoint"])
+            or DEFAULT_PRECISION
+        )
+
     export_model(
         model_cls=Model,
         model_name=MODEL_ID,

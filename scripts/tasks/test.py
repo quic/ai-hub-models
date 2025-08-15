@@ -9,7 +9,6 @@ import os
 import sys
 from collections.abc import Iterable
 from tempfile import TemporaryDirectory
-from typing import Optional
 
 from .changes import get_changed_files_in_package
 from .constants import (
@@ -43,7 +42,7 @@ class PyTestQAIHMTask(PyTestTask):
     Pytest utils.
     """
 
-    def __init__(self, venv: Optional[str]):
+    def __init__(self, venv: str):
         all_dirs_except_models = [
             f"{PY_PACKAGE_SRC_ROOT}/{x}"
             for x in os.listdir(PY_PACKAGE_SRC_ROOT)
@@ -78,8 +77,9 @@ class PyTestModelTask(CompositeTask):
         self,
         model_name: str,
         python_executable: str,
-        venv: str
-        | None = None,  # If None, creates a fresh venv for each model instead of using 1 venv for all models.
+        venv: (
+            str | None
+        ) = None,  # If None, creates a fresh venv for each model instead of using 1 venv for all models.
         use_shared_cache=False,  # If True, uses a shared cache rather than the global QAIHM cache.
         run_general: bool = True,
         run_quantize: bool = False,
@@ -90,6 +90,7 @@ class PyTestModelTask(CompositeTask):
         run_trace: bool = True,
         install_deps: bool = True,
         raise_on_failure: bool = False,
+        qaihm_wheel_dir: str | os.PathLike | None = None,
     ):
         tasks = []
 
@@ -141,7 +142,12 @@ class PyTestModelTask(CompositeTask):
                 tasks.append(CreateVenvTask(model_venv, python_executable))
                 # Creates a new environment from scratch
                 tasks.append(
-                    SyncModelVenvTask(model_name, model_venv, include_dev_deps=True)
+                    SyncModelVenvTask(
+                        model_name,
+                        model_venv,
+                        include_dev_deps=True,
+                        qaihm_wheel_dir=qaihm_wheel_dir,
+                    )
                 )
             else:
                 model_venv = venv
@@ -243,6 +249,7 @@ class PyTestModelsTask(CompositeTask):
         run_full_export: bool = False,
         exit_after_single_model_failure=False,
         raise_on_failure=True,
+        qaihm_wheel_dir: str | os.PathLike | None = None,
     ):
         self.exit_after_single_model_failure = exit_after_single_model_failure
 
@@ -255,7 +262,7 @@ class PyTestModelsTask(CompositeTask):
         test_hub_async: bool = os.environ.get("QAIHM_TEST_HUB_ASYNC", 0)
 
         if test_hub_async and not on_ci():
-            for (run_test, job_type) in [
+            for run_test, job_type in [
                 (run_export_quantize, "quantize"),
                 (run_export_compile, "compile"),
                 (run_export_profile, "profile"),
@@ -281,7 +288,11 @@ class PyTestModelsTask(CompositeTask):
             # Create Venv
             base_test_venv = os.path.join(BUILD_ROOT, "test", "base_venv")
             tasks.append(CreateVenvTask(base_test_venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(base_test_venv, ["dev"]))
+            tasks.append(
+                SyncLocalQAIHMVenvTask(
+                    base_test_venv, ["dev"], qaihm_wheel_dir=qaihm_wheel_dir
+                )
+            )
 
         print(f"Tests to be run for models: {models_for_testing}")
         global_models = set()
@@ -338,6 +349,7 @@ class PyTestModelsTask(CompositeTask):
                     run_export=run_full_export and model_name in export_models,
                     # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                     raise_on_failure=False,
+                    qaihm_wheel_dir=qaihm_wheel_dir,
                 )
             )
 

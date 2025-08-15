@@ -9,14 +9,13 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
-VOC_FOLDER_NAME = "voc"
+VOC_FOLDER_NAME = "pascal_voc"
 DEVKIT_FOLDER_NAME = "VOCdevkit"
 VOC_VERSION = 1
-VOC_ASSET = CachedWebDatasetAsset(
-    "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar",
+VOC_ASSET = CachedWebDatasetAsset.from_asset_store(
     VOC_FOLDER_NAME,
     VOC_VERSION,
     "VOCtrainval_11-May-2012.tar",
@@ -90,3 +89,10 @@ class VOCSegmentationDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 400
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://host.robots.ox.ac.uk/pascal/VOC/voc2012/",
+            split_description="validation split",
+        )

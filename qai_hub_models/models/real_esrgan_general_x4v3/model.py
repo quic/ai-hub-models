@@ -99,9 +99,9 @@ def _load_realesrgan_source_model_from_weights(
             except ImportError:
                 import torchvision.transforms.functional
 
-                sys.modules[
-                    "torchvision.transforms.functional_tensor"
-                ] = torchvision.transforms.functional
+                sys.modules["torchvision.transforms.functional_tensor"] = (
+                    torchvision.transforms.functional
+                )
             # ----
             import realesrgan.archs.srvgg_arch as srvgg_arch
         else:

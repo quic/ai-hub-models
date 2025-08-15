@@ -15,7 +15,6 @@ MODEL_ASSET_VERSION = 1
 
 
 class Beit(ImagenetClassifier):
-
     """Exportable Beit model, end-to-end."""
 
     @classmethod

@@ -9,7 +9,11 @@ from qai_hub_models.models._shared.llama3.model import DEFAULT_USER_PROMPT, END_
 from qai_hub_models.models._shared.llm.demo import llm_chat_demo
 from qai_hub_models.models._shared.llm.model import prepare_combined_attention_mask
 from qai_hub_models.models.llama_v3_8b_instruct import MODEL_ID, FP_Model, Model
-from qai_hub_models.models.llama_v3_8b_instruct.model import HF_REPO_NAME, HF_REPO_URL
+from qai_hub_models.models.llama_v3_8b_instruct.model import (
+    HF_REPO_NAME,
+    HF_REPO_URL,
+    SUPPORTED_PRECISIONS,
+)
 from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 
@@ -33,6 +37,7 @@ def llama_3_chat_demo(
         end_tokens=end_tokens,
         hf_repo_name=hf_repo_name,
         hf_repo_url=hf_repo_url,
+        supported_precisions=SUPPORTED_PRECISIONS,
         default_prompt=default_prompt,
         test_checkpoint=test_checkpoint,
         available_target_runtimes=available_target_runtimes,

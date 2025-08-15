@@ -13,7 +13,7 @@ import torch
 from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.pose import get_final_preds
 from qai_hub_models.utils.printing import suppress_stdout
 
@@ -127,6 +127,13 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         results = self.get_coco_mAP()
         return f"mAP: {results['AP']:.3f}, AP@.5: {results['AP@.5']:.3f}"
 
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Percentage of keypoints that are close to the expected location.",
+        )
+
 
 class MPIIPoseEvaluator(BaseEvaluator):
     """Evaluator for tracking accuracy of a Pose Estimation Model using MPII."""
@@ -199,3 +206,10 @@ class MPIIPoseEvaluator(BaseEvaluator):
     def formatted_accuracy(self) -> str:
         mean = self.get_accuracy_score()
         return f"{mean:.3f} (Mean), {self.mean_ratio:.3f} (Mean@0.1)"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Percentage Correct Keypoints (head-normalized)",
+            unit="PCKh",
+            description="Percentage of keypoints within a certain distance of expected.",
+        )

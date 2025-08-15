@@ -154,7 +154,6 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         attention_mask: torch.Tensor | None = None,
         **kwargs,
     ) -> dict[str, torch.Tensor | DynamicCache | None]:
-
         """
         Overridden prepare_inputs_for_generation function to enable Huggingface generate() on models with static
         graph constraints
@@ -373,9 +372,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             attention_mask = torch.ones_like(input_ids)
 
         global_outputs: dict[str, Union[torch.Tensor | list[torch.Tensor]]] = {
-            "past_key_values": []
-            if past_key_values is None or past_key_values.get_seq_length() == 0
-            else list(itertools.chain.from_iterable(past_key_values.to_legacy_cache()))
+            "past_key_values": (
+                []
+                if past_key_values is None or past_key_values.get_seq_length() == 0
+                else list(
+                    itertools.chain.from_iterable(past_key_values.to_legacy_cache())
+                )
+            )
         }
 
         for input_ids_slice, attention_mask_slice in self.slice_inputs_for_inference(
@@ -430,9 +433,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         attention_mask_to_preconsume = attention_mask[:, :num_tokens_to_preconsume]
 
         preconsumed_outputs: dict[str, Union[torch.Tensor | list[torch.Tensor]]] = {
-            "past_key_values": []
-            if past_key_values is None or past_key_values.get_seq_length() == 0
-            else list(itertools.chain.from_iterable(past_key_values.to_legacy_cache()))
+            "past_key_values": (
+                []
+                if past_key_values is None or past_key_values.get_seq_length() == 0
+                else list(
+                    itertools.chain.from_iterable(past_key_values.to_legacy_cache())
+                )
+            )
         }
 
         for input_ids_slice, attention_mask_slice in self.slice_inputs_for_inference(

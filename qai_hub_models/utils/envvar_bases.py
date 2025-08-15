@@ -319,9 +319,11 @@ class QAIHMStrSetWithEnumEnvvar(QAIHMEnvvar[set[Union[str, EnumT]]], Generic[Enu
     def parse(cls, value: str) -> set[str | EnumT]:
         values = [x.strip() for x in value.lower().split(",")]
         return {
-            cls.SPECIAL_SETTING_ENUM(x)
-            if x in cls.SPECIAL_SETTING_ENUM._value2member_map_
-            else x
+            (
+                cls.SPECIAL_SETTING_ENUM(x)
+                if x in cls.SPECIAL_SETTING_ENUM._value2member_map_
+                else x
+            )
             for x in values
         }
 
@@ -416,11 +418,13 @@ class QAIHMDateFormatEnvvar:
         group = parser.add_argument_group(cls.CLI_DATE_GROUP_NAME)
         cls.DATE_ENVVAR.add_arg(
             group,
-            cls.serialize(
-                default_date, default_format or cls.DATE_FORMAT_ENVVAR.default()
-            )
-            if default_date is not None
-            else None,
+            (
+                cls.serialize(
+                    default_date, default_format or cls.DATE_FORMAT_ENVVAR.default()
+                )
+                if default_date is not None
+                else None
+            ),
             setenv,
         )
         cls.DATE_FORMAT_ENVVAR.add_arg(group, default_format, setenv)

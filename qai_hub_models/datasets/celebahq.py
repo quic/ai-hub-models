@@ -12,7 +12,7 @@ from glob import glob
 import numpy as np
 from PIL import Image, ImageDraw
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.models._shared.repaint.utils import preprocess_inputs
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
@@ -181,3 +181,10 @@ class CelebAHQDataset(BaseDataset):
     @staticmethod
     def default_samples_per_job() -> int:
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://github.com/IIGROUP/MM-CelebA-HQ-Dataset",
+            split_description="validation split",
+        )

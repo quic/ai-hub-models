@@ -7,7 +7,7 @@
 import torchaudio
 from torch.nn import functional as F
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 VALENTINI_FOLDER_NAME = "valentini"
@@ -96,3 +96,10 @@ class ValentiniDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.kaggle.com/datasets/muhmagdy/valentini-noisy",
+            split_description="test split",
+        )

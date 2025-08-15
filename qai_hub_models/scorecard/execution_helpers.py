@@ -61,12 +61,12 @@ def for_each_scorecard_path_and_device(
             for device in ScorecardDevice.all_devices(
                 enabled=True,
                 npu_supports_precision=precision,
-                supports_compile_path=path
-                if isinstance(path, ScorecardCompilePath)
-                else None,
-                supports_profile_path=path
-                if isinstance(path, ScorecardProfilePath)
-                else None,
+                supports_compile_path=(
+                    path if isinstance(path, ScorecardCompilePath) else None
+                ),
+                supports_profile_path=(
+                    path if isinstance(path, ScorecardProfilePath) else None
+                ),
                 is_mirror=None if include_mirror_devices else False,
             ):
                 if include_devices is not None and device not in include_devices:
@@ -77,9 +77,9 @@ def for_each_scorecard_path_and_device(
                 callback(precision, path, device)  # type: ignore[arg-type]
 
 
-def get_enabled_test_precisions() -> tuple[
-    SpecialPrecisionSetting | None, list[Precision]
-]:
+def get_enabled_test_precisions() -> (
+    tuple[SpecialPrecisionSetting | None, list[Precision]]
+):
     """
     Determine what precisions are enabled based on the test environment.
 

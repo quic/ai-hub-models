@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 import json
+import os
 from pathlib import Path
 from typing import cast
 
@@ -38,7 +39,7 @@ def main(is_test: bool = False):
         default=INPUT_IMAGE_ADDRESS,
         help="image file path or URL",
     )
-    args = parser.parse_args([])
+    args = parser.parse_args([] if is_test else None)
     model = cast(FaceAttribNet, demo_model_from_cli_args(FaceAttribNet, MODEL_ID, args))
     validate_on_device_demo_args(args, MODEL_ID)
 
@@ -54,6 +55,7 @@ def main(is_test: bool = False):
 
     if not is_test:
         output_path = (args.output_dir or str(Path() / "build")) + "/output.json"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as wf:
             json.dump(out_dict, wf, ensure_ascii=False, indent=4)
         print(f"Model outputs are saved at: {output_path}")

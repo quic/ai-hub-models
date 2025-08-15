@@ -69,6 +69,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         huggingface_model_name: str = HF_REPO_NAME,
+        precision: Precision = Precision.w4a16,
     ) -> Qwen2_5_7B_Instruct:
         return cls(
             sequence_length=sequence_length,
@@ -130,16 +131,22 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
 
     @staticmethod
     def get_input_spec(
+        llm_config: dict = dict(
+            num_hidden_layers=NUM_LAYERS,
+            hidden_size=3584,
+            num_key_value_heads=4,
+            num_attention_heads=28,
+        ),
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
-            num_hidden_layers=NUM_LAYERS,
+            num_hidden_layers=llm_config["num_hidden_layers"],
             sequence_length=sequence_length,
             context_length=context_length,
-            hidden_size=3584,
-            num_key_value_heads=4,
-            num_attention_heads=28,
+            hidden_size=llm_config["hidden_size"],
+            num_key_value_heads=llm_config["num_key_value_heads"],
+            num_attention_heads=llm_config["num_attention_heads"],
         )
 
     def get_hub_compile_options(

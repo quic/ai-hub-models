@@ -10,7 +10,6 @@ from pathlib import Path
 
 
 def copy_configs(src: str, dst: Path) -> None:
-
     """
     Copies a configuration directory from the source path to a destination path,
     ensuring it is placed within the required subdirectory structure.

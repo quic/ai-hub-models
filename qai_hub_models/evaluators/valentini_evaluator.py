@@ -12,7 +12,7 @@ import torch
 from pesq import pesq
 from pystoi import stoi
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
 
 class ValentiniEvaluator(BaseEvaluator):
@@ -91,3 +91,10 @@ class ValentiniEvaluator(BaseEvaluator):
     def formatted_accuracy(self) -> str:
         pesq, stoi = self._compute_metrics()
         return f"PESQ: {pesq:.3f}, STOI: {stoi:.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Perceptual Evaluation of Speech Quality",
+            unit="PESQ",
+            description="A measure of quality degradation between original and predicted quality.",
+        )

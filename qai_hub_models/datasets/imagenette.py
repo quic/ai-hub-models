@@ -4,11 +4,12 @@
 # ---------------------------------------------------------------------
 
 import os
+import shutil
 import stat
 
 from torchvision.datasets import ImageNet
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import IMAGENET_TRANSFORM
 
@@ -70,15 +71,14 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         return ImageNet.__len__(self)
 
     def _validate_data(self) -> bool:
-        devkit_path = DEVKIT_ASSET.path()
+        devkit_path = IMAGENETTE_ASSET.path() / DEVKIT_NAME
 
         # Check devkit exists
         if not devkit_path.exists():
             return False
 
         # Check devkit permissions
-        devkit_permissions = os.stat(devkit_path).st_mode
-        if devkit_permissions & stat.S_IEXEC != stat.S_IEXEC:
+        if not os.access(devkit_path, os.X_OK):
             return False
 
         # Check val data exists
@@ -101,10 +101,14 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         IMAGENETTE_ASSET.fetch(extract=True)
         devkit_path = DEVKIT_ASSET.fetch()
         devkit_st = os.stat(devkit_path)
-        os.chmod(devkit_path, devkit_st.st_mode | stat.S_IEXEC)
+        os.chmod(
+            devkit_path, devkit_st.st_mode | stat.S_IEXEC
+        )  # this is a no-op on windows
         target_path = IMAGENETTE_ASSET.path() / DEVKIT_NAME
         if not target_path.exists():
-            os.symlink(DEVKIT_ASSET.path(), target_path)
+            # The devkit is tiny (2MB), and symlinks break windows,
+            # so copy this instead of symlinking it.
+            shutil.copy(DEVKIT_ASSET.path(), target_path)
 
     @staticmethod
     def default_samples_per_job() -> int:
@@ -112,3 +116,10 @@ class ImagenetteDataset(BaseDataset, ImageNet):
         The default value for how many samples to run in each inference job.
         """
         return 2500
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://github.com/fastai/imagenette",
+            split_description="validation split",
+        )

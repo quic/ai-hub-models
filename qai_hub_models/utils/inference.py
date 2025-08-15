@@ -22,7 +22,11 @@ from qai_hub_models.utils.aimet.aimet_dummy_model import AimetEncodingLoaderMixi
 from qai_hub_models.utils.asset_loaders import ModelZooAssetConfig, VersionType
 from qai_hub_models.utils.base_model import BaseModel, SourceModelFormat, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, make_hub_dataset_entries
+from qai_hub_models.utils.qai_hub_helpers import (
+    _AIHUB_NAME,
+    make_hub_dataset_entries,
+    parse_compile_options,
+)
 from qai_hub_models.utils.transpose_channel import (
     transpose_channel_last_to_first,
     transpose_channel_last_to_first_input_specs,
@@ -313,9 +317,9 @@ class AsyncOnDeviceResult:
                 output_dataset,
             )
 
-        outputs: ValuesView[list[np.ndarray]] | list[
-            list[np.ndarray]
-        ] = output_dataset.values()
+        outputs: ValuesView[list[np.ndarray]] | list[list[np.ndarray]] = (
+            output_dataset.values()
+        )
         if len(self.output_names) > 0:
             outputs = [output_dataset[out_name] for out_name in self.output_names]
 
@@ -361,21 +365,11 @@ class AsyncOnDeviceModel:
         # Determine whether I/O is channel last
         self.channel_last_input, self.channel_last_output = [], []
         compile_output_names = None
-        if self.model.producer is not None:
-            model_options = self.model.producer.options.strip().split()
-            for option_num in range(len(model_options)):
-                if model_options[option_num] == "--force_channel_last_input":
-                    self.channel_last_input = (
-                        model_options[option_num + 1].strip().split(",")
-                    )
-                if model_options[option_num] == "--force_channel_last_output":
-                    self.channel_last_output = (
-                        model_options[option_num + 1].strip().split(",")
-                    )
-                if model_options[option_num] == "--output_names":
-                    compile_output_names = (
-                        model_options[option_num + 1].strip().split(",")
-                    )
+        if isinstance(self.model.producer, hub.CompileJob):
+            compile_options = parse_compile_options(self.model.producer)
+            self.channel_last_input = compile_options.channel_last_input or []
+            self.channel_last_output = compile_options.channel_last_output or []
+            compile_output_names = compile_options.output_names or []
         self.output_names = output_names or compile_output_names or []
 
     @property

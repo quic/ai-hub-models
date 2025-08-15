@@ -24,9 +24,8 @@ repos:
             - --use-current-year
             - --allow-past-years
             - --no-extra-eol
-
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v5.0.0
     hooks:
     -   id: check-yaml
         args: [--allow-multiple-documents]
@@ -45,19 +44,19 @@ repos:
             )
     -   id: fix-byte-order-marker
 -   repo: https://github.com/rhysd/actionlint
-    rev: v1.6.26
+    rev: v1.7.7
     hooks:
     -   id: actionlint
 # SC2028: Use printf instead of echo
 # SC2129: Consider using { cmd1; cmd2; } >> file instead of individual redirects.
         args: ['-ignore', 'SC2028', '-ignore', 'SC2129']
 -   repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.9.0.6
+    rev: v0.10.0.1
     hooks:
     -   id: shellcheck
         exclude: '\.yml$'
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v3.16.0
+    rev: v3.20.0
     hooks:
     -   id: pyupgrade
         args: ['--py39-plus', '--keep-runtime-typing']
@@ -67,12 +66,11 @@ repos:
     -   id: isort
         args: ["--filter-files"]
 -   repo: https://github.com/psf/black
-    rev: 22.1.0
+    rev: 25.1.0
     hooks:
     -   id: black
-        additional_dependencies: ['click==8.0.4']
 -   repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
+    rev: 7.3.0
     hooks:
     -   id: flake8
 -   repo: local

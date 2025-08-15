@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from numpy.linalg import norm
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
 
 class FaceAttribNetEvaluator(BaseEvaluator):
@@ -93,3 +93,10 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} Cosine Similarity"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Cosine Similarity",
+            unit="",
+            description="Similarity between the predicted facial features and the expected.",
+        )

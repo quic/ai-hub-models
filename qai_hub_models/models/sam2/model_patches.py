@@ -143,7 +143,6 @@ class SplitHeadSAMEncoderAttention(nn.Module):
 
 
 class SAM2Normalize(nn.Module):
-
     """
     Normalization module for SAM2, adapted from `sam2.utils.transforms.SAM2Transforms`.
 

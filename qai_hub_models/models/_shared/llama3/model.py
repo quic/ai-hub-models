@@ -390,6 +390,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     def prepare_ort_genai_assets(
         cls,
         model_name: str,
+        llm_config: PretrainedConfig,
         position_processor_cls: type[PositionProcessorBase],
         encodings_path: str | Path,
         context_length: int,
@@ -401,7 +402,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     ):
         return create_ort_genai_assets(
             model_name,
-            cls.llm_config,
+            llm_config,
             position_processor_cls,
             encodings_path,
             context_length,

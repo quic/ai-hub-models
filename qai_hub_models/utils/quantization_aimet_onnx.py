@@ -13,11 +13,14 @@ try:
     import aimet_onnx
     from aimet_common.utils import AimetLogger
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+
+    aimet_onnx_is_installed = True
 except (ImportError, ModuleNotFoundError):
-    pass
+    aimet_onnx_is_installed = False
 import gc
 import os
 import shutil
+import sys
 from collections.abc import Collection
 from contextlib import contextmanager
 from pathlib import Path
@@ -41,9 +44,34 @@ from qai_hub_models.utils.onnx_helpers import kwargs_to_dict, mock_torch_onnx_in
 from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
 
 
-def ensure_min_aimet_onnx_version(expected_version):
-    import aimet_onnx
+def ensure_aimet_onnx_installed(
+    expected_version: str | None = None, model_id: str | None = None
+):
+    if not aimet_onnx_is_installed:
+        errstr = "AIMET-ONNX is missing but must be installed. "
+        if not sys.platform.startswith("linux") and sys.platform not in [
+            "win32",
+            "cygwin",
+        ]:
+            errstr += "It is not supported on this operating system. You must use either Linux or Windows Subsystem for Linux to install AIMET-ONNX."
+        else:
+            if model_id is not None:
+                install_target = f'"qai_hub_models[{model_id}]"'
+            elif expected_version is not None:
+                install_target = f"aimet-onnx=={expected_version}"
+            else:
+                install_target = '"qai_hub_models[<your_target_model_id_here>]"'
 
+            if sys.platform in ["win32", "cygwin"]:
+                errstr += "AIMET-ONNX is not supported on Windows. We suggest using Windows Subsystem for Linux (WSL) to create a python environment compatible with AIMET-ONNX.\nIn a compatible WSL python env, run "
+            else:
+                errstr += "Run "
+            errstr += f"`pip install {install_target}` to install the correct version of AIMET-ONNX."
+        raise RuntimeError(errstr)
+
+
+def ensure_min_aimet_onnx_version(expected_version: str, model_id: str | None = None):
+    ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
             f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {str(aimet_onnx.__version__)}\n"
@@ -51,9 +79,8 @@ def ensure_min_aimet_onnx_version(expected_version):
         )
 
 
-def ensure_max_aimet_onnx_version(expected_version):
-    import aimet_onnx
-
+def ensure_max_aimet_onnx_version(expected_version: str, model_id: str | None = None):
+    ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
             f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {str(aimet_onnx.__version__)}\n"

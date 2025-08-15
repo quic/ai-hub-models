@@ -1,0 +1,25 @@
+metrics:
+- dataset_name: bsd300
+  dataset_link: https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/
+  dataset_split_description: test split
+  metric_name: Peak Signal-to-Noise Ratio (PSNR)
+  metric_description: A measure of how similar two images are.
+  metric_unit: dB
+  num_partial_samples: 100
+  partial_torch_metric: 29.5
+  device_metric:
+    Samsung Galaxy S24:
+      float:
+        tflite:
+          partial_metric: 29.5
+        qnn_dlc:
+          partial_metric: 29.5
+        onnx:
+          partial_metric: 29.5
+      w8a8:
+        tflite:
+          partial_metric: 29.2
+        qnn_dlc:
+          partial_metric: 29.2
+        onnx:
+          partial_metric: 29.2

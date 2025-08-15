@@ -35,10 +35,10 @@ from qai_hub_models.datasets import (
     DatasetSplit,
     get_dataset_from_name,
 )
+from qai_hub_models.datasets.common import get_folder_name
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
-    extract_zip_file,
     get_hub_datasets_path,
     load_h5,
     load_raw_file,
@@ -50,6 +50,7 @@ from qai_hub_models.utils.inference import (
     AsyncOnDeviceResult,
     dataset_entries_from_batch,
 )
+from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import extract_io_types_from_onnx_model
 from qai_hub_models.utils.onnx_torch_wrapper import (
     OnnxModelTorchWrapper,
@@ -80,15 +81,15 @@ def get_dataset_ids_filepath(dataset_name: str, samples_per_job: int) -> Path:
     )
 
 
-def get_dataset_cache_filepath(dataset_name: str) -> Path:
-    return get_hub_datasets_path() / dataset_name / "cache"
+def get_dataset_cache_filepath(folder_name: str) -> Path:
+    return get_hub_datasets_path() / folder_name / "cache"
 
 
-def get_dataset_cache_samples_per_job(dataset_name: str) -> Optional[int]:
+def get_dataset_cache_samples_per_job(folder_name: str) -> Optional[int]:
     """
     Get the samples_per_job used for the current dataset cache.
     """
-    path = get_dataset_cache_filepath(dataset_name) / CACHE_SAMPLES_PER_JOB_FILE
+    path = get_dataset_cache_filepath(folder_name) / CACHE_SAMPLES_PER_JOB_FILE
     if not path.exists():
         return None
     curr_samples_per_job_str = load_raw_file(path)
@@ -96,7 +97,7 @@ def get_dataset_cache_samples_per_job(dataset_name: str) -> Optional[int]:
 
 
 def read_dataset_ids(
-    dataset_ids_filepath: Union[str, Path]
+    dataset_ids_filepath: Union[str, Path],
 ) -> tuple[list[str], list[str]]:
     input_ids = []
     gt_ids = []
@@ -157,7 +158,9 @@ def get_deterministic_sample(
 
 
 def get_torch_val_dataloader(
-    dataset_name: str, num_samples: int | None = None
+    dataset_name: str,
+    num_samples: int | None = None,
+    input_spec: InputSpec | None = None,
 ) -> DataLoader:
     """
     Creates a torch dataloader with a chunk of validation data from the given dataset.
@@ -169,8 +172,11 @@ def get_torch_val_dataloader(
         dataset_name: Name of the dataset. Dataset must be registered in
             qai_hub_models.datasets.__init__.py
         num_samples: Number of samples to sample from the full dataset.
+        input_spec: Input spec of the model requesting data.
     """
-    torch_val_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
+    torch_val_dataset = get_dataset_from_name(
+        dataset_name, DatasetSplit.VAL, input_spec
+    )
     num_samples = num_samples or torch_val_dataset.default_samples_per_job()
     return get_deterministic_sample(torch_val_dataset, num_samples)
 
@@ -202,17 +208,7 @@ def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
     local_dir.mkdir(exist_ok=True)
     local_path = local_dir / f"{qdq_model.model_id}"
     output_path = qdq_model.download(str(local_path))
-    if output_path.endswith(".zip"):
-        zip_path = extract_zip_file(output_path)
-        contents = os.listdir(zip_path)
-        # Sometimes an extraneous subfolder is created
-        if len(contents) == 1:
-            onnx_path = str(zip_path / contents[0] / "model.onnx")
-        else:
-            onnx_path = str(zip_path / "model.onnx")
-    else:
-        onnx_path = output_path
-    return OnnxModelTorchWrapper.OnCPU(onnx_path)
+    return OnnxModelTorchWrapper.OnCPU(output_path)
 
 
 def _validate_dataset_ids_path(path: Path) -> bool:
@@ -302,13 +298,14 @@ def _populate_data_cache(
             Comma separated list of input names to have channel transposed.
     """
     dataset_name = dataset_from_name_args[0]
-    os.makedirs(get_hub_datasets_path() / dataset_name, exist_ok=True)
-    dataset_ids_path = get_dataset_ids_filepath(dataset_name, samples_per_job)
+    folder_name = get_folder_name(dataset_name, dataset_from_name_args[2])
+    os.makedirs(get_hub_datasets_path() / folder_name, exist_ok=True)
+    dataset_ids_path = get_dataset_ids_filepath(folder_name, samples_per_job)
     dataset_ids_valid = _validate_dataset_ids_path(dataset_ids_path)
-    cache_path = get_dataset_cache_filepath(dataset_name)
+    cache_path = get_dataset_cache_filepath(folder_name)
     if (
         dataset_ids_valid
-        and get_dataset_cache_samples_per_job(dataset_name) == samples_per_job
+        and get_dataset_cache_samples_per_job(folder_name) == samples_per_job
     ):
         print("Cached data already present.")
         return
@@ -411,17 +408,19 @@ class HubDataset(Dataset):
         num_samples: int,
         input_names: list[str],
         channel_last_input: Optional[list[str]],
+        input_spec: InputSpec,
     ):
         self.input_names = input_names
-        self.cache_path = get_dataset_cache_filepath(dataset_name)
+        folder_name = get_folder_name(dataset_name, input_spec)
+        self.cache_path = get_dataset_cache_filepath(folder_name)
         self.samples_per_hub_dataset: int = cast(
-            int, get_dataset_cache_samples_per_job(dataset_name)
+            int, get_dataset_cache_samples_per_job(folder_name)
         )
         assert (
             self.samples_per_hub_dataset is not None
         ), "Dataset cache must be pre-populated"
         dataset_ids_filepath = get_dataset_ids_filepath(
-            dataset_name, self.samples_per_hub_dataset
+            folder_name, self.samples_per_hub_dataset
         )
         self.input_ids, self.gt_ids = read_dataset_ids(dataset_ids_filepath)
 
@@ -655,7 +654,11 @@ def evaluate(
                 model_output = batched_async_model_outputs[batch_idx].wait()
                 evaluators[model_name].add_batch(model_output, ground_truth_values)
 
-                cumulative_samples = len(model_output) + batch_idx * batch_size
+                cumulative_samples = (
+                    len(model_output[0])
+                    if isinstance(model_output, tuple)
+                    else len(model_output)
+                ) + batch_idx * batch_size
                 if verbose:
                     print(
                         f"Cumulative {model_name} accuracy on {cumulative_samples} samples: "
@@ -751,6 +754,7 @@ def evaluate_on_dataset(
             num_samples,
             on_device_model.input_names,
             on_device_model.channel_last_input,
+            dataset_from_name_args[2],
         )
         dataloader = DataLoader(
             torch_dataset, batch_size=samples_per_job, shuffle=False

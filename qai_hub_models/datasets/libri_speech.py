@@ -8,7 +8,7 @@ import torch
 import torchaudio
 from torch.nn import functional as F
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 LIBRISPEECH_FOLDER_NAME = "librispeech"
@@ -145,3 +145,10 @@ class LibriSpeechDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 500
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.openslr.org/12",
+            split_description="test split",
+        )

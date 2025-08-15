@@ -106,12 +106,13 @@ class PosenetMobilenet(BaseModel):
         return ["image"]
 
     def get_evaluator(self) -> BaseEvaluator:
-        return PosenetMobilenetEvaluator(*self.get_input_spec()["image"][0][2:])
+        h, w = self.get_input_spec()["image"][0][2:]
+        return PosenetMobilenetEvaluator(h, w)
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return ["cocobody_513x257"]
+        return ["cocobody"]
 
     @staticmethod
     def calibration_dataset_name() -> str:
-        return "cocobody_513x257"
+        return "cocobody"

@@ -2,12 +2,14 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from typing import Optional
 
 from qai_hub_models.configs.devices_and_chipsets_yaml import (
     SCORECARD_DEVICE_YAML_PATH,
     DevicesAndChipsetsYaml,
     ScorecardDevice,
 )
+from qai_hub_models.configs.info_yaml import QAIHMModelInfo
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
@@ -27,6 +29,8 @@ def test_perf_yaml():
     for model_id in MODEL_IDS:
         try:
             perf = QAIHMModelPerf.from_model(model_id, not_exists_ok=True)
+            model_name: Optional[str] = None
+
             # Verify all devices are valid AI Hub devices.
             for precision, precision_perf in perf.precisions.items():
                 for (
@@ -37,5 +41,16 @@ def test_perf_yaml():
                         _validate_device(device)
                     for device in component_detail.device_assets:
                         _validate_device(device)
+
+                # If there is 1 component, make sure it matches the model name.
+                if len(precision_perf.components) == 1:
+                    if not model_name:
+                        model_name = QAIHMModelInfo.from_model(model_id).name
+                    component_name = next(iter(precision_perf.components))
+                    if component_name != model_name:
+                        raise ValueError(
+                            f"If model has 1 component, the component name (found: {component_name}) should match the model name (expected: {model_name})"
+                        )
+
         except Exception as err:
             assert False, f"{model_id} perf yaml validation failed: {str(err)}"

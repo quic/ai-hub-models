@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from py_sod_metrics import MAE, Emeasure, Smeasure, WeightedFmeasure
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.models.bgnet.app import postprocess_masks
 
 
@@ -75,6 +75,13 @@ class CamouflageEvaluator(BaseEvaluator):
 
     def get_accuracy_score(self) -> float:
         return self.smeasure()
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Structural Similarity",
+            unit="SSIM",
+            description="A measure of the perceived quality difference between two images.",
+        )
 
     def formatted_accuracy(self) -> str:
         parts = [

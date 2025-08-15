@@ -13,7 +13,12 @@ import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data.dataloader import default_collate
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit, setup_fiftyone_env
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    setup_fiftyone_env,
+)
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
     resize_pad,
@@ -91,7 +96,7 @@ class CocoDataset(BaseDataset):
         self.label_types = label_types
 
         # FiftyOne package manages dataset so pass a dummy name for data path
-        BaseDataset.__init__(self, "non_existent_dir", split)
+        BaseDataset.__init__(self, "non_existent_dir", split, input_spec)
 
         # coco labels 91 reference from https://huggingface.co/facebook/detr-resnet-50/blob/main/config.json
         # the mapping is to insert unused and extend to 91 labels.
@@ -223,3 +228,10 @@ class CocoDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 300
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://cocodataset.org/",
+            split_description="val2017 split",
+        )

@@ -24,7 +24,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" PyTorch LLaMA model."""
+"""PyTorch LLaMA model."""
 from __future__ import annotations
 
 import math
@@ -832,9 +832,11 @@ class LlamaModel(LlamaPreTrainedModel):
         ### ------- QCOM EDITS STARTS ------- ###
         self.layers = nn.ModuleList(
             [
-                LlamaDecoderLayer(config)
-                if config.hidden_layers_start <= i < config.hidden_layers_end
-                else nn.Identity()
+                (
+                    LlamaDecoderLayer(config)
+                    if config.hidden_layers_start <= i < config.hidden_layers_end
+                    else nn.Identity()
+                )
                 for i in range(config.num_hidden_layers)
             ]
         )

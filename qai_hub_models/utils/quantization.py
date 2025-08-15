@@ -128,7 +128,7 @@ def get_calibration_data(
     torch_dataset = sample_dataset(dataset, num_samples)
     dataloader = DataLoader(torch_dataset, batch_size=batch_size)
     inputs: list[list[torch.Tensor | np.ndarray]] = [[] for _ in range(len(input_spec))]
-    for (sample_input, _) in dataloader:
+    for sample_input, _ in dataloader:
         if isinstance(sample_input, (tuple, list)):
             for i, tensor in enumerate(sample_input):
                 inputs[i].append(tensor)

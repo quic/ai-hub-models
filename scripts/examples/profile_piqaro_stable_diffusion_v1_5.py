@@ -141,7 +141,6 @@ if __name__ == "__main__":
     output_path_onnx = os.path.join(
         output_dir, f"sd1_5_{args.component}_{args.opt}.onnx"
     )
-    onnx_transforms = None
 
     if args.opt == "piqaro_onnx":
         # Create a temporary directory that will persist until export finishes.
@@ -172,7 +171,7 @@ if __name__ == "__main__":
             str(output_dir),
             dummy_input,
             input_names=list(input_spec.keys()),
-            onnx_transforms=onnx_transforms,
+            onnx_transforms=None,
             skip_zip=True,
         )
 

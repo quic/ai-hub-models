@@ -10,7 +10,7 @@ from collections.abc import Collection
 import jiwer
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.models.huggingface_wavlm_base_plus.app import get_processor
 
 
@@ -67,3 +67,10 @@ class LibriSpeechEvaluator(BaseEvaluator):
         """Return formatted WER score"""
         wer_score = self.get_accuracy_score()
         return f"Word Error Rate: {wer_score:.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Word Error Rate",
+            unit="WER",
+            description="The percentage of words incorrectly predicted.",
+        )

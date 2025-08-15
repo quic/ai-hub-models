@@ -16,6 +16,7 @@ from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
 from typing_extensions import TypeAlias
 
+from qai_hub_models.configs.perf_yaml import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -234,8 +235,7 @@ def fetch_async_test_job(
     component: str | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> hub.CompileJob | None:
-    ...
+) -> hub.CompileJob | None: ...
 
 
 @overload
@@ -248,8 +248,7 @@ def fetch_async_test_job(
     component: str | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> hub.ProfileJob | None:
-    ...
+) -> hub.ProfileJob | None: ...
 
 
 @overload
@@ -262,8 +261,7 @@ def fetch_async_test_job(
     component: str | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> hub.InferenceJob | None:
-    ...
+) -> hub.InferenceJob | None: ...
 
 
 @overload
@@ -276,8 +274,7 @@ def fetch_async_test_job(
     component: str | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> hub.QuantizeJob | None:
-    ...
+) -> hub.QuantizeJob | None: ...
 
 
 @overload
@@ -290,8 +287,7 @@ def fetch_async_test_job(
     component: str | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> hub.Job | None:
-    ...
+) -> hub.Job | None: ...
 
 
 def fetch_async_test_job(
@@ -384,8 +380,7 @@ def fetch_async_test_jobs(
     component_names: list[str] | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> Mapping[str | None, hub.CompileJob] | None:
-    ...
+) -> Mapping[str | None, hub.CompileJob] | None: ...
 
 
 @overload
@@ -398,8 +393,7 @@ def fetch_async_test_jobs(
     component_names: list[str] | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> Mapping[str | None, hub.ProfileJob] | None:
-    ...
+) -> Mapping[str | None, hub.ProfileJob] | None: ...
 
 
 @overload
@@ -412,8 +406,7 @@ def fetch_async_test_jobs(
     component_names: list[str] | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> Mapping[str | None, hub.InferenceJob] | None:
-    ...
+) -> Mapping[str | None, hub.InferenceJob] | None: ...
 
 
 @overload
@@ -426,8 +419,7 @@ def fetch_async_test_jobs(
     component_names: list[str] | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> Mapping[str | None, hub.QuantizeJob] | None:
-    ...
+) -> Mapping[str | None, hub.QuantizeJob] | None: ...
 
 
 @overload
@@ -440,8 +432,7 @@ def fetch_async_test_jobs(
     component_names: list[str] | None = None,
     cache_path: str | Path | None = None,
     raise_if_not_successful: bool = False,
-) -> Mapping[str | None, hub.Job] | None:
-    ...
+) -> Mapping[str | None, hub.Job] | None: ...
 
 
 def fetch_async_test_jobs(
@@ -559,7 +550,7 @@ def write_accuracy(
     device_accuracy: float | None = None,
     sim_accuracy: float | None = None,
 ) -> None:
-    line = f"{model_name},{str(precision)},{path.spreadsheet_name},"
+    line = f"{model_name},{str(precision)},{path.value},"
     line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
     line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
     line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","
@@ -719,6 +710,11 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
             return False
 
         if current_compile_job.get_status().failure:
+            return False
+
+        if ToolVersions.from_job(previous_compile_job) != ToolVersions.from_job(
+            current_compile_job
+        ):
             return False
 
         # The temporary directory and all its contents will be automatically cleaned up when the 'with' block is exited

@@ -9,7 +9,7 @@ import os
 
 from torchvision.datasets import ImageFolder
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -94,3 +94,10 @@ class HumanFaces192Dataset(HumanFacesDataset):
             which by default is set to the filename where the class is defined.
         """
         return "human_faces_192"
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.kaggle.com/datasets/ashwingupta3012/human-faces",
+            split_description="validation split",
+        )

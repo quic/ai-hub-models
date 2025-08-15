@@ -22,7 +22,6 @@ TEST_IMAGE = CachedWebModelAsset.from_asset_store(
 
 
 class MobileVIT(ImagenetClassifier):
-
     """Exportable MobileVIT model, end-to-end."""
 
     def __init__(

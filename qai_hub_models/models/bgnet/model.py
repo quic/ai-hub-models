@@ -44,7 +44,6 @@ class BGNet(BaseModel):
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> BGNet:
-
         """Load bgnet from a weightfile created by the source bgnet repository."""
         # Load PyTorch model from disk
         bgnet_model = _load_bgnet_source_model_from_weights(weights_path)

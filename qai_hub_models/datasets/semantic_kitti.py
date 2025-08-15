@@ -11,7 +11,7 @@ import shutil
 import numpy as np
 import torch
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 
 SEMANTIC_KITTI_VERSION = 1
@@ -287,3 +287,10 @@ class SemanticKittiDataset(BaseDataset):
         proj_mask = (proj_idx > 0).astype(np.int32)
 
         return img_proj_x, img_proj_y, proj_range, proj_xyz, proj_remission, proj_mask
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://semantic-kitti.org/",
+            split_description="sequence #01 of 22",
+        )

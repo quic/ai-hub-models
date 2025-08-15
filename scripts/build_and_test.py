@@ -13,13 +13,13 @@ import textwrap
 from collections.abc import Callable
 from typing import Optional
 
-from tasks.aws import ValidateAwsCredentialsTask
+from tasks.aws import REPO_ROOT, ValidateAwsCredentialsTask
 from tasks.changes import (
     REPRESENTATIVE_EXPORT_MODELS,
     get_all_models,
     get_models_to_test,
 )
-from tasks.constants import BUILD_ROOT, VENV_PATH
+from tasks.constants import BUILD_ROOT, DEFAULT_PYTHON, VENV_PATH
 from tasks.plan import (
     ALL_TASKS,
     PUBLIC_TASKS,
@@ -27,11 +27,19 @@ from tasks.plan import (
     TASK_DEPENDENCIES,
     Plan,
     depends,
+    depends_if,
     public_task,
     task,
 )
-from tasks.release import BuildWheelTask, ReleaseTask, _get_wheel_dir
+from tasks.release import (
+    BuildPublicRepositoryTask,
+    BuildWheelTask,
+    CreateReleaseVenv,
+    PublishWheelTask,
+    PushRepositoryTask,
+)
 from tasks.task import (
+    CompositeTask,
     ConditionalTask,
     ListTasksTask,
     NoOpTask,
@@ -39,7 +47,7 @@ from tasks.task import (
     Task,
 )
 from tasks.test import PyTestModelsTask, PyTestQAIHMTask
-from tasks.util import echo, get_env_bool, get_pip, on_ci, run
+from tasks.util import echo, get_env_bool, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
@@ -84,7 +92,7 @@ def parse_arguments():
     parser.add_argument(
         "--python",
         type=str,
-        default="python3.10",
+        default=DEFAULT_PYTHON,
         help="Python executable path or name (only used when creating the venv).",
     )
 
@@ -114,6 +122,27 @@ def parse_arguments():
         args.task.extend(args.legacy_task.split(","))
     delattr(args, "legacy_task")
     return args
+
+
+DEFAULT_RELEASE_DIRECTORY = os.path.join(BUILD_ROOT, "release")
+RELEASE_VENV = os.path.join(BUILD_ROOT, "release_venv")
+RELEASE_WHEEL_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "wheel")
+RELEASE_REPO_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "repository")
+PRIVATE_WHEEL_DIR = os.path.join(BUILD_ROOT, "wheel")
+
+
+def get_test_venv_wheel_dir() -> Optional[str]:
+    """
+    Get the directory with built wheels that should be used for testing.
+    The wheel will exists so long as install_deps is a dependency of the current task.
+
+    Returns None if an editable install should be used instead.
+    """
+    if get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL"):
+        return RELEASE_WHEEL_DIR
+    elif on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
+        return PRIVATE_WHEEL_DIR
+    return None  # editable install
 
 
 class TaskLibrary:
@@ -214,63 +243,30 @@ class TaskLibrary:
                 group_name=None,
                 condition=lambda: self.venv_path is None
                 or os.path.exists(self.venv_path),
-                true_task=NoOpTask("Not creating/activating any virtual environment."),
+                true_task=NoOpTask(
+                    f"Using virtual environment at {self.venv_path}."
+                    if self.venv_path
+                    else "Using currently active python environment."
+                ),
                 false_task=CreateVenvTask(self.venv_path, self.python_executable),
             ),
         )
 
     @public_task("Install dependencies for model zoo.")
-    @depends(
-        ["create_venv", "mock_release"]
-        if on_ci() and get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL")
-        else ["create_venv"]
+    @depends_if(
+        get_test_venv_wheel_dir(),
+        eq=[
+            (RELEASE_WHEEL_DIR, ["build_public_wheel", "create_venv"]),
+            (PRIVATE_WHEEL_DIR, ["build_internal_wheel", "create_venv"]),
+            # no dependencies (editable install) otherwise
+        ],
+        default=["create_venv"],
     )
     def install_deps(self, plan: Plan, step_id: str = "install_deps") -> str:
-        if on_ci():
-            use_public_wheel = get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL") or False
-
-            if use_public_wheel:
-                # Install the public wheel
-                return plan.add_step(
-                    step_id,
-                    RunCommandsWithVenvTask(
-                        "Install QAIHM from public wheel",
-                        self.venv_path,
-                        [
-                            f"find {_get_wheel_dir()} -name 'qai_hub_models-*.whl' -exec {get_pip()} install {{}}[dev] \\;"
-                        ],
-                    ),
-                )
-            else:
-                # On CI and private wheel: Build wheel first, then install deps using wheel
-                plan.add_step(
-                    "build_wheel_for_deps",
-                    BuildWheelTask(
-                        None,  # Let BuildWheelTask create its own venv
-                        self.python_executable,
-                        use_repo_root=True,
-                        overwrite_if_exists=False,
-                    ),
-                )
-
-                # Install the private wheel
-                return plan.add_step(
-                    step_id,
-                    RunCommandsWithVenvTask(
-                        "Install QAIHM from private wheel",
-                        self.venv_path,
-                        [
-                            f"find {os.path.join(BUILD_ROOT, 'wheel')} -name 'qai_hub_models-*.whl' -exec {get_pip()} install {{}}[dev] \\;"
-                        ],
-                    ),
-                )
-
-        # Default: Use editable install and private repository (Dev environment)
         return plan.add_step(
             step_id,
             SyncLocalQAIHMVenvTask(
-                self.venv_path,
-                ["dev"],
+                self.venv_path, ["dev"], qaihm_wheel_dir=get_test_venv_wheel_dir()
             ),
         )
 
@@ -360,6 +356,7 @@ class TaskLibrary:
             run_export_quantize=True,
             run_export_compile=False,
             skip_standard_unit_test=True,
+            qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
 
     @public_task("Quantize changed models in preparation for testing all of them.")
@@ -431,6 +428,7 @@ class TaskLibrary:
                 venv_for_each_model=False,
                 use_shared_cache=True,
                 test_trace=False,
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
 
@@ -451,6 +449,7 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=True,
                 use_shared_cache=False,
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
 
@@ -473,6 +472,7 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
 
@@ -513,6 +513,7 @@ class TaskLibrary:
             exit_after_single_model_failure=False,
             skip_standard_unit_test=True,
             test_trace=False,
+            qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
 
     @public_task("Run Compile jobs for all models in Model Zoo.")
@@ -574,6 +575,7 @@ class TaskLibrary:
                 # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
                 exit_after_single_model_failure=False,
                 test_trace=False,
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
 
@@ -593,82 +595,87 @@ class TaskLibrary:
                 venv_for_each_model=False,
                 use_shared_cache=True,
                 test_trace=False,
+                qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
 
-    @public_task("Release QAIHM (build repo & wheel, push repo & wheel)")
-    @depends(["install_deps"])
-    def release(self, plan: Plan, step_id: str = "release") -> str:
+    @public_task("Build & Install QAIHM Release Rependencies")
+    def install_release_deps(
+        self, plan: Plan, step_id: str = "install_release_deps"
+    ) -> str:
+        release_venv_task = CreateReleaseVenv(RELEASE_VENV, self.python_executable)
+        return plan.add_step(step_id, release_venv_task)
+
+    @public_task(
+        "Build Public Copy of the Repository (with internal information removed)"
+    )
+    def build_public_repository(
+        self, plan: Plan, step_id: str = "build_public_repository"
+    ) -> str:
         return plan.add_step(
             step_id,
-            ReleaseTask(
-                self.venv_path,
-                self.python_executable,
-                build_repository=True,
-                push_repository=True,
-                build_wheel=True,
-                publish_wheel=True,
-            ),
-        )
-
-    @public_task("Push QAIHM Code (build repo & wheel, push repo)")
-    @depends(["install_deps"])
-    def release_code(self, plan: Plan, step_id: str = "release_code") -> str:
-        return plan.add_step(
-            step_id,
-            ReleaseTask(
-                self.venv_path,
-                self.python_executable,
-                build_repository=True,
-                push_repository=True,
-                build_wheel=False,
-                publish_wheel=False,
-            ),
-        )
-
-    @public_task("Mock Release QAIHM (build repo & wheel, but do not push them)")
-    def mock_release(self, plan: Plan, step_id: str = "mock_release") -> str:
-        # Create a separate venv for the mock release to avoid circular dependencies
-        mock_release_venv = os.path.join(BUILD_ROOT, "mock_release_venv")
-
-        plan.add_step(
-            "create_mock_release_venv",
-            CreateVenvTask(mock_release_venv, self.python_executable),
-        )
-
-        plan.add_step(
-            "install_mock_release_deps",
-            RunCommandsWithVenvTask(
-                "Install dependencies for mock release",
-                mock_release_venv,
-                [
-                    f"{get_pip()} install -e .[dev]",
+            CompositeTask(
+                group_name=None,
+                tasks=[
+                    # "install_deps" will call this task if the user wants to use the public package for testing.
+                    # To avoid a circular dependency, we use an editable install to first build the public package.
+                    SyncLocalQAIHMVenvTask(
+                        self.venv_path, ["dev"], qaihm_wheel_dir=None
+                    ),
+                    BuildPublicRepositoryTask(
+                        self.venv_path,
+                        RELEASE_REPO_DIR,
+                    ),
                 ],
             ),
         )
 
-        return plan.add_step(
-            step_id,
-            ReleaseTask(
-                mock_release_venv,
-                self.python_executable,
-                build_repository=True,
-                push_repository=False,
-                build_wheel=True,
-                publish_wheel=False,
-            ),
-        )
-
-    @public_task("Build Python Wheel (build repository and create wheel)")
-    @depends(["install_deps"])
-    def build_wheel(self, plan: Plan, step_id: str = "build_wheel") -> str:
+    @public_task(description="Build Public Python Wheel")
+    @depends(["install_release_deps", "build_public_repository"])
+    def build_public_wheel(
+        self, plan: Plan, step_id: str = "build_public_wheel"
+    ) -> str:
         return plan.add_step(
             step_id,
             BuildWheelTask(
-                self.venv_path,
-                self.python_executable,
-                use_repo_root=True,
+                RELEASE_VENV,
+                RELEASE_REPO_DIR,
+                wheel_dir=RELEASE_WHEEL_DIR,
             ),
+        )
+
+    @public_task("Build Internal Python Wheel")
+    @depends(["install_release_deps"])
+    def build_internal_wheel(
+        self, plan: Plan, step_id: str = "build_internal_wheel"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            BuildWheelTask(RELEASE_VENV, REPO_ROOT, PRIVATE_WHEEL_DIR),
+        )
+
+    @public_task("Release QAIHM Wheel to PyPi")
+    @depends(["build_public_wheel"])
+    def release_wheel(self, plan: Plan, step_id: str = "release_wheel") -> str:
+        return plan.add_step(
+            step_id,
+            PublishWheelTask(RELEASE_WHEEL_DIR, RELEASE_VENV),
+        )
+
+    @public_task("Push QAIHM Code to GitHub")
+    @depends(["build_public_repository"])
+    def release_code(self, plan: Plan, step_id: str = "release_code") -> str:
+        return plan.add_step(
+            step_id,
+            PushRepositoryTask(RELEASE_REPO_DIR),
+        )
+
+    @public_task("Push QAIHM Code and Wheel (build repo & wheel, push repo)")
+    @depends(["release_code", "release_wheel"])
+    def release(self, plan: Plan, step_id: str = "release") -> str:
+        return plan.add_step(
+            step_id,
+            NoOpTask("Release AI Hub Models"),
         )
 
     # This task has no depedencies and does nothing.
@@ -680,7 +687,7 @@ class TaskLibrary:
 def plan_from_dependencies(
     main_tasks: list[str],
     python_executable: str,
-    venv_path: Optional[str],
+    venv_path: str,
 ) -> Plan:
     task_library = TaskLibrary(
         python_executable,
@@ -728,7 +735,7 @@ def plan_from_dependencies(
 def plan_from_task_list(
     tasks: list[str],
     python_executable: str,
-    venv_path: Optional[str],
+    venv_path: str,
 ) -> Plan:
     task_library = TaskLibrary(
         python_executable,
@@ -748,8 +755,8 @@ def build_and_test():
 
     args = parse_arguments()
 
-    venv_path = args.venv if args.venv != "none" else None
-    python_executable = args.python
+    venv_path = args.venv if args.venv.lower() != "none" else None
+    python_executable = args.python if venv_path else "python"
 
     plan = Plan()
 

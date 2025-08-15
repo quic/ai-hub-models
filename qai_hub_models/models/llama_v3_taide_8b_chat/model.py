@@ -16,13 +16,17 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
+from qai_hub_models.models._shared.llm.model import (
+    determine_precision_from_checkpoint,
+    get_default_precision,
+    get_supported_precisions,
+)
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
-DEFAULT_CHECKPOINT = "llama_v3_taide_8b_chat"
-DEFAULT_CHECKPOINT_ZIP = DEFAULT_CHECKPOINT + ".zip"
+MODEL_ASSET_VERSION = 3
 
 NUM_LAYERS = 32
 NUM_SPLITS = 5
@@ -38,6 +42,10 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 80
+
+DEFAULT_PRECISION = get_default_precision(MODEL_ID)
+SUPPORTED_PRECISIONS = get_supported_precisions(MODEL_ID)
+DEFAULT_CHECKPOINT = {Precision.w4a16: "llama_v3_taide_8b_chat_ckpt_w4a16"}
 
 
 class Llama3_TAIDE(Llama3Base):
@@ -139,6 +147,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         host_device: torch.device | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        precision: Precision = DEFAULT_PRECISION,
         fp_model: torch.nn.Module | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_TAIDE_AIMETOnnx:
@@ -152,14 +161,28 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
           models. Note that encodings are sensitive to AIMET ONNX versions.
           If passing None, initializes without encodings.
         """
-        if checkpoint == "DEFAULT":
+        if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
+            precision = determine_precision_from_checkpoint(checkpoint) or precision
+            if precision not in SUPPORTED_PRECISIONS:
+                available_precisions = [str(p) for p in SUPPORTED_PRECISIONS]
+                raise ValueError(
+                    f"This model is not supported for {str(precision)} precision. "
+                    f"Models are available in following precisions: {','.join(available_precisions)}."
+                )
+            if precision not in DEFAULT_CHECKPOINT:
+                available_checkpoints = [str(p) for p in DEFAULT_CHECKPOINT]
+                raise ValueError(
+                    f"No checkpoint is available for this model in {str(precision)} precision. If you would "
+                    f"like to continue with this precision, please generate a local quantized checkpoint. "
+                    f"Checkpoints are available in the following precisions: {','.join(available_checkpoints)}."
+                )
+            precision_checkpoint = DEFAULT_CHECKPOINT[precision]
             checkpoint = os.path.join(
                 CachedWebModelAsset.from_asset_store(
-                    MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_CHECKPOINT_ZIP
+                    MODEL_ID, MODEL_ASSET_VERSION, precision_checkpoint + ".zip"
                 ).fetch(extract=True),
-                DEFAULT_CHECKPOINT,
+                precision_checkpoint,
             )
-
             # Generate necessary ONNX models
             if fp_model is not None:
                 cls.create_onnx_models(
@@ -169,13 +192,14 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
                     export_sequence_lengths=[sequence_length],
                     host_device=host_device,
                 )
-                cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
 
+                cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
         return super().from_pretrained(
             checkpoint=checkpoint,
             host_device=host_device,
             sequence_length=sequence_length,
             context_length=context_length,
+            precision=precision,
             fp_model=fp_model,
             _skip_quantsim_creation=_skip_quantsim_creation,
         )

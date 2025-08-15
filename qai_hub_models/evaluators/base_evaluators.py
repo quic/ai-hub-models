@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Collection
-from typing import Union
+from typing import NamedTuple, Union
 
 import torch
 from torch.utils.data.dataloader import DataLoader
@@ -19,6 +19,12 @@ _ModelIO: TypeAlias = Union[Collection[torch.Tensor], torch.Tensor]
 _DataLoader: TypeAlias = Union[
     DataLoader, Collection[Union[_ModelIO, tuple[_ModelIO, _ModelIO]]]
 ]
+
+
+class MetricMetadata(NamedTuple):
+    name: str
+    unit: str
+    description: str
 
 
 class BaseEvaluator(ABC):
@@ -64,6 +70,10 @@ class BaseEvaluator(ABC):
     def formatted_accuracy(self) -> str:
         """Formatted string containing the accuracy and any relevant units."""
         pass
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        """Metadata about the metric corresponding to get_accuracy_score."""
+        raise NotImplementedError()
 
     def add_from_dataset(
         self,

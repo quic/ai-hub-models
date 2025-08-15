@@ -8,17 +8,11 @@ from __future__ import annotations
 import os
 import pathlib
 import shutil
-from typing import Optional
+from typing import Optional, cast
 
-from .constants import BUILD_ROOT, REPO_ROOT
 from .task import CompositeTask
 from .util import get_pip
-from .venv import (
-    CreateVenvTask,
-    RunCommandsTask,
-    RunCommandsWithVenvTask,
-    SyncLocalQAIHMVenvTask,
-)
+from .venv import CreateVenvTask, RunCommandsTask, RunCommandsWithVenvTask
 
 qaihm_path = pathlib.Path(__file__).parent.parent.parent / "qai_hub_models"
 version_path = qaihm_path / "_version.py"
@@ -26,8 +20,6 @@ version_locals: dict[str, str] = {}
 exec(open(version_path).read(), version_locals)
 __version__ = version_locals["__version__"]
 
-DEFAULT_RELEASE_DIRECTORY = os.path.join(BUILD_ROOT, "release")
-RELEASE_DIRECTORY_VARNAME = "QAIHM_RELEASE_DIR"
 REMOTE_REPOSITORY_URL_VARNAME = "QAIHM_REMOTE_URL"
 PYPI_VARNAME = "QAIHM_PYPI_URL"
 TAG_VARNAME = "QAIHM_TAG"
@@ -35,55 +27,31 @@ TAG_SUFFIX_VARNAME = "QAIHM_TAG_SUFFIX"
 COMMIT_MSG_VARNAME = "QAIHM_COMMIT_MESSAGE"
 
 
-def _get_release_dir():
-    """Get the path to the release directory."""
-    return os.environ.get(RELEASE_DIRECTORY_VARNAME, DEFAULT_RELEASE_DIRECTORY)
-
-
-def _get_release_repository_dir():
-    """Get the path to the repository root in the release directory."""
-    return os.path.join(_get_release_dir(), "repository")
-
-
-def _get_wheel_dir():
-    """Get the path to the wheels folder in the release directory."""
-    return os.path.join(_get_release_dir(), "wheel")
-
-
-class ReleaseTask(CompositeTask):
+class CreateReleaseVenv(CompositeTask):
     """
-    Create a public version of the repository.
+    Create a venv for building and releasing the repository / wheel.
     """
 
     def __init__(
         self,
-        venv: Optional[str],
-        python_executable: Optional[str],
-        build_repository: bool = True,
-        push_repository: bool = True,
-        build_wheel: bool = True,
-        publish_wheel: bool = True,
+        venv_path: str | os.PathLike,
+        python_executable: Optional[str] = None,
     ):
-        # Verify environment variables first
-        if push_repository and REMOTE_REPOSITORY_URL_VARNAME not in os.environ:
-            raise ValueError(
-                f"Specify a remote repository by setting env var '${REMOTE_REPOSITORY_URL_VARNAME}'"
-            )
-        if publish_wheel and PYPI_VARNAME not in os.environ:
-            raise ValueError(f"Specify a pypi by setting env var '${PYPI_VARNAME}'")
-
-        # Do the release
         tasks = []
-        if build_repository:
-            tasks.append(BuildPublicRepositoryTask(venv, python_executable))
-        if build_wheel:
-            tasks.append(BuildWheelTask(venv, python_executable))
-        if push_repository:
-            tasks.append(PushRepositoryTask())
-        if publish_wheel:
-            tasks.append(PublishWheelTask(venv, python_executable))
-
-        super().__init__(f"Release QAIHM {__version__}", tasks)
+        self.venv_path = str(venv_path)
+        # Create Venv
+        tasks.append(CreateVenvTask(self.venv_path, python_executable))
+        # Install minimal build dependencies only for the wheel building.
+        tasks.append(
+            RunCommandsWithVenvTask(
+                "Install build dependencies",
+                venv=self.venv_path,
+                commands=["pip install setuptools wheel build keyrings.envvars"],
+            )
+        )
+        super().__init__(
+            group_name=f"Build Release Venv at {self.venv_path}", tasks=tasks
+        )
 
 
 class BuildPublicRepositoryTask(CompositeTask):
@@ -91,18 +59,10 @@ class BuildPublicRepositoryTask(CompositeTask):
     Create a public version of the repository.
     """
 
-    def __init__(self, venv: Optional[str], python_executable: Optional[str]):
+    def __init__(self, venv: str | None, repo_output_dir: str | os.PathLike):
         tasks = []
 
-        if not venv:
-            # Create Venv
-            venv = os.path.join(BUILD_ROOT, "test", "release_venv")
-            tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
-
         # Setup output directories
-        release_dir = _get_release_dir()
-        repo_output_dir = _get_release_repository_dir()
         if os.path.exists(repo_output_dir):
             shutil.rmtree(repo_output_dir)
 
@@ -111,14 +71,14 @@ class BuildPublicRepositoryTask(CompositeTask):
             RunCommandsWithVenvTask(
                 "Run Release Script",
                 venv=venv,
-                env=os.environ,
+                env=cast(dict, os.environ),
                 commands=[
                     f"python qai_hub_models/scripts/build_release.py --output-dir {repo_output_dir}"
                 ],
             )
         )
 
-        super().__init__(f"Build Public Repository in: {release_dir}", tasks)
+        super().__init__(f"Build Public Repository in: {repo_output_dir}", tasks)
 
 
 class PushRepositoryTask(CompositeTask):
@@ -127,7 +87,7 @@ class PushRepositoryTask(CompositeTask):
     If no directory is provided, assumes the release directory defined above.
     """
 
-    def __init__(self):
+    def __init__(self, repo_dir: str | os.PathLike):
         tasks = []
 
         # Remote URL
@@ -196,7 +156,7 @@ Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             RunCommandsTask(
                 "Push Release",
                 env=env,
-                cwd=_get_release_repository_dir(),
+                cwd=str(repo_dir),
                 commands=commands,
             )
         )
@@ -212,48 +172,31 @@ class BuildWheelTask(CompositeTask):
 
     def __init__(
         self,
-        venv: Optional[str],
-        python_executable: Optional[str],
-        use_repo_root: bool = False,
+        venv: str | None,
+        repo_dir: str | os.PathLike,  # Dir with setup.py
+        wheel_dir: str | os.PathLike | None = None,  # Dir to build wheel
         overwrite_if_exists: bool = True,
     ):
         tasks = []
 
-        if not venv:
-            # Create Venv
-            venv = os.path.join(BUILD_ROOT, "test", "release_venv")
-            tasks.append(CreateVenvTask(venv, python_executable))
-            # Install minimal build dependencies only for the wheel building.
-            tasks.append(
-                RunCommandsWithVenvTask(
-                    "Install build dependencies",
-                    venv=venv,
-                    commands=["pip install setuptools wheel build"],
-                )
-            )
-
         # Build Wheel
-        if use_repo_root:
-            repo_dir = REPO_ROOT
-            wheel_dir = os.path.join(BUILD_ROOT, "wheel")
-        else:
-            repo_dir = _get_release_repository_dir()
-            wheel_dir = _get_wheel_dir()
-
-        relative_wheel_dir = os.path.relpath(wheel_dir, repo_dir)
+        self.repo_dir = os.path.abspath(repo_dir)
+        self.wheel_dir = str(wheel_dir) or os.path.join(repo_dir, "build", "wheel")
+        relative_wheel_dir = os.path.relpath(self.wheel_dir, self.repo_dir)
 
         # Some sanity checking to make sure we don't accidentally "rm -rf /"
-        assert wheel_dir.startswith(BUILD_ROOT) and " " not in wheel_dir
+        assert " " not in self.wheel_dir and self.wheel_dir and self.wheel_dir != "/"
 
-        if overwrite_if_exists or not os.path.exists(wheel_dir):
+        os.makedirs(self.wheel_dir, exist_ok=True)
+        if overwrite_if_exists or not os.listdir(self.wheel_dir):
             tasks.append(
                 RunCommandsWithVenvTask(
                     "Build Wheel",
                     venv=venv,
-                    env=os.environ,
+                    env=cast(dict, os.environ),
                     commands=[
-                        f"rm -rf {wheel_dir}",
-                        f"cd {repo_dir} && "
+                        f"rm -rf {os.path.join(self.wheel_dir, '*.whl')}",
+                        f"cd {self.repo_dir} && "
                         f"python setup.py "
                         f"build --build-base {relative_wheel_dir} "
                         f"egg_info --egg-base {relative_wheel_dir} "
@@ -262,7 +205,7 @@ class BuildWheelTask(CompositeTask):
                 )
             )
 
-        super().__init__(f"Build Wheel to: {wheel_dir}", tasks)
+        super().__init__(f"Build Wheel to: {self.wheel_dir}", tasks)
 
 
 class PublishWheelTask(CompositeTask):
@@ -271,14 +214,8 @@ class PublishWheelTask(CompositeTask):
     If no directory is provided, assumes the release directory defined above.
     """
 
-    def __init__(self, venv: Optional[str], python_executable: Optional[str]):
+    def __init__(self, wheel_dir: str | os.PathLike, venv: str):
         tasks = []
-
-        if not venv:
-            # Create Venv
-            venv = os.path.join(BUILD_ROOT, "test", "release_venv")
-            tasks.append(CreateVenvTask(venv, python_executable))
-            tasks.append(SyncLocalQAIHMVenvTask(venv, ["dev"]))
 
         pypi = os.environ.get(PYPI_VARNAME, None)
         if not pypi:
@@ -290,10 +227,10 @@ class PublishWheelTask(CompositeTask):
             RunCommandsWithVenvTask(
                 "Build Wheel",
                 venv=venv,
-                env=os.environ,
+                env=cast(dict, os.environ),
                 commands=[
                     f"{get_pip()} install twine",
-                    f"twine upload --verbose --repository-url {pypi} {os.path.join(_get_wheel_dir(), '*.whl')}",
+                    f"twine upload --verbose --repository-url {pypi} {os.path.join(wheel_dir, '*.whl')}",
                 ],
             )
         )

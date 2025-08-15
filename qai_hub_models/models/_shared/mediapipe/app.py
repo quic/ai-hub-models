@@ -76,6 +76,7 @@ class MediaPipeApp(BaseCollectionApp):
         nms_iou_threshold: float = 0.3,
         min_landmark_score: float = 0.5,
         landmark_connections: list[tuple[int, int]] | None = None,
+        draw_keypoint_idx: list[int] | None = None,
     ):
         """
         Create a MediaPipe application.
@@ -132,6 +133,10 @@ class MediaPipeApp(BaseCollectionApp):
                 Connections between landmark output points.
                 Format is list[tuple[Landmark Point Index 0, Landmark Point Index 1]]
                 These connections will be drawn on the output image when applicable.
+
+            draw_keypoint_idx: list[int] | None
+                If set, only the keypoints with the following indices are drawn on the image.
+                If unset, all keypoints are drawn on the image.
         """
         self.detector = detector
         self.detector_anchors = detector_anchors
@@ -148,6 +153,7 @@ class MediaPipeApp(BaseCollectionApp):
         self.nms_iou_threshold = nms_iou_threshold
         self.min_landmark_score = min_landmark_score
         self.landmark_connections = landmark_connections
+        self.draw_keypoint_idx = draw_keypoint_idx
 
     def predict(self, *args, **kwargs):
         # See predict_landmarks_from_image.
@@ -482,7 +488,7 @@ class MediaPipeApp(BaseCollectionApp):
                         ...
                     ]
                     The shape of each inner list element is [# of landmark points, 3],
-                    where 3 == (X, Y, Conf)
+                    where 3 == (X, Y, Conf), and coordinates are in pixel space of the original input image.
 
                 ... (additional outputs when needed by implementation)
         """
@@ -582,6 +588,12 @@ class MediaPipeApp(BaseCollectionApp):
             # Draw detector bounding box
             draw_box_from_xyxy(NHWC_int_numpy_frame, box[0], box[1], (255, 0, 0), 1)
             # Draw detector keypoints
+            if self.draw_keypoint_idx:
+                kp_mask = torch.ones(kp.shape[0], dtype=torch.bool)
+                kp_mask = torch.scatter(
+                    kp_mask, 0, torch.tensor(self.draw_keypoint_idx), False
+                )
+                kp = kp[kp_mask]
             draw_points(NHWC_int_numpy_frame, kp, size=30)
             # Draw region of interest box computed from the detector box & keypoints
             # (this is the input to the landmark detector)

@@ -22,7 +22,7 @@ exec(open(version_path).read(), version_locals)
 
 
 # Non-Python Files to Add to the Wheel
-data_file_extensions = ["yaml", "txt", "json", "diff", "md", "j2", "env"]
+data_file_extensions = ["yaml", "txt", "json", "diff", "md", "j2", "env", "csv"]
 
 
 def get_data_files() -> list[str]:

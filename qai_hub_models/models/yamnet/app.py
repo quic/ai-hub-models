@@ -56,7 +56,6 @@ def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
 
 
 def parse_category_meta():
-
     """Read the class name definition file and return a list of strings."""
     YAMNET_CLASS_CSV = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, "yamnet_class_map.csv"
@@ -65,7 +64,7 @@ def parse_category_meta():
     with open(YAMNET_CLASS_CSV.fetch()) as csv_file:
         reader = csv.reader(csv_file)
         next(reader)  # Skip header
-        for (inx, category_id, category_name) in reader:
+        for inx, category_id, category_name in reader:
             accu.append(category_name)
     return accu
 

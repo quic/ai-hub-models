@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-
+from __future__ import annotations
 
 import importlib
 from collections.abc import Mapping
@@ -15,7 +15,12 @@ from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.datasets.mmmlu import mmmlu_split_lookup
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
-from qai_hub_models.models._shared.llm.model import is_quantized_checkpoint
+from qai_hub_models.models._shared.llm.model import (
+    LLM_AIMETOnnx,
+    LLMBase,
+    is_quantized_checkpoint,
+)
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
 
@@ -60,17 +65,11 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
     return dataloader
 
 
-def evaluate(
+def create_quantsim(
     quantized_model_cls: type[BaseModel],
     fp_model_cls: type[BaseModel],
-    num_samples: int,
-    task: str,
     kwargs: Mapping[str, Any],
-) -> tuple[float, str]:
-
-    if num_samples is None:
-        num_samples = 0 if "ppl" in task else 100
-
+):
     is_quantized = is_quantized_checkpoint(kwargs["checkpoint"])
 
     host_device = (
@@ -83,7 +82,9 @@ def evaluate(
         )
 
     if is_quantized:
-        if kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+        if isinstance(kwargs["checkpoint"], str) and kwargs["checkpoint"].startswith(
+            "DEFAULT"
+        ):
             kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
                 sequence_length=kwargs["sequence_length"],
                 context_length=kwargs["context_length"],
@@ -92,12 +93,29 @@ def evaluate(
     else:
         del kwargs["_skip_quantsim_creation"]  # type: ignore[index, attr-defined]
         del kwargs["fp_model"]  # type: ignore[index, attr-defined]
+        if "precision" in kwargs:
+            del kwargs["precision"]  # type: ignore[index, attr-defined]
         model_cls = fp_model_cls
 
     if kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
         del kwargs["checkpoint"]  # type: ignore[attr-defined]
 
     model = model_cls.from_pretrained(**kwargs).to(host_device)
+    return model, is_quantized, host_device
+
+
+def evaluate(
+    num_samples: int,
+    task: str,
+    model: LLM_AIMETOnnx | LLMBase,
+    kwargs: Mapping[str, Any],
+    is_quantized: bool,
+    host_device: torch.device,
+    fp_model_cls: type[BaseModel],
+) -> tuple[float, str]:
+    if num_samples is None:
+        num_samples = 0 if "ppl" in task else 100
+
     eval_dataloader = get_dataset(model, task, num_samples)
     evaluator = model.get_evaluator(
         task, torch.device("cpu") if is_quantized else host_device
@@ -118,10 +136,12 @@ def evaluate(
 def llm_evaluate(
     quantized_model_cls: type[BaseModel],
     fp_model_cls: type[BaseModel],
+    supported_precisions: list[Precision],
     default_calibration_seqlen: int = 2048,
 ):
     parser = get_model_cli_parser(
-        quantized_model_cls, suppress_help_arguments=["--host-device", "--fp-model"]
+        quantized_model_cls,
+        suppress_help_arguments=["--host-device", "--fp-model", "--precision"],
     )
     parser.add_argument(
         "--task",
@@ -147,13 +167,20 @@ def llm_evaluate(
     args = parser.parse_args()
 
     kwargs = get_model_kwargs(quantized_model_cls, vars(args))
-
-    _, formatted_accuracy = evaluate(
+    model, is_quantized, host_device = create_quantsim(
         quantized_model_cls=quantized_model_cls,
         fp_model_cls=fp_model_cls,
+        kwargs=kwargs,
+    )
+
+    _, formatted_accuracy = evaluate(
         num_samples=args.num_samples,
         task=args.task,
+        model=model,
         kwargs=kwargs,
+        is_quantized=is_quantized,
+        host_device=host_device,
+        fp_model_cls=fp_model_cls,
     )
 
     print(formatted_accuracy)

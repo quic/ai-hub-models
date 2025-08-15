@@ -11,7 +11,6 @@ from typing import Optional
 import torch
 
 from qai_hub_models.models._shared.llama.model import (
-    DEFAULT_INPUT_SEQ_LEN,
     Llama2BundledModel,
     LlamaMixin,
     RopeEmbedding,

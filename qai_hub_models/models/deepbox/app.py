@@ -96,12 +96,15 @@ class DeepBoxApp:
         self,
         image: Image.Image,
         raw_output: bool = False,
-    ) -> tuple[
-        list[npt.NDArray[np.float64]],
-        list[np.float64],
-        list[npt.NDArray[np.float32]],
-        list[list[np.float64]],
-    ] | Image.Image:
+    ) -> (
+        tuple[
+            list[npt.NDArray[np.float64]],
+            list[np.float64],
+            list[npt.NDArray[np.float32]],
+            list[list[np.float64]],
+        ]
+        | Image.Image
+    ):
         """
         From the provided image or tensor, predict the 3d bounding boxes & classes of objects detected within.
 
@@ -184,9 +187,15 @@ class DeepBoxApp:
         numpy_image: np.ndarray,  # H W C, int8 [0, 255] image
         pred_boxes: torch.Tensor,
         pred_class_idx: torch.Tensor,
-    ) -> tuple[
-        npt.NDArray[np.float64], np.float64, npt.NDArray[np.float32], list[np.float64]
-    ] | None:
+    ) -> (
+        tuple[
+            npt.NDArray[np.float64],
+            np.float64,
+            npt.NDArray[np.float32],
+            list[np.float64],
+        ]
+        | None
+    ):
         averages = ClassAverages.ClassAverages()
         angle_bins = Dataset.generate_bins(2)
 

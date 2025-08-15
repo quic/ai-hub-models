@@ -10,6 +10,7 @@ import torch
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.utils.input_spec import InputSpec
 
 
 class CocoFaceDataset(CocoBodyDataset):
@@ -32,11 +33,10 @@ class CocoFaceDataset(CocoBodyDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 128,
-        input_width: int = 128,
+        input_spec: InputSpec | None = None,
         num_samples: int = -1,
     ):
-        super().__init__(split, input_height, input_width, num_samples)
+        super().__init__(split, input_spec, num_samples)
 
     def _load_kpt_db(self):
         kpt_db = []
@@ -88,7 +88,7 @@ class CocoFaceDataset(CocoBodyDataset):
 
         image_array = cv2.resize(
             image_array[int(y0) : int(y1 + 1), int(x0) : int(x1 + 1)],
-            (self.input_height, self.input_width),
+            (self.target_h, self.target_w),
             interpolation=cv2.INTER_LINEAR,
         )
 

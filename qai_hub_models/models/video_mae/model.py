@@ -83,8 +83,8 @@ class VideoMAE(KineticsClassifier):
 
     @staticmethod
     def eval_datasets() -> list[str]:
-        return ["kinetics400_224"]
+        return ["kinetics400"]
 
     @staticmethod
     def calibration_dataset_name() -> str:
-        return "kinetics400_224"
+        return "kinetics400"

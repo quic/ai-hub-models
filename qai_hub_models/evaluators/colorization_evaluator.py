@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
 
 class ColorizationEvaluator(BaseEvaluator):
@@ -63,3 +63,10 @@ class ColorizationEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"Colorfulness: {self.get_accuracy_score():.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Colorfulness",
+            unit="",
+            description="A measure of how varied the colors are in the image.",
+        )

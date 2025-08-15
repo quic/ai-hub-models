@@ -15,6 +15,8 @@ from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
     LLMBase,
 )
+from qai_hub_models.models.common import Precision
+from qai_hub_models.utils.args import get_quantize_action_with_default
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 
 
@@ -23,6 +25,7 @@ def quantize(
     fp_model_cls: type[LLMBase],
     context_length: int,
     seq_len: int,
+    precision: Precision,
     output_dir: str,
     num_samples: int = 0,
     checkpoint: str | None = None,
@@ -54,6 +57,7 @@ def quantize(
     model_quant = quantized_model_cls.from_pretrained(
         context_length=context_length,
         sequence_length=seq_len,
+        precision=precision,
         checkpoint=None,
         host_device=device,
         fp_model=fp_model,
@@ -84,6 +88,7 @@ def llm_quantize(
     quantized_model_cls: type[LLM_AIMETOnnx],
     fp_model_cls: type[LLMBase],
     model_id: str,
+    supported_precisions: list[Precision],
     allow_cpu_to_quantize: bool = False,
 ):
     parser = argparse.ArgumentParser()
@@ -123,12 +128,20 @@ def llm_quantize(
         default=0,
         help="Number of samples to be used for calibration.",
     )
+    parser.add_argument(
+        "--precision",
+        default=Precision.parse(supported_precisions[0]),
+        action=get_quantize_action_with_default(supported_precisions[0]),
+        choices=[str(p) for p in supported_precisions],
+        help="Pick the precision with which the model must be quantized.",
+    )
     args = parser.parse_args()
 
     quantize(
         quantized_model_cls=quantized_model_cls,
         fp_model_cls=fp_model_cls,
         context_length=args.context_length,
+        precision=args.precision,
         seq_len=args.calibration_sequence_length,
         output_dir=args.output_dir,
         num_samples=args.num_samples,

@@ -21,6 +21,7 @@ import qai_hub as hub
 from qai_hub.client import SourceModelType
 from tabulate import tabulate
 
+from qai_hub_models.datasets.common import get_folder_name
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import (
@@ -196,14 +197,18 @@ def get_and_sync_datasets_cache_dir(
     folder_name = "hub_datasets"
     if not has_channel_transpose:
         folder_name += "_nt"
-    dir_path = get_artifacts_dir_opt() / folder_name / dataset_name
+    assert issubclass(model_cls, BaseModel)
+    dataset_folder_name = get_folder_name(dataset_name, model_cls.get_input_spec())
+    dir_path = get_artifacts_dir_opt() / folder_name / dataset_folder_name
     if dir_path.exists():
         return dir_path
     with qaihm_temp_dir() as tmp_dir:
         tmp_path = Path(tmp_dir)
         dataset_ids_filepath = get_dataset_ids_file()
         dataset_ids = load_yaml(dataset_ids_filepath)
-        input_key, gt_key = get_val_dataset_id_keys(dataset_name, has_channel_transpose)
+        input_key, gt_key = get_val_dataset_id_keys(
+            dataset_folder_name, has_channel_transpose
+        )
         # In most cases, the input and gt validation data have been created
         # and stored in the dataset_ids yaml. In the rare case it isn't, do so here.
         if input_key not in dataset_ids or gt_key not in dataset_ids:
@@ -237,7 +242,8 @@ def get_and_sync_datasets_cache_dir(
 def mock_get_calibration_data(
     model: BaseModel, input_spec: InputSpec, num_samples: int
 ) -> hub.Dataset:
-    cache_prefix = model.calibration_dataset_name() or model.__class__.__name__
+    cache_prefix_name = model.calibration_dataset_name() or model.__class__.__name__
+    cache_prefix = get_folder_name(cache_prefix_name, input_spec)
     cache_key = cache_prefix + "_train"
     dataset_ids_file = get_dataset_ids_file()
     dataset_ids = load_yaml(dataset_ids_file)
@@ -294,15 +300,17 @@ def get_hub_val_dataset(
         model_cls, BaseModel
     ), "CollectionModel is not yet supported by this function."
     dataset_ids = load_yaml(ids_file)
-    input_key, gt_key = get_val_dataset_id_keys(dataset_name, apply_channel_transpose)
+    input_spec = model_cls.get_input_spec()
+    folder_name = get_folder_name(dataset_name, input_spec)
+    input_key, gt_key = get_val_dataset_id_keys(folder_name, apply_channel_transpose)
     if dataset_ids and input_key in dataset_ids:
         assert gt_key in dataset_ids
         return hub.get_dataset(dataset_ids[input_key])
-    dataloader = get_torch_val_dataloader(dataset_name, num_samples)
+    dataloader = get_torch_val_dataloader(dataset_name, num_samples, input_spec)
     batch = next(iter(dataloader))
     input_entries, gt_entries = dataset_entries_from_batch(
         batch,
-        list(model_cls.get_input_spec().keys()),
+        list(input_spec.keys()),
         model_cls.get_channel_last_inputs() if apply_channel_transpose else [],
     )
 

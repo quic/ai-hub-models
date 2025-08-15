@@ -45,6 +45,7 @@ QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
+ACCURACY_CSV_BASE = INTERMEDIATES_DIR / "accuracy.csv"
 DATASETS_BASE = INTERMEDIATES_DIR / "dataset-ids.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
 
@@ -374,36 +375,31 @@ class InferenceScorecardJobYaml(
 @overload
 def get_scorecard_job_yaml(
     job_type: Literal[hub.JobType.COMPILE], path: str | Path | None = None
-) -> CompileScorecardJobYaml:
-    ...
+) -> CompileScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml(
     job_type: Literal[hub.JobType.PROFILE], path: str | Path | None = None
-) -> ProfileScorecardJobYaml:
-    ...
+) -> ProfileScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml(
     job_type: Literal[hub.JobType.INFERENCE], path: str | Path | None = None
-) -> InferenceScorecardJobYaml:
-    ...
+) -> InferenceScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml(
     job_type: Literal[hub.JobType.QUANTIZE], path: str | Path | None = None
-) -> QuantizeScorecardJobYaml:
-    ...
+) -> QuantizeScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml(
     job_type: hub.JobType, path: str | Path | None = None
-) -> ScorecardJobYaml:
-    ...
+) -> ScorecardJobYaml: ...
 
 
 def get_scorecard_job_yaml(
@@ -445,29 +441,25 @@ def get_scorecard_job_yaml(
 @overload
 def get_scorecard_job_yaml_from_job(
     job: hub.CompileJob, path: str | Path | None = None
-) -> CompileScorecardJobYaml:
-    ...
+) -> CompileScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml_from_job(
     job: hub.ProfileJob, path: str | Path | None = None
-) -> ProfileScorecardJobYaml:
-    ...
+) -> ProfileScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml_from_job(
     job: hub.InferenceJob, path: str | Path | None = None
-) -> InferenceScorecardJobYaml:
-    ...
+) -> InferenceScorecardJobYaml: ...
 
 
 @overload
 def get_scorecard_job_yaml_from_job(
     job: hub.QuantizeJob, path: str | Path | None = None
-) -> QuantizeScorecardJobYaml:
-    ...
+) -> QuantizeScorecardJobYaml: ...
 
 
 def get_scorecard_job_yaml_from_job(

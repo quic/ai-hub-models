@@ -49,8 +49,6 @@ OPT_METHODS = ["no_opt", "manual", "piqaro_torch", "piqaro_onnx"]
 
 MODEL_NAME = "llama_v3_2_3b"
 
-HF_REPO_NAME = "meta-llama/Llama-3.2-3B-Instruct"
-
 NUM_LAYERS_TRUNC = 2
 
 

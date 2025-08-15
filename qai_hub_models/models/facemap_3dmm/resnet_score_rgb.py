@@ -609,9 +609,11 @@ def get_resnet(
     if width_scale != 1.0:
         channels = [
             [
-                int(cij * width_scale)
-                if (i != len(channels) - 1) or (j != len(ci) - 1)
-                else cij
+                (
+                    int(cij * width_scale)
+                    if (i != len(channels) - 1) or (j != len(ci) - 1)
+                    else cij
+                )
                 for j, cij in enumerate(ci)
             ]
             for i, ci in enumerate(channels)

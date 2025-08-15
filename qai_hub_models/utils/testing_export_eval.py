@@ -45,7 +45,6 @@ from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,
-    get_dataset_ids_file,
     get_hub_val_dataset,
     mock_get_calibration_data,
     mock_on_device_model_call,
@@ -448,7 +447,9 @@ def compile_via_export(
     )
 
     # Use export script to create a compile job.
-    with device_patch, pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
+    with (
+        device_patch
+    ), pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
         export_result = _parse_export_result(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
@@ -471,8 +472,9 @@ def compile_via_export(
 
 
 def fetch_cached_jobs_if_compile_jobs_are_identical(
-    job_type_to_fetch_from_cache: Literal[hub.JobType.PROFILE]
-    | Literal[hub.JobType.INFERENCE],
+    job_type_to_fetch_from_cache: (
+        Literal[hub.JobType.PROFILE] | Literal[hub.JobType.INFERENCE]
+    ),
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -646,7 +648,9 @@ def profile_via_export(
             patch_compile=True,
         )
 
-        with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
+        with (
+            device_patch
+        ), calibration_data_patch, quantize_job_patch, compile_job_patch:
             export_result = _parse_export_result(
                 export_model(
                     device=device.execution_device_name,
@@ -822,7 +826,9 @@ def export_test_e2e(
     )
 
     # Test export script end to end
-    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
+    with (
+        device_patch
+    ), calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
         export_model(  # type:ignore[misc]
             device=device.execution_device_name,
             chipset=device.chipset,
@@ -889,7 +895,7 @@ def on_device_inference_for_accuracy_validation(
             get_dataset_ids_file(),
             model,
             apply_channel_transpose=scorecard_path.runtime.channel_last_native_execution,
-            num_samples=_get_num_eval_samples(dataset_name),
+            num_samples=get_num_eval_samples(dataset_name),
         )
         ijob = hub.submit_inference_job(
             device=device.execution_device,
@@ -929,7 +935,11 @@ def torch_inference_for_accuracy_validation(
 
     inputs, *_ = next(
         iter(
-            get_torch_val_dataloader(dataset_name, _get_num_eval_samples(dataset_name))
+            get_torch_val_dataloader(
+                dataset_name,
+                get_num_eval_samples(dataset_name),
+                model.get_input_spec(),
+            )
         )
     )
     if not isinstance(inputs, list) and not isinstance(inputs, tuple):
@@ -1087,7 +1097,6 @@ def accuracy_on_sample_inputs_via_export(
     psnr_values = []
 
     def _mock_tabulate_fn(df, **kwargs) -> str:
-        nonlocal psnr_values
         new_psnr_values, tabulate_results = mock_tabulate_fn(df)
         psnr_values.extend(new_psnr_values)
         return tabulate_results
@@ -1097,7 +1106,13 @@ def accuracy_on_sample_inputs_via_export(
         side_effect=_mock_tabulate_fn,
     )
 
-    with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
+    with (
+        device_patch
+    ), (
+        calibration_data_patch
+    ), (
+        quantize_job_patch
+    ), compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
             precision=precision,
@@ -1117,7 +1132,7 @@ def _get_dataset_cache_patch(
     dataset_dir = get_and_sync_datasets_cache_dir(
         scorecard_path.runtime.channel_last_native_execution,
         dataset_name,
-        _get_num_eval_samples(dataset_name),
+        get_num_eval_samples(dataset_name),
         model_cls,
     )
     return mock.patch(
@@ -1126,7 +1141,7 @@ def _get_dataset_cache_patch(
     )
 
 
-def _get_num_eval_samples(dataset_name: str) -> int:
+def get_num_eval_samples(dataset_name: str) -> int:
     """
     Resolve how many samples to evaluate for a given dataset.
 
@@ -1245,8 +1260,10 @@ def accuracy_on_dataset_via_evaluate_and_export(
     )
 
     # Run eval script to collect accuracy metrics
-    num_samples = _get_num_eval_samples(dataset_name)
-    with cache_path_patch, dataset_download_patch, on_device_call_patch, torch_call_patch:
+    num_samples = get_num_eval_samples(dataset_name)
+    with (
+        cache_path_patch
+    ), dataset_download_patch, on_device_call_patch, torch_call_patch:
         inference_job = inference_jobs[None]
         evaluate_result = evaluate_on_dataset(
             compiled_model=inference_job.model,
@@ -1281,7 +1298,6 @@ def accuracy_on_dataset_via_evaluate_and_export(
     psnr_values = []
 
     def _mock_tabulate_fn(df, **kwargs) -> str:
-        nonlocal psnr_values
         new_psnr_values, tabulate_results = mock_tabulate_fn(df)
         psnr_values.extend(new_psnr_values)
         return tabulate_results
@@ -1351,7 +1367,7 @@ def torch_accuracy_on_dataset(
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
     )
-    num_samples = _get_num_eval_samples(dataset_name)
+    num_samples = get_num_eval_samples(dataset_name)
     with torch_call_patch, cache_path_patch:
         evaluate_result = evaluate_on_dataset(
             compiled_model=mock.MagicMock(
@@ -1431,7 +1447,7 @@ def sim_accuracy_on_dataset(
     fake_compile_job.model = qdq_model
     fake_compile_job.options = ""
 
-    num_samples = _get_num_eval_samples(dataset_name)
+    num_samples = get_num_eval_samples(dataset_name)
     with cache_path_patch:
         evaluate_result = evaluate_on_dataset(
             compiled_model=fake_model,

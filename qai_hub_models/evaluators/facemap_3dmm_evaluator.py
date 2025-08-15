@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.models.facemap_3dmm.utils import (
     project_landmark,
     transform_landmark_coordinates,
@@ -72,3 +72,10 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
     def formatted_accuracy(self) -> str:
         mean_nme = self.get_accuracy_score()
         return f"Mean NME: {mean_nme:.4f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Normalized Mean Error",
+            unit="NME",
+            description="Average distance between predicted and expected landmark, weighted by the typical scale for each landmark.",
+        )

@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -151,3 +151,10 @@ class CityscapesDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 50
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.cityscapes-dataset.com/",
+            split_description="validation split",
+        )

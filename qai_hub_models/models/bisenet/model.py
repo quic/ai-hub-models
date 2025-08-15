@@ -42,7 +42,6 @@ class BiseNet(BaseModel):
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> BiseNet:
-
         """Load bisenet from a weightfile created by the source bisenet repository."""
         # Load PyTorch model from disk
         bisenet_model = _load_bisenet_source_model_from_weights(weights_path)

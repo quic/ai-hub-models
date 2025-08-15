@@ -11,6 +11,8 @@ def process_output(command):
     return command.stdout.decode("utf-8").strip()
 
 
+DEFAULT_PYTHON = "python3.10"
+
 BASH_EXECUTABLE = process_output(
     subprocess.run("which bash", stdout=subprocess.PIPE, shell=True, check=True)
 )

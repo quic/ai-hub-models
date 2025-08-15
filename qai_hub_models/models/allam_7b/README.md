@@ -1,6 +1,6 @@
-# [Allam-7B: Large Language Model supporting Arabic and English](https://aihub.qualcomm.com/models/allam_7b)
+# [ALLaM-7B: Large Language Model supporting Arabic and English](https://aihub.qualcomm.com/models/allam_7b)
 
-Allam 7B is SDAIA's first generation edge model, optimized for performance on Snapdragon X Elite.
+ALLaM 7B is SDAIA's first generation edge model, optimized for performance on Snapdragon X Elite.
 
 This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance

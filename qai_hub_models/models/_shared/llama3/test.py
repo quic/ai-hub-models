@@ -250,6 +250,7 @@ def test_cli_chipset_with_options(
         mock_split_onnx.return_value = None
         compile_options = "compile_extra"
         profile_options = "profile_extra"
+        link_options = "link_extra"
 
         sys.argv = [
             "export.py",  # script name
@@ -261,12 +262,16 @@ def test_cli_chipset_with_options(
             compile_options,
             "--profile-options",
             profile_options,
+            "--link-options",
+            link_options,
             "--sequence-length",
             str(sequence_length),
             "--context-length",
             str(context_length),
             "--target-runtime",
             target_runtime.value,
+            "--precision",
+            str(precision),
         ]
 
         mock_hub.submit_compile_job.return_value.target_shapes = {
@@ -295,16 +300,27 @@ def test_cli_chipset_with_options(
             call.kwargs["name"] == f"{base_name}_part_{i + 1}_of_{parts}"
             for i, call in enumerate(mock_hub.submit_link_job.call_args_list)
         )
+        mock_get_hub_link_options = (
+            mock_from_pretrained.return_value.get_hub_link_options
+        )
+        assert mock_get_hub_link_options.call_count == parts
+        if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+            link_options += " --qairt_version 2.33"
+        assert all(
+            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, link_options)
+            for call in mock_get_hub_link_options.call_args_list
+        )
 
         mock_get_hub_compile_options = (
             mock_from_pretrained.return_value.get_hub_compile_options
         )
 
         assert mock_get_hub_compile_options.call_count == parts * 2
+        compile_options += " --qnn_bin_conversion_via_model_library"
         if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
             compile_options += " --qairt_version 2.33"
         assert all(
-            call.args == (target_runtime, precision, compile_options)
+            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list
         )
 
@@ -448,6 +464,7 @@ def setup_test_quantization(
     model_cls: type[LLM_AIMETOnnx],
     fp_model_cls: type[LLMBase],
     output_path: str,
+    precision: Precision,
     checkpoint: str | None = None,
     num_samples: int = 0,
 ) -> str:
@@ -462,6 +479,7 @@ def setup_test_quantization(
             fp_model_cls=fp_model_cls,
             context_length=4096,
             seq_len=2048,
+            precision=precision,
             output_dir=output_path,
             allow_cpu_to_quantize=True,
             checkpoint=checkpoint,

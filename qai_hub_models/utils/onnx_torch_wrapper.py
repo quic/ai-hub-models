@@ -156,10 +156,8 @@ def extract_onnx_zip(
             model weights path (may not exist, even if validate_exists is true)
         )
     """
-    if os.path.splitext(path)[1].endswith(".zip"):
-        path = extract_zip_file(path, out_path)
-    else:
-        path = Path(path)
+    assert os.path.splitext(path)[1].endswith(".zip")
+    path = extract_zip_file(path, out_path)
 
     contents = os.listdir(path=path)
     # Sometimes an extraneous subfolder is created
@@ -249,9 +247,9 @@ class OnnxSessionOptions:
                 continue
             input_val = getattr(self, field.name)
             if input_val is not None and input_val != field.default:
-                out[
-                    session_config_fields[field.name]
-                ] = _input_val_to_onnx_session_string_option(input_val)
+                out[session_config_fields[field.name]] = (
+                    _input_val_to_onnx_session_string_option(input_val)
+                )
 
         return out
 
@@ -405,9 +403,9 @@ class QNNExecutionProviderOptions(ExecutionProviderOptions):
     htp_performance_mode: QNNExecutionProviderOptions.HTPPerformanceMode = (
         HTPPerformanceMode.default()
     )
-    htp_graph_finalization_optimization_mode: QNNExecutionProviderOptions.HTPFinalizationOptimizationMode = (
-        HTPFinalizationOptimizationMode.default()
-    )
+    htp_graph_finalization_optimization_mode: (
+        QNNExecutionProviderOptions.HTPFinalizationOptimizationMode
+    ) = HTPFinalizationOptimizationMode.default()
     qnn_context_priority: QNNExecutionProviderOptions.ContextPriority = (
         ContextPriority.default()
     )
@@ -490,10 +488,12 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
     def __init__(
         self,
         session: onnxruntime.InferenceSession,
-        inputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
-        | None = None,
-        outputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
-        | None = None,
+        inputs: (
+            dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]] | None
+        ) = None,
+        outputs: (
+            dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]] | None
+        ) = None,
         quantize_io: bool = True,
     ):
         """
@@ -733,6 +733,9 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             if isinstance(ep, QNNExecutionProviderOptions):
                 _verify_onnxruntime_qnn_installed()
                 break
+
+        if str(model_path).endswith(".zip"):
+            model_path = extract_onnx_zip(str(model_path))[0]
 
         # Extract I/O types & QDQ params from the model.
         # Overwrite / supplement that I/O with user-provided types

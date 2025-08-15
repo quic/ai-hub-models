@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
 
 class SemanticKittiEvaluator(BaseEvaluator):
@@ -96,3 +96,10 @@ class SemanticKittiEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"{self.getIoU():.3f} mIOU"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Intersection Over Union",
+            unit="mIOU",
+            description="Overlap of predicted and expected segmentation divided by the union size.",
+        )

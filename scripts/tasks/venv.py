@@ -9,16 +9,21 @@ import os
 import subprocess
 from collections.abc import Iterable
 
-from .constants import PY_PACKAGE_INSTALL_ROOT, PY_PACKAGE_MODELS_ROOT, REPO_ROOT
+from .constants import (
+    DEFAULT_PYTHON,
+    PY_PACKAGE_INSTALL_ROOT,
+    PY_PACKAGE_MODELS_ROOT,
+    REPO_ROOT,
+)
 from .task import RunCommandsTask, RunCommandsWithVenvTask
-from .util import get_code_gen_str_field, get_env_bool, get_pip, on_ci
+from .util import get_code_gen_str_field, get_pip
 
 
 class CreateVenvTask(RunCommandsTask):
-    def __init__(self, venv_path: str, python_executable: str) -> None:
+    def __init__(self, venv_path: str, python_executable: str | None = None) -> None:
         super().__init__(
             f"Creating virtual environment at {venv_path}",
-            f"source {REPO_ROOT}/scripts/util/env_create.sh --python={python_executable} --venv={venv_path} --no-sync",
+            f"source {REPO_ROOT}/scripts/util/env_create.sh --python={python_executable or DEFAULT_PYTHON} --venv={venv_path} --no-sync",
         )
 
 
@@ -103,14 +108,14 @@ class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
         extras: Iterable[str] = [],
         flags: str | None = None,
         pre_install: str | None = None,
+        qaihm_wheel_dir: str | os.PathLike | None = None,
     ) -> None:
         extras_str = f"[{','.join(extras)}]" if extras else ""
 
-        # Use wheel on CI, editable install for local development
-        if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
-            # On CI: Find wheel file and install it (use relative path to work in both local and CI)
+        if qaihm_wheel_dir is not None:
+            # Find wheel file and install it (use relative path to work in both local and CI)
             commands = [
-                f'{get_pip()} install $(ls build/wheel/qai_hub_models-*.whl){extras_str} {flags or ""}'
+                f'{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ""}'
             ]
             install_method = "wheel"
         else:
@@ -137,6 +142,7 @@ class SyncModelVenvTask(SyncLocalQAIHMVenvTask):
         model_name,
         venv_path,
         include_dev_deps: bool = False,
+        qaihm_wheel_dir: str | os.PathLike | None = None,
     ) -> None:
         extras = []
         if include_dev_deps:
@@ -151,12 +157,14 @@ class SyncModelVenvTask(SyncLocalQAIHMVenvTask):
             extras,
             get_code_gen_str_field(model_name, "pip_install_flags"),
             get_code_gen_str_field(model_name, "pip_pre_build_reqs"),
+            qaihm_wheel_dir,
         )
 
 
 class SyncModelRequirementsVenvTask(RunCommandsWithVenvTask):
     """Sync the provided environment with requirements from model_name's requirements.txt.
-    Will not re-install QAI Hub Models. Intended for speeding up CI compared to building an entirely new env for each model."""
+    Will not re-install QAI Hub Models. Intended for speeding up CI compared to building an entirely new env for each model.
+    """
 
     def __init__(self, model_name, venv_path, pip_force_install: bool = True) -> None:
         requirements_txt = os.path.join(

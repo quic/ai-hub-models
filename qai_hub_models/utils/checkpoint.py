@@ -23,7 +23,10 @@ if TYPE_CHECKING:
     from transformers import PreTrainedModel
 
 
-CheckpointSpec = Union[os.PathLike, Literal["DEFAULT", "DEFAULT_UNQUANTIZED"]]
+CheckpointSpec = Union[
+    os.PathLike,
+    Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"],
+]
 
 
 @unique
@@ -36,6 +39,11 @@ class CheckpointType(Enum):
     # checkpoint (quantized by AIMET), instead of the fp checkpoint. For these
     # models use DEFAULT_UNQUANTIZED to force the fp checkpoint.
     DEFAULT = "DEFAULT"
+
+    # For some models, we will start allowing users to quantize with different precisions.
+    # These precisions also have default checkpoints that they can use. Given that, we want to add those to the enum.
+    DEFAULT_W4 = "DEFAULT_W4"
+    DEFAULT_W4A16 = "DEFAULT_W4A16"
 
     # Default pretrained weights without encodings. Used for creating
     # pre-calibrated model and encodings
@@ -96,6 +104,10 @@ def determine_checkpoint_type(
         return CheckpointType.DEFAULT_UNQUANTIZED
     if checkpoint in ["DEFAULT", CheckpointType.DEFAULT]:
         return CheckpointType.DEFAULT
+    if checkpoint in ["DEFAULT_W4", CheckpointType.DEFAULT_W4]:
+        return CheckpointType.DEFAULT_W4
+    if checkpoint in ["DEFAULT_W4A16", CheckpointType.DEFAULT_W4A16]:
+        return CheckpointType.DEFAULT_W4A16
 
     # 2) Non-existent strings -> remote HF lookup
     if isinstance(checkpoint, str):
@@ -193,6 +205,8 @@ class FromPretrainedMixin(Generic[T]):
         required_ckpt_types = [
             CheckpointType.DEFAULT,
             CheckpointType.DEFAULT_UNQUANTIZED,
+            CheckpointType.DEFAULT_W4,
+            CheckpointType.DEFAULT_W4A16,
             CheckpointType.HF_LOCAL,
             CheckpointType.HF_REPO,
         ]

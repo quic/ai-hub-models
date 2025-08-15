@@ -31,7 +31,6 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 def main(is_test: bool = False) -> None:
-
     """
     Main function to run a point-based image segmentation demo using the SAM2 model.
 

@@ -1,8 +1,8 @@
-# [Phi-3.5-mini-instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct)
+# [Phi-3.5-Mini-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct)
 
 Phi-3.5-mini is a lightweight, state-of-the-art open model built upon datasets used for Phi-3 - synthetic data and filtered publicly available websites - with a focus on very high-quality, reasoning dense data. The model belongs to the Phi-3 model family and supports 128K token context length. The model underwent a rigorous enhancement process, incorporating both supervised fine-tuning, proximal policy optimization, and direct preference optimization to ensure precise instruction adherence and robust safety measures.
 
-This is based on the implementation of Phi-3.5-mini-instruct found [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct). This repository contains scripts for optimized on-device
+This is based on the implementation of Phi-3.5-Mini-Instruct found [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct).
 
@@ -17,7 +17,7 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 
 ## License
-* The license for the original implementation of Phi-3.5-mini-instruct can be found
+* The license for the original implementation of Phi-3.5-Mini-Instruct can be found
   [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

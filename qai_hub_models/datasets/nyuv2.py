@@ -17,7 +17,7 @@ import numpy.typing as npt
 import torch
 from scipy.io import loadmat
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 NYUV2_FOLDER_NAME = "nyuv2"
@@ -135,3 +135,10 @@ class NyUv2Dataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html",
+            split_description="validation split",
+        )

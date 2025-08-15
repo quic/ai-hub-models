@@ -9,13 +9,14 @@ import cv2
 import torch
 from xtcocotools.coco import COCO
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_cs
 from qai_hub_models.utils.image_processing import (
     apply_batched_affines_to_frame,
     compute_affine_transform,
 )
+from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.printing import suppress_stdout
 
 COCO_FOLDER_NAME = "coco-wholebody"
@@ -64,12 +65,12 @@ class CocoBodyDataset(BaseDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 256,
-        input_width: int = 192,
+        input_spec: InputSpec | None = None,
         num_samples: int = -1,
     ):
-        self.input_height = input_height
-        self.input_width = input_width
+        input_spec = input_spec or {"image": ((1, 3, 256, 192), "")}
+        self.target_h = input_spec["image"][0][2]
+        self.target_w = input_spec["image"][0][3]
         self.samples = num_samples
 
         # Load dataset paths
@@ -94,7 +95,7 @@ class CocoBodyDataset(BaseDataset):
             width, height = img_info["width"], img_info["height"]
             ann_ids = self.cocoGt.getAnnIds(imgIds=img_id, catIds=[1], iscrowd=False)
             annotations = self.cocoGt.loadAnns(ann_ids)
-            ratio = self.input_width / self.input_height
+            ratio = self.target_w / self.target_h
 
             # keep only single person objects
             person_anns = [ann for ann in annotations]
@@ -152,10 +153,10 @@ class CocoBodyDataset(BaseDataset):
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
         trans = compute_affine_transform(
-            center, scale, rotate, [self.input_width, self.input_height]
+            center, scale, rotate, [self.target_w, self.target_h]
         )
         image = apply_batched_affines_to_frame(
-            data_numpy, [trans], (self.input_width, self.input_height)
+            data_numpy, [trans], (self.target_w, self.target_h)
         ).squeeze(0)
         image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
 
@@ -184,3 +185,10 @@ class CocoBodyDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 1000
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="http://images.cocodataset.org/",
+            split_description="val2017 split",
+        )

@@ -5,17 +5,20 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Sized
 from enum import Enum, unique
+from functools import cached_property
 from pathlib import Path
-from typing import final
+from typing import NamedTuple, final
 
 from torch.utils.data import Dataset
 
 from qai_hub_models.utils.asset_loaders import LOCAL_STORE_DEFAULT_PATH
+from qai_hub_models.utils.input_spec import InputSpec
 
 
 @unique
@@ -31,15 +34,50 @@ class DatasetSplit(Enum):
     TEST = 2
 
 
+class DatasetMetadata(NamedTuple):
+    """Metadata about the dataset to publish on the website."""
+
+    # Link to the dataset source
+    link: str
+
+    # String describing which split was used for evaluation
+    # For example, "validation split" or "partition #3 of the test split"
+    split_description: str
+
+
+def get_folder_name(dataset_name: str, input_spec: InputSpec | None = None) -> str:
+    """
+    The name of the folder under which to store this dataset.
+    """
+    if input_spec is None:
+        return dataset_name
+    sha256_hasher = hashlib.sha256()
+    for key in sorted(input_spec.keys()):
+        spec = input_spec[key]
+
+        # Only include the input name and shape in the hash.
+        # The model data type can change for quantized models
+        # but we still want to use the same dataset in those cases.
+        sha256_hasher.update(f"({key}, {spec[0]})".encode())
+    hex_digest = sha256_hasher.hexdigest()
+    return f"{dataset_name}_{hex_digest[:6]}"
+
+
 class BaseDataset(Dataset, Sized, ABC):
     """
     Base class to be extended by Datasets used in this repo for quantizing models.
     """
 
-    def __init__(self, dataset_path: str | Path, split: DatasetSplit):
+    def __init__(
+        self,
+        dataset_path: str | Path,
+        split: DatasetSplit,
+        input_spec: InputSpec | None = None,
+    ):
         self.dataset_path = Path(dataset_path)
         self.split = split
         self.split_str = split.name.lower()
+        self.input_spec = input_spec
         self.download_data()
 
     @final
@@ -94,6 +132,15 @@ class BaseDataset(Dataset, Sized, ABC):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @cached_property
+    def folder_name(self) -> str:
+        return get_folder_name(self.dataset_name(), self.input_spec)
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        """Metadata about the dataset. Used for publishing on the website."""
+        raise NotImplementedError()
 
 
 def setup_fiftyone_env():

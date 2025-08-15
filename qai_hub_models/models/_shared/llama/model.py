@@ -25,12 +25,7 @@ from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     VersionType,
 )
-from qai_hub_models.utils.base_model import (
-    BaseModel,
-    FromPretrainedProtocol,
-    Precision,
-    TargetRuntime,
-)
+from qai_hub_models.utils.base_model import BaseModel, FromPretrainedProtocol, Precision
 from qai_hub_models.utils.input_spec import InputSpec
 
 DEFAULT_INPUT_SEQ_LEN = 1024
@@ -40,8 +35,7 @@ DEFAULT_INPUT_SEQ_LEN = 1024
 # design of CollectionModel
 class Llama2BundledModel(FromPretrainedProtocol):
     @abstractmethod
-    def load_model_part(self, split_part: str) -> BaseModel:
-        ...
+    def load_model_part(self, split_part: str) -> BaseModel: ...
 
 
 def get_hidden_layer_range_from_split(split_part: int, model_split_map: dict):

@@ -14,6 +14,7 @@ from mmpose.apis import MMPoseInferencer
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.printing import suppress_stdout
 
 DEFAULT_INFERENCER_ARCH = "rtmpose-m_8xb64-270e_coco-wholebody-256x192"
@@ -34,11 +35,9 @@ class CocoWholeBodyDataset(CocoBodyDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 256,
-        input_width: int = 192,
-        num_samples: int = -1,
+        input_spec: InputSpec | None = None,
     ) -> None:
-        super().__init__(split, input_height, input_width, num_samples)
+        super().__init__(split, input_spec)
         with suppress_stdout():
             self.inference = MMPoseInferencer(
                 DEFAULT_INFERENCER_ARCH, device=torch.device(type="cpu")

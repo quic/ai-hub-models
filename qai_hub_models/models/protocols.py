@@ -215,8 +215,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         check_trace: bool = True,
         external_onnx_weights: bool = False,
         output_names: Optional[list[str]] = None,
-    ) -> SourceModel:
-        ...
+    ) -> SourceModel: ...
 
     def get_hub_compile_options(
         self,

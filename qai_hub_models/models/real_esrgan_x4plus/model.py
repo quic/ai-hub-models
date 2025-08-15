@@ -94,9 +94,9 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
         except ImportError:
             import torchvision.transforms.functional
 
-            sys.modules[
-                "torchvision.transforms.functional_tensor"
-            ] = torchvision.transforms.functional
+            sys.modules["torchvision.transforms.functional_tensor"] = (
+                torchvision.transforms.functional
+            )
         # ----
 
         # necessary import. `archs` comes from the realesrgan repo.

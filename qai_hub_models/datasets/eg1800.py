@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.models.sinet.model import SINet
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
@@ -97,3 +97,10 @@ class eg1800SegmentationDataset(BaseDataset):
     @staticmethod
     def default_samples_per_job() -> int:
         return 500
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://github.com/clovaai/ext_portrait_segmentation",
+            split_description="validation split",
+        )

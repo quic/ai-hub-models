@@ -44,4 +44,4 @@ def test_task() -> None:
 
 
 def test_demo() -> None:
-    demo_main()
+    demo_main(is_test=True)

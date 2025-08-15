@@ -13,7 +13,7 @@ import numpy as np
 import torch
 from scipy.io import loadmat
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import (
     apply_batched_affines_to_frame,
@@ -174,3 +174,10 @@ class MPIIDataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www.mpi-inf.mpg.de/departments/computer-vision-and-machine-learning/software-and-datasets/mpii-human-pose-dataset",
+            split_description="validation split",
+        )

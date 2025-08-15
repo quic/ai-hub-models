@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Generic
 
 import ruamel.yaml
-from pydantic import BaseModel, GetCoreSchemaHandler
+from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as, to_yaml_file
 from ruamel.yaml.representer import RoundTripRepresenter
@@ -29,6 +29,9 @@ class BaseQAIHMConfig(BaseModel):
     The class instance is also capable of dumping itself to a dictionary
     or to yaml (via .to_yaml() or .to_dict()).
     """
+
+    # Default behavior should be to forbid unknown keys in parsed YAML / JSON files.
+    model_config = ConfigDict(extra="forbid")
 
     def to_yaml(
         self,

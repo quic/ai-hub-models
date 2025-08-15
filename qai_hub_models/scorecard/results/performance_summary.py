@@ -9,9 +9,10 @@ import pprint
 from collections.abc import Iterable
 from typing import Generic, TypeVar, cast
 
-from qai_hub import Model
+import qai_hub as hub
+from qai_hub.client import JobType
 
-from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -79,9 +80,9 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
         self.model_id = model_id
         self.precision = precision
         self.device = device
-        self.run_per_path: dict[
-            ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar
-        ] = run_per_path
+        self.run_per_path: dict[ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar] = (
+            run_per_path
+        )
 
     @classmethod
     def from_runs(
@@ -141,10 +142,9 @@ class ScorecardModelPrecisionSummary(
         model_id: str,
         precision: Precision,
         runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None = None,
-        runs_per_component_device: dict[
-            str, dict[ScorecardDevice, DeviceSummaryTypeVar]
-        ]
-        | None = None,
+        runs_per_component_device: (
+            dict[str, dict[ScorecardDevice, DeviceSummaryTypeVar]] | None
+        ) = None,
     ):
         """
         Create a Summary for a Scorecard Model with a specific Precision.
@@ -285,9 +285,9 @@ class ScorecardModelSummary(
                 Summary per precision.
         """
         self.model_id = model_id
-        self.summaries_per_precision: dict[
-            Precision, ModelPrecisionSummaryTypeVar
-        ] = summaries_per_precision
+        self.summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar] = (
+            summaries_per_precision
+        )
 
     @classmethod
     def from_runs(
@@ -398,9 +398,11 @@ class ModelPrecisionPerfSummary(
     ) -> tuple[
         dict[ScorecardProfilePath, str],
         dict[ScorecardDevice, dict[ScorecardProfilePath, str]],
+        dict[ScorecardProfilePath, ToolVersions],
     ]:
         universal_assets: dict[ScorecardProfilePath, str] = {}
         device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = {}
+        asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = {}
         for runs_per_device in self.runs_per_component_device[
             component or self.model_id
         ].values():
@@ -418,8 +420,18 @@ class ModelPrecisionPerfSummary(
                     device_assets[runs_per_device.device][
                         path
                     ] = path_run.job.model.model_id
+                if path not in asset_tool_versions:
+                    # We extract the toolchain version from the compiled model instead of the job,
+                    # in case the job uses a different toolchain version than the compiled asset.
+                    if (
+                        path_run.job.model.producer is not None
+                        and path_run.job.model.producer._job_type == JobType.COMPILE
+                    ):
+                        asset_tool_versions[path] = ToolVersions.from_compiled_model(
+                            path_run.job.model
+                        )
 
-        return universal_assets, device_assets
+        return universal_assets, device_assets, asset_tool_versions
 
     def get_perf_card(
         self,
@@ -454,12 +466,17 @@ class ModelPrecisionPerfSummary(
             component_name = (
                 component_id if component_id != self.model_id else (model_name or "")
             )
-            universal_assets, device_assets = self.get_target_assets(
+            (
+                universal_assets,
+                device_assets,
+                asset_tool_versions,
+            ) = self.get_target_assets(
                 exclude_paths, exclude_form_factors, component_id
             )
             components[component_name] = QAIHMModelPerf.ComponentDetails(
                 universal_assets=universal_assets,
                 device_assets=device_assets,
+                asset_tool_versions=asset_tool_versions,
                 performance_metrics=component_perf_card,
             )
 
@@ -692,7 +709,17 @@ class DeviceCompileSummary(
                 ):
                     continue
 
-                device_assets[path] = cast(Model, run.job.get_target_model()).model_id
+                hub_model = cast(hub.Model, run.job.get_target_model())
+                device_assets[path] = hub_model.model_id
+                # We extract the QAIRT version from the compiled model instead of using path_run.qairt_version
+                # in case the profile job uses a different QAIRT version than the compiled asset.
+                if (
+                    hub_model.producer is not None
+                    and hub_model.producer._job_type == JobType.COMPILE
+                ):
+                    ccard.asset_tool_versions[path] = ToolVersions.from_compiled_model(
+                        hub_model
+                    )
 
         # Set the device assets dict in case it didn't previously exist.
         if device_assets:

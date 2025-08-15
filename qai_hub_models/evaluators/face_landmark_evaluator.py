@@ -13,7 +13,7 @@ import torch
 from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.coco_face import CocoFaceDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.pose import FACE_SIGMAS
 from qai_hub_models.models.facemap_3dmm.utils import (
     project_landmark,
@@ -106,3 +106,10 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
         """Formats the mAP score for display."""
         results = self.get_coco_mAP()
         return f"mAP: {results['AP']:.3f}, AP@.5: {results['AP@.5']:.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Mean Average Precision at IOU threshold of 0.5.",
+        )

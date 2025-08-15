@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 import json
+import os
 from pathlib import Path
 
 from qai_hub_models.models.face_det_lite.app import FaceDetLiteApp
@@ -57,6 +58,7 @@ def main(is_test: bool = False):
         output_path = (
             args.output_dir or str(Path() / "build")
         ) + "/FaceDetLitebNet_output.json"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as wf:
             json.dump(out_dict, wf, ensure_ascii=False, indent=4)

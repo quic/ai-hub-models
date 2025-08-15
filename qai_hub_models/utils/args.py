@@ -186,8 +186,9 @@ def _get_default_runtime(available_runtimes: list[TargetRuntime] | set[TargetRun
 def add_target_runtime_arg(
     parser: ParserT,
     help: str,
-    available_target_runtimes: list[TargetRuntime]
-    | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
+    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] = set(
+        TargetRuntime.__members__.values()
+    ),
     default: TargetRuntime = TargetRuntime.TFLITE,
 ) -> ParserT:
     parser.add_argument(
@@ -235,8 +236,9 @@ def get_on_device_demo_parser(
     parser: QAIHMArgumentParser | None = None,
     supported_eval_modes: list[EvalMode] | None = None,
     supported_precisions: set[Precision] | None = None,
-    available_target_runtimes: list[TargetRuntime]
-    | set[TargetRuntime] = set(TargetRuntime.__members__.values()),
+    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] = set(
+        TargetRuntime.__members__.values()
+    ),
     add_output_dir: bool = False,
     default_device: str | None = None,
     default_host_device: torch.device = torch.device("cpu"),
@@ -344,13 +346,14 @@ def get_model_cli_parser(
     cls: type[FromPretrainedTypeVar],
     parser: QAIHMArgumentParser | None = None,
     suppress_help_arguments: list | None = None,
+    allow_dupe_args: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Generate the argument parser to create this model from an argparse namespace.
     Default behavior is to assume the CLI args have the same names as from_pretrained method args.
     """
     if not parser:
-        parser = get_parser()
+        parser = get_parser(allow_dupe_args)
 
     from_pretrained_sig = inspect.signature(cls.from_pretrained)
     for name, param in from_pretrained_sig.parameters.items():
@@ -626,6 +629,7 @@ def _evaluate_export_common_parser(
     uses_quantize_job: bool = True,
     exporting_compiled_model: bool = False,
     num_calibration_samples: int | None = None,
+    uses_link_job: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Common arguments between export and evaluate scripts.
@@ -667,6 +671,13 @@ def _evaluate_export_common_parser(
         default="",
         help="Additional options to pass when submitting the profile job.",
     )
+    if uses_link_job:
+        parser.add_argument(
+            "--link-options",
+            type=str,
+            default="",
+            help="Additional options to pass when submitting the link job.",
+        )
     if issubclass(model_cls, FromPretrainedProtocol):
         # Skip adding CLI from model for compiled model
         # TODO: #9408 Refactor BaseModel, BasePrecompiledModel to fetch
@@ -686,9 +697,11 @@ def _evaluate_export_common_parser(
             parser,
             supported_precisions,
             default_if_arg_explicitly_passed=non_float_precision or Precision.float,
-            default=Precision.float
-            if Precision.float in supported_precisions
-            else next(iter(supported_precisions)),
+            default=(
+                Precision.float
+                if Precision.float in supported_precisions
+                else next(iter(supported_precisions))
+            ),
         )
 
     return parser
@@ -704,6 +717,7 @@ def export_parser(
     exporting_compiled_model: bool = False,
     default_export_device: str | None = None,
     num_calibration_samples: int | None = None,
+    uses_link_job: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -736,6 +750,7 @@ def export_parser(
         supported_precision_runtimes=supported_precision_runtimes,
         exporting_compiled_model=exporting_compiled_model,
         num_calibration_samples=num_calibration_samples,
+        uses_link_job=uses_link_job,
     )
 
     _add_device_args(parser, default_device=default_export_device)

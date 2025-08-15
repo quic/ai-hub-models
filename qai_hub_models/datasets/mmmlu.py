@@ -9,7 +9,7 @@ import torch
 from datasets import IterableDataset, load_dataset
 from transformers import PreTrainedTokenizerBase
 
-from qai_hub_models.datasets.common import BaseDataset
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata
 
 mmmlu_split_lookup: dict[str, str] = {
     "ar": "AR_XY",
@@ -198,3 +198,10 @@ class MMMLU(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 1
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://huggingface.co/datasets/openai/MMMLU",
+            split_description="test split",
+        )

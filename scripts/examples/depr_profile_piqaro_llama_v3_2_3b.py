@@ -182,7 +182,6 @@ if __name__ == "__main__":
 
             # Export to ONNX
             logger.info("Exporting to onnx...")
-            onnx_transforms = None
             if args.opt == "piqaro_onnx":
                 # Create a temporary directory that will persist until export finishes.
                 with tempfile.TemporaryDirectory() as tmpdir:
@@ -222,7 +221,7 @@ if __name__ == "__main__":
                     dummy_input,
                     input_names=list(input_spec.keys()),
                     output_names=output_names,
-                    onnx_transforms=onnx_transforms,
+                    onnx_transforms=None,
                     skip_zip=True,
                 )
 

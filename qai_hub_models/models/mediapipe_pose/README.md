@@ -1,6 +1,6 @@
-# [MediaPipe-Pose-Estimation: Detect and track human body poses in real-time images and video streams](https://aihub.qualcomm.com/models/mediapipe_pose)
+# [MediaPipe-Pose-Estimation: Detect and track human face, hand, and torso in real-time images and video streams](https://aihub.qualcomm.com/models/mediapipe_pose)
 
-The MediaPipe Pose Landmark Detector is a machine learning pipeline that predicts bounding boxes and pose skeletons of poses in an image.
+The MediaPipe Pose Landmark Detector is a machine learning pipeline that predicts bounding boxes and pose skeletons of the face, hands, and torso in an image.
 
 This is based on the implementation of MediaPipe-Pose-Estimation found [here](https://github.com/zmurez/MediaPipePyTorch/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance

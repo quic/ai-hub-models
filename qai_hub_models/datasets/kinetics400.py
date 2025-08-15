@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -9,14 +10,17 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.models._shared.video_classifier.model import KineticsClassifier
 from qai_hub_models.models._shared.video_classifier.utils import (
     get_class_name_kinetics_400,
+    preprocess_video_224,
     preprocess_video_kinetics_400,
     read_video_per_second,
     sample_video,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.utils.input_spec import InputSpec
 
 KINETICS400_FOLDER_NAME = "kinetics400"
 KINETICS400_VERSION = 1
@@ -80,7 +84,12 @@ class Kinetics400Dataset(BaseDataset):
         https://github.com/cvdfoundation/kinetics-dataset
     """
 
-    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN, num_frames: int = 16):
+    def __init__(
+        self,
+        split: DatasetSplit = DatasetSplit.TRAIN,
+        num_frames: int = 16,
+        input_spec: InputSpec | None = None,
+    ):
         self.num_frames = num_frames
         self.split_str = split.name.lower()
         self.videos_asset = CachedWebDatasetAsset(
@@ -96,7 +105,12 @@ class Kinetics400Dataset(BaseDataset):
             os.path.join("annotations", f"{self.split_str}.csv"),
         )
         self.videos_folder = self.videos_asset.path().parent
-        BaseDataset.__init__(self, str(self.videos_folder), split=split)
+        input_spec = input_spec or KineticsClassifier.get_input_spec()
+        self.video_dim = input_spec["video"][0][-1]
+        assert self.video_dim in [112, 224], "Video dimension must be 112 or 224."
+        BaseDataset.__init__(
+            self, str(self.videos_folder), split=split, input_spec=input_spec
+        )
 
     def __len__(self) -> int:
         # Number of non-corrupted videos in each split
@@ -123,7 +137,11 @@ class Kinetics400Dataset(BaseDataset):
         return True
 
     def preprocess_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
-        return preprocess_video_kinetics_400(tensor)
+        return (
+            preprocess_video_kinetics_400(tensor)
+            if self.video_dim == 112
+            else preprocess_video_224(tensor)
+        )
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         video = read_video_per_second(str(self.videos_folder / self.mp4_files[index]))
@@ -148,3 +166,10 @@ class Kinetics400Dataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://github.com/cvdfoundation/kinetics-dataset",
+            split_description="part 0 of the validation split",
+        )

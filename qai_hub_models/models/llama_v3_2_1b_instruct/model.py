@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import onnx
 import torch
 
 from qai_hub_models.models._shared.llama3.model import (
@@ -17,30 +16,18 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
-from qai_hub_models.models._shared.llm._utils import _set_lm_head_to_8b
-from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
+from qai_hub_models.models._shared.llm.model import (
+    determine_precision_from_checkpoint,
+    get_default_precision,
+    get_supported_precisions,
+)
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
 
-AIMET_ONNX_INSTALLED = False
-try:
-    import aimet_common.quantsim as qs
-    from aimet_common.defs import QuantizationDataType, QuantScheme
-    from aimet_onnx import quantsim
-    from aimet_onnx.quantsim import QuantizationSimModel
-
-    AIMET_ONNX_INSTALLED = True
-except (ImportError, ModuleNotFoundError):
-    print(
-        "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
-        "Install qai-hub-models on a Linux machine to use quantized models."
-    )
-
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 
-DEFAULT_CHECKPOINT = "llama32_ckpt"
-DEFAULT_CHECKPOINT_ZIP = DEFAULT_CHECKPOINT + ".zip"
 NUM_LAYERS = 16
 NUM_SPLITS = 3
 NUM_LAYERS_PER_SPLIT = 8
@@ -54,6 +41,14 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 30
+
+
+DEFAULT_PRECISION = get_default_precision(MODEL_ID)
+SUPPORTED_PRECISIONS = get_supported_precisions(MODEL_ID)
+DEFAULT_CHECKPOINT = {
+    Precision.w4: "llama32_ckpt_w4",
+    Precision.w4a16: "llama32_ckpt_w4a16",
+}
 
 
 class Llama3_2_1B(Llama3Base):
@@ -153,6 +148,7 @@ class Llama3_2_1B_AIMETOnnx(Llama3Base_AIMETOnnx):
         host_device: torch.device | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        precision: Precision = DEFAULT_PRECISION,
         fp_model: torch.nn.Module | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_2_1B_AIMETOnnx:
@@ -166,14 +162,28 @@ class Llama3_2_1B_AIMETOnnx(Llama3Base_AIMETOnnx):
           models. Note that encodings are sensitive to AIMET ONNX versions.
           If passing None, initializes without encodings.
         """
-        if checkpoint == "DEFAULT":
+        if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
+            precision = determine_precision_from_checkpoint(checkpoint) or precision
+            if precision not in SUPPORTED_PRECISIONS:
+                available_precisions = [str(p) for p in SUPPORTED_PRECISIONS]
+                raise ValueError(
+                    f"This model is not supported for {str(precision)} precision. "
+                    f"Models are available in following precisions: {','.join(available_precisions)}."
+                )
+            if precision not in DEFAULT_CHECKPOINT:
+                available_checkpoints = [str(p) for p in DEFAULT_CHECKPOINT]
+                raise ValueError(
+                    f"No checkpoint is available for this model in {str(precision)} precision. If you would "
+                    f"like to continue with this precision, please generate a local quantized checkpoint. "
+                    f"Checkpoints are available in the following precisions: {','.join(available_checkpoints)}."
+                )
+            precision_checkpoint = DEFAULT_CHECKPOINT[precision]
             checkpoint = os.path.join(
                 CachedWebModelAsset.from_asset_store(
-                    MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_CHECKPOINT_ZIP
+                    MODEL_ID, MODEL_ASSET_VERSION, precision_checkpoint + ".zip"
                 ).fetch(extract=True),
-                DEFAULT_CHECKPOINT,
+                precision_checkpoint,
             )
-
             # Generate necessary ONNX models
             if fp_model is not None:
                 cls.create_onnx_models(
@@ -185,58 +195,15 @@ class Llama3_2_1B_AIMETOnnx(Llama3Base_AIMETOnnx):
                 )
 
                 cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
-
         return super().from_pretrained(
             checkpoint=checkpoint,
             host_device=host_device,
             sequence_length=sequence_length,
             context_length=context_length,
+            precision=precision,
             fp_model=fp_model,
             _skip_quantsim_creation=_skip_quantsim_creation,
         )
-
-    @classmethod
-    def create_quantsim(
-        cls, onnx_model: onnx.ModelProto, host_device: torch.device
-    ) -> QuantizationSimModel:
-        """
-        onnx_model: ONNX Model to create QuantSim model.
-        host_device: Device that the QuantSim model must be placed on.
-        """
-        if not AIMET_ONNX_INSTALLED:
-            raise ImportError(
-                "Quantized models require the AIMET-ONNX package, which is only supported on Linux. "
-                "Install qai-hub-models on a Linux machine to use quantized models."
-            )
-        default_config = get_aimet_config_path("default_config_llama")
-        # Tie Quantizers for Concat Op
-        quantsim.op_types_to_tie_qtzrs = ["Concat"]
-        quantsim._tie_qtzrs = True
-        # Ignore Slice and Constant outputs
-        quantsim.op_outputs_to_ignore.append("Slice")
-        quantsim.op_outputs_to_ignore.append("Constant")
-        qs.encoding_version = "1.0.0"
-
-        quant_sim = QuantizationSimModel(
-            model=onnx_model,
-            param_type="int4",
-            activation_type="int16",
-            quant_scheme=QuantScheme.min_max,
-            config_file=default_config,
-            providers=cls.get_ort_providers(host_device),
-        )
-
-        # Setting the LM head weights to 8-bit.
-        _set_lm_head_to_8b(quant_sim)
-
-        # Set all activation quantizers to float16
-        for op_name, qc_op in quant_sim.qc_quantize_op_dict.items():
-            if op_name in quant_sim.activation_names:
-                qc_op.reset_encoding_stats()
-                qc_op.data_type = QuantizationDataType.float
-                qc_op.bitwidth = 16
-
-        return quant_sim
 
     @staticmethod
     def get_output_names():

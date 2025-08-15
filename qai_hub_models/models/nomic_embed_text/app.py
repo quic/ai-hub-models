@@ -15,7 +15,6 @@ from qai_hub_models.utils.base_model import ExecutableModelProtocol
 
 
 class NomicEmbedTextApp:
-
     """
     This class consists of light-weight "app code" that is required to perform end to end inference with Posenet.
 

@@ -36,10 +36,9 @@ class FaceDetLiteApp:
 
     def run_inference_on_image(
         self,
-        pixel_values_or_image: torch.Tensor
-        | np.ndarray
-        | Image.Image
-        | list[Image.Image],
+        pixel_values_or_image: (
+            torch.Tensor | np.ndarray | Image.Image | list[Image.Image]
+        ),
     ) -> tuple[list[list[int | float]], Image.Image]:
         """
         Return the corresponding output by running inference on input image.

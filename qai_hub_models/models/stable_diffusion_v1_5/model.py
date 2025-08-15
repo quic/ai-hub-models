@@ -3,7 +3,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+# flake8: noqa: E402
+# (module level import not at top of file)
+
 from __future__ import annotations
+
+# isort: off
+# This verifies aimet is installed, and this must be included first.
+MODEL_ID = __name__.split(".")[-2]
+from qai_hub_models.utils.quantization_aimet_onnx import ensure_aimet_onnx_installed
+
+ensure_aimet_onnx_installed(model_id=MODEL_ID)
+# isort: on
 
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
@@ -17,7 +28,6 @@ from qai_hub_models.models._shared.stable_diffusion.model import (
 from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
 
 HF_REPO = "stable-diffusion-v1-5/stable-diffusion-v1-5"

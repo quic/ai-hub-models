@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.movenet_evaluator import MovenetPoseEvaluator
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
@@ -59,6 +61,7 @@ class Movenet(BaseModel):
             - `3` -> Each keypoint consists of (x, y) coordinates and confidence score.
 
         """
+        image = image * 255  # Model expects float values in the range [0.0, 255.0]
         return self.model(image)
 
     @staticmethod
@@ -87,3 +90,11 @@ class Movenet(BaseModel):
         )
         options = " --compute_unit cpu"  # Accuracy no regained on NPU
         return profile_options + options
+
+    def get_evaluator(self, name: str | None = None) -> BaseEvaluator:
+        h, w = self.get_input_spec()["image"][0][2:]
+        return MovenetPoseEvaluator(h, w)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["cocobody"]

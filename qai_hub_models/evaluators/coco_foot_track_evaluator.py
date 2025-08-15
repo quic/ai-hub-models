@@ -18,7 +18,7 @@ import torch
 from pycocotools.coco import COCO
 
 from qai_hub_models.datasets.coco_foot_track_dataset import CocoFootTrackDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.models.foot_track_net.app import CLASSNAME_TO_ID_MAP, BBox_landmarks
 from qai_hub_models.utils.bounding_box_processing import get_iou
 from qai_hub_models.utils.printing import suppress_stdout
@@ -312,6 +312,13 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
         """Formats the mAP score for display."""
         results = self.get_coco_mAP()
         return f"mAP: {results['AP']:.3f}, AP@.5: {results['AP@.5']:.3f}"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Mean Average Precision at IOU threshold of 0.5.",
+        )
 
 
 class COCOfooteval:

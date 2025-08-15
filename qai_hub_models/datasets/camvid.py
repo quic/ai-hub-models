@@ -13,7 +13,7 @@ import pandas as pd
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -156,3 +156,10 @@ class CamVidSegmentationDataset(BaseDataset):
     @staticmethod
     def default_samples_per_job() -> int:
         return 50
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://github.com/ooooverflow/BiSeNet.git",
+            split_description="validation split",
+        )

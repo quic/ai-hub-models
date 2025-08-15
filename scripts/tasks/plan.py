@@ -8,7 +8,7 @@ import functools
 import re
 import time
 from collections.abc import Callable
-from typing import Optional
+from typing import Any, Optional
 
 from .task import Task
 from .util import echo
@@ -36,6 +36,20 @@ def public_task(description: str):
 
 
 def depends(deps: list[str]):
+    def add_dep(func):
+        TASK_DEPENDENCIES[func.__name__] = deps
+        return func
+
+    return add_dep
+
+
+def depends_if(obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] = []):
+    deps = default
+    for obj_ep, deps_candidate in eq:
+        if obj == obj_ep:
+            deps = deps_candidate
+            break
+
     def add_dep(func):
         TASK_DEPENDENCIES[func.__name__] = deps
         return func

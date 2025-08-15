@@ -209,7 +209,9 @@ def debug_mode() -> bool:
 @functools.cache
 def uv_installed() -> bool:
     try:
-        result = subprocess.run(["bash", "which", "uv"], capture_output=True)
+        result = subprocess.run(
+            ["which uv"], capture_output=True, executable=BASH_EXECUTABLE, shell=True
+        )
         return result.returncode == 0
     except Exception:
         return False

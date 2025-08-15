@@ -1,0 +1,16 @@
+metrics:
+- dataset_name: coco_panoptic_seg
+  dataset_link: https://cocodataset.org/#home
+  dataset_split_description: val2017 split
+  metric_name: Panoptic Quality
+  metric_description: A measure of how well all objects in the image were correctly identified and segmented.
+  metric_unit: PQ
+  num_partial_samples: 100
+  partial_torch_metric: 0.423
+  device_metric:
+    Samsung Galaxy S24:
+      float:
+        qnn_dlc:
+          partial_metric: 0.0145
+        onnx:
+          partial_metric: 0.0161

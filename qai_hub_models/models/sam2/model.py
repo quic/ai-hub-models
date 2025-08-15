@@ -379,9 +379,9 @@ class SAM2Loader:
             mlp = cast(
                 SAM2MaskDecoderMLP, sam2.sam_mask_decoder.output_hypernetworks_mlps[i]
             )
-            sam2.sam_mask_decoder.output_hypernetworks_mlps[
-                i
-            ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+            sam2.sam_mask_decoder.output_hypernetworks_mlps[i] = (
+                Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+            )
 
         sam2.sam_mask_decoder.iou_prediction_head = (
             Conv2DInplaceLinearSAMMaskDecoderMLP(

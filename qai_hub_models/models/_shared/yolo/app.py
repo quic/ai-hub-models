@@ -90,14 +90,14 @@ class YoloObjectDetectionApp:
 
     def predict_boxes_from_image(
         self,
-        pixel_values_or_image: torch.Tensor
-        | np.ndarray
-        | Image.Image
-        | list[Image.Image],
+        pixel_values_or_image: (
+            torch.Tensor | np.ndarray | Image.Image | list[Image.Image]
+        ),
         raw_output: bool = False,
-    ) -> tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]] | list[
-        np.ndarray
-    ]:
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[np.ndarray]
+    ):
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
@@ -278,14 +278,19 @@ class YoloSegmentationApp:
 
     def predict_segmentation_from_image(
         self,
-        pixel_values_or_image: torch.Tensor
-        | np.ndarray
-        | Image.Image
-        | list[Image.Image],
+        pixel_values_or_image: (
+            torch.Tensor | np.ndarray | Image.Image | list[Image.Image]
+        ),
         raw_output: bool = False,
-    ) -> tuple[
-        list[torch.Tensor], list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]
-    ] | list[Image.Image]:
+    ) -> (
+        tuple[
+            list[torch.Tensor],
+            list[torch.Tensor],
+            list[torch.Tensor],
+            list[torch.Tensor],
+        ]
+        | list[Image.Image]
+    ):
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 

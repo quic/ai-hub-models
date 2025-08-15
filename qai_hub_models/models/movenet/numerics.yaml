@@ -1,0 +1,18 @@
+metrics:
+- dataset_name: cocobody
+  dataset_link: http://images.cocodataset.org/
+  dataset_split_description: val2017 split
+  metric_name: Mean Average Precision
+  metric_description: Percentage of keypoints that are close to the expected location.
+  metric_unit: mAP
+  num_partial_samples: 1000
+  partial_torch_metric: 0.564
+  device_metric:
+    Samsung Galaxy S24:
+      float:
+        tflite:
+          partial_metric: 0.0
+        qnn_dlc:
+          partial_metric: 0.0
+        onnx:
+          partial_metric: 0.0

@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.utils.compare import compute_psnr
 
 
@@ -61,3 +61,10 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.2f} dB PSNR"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Peak Signal-to-Noise Ratio (PSNR)",
+            unit="dB",
+            description="A measure of how similar two images are.",
+        )

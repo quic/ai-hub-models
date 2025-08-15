@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.input_spec import InputSpec
@@ -45,7 +45,7 @@ class BSD300Dataset(BaseDataset):
         # bsd300 doesn't have a val split, so use the test split for this purpose
         split = DatasetSplit.TEST if split == DatasetSplit.VAL else split
 
-        BaseDataset.__init__(self, self.bsd_path, split)
+        BaseDataset.__init__(self, self.bsd_path, split, input_spec)
         self.scaling_factor = scaling_factor
         input_spec = input_spec or SuperResolutionModel.get_input_spec()
         self.input_height = input_spec["image"][0][2]
@@ -143,3 +143,10 @@ class BSD300Dataset(BaseDataset):
         The default value for how many samples to run in each inference job.
         """
         return 100
+
+    @staticmethod
+    def get_dataset_metadata() -> DatasetMetadata:
+        return DatasetMetadata(
+            link="https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/",
+            split_description="test split",
+        )

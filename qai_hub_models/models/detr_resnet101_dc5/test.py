@@ -6,7 +6,6 @@
 import pytest
 
 from qai_hub_models.models._shared.detr.app import DETRApp
-from qai_hub_models.models.detr_resnet101_dc5.demo import IMAGE_ADDRESS
 from qai_hub_models.models.detr_resnet101_dc5.demo import main as demo_main
 from qai_hub_models.models.detr_resnet101_dc5.model import (
     DEFAULT_WEIGHTS,

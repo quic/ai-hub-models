@@ -203,9 +203,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     to create model card webpages.
     """
 
-    scorecard_path_to_website_runtime: dict[
-        ScorecardProfilePath, InferenceEngine
-    ] = Field(default_factory=dict)
+    scorecard_path_to_website_runtime: dict[ScorecardProfilePath, InferenceEngine] = (
+        Field(default_factory=dict)
+    )
     form_factors: dict[ScorecardDevice.FormFactor, FormFactorYaml] = Field(
         default_factory=dict
     )
@@ -225,9 +225,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
 
         for profile_path in ScorecardProfilePath.all_paths():
             if profile_path.include_in_perf_yaml:
-                out.scorecard_path_to_website_runtime[
-                    profile_path
-                ] = profile_path.runtime.inference_engine
+                out.scorecard_path_to_website_runtime[profile_path] = (
+                    profile_path.runtime.inference_engine
+                )
 
         # For each hub device...
         for hub_device in hub.get_devices():

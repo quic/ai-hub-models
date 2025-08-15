@@ -10,7 +10,7 @@ import glob
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 import numpy as np
 import onnx
@@ -20,7 +20,6 @@ from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_SEQUENCE_LENGTH,
-    LLMBase,
     PositionProcessorBase,
 )
 from qai_hub_models.models._shared.llm.split_onnx_utils import utils
@@ -38,6 +37,9 @@ from qai_hub_models.utils.printing import (
     print_profile_metrics_from_job,
 )
 
+if TYPE_CHECKING:
+    from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx
+
 
 def get_graph_name(
     sub_component_name: str, context_length: int, sequence_length: int
@@ -49,7 +51,7 @@ def get_graph_name(
 
 
 def export_model(
-    model_cls: type[LLMBase],
+    model_cls: type[LLM_AIMETOnnx],
     model_name: str,
     model_asset_version: int,
     components: list[str],
@@ -66,6 +68,7 @@ def export_model(
     output_dir: Optional[str] = None,
     target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
+    link_options: str = "",
     profile_options: str = "",
     synchronous: bool = False,
     model_cache_mode: CacheMode = CacheMode.ENABLE,
@@ -97,7 +100,7 @@ def export_model(
     Each of the last four steps can be optionally skipped using the input options.
 
     Parameters:
-        model_cls: LLM class.
+        model_cls: LLM_AIMETOnnx class.
         model_name: Model name.
         components: List of sub-components of the model that will be exported.
             Each component is compiled and profiled separately.
@@ -146,15 +149,6 @@ def export_model(
             "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
         )
 
-    fp_model_params = dict(
-        sequence_length=additional_model_kwargs["sequence_length"],
-        context_length=additional_model_kwargs["context_length"],
-    )
-    if additional_model_kwargs["checkpoint"] == "DEFAULT":
-        additional_model_kwargs["fp_model"] = additional_model_kwargs["fp_model_cls"].from_pretrained(  # type: ignore[index]
-            **fp_model_params
-        )
-
     # Instantiation names and input sequence length
     # 1. Initialize PyTorch model
     model_params = dict(get_model_kwargs(model_cls, additional_model_kwargs))
@@ -181,25 +175,29 @@ def export_model(
     component_from_sub_component_names = {}
     input_encodings_path: str | None = None
 
-    # Always target context binaries
+    # Target QNN context binaries
     hub_target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
+    compile_options += " --qnn_bin_conversion_via_model_library"
 
     for instantiation_name, seq_len in instantiations:
         full_name = f"{model_name}_{instantiation_name}"
-        model = model_cls.from_pretrained(sequence_length=seq_len, **model_params)
+        model = model_cls.from_pretrained(
+            sequence_length=seq_len, precision=precision, **model_params
+        )
+
         llm_config = model.llm_config
         sub_component_names[instantiation_name] = []
 
-        profile_options_per_instantiation[
-            instantiation_name
-        ] = model.get_hub_profile_options(hub_target_runtime, profile_options)
+        profile_options_per_instantiation[instantiation_name] = (
+            model.get_hub_profile_options(hub_target_runtime, profile_options)
+        )
 
         input_spec = model.get_input_spec(
             **{
                 **get_input_spec_kwargs(model, additional_model_kwargs),
                 "sequence_length": seq_len,
                 "context_length": model.context_length,
-                "llm_config": model.llm_config.to_dict(),
+                "llm_config": llm_config.to_dict(),
             },
         )
 
@@ -215,7 +213,6 @@ def export_model(
         assert source_model is not None
         source_model_path = Path(source_model)
         input_onnx_path = glob.glob((source_model_path / "*.onnx").as_posix())[0]
-
         encodings_files = glob.glob((source_model_path / "*.encodings").as_posix())
         input_encodings_path = encodings_files[0] if encodings_files else None
 
@@ -268,18 +265,17 @@ def export_model(
                 aimet_path = onnx_path
 
             onnx_model_path_from_sub_component_name[sub_component_name] = str(onnx_path)
-            if (
-                target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX
-                and QAIRTVersion.HUB_FLAG not in compile_options
-            ):
-                compile_options += f" {target_runtime.default_qairt_version.hub_option}"
+            if QAIRTVersion.HUB_FLAG not in compile_options:
+                if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+                    compile_options += (
+                        f" {target_runtime.default_qairt_version.hub_option}"
+                    )
             model_compile_options = (
                 model.get_hub_compile_options(
-                    target_runtime, precision, compile_options
+                    hub_target_runtime, precision, compile_options
                 )
                 + f" --qnn_options context_enable_graphs={graph_name}"
             )
-
             current_model = get_or_create_cached_model(
                 model_name=model_name,
                 model_asset_version=model_asset_version,
@@ -289,6 +285,7 @@ def export_model(
                 additional_keys={
                     "context_length": str(model.context_length),
                     "sequence_length": str(seq_len),
+                    "precision": str(precision),
                 },
             )
 
@@ -314,9 +311,19 @@ def export_model(
     # 2. Link jobs
     for component_name, cjobs in compile_jobs_to_link.items():
         models = [cast(hub.Model, cjob.get_target_model()) for cjob in cjobs]
-
         full_name = f"{model_name}_{component_name}"
-        link_job = hub.submit_link_job(models, name=full_name)
+        if QAIRTVersion.HUB_FLAG not in link_options:
+            if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+                link_options += f" {target_runtime.default_qairt_version.hub_option}"
+        model_link_options = model.get_hub_link_options(
+            hub_target_runtime, link_options
+        )
+
+        link_job = hub.submit_link_job(
+            models,  # type: ignore[arg-type]
+            name=full_name,
+            options=model_link_options,
+        )
         if synchronous:
             link_job.wait()
         link_jobs[component_name] = link_job
@@ -343,13 +350,11 @@ def export_model(
                         f"Link job {link_job.job_id} failed. Please go to {link_job.url} and consult the error log."
                     )
                 full_name = f"{model_name}_{sub_component_name}"
-                if (
-                    target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX
-                    and QAIRTVersion.HUB_FLAG not in profile_options
-                ):
-                    profile_options += (
-                        f" {target_runtime.default_qairt_version.hub_option}"
-                    )
+                if QAIRTVersion.HUB_FLAG not in profile_options:
+                    if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
+                        profile_options += (
+                            f" {target_runtime.default_qairt_version.hub_option}"
+                        )
                 submitted_profile_job = hub.submit_profile_job(
                     model=link_job.get_target_model(),
                     device=hub_device,

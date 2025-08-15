@@ -270,9 +270,9 @@ class MobileSAMLoader:
         )
         for i in range(0, len(sam.mask_decoder.output_hypernetworks_mlps)):
             mlp = cast(SAMMaskDecoderMLP, sam.mask_decoder.output_hypernetworks_mlps[i])
-            sam.mask_decoder.output_hypernetworks_mlps[
-                i
-            ] = Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+            sam.mask_decoder.output_hypernetworks_mlps[i] = (
+                Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)
+            )
         sam.mask_decoder.iou_prediction_head = Conv2DInplaceLinearSAMMaskDecoderMLP(
             sam.mask_decoder.iou_prediction_head
         )

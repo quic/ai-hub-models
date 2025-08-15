@@ -56,9 +56,9 @@ class CollectionModel:
 
     def __init__(self, *args):
         component_names = type(self).component_class_names
-        components: dict[
-            str, BaseModel | BasePrecompiledModel
-        ] = {}  # class name -> instantiated object
+        components: dict[str, BaseModel | BasePrecompiledModel] = (
+            {}
+        )  # class name -> instantiated object
 
         # Process positional arguments.
         if len(args) != len(component_names):
@@ -357,6 +357,22 @@ class HubModel(HubModelProtocol):
             )
 
         return other_profile_options
+
+    def get_hub_link_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_link_options: str = "",
+    ) -> str:
+        """
+        AI Hub link options recommended for the model.
+        """
+        if QAIRTVersion.HUB_FLAG not in other_link_options:
+            other_link_options = (
+                other_link_options
+                + f" {target_runtime.default_qairt_version.hub_option}"
+            )
+
+        return other_link_options
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:

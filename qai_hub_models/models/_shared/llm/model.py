@@ -8,6 +8,8 @@ from __future__ import annotations
 # isort: off
 try:
     from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
+    from aimet_common.defs import QuantizationDataType
+    from aimet_common.utils import AimetLogger
 except (ImportError, ModuleNotFoundError):
     print(
         "Some quantized models require the AIMET-ONNX package, which is only supported on Linux. "
@@ -17,6 +19,7 @@ except (ImportError, ModuleNotFoundError):
 
 import gc
 import glob
+import logging
 import math
 import os
 import shutil
@@ -36,11 +39,11 @@ from transformers import AutoConfig, PretrainedConfig, PreTrainedTokenizer
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama import LlamaConfig
 
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import DatasetSplit
 from qai_hub_models.datasets.mmmlu import mmmlu_split_lookup
 from qai_hub_models.datasets.wikitext import collate_fn
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.mmlu_evaluator import MMLUEvaluator
 from qai_hub_models.evaluators.ppl_evaluator import PerplexityEvaluator
 from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
@@ -62,7 +65,6 @@ from qai_hub_models.utils.system_info import has_recommended_memory
 AIMET_ONNX_INSTALLED = False
 try:
     import aimet_common.quantsim as qs
-    from aimet_common.defs import QuantScheme
     from aimet_onnx import quantsim
     from aimet_onnx.quantsim import (
         QuantizationSimModel,
@@ -103,15 +105,41 @@ if AIMET_ONNX_INSTALLED:
 
 
 from transformers import (  # noqa: E402
-    AutoConfig,
     AutoTokenizer,
     PreTrainedTokenizerBase,
 )
 
 
+def get_supported_precisions(model_id: str) -> list[Precision]:
+    precisions = QAIHMModelCodeGen.from_model(model_id).supported_precisions
+    assert (
+        Precision.float not in precisions
+    ), "Supported precision for LLMs cannot be float (specify supported_precisions in code-gen.yml correctly)."
+    return precisions
+
+
+def get_default_precision(model_id: str) -> Precision:
+    default_precision = QAIHMModelCodeGen.from_model(model_id).default_precision
+    assert (
+        default_precision != Precision.float
+    ), "Default Precision cannot be float (first entry for supported_precisions in code-gen.yml is picked as default)."
+    return default_precision
+
+
+def determine_precision_from_checkpoint(checkpoint: str) -> Precision | None:
+    if checkpoint.startswith("DEFAULT_"):
+        return Precision.parse(checkpoint[len("DEFAULT_") :].lower())
+    return None
+
+
 def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
     checkpoint_type = determine_checkpoint_type(checkpoint)
-    return checkpoint_type in {CheckpointType.DEFAULT, CheckpointType.AIMET_ONNX_EXPORT}
+    return checkpoint_type in {
+        CheckpointType.DEFAULT,
+        CheckpointType.DEFAULT_W4,
+        CheckpointType.DEFAULT_W4A16,
+        CheckpointType.AIMET_ONNX_EXPORT,
+    }
 
 
 def prepare_decoder_attention_mask(
@@ -758,7 +786,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
 
     def get_evaluator(
         self, task: str = "wikitext-ppl", device: torch.device = torch.device("cpu")
-    ) -> BaseEvaluator:
+    ) -> PerplexityEvaluator | MMLUEvaluator:
         if "wikitext" in task:
             return PerplexityEvaluator(
                 self.context_length, self.sequence_length, self.tokenizer, device
@@ -854,6 +882,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         host_device: torch.device,
         sequence_length: int,
         context_length: int,
+        precision: Precision,
         fp_model: torch.nn.Module | None = None,
         checkpoint: str | os.PathLike | Path | None = None,
         _skip_quantsim_creation: bool = False,
@@ -877,7 +906,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             host_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if not _skip_quantsim_creation:
-
+            AimetLogger.set_level_for_all_areas(logging.WARNING)
             onnx_path = None
             onnx_file_exists = False
             tmp_dir = tempfile.TemporaryDirectory()
@@ -923,7 +952,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             print()
             print("Creating a QuantSim model using AIMET ONNX.")
             assert onnx_model is not None
-            quant_sim = cls.create_quantsim(onnx_model, host_device)
+            quant_sim = cls.create_quantsim(onnx_model, host_device, precision)
 
             # Cleanup the ONNX model that creates the QuantSim model
             del onnx_model
@@ -961,7 +990,10 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
     @classmethod
     def create_quantsim(
-        cls, onnx_model: onnx.ModelProto, host_device: torch.device
+        cls,
+        onnx_model: onnx.ModelProto,
+        host_device: torch.device,
+        precision: Precision,
     ) -> QuantizationSimModel:
         """
         onnx_model: ONNX Model to create QuantSim model.
@@ -990,13 +1022,22 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             config_file=default_config,
             providers=cls.get_ort_providers(host_device),
         )
-
-        # Setting kv_cache and some other layers to 8-bit
-        _set_tensors_to_output_8b_sym(quant_sim)
         # Setting the LM head weights to 8-bit.
         _set_lm_head_to_8b(quant_sim)
-        # Tie kv_cache
-        _tie_quantizers_for_kv_cache(quant_sim)
+
+        if precision == Precision.w4a16:
+            # Setting kv_cache and some other layers to 8-bit
+            _set_tensors_to_output_8b_sym(quant_sim)
+            # Tie kv_cache
+            _tie_quantizers_for_kv_cache(quant_sim)
+        elif precision == Precision.w4:
+            # Set all activation quantizers to float16
+            for op_name, qc_op in quant_sim.qc_quantize_op_dict.items():
+                if op_name in quant_sim.activation_names:
+                    qc_op.reset_encoding_stats()
+                    qc_op.data_type = QuantizationDataType.float
+                    qc_op.bitwidth = 16
+
         return quant_sim
 
     def save_calibrated_checkpoint(
@@ -1059,7 +1100,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             ):
                 # Export to ONNX for any sequence length needed.
                 # The external weights is made multiple times but is overwritten each
-                # time so only one copy is ther at a given time.
+                # time so only one copy is there at a given time.
                 get_onnx_model(
                     fp_model=fp_model,
                     context_length=context_length,
@@ -1121,13 +1162,13 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
     def get_hub_compile_options(
         self,
         target_runtime: TargetRuntime,
-        precision: Precision = Precision.w4a16,
+        precision: Precision,
         other_compile_options: str = "",
         device: Device | None = None,
     ) -> str:
         if not (
             target_runtime.is_aot_compiled
-            and target_runtime.compilation_uses_qnn_converters
+            or target_runtime.compilation_uses_qnn_converters
         ):
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
@@ -1137,15 +1178,25 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         if precision not in {Precision.w4a16, Precision.w4}:
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
-        # TODO:#15781 Remove this when AI Hub switches to compiling QNN context binary via QNN DLC.
         if precision == Precision.w4:
-            other_compile_options = " --quantize_full_type float16 --quantize_io"
+            other_compile_options += " --quantize_full_type float16 --quantize_io"
         if precision == Precision.w4a16:
-            other_compile_options = " --quantize_full_type w8a16 --quantize_io"
+            other_compile_options += " --quantize_full_type w8a16 --quantize_io"
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
         return compile_options
+
+    def get_hub_link_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_link_options: str = "",
+    ) -> str:
+        link_options = super().get_hub_link_options(
+            target_runtime,
+            other_link_options,
+        )
+        return link_options
 
     def get_hub_profile_options(
         self,
@@ -1206,7 +1257,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
     def get_evaluator(
         self, task: str = "wikitext-ppl", device: torch.device = torch.device("cpu")
-    ) -> BaseEvaluator:
+    ) -> PerplexityEvaluator | MMLUEvaluator:
         if "wikitext" in task:
             return PerplexityEvaluator(
                 self.context_length, self.sequence_length, self.tokenizer, device

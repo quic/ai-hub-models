@@ -26,16 +26,14 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_on_target_demo_cmd,
     print_profile_metrics_from_job,
 )
-from qai_hub_models.utils.qai_hub_helpers import (
-    can_access_qualcomm_ai_hub,
-    export_without_hub_access,
-)
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 ALL_COMPONENTS = [
     "Llama2_Part1_Quantized",
@@ -86,9 +84,12 @@ def export_model(
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
-) -> Mapping[
-    str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-] | list[str]:
+) -> (
+    Mapping[
+        str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
+    ]
+    | list[str]
+):
     """
     This function accomplishes 6 main tasks:
 
@@ -222,9 +223,9 @@ def export_model(
             )
             assert isinstance(submitted_compile_job, hub.CompileJob)
 
-            profile_options_per_sub_component[
-                sub_component_name
-            ] = component.get_hub_profile_options(target_runtime, profile_options)
+            profile_options_per_sub_component[sub_component_name] = (
+                component.get_hub_profile_options(target_runtime, profile_options)
+            )
 
             compile_jobs[component_name].append(submitted_compile_job)
             # Free model part to reduce memory-pressure

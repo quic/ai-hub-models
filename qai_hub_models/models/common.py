@@ -100,9 +100,12 @@ class QAIRTVersion:
             chosen_framework = user_parsed_framework or QAIRTVersion.ParsedFramework(
                 major=0,
                 minor=0,
-                tags=[version_or_tag]
-                if isinstance(version_or_tag, str) and version_or_tag in self.all_tags()
-                else [],
+                tags=(
+                    [version_or_tag]
+                    if isinstance(version_or_tag, str)
+                    and version_or_tag in self.all_tags()
+                    else []
+                ),
             )
 
         if chosen_framework is None:
@@ -238,9 +241,11 @@ class QAIRTVersion:
         return [QAIRTVersion(f) for f in frameworks]
 
     @staticmethod
-    def _load_frameworks() -> tuple[
-        str, list[ParsedFramework], ParsedFramework | None, ParsedFramework | None
-    ]:
+    def _load_frameworks() -> (
+        tuple[
+            str, list[ParsedFramework], ParsedFramework | None, ParsedFramework | None
+        ]
+    ):
         """
         Load frameworks from AI Hub and populate cache.
         Returns:
@@ -287,9 +292,11 @@ class QAIRTVersion:
         Defines the parsing & serialization when QAIRTVersion is used in BaseQAIHMConfig objects.
         """
         return core_schema.with_info_after_validator_function(
-            lambda obj, _: cls(obj, validate_exists_on_ai_hub=False)
-            if isinstance(obj, str)
-            else obj,
+            lambda obj, _: (
+                cls(obj, validate_exists_on_ai_hub=False)
+                if isinstance(obj, str)
+                else obj
+            ),
             handler(Any),
             field_name=handler.field_name,
             serialization=core_schema.plain_serializer_function_ser_schema(

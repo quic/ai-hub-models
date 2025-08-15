@@ -55,6 +55,7 @@ class SHAAttention(nn.Module):
         self.head_dim = self.embed_dim // self.num_heads
         self.scaling = self.head_dim**-0.5
         self.config = origin_attn.config
+        assert self.config is not None
         self.max_channel = self.config.max_source_positions
 
         # Ensure embed_dim is divisible by num_heads

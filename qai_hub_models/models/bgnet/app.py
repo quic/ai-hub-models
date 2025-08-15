@@ -40,10 +40,9 @@ class BGNetApp:
 
     def segment_image(
         self,
-        pixel_values_or_image: torch.Tensor
-        | np.ndarray
-        | Image.Image
-        | list[Image.Image],
+        pixel_values_or_image: (
+            torch.Tensor | np.ndarray | Image.Image | list[Image.Image]
+        ),
         raw_output: bool = False,
     ) -> list[Image.Image] | np.ndarray:
         """
