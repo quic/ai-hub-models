@@ -20,7 +20,7 @@ from qai_hub_models.models.stable_diffusion_v1_5 import Model
 from qai_hub_models.utils.args import (
     export_parser,
     get_model_kwargs,
-    validate_precision_runtime,
+    validate_precision_runtime, create_model_identifier,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
@@ -194,7 +194,7 @@ def export_model(
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
     """
-    model_name = "stable_diffusion_v1_5"
+    model_name = create_model_identifier("stable_diffusion_v1_5", Model, additional_model_kwargs)
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Samsung Galaxy S24 (Family)")

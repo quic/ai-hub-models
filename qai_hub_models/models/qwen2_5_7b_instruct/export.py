@@ -16,7 +16,7 @@ from qai_hub_models.models.qwen2_5_7b_instruct.model import (
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
 )
-from qai_hub_models.utils.args import enable_model_caching, export_parser
+from qai_hub_models.utils.args import enable_model_caching, export_parser, create_model_identifier
 
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
 
@@ -48,14 +48,16 @@ def main():
     )
     parser = enable_model_caching(parser)
     args = parser.parse_args()
+    args_dict = vars(args)
+    model_name = create_model_identifier(MODEL_ID, Model, args_dict, custom_identifier_args="huggingface_model_name")
     export_model(
         model_cls=Model,
-        model_name=MODEL_ID,
+        model_name=model_name,
         model_asset_version=MODEL_ASSET_VERSION,
         components=ALL_COMPONENTS,
         sub_components=ALL_SUB_COMPONENTS,
         num_layers_per_split=NUM_LAYERS_PER_SPLIT,
-        **vars(args),
+        **args_dict,
     )
 
 
