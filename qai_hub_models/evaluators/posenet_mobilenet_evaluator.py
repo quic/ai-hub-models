@@ -10,10 +10,7 @@ import torch
 
 from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
 from qai_hub_models.models.posenet_mobilenet.app import decode_multiple_poses
-from qai_hub_models.utils.image_processing import (
-    apply_affine_to_coordinates,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 
 
 class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
@@ -73,22 +70,19 @@ class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
             # 1. Computes an inverse affine transformation to undo the preprocessing (cropping, scaling)
             #    using the original image center and scale, with no rotation (rot=0).
             # 2. Converts from (y,x) heatmap grid format to standard (x,y) pixel coordinates
-            trans = compute_affine_transform(
-                center=centers[idx].cpu().numpy(),
-                scale=scales[idx].cpu().numpy(),
-                rot=0,
-                output_size=[self.input_width, self.input_height],
-                inv=True,
-            )
             t_coords = np.zeros_like(k_coords)
             for pose_idx in range(k_coords.shape[0]):
-                t_coords[pose_idx] = apply_affine_to_coordinates(
-                    np.flip(k_coords[pose_idx], axis=1), trans  # Flip y,x to x,y
+                t_coords[pose_idx] = denormalize_coordinates_affine(
+                    np.flip(k_coords[pose_idx], axis=1),
+                    center=centers[idx].numpy(),
+                    scale=scales[idx].numpy(),
+                    rot=0,
+                    output_size=(self.input_width, self.input_height),
                 )
             pose_coords_list.append(t_coords)
             pose_scores_list.append(k_scores)
 
-        pose_coords = np.stack(pose_coords_list, axis=0)
-        pose_scores = np.stack(pose_scores_list, axis=0)
+        pose_coords = np.concatenate(pose_coords_list, axis=0)
+        pose_scores = np.concatenate(pose_scores_list, axis=0)
 
         self._store_predictions(pose_coords, pose_scores, img_ids, cat_ids)

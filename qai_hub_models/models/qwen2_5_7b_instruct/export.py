@@ -40,6 +40,7 @@ def main():
             Precision.w8a16: [TargetRuntime.QNN_CONTEXT_BINARY]
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
+        uses_link_job=True,
     )
     parser.add_argument(
         "--synchronous",

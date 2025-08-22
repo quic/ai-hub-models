@@ -44,7 +44,7 @@ class DeepLabV3Model(BaseModel):
                    3-channel Color Space: RGB
 
         Returns:
-            tensor: Bx21xHxW tensor of class logits per pixel
+           tensor: BxHxW tensor of class indices per pixel
         """
         if self.normalize_input:
             image = normalize_image_torchvision(image)

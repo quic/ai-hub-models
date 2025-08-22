@@ -14,6 +14,7 @@ from skimage import io
 
 from qai_hub_models.models.facemap_3dmm.app import FaceMap_3DMMApp
 from qai_hub_models.models.facemap_3dmm.model import (
+    INPUT_IMAGE_PATH,
     MODEL_ASSET_VERSION,
     MODEL_ID,
     FaceMap_3DMM,
@@ -27,9 +28,6 @@ from qai_hub_models.utils.args import (
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.display import display_or_save_image
 
-INPUT_IMAGE_PATH = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "face_img.jpg"
-)
 INPUT_FBOX_PATH = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "face_img_fbox.txt"
 )

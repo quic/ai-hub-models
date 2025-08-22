@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import torch
 
+from qai_hub_models.evaluators.audioset_evaluator import AudioSetOutputEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.base_model import BaseModel
@@ -50,7 +52,7 @@ class YamNet(BaseModel):
                 Scores is a matrix of (time_frames, num_classes) classifier scores
                 class_scores: Shape (1,521)
         """
-        output = self.model(audio, to_prob=True)
+        output = self.model(audio)
         return output
 
     @staticmethod
@@ -79,6 +81,13 @@ class YamNet(BaseModel):
     @staticmethod
     def get_output_names():
         return ["class_scores"]
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["audioset"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        return AudioSetOutputEvaluator()
 
 
 def _load_yamnet_source_model_from_weights(

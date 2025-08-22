@@ -17,6 +17,10 @@ import torch.nn.functional as F
 from torch import nn
 from transformers import AutoModel, dynamic_module_utils
 
+from qai_hub_models.evaluators.mteb_classification_evaluator import (
+    BaseEvaluator,
+    ClassificationEvaluator,
+)
 from qai_hub_models.utils.asset_loaders import PathLike
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
@@ -109,7 +113,7 @@ class NomicEmbedText(BaseModel):
                 Tokenized inputs of shape (1, sequence_length), dtype of int32
 
             attention_mask: torch.Tensor
-                Attention mask of shape (1, sequence_length), dtype of fp32
+                Attention mask of shape (1, sequence_length), dtype of int32
 
             Where the default value of sequence_length is 128.
 
@@ -148,7 +152,7 @@ class NomicEmbedText(BaseModel):
         # the model input specification upon submitting a profile job.
         return {
             "input_tokens": ((batch_size, sequence_length), "int32"),
-            "attention_masks": ((batch_size, sequence_length), "float32"),
+            "attention_masks": ((batch_size, sequence_length), "int32"),
         }
 
     def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
@@ -157,3 +161,15 @@ class NomicEmbedText(BaseModel):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["embeddings"]
+
+    def get_evaluator(self) -> BaseEvaluator:
+        model = NomicEmbedText.from_pretrained(self.model_version, self.seq_length)
+        return ClassificationEvaluator(model, self.seq_length)
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["amazon_counterfactual"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "amazon_counterfactual"

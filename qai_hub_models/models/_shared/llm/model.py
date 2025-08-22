@@ -125,6 +125,12 @@ def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
     }
 
 
+def cleanup():
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 def prepare_decoder_attention_mask(
     attention_mask: Optional[torch.Tensor],
     input_shape: torch.Size,
@@ -1161,13 +1167,11 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         if precision not in {Precision.w4a16, Precision.w4}:
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
-        if precision == Precision.w4:
-            other_compile_options += " --quantize_full_type float16 --quantize_io"
-        if precision == Precision.w4a16:
-            other_compile_options += " --quantize_full_type w8a16 --quantize_io"
+        other_compile_options += " --quantize_full_type w8a16 --quantize_io"
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
+
         return compile_options
 
     def get_hub_link_options(

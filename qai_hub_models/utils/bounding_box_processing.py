@@ -8,6 +8,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import torch
+from numba import njit, prange
 from torchvision.ops import batched_nms as tv_batched_nms
 from torchvision.ops import nms
 
@@ -300,7 +301,9 @@ def box_xyxy_to_xywh(
     return out
 
 
-def box_xywh_to_cs(box_cwh: list, aspect_ratio: float) -> tuple[np.ndarray, np.ndarray]:
+def box_xywh_to_cs(
+    box_cwh: list, aspect_ratio: float, padding_factor: float = 1.0
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert bbox to center-scale format while maintaining aspect ratio.
     Inputs:
@@ -309,6 +312,8 @@ def box_xywh_to_cs(box_cwh: list, aspect_ratio: float) -> tuple[np.ndarray, np.n
             [xc, yc, w, h]
         aspect_ratio: float
             ratio between width and height
+        padding_factor: float
+            factor to apply additional padding to the scale. Defaults to 1.0
 
     Outputs:
         center: np.ndarray
@@ -323,7 +328,7 @@ def box_xywh_to_cs(box_cwh: list, aspect_ratio: float) -> tuple[np.ndarray, np.n
         h = w / aspect_ratio
     elif w < aspect_ratio * h:
         w = h * aspect_ratio
-    scale = np.array([w / 200.0, h / 200.0], dtype=np.float32) * 1.25
+    scale = np.array([w, h], dtype=np.float32) * padding_factor
     return center, scale
 
 
@@ -376,3 +381,42 @@ def get_iou(boxA: np.ndarray, boxB: np.ndarray) -> float:
     boxB_area = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
 
     return inter_area / float(boxA_area + boxB_area - inter_area)
+
+
+@njit(parallel=True)
+def get_bbox_iou_matrix(
+    boxes: np.ndarray, query_boxes: np.ndarray, criterion: int = -1
+) -> np.ndarray:
+    """Calculate axis-aligned 2D IoU between sets of bounding boxes.
+
+    Args:
+        boxes (np.ndarray): Predicted boxes in format [x1, y1, x2, y2], of shape (N, 4).
+        query_boxes (np.ndarray): Ground truth boxes in format [x1, y1, x2, y2], of shape (K, 4).
+        criterion (int): If 0, use area of box only; otherwise standard IoU.
+
+    Returns:
+        np.ndarray: IoU matrix of shape (N, K).
+    """
+    N, K = boxes.shape[0], query_boxes.shape[0]
+    overlaps = np.zeros((N, K), dtype=np.float32)
+    for k in prange(K):
+        qbox_area = (query_boxes[k, 2] - query_boxes[k, 0]) * (
+            query_boxes[k, 3] - query_boxes[k, 1]
+        )
+        for n in range(N):
+            iw = min(boxes[n, 2], query_boxes[k, 2]) - max(
+                boxes[n, 0], query_boxes[k, 0]
+            )
+            ih = min(boxes[n, 3], query_boxes[k, 3]) - max(
+                boxes[n, 1], query_boxes[k, 1]
+            )
+            if iw > 0 and ih > 0:
+                ua = (
+                    (boxes[n, 2] - boxes[n, 0]) * (boxes[n, 3] - boxes[n, 1])
+                    + qbox_area
+                    - iw * ih
+                )
+                if criterion == 0:
+                    ua = (boxes[n, 2] - boxes[n, 0]) * (boxes[n, 3] - boxes[n, 1])
+                overlaps[n, k] = iw * ih / ua
+    return overlaps

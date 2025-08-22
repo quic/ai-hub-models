@@ -7,10 +7,7 @@ from __future__ import annotations
 
 import pprint
 from collections.abc import Iterable
-from typing import Generic, TypeVar, cast
-
-import qai_hub as hub
-from qai_hub.client import JobType
+from typing import Generic, TypeVar
 
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ToolVersions
 from qai_hub_models.models.common import Precision
@@ -396,12 +393,13 @@ class ModelPrecisionPerfSummary(
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
         component: str | None = None,
     ) -> tuple[
-        dict[ScorecardProfilePath, str],
-        dict[ScorecardDevice, dict[ScorecardProfilePath, str]],
-        dict[ScorecardProfilePath, ToolVersions],
+        dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails],
+        dict[ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]],
     ]:
-        universal_assets: dict[ScorecardProfilePath, str] = {}
-        device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = {}
+        universal_assets: dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails] = {}
+        device_assets: dict[
+            ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]
+        ] = {}
         asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = {}
         for runs_per_device in self.runs_per_component_device[
             component or self.model_id
@@ -413,25 +411,19 @@ class ModelPrecisionPerfSummary(
                     continue
                 if path.compile_path.is_universal:
                     if path not in universal_assets:
-                        universal_assets[path] = path_run.job.model.model_id
+                        universal_assets[path] = (
+                            QAIHMModelPerf.AssetDetails.from_hub_job(path_run.job)
+                        )
                 else:
                     if runs_per_device.device not in device_assets:
                         device_assets[runs_per_device.device] = {}
-                    device_assets[runs_per_device.device][
-                        path
-                    ] = path_run.job.model.model_id
+                    device_assets[runs_per_device.device][path] = (
+                        QAIHMModelPerf.AssetDetails.from_hub_job(path_run.job)
+                    )
                 if path not in asset_tool_versions:
-                    # We extract the toolchain version from the compiled model instead of the job,
-                    # in case the job uses a different toolchain version than the compiled asset.
-                    if (
-                        path_run.job.model.producer is not None
-                        and path_run.job.model.producer._job_type == JobType.COMPILE
-                    ):
-                        asset_tool_versions[path] = ToolVersions.from_compiled_model(
-                            path_run.job.model
-                        )
+                    asset_tool_versions[path] = ToolVersions.from_job(path_run.job)
 
-        return universal_assets, device_assets, asset_tool_versions
+        return universal_assets, device_assets
 
     def get_perf_card(
         self,
@@ -469,14 +461,12 @@ class ModelPrecisionPerfSummary(
             (
                 universal_assets,
                 device_assets,
-                asset_tool_versions,
             ) = self.get_target_assets(
                 exclude_paths, exclude_form_factors, component_id
             )
             components[component_name] = QAIHMModelPerf.ComponentDetails(
                 universal_assets=universal_assets,
                 device_assets=device_assets,
-                asset_tool_versions=asset_tool_versions,
                 performance_metrics=component_perf_card,
             )
 
@@ -709,17 +699,10 @@ class DeviceCompileSummary(
                 ):
                     continue
 
-                hub_model = cast(hub.Model, run.job.get_target_model())
-                device_assets[path] = hub_model.model_id
-                # We extract the QAIRT version from the compiled model instead of using path_run.qairt_version
-                # in case the profile job uses a different QAIRT version than the compiled asset.
-                if (
-                    hub_model.producer is not None
-                    and hub_model.producer._job_type == JobType.COMPILE
-                ):
-                    ccard.asset_tool_versions[path] = ToolVersions.from_compiled_model(
-                        hub_model
-                    )
+                asset_details = QAIHMModelPerf.AssetDetails.from_hub_job(run.job)
+                if qairt := asset_details.tool_versions.qairt:
+                    qairt.framework.flavor = None
+                device_assets[path] = asset_details
 
         # Set the device assets dict in case it didn't previously exist.
         if device_assets:

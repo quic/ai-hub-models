@@ -52,14 +52,14 @@ WHISPER_AIMET_CONFIG = os.path.abspath(
 )
 
 
-class WhisperEncoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperEncoder
+class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperEncoder
     """
     A class that represents a quantizable Whisper encoder.
     """
 
     def __init__(self, config: WhisperConfig, sim_model: QuantizationSimModel) -> None:
         """
-        Initializes the WhisperEncoderV2QuantizableBase class.
+        Initializes the WhisperEncoderQuantizableBase class.
 
         Args:
             sim_model (QuantizationSimModel): The quantization simulation model.
@@ -75,15 +75,15 @@ class WhisperEncoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncode
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> WhisperEncoderV2QuantizableBase:
+    ) -> WhisperEncoderQuantizableBase:
         """
-        Creates a WhisperEncoderV2QuantizableBase instance from a pre-trained model.
+        Creates a WhisperEncoderQuantizableBase instance from a pre-trained model.
 
         Args:
             aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
 
         Returns:
-            WhisperEncoderV2QuantizableBase: The created instance.
+            WhisperEncoderQuantizableBase: The created instance.
         """
         fp_encoder = cls.make_torch_model()
         if aimet_encodings == "DEFAULT":
@@ -168,14 +168,14 @@ class WhisperEncoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncode
         )
 
 
-class WhisperDecoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperDecoder
+class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperDecoder
     """
     A class that represents a quantizable Whisper decoder.
     """
 
     def __init__(self, config: WhisperConfig, sim_model: QuantizationSimModel) -> None:
         """
-        Initializes the WhisperDecoderV2QuantizableBase class.
+        Initializes the WhisperDecoderQuantizableBase class.
 
         Args:
             sim_model (QuantizationSimModel): The quantization simulation model.
@@ -191,14 +191,14 @@ class WhisperDecoderV2QuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecode
     def from_pretrained(
         cls,
         aimet_encodings: str | None = "DEFAULT",
-    ) -> WhisperDecoderV2QuantizableBase:
+    ) -> WhisperDecoderQuantizableBase:
         """
-        Creates a WhisperDecoderV2QuantizableBase instance from a pre-trained model.
+        Creates a WhisperDecoderQuantizableBase instance from a pre-trained model.
         Args:
             aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
 
         Returns:
-            WhisperDecoderV2QuantizableBase: The created instance.
+            WhisperDecoderQuantizableBase: The created instance.
         """
         fp_decoder = cls.make_torch_model()
         if aimet_encodings == "DEFAULT":

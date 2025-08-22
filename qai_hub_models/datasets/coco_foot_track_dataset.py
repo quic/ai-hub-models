@@ -83,7 +83,7 @@ class CocoFootTrackDataset(BaseDataset):
                         continue  # Remove images with no visible keypoints
 
                     bbox = ann["clean_bbox"]
-                    center, scale = box_xywh_to_cs(bbox, ratio)
+                    center, _ = box_xywh_to_cs(bbox, ratio, padding_factor=1.25)
 
                     kpt_db.append(
                         (
@@ -91,7 +91,6 @@ class CocoFootTrackDataset(BaseDataset):
                             img_id,
                             ann.get("category_id", 0),
                             center,
-                            scale,
                         )
                     )
                     break
@@ -103,7 +102,6 @@ class CocoFootTrackDataset(BaseDataset):
             image_id,
             category_id,
             center,
-            scale,
         ) = self.kpt_db[idx]
 
         img_path = self.image_dir / file_name

@@ -142,6 +142,7 @@ def export_model(
     )
 
     # Pick a device
+
     hub_device = hub_devices[-1]
     # Check if weight sharing is supported.
     if "htp-supports-weight-sharing:true" not in hub_device.attributes:

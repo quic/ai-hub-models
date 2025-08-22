@@ -37,8 +37,11 @@ MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
 MIN_MEMORY_RECOMMENDED = 50
 DEFAULT_PRECISION = Precision.w4a16
-SUPPORTED_PRECISIONS = [Precision.w4a16]
-DEFAULT_CHECKPOINT = {Precision.w4a16: "llama32_ckpt_w4a16"}
+SUPPORTED_PRECISIONS = [Precision.w4a16, Precision.w4]
+DEFAULT_CHECKPOINT = {
+    Precision.w4a16: "llama32_ckpt_w4a16",
+    Precision.w4: "llama32_ckpt_w4",
+}
 
 
 class Llama3_2_3B(Llama3Base):

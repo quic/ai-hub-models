@@ -272,8 +272,12 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
             # If a model is not running in scorecard and is public,
             # there must be a perf yaml
-            if not os.path.exists(self.get_package_path() / "perf.yaml"):
-                raise ValueError("All public models must have a perf.yaml")
+            if (not self.code_gen_config.runs_in_scorecard) and not os.path.exists(
+                self.get_package_path() / "perf.yaml"
+            ):
+                raise ValueError(
+                    "All public models that don't run in scorecard must have a perf.yaml"
+                )
 
             if not self.code_gen_config.supports_at_least_1_runtime:
                 raise ValueError("Public models must support at least one export path")

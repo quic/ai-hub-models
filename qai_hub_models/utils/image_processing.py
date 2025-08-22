@@ -483,28 +483,23 @@ def compute_vector_rotation(
 
 
 def compute_affine_transform(
-    center: list[int],
-    scale: list[float],
+    center: np.ndarray,
+    scale: np.ndarray,
     rot: int,
-    output_size: list[int],
-    shift: list[float] = [0.0, 0.0],
+    output_size: tuple[int, int],
+    shift: np.ndarray = np.array([0.0, 0.0]),
     inv: bool = False,
 ) -> np.ndarray:
     """
     Get the affine transformation matrix.
 
     Inputs:
-        center: list of int [2,]
-            center for image height and width respectively
-        scale: list of float [2,]
-            scale for image height and width respectively
-        rot: int
-            rotation for image
-        output_size: list of int [2,]
-            output size for image height and width respectively
-        shift: list of float [2,]
-            shift for image height and width respectively
-        inv: bool
+        center (np.ndarray): Center coordinates, with shape of [2,].
+        scale (np.ndarray): Scale factors, with shape of [2,].
+        rot (int): Rotation angle in degrees.
+        output_size (tuple[int, int]): Output image size (width, height).
+        shift (np.ndarray): Shift values [2,], defaults to [0.0, 0.0].
+        inv (bool):
             if False, get affine transform for source image size to output image size,
             otherwise get affine transform for output image size to source image size.
 
@@ -512,8 +507,7 @@ def compute_affine_transform(
         affine: np.ndarray
             affine transform for transformation, the shape is(2,3)
     """
-    scale_tmp = np.array(scale) * 200.0
-    src_w = scale_tmp[0]
+    src_w = scale[0]
     dst_w = output_size[0]
     dst_h = output_size[1]
 
@@ -525,8 +519,8 @@ def compute_affine_transform(
 
     src = np.zeros((3, 2), dtype=np.float32)
     dst = np.zeros((3, 2), dtype=np.float32)
-    src[0, :] = center + scale_tmp * shift
-    src[1, :] = center + src_dir + scale_tmp * shift
+    src[0, :] = center + scale * shift
+    src[1, :] = center + src_dir + scale * shift
     dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
     dst[1, :] = np.array([dst_w * 0.5, dst_h * 0.5]) + dst_dir
 
@@ -581,3 +575,61 @@ def get_3rd_point(point_x: np.ndarray, point_y: np.ndarray) -> np.ndarray:
     direct = point_x - point_y
     point_z = point_y + np.array([-direct[1], direct[0]], dtype=np.float32)
     return point_z
+
+
+def pre_process_with_affine(
+    image: np.ndarray,
+    center: np.ndarray,
+    scale: np.ndarray,
+    rot: int,
+    in_shape: tuple[int, int],
+) -> torch.Tensor:
+    """
+    Pre-processes an input image with affine transformations.
+
+    Args:
+        image (np.ndarray): The input image as a NumPy array (H, W, C) as int32 data type.
+        center (np.ndarray): Center coordinates, with shape of [2,].
+        scale (np.ndarray): Scale factors, with shape of [2,].
+        rot (int): Rotation angle in degrees.
+        in_shape (tuple[int, int]): The target input shape (height, width) for the model.
+
+    Returns:
+        image_tensor (torch.Tensor): The pre-processed image with shape (1, C, H, W).
+    """
+    inp_height, inp_width = in_shape
+
+    trans_input = compute_affine_transform(center, scale, rot, (inp_width, inp_height))
+    trans_image = apply_batched_affines_to_frame(
+        image,
+        [trans_input],
+        (inp_width, inp_height),
+    )
+    image_tensor = numpy_image_to_torch(trans_image)
+    return image_tensor
+
+
+def denormalize_coordinates_affine(
+    coords: np.ndarray,
+    center: np.ndarray,
+    scale: np.ndarray,
+    rot: int,
+    output_size: tuple[int, int],
+) -> np.ndarray:
+    """
+    denormalize coordinates to the original image space.
+
+    Args:
+        coords (np.ndarray): coordinates with shape (N, 2).
+        center (np.ndarray): Original image center used during pre-processing. Shape (2,).
+        scale (np.ndarray): Original image scale used during pre-processing. Shape (2,).
+        rot (int): Rotation angle in degrees used during pre-processing.
+        output_size (tuple[int, int]): The dimensions (width, height) of the model's
+                                       output feature map.
+
+    Returns:
+        np.ndarray: Transformed coordinates in the original image space. Shape (N, 2).
+    """
+    trans = compute_affine_transform(center, scale, rot, output_size, inv=True)
+    target_coords = apply_affine_to_coordinates(coords, trans)
+    return target_coords

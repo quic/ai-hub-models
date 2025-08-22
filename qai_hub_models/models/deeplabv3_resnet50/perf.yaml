@@ -46,19 +46,21 @@ precisions:
     components:
       DeepLabV3-ResNet50:
         universal_assets:
-          qnn_dlc: mm63zpj6m
-          onnx: mn0v5z43m
+          qnn_dlc:
+            model_id: mm63zpj6m
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+          onnx:
+            model_id: mn0v5z43m
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              onnx_runtime: 1.22.0
         device_assets:
           Snapdragon X Elite CRD:
-            qnn_context_binary: mqyg28vrq
-        asset_tool_versions:
-          qnn_dlc:
-            qairt: 2.34.2.250528164111_119506
-          onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
-          qnn_context_binary:
-            qairt: 2.34.2.250528164111_119506
+            qnn_context_binary:
+              model_id: mqyg28vrq
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
         performance_metrics:
           QCS8275 (Proxy):
             qnn_dlc:

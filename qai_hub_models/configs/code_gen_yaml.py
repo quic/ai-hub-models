@@ -213,6 +213,13 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         return not self.is_precompiled and not self.is_aimet
 
     @property
+    def runs_in_scorecard(self) -> bool:
+        """
+        Whether the model runs in scorecard.
+        """
+        return not self.skip_hub_tests_and_scorecard and not self.skip_scorecard
+
+    @property
     def supports_quantization(self) -> bool:
         return any(x != Precision.float for x in self.supported_precisions)
 

@@ -52,25 +52,30 @@ precisions:
     components:
       ResNet-Mixed-Convolution:
         universal_assets:
-          tflite: mn0vgxdwm
-          qnn_dlc: mnldrrkwm
-          onnx: mn0v5yrxm
+          tflite:
+            model_id: mn0vgxdwm
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              tflite: 2.17.0
+          qnn_dlc:
+            model_id: mnldrrkwm
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+          onnx:
+            model_id: mn0v5yrxm
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              onnx_runtime: 1.22.0
         device_assets:
           Snapdragon X Elite CRD:
-            qnn_context_binary: mqewow07q
-            precompiled_qnn_onnx: mn1j3j4rn
-        asset_tool_versions:
-          tflite:
-            tflite: 2.16.1
-          qnn_dlc:
-            qairt: 2.34.2.250528164111_119506
-          onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
-          qnn_context_binary:
-            qairt: 2.34.2.250528164111_119506
-          precompiled_qnn_onnx:
-            qairt: 2.33.2.250410134701_117956
+            qnn_context_binary:
+              model_id: mqewow07q
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+            precompiled_qnn_onnx:
+              model_id: mn1j3j4rn
+              tool_versions:
+                qairt: 2.33.2.250410134701_117956
         performance_metrics:
           QCS8275 (Proxy):
             tflite:
@@ -494,33 +499,39 @@ precisions:
     components:
       ResNet-Mixed-Convolution:
         universal_assets:
-          qnn_dlc: mqvg0eelq
-          onnx: mq82p9v3q
+          qnn_dlc:
+            model_id: mqvg0eelq
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+          onnx:
+            model_id: mq82p9v3q
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              onnx_runtime: 1.22.0
         device_assets:
           Snapdragon X Elite CRD:
-            qnn_context_binary: mnl9wooon
-            precompiled_qnn_onnx: mq2vj04wm
+            qnn_context_binary:
+              model_id: mnl9wooon
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+            precompiled_qnn_onnx:
+              model_id: mq2vj04wm
+              tool_versions:
+                qairt: 2.33.2.250410134701_117956
           RB3 Gen 2 (Proxy):
-            qnn_context_binary: mmx6po2ym
-        asset_tool_versions:
-          qnn_dlc:
-            qairt: 2.34.2.250528164111_119506
-          onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
-          qnn_context_binary:
-            qairt: 2.34.2.250528164111_119506
-          precompiled_qnn_onnx:
-            qairt: 2.33.2.250410134701_117956
+            qnn_context_binary:
+              model_id: mmx6po2ym
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
         performance_metrics:
           QCS8275 (Proxy):
             qnn_dlc:
-              job_id: jp8mwovk5
+              job_id: jp29477rg
               job_status: Passed
-              inference_time_milliseconds: 27.975
+              inference_time_milliseconds: 191.535
               estimated_peak_memory_range_mb:
                 min: 1
-                max: 47
+                max: 51
               primary_compute_unit: NPU
               layer_counts:
                 total: 35
@@ -585,12 +596,12 @@ precisions:
                 qairt: 2.34.2.250528164111_119506
           SA7255P ADP:
             qnn_dlc:
-              job_id: jp8mwovk5
+              job_id: jp29477rg
               job_status: Passed
-              inference_time_milliseconds: 27.975
+              inference_time_milliseconds: 191.535
               estimated_peak_memory_range_mb:
                 min: 1
-                max: 47
+                max: 51
               primary_compute_unit: NPU
               layer_counts:
                 total: 35

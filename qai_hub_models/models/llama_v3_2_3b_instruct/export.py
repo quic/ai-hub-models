@@ -48,6 +48,10 @@ def main():
                 TargetRuntime.QNN_CONTEXT_BINARY,
                 TargetRuntime.PRECOMPILED_QNN_ONNX,
             ],
+            Precision.w4: [
+                TargetRuntime.QNN_CONTEXT_BINARY,
+                TargetRuntime.PRECOMPILED_QNN_ONNX,
+            ],
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
         uses_link_job=True,
@@ -58,9 +62,15 @@ def main():
         help="Wait for each command to finish before submitting new.",
     )
     parser = enable_model_caching(parser)
-    parser.set_defaults(_skip_quantsim_creation=True)
+    parser.set_defaults(
+        _skip_quantsim_creation=True,
+        precision=DEFAULT_PRECISION,
+        target_runtime=TargetRuntime.QNN_CONTEXT_BINARY,
+    )
     args = parser.parse_args()
     additional_model_kwargs = vars(args)
+    if not (args.skip_inferencing and args.skip_summary):
+        additional_model_kwargs["_skip_quantsim_creation"] = False
     fp_model_params = dict(
         sequence_length=additional_model_kwargs["sequence_length"],
         context_length=additional_model_kwargs["context_length"],

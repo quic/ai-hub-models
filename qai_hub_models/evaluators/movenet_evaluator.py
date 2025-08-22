@@ -8,10 +8,7 @@ import numpy as np
 import torch
 
 from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
-from qai_hub_models.utils.image_processing import (
-    apply_affine_to_coordinates,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 
 
 class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
@@ -47,11 +44,7 @@ class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
             cat_id = int(category_ids[idx])
             center = centers[idx].cpu().numpy()
             scale = scales[idx].cpu().numpy()
-            input_size = [self.input_height, self.input_width]
-
-            # Get inverse affine transform
-            inv_trans = compute_affine_transform(center, scale, 0, input_size, inv=True)
-            inv_trans_tensor = torch.tensor(inv_trans, dtype=torch.float32)
+            input_size = (self.input_width, self.input_height)
 
             # Loop over all detected people
             n_people = output.shape[1]
@@ -67,10 +60,9 @@ class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
                 keypoints = np.flip(keypoints, axis=1).copy()
 
                 # Apply inverse affine transform
-                keypoints_tensor = torch.tensor(keypoints, dtype=torch.float32)
-                coords_tf = apply_affine_to_coordinates(
-                    keypoints_tensor, inv_trans_tensor
-                ).numpy()
+                coords_tf = denormalize_coordinates_affine(
+                    keypoints, center, scale, 0, input_size
+                )
 
                 # Store predictions
                 self._store_predictions(

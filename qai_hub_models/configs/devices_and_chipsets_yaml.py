@@ -206,6 +206,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     scorecard_path_to_website_runtime: dict[ScorecardProfilePath, InferenceEngine] = (
         Field(default_factory=dict)
     )
+    scorecard_path_extensions: dict[ScorecardProfilePath, str] = Field(
+        default_factory=dict
+    )
     form_factors: dict[ScorecardDevice.FormFactor, FormFactorYaml] = Field(
         default_factory=dict
     )
@@ -227,6 +230,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
             if profile_path.include_in_perf_yaml:
                 out.scorecard_path_to_website_runtime[profile_path] = (
                     profile_path.runtime.inference_engine
+                )
+                out.scorecard_path_extensions[profile_path] = (
+                    f".{profile_path.runtime.file_extension}"
                 )
 
         # For each hub device...

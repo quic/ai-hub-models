@@ -69,7 +69,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         huggingface_model_name: str = HF_REPO_NAME,
-        precision: Precision = Precision.w4a16,
+        precision: Precision = Precision.w8a16,
     ) -> Qwen2_5_7B_Instruct:
         return cls(
             sequence_length=sequence_length,

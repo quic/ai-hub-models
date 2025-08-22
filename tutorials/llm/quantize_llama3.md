@@ -196,7 +196,7 @@ task-oriented benchmark.
 
 If the PPL is OK, please proceed to the next step.
 If the PPL looks too high, please refer to the [AIMET debugging
-guidelines](https://quic.github.io/aimet-pages/releases/latest/userguide/debugging_guidelines.html).
+guidelines](https://quic.github.io/aimet-pages/releases/latest/tutorials/debugging_guidelines.html).
 
 ### Quantitatively with MMLU
 

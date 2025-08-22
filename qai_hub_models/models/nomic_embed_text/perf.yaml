@@ -49,25 +49,30 @@ precisions:
     components:
       Nomic-Embed-Text:
         universal_assets:
-          tflite: mqp5kdxgn
-          qnn_dlc: mqevrvj4m
-          onnx: mnox9rg9n
+          tflite:
+            model_id: mqp5kdxgn
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              tflite: 2.17.0
+          qnn_dlc:
+            model_id: mqevrvj4m
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+          onnx:
+            model_id: mnox9rg9n
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              onnx_runtime: 1.22.0
         device_assets:
           Snapdragon X Elite CRD:
-            qnn_context_binary: mn7j6rj8n
-            precompiled_qnn_onnx: mnzd3jyoq
-        asset_tool_versions:
-          tflite:
-            tflite: 2.16.1
-          qnn_dlc:
-            qairt: 2.34.2.250528164111_119506
-          onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
-          qnn_context_binary:
-            qairt: 2.34.2.250528164111_119506
-          precompiled_qnn_onnx:
-            qairt: 2.33.2.250410134701_117956
+            qnn_context_binary:
+              model_id: mn7j6rj8n
+              tool_versions:
+                qairt: 2.34.2.250528164111_119506
+            precompiled_qnn_onnx:
+              model_id: mnzd3jyoq
+              tool_versions:
+                qairt: 2.33.2.250410134701_117956
         performance_metrics:
           QCS8275 (Proxy):
             tflite:

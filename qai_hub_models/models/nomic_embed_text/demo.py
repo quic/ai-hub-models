@@ -15,7 +15,7 @@ from qai_hub_models.utils.args import (
 )
 
 
-# The demo will display a image with the predicted keypoints.
+# The demo will print the embedding for text.
 def nomic_embed_text_demo(
     model_cls: type[NomicEmbedText],
     is_test: bool = False,

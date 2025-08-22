@@ -26,7 +26,7 @@ class QAIRTVersion:
     _HUB_DEFAULT_FRAMEWORK: dict[str, QAIRTVersion.ParsedFramework] = {}
     _QAIHM_DEFAULT_FRAMEWORK: dict[str, QAIRTVersion.ParsedFramework] = {}
     HUB_FLAG = "--qairt_version"
-    DEFAULT_AI_HUB_MODELS_API_VERSION = "2.34"  # Default version used by AI Hub Models. May be different than AI Hub's default.
+    DEFAULT_AI_HUB_MODELS_API_VERSION = "2.37"  # Default version used by AI Hub Models. May be different than AI Hub's default.
     DEFAULT_QAIHM_TAG = "qaihm_default"
     DEFAULT_AIHUB_TAG = "default"
     LATEST_AIHUB_TAG = "latest"
@@ -573,9 +573,22 @@ class TargetRuntime(Enum):
         """
         The default QAIRT version for this runtime.
         """
-        if self == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            # Return default in a possible future where 2.31 is deprecated on Hub.
-            return QAIRTVersion("2.33", return_default_if_does_not_exist=True)
+        if self.inference_engine == InferenceEngine.ONNX:
+            # Use version 2.33, which is what all pre-built versions of ONNX runtime (v1.22.1) currently ship with.
+            onnx_qairt_version = "2.33"
+            onnx_version = "1.22.1"
+            try:
+                return QAIRTVersion(onnx_qairt_version)
+            except ValueError as e:
+                msg = e.args[0]
+                if "is not supported by AI Hub" in msg:
+                    raise ValueError(
+                        msg
+                        + f"\nAI Hub no longer supports the standard QAIRT version (v{onnx_qairt_version}) used by this version of AI Hub Models for ONNX models.\n"
+                        f"This version of AI Hub Models was tested against ONNX Runtime (v{onnx_version}) which ships on NuGET and PyPi with QAIRT {onnx_qairt_version}.\n"
+                        "Pass --compile-options='--qairt_version=default' and/or --profile-options='qairt_version=default' to use the current default available on AI Hub.\n"
+                        "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guarunteed to work with newer versions of QAIRT."
+                    )
         return QAIRTVersion.qaihm_default()
 
     @property

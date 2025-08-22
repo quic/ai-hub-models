@@ -15,6 +15,7 @@ from transformers import PretrainedConfig
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import create_quantsim, evaluate
+from qai_hub_models.models._shared.llm.model import cleanup
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v3_1_8b_instruct import MODEL_ID, Model
@@ -171,13 +172,14 @@ class TestLlama3_1(Llama3_1_8B):
 @pytest.fixture(scope="session")
 def setup_dummy_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"dummy_{MODEL_ID}_ckpt")
-    return test.setup_test_quantization(
+    yield test.setup_test_quantization(
         Model,
         TestLlama3_1,
         path,
         precision=DEFAULT_PRECISION,
         num_samples=1,
     )
+    cleanup()
 
 
 @pytest.mark.skipif(
@@ -241,18 +243,19 @@ def test_demo_dummy(setup_dummy_quantized_checkpoints: CheckpointSpec) -> None:
 @pytest.fixture(scope="session")
 def setup_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"{MODEL_ID}_deepseek_ckpt")
-    return test.setup_test_quantization(
+    yield test.setup_test_quantization(
         Model,
         Llama3_1_8B,
         path,
         precision=DEFAULT_PRECISION,
         checkpoint="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
     )
+    cleanup()
 
 
 @pytest.fixture(scope="session")
 def setup_create_quantsim_default():
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_1_8B,
         kwargs=dict(
@@ -263,11 +266,12 @@ def setup_create_quantsim_default():
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.fixture(scope="session")
 def setup_create_default_unquantized():
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_1_8B,
         kwargs=dict(
@@ -278,6 +282,7 @@ def setup_create_default_unquantized():
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.mark.skipif(

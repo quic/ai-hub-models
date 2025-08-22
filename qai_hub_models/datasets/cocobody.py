@@ -6,16 +6,14 @@
 from __future__ import annotations
 
 import cv2
+import numpy as np
 import torch
 from xtcocotools.coco import COCO
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_cs
-from qai_hub_models.utils.image_processing import (
-    apply_batched_affines_to_frame,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import pre_process_with_affine
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.printing import suppress_stdout
 
@@ -111,7 +109,7 @@ class CocoBodyDataset(BaseDataset):
             y2 = min(height - 1, y1 + max(0, h - 1))
             if ann.get("area", 0) > 0:
                 bbox = [x1, y1, x2 - x1, y2 - y1]
-                center, scale = box_xywh_to_cs(bbox, ratio)
+                center, scale = box_xywh_to_cs(bbox, ratio, padding_factor=1.25)
                 kpt_db.append(
                     (
                         img_info["file_name"],
@@ -126,15 +124,18 @@ class CocoBodyDataset(BaseDataset):
                 break
         return kpt_db
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[torch.Tensor, tuple[int, int, np.ndarray, np.ndarray]]:
         """
         Returns a tuple of input image tensor and label data.
 
         label data is a List with the following entries:
             - imageId (int): The ID of the image.
-            - category_ud (int) : the category ID
-            - center (list[float]): The center coordinates of the bounding box.
-            - scale (torch.Tensor) : Scaling factor.
+            - category_id (int) : The category ID.
+            - center (np.ndarray):
+                The center coordinates of the bounding box, with shape(2,).
+            - scale (np.ndarray) : Scaling factor, with shape(2,).
         """
 
         (
@@ -152,15 +153,11 @@ class CocoBodyDataset(BaseDataset):
         )
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
-        trans = compute_affine_transform(
-            center, scale, rotate, [self.target_w, self.target_h]
-        )
-        image = apply_batched_affines_to_frame(
-            data_numpy, [trans], (self.target_w, self.target_h)
+        image = pre_process_with_affine(
+            data_numpy, center, scale, rotate, (self.target_h, self.target_w)
         ).squeeze(0)
-        image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
 
-        return image, [image_id, category_id, center, scale]
+        return image, (image_id, category_id, center, scale)
 
     def __len__(self):
         return len(self.kpt_db)

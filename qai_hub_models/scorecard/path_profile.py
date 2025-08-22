@@ -12,7 +12,7 @@ from typing import Optional, cast
 
 from typing_extensions import assert_never
 
-from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
 from qai_hub_models.scorecard.envvars import EnabledPathsEnvvar, SpecialPathSetting
 from qai_hub_models.scorecard.path_compile import (
     QAIRTVersion,
@@ -25,10 +25,7 @@ from qai_hub_models.utils.base_config import EnumListWithParseableAll
 class ScorecardProfilePathMeta(EnumMeta):
     def __iter__(self) -> Generator[ScorecardProfilePath]:
         return (  # type:ignore[var-annotated]
-            cast(ScorecardProfilePath, member)
-            for member in super().__iter__()
-            if cast(ScorecardProfilePath, member)
-            != ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN
+            cast(ScorecardProfilePath, member) for member in super().__iter__()
         )
 
 
@@ -41,9 +38,6 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
     ONNX_DML_GPU = "onnx_dml_gpu"
     QNN_DLC_GPU = "qnn_dlc_gpu"
-
-    # This is a hack to enable us to sanitize perf.yaml for the website. It cannot be used as a real path.
-    _FOR_WEBSITE_ONLY_QNN = "qnn"
 
     def __str__(self):
         return self.name.lower()
@@ -78,6 +72,20 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             self.runtime.inference_engine.value in valid_test_runtimes
             or self.value in valid_test_runtimes
         )
+
+    def is_default_for_inference_engine(
+        self, inference_engine: InferenceEngine
+    ) -> bool:
+        """
+        Returns true if this profile path is the default for the given inference engine.
+        """
+        if inference_engine == InferenceEngine.TFLITE:
+            return self == ScorecardProfilePath.TFLITE
+        if inference_engine == InferenceEngine.ONNX:
+            return self == ScorecardProfilePath.ONNX
+        if inference_engine == InferenceEngine.QNN:
+            return self == ScorecardProfilePath.QNN_DLC
+        assert_never(inference_engine)
 
     def supports_precision(self, precision: Precision) -> bool:
         """
@@ -161,8 +169,6 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             return TargetRuntime.ONNX
         if self == ScorecardProfilePath.PRECOMPILED_QNN_ONNX:
             return TargetRuntime.PRECOMPILED_QNN_ONNX
-        if self == ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN:
-            raise NotImplementedError()
         if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
             return TargetRuntime.QNN_CONTEXT_BINARY
         if (
@@ -182,8 +188,6 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             return ScorecardCompilePath.PRECOMPILED_QNN_ONNX
         if self == ScorecardProfilePath.ONNX_DML_GPU:
             return ScorecardCompilePath.ONNX_FP16
-        if self == ScorecardProfilePath._FOR_WEBSITE_ONLY_QNN:
-            raise NotImplementedError()
         if self == ScorecardProfilePath.QNN_CONTEXT_BINARY:
             return ScorecardCompilePath.QNN_CONTEXT_BINARY
         if (

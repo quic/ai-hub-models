@@ -7,10 +7,7 @@ import math
 
 import numpy as np
 
-from qai_hub_models.utils.image_processing import (
-    apply_affine_to_coordinates,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 
 BODY_SIGMAS = [
     0.026,
@@ -196,15 +193,13 @@ def get_final_preds(
 
     # Transform back
     for i in range(coords.shape[0]):
-        trans = compute_affine_transform(
+        preds[i] = denormalize_coordinates_affine(
+            coords[i],
             center[i],
             scale[i],
-            rot=0,
-            output_size=[heatmap_width, heatmap_height],
-            inv=True,
+            0,
+            (heatmap_width, heatmap_height),
         )
-        preds[i] = apply_affine_to_coordinates(coords[i], trans)
-
     return preds, maxvals
 
 

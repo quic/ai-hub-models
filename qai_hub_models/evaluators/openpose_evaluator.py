@@ -10,10 +10,7 @@ import torch
 
 from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
 from qai_hub_models.models.openpose.app import getKeypointsFromPredictions
-from qai_hub_models.utils.image_processing import (
-    apply_affine_to_coordinates,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 
 # Mapping OpenPose keypoint indices to COCO indices (Neck is ignored to match coco groundtruth)
 OPENPOSE_TO_COCO = [
@@ -79,12 +76,7 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
             center = centers[idx]
             scale = scales[idx]
             rotate = 0
-            input_size = [self.input_height, self.input_width]
-
-            inv_trans = compute_affine_transform(
-                center, scale, rotate, input_size, inv=True
-            )
-            inv_trans_tensor = torch.tensor(inv_trans, dtype=torch.float32)
+            input_size = (self.input_width, self.input_height)
 
             candidate, subset = getKeypointsFromPredictions(
                 paf[idx].unsqueeze(0),
@@ -114,12 +106,14 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
                                     person_scores[coco_idx] = kp[2]
 
                     if keypoints_to_transform:
-                        kpts_tensor = torch.tensor(
-                            keypoints_to_transform, dtype=torch.float32
+                        transformed_kpts = denormalize_coordinates_affine(
+                            np.array(keypoints_to_transform),
+                            center,
+                            scale,
+                            rotate,
+                            input_size,
                         )
-                        transformed_kpts = apply_affine_to_coordinates(
-                            kpts_tensor, inv_trans_tensor
-                        ).numpy()
+
                         for i, coco_idx in enumerate(valid_coco_indices):
                             person_preds[coco_idx] = transformed_kpts[i]
 

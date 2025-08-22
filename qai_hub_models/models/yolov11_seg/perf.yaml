@@ -49,17 +49,19 @@ precisions:
     components:
       YOLOv11-Segmentation:
         universal_assets:
-          tflite: mqev03gvm
-          qnn_dlc: mn16g7o8q
-          onnx: mnld7oeom
-        asset_tool_versions:
           tflite:
-            tflite: 2.16.1
+            model_id: mqev03gvm
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
+              tflite: 2.17.0
           qnn_dlc:
-            qairt: 2.34.2.250528164111_119506
+            model_id: mn16g7o8q
+            tool_versions:
+              qairt: 2.34.2.250528164111_119506
           onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
+            model_id: mnld7oeom
+            tool_versions:
+              onnx_runtime: 1.22.0
         performance_metrics:
           QCS8275 (Proxy):
             tflite:
@@ -441,11 +443,10 @@ precisions:
     components:
       YOLOv11-Segmentation:
         universal_assets:
-          onnx: mmxygo9eq
-        asset_tool_versions:
           onnx:
-            onnx: 1.18.0
-            onnx_runtime: 1.19.2
+            model_id: mmxygo9eq
+            tool_versions:
+              onnx_runtime: 1.22.0
         performance_metrics:
           Samsung Galaxy S23:
             onnx:

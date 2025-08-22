@@ -87,6 +87,10 @@ class UNet(BaseModel):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
+        return ["mask"]
+
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:

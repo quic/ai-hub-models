@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from __future__ import annotations
 
 import numpy as np
 import torch
@@ -11,6 +12,7 @@ from torchvision import transforms
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.utils.input_spec import InputSpec
 
 VOC_FOLDER_NAME = "pascal_voc"
 DEVKIT_FOLDER_NAME = "VOCdevkit"
@@ -31,9 +33,11 @@ class VOCSegmentationDataset(BaseDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
-        input_height: int = 520,
-        input_width: int = 520,
+        input_spec: InputSpec | None = None,
     ):
+        input_spec = input_spec or {"image": ((1, 3, 520, 520), "")}
+        self.input_height = input_spec["image"][0][2]
+        self.input_width = input_spec["image"][0][3]
         BaseDataset.__init__(
             self, str(VOC_ASSET.path().parent / DEVKIT_FOLDER_NAME), split
         )
@@ -60,8 +64,6 @@ class VOCSegmentationDataset(BaseDataset):
             self.images.append(image_path)
             self.categories.append(category_path)
 
-        self.input_height = input_height
-        self.input_width = input_width
         self.image_transform = transforms.Compose(
             [
                 transforms.Resize((self.input_height, self.input_width)),

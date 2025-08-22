@@ -790,11 +790,13 @@ def export_parser(
         "Defaults to `<cwd>/build/<model_name>`.",
     )
     parser.add_argument(
-        "--fetch-static-assets",
-        action="store_true",
-        default=False,
+        "--no-fetch-static-assets",
+        dest="fetch_static_assets",
+        action="store_false",
+        default=True,
         help="If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.",
     )
+
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (
             components

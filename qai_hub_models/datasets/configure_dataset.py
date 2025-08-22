@@ -14,6 +14,7 @@ from qai_hub_models.datasets.facemap_3dmm_dataset import FaceMap3DMMDataset
 from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
 from qai_hub_models.datasets.gear_guard_dataset import GearGuardDataset
 from qai_hub_models.datasets.human_faces import HumanFacesDataset
+from qai_hub_models.datasets.kitti import KittiDataset
 from qai_hub_models.datasets.nyuv2 import NyUv2Dataset
 from qai_hub_models.datasets.semantic_kitti import SemanticKittiDataset
 
@@ -29,6 +30,7 @@ SUPPORTED_DATASETS = [
     "celebahq",
     "face_det_lite",
     "semantic_kitti",
+    "kitti",
 ]
 
 
@@ -78,6 +80,12 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         FaceDetLiteDataset(input_data_zip=files[0])
     elif dataset == "semantic_kitti":
         SemanticKittiDataset(input_lidars_zip=files[0], input_gt_zip=files[1])
+    elif dataset == "kitti":
+        KittiDataset(
+            input_images_zip=files[0],
+            input_labels_zip=files[1],
+            input_calibs_zip=files[2],
+        )
     else:
         raise ValueError(f"Invalid dataset {dataset}")
 

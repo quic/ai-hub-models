@@ -11,13 +11,21 @@ import torch.nn as nn
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.facemap_3dmm_evaluator import FaceMap3DMMEvaluator
 from qai_hub_models.models.facemap_3dmm.resnet_score_rgb import resnet18_wd2
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_torch
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_image,
+    load_torch,
+)
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec, SampleInputsType
 
 MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "resnet_wd2_weak_score_1202_3ch.pth.tar"
 MODEL_ASSET_VERSION = 1
+INPUT_IMAGE_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "face_img.jpg"
+)
 
 
 class FaceMap_3DMM(BaseModel):
@@ -66,7 +74,11 @@ class FaceMap_3DMM(BaseModel):
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        return {"image": [self.image.numpy()]}
+        image = load_image(INPUT_IMAGE_PATH)
+        if input_spec is not None:
+            h, w = input_spec["image"][0][2:]
+            image = image.resize((w, h))
+        return {"image": [app_to_net_image_inputs(image)[1].numpy()]}
 
     @staticmethod
     def get_output_names() -> list[str]:
@@ -85,4 +97,4 @@ class FaceMap_3DMM(BaseModel):
 
     @staticmethod
     def calibration_dataset_name() -> str:
-        return "coco_face"
+        return "facemap_3dmm_dataset"

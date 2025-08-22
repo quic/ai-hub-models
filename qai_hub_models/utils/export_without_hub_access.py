@@ -14,7 +14,7 @@ from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.huggingface import fetch_huggingface_target_model
-from qai_hub_models.utils.printing import print_profile_metrics
+from qai_hub_models.utils.printing import print_profile_metrics, print_with_box
 from qai_hub_models.utils.qai_hub_helpers import _AIHUB_NAME, _AIHUB_URL
 
 _WARNING_DASH = "=" * 114
@@ -37,12 +37,20 @@ def export_without_hub_access(
     is_forced_static_asset_fetch: bool = False,
 ) -> list[str]:
     if not is_forced_static_asset_fetch:
-        print(_WARNING_DASH)
-        print(
-            f"Unable to find a valid API token for {_AIHUB_NAME}. Using results from a previous job run on the same device.\n"
-            f"To get access to the complete experience, please sign-up for access at {_AIHUB_URL}."
-        )
-        print(_WARNING_DASH)
+        ls_msg = [
+            f"Unable to find a valid API token for {_AIHUB_NAME}.",
+            "Using results from a previous job run on the same device.",
+            "To get access to the complete experience, please sign-up ",
+            f"for access at {_AIHUB_URL}.",
+        ]
+    else:
+        ls_msg = [
+            "Fetching static assets without compiling and profiling.",
+            "If you've made any change to the model (model IO, custom or",
+            "fine-tuned weights etc), please run with --no-fetch-static-assets",
+            "to run compile and get the correct asset",
+        ]
+    print_with_box(ls_msg)
 
     if compile_options or profile_options:
         raise RuntimeError(

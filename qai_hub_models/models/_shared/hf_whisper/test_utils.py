@@ -41,7 +41,8 @@ def run_test_wrapper_numerics(
     processing) that matches with the
     original model's.
     """
-    app = HfWhisperApp(model_cls.from_pretrained())
+    model = model_cls.from_pretrained()
+    app = HfWhisperApp(model.encoder, model.decoder, model_cls.get_hf_whisper_version())
     hf_whisper_version = model_cls.get_hf_whisper_version()
 
     # Load inputs
@@ -134,7 +135,8 @@ def run_test_transcribe(
     Test that HfWhisperApp produces end to end transcription results that
     matches with the original model
     """
-    app = HfWhisperApp(model_cls.from_pretrained())
+    model = model_cls.from_pretrained()
+    app = HfWhisperApp(model.encoder, model.decoder, model_cls.get_hf_whisper_version())
     hf_whisper_version = model_cls.get_hf_whisper_version()
     audio, mel_input, sample_rate = load_sample_audio_input(app, hf_whisper_version)
 

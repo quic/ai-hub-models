@@ -14,6 +14,42 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 
 
+## Example & Usage
+
+Install the package via pip:
+```bash
+pip install "qai-hub-models[llama-v3-taide-8b-chat]"
+```
+
+Note: GPU is unnecessary if you wish to only export the model for on-device deployment.
+
+For llama_v3_taide_8b_chat, a dedicated CUDA enabled GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is needed to quantize the model on your local machine. GPU can also increase the speed of evaluation and demo of your quantized model significantly.
+Install the GPU package via pip:
+```bash
+pip install "qai-hub-models[llama-v3-taide-8b-chat]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.10.0/aimet_onnx-2.10.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+```
+
+
+
+Once installed, run the following simple CLI demo:
+
+```bash
+python -m qai_hub_models.models.llama_v3_taide_8b_chat.demo
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../../#getting-started) for more usage instructions.
+
+## Export for on-device deployment
+
+This repository contains export scripts that produce a model optimized for
+on-device deployment. This can be run as follows:
+
+```bash
+python -m qai_hub_models.models.llama_v3_taide_8b_chat.export
+```
+Additional options are documented with the `--help` option.
 
 
 ## License

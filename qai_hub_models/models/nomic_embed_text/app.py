@@ -16,7 +16,8 @@ from qai_hub_models.utils.base_model import ExecutableModelProtocol
 
 class NomicEmbedTextApp:
     """
-    This class consists of light-weight "app code" that is required to perform end to end inference with Posenet.
+    This class consists of light-weight "app code" that is required to
+    perform end to end inference with NomicEmbedText.
 
     The app uses 1 model:
         * Nomic Embedding Text
@@ -39,12 +40,12 @@ class NomicEmbedTextApp:
         )
 
     def predict(self, *args, **kwargs):
-        # See predict_pose_keypoints.
+        # See predict_embeddings.
         return self.predict_embeddings(*args, **kwargs)
 
     def predict_embeddings(self, text: str) -> torch.Tensor:
         """
-        Predicts up to 17 pose keypoints for up to 10 people in the image.
+        Predicts embeddings from text.
 
         Parameters:
             text: str

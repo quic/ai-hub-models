@@ -15,9 +15,10 @@ from transformers import PretrainedConfig
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import create_quantsim, evaluate
+from qai_hub_models.models._shared.llm.model import cleanup
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models.common import TargetRuntime
-from qai_hub_models.models.llama_v3_2_1b_instruct import MODEL_ID, Model
+from qai_hub_models.models.llama_v3_2_1b_instruct import MODEL_ID, FP_Model, Model
 from qai_hub_models.models.llama_v3_2_1b_instruct.demo import llama_3_2_1b_chat_demo
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
     DEFAULT_EXPORT_DEVICE,
@@ -164,13 +165,14 @@ class TestLlama3_2(Llama3_2_1B):
 @pytest.fixture(scope="session")
 def setup_dummy_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"dummy_{MODEL_ID}_ckpt")
-    return test.setup_test_quantization(
+    yield test.setup_test_quantization(
         Model,
         TestLlama3_2,
         path,
         precision=DEFAULT_PRECISION,
         num_samples=1,
     )
+    cleanup()
 
 
 @pytest.mark.skipif(
@@ -191,7 +193,7 @@ def test_cpu() -> None:
 
 @pytest.fixture(scope="session")
 def setup_create_quantsim_dummy(setup_dummy_quantized_checkpoints):
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_2_1B,
         kwargs=dict(
@@ -202,6 +204,7 @@ def setup_create_quantsim_dummy(setup_dummy_quantized_checkpoints):
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.mark.parametrize("task", ["wikitext-ppl", "mmlu"])
@@ -229,21 +232,27 @@ def test_demo_dummy(setup_dummy_quantized_checkpoints: CheckpointSpec) -> None:
 
 
 # Full model tests
+@pytest.mark.parametrize("checkpoint", ["DEFAULT", "DEFAULT_W4A16"])
+def test_load_encodings_to_quantsim(checkpoint):
+    Model.from_pretrained(fp_model=FP_Model.from_pretrained())
+
+
 @pytest.fixture(scope="session")
 def setup_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"{MODEL_ID}_ai_nexuz_ckpt")
-    return test.setup_test_quantization(
+    yield test.setup_test_quantization(
         Model,
         Llama3_2_1B,
         path,
         precision=DEFAULT_PRECISION,
         checkpoint="ai-nexuz/llama-3.2-1b-instruct-fine-tuned",
     )
+    cleanup()
 
 
 @pytest.fixture(scope="session")
 def setup_create_quantsim_default():
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_2_1B,
         kwargs=dict(
@@ -254,11 +263,12 @@ def setup_create_quantsim_default():
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.fixture(scope="session")
 def setup_create_default_unquantized():
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_2_1B,
         kwargs=dict(
@@ -269,11 +279,12 @@ def setup_create_default_unquantized():
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.fixture(scope="session")
 def setup_create_quantsim_default_w4a16():
-    return create_quantsim(
+    yield create_quantsim(
         quantized_model_cls=Model,
         fp_model_cls=Llama3_2_1B,
         kwargs=dict(
@@ -284,6 +295,7 @@ def setup_create_quantsim_default_w4a16():
             fp_model=None,
         ),
     )
+    cleanup()
 
 
 @pytest.mark.skipif(

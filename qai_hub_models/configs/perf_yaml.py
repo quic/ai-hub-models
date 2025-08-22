@@ -7,9 +7,11 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 
+import qai_hub as hub
 from pydantic import Field
+from qai_hub.client import JobType
 
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
@@ -88,19 +90,35 @@ class QAIHMModelPerf(BaseQAIHMConfig):
         # All jobs will include QAIRT version, + the inference engine version used (tflite, onnx ,etc.)
         tool_versions: ToolVersions = Field(default_factory=ToolVersions)
 
+    class AssetDetails(BaseQAIHMConfig):
+        model_id: str
+        tool_versions: ToolVersions = Field(default_factory=ToolVersions)
+
+        @staticmethod
+        def from_hub_job(job: hub.Job) -> QAIHMModelPerf.AssetDetails:
+            """Extract asset details from the given compile or profile job."""
+            if job._job_type == JobType.COMPILE:
+                job = cast(hub.CompileJob, job)
+                assert (
+                    job.get_status().success
+                ), f"Cannot extract asset details from failed compile job {job.job_id}"
+                model_id = cast(hub.Model, job.get_target_model()).model_id
+            elif job._job_type == JobType.PROFILE:
+                job = cast(hub.ProfileJob, job)
+                model_id = job.model.model_id
+            else:
+                raise NotImplementedError(f"Unsupported job type {job.job_type}")
+            return QAIHMModelPerf.AssetDetails(
+                model_id=model_id, tool_versions=ToolVersions.from_job(job)
+            )
+
     class ComponentDetails(BaseQAIHMConfig):
-        universal_assets: dict[ScorecardProfilePath, str] = Field(default_factory=dict)
-        device_assets: dict[ScorecardDevice, dict[ScorecardProfilePath, str]] = Field(
-            default_factory=dict
+        universal_assets: dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails] = (
+            Field(default_factory=dict)
         )
-        # The tool versions used by a compile jobs to generate the
-        # assets defined in universal_assets and device_assets.
-        # Eg:
-        #  * For .dlc and .bin models, the QAIRT SDK version is included here.
-        #  * For .onnx, ONNX and ONNX Runtime versions are included, but not QAIRT (since QAIRT is not used for compilation to ONNX).
-        asset_tool_versions: dict[ScorecardProfilePath, ToolVersions] = Field(
-            default_factory=dict
-        )
+        device_assets: dict[
+            ScorecardDevice, dict[ScorecardProfilePath, QAIHMModelPerf.AssetDetails]
+        ] = Field(default_factory=dict)
         performance_metrics: dict[
             ScorecardDevice,
             dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],

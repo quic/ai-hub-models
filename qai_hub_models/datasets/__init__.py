@@ -96,6 +96,7 @@ _try_import_dataset(".valentini", "ValentiniDataset")
 _try_import_dataset(".carvana", "CarvanaDataset")
 _try_import_dataset(".camouflage_dataset", "CamouflageDataset")
 _try_import_dataset(".eg1800", "eg1800SegmentationDataset")
+_try_import_dataset(".kitti", "KittiDataset")
 _try_import_dataset(".semantic_kitti", "SemanticKittiDataset")
 _try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetTextEncoder")
 _try_import_dataset(".stable_diffusion_calib", "StableDiffusionCalibDatasetUnet")
@@ -108,6 +109,10 @@ _try_import_dataset(".tiny_mmlu", "TinyMMLU")
 _try_import_dataset(".mmlu", "MMLU")
 _try_import_dataset(".mmmlu", "MMMLU")
 _try_import_dataset(".libri_speech", "LibriSpeechDataset")
+_try_import_dataset(
+    ".amazon_counterfactual", "AmazonCounterfactualClassificationDataset"
+)
+_try_import_dataset(".audioset", "AudioSetDataset")
 
 
 def get_dataset_from_name(

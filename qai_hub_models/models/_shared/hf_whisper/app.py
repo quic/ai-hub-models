@@ -8,15 +8,17 @@ from __future__ import annotations
 import numpy as np
 import torch
 from scipy.signal import resample_poly
+from transformers.models.whisper import WhisperConfig
 
 from qai_hub_models.models._shared.hf_whisper.model import (
     CHUNK_LENGTH,
+    MASK_NEG,
     MEAN_DECODE_LEN,
     SAMPLE_RATE,
-    HfWhisper,
     get_feature_extractor,
     get_tokenizer,
 )
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 
 
 class HfWhisperApp:
@@ -28,13 +30,23 @@ class HfWhisperApp:
 
     def __init__(
         self,
-        hf_whisper: HfWhisper,
+        encoder: ExecutableModelProtocol,
+        decoder: ExecutableModelProtocol,
+        hf_model_id: str,
         sample_rate: int = SAMPLE_RATE,
         max_audio_seconds: int = CHUNK_LENGTH,
     ):
-        self.decoder = hf_whisper.decoder.to("cpu").eval()
-        self.encoder = hf_whisper.encoder.to("cpu").eval()
-        self.config = hf_whisper.config
+        self.encoder = encoder
+        self.decoder = decoder
+        if isinstance(self.decoder, torch.nn.Module):
+            self.decoder = self.decoder.to("cpu").eval()
+        if isinstance(self.encoder, torch.nn.Module):
+            self.encoder = self.encoder.to("cpu").eval()
+
+        self.config = WhisperConfig.from_pretrained(hf_model_id)
+        self.config.return_dict = False
+        self.config.tie_word_embeddings = False
+        self.config.mask_neg = MASK_NEG
 
         self.mean_decode_len = MEAN_DECODE_LEN
 
@@ -42,8 +54,8 @@ class HfWhisperApp:
         self.max_audio_seconds = max_audio_seconds
         self.max_audio_samples = self.max_audio_seconds * self.sample_rate
 
-        self.feature_extractor = get_feature_extractor(hf_whisper.hf_source)
-        self.tokenizer = get_tokenizer(hf_whisper.hf_source)
+        self.feature_extractor = get_feature_extractor(hf_model_id)
+        self.tokenizer = get_tokenizer(hf_model_id)
 
     def predict(self, *args, **kwargs):
         # See transcribe.
@@ -110,6 +122,8 @@ class HfWhisperApp:
         kv_cache_cross = self.encoder(input_features)
         if not isinstance(kv_cache_cross, tuple):
             kv_cache_cross = (kv_cache_cross,)
+        if not isinstance(kv_cache_cross[0], (tuple, list)):
+            kv_cache_cross = (kv_cache_cross,)
 
         sot = self.config.decoder_start_token_id
         num_decoder_blocks = self.config.decoder_layers
@@ -175,9 +189,8 @@ class HfWhisperApp:
                 + flattened_kv_cache_cross
                 + (position_ids,)
             )
-
             decoder_output = self.decoder(*decoder_input)
-            if isinstance(decoder_output, tuple):
+            if isinstance(decoder_output, tuple) and len(decoder_output) == 2:
                 logits, kv_cache_self = decoder_output
             else:
                 logits = decoder_output[0]

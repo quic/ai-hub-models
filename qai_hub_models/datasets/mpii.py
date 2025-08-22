@@ -10,15 +10,11 @@ import os
 
 import cv2
 import numpy as np
-import torch
 from scipy.io import loadmat
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.image_processing import (
-    apply_batched_affines_to_frame,
-    compute_affine_transform,
-)
+from qai_hub_models.utils.image_processing import pre_process_with_affine
 
 MPII_FOLDER_NAME = "mpii"
 MPII_VERSION = 1
@@ -95,7 +91,7 @@ class MPIIDataset(BaseDataset):
             image_name = a["image"]
 
             c = np.array(a["center"], dtype=float)
-            s = np.array([a["scale"], a["scale"]], dtype=float)
+            s = np.array([a["scale"], a["scale"]], dtype=float) * 200.0
 
             # Adjust center/scale slightly to avoid cropping limbs
             if c[0] != -1:
@@ -147,14 +143,9 @@ class MPIIDataset(BaseDataset):
         rotate = 0
 
         # transforms image
-        trans = compute_affine_transform(
-            center, scale, rotate, [self.input_width, self.input_height]
-        )
-
-        image = apply_batched_affines_to_frame(
-            data_numpy, [trans], (self.input_width, self.input_height)
+        image = pre_process_with_affine(
+            data_numpy, center, scale, rotate, (self.input_width, self.input_height)
         ).squeeze(0)
-        image = torch.from_numpy(image).permute(2, 0, 1).float() / 255.0
 
         joint_missing = self.gt_dict["jnt_missing"][..., index]
         gt_keypoints = self.gt_dict["pos_gt_src"][..., index]

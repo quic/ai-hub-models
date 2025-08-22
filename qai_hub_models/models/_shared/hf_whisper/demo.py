@@ -37,7 +37,8 @@ def hf_whisper_demo(model_cls: type[HfWhisper], is_test: bool = False) -> None:
     )
     args = parser.parse_args([] if is_test else None)
 
-    app = HfWhisperApp(model_cls.from_pretrained())
+    model = model_cls.from_pretrained()
+    app = HfWhisperApp(model.encoder, model.decoder, model_cls.get_hf_whisper_version())
 
     # Load default audio if file not provided
     audio = args.audio_file

@@ -324,7 +324,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
         if uses_lists:
             encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
-
         zero_keys = []
 
         for layer in range(self.llm_config.num_hidden_layers):
@@ -373,7 +372,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                     }
                 ]
             encodings["activation_encodings"][key] = zero_entry
-
         propagate_memory_encodings(encodings, model)
 
         if uses_lists:
