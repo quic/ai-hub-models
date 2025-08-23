@@ -22,7 +22,7 @@ from qai_hub_models.utils.args import (
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
-    validate_precision_runtime,
+    validate_precision_runtime, create_model_identifier,
 )
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.compare import torch_inference
@@ -229,7 +229,8 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = "nomic_embed_text"
+    model_name = create_model_identifier("nomic_embed_text", Model,
+                                         additional_model_kwargs, custom_identifier_args="model_version")
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Samsung Galaxy S24 (Family)")

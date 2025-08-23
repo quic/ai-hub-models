@@ -23,7 +23,7 @@ from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
     get_model_kwargs,
-    validate_precision_runtime,
+    validate_precision_runtime, create_model_identifier,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
@@ -37,12 +37,12 @@ from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
 def quantize_model(
-    precision: Precision,
-    model: CollectionModel,
-    model_name: str,
-    hub_device: hub.Device,
-    components: list[str],
-    num_calibration_samples: int | None,
+        precision: Precision,
+        model: CollectionModel,
+        model_name: str,
+        hub_device: hub.Device,
+        components: list[str],
+        num_calibration_samples: int | None,
 ) -> dict[str, hub.client.QuantizeJob]:
     quantize_jobs: dict[str, hub.client.QuantizeJob] = {}
     if precision != Precision.float:
@@ -83,14 +83,14 @@ def quantize_model(
 
 
 def compile_model(
-    model: CollectionModel,
-    model_name: str,
-    hub_device: hub.Device,
-    components: list[str],
-    compile_options: str,
-    target_runtime: TargetRuntime,
-    precision: Precision,
-    quantize_jobs: dict[str, hub.client.QuantizeJob],
+        model: CollectionModel,
+        model_name: str,
+        hub_device: hub.Device,
+        components: list[str],
+        compile_options: str,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        quantize_jobs: dict[str, hub.client.QuantizeJob],
 ) -> dict[str, hub.client.CompileJob]:
     compile_jobs: dict[str, hub.client.CompileJob] = {}
     for component_name in components:
@@ -132,12 +132,12 @@ def compile_model(
 
 
 def profile_model(
-    model_name: str,
-    hub_device: hub.Device,
-    components: list[str],
-    profile_options: dict[str, str],
-    target_runtime: TargetRuntime,
-    compile_jobs: dict[str, hub.client.CompileJob],
+        model_name: str,
+        hub_device: hub.Device,
+        components: list[str],
+        profile_options: dict[str, str],
+        target_runtime: TargetRuntime,
+        compile_jobs: dict[str, hub.client.CompileJob],
 ) -> dict[str, hub.client.ProfileJob]:
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     for component_name in components:
@@ -155,13 +155,13 @@ def profile_model(
 
 
 def inference_model(
-    model: CollectionModel,
-    model_name: str,
-    hub_device: hub.Device,
-    components: list[str],
-    profile_options: str,
-    target_runtime: TargetRuntime,
-    compile_jobs: dict[str, hub.client.CompileJob],
+        model: CollectionModel,
+        model_name: str,
+        hub_device: hub.Device,
+        components: list[str],
+        profile_options: str,
+        target_runtime: TargetRuntime,
+        compile_jobs: dict[str, hub.client.CompileJob],
 ) -> dict[str, hub.client.InferenceJob]:
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
     for component_name in components:
@@ -188,8 +188,8 @@ def inference_model(
 
 
 def download_model(
-    output_path: Path,
-    compile_jobs: dict[str, hub.client.CompileJob],
+        output_path: Path,
+        compile_jobs: dict[str, hub.client.CompileJob],
 ) -> None:
     os.makedirs(output_path, exist_ok=True)
     for component_name, compile_job in compile_jobs.items():
@@ -199,22 +199,22 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
-    components: Optional[list[str]] = None,
-    precision: Precision = Precision.float,
-    num_calibration_samples: int | None = None,
-    skip_compiling: bool = False,
-    skip_profiling: bool = False,
-    skip_inferencing: bool = False,
-    skip_downloading: bool = False,
-    skip_summary: bool = False,
-    output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
-    compile_options: str = "",
-    profile_options: str = "",
-    fetch_static_assets: bool = False,
-    **additional_model_kwargs,
+        device: Optional[str] = None,
+        chipset: Optional[str] = None,
+        components: Optional[list[str]] = None,
+        precision: Precision = Precision.float,
+        num_calibration_samples: int | None = None,
+        skip_compiling: bool = False,
+        skip_profiling: bool = False,
+        skip_inferencing: bool = False,
+        skip_downloading: bool = False,
+        skip_summary: bool = False,
+        output_dir: Optional[str] = None,
+        target_runtime: TargetRuntime = TargetRuntime.TFLITE,
+        compile_options: str = "",
+        profile_options: str = "",
+        fetch_static_assets: bool = False,
+        **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
     This function executes the following recipe:
@@ -266,7 +266,8 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = "sam2"
+    model_name = create_model_identifier("sam2", Model,
+                                         additional_model_kwargs, custom_identifier_args="model_type")
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Snapdragon 8 Elite QRD")
