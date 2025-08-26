@@ -219,8 +219,11 @@ class QAIRTVersion:
                 raise ValueError(
                     msg
                     + f"\n\nAI Hub no longer supports the standard QAIRT version ({QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION}) used by this version of AI Hub Models.\n"
-                    "Pass --compile-options='--qairt_version=default' and/or --profile-options='qairt_version=default' to use the current default available on AI Hub.\n"
-                    "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guarunteed to work with newer versions of QAIRT."
+                    "You have two options:\n"
+                    f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION}.\n"
+                    f" OR\n"
+                    f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
+                    "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
                 )
             else:
                 raise e
@@ -462,11 +465,11 @@ class TargetRuntime(Enum):
         if self == TargetRuntime.QNN_DLC:
             return "dlc"
         if self == TargetRuntime.ONNX:
-            return "onnx"
+            return "onnx.zip"
         if self == TargetRuntime.TFLITE:
             return "tflite"
         if self == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            return "onnx"
+            return "onnx.zip"
 
         assert_never(self)
 
@@ -586,8 +589,11 @@ class TargetRuntime(Enum):
                         msg
                         + f"\nAI Hub no longer supports the standard QAIRT version (v{onnx_qairt_version}) used by this version of AI Hub Models for ONNX models.\n"
                         f"This version of AI Hub Models was tested against ONNX Runtime (v{onnx_version}) which ships on NuGET and PyPi with QAIRT {onnx_qairt_version}.\n"
-                        "Pass --compile-options='--qairt_version=default' and/or --profile-options='qairt_version=default' to use the current default available on AI Hub.\n"
-                        "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guarunteed to work with newer versions of QAIRT."
+                        "You have two options:\n"
+                        f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {onnx_qairt_version}.\n"
+                        f" OR\n"
+                        f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
+                        "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
                     )
         return QAIRTVersion.qaihm_default()
 

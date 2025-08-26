@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 import shutil
@@ -12,7 +13,7 @@ import time
 import zipfile
 from os import PathLike
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import onnx
@@ -25,6 +26,7 @@ from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.onnx_helpers import (
     torch_onnx_export_with_large_model_size_check,
 )
+from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401
     transpose_channel_first_to_last,
 )
@@ -338,3 +340,27 @@ def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
             out[key[2:]] = value
 
     return out
+
+
+def download_model_in_memory(model: hub.Model) -> Any:
+    """
+    Download the model to a file and load it into memory.
+    This replicates functionality that used to exist natively in the hub client.
+    """
+    if model.model_type not in [
+        hub.SourceModelType.TORCHSCRIPT,
+        hub.SourceModelType.ONNX,
+    ]:
+        raise ValueError(
+            "Downloading model in memory is currently only supported for torchscript and onnx."
+        )
+    with qaihm_temp_dir() as tmp_dir:
+        model_file = model.download(os.path.join(tmp_dir, "tmp_model"))
+        if model.model_type == hub.SourceModelType.TORCHSCRIPT:
+            return torch.jit.load(model_file)
+        else:
+            if os.path.splitext(model_file)[1] == ".zip":
+                onnx_path, _ = extract_onnx_zip(model_file)
+                return onnx.load(onnx_path)
+            else:
+                return onnx.load(model_file)

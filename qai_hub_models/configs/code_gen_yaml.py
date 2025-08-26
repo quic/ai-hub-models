@@ -145,15 +145,28 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     python_version_less_than: Optional[str] = None
     python_version_less_than_reason: Optional[str] = None
 
-    def is_supported(self, precision: Precision, runtime: TargetRuntime) -> bool:
+    def is_supported(
+        self,
+        precision: Precision,
+        runtime: TargetRuntime,
+        consider_scorecard_failures: bool = True,
+    ) -> bool:
         """
         Return true if this precision + runtime combo is supported by this model.
         Return false if this model has a failure reason set for this runtime.
+
+        If consider_scorecard_failures is False, then scorecard failures in `code-gen.yaml`
+        are ignored for the purposes of determining if a path is supported.
         """
-        return not bool(self.failure_reason(precision, runtime))
+        return not bool(
+            self.failure_reason(precision, runtime, consider_scorecard_failures)
+        )
 
     def failure_reason(
-        self, precision: Precision, runtime: TargetRuntime
+        self,
+        precision: Precision,
+        runtime: TargetRuntime,
+        include_scorecard_failures: bool = True,
     ) -> Optional[str]:
         """
         Return the reason a model failed or None if the model did not fail.
@@ -174,7 +187,10 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
         if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
             if reason.has_failure:
-                return reason.failure_reason
+                if include_scorecard_failures:
+                    return reason.failure_reason
+                elif reason.scorecard_failure is None:
+                    return reason.failure_reason
 
         return None
 

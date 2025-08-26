@@ -214,7 +214,8 @@ def export_model(
         return export_without_hub_access(
             "stable_diffusion_v1_5",
             "Stable-Diffusion-v1.5",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

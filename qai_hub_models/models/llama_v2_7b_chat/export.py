@@ -140,7 +140,8 @@ def export_model(
         return export_without_hub_access(
             "llama_v2_7b_chat",
             "Llama-v2-7B-Chat",
-            device or "",
+            device,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "ffnet_54s",
             "FFNet-54S",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -354,7 +355,6 @@ def main(restrict_to_precision: Precision | None = None):
         ],
         Precision.w8a8: [
             TargetRuntime.TFLITE,
-            TargetRuntime.ONNX,
         ],
     }
 

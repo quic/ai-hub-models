@@ -160,7 +160,8 @@ def export_model(
         return export_without_hub_access(
             "mistral_7b_instruct_v0_3",
             "Mistral-7B-Instruct-v0.3",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             False,

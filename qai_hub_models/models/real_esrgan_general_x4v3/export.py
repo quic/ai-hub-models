@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "real_esrgan_general_x4v3",
             "Real-ESRGAN-General-x4v3",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

@@ -32,6 +32,7 @@ from qai_hub_models.utils.evaluate import (
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
 from qai_hub_models.utils.path_helpers import MODEL_IDS
+from qai_hub_models.utils.qai_hub_helpers import download_model_in_memory
 
 QUANT_RESULTS_PATH = os.environ.get("QUANT_RESULTS_PATH", os.path.expanduser("~"))
 RESULTS_FOLDER = Path(QUANT_RESULTS_PATH) / "quant_debug"
@@ -280,7 +281,9 @@ def debug_quant_accuracy(
             options=model.get_hub_compile_options(TargetRuntime.ONNX, Precision.float),
         )
 
-        onnx_model = compile_to_onnx_job.get_target_model().download()
+        target_model = compile_to_onnx_job.get_target_model()
+        assert target_model is not None
+        onnx_model = download_model_in_memory(target_model)
         onnx.save(onnx_model, str(onnx_model_path))
 
     fp_inputs, fp_outputs, fp_session = _collect_inputs_and_fp_outputs(

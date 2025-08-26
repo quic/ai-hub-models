@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "wideresnet50",
             "WideResNet50",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -349,14 +350,12 @@ def main(restrict_to_precision: Precision | None = None):
             TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
         Precision.w8a8: [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

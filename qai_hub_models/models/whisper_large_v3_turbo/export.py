@@ -200,7 +200,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
+    target_runtime: TargetRuntime = TargetRuntime.PRECOMPILED_QNN_ONNX,
     compile_options: str = "",
     profile_options: str = "",
     fetch_static_assets: bool = False,
@@ -273,7 +273,8 @@ def export_model(
         return export_without_hub_access(
             "whisper_large_v3_turbo",
             "Whisper-Large-V3-Turbo",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -395,7 +396,6 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

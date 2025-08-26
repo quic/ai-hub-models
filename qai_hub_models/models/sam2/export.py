@@ -283,7 +283,8 @@ def export_model(
         return export_without_hub_access(
             "sam2",
             "Segment-Anything-Model-2",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -406,9 +407,6 @@ def main():
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
-            TargetRuntime.QNN_DLC,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
 

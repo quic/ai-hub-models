@@ -1,4 +1,4 @@
-# [EfficientFormer: Imagenet classifier and general purpose backbone](#)
+# [EfficientFormer: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/efficientformer)
 
 EfficientFormer is a vision transformer model that can classify images from the Imagenet dataset.
 

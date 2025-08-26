@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "ffnet_40s",
             "FFNet-40S",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

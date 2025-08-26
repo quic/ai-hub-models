@@ -150,7 +150,7 @@ and many more.
 | [ConvNext-Tiny](https://aihub.qualcomm.com/models/convnext_tiny) | [qai_hub_models.models.convnext_tiny](qai_hub_models/models/convnext_tiny/README.md) |
 | [DLA-102-X](https://aihub.qualcomm.com/models/dla102x) | [qai_hub_models.models.dla102x](qai_hub_models/models/dla102x/README.md) |
 | [DenseNet-121](https://aihub.qualcomm.com/models/densenet121) | [qai_hub_models.models.densenet121](qai_hub_models/models/densenet121/README.md) |
-| [EfficientFormer](qai_hub_models/models/efficientformer/README.md) | [qai_hub_models.models.efficientformer](qai_hub_models/models/efficientformer/README.md) |
+| [EfficientFormer](https://aihub.qualcomm.com/models/efficientformer) | [qai_hub_models.models.efficientformer](qai_hub_models/models/efficientformer/README.md) |
 | [EfficientNet-B0](https://aihub.qualcomm.com/models/efficientnet_b0) | [qai_hub_models.models.efficientnet_b0](qai_hub_models/models/efficientnet_b0/README.md) |
 | [EfficientNet-B4](https://aihub.qualcomm.com/models/efficientnet_b4) | [qai_hub_models.models.efficientnet_b4](qai_hub_models/models/efficientnet_b4/README.md) |
 | [EfficientNet-V2-s](https://aihub.qualcomm.com/models/efficientnet_v2_s) | [qai_hub_models.models.efficientnet_v2_s](qai_hub_models/models/efficientnet_v2_s/README.md) |
@@ -202,7 +202,7 @@ and many more.
 | [DDRNet23-Slim](https://aihub.qualcomm.com/models/ddrnet23_slim) | [qai_hub_models.models.ddrnet23_slim](qai_hub_models/models/ddrnet23_slim/README.md) |
 | [DeepLabV3-Plus-MobileNet](https://aihub.qualcomm.com/models/deeplabv3_plus_mobilenet) | [qai_hub_models.models.deeplabv3_plus_mobilenet](qai_hub_models/models/deeplabv3_plus_mobilenet/README.md) |
 | [DeepLabV3-ResNet50](https://aihub.qualcomm.com/models/deeplabv3_resnet50) | [qai_hub_models.models.deeplabv3_resnet50](qai_hub_models/models/deeplabv3_resnet50/README.md) |
-| [DeepLabXception](qai_hub_models/models/deeplab_xception/README.md) | [qai_hub_models.models.deeplab_xception](qai_hub_models/models/deeplab_xception/README.md) |
+| [DeepLabXception](https://aihub.qualcomm.com/models/deeplab_xception) | [qai_hub_models.models.deeplab_xception](qai_hub_models/models/deeplab_xception/README.md) |
 | [EfficientViT-l2-seg](https://aihub.qualcomm.com/models/efficientvit_l2_seg) | [qai_hub_models.models.efficientvit_l2_seg](qai_hub_models/models/efficientvit_l2_seg/README.md) |
 | [FCN-ResNet50](https://aihub.qualcomm.com/models/fcn_resnet50) | [qai_hub_models.models.fcn_resnet50](qai_hub_models/models/fcn_resnet50/README.md) |
 | [FFNet-122NS-LowRes](https://aihub.qualcomm.com/models/ffnet_122ns_lowres) | [qai_hub_models.models.ffnet_122ns_lowres](qai_hub_models/models/ffnet_122ns_lowres/README.md) |
@@ -289,7 +289,10 @@ and many more.
 | | |
 | **Speech Recognition**
 | [HuggingFace-WavLM-Base-Plus](https://aihub.qualcomm.com/models/huggingface_wavlm_base_plus) | [qai_hub_models.models.huggingface_wavlm_base_plus](qai_hub_models/models/huggingface_wavlm_base_plus/README.md) |
+| [Whisper-Base-En](https://aihub.qualcomm.com/models/whisper_base_en) | [qai_hub_models.models.whisper_base_en](qai_hub_models/models/whisper_base_en/README.md) |
 | [Whisper-Large-V3-Turbo](https://aihub.qualcomm.com/models/whisper_large_v3_turbo) | [qai_hub_models.models.whisper_large_v3_turbo](qai_hub_models/models/whisper_large_v3_turbo/README.md) |
+| [Whisper-Small-En](https://aihub.qualcomm.com/models/whisper_small_en) | [qai_hub_models.models.whisper_small_en](qai_hub_models/models/whisper_small_en/README.md) |
+| [Whisper-Tiny-En](https://aihub.qualcomm.com/models/whisper_tiny_en) | [qai_hub_models.models.whisper_tiny_en](qai_hub_models/models/whisper_tiny_en/README.md) |
 | | |
 | **Audio Classification**
 | [YamNet](https://aihub.qualcomm.com/models/yamnet) | [qai_hub_models.models.yamnet](qai_hub_models/models/yamnet/README.md) |

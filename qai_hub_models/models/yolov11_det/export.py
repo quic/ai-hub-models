@@ -241,7 +241,8 @@ def export_model(
         return export_without_hub_access(
             "yolov11_det",
             "YOLOv11-Detection",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

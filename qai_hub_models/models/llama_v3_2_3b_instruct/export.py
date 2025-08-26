@@ -69,7 +69,7 @@ def main():
     )
     args = parser.parse_args()
     additional_model_kwargs = vars(args)
-    if not (args.skip_inferencing and args.skip_summary):
+    if not args.skip_inferencing:
         additional_model_kwargs["_skip_quantsim_creation"] = False
     fp_model_params = dict(
         sequence_length=additional_model_kwargs["sequence_length"],

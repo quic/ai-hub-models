@@ -160,7 +160,8 @@ def export_model(
         return export_without_hub_access(
             "baichuan2_7b",
             "Baichuan2-7B",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             False,

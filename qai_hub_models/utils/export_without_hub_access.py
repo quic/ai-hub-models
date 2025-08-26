@@ -23,7 +23,8 @@ _WARNING_DASH = "=" * 114
 def export_without_hub_access(
     model_id: str,
     model_display_name: str,
-    device: str,
+    device: str | None,
+    chipset: str | None,
     skip_profiling: bool,
     skip_inferencing: bool,
     skip_downloading: bool,
@@ -36,6 +37,9 @@ def export_without_hub_access(
     components: Optional[list[str]] = None,
     is_forced_static_asset_fetch: bool = False,
 ) -> list[str]:
+    if not device and not chipset:
+        raise NotImplementedError("Must provide either device or chipset.")
+
     if not is_forced_static_asset_fetch:
         ls_msg = [
             f"Unable to find a valid API token for {_AIHUB_NAME}.",
@@ -47,10 +51,11 @@ def export_without_hub_access(
         ls_msg = [
             "Fetching static assets without compiling and profiling.",
             "If you've made any change to the model (model IO, custom or",
-            "fine-tuned weights etc), please run with --no-fetch-static-assets",
+            "fine-tuned weights etc), please run without --fetch-static-assets",
             "to run compile and get the correct asset",
         ]
     print_with_box(ls_msg)
+    print()
 
     if compile_options or profile_options:
         raise RuntimeError(
@@ -74,20 +79,54 @@ def export_without_hub_access(
             components = [model_display_name]
 
     # Device families aren't stored in perf yamls. Replace with the original device name.
-    device_name = device.replace(" (Family)", "")
+    device_name = device.replace(" (Family)", "") if device else None
+
+    # Device families aren't stored in perf yamls. Replace with the original device name.
+    sc_device: ScorecardDevice | None = None
+    if device_name is not None:
+        try:
+            sc_device = ScorecardDevice.get(device_name)
+            chipset = (
+                DevicesAndChipsetsYaml.load()
+                .devices[sc_device.reference_device_name]
+                .chipset
+            )
+            device_name = sc_device.reference_device_name
+        except ValueError:
+            pass
+    elif chipset is not None:
+        saved_sc_devices = DevicesAndChipsetsYaml.load().devices
+        for device_candidate in ScorecardDevice.all_devices():
+            if (
+                saved_sc_devices[device_candidate.reference_device_name].chipset
+                == chipset
+            ):
+                print(
+                    f"Found matching device for chipset {chipset}: {device_candidate.reference_device_name}"
+                )
+                device_name = device_candidate.reference_device_name
+                sc_device = device_candidate
+                break
+
+    printable_device_identifier = device_name or f"chipset {chipset}"
 
     if not skip_profiling and not skip_summary:
         if parsed_perf is not None:
             print("\n--- Profiling Results ---")
             for component in components:
-                print(f"{component}")
                 model_perf = parsed_perf.components[component]
 
-                # Device families aren't stored in perf yamls. Replace with the original device name.
-                device_perf = model_perf.performance_metrics.get(
-                    ScorecardDevice.get(device_name)
-                )
+                device_perf = None
+                if sc_device:
+                    device_perf = model_perf.performance_metrics.get(sc_device)
+
                 if not device_perf:
+                    print(
+                        f"No pre-run profiling results are available for {printable_device_identifier}.\n\n"
+                        "The following devices are available:\n"
+                        f"{', '.join([x.reference_device_name for x in model_perf.performance_metrics])}"
+                    )
+                    print("\nNote that the device name is case sensitive.")
                     break
 
                 runtime_perf = None
@@ -97,10 +136,14 @@ def export_without_hub_access(
                         break
 
                 if not runtime_perf:
+                    print(
+                        f"No pre-run profiling results are available for runtime {target_runtime.name} on device {printable_device_identifier}."
+                    )
                     break
 
+                print(component)
                 print_profile_metrics(
-                    device_name,
+                    device_name or "",
                     target_runtime,
                     runtime_perf,
                     can_access_qualcomm_ai_hub=False,
@@ -109,12 +152,12 @@ def export_without_hub_access(
         else:
             if is_forced_static_asset_fetch:
                 print(
-                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without using AI Hub.\n"
+                    f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub.\n"
                     f"Run without the --fetch-static-assets flag to target this device."
                 )
             else:
                 print(
-                    f"Cannot obtain results for device {device} with runtime {target_runtime.name} without an API token.\n"
+                    f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without an API token.\n"
                     f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
                 )
 
@@ -137,12 +180,10 @@ def export_without_hub_access(
             f"\n--- Model(s) can be downloaded from Hugging Face: {ASSET_CONFIG.get_hugging_face_url(model_display_name)} ---"
         )
     try:
-        chipset = None
-        if target_runtime.is_aot_compiled:
-            device_attrs = DevicesAndChipsetsYaml.load().devices.get(device_name)
-            if device_attrs is None:
-                raise ValueError(f"Unknown device: {device}")
-            chipset = device_attrs.chipset
+        if target_runtime.is_aot_compiled and not chipset:
+            raise ValueError(
+                "This asset is runtime-specific, and a chipset could not be identified to match the given device. Try a device listed above in the profiling results section."
+            )
 
         paths, urls = fetch_huggingface_target_model(
             model_display_name,

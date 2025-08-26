@@ -241,7 +241,8 @@ def export_model(
         return export_without_hub_access(
             "detr_resnet50",
             "DETR-ResNet50",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

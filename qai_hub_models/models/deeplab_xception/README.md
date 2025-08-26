@@ -1,4 +1,4 @@
-# [DeepLabXception: Deep Convolutional Neural Network model for semantic segmentation](#)
+# [DeepLabXception: Deep Convolutional Neural Network model for semantic segmentation](https://aihub.qualcomm.com/models/deeplab_xception)
 
 DeepLabXception is a semantic segmentation model supporting multiple backbones like ResNet-101 and Xception, with flexible dataset compatibility including COCO, VOC, and Cityscapes.
 

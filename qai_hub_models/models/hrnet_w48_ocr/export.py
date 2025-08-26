@@ -236,7 +236,8 @@ def export_model(
         return export_without_hub_access(
             "hrnet_w48_ocr",
             "HRNet-W48-OCR",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -343,15 +344,11 @@ def main(restrict_to_precision: Precision | None = None):
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
-            TargetRuntime.QNN_DLC,
-            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
         Precision.w8a16: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

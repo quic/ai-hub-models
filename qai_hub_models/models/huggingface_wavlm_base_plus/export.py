@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "huggingface_wavlm_base_plus",
             "HuggingFace-WavLM-Base-Plus",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,

@@ -237,7 +237,8 @@ def export_model(
         return export_without_hub_access(
             "squeezenet1_1",
             "SqueezeNet-1.1",
-            hub_device.name or f"Device (Chipset {chipset})",
+            hub_device.name,
+            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
