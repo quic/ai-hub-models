@@ -27,6 +27,7 @@ from qai_hub_models.utils.asset_loaders import extract_zip_file
 from qai_hub_models.utils.onnx_helpers import (
     extract_io_types_from_onnx_model,
     kwargs_to_dict,
+    onnx_model_is_precompiled_qairt,
 )
 
 ONNXRUNTIME_ENV_CHECKED: bool = False
@@ -737,35 +738,40 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         if str(model_path).endswith(".zip"):
             model_path = extract_onnx_zip(str(model_path))[0]
 
+        onnx_model = onnx.load(model_path, load_external_data=False)
+
         # Extract I/O types & QDQ params from the model.
         # Overwrite / supplement that I/O with user-provided types
-        inputs, outputs = extract_io_types_from_onnx_model(
-            # External data is not needed here, qdq params are always stored directly in the graph.
-            onnx.load(model_path, load_external_data=False)
-        )
+        # External data is not needed here, qdq params are always stored directly in the graph.
+        inputs, outputs = extract_io_types_from_onnx_model(onnx_model)
 
         # Deal with EP Session Caching
         #   1. Determine location of cache for the user-provided onnx settings.
         #   2. Set up the session options to either load the existing cache or compile a new cache.
         if session_options.context_enable:
-            # Hash session options to determine final cache path.
-            context_file_path = self._get_model_cache_path(
-                model_path, session_options, execution_providers
-            )
-
             # Copy the session options so we can modify it
             session_options = dataclasses.replace(session_options)
 
-            if not os.path.exists(context_file_path):
-                # Set the flag that will enable session context compilation if there is no existing context to load.
-                session_options.context_file_path = context_file_path
-                session_options.context_enable = True
-            else:
-                # Otherwise, point the inference session to the cached context ONNX model instead of the input model.
+            # TODO: Remove onnx_model_is_precompiled_qairt after we update from ONNX 1.22.1.
+            #       This is needed because of a bug in ORT that causes precompiled models to fail if this session option is on.
+            if onnx_model_is_precompiled_qairt(onnx_model):
                 session_options.context_enable = False
-                session_options.context_file_path = None
-                model_path = context_file_path
-                print(f"Loading cached session context at {model_path}")
+            else:
+                # Hash session options to determine final cache path.
+                context_file_path = self._get_model_cache_path(
+                    model_path, session_options, execution_providers
+                )
+
+                if not os.path.exists(context_file_path):
+                    # Set the flag that will enable session context compilation if there is no existing context to load.
+                    session_options.context_file_path = context_file_path
+                    session_options.context_enable = True
+                else:
+                    # Otherwise, point the inference session to the cached context ONNX model instead of the input model.
+                    session_options.context_enable = False
+                    session_options.context_file_path = None
+                    model_path = context_file_path
+                    print(f"Loading cached session context at {model_path}")
 
         # Create the inference session
         self.model_path = model_path

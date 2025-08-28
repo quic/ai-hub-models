@@ -563,9 +563,41 @@ class BaseModel(
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
         """
-        AI Hub quantize options recommended for the model.
+        Return the AI Hub quantize options for the given model precision.
+
+        Generates CLI flags used during AI Hub quantization.
+
+        - For `w8a8` precision, the default `range_scheme` is `mse_minimizer`.
+        - For `w8a16` and mixed-precision profiles, the `range_scheme` is set to `min_max`.
+        - For mixed-precision profiles, additional flags are included to specify the percentage and override quantization type (`int16` or `fp16`).
         """
-        return "--range_scheme min_max" if precision == Precision.w8a16 else ""
+        if precision == Precision.w8a16:
+            return "--range_scheme min_max"
+        elif (
+            precision == Precision.w8a8_mixed_int16
+            or precision == Precision.w8a16_mixed_int16
+        ):
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};overide_qtype=int16"
+        elif (
+            precision == Precision.w8a8_mixed_fp16
+            or precision == Precision.w8a16_mixed_fp16
+        ):
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};overide_qtype=fp16"
+        else:
+            return ""  # default to range_scheme mse_minimizer
+
+    @staticmethod
+    def get_hub_litemp_percentage(precision: Precision) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+
+        This method should be implemented for the models that support mixed precision quantization.
+
+        NOTE: precision parameter is only included in the method signature to maintain compatibility with the base class.
+        """
+        raise NotImplementedError(
+            f"Mixed precision {precision} is not supported for this model."
+        )
 
 
 class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):

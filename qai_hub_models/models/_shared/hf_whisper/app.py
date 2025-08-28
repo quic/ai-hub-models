@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import numpy as np
+import sounddevice as sd
 import torch
 from scipy.signal import resample_poly
 from transformers.models.whisper import WhisperConfig
@@ -56,6 +57,7 @@ class HfWhisperApp:
 
         self.feature_extractor = get_feature_extractor(hf_model_id)
         self.tokenizer = get_tokenizer(hf_model_id)
+        self.clip_segment_tokens = set(self.tokenizer.all_special_ids)
 
     def predict(self, *args, **kwargs):
         # See transcribe.
@@ -82,23 +84,10 @@ class HfWhisperApp:
         -------
         List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
         """
-        if isinstance(audio, str):
-            import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
+        tokens = self.transcribe_tokens(audio, audio_sample_rate)
+        return self.tokenizer.decode(tokens, skip_special_tokens=True).strip()
 
-            audio, audio_sample_rate = a2n.audio_from_file(audio)
-        else:
-            assert audio_sample_rate is not None
-        assert isinstance(audio, np.ndarray)
-        assert isinstance(audio_sample_rate, int)
-        with torch.no_grad():
-            trans = " ".join(
-                self._transcribe_single_chunk(x)
-                for x in chunk_and_resample_audio(audio, audio_sample_rate)
-            )
-
-        return trans
-
-    def _transcribe_single_chunk(self, audio: np.ndarray) -> str:
+    def _transcribe_single_chunk(self, audio: np.ndarray) -> list[int]:
         """
         Transcribe an audio chunk to text.
 
@@ -110,8 +99,7 @@ class HfWhisperApp:
             The maximum length of this audio must be self.max_audio_samples.
 
         Returns:
-
-        - transcribed texts
+            list of token ids
         """
         # feature
         input_features = self.feature_extractor(
@@ -213,8 +201,123 @@ class HfWhisperApp:
             # update position_ids
             position_ids += 1
 
-        # Exclude start / end tokens
-        return self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return output_ids[0].tolist()
+
+    def stream(self, device=2, audio_chunk_size_seconds: int = 5) -> None:
+        """
+        Stream audio from the given audio device and transcribe in real time.
+
+        Parameters:
+            device:
+                Audio device (see. sounddevice.query_devices())
+            audio_chunk_size_seconds:
+                Number of seconds to record between each transcription attempt.
+        """
+        tokens: list[int] = []
+
+        def callback(audio: np.ndarray, frames, time, status):
+            nonlocal tokens
+            curr_tokens = self.transcribe_tokens(audio.squeeze(-1), SAMPLE_RATE)
+            tokens.extend(curr_tokens)
+
+            if not curr_tokens:
+                # This audio was empty, so it's safe to decode previous tokens.
+                print(
+                    self.tokenizer.decode(tokens, skip_special_tokens=True),
+                    end="",
+                    flush=True,
+                )
+                tokens = []
+            else:
+                split_start = 0
+                decode_splits = []
+                token_idx = 0
+                # Every time 2 "clip segment tokens" (timestamp tokens)
+                # appear in sequence, we're safe to decode the previous tokens.
+                while token_idx < len(tokens):
+                    if tokens[token_idx] in self.clip_segment_tokens:
+                        next_non_clip_idx = token_idx + 1
+                        while (
+                            next_non_clip_idx < len(tokens)
+                            and tokens[next_non_clip_idx] in self.clip_segment_tokens
+                        ):
+                            next_non_clip_idx = next_non_clip_idx + 1
+
+                        if next_non_clip_idx >= token_idx + 2:
+                            split_end = token_idx + 1
+                            if max(split_end - split_start, 0) > 0:
+                                decode_splits.append((split_start, split_end))
+                            split_start = next_non_clip_idx
+
+                        token_idx = next_non_clip_idx + 1
+                    else:
+                        token_idx = token_idx + 1
+
+                for split in decode_splits:
+                    print(
+                        self.tokenizer.decode(
+                            tokens[split[0] : split[1]], skip_special_tokens=True
+                        ),
+                        end="",
+                        flush=True,
+                    )
+                if split_start != 0:
+                    tokens = tokens[split_start:]
+
+        print("Listening...")
+        print("Text can take up to 20 seconds before printing.")
+        with sd.InputStream(
+            device=device,
+            channels=1,
+            blocksize=audio_chunk_size_seconds * SAMPLE_RATE,
+            callback=callback,
+            samplerate=SAMPLE_RATE,
+        ):
+            while True:
+                response = input("Press ctrl+c or q/Q to quit.\n")
+                if response in ("q", "Q"):
+                    break
+
+    def transcribe_tokens(
+        self, audio: np.ndarray | str, audio_sample_rate: int | None = None
+    ) -> list[int]:
+        """
+        Transcribe the provided audio to text.
+
+        Parameters
+        ----------
+        audio: numpy array | str
+            Path to audio file if a string.
+            Raw audio array of shape (# of samples) if a numpy array.
+
+        audio_sample_rate: int | None
+            The sample rate of the provided audio, in samples / second.
+            If audio is a numpy array, this must be provided.
+            If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
+
+        Returns
+        -------
+        transcribed tokens
+        """
+        if isinstance(audio, str):
+            import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
+
+            audio, audio_sample_rate = a2n.audio_from_file(audio)
+            if isinstance(audio, np.ndarray) and audio.ndim == 2:
+                # Audio is multi-channel (e.g., stero); collapse to single.
+                audio = audio.mean(-1)
+
+        assert audio_sample_rate is not None
+        assert isinstance(audio, np.ndarray)
+
+        out_chunked_tokens: list[list[int]] = [
+            self._transcribe_single_chunk(x)
+            for x in chunk_and_resample_audio(audio, audio_sample_rate)
+        ]
+        out_tokens: list[int] = []
+        for chunk_tokens in out_chunked_tokens:
+            out_tokens.extend(chunk_tokens)
+        return out_tokens
 
 
 def chunk_and_resample_audio(

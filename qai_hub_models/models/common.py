@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum, unique
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import qai_hub as hub
@@ -523,6 +523,11 @@ class TargetRuntime(Enum):
                 Precision.w16a16,
                 Precision.w4a16,
                 Precision.w4,
+                # Mixed-precision profile
+                Precision.w8a8_mixed_int16,
+                Precision.w8a16_mixed_int16,
+                Precision.w8a8_mixed_fp16,
+                Precision.w8a16_mixed_fp16,
             ]
         if (
             self == TargetRuntime.QNN_DLC
@@ -535,6 +540,11 @@ class TargetRuntime(Enum):
                 Precision.w4a16,
                 Precision.w4,
                 Precision.w16a16,
+                # Mixed-precision profile
+                Precision.w8a8_mixed_int16,
+                Precision.w8a16_mixed_int16,
+                Precision.w8a8_mixed_fp16,
+                Precision.w8a16_mixed_fp16,
             ]
 
         assert_never(self)
@@ -635,14 +645,21 @@ class TargetRuntime(Enum):
         assert_never(inference_engine)
 
 
+class _FloatDtype(Enum):
+    """
+    Temporary Enum to represent floating-point precision types not yet included in QuantizeDtype (Supported data types for quantize jobs).
+    Currently includes FP16 for compatibility with precision handling logic.
+    """
+
+    FP16 = 1
+
+
 class Precision:
     """
     Stores a precision configuration for a model's graph.
 
     Precision can represent any precision that AI Hub's QuantizeJob supports.
     It also can represent floating point (no quantization).
-
-    Mixed precision is not currently representable by this class.
     """
 
     # Common Precision Instances
@@ -653,11 +670,39 @@ class Precision:
     w4a16: Precision
     w4: Precision
 
+    # Mixed Precision Instances
+    w8a8_mixed_int16: Precision
+    w8a16_mixed_int16: Precision
+    w8a8_mixed_fp16: Precision
+    w8a16_mixed_fp16: Precision
+
+    _allowed_override_dtypes: set[Union[QuantizeDtype, _FloatDtype]] = {
+        QuantizeDtype.INT16,
+        _FloatDtype.FP16,
+    }
+
     def __init__(
-        self, weights_type: QuantizeDtype | None, activations_type: QuantizeDtype | None
+        self,
+        weights_type: Optional[QuantizeDtype],
+        activations_type: Optional[QuantizeDtype],
+        override_type: Optional[QuantizeDtype | _FloatDtype] = None,
     ):
+        """
+        `override_type` is used to specify mixed-precision
+        When provided, it overrides both `weights_type` and `activations_type`
+        for the most sensitive layer(s), applying the same dtype to both weights and activations.
+        """
+        if (
+            override_type is not None
+            and override_type not in self._allowed_override_dtypes
+        ):
+            raise ValueError(
+                f"Invalid override_type: {override_type}. Supported: {','. join([str(x) for x in self._allowed_override_dtypes])}"
+            )
+
         self.weights_type: QuantizeDtype | None = weights_type
         self.activations_type: QuantizeDtype | None = activations_type
+        self.override_type: QuantizeDtype | _FloatDtype | None = override_type
 
     @staticmethod
     def parse(obj: Any) -> Precision:
@@ -671,6 +716,10 @@ class Precision:
 
         atype = None
         wtype = None
+        otype_enum_name = None
+
+        if match := re.match(r"(.*)_mixed_(.*)", string):
+            otype_enum_name = match.group(2).upper()
         if match := re.match(r"(w\d+)?(a\d+)?", string):
             wtype = match.group(1)
             atype = match.group(2)
@@ -685,6 +734,7 @@ class Precision:
 
         atype_enum_name = f"INT{atype[1:]}" if atype else None
         wtype_enum_name = f"INT{wtype[1:]}" if wtype else None
+
         for enum_name, bit_width, name in [
             (atype_enum_name, atype, "activations"),
             (wtype_enum_name, wtype, "weights"),
@@ -696,28 +746,64 @@ class Precision:
                     f"Unsupported bit width {bit_width} for quantization {name}. Supported: {','. join([str(x) for x in QuantizeDtype])}"
                 )
 
+        def _is_allowed_override_dtype(enum_name: str) -> bool:
+            return any(
+                enum_name == otype.name for otype in Precision._allowed_override_dtypes
+            )
+
+        if otype_enum_name is not None and not _is_allowed_override_dtype(
+            otype_enum_name
+        ):
+            raise ValueError(
+                f"Invalid override type {otype_enum_name}, Supported: {','.join([str(x) for x in Precision._allowed_override_dtypes])}"
+            )
+
+        # Try resolving from both enums
+        otype = next(
+            (
+                enum_type[otype_enum_name]
+                for enum_type in (QuantizeDtype, _FloatDtype)
+                if otype_enum_name in enum_type._member_names_
+            ),
+            None,
+        )
+
         return Precision(
             QuantizeDtype[wtype_enum_name] if wtype_enum_name else None,
             QuantizeDtype[atype_enum_name] if atype_enum_name else None,
+            otype,
         )
 
     @property
     def has_float_activations(self) -> bool:
-        # Returns true if model activations are not quantized.
-        return self.activations_type is None
+        # Returns true if any model activations are not quantized.
+        return (
+            self.activations_type is None
+            if self.override_type is None
+            else self.override_type in _FloatDtype
+        )
 
     @property
     def has_float_weights(self) -> bool:
-        # Returns true if model weights are not quantized.
-        return self.weights_type is None
+        # Returns true if any model weights are not quantized.
+        return (
+            self.weights_type is None
+            if self.override_type is None
+            else self.override_type in _FloatDtype
+        )
 
     def __str__(self) -> str:
         if self == Precision.float:
             return "float"
 
-        return (f"w{self.weights_type.name[3:]}" if self.weights_type else "") + (
-            f"a{self.activations_type.name[3:]}" if self.activations_type else ""
-        )
+        precision_name = (
+            f"w{self.weights_type.name[3:]}" if self.weights_type else ""
+        ) + (f"a{self.activations_type.name[3:]}" if self.activations_type else "")
+
+        if self.override_type:
+            precision_name = f"{precision_name}_mixed_{self.override_type.name.lower()}"
+
+        return precision_name
 
     def __repr__(self):
         return str(self)
@@ -728,6 +814,7 @@ class Precision:
         return (
             value.activations_type == self.activations_type
             and value.weights_type == self.weights_type
+            and value.override_type == self.override_type
         )
 
     def __hash__(self) -> int:
@@ -753,6 +840,18 @@ Precision.w8a16 = Precision(QuantizeDtype.INT8, QuantizeDtype.INT16)
 Precision.w16a16 = Precision(QuantizeDtype.INT16, QuantizeDtype.INT16)
 Precision.w4a16 = Precision(QuantizeDtype.INT4, QuantizeDtype.INT16)
 Precision.w4 = Precision(QuantizeDtype.INT4, None)
+Precision.w8a8_mixed_int16 = Precision(
+    QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT16
+)
+Precision.w8a16_mixed_int16 = Precision(
+    QuantizeDtype.INT8, QuantizeDtype.INT16, QuantizeDtype.INT16
+)
+Precision.w8a8_mixed_fp16 = Precision(
+    QuantizeDtype.INT8, QuantizeDtype.INT8, _FloatDtype.FP16
+)
+Precision.w8a16_mixed_fp16 = Precision(
+    QuantizeDtype.INT8, QuantizeDtype.INT16, _FloatDtype.FP16
+)
 
 
 @unique

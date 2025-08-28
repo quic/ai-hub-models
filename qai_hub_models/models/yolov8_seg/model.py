@@ -63,4 +63,4 @@ class YoloV8Segmentor(YoloSeg):
         boxes, scores, masks, classes = yolo_segment_postprocess(
             predictions[0], NUM_ClASSES
         )
-        return boxes, scores, masks, classes.to(torch.uint8), predictions[1][-1]
+        return boxes, scores, masks, classes.to(torch.float32), predictions[1][-1]

@@ -4,11 +4,11 @@
 # ---------------------------------------------------------------------
 
 from qai_hub_models.models._shared.hf_whisper.demo import hf_whisper_demo  # noqa
-from qai_hub_models.models.whisper_tiny_en.model import WhisperTiny  # noqa
+from qai_hub_models.models.whisper_small.model import WhisperSmall  # noqa
 
 
 def main(is_test: bool = False):
-    hf_whisper_demo(WhisperTiny, is_test)
+    hf_whisper_demo(WhisperSmall, is_test)
 
 
 if __name__ == "__main__":

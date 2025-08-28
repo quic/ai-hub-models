@@ -13,12 +13,18 @@ import numpy as np
 import onnx
 import onnxruntime
 import torch
-from onnx.mapping import TENSOR_TYPE_MAP
+from onnx.helper import (
+    get_all_tensor_dtypes,
+    tensor_dtype_to_np_dtype,
+    tensor_dtype_to_string,
+)
 
 # Maps type strings returned by onnxruntime.InferenceSession.get_inputs() to numpy types.
 ORT_TENSOR_STR_TO_NP_TYPE = {
-    f"tensor({v.name[len('TensorProto.'):].lower()})": v.np_dtype
-    for v in TENSOR_TYPE_MAP.values()
+    f"tensor({tensor_dtype_to_string(dtype)[len('TensorProto.'):].lower()})": tensor_dtype_to_np_dtype(
+        dtype
+    )
+    for dtype in get_all_tensor_dtypes()
 }
 
 QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
@@ -212,7 +218,7 @@ def extract_io_types_from_onnx_model(
         inputs = {
             input.name: (
                 tuple(x.dim_value for x in input.type.tensor_type.shape.dim),
-                TENSOR_TYPE_MAP[input.type.tensor_type.elem_type].np_dtype,
+                tensor_dtype_to_np_dtype(input.type.tensor_type.elem_type),
                 None,
             )
             for input in onnx_model.graph.input
@@ -220,7 +226,7 @@ def extract_io_types_from_onnx_model(
         outputs = {
             output.name: (
                 tuple(x.dim_value for x in output.type.tensor_type.shape.dim),
-                TENSOR_TYPE_MAP[output.type.tensor_type.elem_type].np_dtype,
+                tensor_dtype_to_np_dtype(output.type.tensor_type.elem_type),
                 None,
             )
             for output in onnx_model.graph.output
@@ -267,3 +273,15 @@ def extract_io_types_from_onnx_model(
                     )
 
     return inputs, outputs
+
+
+def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto):
+    # Limit the number of nodes to check, so we don't do a string eval on models with a large number of layers.
+    #
+    # A model is pre-compiled if it looks like this:
+    # Input -> Optional QDQ nodes -> EP Context Node -> Optional QDQ nodes -> Output
+    # Therefore it can have a maximum of 2 nodes (Q + DQ) per input and output, and 1 EP node.
+    max_num_nodes = (len(onnx_model.graph.input) + len(onnx_model.graph.output)) * 2 + 1
+    return len(onnx_model.graph.node) <= max_num_nodes and any(
+        x.op_type == "EPContext" for x in onnx_model.graph.node
+    )

@@ -1,5 +1,5 @@
-name: Whisper-Base-En
-id: whisper_base_en
+name: Whisper-Tiny
+id: whisper_tiny
 status: public
 headline: Transformer-based automatic speech recognition (ASR) model for multilingual transcription and translation available on HuggingFace.
 domain: Audio
@@ -11,8 +11,8 @@ applicable_scenarios:
 - Smart Home
 - Accessibility
 related_models:
-- whisper_tiny_en
-- whisper_small_en
+- whisper_small
+- whisper_base
 - huggingface_wavlm_base_plus
 form_factors:
 - Phone
@@ -22,13 +22,13 @@ has_static_banner: true
 has_animated_banner: true
 dataset: []
 technical_details:
-  Model checkpoint: openai/whisper-base
+  Model checkpoint: openai/whisper-tiny
   Input resolution: 80x3000 (30 seconds audio)
   Max decoded sequence length: 200 tokens
-  Number of parameters (HfWhisperEncoder): 23.7M
-  Model size (HfWhisperEncoder) (float): 90.7 MB
-  Number of parameters (HfWhisperDecoder): 48.9M
-  Model size (HfWhisperDecoder) (float): 187 MB
+  Number of parameters (HfWhisperEncoder): 9.39M
+  Model size (HfWhisperEncoder) (float): 35.9 MB
+  Number of parameters (HfWhisperDecoder): 28.4M
+  Model size (HfWhisperDecoder) (float): 109 MB
 license_type: apache-2.0
 research_paper: https://cdn.openai.com/papers/whisper.pdf
 research_paper_title: Robust Speech Recognition via Large-Scale Weak Supervision

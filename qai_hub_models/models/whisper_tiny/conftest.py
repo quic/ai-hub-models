@@ -9,7 +9,7 @@ import inspect
 
 import pytest
 
-from qai_hub_models.models.whisper_small_en import Model
+from qai_hub_models.models.whisper_tiny import Model
 
 
 # Instantiate the model only once for all tests.

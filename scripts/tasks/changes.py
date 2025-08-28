@@ -47,6 +47,7 @@ MANUAL_EDGES = {
     "qai_hub_models/models/common.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,

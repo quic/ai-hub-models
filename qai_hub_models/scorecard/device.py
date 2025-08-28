@@ -446,11 +446,11 @@ class ScorecardDevice:
         if (
             self.form_factor == ScorecardDevice.FormFactor.PHONE
             or self.form_factor == ScorecardDevice.FormFactor.TABLET
+            or self.form_factor == ScorecardDevice.FormFactor.IOT
         ):
             inference_engines_to_test = [i for i in InferenceEngine]
         elif (
             self.form_factor == ScorecardDevice.FormFactor.AUTO
-            or self.form_factor == ScorecardDevice.FormFactor.IOT
             or self.form_factor == ScorecardDevice.FormFactor.XR
         ):
             inference_engines_to_test = [InferenceEngine.QNN, InferenceEngine.TFLITE]

@@ -145,7 +145,7 @@ def run_test_transcribe(
         model = WhisperForConditionalGeneration.from_pretrained(hf_whisper_version)
         predicted_ids = model.generate(mel_input)
         tokenizer = WhisperTokenizer.from_pretrained(hf_whisper_version)
-        text_orig = tokenizer.decode(predicted_ids[0], skip_special_tokens=True)
+        text_orig = tokenizer.decode(predicted_ids[0], skip_special_tokens=True).strip()
 
     # Perform transcription
     transcription = app.transcribe(audio, sample_rate)

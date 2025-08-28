@@ -1,10 +1,10 @@
-# [Whisper-Small-En: Transformer-based automatic speech recognition (ASR) model for multilingual transcription and translation available on HuggingFace](https://aihub.qualcomm.com/models/whisper_small_en)
+# [Whisper-Small: Transformer-based automatic speech recognition (ASR) model for multilingual transcription and translation available on HuggingFace](https://aihub.qualcomm.com/models/whisper_small)
 
 HuggingFace Whisper-Small ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. This model is based on the transformer architecture and has been optimized for edge inference by replacing Multi-Head Attention (MHA) with Single-Head Attention (SHA) and linear layers with convolutional (conv) layers. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a max decoded length specified below.
 
-This is based on the implementation of Whisper-Small-En found [here](https://github.com/huggingface/transformers/tree/v4.42.3/src/transformers/models/whisper). This repository contains scripts for optimized on-device
+This is based on the implementation of Whisper-Small found [here](https://github.com/huggingface/transformers/tree/v4.42.3/src/transformers/models/whisper). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/whisper_small_en).
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/whisper_small).
 
 [Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
 
@@ -15,14 +15,14 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/w
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[whisper-small-en]"
+pip install "qai-hub-models[whisper-small]"
 ```
 
 
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.whisper_small_en.demo
+python -m qai_hub_models.models.whisper_small.demo
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -35,13 +35,13 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.whisper_small_en.export
+python -m qai_hub_models.models.whisper_small.export
 ```
 Additional options are documented with the `--help` option.
 
 
 ## License
-* The license for the original implementation of Whisper-Small-En can be found
+* The license for the original implementation of Whisper-Small can be found
   [here](https://github.com/huggingface/transformers/blob/v4.42.3/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 

@@ -17,7 +17,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.whisper_base_en import Model
+from qai_hub_models.models.whisper_small import Model
 from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
@@ -200,7 +200,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
     fetch_static_assets: bool = False,
@@ -256,7 +256,7 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = "whisper_base_en"
+    model_name = "whisper_small"
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
         hub_device = hub.Device("Samsung Galaxy S24 (Family)")
@@ -271,8 +271,8 @@ def export_model(
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
-            "whisper_base_en",
-            "Whisper-Base-En",
+            "whisper_small",
+            "Whisper-Small",
             hub_device.name,
             chipset,
             skip_profiling,
@@ -396,8 +396,6 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.TFLITE,
-            TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],

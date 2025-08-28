@@ -331,7 +331,7 @@ def pytest_device_idfn(val):
     Pytest generates test titles based on the parameterization of each test.
     This title can both be used as a filter during test selection and is
     printed to console to identify the test. An example title:
-    qai_hub_models/models/whisper_base_en/test_generated.py::test_compile[qnn-cs_8_gen_2]
+    qai_hub_models/models/whisper_base/test_generated.py::test_compile[qnn-cs_8_gen_2]
 
     Several unit tests parameterize based on device objects. Pytest is not capable by default
     of understanding what string identifier to use for a device object, so it will print

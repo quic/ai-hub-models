@@ -52,6 +52,14 @@ def test_precision_has_float():
     assert Precision.float.has_float_weights
     assert not Precision.w8a8.has_float_activations
     assert not Precision.w8a8.has_float_weights
+    assert not Precision.w8a8_mixed_int16.has_float_activations
+    assert not Precision.w8a8_mixed_int16.has_float_weights
+    assert not Precision.w8a16_mixed_int16.has_float_activations
+    assert not Precision.w8a16_mixed_int16.has_float_weights
+    assert Precision.w8a8_mixed_fp16.has_float_weights
+    assert Precision.w8a8_mixed_fp16.has_float_activations
+    assert Precision.w8a16_mixed_fp16.has_float_weights
+    assert Precision.w8a16_mixed_fp16.has_float_activations
 
 
 def test_precision_eq():
@@ -62,20 +70,39 @@ def test_precision_eq():
     assert Precision.w8a16 == Precision(QuantizeDtype.INT8, QuantizeDtype.INT16)
     assert Precision.w8a16 != Precision(QuantizeDtype.INT16, QuantizeDtype.INT8)
     assert Precision.float != 2
+    assert Precision.w8a8_mixed_int16 == Precision(
+        QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT16
+    )
+    assert Precision.w8a16_mixed_int16 == Precision(
+        QuantizeDtype.INT8, QuantizeDtype.INT16, QuantizeDtype.INT16
+    )
+    assert Precision.w8a8_mixed_int16 != Precision.w8a8
+    assert Precision.w8a16_mixed_int16 != Precision.w8a16
 
 
 def test_precision_parse_serialize():
     assert str(Precision.float) == "float"
     assert str(Precision.w8a8) == "w8a8"
     assert str(Precision.w8a16) == "w8a16"
+    assert str(Precision.w8a8_mixed_int16) == "w8a8_mixed_int16"
+    assert str(Precision.w8a16_mixed_int16) == "w8a16_mixed_int16"
+    assert str(Precision.w8a8_mixed_fp16) == "w8a8_mixed_fp16"
+    assert str(Precision.w8a16_mixed_fp16) == "w8a16_mixed_fp16"
 
     assert Precision.parse("float") == Precision.float
-
     assert Precision.parse("w8a8") == Precision.w8a8
     assert Precision.parse("a8w8") == Precision.w8a8
-
     assert Precision.parse("w8a16") == Precision.w8a16
     assert Precision.parse("a16w8") == Precision.w8a16
+
+    assert Precision.parse("w8a8_mixed_int16") == Precision.w8a8_mixed_int16
+    assert Precision.parse("a8w8_mixed_int16") == Precision.w8a8_mixed_int16
+    assert Precision.parse("w8a16_mixed_int16") == Precision.w8a16_mixed_int16
+    assert Precision.parse("a16w8_mixed_int16") == Precision.w8a16_mixed_int16
+    assert Precision.parse("w8a8_mixed_fp16") == Precision.w8a8_mixed_fp16
+    assert Precision.parse("a8w8_mixed_fp16") == Precision.w8a8_mixed_fp16
+    assert Precision.parse("w8a16_mixed_fp16") == Precision.w8a16_mixed_fp16
+    assert Precision.parse("a16w8_mixed_fp16") == Precision.w8a16_mixed_fp16
 
     assert Precision.parse("w4") == Precision(QuantizeDtype.INT4, None)
     assert str(Precision.parse("w4")) == "w4"
@@ -86,6 +113,14 @@ def test_precision_parse_serialize():
     # Invalid bit width
     with pytest.raises(ValueError):
         Precision.parse("w8a24")
+    with pytest.raises(ValueError):
+        Precision.parse("w8a24_mixed_int16")
+    # Invalid override precision dtype
+    with pytest.raises(ValueError):
+        Precision.parse("w8a8_mixed_int8")
+    # Invalid override type
+    with pytest.raises(ValueError):
+        Precision(QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT8)
 
 
 def test_qairt_version():

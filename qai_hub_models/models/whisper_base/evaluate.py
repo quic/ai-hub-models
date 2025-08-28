@@ -12,8 +12,8 @@ import warnings
 import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.models.whisper_small_en import MODEL_ID, Model
-from qai_hub_models.models.whisper_small_en.export import export_model
+from qai_hub_models.models.whisper_base import MODEL_ID, Model
+from qai_hub_models.models.whisper_base.export import export_model
 from qai_hub_models.utils.args import (
     evaluate_parser,
     get_model_kwargs,
@@ -28,8 +28,6 @@ def main():
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.TFLITE,
-            TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
