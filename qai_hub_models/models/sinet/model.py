@@ -83,6 +83,13 @@ class SINet(CityscapesSegmentor):
     def calibration_dataset_name() -> str:
         return "eg1800"
 
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10
+
 
 def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
     """Convert from names of weights files to the url for the weights file"""

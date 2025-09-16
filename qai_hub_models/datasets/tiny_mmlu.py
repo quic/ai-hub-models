@@ -12,10 +12,6 @@ from transformers import PreTrainedTokenizerBase
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 
 
-def collate_fn(batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
-
-
 class TinyMMLU(BaseDataset):
     def __init__(
         self,
@@ -40,6 +36,14 @@ class TinyMMLU(BaseDataset):
         )
         self.preprocess_dataset()
 
+    @staticmethod
+    def collate_fn(
+        batch: list[dict[str, torch.Tensor]],
+    ) -> tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]
+    ]:
+        return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
+
     def __len__(self) -> int:
         if self.num_samples != 0:
             if self.num_samples > 100:
@@ -51,9 +55,9 @@ class TinyMMLU(BaseDataset):
         # if a cache file storing the current computation from function can be identified, use it instead of recomputing.
         map_kwargs = {"num_proc": None, "load_from_cache_file": True}
 
-        def tokenize(samples):
+        def tokenize(sample):
             tokenized_question = self.tokenizer(
-                samples["input_formatted"],
+                sample["input_formatted"],
                 return_token_type_ids=False,
                 add_special_tokens=True,
             )
@@ -64,13 +68,21 @@ class TinyMMLU(BaseDataset):
             }
 
             tokenized_answer = self.tokenizer(
-                list(map(lambda answer: chr(ord("A") + answer), samples["answer"])),
+                list(
+                    map(
+                        lambda answer: "Answer: " + chr(ord("A") + answer),
+                        sample["answer"],
+                    )
+                ),
                 return_token_type_ids=False,
                 add_special_tokens=False,
+                return_tensors="pt",
             )
 
             result = tokenized_question
-            result.update({"label": tokenized_answer["input_ids"]})
+            # Grab only the last token
+            answer_token_ids = tokenized_answer["input_ids"][:, -1:]
+            result.update({"label": answer_token_ids})
             return result
 
         self.dataset = self.dataset.map(

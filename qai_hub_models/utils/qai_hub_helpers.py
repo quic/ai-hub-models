@@ -37,7 +37,7 @@ _AIHUB_NAME = "Qualcomm® AI Hub"
 
 def can_access_qualcomm_ai_hub():
     try:
-        hub.get_devices()
+        hub.get_frameworks()
     except APIException:
         return False
     except UserError:

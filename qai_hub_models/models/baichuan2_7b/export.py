@@ -18,7 +18,7 @@ import qai_hub as hub
 
 from qai_hub_models.models.baichuan2_7b import Model
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.utils.args import export_parser, validate_precision_runtime
+from qai_hub_models.utils.args import export_parser
 from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
@@ -101,7 +101,7 @@ def export_model(
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
     profile_options: str = "",
-    fetch_static_assets: bool = False,
+    fetch_static_assets: str | None = None,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -131,7 +131,8 @@ def export_model(
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
         profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
+        fetch_static_assets:
+            If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
         **additional_model_kwargs: Additional optional kwargs used to customize
             `model_cls.from_precompiled`
 
@@ -172,7 +173,7 @@ def export_model(
             "",
             profile_options,
             component_arg,
-            is_forced_static_asset_fetch=fetch_static_assets,
+            qaihm_version_tag=fetch_static_assets,
         )
 
     target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
@@ -250,9 +251,6 @@ def main():
         exporting_compiled_model=True,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, Precision.w4a16, args.target_runtime
-    )
     export_model(**vars(args))
 
 

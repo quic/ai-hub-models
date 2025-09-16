@@ -115,6 +115,7 @@ class MODEL_LICENSE(Enum):
     LLAMA2 = "llama2"
     LLAMA3 = "llama3"
     TAIDE = "taide"
+    FALCON3 = "falcon3"
 
     @property
     def is_copyleft(self) -> bool:
@@ -127,6 +128,7 @@ class MODEL_LICENSE(Enum):
             MODEL_LICENSE.LLAMA2,
             MODEL_LICENSE.LLAMA3,
             MODEL_LICENSE.TAIDE,
+            MODEL_LICENSE.FALCON3,
         ]
 
     @property
@@ -169,6 +171,8 @@ class MODEL_LICENSE(Enum):
             return "https://github.com/facebookresearch/llama/blob/main/LICENSE"
         elif self == MODEL_LICENSE.TAIDE:
             return "https://en.taide.tw/download.html"
+        elif self == MODEL_LICENSE.FALCON3:
+            return "https://falconllm.tii.ae/falcon-terms-and-conditions.html"
         return None
 
 
@@ -206,6 +210,8 @@ class MODEL_USE_CASE(Enum):
     SUPER_RESOLUTION = "Super Resolution"
     SEMANTIC_SEGMENTATION = "Semantic Segmentation"
     DEPTH_ESTIMATION = "Depth Estimation"
+    GAZE_ESTIMATION = "Gaze Estimation"
+
     # Ex: OCR, image caption
     IMAGE_TO_TEXT = "Image To Text"
     OBJECT_DETECTION = "Object Detection"
@@ -234,6 +240,8 @@ class MODEL_USE_CASE(Enum):
             return "image-segmentation"
         if self.name == "POSE_ESTIMATION":
             return "keypoint-detection"
+        if self.name == "GAZE_ESTIMATION":
+            return "gaze-estimation"
         if self.name == "AUDIO_ENHANCEMENT":
             return "audio-to-audio"
         if self.name == "VIDEO_GENERATION":

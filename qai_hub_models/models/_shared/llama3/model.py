@@ -18,11 +18,13 @@ from qai_hub_models.models._shared.llm.model import (
 import copy
 import json
 import os
+import shutil
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import onnx
+import qai_hub as hub
 import torch
 
 if TYPE_CHECKING:
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
+from transformers.modeling_attn_mask_utils import AttentionMaskConverter
 from transformers.models.llama import LlamaConfig, modeling_llama
 
 from qai_hub_models.models._shared.llama3.model_adaptations import (
@@ -38,9 +41,20 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
     QCLlamaMLP,
     SHALlamaAttention,
 )
-from qai_hub_models.models._shared.llama3.ort_genai import create_ort_genai_assets
-from qai_hub_models.models._shared.llm.model import Embedding, PositionProcessorBase
+from qai_hub_models.models._shared.llama3.onnxruntime_genai import (
+    create_onnxruntime_genai_assets,
+)
+from qai_hub_models.models._shared.llm.model import (
+    Embedding,
+    MainLLMInputType,
+    PositionProcessorBase,
+)
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
+from qai_hub_models.utils.llm_helpers import (
+    create_genie_config,
+    print_commands_for_genie_bundle,
+    save_htp_config_for_genie_bundle,
+)
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -61,7 +75,7 @@ SYSTEM_ID = "system"
 ASSISTANT_ID = "assistant"
 USER_ID = "user"
 EOT_ID = "<|eot_id|>"
-END_TOKENS = {"<|eot_id|>", "<|eot_id|>", "<|end_of_text|>"}
+END_TOKENS = {"<|eot_id|>", "<|end_of_text|>"}
 
 DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
@@ -75,20 +89,20 @@ class Llama3_Optimizations(str, Enum):  # Inherit from str and Enum
 class RopeEmbedding(Embedding):
     def __init__(
         self,
-        head_dim: int = 128,
+        head_dim: int | None = None,
         max_length: int = 2048,
         config: LlamaConfig = LlamaConfig(),
     ) -> None:
+        head_dim = head_dim or (
+            config.head_dim
+            if hasattr(config, "head_dim")
+            else config.hidden_size // config.num_attention_heads
+        )
         self.cos, self.sin = self.precompute(head_dim, max_length, config)
 
     def precompute(
         self, head_dim: int, max_length: int, config: LlamaConfig
     ) -> list[torch.Tensor]:
-        head_dim = (
-            config.head_dim
-            if hasattr(config, "head_dim")
-            else config.hidden_size // config.num_attention_heads
-        )
         kwargs = {
             "max_position_embeddings": config.max_position_embeddings,
             "base": config.rope_theta,
@@ -133,24 +147,27 @@ class LlamaPositionProcessor(PositionProcessorBase):
     Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI.
     """
 
-    def __init__(self, context_length: int):
-        super().__init__(context_length)
+    def __init__(
+        self,
+        context_length: int,
+        config: PretrainedConfig,
+    ) -> None:
+        super().__init__(context_length, config=config)
         self.context_len = context_length
-        self.rope_embedding = RopeEmbedding(max_length=self.context_len)
+        self.rope_embedding = RopeEmbedding(max_length=self.context_len, config=config)
 
     def forward(self, attention_mask_before_processor, position_ids):
-        from qai_hub_models.models._shared.llm.model import (
-            prepare_combined_attention_mask,
-        )
-
         position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
             position_ids
         )
-        attention_mask = prepare_combined_attention_mask(
+        attention_mask_converter = AttentionMaskConverter(True)
+        attention_mask = attention_mask_converter.to_4d(
             attention_mask_before_processor,
-            position_ids.shape,
-            attention_mask_before_processor.shape[1] - position_ids.shape[1],
+            query_length=position_ids.shape[1],
+            key_value_length=attention_mask_before_processor.shape[1],
+            dtype=torch.float32,
         )
+        attention_mask = attention_mask.clip(-50, 0)
         return attention_mask, position_ids_cos, position_ids_sin
 
 
@@ -310,19 +327,26 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-        # See _shard/llama3/model.py for why this is needed.
-        embed_a_name = "/model/model/embed_tokens/Gather_output_0"
-        embed_w_name = "model.model.embed_tokens.weight"
-        encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
-            encodings["activation_encodings"][embed_w_name]
+        main_input_type = (
+            MainLLMInputType.input_ids
+            if any(node.op_type == "Gather" for node in model.graph.node)
+            else MainLLMInputType.inputs_embeds
         )
+        if main_input_type == MainLLMInputType.input_ids:
+            # See _shared/llama3/model.py for why this is needed.
+            embed_a_name = "/model/model/embed_tokens/Gather_output_0"
+            embed_w_name = "model.model.embed_tokens.weight"
+            encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
+                encodings["activation_encodings"][embed_w_name]
+            )
+
         for key in encodings["activation_encodings"].keys():
             if "weight" in key:
                 encodings["param_encodings"][key] = copy.deepcopy(
                     encodings["activation_encodings"][key]
                 )
 
-        if uses_lists:
+        if uses_lists and main_input_type == MainLLMInputType.input_ids:
             encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
         zero_keys = []
 
@@ -385,7 +409,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             json.dump(encodings, write_file, indent=4, sort_keys=True)
 
     @classmethod
-    def prepare_ort_genai_assets(
+    def prepare_onnxruntime_genai_assets(
         cls,
         model_name: str,
         llm_config: PretrainedConfig,
@@ -398,7 +422,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         qairt_version: str,
         output_dir: str | Path,
     ):
-        return create_ort_genai_assets(
+        return create_onnxruntime_genai_assets(
             model_name,
             llm_config,
             position_processor_cls,
@@ -410,3 +434,29 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             qairt_version,
             output_dir,
         )
+
+    @classmethod
+    def prepare_genie_assets(
+        cls,
+        hub_device: hub.Device,
+        checkpoint: str | os.PathLike | Path,
+        llm_config: PretrainedConfig,
+        context_length: int,
+        model_list: list[str],
+        output_path: Path,
+    ) -> None:
+        # Copy tokenizer.json
+        if (Path(checkpoint) / "tokenizer.json").exists():
+            shutil.copy(
+                Path(checkpoint) / "tokenizer.json",
+                output_path / "tokenizer.json",
+            )
+
+        # Save the HTP config
+        save_htp_config_for_genie_bundle(hub_device, output_path)
+        # Save the genie config
+        config = create_genie_config(context_length, llm_config, "rope", model_list)
+        with open(output_path / "genie_config.json", "w") as f:
+            json.dump(config, f, indent=4)
+        # Print Genie Bundle commands
+        print_commands_for_genie_bundle(hub_device, output_path)

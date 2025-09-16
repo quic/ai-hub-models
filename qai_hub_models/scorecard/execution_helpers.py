@@ -13,6 +13,7 @@ from typing import Callable, Optional, TypeVar
 import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.scorecard import ScorecardCompilePath, ScorecardProfilePath
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.envvars import (
     EnabledPathsEnvvar,
@@ -21,8 +22,6 @@ from qai_hub_models.scorecard.envvars import (
     SpecialPathSetting,
     SpecialPrecisionSetting,
 )
-from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
-from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 

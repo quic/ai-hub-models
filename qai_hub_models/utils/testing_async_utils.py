@@ -16,7 +16,7 @@ from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
 from typing_extensions import TypeAlias
 
-from qai_hub_models.configs.perf_yaml import ToolVersions
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -32,6 +32,7 @@ from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardJob
 from qai_hub_models.scorecard.results.yaml import (
     COMPILE_YAML_BASE,
+    DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME,
     get_scorecard_job_yaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml, qaihm_temp_dir
@@ -121,6 +122,14 @@ def get_quantize_job_ids_file(artifacts_dir: os.PathLike | str | None = None) ->
 
 def get_cpu_accuracy_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
     return get_artifact_filepath("cpu-accuracy.yaml", artifacts_dir)
+
+
+def get_tool_versions_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath(DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME, artifacts_dir)
+
+
+def get_environment_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("environment.env", artifacts_dir)
 
 
 def get_accuracy_columns() -> list[str]:

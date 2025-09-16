@@ -47,7 +47,7 @@ def get_huggingface_model_filename(
         Whether or not this chipset is pre-compiled for a specific chipset.
         If set, chipset must also be provided.
     """
-    precision_ext = f"_{precision}" if precision != Precision.float else ""
+    precision_ext = f"_{precision}"
     component_ext = (
         f"_{component}" if component != model_name and component is not None else ""
     )
@@ -67,23 +67,22 @@ def fetch_huggingface_target_model(
     model_components: list[str] | None,
     precision: Precision,
     chipset: str | None,
-    dst_folder: str | Path,
     runtime_path: TargetRuntime = TargetRuntime.TFLITE,
-    config: ModelZooAssetConfig = ASSET_CONFIG,
     qaihm_version_tag: str | None = f"v{__version__}",
-    download: bool = True,
-) -> tuple[list[str], list[str]]:
+    output_folder: str | os.PathLike | None = None,
+    config: ModelZooAssetConfig = ASSET_CONFIG,
+) -> tuple[list[Path], list[str]]:
     fs = HfFileSystem()
     hf_path = config.get_huggingface_path(model_name)
     file_types = [runtime_path.file_extension]
 
     files = []
-    for component_name in model_components or [None]:  # type: ignore[list-item]
+    for component_name in model_components or ["COMPONENT"]:  # type: ignore[list-item]
         for file_type in file_types:
             files += fs.glob(
                 os.path.join(
                     hf_path,
-                    f"{get_huggingface_model_filename(model_name, component_name, precision, chipset if runtime_path.is_aot_compiled else None, runtime_path.is_aot_compiled)}.{file_type}",
+                    f"{get_huggingface_model_filename(model_name, component_name, precision, chipset if runtime_path.is_aot_compiled else None, runtime_path.is_aot_compiled).replace('_COMPONENT', '*')}.{file_type}",
                 )
             )
 
@@ -92,18 +91,19 @@ def fetch_huggingface_target_model(
             f"No compiled assets are available on Huggingface for {model_name} with runtime {runtime_path.name}."
         )
 
-    os.makedirs(dst_folder, exist_ok=True)
-    paths = []
-    urls = []
+    if output_folder:
+        os.makedirs(output_folder, exist_ok=True)
+    paths: list[Path] = []
+    urls: list[str] = []
     for file in files:
-        if download:
+        if output_folder:
             path = hf_hub_download(
                 hf_path,
                 file[len(hf_path) + 1 :],
-                local_dir=dst_folder,
+                local_dir=str(output_folder),
                 revision=qaihm_version_tag,
             )
-            paths.append(path)
+            paths.append(Path(path))
 
         url = hf_hub_url(
             hf_path,

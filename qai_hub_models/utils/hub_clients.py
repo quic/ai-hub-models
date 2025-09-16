@@ -10,7 +10,7 @@ import configparser
 import os
 import threading
 from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Optional
 
 import qai_hub as hub
 from qai_hub.api_utils import str2bool
@@ -186,18 +186,36 @@ def get_scorecard_client_or_raise(
     return get_hub_client_or_raise(deployment_name, user=user)
 
 
-def set_default_hub_client(client: hub.client.Client):
+def set_default_hub_client(
+    client: hub.client.Client,
+    hub_attr_overrides: dict[str, Any] = dict(),
+    hub_hub_attr_overrides: dict[str, Any] = dict(),
+):
+    """
+    Sets the default hub client.
+
+    Parameters:
+        client: Hub client to make the default.
+        hub_attr_overrides: If set, uses these values to override `hub.submit_...`, instead of setting the value to `client.submit_...`
+        hhub_hub_attr_overrides: If set, uses these values to override `hub.hub.submit_...`, instead of setting the value to `client.submit_...`
+    """
     hub.hub._global_client = client
     for default_global_client_method in hub.hub.__all__:
         setattr(
             hub,
             default_global_client_method,
-            getattr(client, default_global_client_method),
+            hub_attr_overrides.get(
+                default_global_client_method,
+                getattr(client, default_global_client_method),
+            ),
         )
         setattr(
             hub.hub,
             default_global_client_method,
-            getattr(client, default_global_client_method),
+            hub_hub_attr_overrides.get(
+                default_global_client_method,
+                getattr(client, default_global_client_method),
+            ),
         )
 
 
@@ -210,12 +228,19 @@ def default_hub_client_as(client: hub.client.Client):
     Contexts can be nested in the call stack so long as they live on the same thread.
     """
     prev_client = hub.hub._global_client
+
+    # Preserves direct monkeypatching of `hub.method` or `hub.hub.method` after the client change is reverted.
+    prev_hub_attrs = {x: getattr(hub, x, None) for x in hub.hub.__all__}
+    prev_hub_attrs = {x: y for x, y in prev_hub_attrs.items() if y is not None}
+    prev_hub_hub_attrs = {x: getattr(hub.hub, x, None) for x in hub.hub.__all__}
+    prev_hub_hub_attrs = {x: y for x, y in prev_hub_attrs.items() if y is not None}
+
     with HUB_GLOBAL_CLIENT_CONFIG_OVERRIDE_REENTRANT_LOCK:
         try:
             set_default_hub_client(client)
             yield client
         finally:
-            set_default_hub_client(prev_client)
+            set_default_hub_client(prev_client, prev_hub_attrs, prev_hub_hub_attrs)
 
 
 def get_default_hub_deployment() -> str | None:

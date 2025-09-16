@@ -42,3 +42,10 @@ class LeViT(ImagenetClassifier):
         """
         predictions = self.net(normalize_image_torchvision(image), return_dict=False)
         return predictions[0]
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10

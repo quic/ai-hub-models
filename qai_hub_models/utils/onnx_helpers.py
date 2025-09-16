@@ -5,8 +5,11 @@
 
 from __future__ import annotations
 
+import os
 import struct
 from collections.abc import Collection, Iterable
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -18,6 +21,65 @@ from onnx.helper import (
     tensor_dtype_to_np_dtype,
     tensor_dtype_to_string,
 )
+
+
+@dataclass
+class ONNXBundle:
+    """
+    Represents an ONNX "bundle" folder containing an ONNX graph file
+    and associated supporting files (like encodings and external weights).
+    """
+
+    # The path to the ONNX parent folder (that contains model.onnx, encodings, etc.)
+    bundle_path: Path
+    # The name of the .onnx graph file in the bundle folder.
+    onnx_graph_name: str
+    # The name of the external weights file in the bundle folder.
+    # None if this bundle does not include external weights.
+    onnx_weights_name: str | None = None
+    # The name of the .encodings file in the bundle folder.
+    # None if this bundle does not include encodings.
+    aimet_encodings_name: str | None = None
+
+    @property
+    def onnx_graph_path(self) -> Path:
+        return self.bundle_path / self.onnx_graph_name
+
+    @property
+    def onnx_weights_path(self) -> Path | None:
+        if self.onnx_weights_name is None:
+            return None
+        return self.bundle_path / self.onnx_weights_name
+
+    @property
+    def aimet_encodings_path(self) -> Path | None:
+        if self.aimet_encodings_name is None:
+            return None
+        return self.bundle_path / self.aimet_encodings_name
+
+    @staticmethod
+    def from_bundle_path(bundle_path: str | os.PathLike) -> ONNXBundle:
+        onnx_folder_path = Path(bundle_path)
+        weights_files = list(onnx_folder_path.glob("*.data"))
+
+        if len(weights_files) > 1:
+            raise ValueError(
+                f"Found more than 1 ONNX weight file in {bundle_path}: {' '.join(x.name for x in weights_files)} "
+            )
+
+        encodings_files = list(onnx_folder_path.glob("*.encodings"))
+        if len(encodings_files) > 1:
+            raise ValueError(
+                f"Found more than 1 AIMET encodings file in {bundle_path}: {' '.join(x.name for x in encodings_files)} "
+            )
+
+        return ONNXBundle(
+            bundle_path=onnx_folder_path,
+            onnx_graph_name=next(onnx_folder_path.glob("*.onnx")).name,
+            onnx_weights_name=weights_files[0].name if weights_files else None,
+            aimet_encodings_name=encodings_files[0].name if encodings_files else None,
+        )
+
 
 # Maps type strings returned by onnxruntime.InferenceSession.get_inputs() to numpy types.
 ORT_TENSOR_STR_TO_NP_TYPE = {
@@ -92,16 +154,10 @@ def mock_torch_onnx_inference(
 ) -> torch.Tensor | Collection[torch.Tensor]:
     input_names = [inp.name for inp in session.get_inputs()]
 
-    if "CUDAExecutionProvider" in session.get_providers():
-        inputs = {
-            k: v.cpu().detach().numpy()
-            for k, v in kwargs_to_dict(input_names, *args, **kwargs).items()
-        }
-    else:
-        inputs = {
-            k: np.asarray(v)
-            for k, v in kwargs_to_dict(input_names, *args, **kwargs).items()
-        }
+    inputs = {
+        k: v.cpu().detach().numpy()
+        for k, v in kwargs_to_dict(input_names, *args, **kwargs).items()
+    }
     output_np = session.run(None, inputs)
     output_tensors = [torch.from_numpy(out) for out in output_np]
 

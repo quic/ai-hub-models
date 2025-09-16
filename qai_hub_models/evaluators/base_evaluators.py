@@ -71,6 +71,13 @@ class BaseEvaluator(ABC):
         """Formatted string containing the accuracy and any relevant units."""
         pass
 
+    @property
+    def is_distance_metric(self) -> bool:
+        # If this is true, then the dataset must carry two sets of ground truth:
+        # - Real GT
+        # - Output of a target model (typically a floating point model)
+        return False
+
     def get_metric_metadata(self) -> MetricMetadata:
         """Metadata about the metric corresponding to get_accuracy_score."""
         raise NotImplementedError()
@@ -162,7 +169,6 @@ def _for_each_batch(
         desc=f"Number of {counting_obj} completed",
     ) as pbar:
         for sample in data:
-
             if data_has_gt:
                 inputs, ground_truth, *_ = sample
             else:

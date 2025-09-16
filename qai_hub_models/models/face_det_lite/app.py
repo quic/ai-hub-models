@@ -10,9 +10,14 @@ from collections.abc import Callable
 import numpy as np
 import torch
 from PIL import Image
+from skimage.color import rgb2gray
 
 from qai_hub_models.models.face_det_lite.utils import detect
 from qai_hub_models.utils.draw import draw_box_from_xyxy
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    numpy_image_to_torch,
+)
 
 
 class FaceDetLiteApp:
@@ -58,17 +63,12 @@ class FaceDetLiteApp:
             objs_face: a list of BBox for face  list[BBox]
         """
         assert pixel_values_or_image is not None, "pixel_values_or_image is None"
-        img = pixel_values_or_image
+        [img_array_color], _ = app_to_net_image_inputs(pixel_values_or_image)
 
-        if isinstance(img, Image.Image):
-            img_array = np.asarray(img)
-        elif isinstance(img, np.ndarray):
-            img_array = img
-        else:
-            raise RuntimeError("Invalid format")
-
-        img_array = img_array.astype("float32") / 255.0
-        img_array = img_array[np.newaxis, ...]
+        img_array = rgb2gray(img_array_color)
+        # (H,W) -> (1,H,W,1)
+        img_array = img_array[np.newaxis, ..., np.newaxis]
+        img_tensor = numpy_image_to_torch(img_array)
         img_tensor = torch.Tensor(img_array)
         img_tensor = img_tensor[:, :, :, -1]
 
@@ -118,7 +118,7 @@ class FaceDetLiteApp:
 
             res.append([L, T, W, H, score])
 
-        np_out = np.asarray(img)
+        np_out = np.asarray(img_array_color)
         np_out = torch.tensor(np_out).byte().numpy()
         for box in dets:
             box = box.box

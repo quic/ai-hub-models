@@ -9,39 +9,37 @@ import torch
 from datasets import IterableDataset, load_dataset
 from transformers import PreTrainedTokenizerBase
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata
+from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 
-mmmlu_split_lookup: dict[str, str] = {
-    "ar": "AR_XY",
-    "bn": "BN_BD",
-    "de": "DE_DE",
-    "es": "ES_LA",
-    "fr": "FR_FR",
-    "hi": "HI_IN",
-    "id": "ID_ID",
-    "it": "IT_IT",
-    "ja": "JA_JP",
-    "ko": "KO_KR",
-    "pt": "PT_BR",
-    "sw": "SW_KE",
-    "yo": "YO_NG",
-    "zh": "ZH_CN",
-    "default": "default",
-}
-
-
-def collate_fn(batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
+mmmlu_splits: list[str] = [
+    "mmmlu",
+    "mmmlu_ar",
+    "mmmlu_bn",
+    "mmmlu_de",
+    "mmmlu_es",
+    "mmmlu_fr",
+    "mmmlu_hi",
+    "mmmlu_id",
+    "mmmlu_it",
+    "mmmlu_ja",
+    "mmmlu_ko",
+    "mmmlu_pt",
+    "mmmlu_sw",
+    "mmmlu_yo",
+    "mmmlu_zh",
+]
 
 
 class MMMLU(BaseDataset):
+    SUBSET_NAME = "default"
+
     def __init__(
         self,
         tokenizer: PreTrainedTokenizerBase,
         block_size: int = 128,
         context_length: int = 4096,
         num_fewshot: int = 5,
-        split: str = "default",
+        split: DatasetSplit = DatasetSplit.TEST,
         num_samples: int = 0,
         seed: int = 42,
     ):
@@ -49,16 +47,26 @@ class MMMLU(BaseDataset):
         self.context_length = context_length
         self.tokenizer = tokenizer
 
-        self.split_str = split
+        if split != DatasetSplit.TEST:
+            raise ValueError("This dataset only supports the 'test' split")
+
         self.num_fewshot = num_fewshot
         self.num_samples = num_samples
 
         self.dataset = load_dataset(
-            path="openai/MMMLU", name=self.split_str, split="test"
+            path="openai/MMMLU", name=self.SUBSET_NAME, split="test"
         )
         self.dataset = self.dataset.shuffle(seed)
 
         self.preprocess_dataset()
+
+    @staticmethod
+    def collate_fn(
+        batch: list[dict[str, torch.Tensor]],
+    ) -> tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]
+    ]:
+        return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
 
     def __len__(self) -> int:
         if self.num_samples != 0:
@@ -93,7 +101,7 @@ class MMMLU(BaseDataset):
         for _, questions in grouped_fewshot_questions.items():
             if len(questions) < self.num_fewshot + 1:
                 raise ValueError(
-                    f"Not enough samples available in split {self.split_str} to satisfy {self.num_fewshot + 1} fewshot samples."
+                    f"Not enough samples available in subset '{self.SUBSET_NAME}' to satisfy {self.num_fewshot + 1} fewshot samples."
                 )
 
         return grouped_fewshot_questions
@@ -154,15 +162,21 @@ class MMMLU(BaseDataset):
             }
 
             tokenized_answer = self.tokenizer(
-                sample["Answer"],
+                list(
+                    map(
+                        lambda answer: f"Answer: {answer}",
+                        sample["Answer"],
+                    )
+                ),
                 return_token_type_ids=False,
                 add_special_tokens=False,
                 return_tensors="pt",
             )
 
             result = tokenized_question
-            result.update({"label": tokenized_answer["input_ids"]})
-
+            # Grab only the last token
+            answer_token_ids = tokenized_answer["input_ids"][:, -1:]
+            result.update({"label": answer_token_ids})
             return result
 
         # if a cache file storing the current computation from function can be identified, use it instead of recomputing.
@@ -205,3 +219,66 @@ class MMMLU(BaseDataset):
             link="https://huggingface.co/datasets/openai/MMMLU",
             split_description="test split",
         )
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        if cls.SUBSET_NAME == "default":
+            return "mmmlu"
+        else:
+            return "mmmlu_" + cls.SUBSET_NAME.split("_")[0].lower()
+
+
+class MMMLU_AR(MMMLU):
+    SUBSET_NAME = "AR_XY"
+
+
+class MMMLU_BN(MMMLU):
+    SUBSET_NAME = "BN_BD"
+
+
+class MMMLU_DE(MMMLU):
+    SUBSET_NAME = "DE_DE"
+
+
+class MMMLU_ES(MMMLU):
+    SUBSET_NAME = "ES_LA"
+
+
+class MMMLU_FR(MMMLU):
+    SUBSET_NAME = "FR_FR"
+
+
+class MMMLU_HI(MMMLU):
+    SUBSET_NAME = "HI_IN"
+
+
+class MMMLU_ID(MMMLU):
+    SUBSET_NAME = "ID_ID"
+
+
+class MMMLU_IT(MMMLU):
+    SUBSET_NAME = "IT_IT"
+
+
+class MMMLU_JA(MMMLU):
+    SUBSET_NAME = "JA_JP"
+
+
+class MMMLU_KO(MMMLU):
+    SUBSET_NAME = "KO_KR"
+
+
+class MMMLU_PT(MMMLU):
+    SUBSET_NAME = "PT_BR"
+
+
+class MMMLU_SW(MMMLU):
+    SUBSET_NAME = "SW_KE"
+
+
+class MMMLU_YO(MMMLU):
+    SUBSET_NAME = "YO_NG"
+
+
+class MMMLU_ZH(MMMLU):
+    SUBSET_NAME = "ZH_CN"

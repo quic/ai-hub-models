@@ -134,4 +134,22 @@ class YoloV11Detector(Yolo):
         )
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+        if (
+            precision == Precision.w8a8_mixed_int16
+            or precision == Precision.w8a16_mixed_int16
+        ):
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
+        elif (
+            precision == Precision.w8a8_mixed_fp16
+            or precision == Precision.w8a16_mixed_fp16
+        ):
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
+        else:
+            return "--range_scheme min_max"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10

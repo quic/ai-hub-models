@@ -2,20 +2,23 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 import collections
 import json
+import math
 import os
 import re
 import shutil
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar, cast
 
 import onnx
 
 from qai_hub_models.utils.asset_loaders import PathLike
+from qai_hub_models.utils.onnx_helpers import ONNXBundle
 
 from .split_onnx import OnnxSplitter, save_model
 
@@ -28,6 +31,10 @@ def _target_name(
     if not using_qairt_workflow:
         name = name.replace("/", "-")
     return name
+
+
+def has_embedding_table(model: onnx.ModelProto):
+    return any(node.op_type == "Gather" for node in model.graph.node)
 
 
 def get_onnx_input_output_names(
@@ -67,11 +74,11 @@ def get_split_tensors(
             │                                        │       │                                        │
             valid splitting points
     """
+    model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
 
     def get_nodes() -> (
         tuple[dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]]
     ):
-        model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
         nodes = {i.name: i for i in model.graph.node}
         seq = {i.name: idx for idx, i in enumerate(model.graph.node)}
         producers: collections.defaultdict[str, Optional[str]] = (
@@ -141,8 +148,9 @@ def get_split_tensors(
     residual_add_names = [
         name for name in nodes.keys() if is_residual_add(name, strict=True)
     ]
-    if len(residual_add_names) % 2 == 1:
+    if len(residual_add_names) % 2 == 1 and has_embedding_table(model):
         # 'add0' is missing in residual_adds
+        # 'add0' is not a valid split point if there is no embedding table provided
         add0 = get_add0(residual_add_names[0])
         residual_add_names.insert(0, add0)
 
@@ -187,16 +195,37 @@ def _save_encoding(encodings: Any, encodingfile: PathLike) -> None:
         json.dump(encodings, json_file, indent=4, sort_keys=True)
 
 
+onnx_ret_t = TypeVar("onnx_ret_t", str, os.PathLike, ONNXBundle)
+
+
 def split_onnx_by_names(
-    onnxfile: PathLike,
+    onnxfile: onnx_ret_t,
     modelname: str,
     *list_of_output_tensors,
     output_dir: PathLike = ".",
     onnxmodel: Optional[onnx.ModelProto] = None,
-    encoding_file: Optional[PathLike] = None,
-) -> None:
+) -> list[onnx_ret_t]:
+    """
+    Split ONNX by the given output tensor names.
+
+    Returns list[
+        Path to an ONNX bundle or an ONNX Graph file for each split.
+    ]
+    """
     encodings = None
     uses_lists = None
+
+    if isinstance(onnxfile, ONNXBundle):
+        onnx_graph_file = str(onnxfile.onnx_graph_path)
+        encoding_file = str(onnxfile.aimet_encodings_path)
+        base_dir = str(onnxfile.bundle_path)
+        dump_to_bundle = True
+    else:
+        onnx_graph_file = str(onnxfile)
+        encoding_file = None
+        base_dir = os.path.dirname(onnxfile)
+        dump_to_bundle = False
+
     if encoding_file is not None:
         with open(encoding_file) as f:
             encodings = json.load(f)
@@ -211,18 +240,18 @@ def split_onnx_by_names(
             }
 
     onnxmodel = (
-        _load_model(onnxfile, load_external_data=False)
+        _load_model(onnx_graph_file, load_external_data=False)
         if onnxmodel is None
         else onnxmodel
     )
     splitter = OnnxSplitter(onnxmodel, verbose=False)
-    base_dir = os.path.dirname(onnxfile)
     using_external_data = OnnxSplitter.is_using_external_data(onnxmodel)
 
     list_of_output_tensors = tuple([i.split(",") for i in list_of_output_tensors])
     num_splits = len(list_of_output_tensors) + 1
 
     # 1. split model
+    output_paths: list[ONNXBundle | Path] = []
     new_model_info = []
     for i, subgraph in enumerate(splitter.split(list_of_output_tensors)):
         new_basename = f"{modelname}_{i + 1}_of_{num_splits}"
@@ -240,16 +269,17 @@ def split_onnx_by_names(
             onnx.checker.check_model(submodel)
 
         if using_external_data:
-            onnx.load_external_data_for_model(submodel, base_dir=base_dir)
+            onnx.load_external_data_for_model(submodel, base_dir=str(base_dir))
 
         ext = ".aimet" if encoding_file is not None else ".onnx"
         part_root_path = Path(output_dir) / (new_basename + ext)
         part_root_path.mkdir(parents=True, exist_ok=True)
 
         newonnxfile = part_root_path / (new_basename + ".onnx")
-        save_model(submodel, newonnxfile, using_external_data)
+        save_model(submodel, newonnxfile, using_external_data or dump_to_bundle)
 
         # Save subset of encodings
+        new_encodings_path = None
         if encodings is not None:
             new_encodings = deepcopy(encodings)
 
@@ -280,6 +310,16 @@ def split_onnx_by_names(
             new_encodings_path = part_root_path / (new_basename + ".encodings")
             with open(new_encodings_path, "w") as write_file:
                 json.dump(new_encodings, write_file, indent=4, sort_keys=True)
+
+        if dump_to_bundle:
+            # This is a bundle (either model.onnx + model.weights, or model.onnx + model.encodings + (optional) model.weights)
+            # Therefore, return the bundle directory
+            output_paths.append(ONNXBundle.from_bundle_path(part_root_path))
+        else:
+            # This is a single ONNX graph file.
+            output_paths.append(newonnxfile)
+
+    return cast(list[onnx_ret_t], output_paths)
 
 
 def _get_lm_head_sizes(onnxmodel: onnx.ModelProto) -> tuple[int, int]:
@@ -343,34 +383,54 @@ def fill_input_encodings_of_split(
 
 
 def split_onnx(
-    onnxfile: PathLike,
+    onnxfile: onnx_ret_t,
     modelname: str,
     num_splits: int,
     num_layers_per_split: Optional[int] = None,
     output_dir: PathLike = ".",
     split_embedding: bool = False,
-    encoding_file: Optional[PathLike] = None,
     using_qairt_workflow: bool = False,
-) -> None:
+) -> list[onnx_ret_t]:
+    """
+    Split ONNX by the given number of splits.
+
+    Returns list[
+        Path to an ONNX bundle or an ONNX Graph file for each split.
+    ]
+    """
+
     def _is_cache(layer, name):
         return re.search(f"past_(key|value)_{layer}_", name) is not None
 
     num_splits = int(num_splits)
 
-    onnxmodel = _load_model(onnxfile, load_external_data=False)
+    if isinstance(onnxfile, ONNXBundle):
+        onnx_graph_file = str(onnxfile.onnx_graph_path)
+    else:
+        onnx_graph_file = str(onnxfile)
+
+    onnxmodel = _load_model(onnx_graph_file, load_external_data=False)
     input_names, output_names = get_onnx_input_output_names(
-        onnxfile,
+        onnx_graph_file,
         onnxmodel=onnxmodel,
         deco_digit=False,
         using_qairt_workflow=using_qairt_workflow,
     )
     output_tensor_list = get_split_tensors(
-        onnxfile, onnxmodel=onnxmodel, include_first_input=split_embedding
+        onnx_graph_file, onnxmodel=onnxmodel, include_first_input=split_embedding
     )
 
     # Infer the shape of per-layer tensors
-    (input_ids,) = (i for i in onnxmodel.graph.input if i.name == "input_ids")
-    batch_size, seq_length = (i.dim_value for i in input_ids.type.tensor_type.shape.dim)
+    (input_tokens,) = (
+        i
+        for i in onnxmodel.graph.input
+        if i.name == "input_ids" or i.name == "inputs_embeds"
+    )
+    input_tokens_shape = tuple(
+        i.dim_value for i in input_tokens.type.tensor_type.shape.dim
+    )
+    batch_size = input_tokens_shape[0]
+    seq_length = input_tokens_shape[1]
 
     embedding_size, vocab_size = _get_lm_head_sizes(onnxmodel)
 
@@ -383,22 +443,39 @@ def split_onnx(
     onnxmodel.graph.value_info.extend(per_layer_output_value_info)
 
     names_to_split = []
+    # We should only split the embedding if there is an embedding table in the model
+    split_embedding = split_embedding and has_embedding_table(onnxmodel)
     if split_embedding:
         first_output_tensors = output_tensor_list[0].split(",")
-        if encoding_file is not None:
+        if (
+            isinstance(onnxfile, ONNXBundle)
+            and onnxfile.aimet_encodings_path is not None
+        ):
             fill_input_encodings_of_split(
-                onnxmodel, encoding_file, first_output_tensors
+                onnxmodel, onnxfile.aimet_encodings_path, first_output_tensors
             )
         names_to_split.append(output_tensor_list[0])
         output_tensor_list.pop(0)
 
     num_layers = len(output_tensor_list)
+
+    computed_num_layers_per_split = (
+        math.ceil((num_layers - 1) / num_splits)
+        if split_embedding
+        else math.ceil(num_layers / num_splits)
+    )
+
     if num_layers_per_split is None:
-        num_layers_per_split = (
-            ((num_layers - 1) // num_splits)
-            if split_embedding
-            else (num_layers // num_splits)
+        num_layers_per_split = computed_num_layers_per_split
+
+    effective_num_splits = num_splits - 1 if split_embedding else num_splits
+    effective_num_layers = num_layers - 1 if split_embedding else num_layers
+    if effective_num_splits != math.ceil(effective_num_layers / num_layers_per_split):
+        print(
+            f"Warning: specified num_layers_per_split ({num_layers_per_split}) is not compatible with model. Overwriting with {computed_num_layers_per_split}"
         )
+        num_layers_per_split = computed_num_layers_per_split
+
     past_key_values = {
         layer: [output for output in output_names if _is_cache(layer, output)]
         for layer in range(num_layers)
@@ -414,11 +491,10 @@ def split_onnx(
     assert (
         num_splits == len(names_to_split) + 1
     ), f"Failed to split into {num_splits} pieces!"
-    split_onnx_by_names(
+    return split_onnx_by_names(
         onnxfile,
         modelname,
         *names_to_split,
         output_dir=output_dir,
         onnxmodel=onnxmodel,
-        encoding_file=encoding_file,
     )

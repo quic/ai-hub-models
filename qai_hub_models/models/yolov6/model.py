@@ -83,6 +83,13 @@ class YoloV6(Yolo):
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10
+
 
 def _load_yolov6_source_model_from_weights(
     ckpt_path: str | CachedWebModelAsset,

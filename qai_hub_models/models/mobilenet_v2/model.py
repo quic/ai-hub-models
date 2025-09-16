@@ -38,6 +38,13 @@ class MobileNetV2(ImagenetClassifier):
 
         return cls(model)
 
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10
+
 
 def _load_mobilenet_v2_source_model() -> torch.nn.Module:
     cfg_path = CachedWebModelAsset.from_asset_store(

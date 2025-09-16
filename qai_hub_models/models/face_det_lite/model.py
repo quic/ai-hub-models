@@ -107,12 +107,17 @@ class FaceDetLite(BaseModel):
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    1-channel gray scale image
+                   Width/height must be divisible by 32.
 
         Returns:
             heatmap: N,C,H,W the heatmap for the person/face detection.
             bbox: N,C*4, H,W the bounding box coordinate as a map.
             landmark: N,C*10,H,W the coordinates of landmarks as a map.
         """
+        *_, h, w = image.shape
+        if h % 32 != 0 or w % 32 != 0:
+            raise ValueError("Image width/height must both be divisible by 32.")
+
         image = (image - 0.442) / 0.280
 
         s8_, s16_, s32_ = self.bb(image)

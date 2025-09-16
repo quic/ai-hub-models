@@ -17,22 +17,21 @@ import qai_hub as hub
 import torch
 from typing_extensions import assert_never
 
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets import DATASET_NAME_MAP
-from qai_hub_models.models.common import ExportResult, Precision, QAIRTVersion
+from qai_hub_models.models.common import ExportResult, Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.scorecard.envvars import (
-    IgnoreDeviceJobCacheEnvvar,
-    QAIRTVersionEnvvar,
-)
+from qai_hub_models.scorecard.envvars import IgnoreDeviceJobCacheEnvvar
 from qai_hub_models.scorecard.results.yaml import (
-    ENVIRONMENT_ENV_BASE,
     INFERENCE_YAML_BASE,
+    INTERMEDIATES_DIR,
     PROFILE_YAML_BASE,
+    ToolVersionsByPathYaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
@@ -498,10 +497,7 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
     """
     # Check if the QAIRT version matches the API version and if the override flag is set.
     # Previous scorecard QAIRT version is stored at /scorecard/intermediates/environment.env dump.
-    environment_str = str(load_yaml(ENVIRONMENT_ENV_BASE))
-    env_dict = dict([pair.split("=") for pair in environment_str.split()])
     is_override = IgnoreDeviceJobCacheEnvvar.get()
-
     if (
         #
         # don't run if user disabled caching
@@ -510,9 +506,11 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
         # only prod jobs are cached
         or get_default_hub_deployment() != "prod"
         #
-        # if the chosen QNN version does not match, profiling for all paths must be re-run
-        or QAIRTVersion(QAIRTVersionEnvvar.get()).api_version
-        != env_dict[QAIRTVersionEnvvar.VARNAME]
+        # if the tool versions do not match, profiling for all paths must be re-run
+        or scorecard_path.tool_versions
+        != ToolVersionsByPathYaml.from_dir(INTERMEDIATES_DIR).tool_versions.get(
+            scorecard_path, ToolVersions()
+        )
     ):
         return None
 

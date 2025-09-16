@@ -10,12 +10,13 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Sized
+from copy import copy
 from enum import Enum, unique
 from functools import cached_property
 from pathlib import Path
-from typing import NamedTuple, final
+from typing import Any, NamedTuple, final
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, default_collate
 
 from qai_hub_models.utils.asset_loaders import LOCAL_STORE_DEFAULT_PATH
 from qai_hub_models.utils.input_spec import InputSpec
@@ -32,6 +33,30 @@ class DatasetSplit(Enum):
     TRAIN = 0
     VAL = 1
     TEST = 2
+
+
+class AugmentedLabelDataset(Dataset):
+    """
+    Augment labels to a dataset (making the label a tuple, if labels are
+    already present).
+    """
+
+    def __init__(self, base_dataset, extra_data):
+        self.base_dataset = base_dataset
+        self.extra_data = extra_data
+        self.extra_len = len(extra_data)
+
+    def __len__(self):
+        return len(self.base_dataset)
+
+    def __getitem__(self, idx):
+        item = copy(self.base_dataset[idx])
+        extra_item = self.extra_data[idx % self.extra_len]
+        if "label" in item:
+            item["label"] = (item["label"], extra_item)
+        else:
+            item["label"] = extra_item
+        return item
 
 
 class DatasetMetadata(NamedTuple):
@@ -79,6 +104,13 @@ class BaseDataset(Dataset, Sized, ABC):
         self.split_str = split.name.lower()
         self.input_spec = input_spec
         self.download_data()
+
+    @staticmethod
+    def collate_fn(batch: Any) -> Any:
+        """
+        To be passed into DataLoader(..., collate_fn=...).
+        """
+        return default_collate(batch)
 
     @final
     def download_data(self) -> None:

@@ -21,6 +21,7 @@ from qai_hub_models.models._shared.llama.model import LlamaMixin
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
+    MainLLMInputType,
     get_tokenizer,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
@@ -57,6 +58,11 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.tokenizer = get_tokenizer(self.huggingface_model_name)
+        self.main_input_type = MainLLMInputType.input_ids
+
+    @property
+    def main_input_name(self) -> str:
+        return self.main_input_type.name
 
     def _llm_config(self) -> PretrainedConfig:
         return AutoConfig.from_pretrained(
@@ -76,6 +82,19 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             context_length=context_length,
             huggingface_model_name=huggingface_model_name,
         )
+
+    def get_qairt_context_graph_name(self, split_index: int, num_splits: int) -> str:
+        """
+        Get the name of the QAIRT Context Graph applicable for the given sub-component.
+
+        Sequence length (ar...) and context length (cl...) in graph name
+        are semantically important to Genie
+        """
+        if self.sequence_length == 1:
+            instantiation_type = "token"
+        else:
+            instantiation_type = "prompt"
+        return f"{instantiation_type}_ar{self.sequence_length}_cl{self.context_length}_{split_index + 1}_of_{num_splits}"
 
     def convert_to_onnx_and_aimet_encodings(
         self,
@@ -139,6 +158,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         ),
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        main_input_name: str = MainLLMInputType.input_ids.name,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -147,6 +167,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            main_input_name=main_input_name,
         )
 
     def get_hub_compile_options(
@@ -155,9 +176,10 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
         device: Optional[Device] = None,
+        context_graph_name: str | None = None,
     ) -> str:
         options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
+            target_runtime, precision, other_compile_options, device, context_graph_name
         )
         return options + " --truncate_64bit_io"
 

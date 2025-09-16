@@ -12,7 +12,9 @@ from typing import Generic, Literal, Optional, TypeVar, overload
 
 import qai_hub as hub
 import ruamel.yaml
+from pydantic import Field
 
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import (
@@ -36,18 +38,55 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     ScorecardJobTypeVar,
     ScorecardPathOrNoneTypeVar,
 )
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
+DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME = "tool-versions.yaml"
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
-
 ENVIRONMENT_ENV_BASE = INTERMEDIATES_DIR / "environment.env"
 QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
+TOOL_VERSIONS_BASE = INTERMEDIATES_DIR / DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
 ACCURACY_CSV_BASE = INTERMEDIATES_DIR / "accuracy.csv"
 DATASETS_BASE = INTERMEDIATES_DIR / "dataset-ids.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
+
+
+# Schema for sdk versions dumped to Hugging Face / Scorecard Intermediates in YAML format.
+class ToolVersionsByPathYaml(BaseQAIHMConfig):
+    tool_versions: dict[ScorecardProfilePath, ToolVersions] = Field(
+        default_factory=dict
+    )
+
+    @staticmethod
+    def from_profile_paths(
+        paths: list[ScorecardProfilePath] | None = None,
+    ) -> ToolVersionsByPathYaml:
+        """
+        Get a tool versions YAML object, with all paths in the list populated with tool versions.
+        This will fetch versions for AI Hub deployment used by scorecard (set by envvars).
+
+        If paths is None, populates all enabled scorecard profile paths.
+        """
+        paths = paths or ScorecardProfilePath.all_paths(enabled=True)
+        out = ToolVersionsByPathYaml()
+        for path in paths:
+            out.tool_versions[path] = path.tool_versions
+        return out
+
+    @staticmethod
+    def from_dir(dir: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME):
+        return ToolVersionsByPathYaml.from_yaml(
+            Path(dir) / filename,
+            create_empty_if_no_file=True,
+        )
+
+    def to_dir(
+        self, dir: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
+    ):
+        return self.to_yaml(Path(dir) / filename, write_if_empty=False)
 
 
 class ScorecardJobYaml(

@@ -138,3 +138,10 @@ class YoloV10Detector(Yolo):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10

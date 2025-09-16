@@ -22,7 +22,7 @@ pip install "qai-hub-models[yolox]"
 Once installed, run the following simple CLI demo:
 
 ```bash
-python -m qai_hub_models.models.yolox.demo { --quantize w8a16, w8a8 }
+python -m qai_hub_models.models.yolox.demo { --quantize w8a16, w8a8, w8a8_mixed_int16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -35,7 +35,7 @@ This repository contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.yolox.export { --quantize w8a16, w8a8 }
+python -m qai_hub_models.models.yolox.export { --quantize w8a16, w8a8, w8a8_mixed_int16 }
 ```
 Additional options are documented with the `--help` option.
 

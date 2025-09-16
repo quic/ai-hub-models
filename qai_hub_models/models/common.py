@@ -24,10 +24,7 @@ class QAIRTVersion:
     # Map of <Hub URL -> Valid AI Hub QAIRT Versions>
     _FRAMEWORKS: dict[str, list[QAIRTVersion.ParsedFramework]] = {}
     _HUB_DEFAULT_FRAMEWORK: dict[str, QAIRTVersion.ParsedFramework] = {}
-    _QAIHM_DEFAULT_FRAMEWORK: dict[str, QAIRTVersion.ParsedFramework] = {}
     HUB_FLAG = "--qairt_version"
-    DEFAULT_AI_HUB_MODELS_API_VERSION = "2.37"  # Default version used by AI Hub Models. May be different than AI Hub's default.
-    DEFAULT_QAIHM_TAG = "qaihm_default"
     DEFAULT_AIHUB_TAG = "default"
     LATEST_AIHUB_TAG = "latest"
 
@@ -51,8 +48,7 @@ class QAIRTVersion:
                 QAIRT version or AI Hub version tag.
 
             return_default_if_does_not_exist:
-                If true, return the default AI Hub Models QAIRT version if this QAIRT version does not exist on AI Hub.
-                If the AI Hub Models default QAIRT version no longer exists on hub, returns the AI Hub default QAIRT version.
+                If true, return the default AI Hub QAIRT version if this QAIRT version does not exist on AI Hub.
 
             validate_exists_on_ai_hub:
                 If this is True and AI Hub is reachable,
@@ -72,7 +68,6 @@ class QAIRTVersion:
             self._api_url,
             valid_hub_frameworks,
             default_framework,
-            qaihm_default_framework,
         ) = QAIRTVersion._load_frameworks()
         chosen_framework: QAIRTVersion.ParsedFramework | None = None
         if self._api_url and validate_exists_on_ai_hub:
@@ -87,10 +82,12 @@ class QAIRTVersion:
                     break
 
             # If no AI Hub QAIRT framework matches, then use a default.
-            if chosen_framework is None and return_default_if_does_not_exist:
-                default_framework = qaihm_default_framework or default_framework
-                if default_framework is not None:
-                    chosen_framework = default_framework
+            if (
+                chosen_framework is None
+                and return_default_if_does_not_exist
+                and default_framework is not None
+            ):
+                chosen_framework = default_framework
 
             # Frameworks loaded from Hub never have the flavor, so add it manually here if the user provided one.
             if chosen_framework is not None and user_parsed_framework is not None:
@@ -144,7 +141,7 @@ class QAIRTVersion:
             return ""
         return (
             f"{QAIRTVersion.HUB_FLAG} {self.tags[0]}"
-            if self.tags and self.tags[0] != QAIRTVersion.DEFAULT_QAIHM_TAG
+            if self.tags
             else f"{QAIRTVersion.HUB_FLAG} {self.api_version}"
         )
 
@@ -152,15 +149,6 @@ class QAIRTVersion:
     def explicit_hub_option(self) -> str:
         """String flag to pass to hub to use this Hub version. This flag always uses the "API version" number, never the tag."""
         return f"{QAIRTVersion.HUB_FLAG} {self.api_version}"
-
-    @property
-    def is_qaihm_default(self) -> bool:
-        """
-        Whether this is the default QAIRT version used by AI Hub Models.
-
-        AI HUB MODELS' DEFAULT QAIRT VERSION MIGHT BE DIFFERENT THAN AI HUB's DEFAULT VERSION.
-        """
-        return self.api_version == QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION
 
     @property
     def is_default(self) -> bool:
@@ -172,7 +160,6 @@ class QAIRTVersion:
         """All potential (known) tag names."""
         return [
             QAIRTVersion.DEFAULT_AIHUB_TAG,
-            QAIRTVersion.DEFAULT_QAIHM_TAG,
             QAIRTVersion.LATEST_AIHUB_TAG,
         ]
 
@@ -205,30 +192,6 @@ class QAIRTVersion:
         return str(self)
 
     @staticmethod
-    def qaihm_default() -> QAIRTVersion:
-        """
-        Default QAIRT version used by AI Hub Models.
-
-        THIS MIGHT BE DIFFERENT THAN AI HUB's DEFAULT VERSION.
-        """
-        try:
-            return QAIRTVersion(QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION)
-        except ValueError as e:
-            msg = e.args[0]
-            if "is not supported by AI Hub" in msg:
-                raise ValueError(
-                    msg
-                    + f"\n\nAI Hub no longer supports the standard QAIRT version ({QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION}) used by this version of AI Hub Models.\n"
-                    "You have two options:\n"
-                    f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION}.\n"
-                    f" OR\n"
-                    f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
-                    "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
-                )
-            else:
-                raise e
-
-    @staticmethod
     def default() -> QAIRTVersion:
         """Default QAIRT version on AI Hub."""
         return QAIRTVersion(QAIRTVersion.DEFAULT_AIHUB_TAG)
@@ -240,15 +203,11 @@ class QAIRTVersion:
 
     @staticmethod
     def all() -> list[QAIRTVersion]:
-        _, frameworks, _, _ = QAIRTVersion._load_frameworks()
+        _, frameworks, _ = QAIRTVersion._load_frameworks()
         return [QAIRTVersion(f) for f in frameworks]
 
     @staticmethod
-    def _load_frameworks() -> (
-        tuple[
-            str, list[ParsedFramework], ParsedFramework | None, ParsedFramework | None
-        ]
-    ):
+    def _load_frameworks() -> tuple[str, list[ParsedFramework], ParsedFramework | None]:
         """
         Load frameworks from AI Hub and populate cache.
         Returns:
@@ -266,12 +225,6 @@ class QAIRTVersion:
                     if f.name == "QAIRT"
                 ]
                 for framework in QAIRTVersion._FRAMEWORKS[api_url]:
-                    if (
-                        framework.api_version
-                        == QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION
-                    ):
-                        QAIRTVersion._QAIHM_DEFAULT_FRAMEWORK[api_url] = framework
-                        framework.tags.append(QAIRTVersion.DEFAULT_QAIHM_TAG)
                     if QAIRTVersion.DEFAULT_AIHUB_TAG in framework.tags:
                         QAIRTVersion._HUB_DEFAULT_FRAMEWORK[api_url] = framework
 
@@ -284,7 +237,6 @@ class QAIRTVersion:
             api_url,
             QAIRTVersion._FRAMEWORKS[api_url],
             QAIRTVersion._HUB_DEFAULT_FRAMEWORK.get(api_url),
-            QAIRTVersion._QAIHM_DEFAULT_FRAMEWORK.get(api_url),
         )
 
     @classmethod
@@ -414,6 +366,60 @@ class InferenceEngine(Enum):
     QNN = "qnn"
     ONNX = "onnx"
 
+    @property
+    def full_package_name(self) -> str:
+        if self == InferenceEngine.TFLITE:
+            return "TensorFlow Lite"
+        if self == InferenceEngine.QNN:
+            return "QAIRT (Qualcomm AI Runtime)"
+        if self == InferenceEngine.ONNX:
+            return "ONNX Runtime"
+        assert_never(self)
+
+    @property
+    def supported_version(self) -> str | None:
+        """
+        Supported version of this inference engine.
+
+        If None, any version is supported.
+        """
+        if self == InferenceEngine.ONNX:
+            return "1.22.2"
+        return None
+
+    @property
+    def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
+        """
+        Default QAIRT version used by this inference engine.
+        """
+        if self == InferenceEngine.ONNX:
+            qairt_version = "2.36"
+        else:
+            qairt_version = "2.37"
+
+        try:
+            return QAIRTVersion(qairt_version)
+        except ValueError as e:
+            msg = e.args[0]
+            if "is not supported by AI Hub" in msg:
+                runtime_version_str = (
+                    f"This version of AI Hub Models was tested against {self.full_package_name} (v{self.supported_version}) which is bundled with QAIRT {qairt_version}.\n"
+                    if self.supported_version is not None
+                    else ""
+                )
+                raise ValueError(
+                    msg
+                    + f"\n\nAI Hub no longer supports the standard QAIRT version ({qairt_version}) used by this version of AI Hub Models.\n"
+                    + runtime_version_str
+                    + "You have two options:\n"
+                    f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {qairt_version}.\n"
+                    f" OR\n"
+                    f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
+                    "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
+                )
+            else:
+                raise e
+
 
 @unique
 class ConversionToolchain(Enum):
@@ -432,11 +438,33 @@ class TargetRuntime(Enum):
     Compilation target.
     """
 
+    # TensorFlow Lite Runtime (renamed to LiteRT)
+    # https://ai.google.dev/edge/litert
     TFLITE = "tflite"
+
+    # QAIRT (Qualcomm AI Runtime) Device-Agnostic Graph IR
+    # https://www.qualcomm.com/developer/software/qualcomm-ai-engine-direct-sdk
     QNN_DLC = "qnn_dlc"
+
+    # QAIRT (Qualcomm AI Runtime) Device-Specific, Precompiled Binary for HTP
+    # https://www.qualcomm.com/developer/software/qualcomm-ai-engine-direct-sdk
     QNN_CONTEXT_BINARY = "qnn_context_binary"
+
+    # ONNX Runtime
+    # https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html
     ONNX = "onnx"
+
+    # QAIRT Context Binary Embedded within ONNX File
+    # https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html#qnn-context-binary-cache-feature)
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
+
+    # Qualcomm GenAI Inference Extensions Bundle
+    # https://www.qualcomm.com/developer/software/gen-ai-inference-extensions
+    GENIE = "genie"
+
+    # ONNX Runtime GenAI Bundle
+    # https://github.com/microsoft/onnxruntime-genai
+    ONNXRUNTIME_GENAI = "onnxruntime_genai"
 
     @staticmethod
     def from_hub_model_type(type: hub.SourceModelType):
@@ -449,9 +477,17 @@ class TargetRuntime(Enum):
     def inference_engine(self) -> InferenceEngine:
         if self == TargetRuntime.TFLITE:
             return InferenceEngine.TFLITE
-        if self == TargetRuntime.QNN_CONTEXT_BINARY or self == TargetRuntime.QNN_DLC:
+        if (
+            self == TargetRuntime.QNN_CONTEXT_BINARY
+            or self == TargetRuntime.QNN_DLC
+            or self == TargetRuntime.GENIE
+        ):
             return InferenceEngine.QNN
-        if self == TargetRuntime.ONNX or self == TargetRuntime.PRECOMPILED_QNN_ONNX:
+        if (
+            self == TargetRuntime.ONNX
+            or self == TargetRuntime.PRECOMPILED_QNN_ONNX
+            or self == TargetRuntime.ONNXRUNTIME_GENAI
+        ):
             return InferenceEngine.ONNX
         assert_never(self)
 
@@ -460,16 +496,20 @@ class TargetRuntime(Enum):
         """
         The file extension (without the .) assets for this runtime use.
         """
+        if self == TargetRuntime.TFLITE:
+            return "tflite"
         if self == TargetRuntime.QNN_CONTEXT_BINARY:
             return "bin"
         if self == TargetRuntime.QNN_DLC:
             return "dlc"
         if self == TargetRuntime.ONNX:
             return "onnx.zip"
-        if self == TargetRuntime.TFLITE:
-            return "tflite"
         if self == TargetRuntime.PRECOMPILED_QNN_ONNX:
             return "onnx.zip"
+        if self == TargetRuntime.GENIE:
+            return "genie.zip"
+        if self == TargetRuntime.ONNXRUNTIME_GENAI:
+            return "onnxruntime_genai.zip"
 
         assert_never(self)
 
@@ -486,6 +526,8 @@ class TargetRuntime(Enum):
             return hub.SourceModelType.ONNX
         if self == TargetRuntime.TFLITE:
             return hub.SourceModelType.TFLITE
+        if self == TargetRuntime.GENIE or self == TargetRuntime.ONNXRUNTIME_GENAI:
+            raise ValueError(f"No Hub model type is applicable for {self.value}")
         assert_never(self)
 
     @property
@@ -504,7 +546,7 @@ class TargetRuntime(Enum):
         """
         Returns true if different versions of Qualcomm AI Runtime will affect how this runtime is compiled.
         """
-        return self.is_aot_compiled or self.inference_engine == InferenceEngine.QNN
+        return self.is_aot_compiled or self.compilation_uses_qnn_converters
 
     def supports_precision(self, precision: Precision) -> bool:
         # Float is always supported.
@@ -532,7 +574,11 @@ class TargetRuntime(Enum):
         if (
             self == TargetRuntime.QNN_DLC
             or self == TargetRuntime.QNN_CONTEXT_BINARY
+            # The following have QAIRT Context binary embedded within,
+            # so they support the same precision set as QAIRT paths
             or self == TargetRuntime.PRECOMPILED_QNN_ONNX
+            or self == TargetRuntime.GENIE
+            or self == TargetRuntime.ONNXRUNTIME_GENAI
         ):
             return precision in [
                 Precision.w8a8,
@@ -570,8 +616,11 @@ class TargetRuntime(Enum):
             self == TargetRuntime.PRECOMPILED_QNN_ONNX
             or self == TargetRuntime.QNN_CONTEXT_BINARY
             or self == TargetRuntime.QNN_DLC
+            or self == TargetRuntime.GENIE
+            or self == TargetRuntime.ONNXRUNTIME_GENAI
         ):
             return ConversionToolchain.QAIRT_CONVERTER
+
         assert_never(self)
 
     @property
@@ -579,33 +628,29 @@ class TargetRuntime(Enum):
         """
         AI Hub job flag for compiling to this runtime.
         """
-        return f"--target_runtime {self.value}"
+        hub_target_runtime_flag = None
+
+        if self.is_exclusively_for_genai:
+            if self.conversion_toolchain == ConversionToolchain.QAIRT_CONVERTER:
+                hub_target_runtime_flag = TargetRuntime.QNN_CONTEXT_BINARY.value
+        else:
+            hub_target_runtime_flag = self.value
+
+        if hub_target_runtime_flag is None:
+            raise NotImplementedError(
+                f"AI Hub does not define a target runtime compatible with {self.value}"
+            )
+
+        return f"--target_runtime {hub_target_runtime_flag}"
 
     @property
-    def default_qairt_version(self) -> QAIRTVersion:
+    def default_qairt_version(self: TargetRuntime) -> QAIRTVersion:
         """
-        The default QAIRT version for this runtime.
+        Default QAIRT version used by this runtime.
+
+        THIS MIGHT BE DIFFERENT THAN AI HUB's DEFAULT VERSION.
         """
-        if self.inference_engine == InferenceEngine.ONNX:
-            # Use version 2.33, which is what all pre-built versions of ONNX runtime (v1.22.1) currently ship with.
-            onnx_qairt_version = "2.33"
-            onnx_version = "1.22.1"
-            try:
-                return QAIRTVersion(onnx_qairt_version)
-            except ValueError as e:
-                msg = e.args[0]
-                if "is not supported by AI Hub" in msg:
-                    raise ValueError(
-                        msg
-                        + f"\nAI Hub no longer supports the standard QAIRT version (v{onnx_qairt_version}) used by this version of AI Hub Models for ONNX models.\n"
-                        f"This version of AI Hub Models was tested against ONNX Runtime (v{onnx_version}) which ships on NuGET and PyPi with QAIRT {onnx_qairt_version}.\n"
-                        "You have two options:\n"
-                        f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {onnx_qairt_version}.\n"
-                        f" OR\n"
-                        f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
-                        "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
-                    )
-        return QAIRTVersion.qaihm_default()
+        return self.inference_engine.default_qairt_version
 
     @property
     def is_aot_compiled(self) -> bool:
@@ -616,11 +661,22 @@ class TargetRuntime(Enum):
         return self.aot_equivalent == self
 
     @property
+    def is_exclusively_for_genai(self) -> bool:
+        """
+        Returns true if this runtime is exclusively used to execute GenAI models.
+        """
+        return self in [TargetRuntime.GENIE, TargetRuntime.ONNXRUNTIME_GENAI]
+
+    @property
     def aot_equivalent(self) -> TargetRuntime | None:
         """
         Returns the equivalent runtime that is compiled ahead of time.
         Returns None if there is no equivalent runtime that is compiled ahead of time.
         """
+        if self.is_exclusively_for_genai:
+            # All GenAI runtimes are always precompiled and unique.
+            return self
+
         inference_engine = self.inference_engine
         if inference_engine == InferenceEngine.ONNX:
             return TargetRuntime.PRECOMPILED_QNN_ONNX
@@ -631,10 +687,15 @@ class TargetRuntime(Enum):
         assert_never(inference_engine)
 
     @property
-    def jit_equivalent(self) -> TargetRuntime:
+    def jit_equivalent(self) -> TargetRuntime | None:
         """
         Returns the equivalent runtime that is compiled "just in time" on target.
         """
+        if self.is_exclusively_for_genai:
+            # All GenAI runtimes are always precompiled.
+            # No equivalent JIT path exists for GenAI today.
+            return None
+
         inference_engine = self.inference_engine
         if inference_engine == InferenceEngine.ONNX:
             return TargetRuntime.ONNX
@@ -763,7 +824,8 @@ class Precision:
             (
                 enum_type[otype_enum_name]
                 for enum_type in (QuantizeDtype, _FloatDtype)
-                if otype_enum_name in enum_type._member_names_
+                if otype_enum_name is not None
+                and otype_enum_name in enum_type._member_names_
             ),
             None,
         )

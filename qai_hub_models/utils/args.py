@@ -22,6 +22,7 @@ import qai_hub as hub
 import torch
 from qai_hub.client import APIException, InternalError, UserError
 
+from qai_hub_models._version import __version__
 from qai_hub_models.models.common import Precision
 from qai_hub_models.models.protocols import (
     FromPrecompiledTypeVar,
@@ -96,12 +97,43 @@ def get_quantize_action_with_default(
     return ParsePrecisionAction
 
 
+class QAIHMHelpFormatter(
+    argparse.RawTextHelpFormatter, argparse.ArgumentDefaultsHelpFormatter
+):
+    """
+    Argparse formatter that combnines:
+      * allowing raw text (eg. newlines) in help messages
+      * including defaults in help messages (except for boolean args)
+    """
+
+    def _get_help_string(self, action):
+        """
+        Default value for booleans in CLI help can be misleading.
+        This overridden function will print just the help message for boolean args
+        and print help message along with the default value for all other args.
+        """
+        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+            return action.help
+        return super()._get_help_string(action)
+
+
 class QAIHMArgumentParser(argparse.ArgumentParser):
     """
     An ArgumentParser that sets hub_device from the appropriate options.
     This isn't implemented as a `type` argument to `add_argument` because the
     device/chipset can be modified by device_os.
     """
+
+    def __init__(
+        self,
+        supported_precision_runtimes: (
+            dict[Precision, list[TargetRuntime]] | None
+        ) = None,
+        *args,
+        **kwargs,
+    ):
+        self.supported_precision_runtimes = supported_precision_runtimes
+        super().__init__(*args, **kwargs)
 
     def parse_args(self, args=None, namespace=None):
         parsed = super().parse_args(args, namespace)
@@ -116,12 +148,61 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         if getattr(parsed, "quantize", None):
             parsed.precision = parsed.quantize
 
+        if self.supported_precision_runtimes is not None:
+            self.validate_precision_runtime(self.supported_precision_runtimes, parsed)
+
         return parsed
 
+    @staticmethod
+    def validate_precision_runtime(
+        supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
+        parsed_args: argparse.Namespace,
+    ):
+        """
+        Verifies that supported_precision_runtimes contains the precision + runtime pair chosen by the parsed argument namespace.
+        If the namespace does not include both precision and runtime, then validation is skipped.
+        """
+        # If fetch_static_assets is set, validation of whether a specific precision / runtime pair is supported
+        # is done downstream. This validation is only necessary when running the export script.
+        fetch_static_assets: str | None = getattr(
+            parsed_args, "fetch_static_assets", None
+        )
 
-def get_parser(allow_dupe_args: bool = False) -> QAIHMArgumentParser:
+        # If precision or target_runtime are None, they aren't args used by this parser. This validation becomes a no-op.
+        precision: Precision | None = getattr(parsed_args, "precision", None)
+        target_runtime: TargetRuntime | None = getattr(
+            parsed_args, "target_runtime", None
+        )
+
+        if (
+            fetch_static_assets is not None
+            or precision is None
+            or target_runtime is None
+        ):
+            return
+
+        if (
+            precision not in supported_precision_runtimes
+            and target_runtime not in supported_precision_runtimes[precision]
+        ):
+            str_supported_precision_runtimes = "\n".join(
+                f"    {p}: {', '.join([rt.value for rt in rts])}"
+                for p, rts in supported_precision_runtimes.items()
+            )
+            print(
+                f"Model does not support runtime {target_runtime.value} with precision {precision}. These combinations are supported:\n"
+                + str_supported_precision_runtimes
+            )
+            exit(1)
+
+
+def get_parser(
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
+    allow_dupe_args: bool = False,
+) -> QAIHMArgumentParser:
     return QAIHMArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        supported_precision_runtimes=supported_precision_runtimes,
+        formatter_class=QAIHMHelpFormatter,
         conflict_handler="resolve" if allow_dupe_args else "error",
     )
 
@@ -196,7 +277,7 @@ def add_target_runtime_arg(
         type=str,
         action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore[arg-type]
         default=default,
-        choices=[rt.value for rt in available_target_runtimes],
+        metavar=f"{{{', '.join(rt.value for rt in available_target_runtimes)}}}",
         help=help,
     )
     return parser
@@ -217,7 +298,7 @@ def add_precision_arg(
         "--precision",
         action=get_quantize_action_with_default(default),
         default=default,
-        choices=[str(p) for p in supported_precisions],
+        metavar=f"{{{', '.join(str(p) for p in supported_precisions)}}}",
         help=precision_help,
     )
     if len(supported_precisions) > 1:
@@ -353,7 +434,7 @@ def get_model_cli_parser(
     Default behavior is to assume the CLI args have the same names as from_pretrained method args.
     """
     if not parser:
-        parser = get_parser(allow_dupe_args)
+        parser = get_parser(allow_dupe_args=allow_dupe_args)
 
     from_pretrained_sig = inspect.signature(cls.from_pretrained)
     for name, param in from_pretrained_sig.parameters.items():
@@ -636,7 +717,7 @@ def _evaluate_export_common_parser(
     """
     # Set handler to resolve, to allow from_pretrained and get_input_spec
     # to have the same argument names.
-    parser = get_parser(allow_dupe_args=True)
+    parser = get_parser(supported_precision_runtimes, allow_dupe_args=True)
     if uses_quantize_job:
         parser.add_argument(
             "--num-calibration-samples",
@@ -791,9 +872,13 @@ def export_parser(
     )
     parser.add_argument(
         "--fetch-static-assets",
-        action="store_true",
-        default=False,
-        help="If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.",
+        nargs="?",
+        const=f"v{__version__}",
+        default=None,
+        help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
+        "    `--fetch-static-assets`            (get current release assets)\n"
+        "    `--fetch-static-assets latest`     (get latest release assets)\n"
+        "    `--fetch-static-assets v<version>` (get assets for a specific version)\n",
     )
 
     if components is not None or issubclass(model_cls, CollectionModel):
@@ -921,17 +1006,3 @@ def enable_model_caching(parser):
         " If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.",
     )
     return parser
-
-
-def validate_precision_runtime(
-    supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
-    precision: Precision,
-    runtime: TargetRuntime,
-):
-    if (
-        precision not in supported_precision_runtimes
-        or runtime not in supported_precision_runtimes[precision]
-    ):
-        raise ValueError(
-            f"Model does not support runtime {runtime} with precision {precision}. These combinations are supported: {supported_precision_runtimes}"
-        )

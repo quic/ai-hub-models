@@ -94,6 +94,10 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # ("AOT prepare") are enabled, both in CI and in Scorecard.
     requires_aot_prepare: bool = False
 
+    # Supported GenAI based runtimes.
+    # If set, ONLY these runtimes will be supported. All others will be disabled.
+    supported_genai_runtimes: list[TargetRuntime] = Field(default_factory=list)
+
     # If set, disables generating `export.py`.
     skip_export: bool = False
 
@@ -171,6 +175,12 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         """
         Return the reason a model failed or None if the model did not fail.
         """
+        if self.supported_genai_runtimes:
+            if runtime not in self.supported_genai_runtimes:
+                return f"{runtime} is not supported for this GenAI model."
+        elif runtime.is_exclusively_for_genai:
+            return "GenAI runtimes are not supported by this model."
+
         if self.is_precompiled and runtime != TargetRuntime.QNN_CONTEXT_BINARY:
             return "Precompiled models are only supported via the QNN path."
 
@@ -180,7 +190,11 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         if self.requires_aot_prepare and not runtime.is_aot_compiled:
             return "Only runtimes that are compiled to context binary ahead of time are supported."
 
-        if not self.requires_aot_prepare and runtime.is_aot_compiled:
+        if (
+            not self.requires_aot_prepare
+            and runtime.is_aot_compiled
+            and not runtime.is_exclusively_for_genai
+        ):
             # Only the JIT path is tested if this model does not require AOT prepare.
             # All AOT paths will fail if QNN fails.
             runtime = TargetRuntime.QNN_DLC
@@ -281,6 +295,11 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             raise ValueError(
                 "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
             )
+        for x in self.supported_genai_runtimes:
+            if not x.is_exclusively_for_genai:
+                raise ValueError(
+                    f"{x.value} is not a GenAI runtime, and should not be listed in supported_genai_runtimes."
+                )
 
         return self
 

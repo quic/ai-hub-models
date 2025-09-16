@@ -12,14 +12,24 @@ from typing import Optional, cast
 
 from typing_extensions import assert_never
 
-from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
+from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.models.common import (
+    InferenceEngine,
+    Precision,
+    QAIRTVersion,
+    TargetRuntime,
+)
 from qai_hub_models.scorecard.envvars import EnabledPathsEnvvar, SpecialPathSetting
 from qai_hub_models.scorecard.path_compile import (
-    QAIRTVersion,
+    DeploymentEnvvar,
     QAIRTVersionEnvvar,
     ScorecardCompilePath,
 )
 from qai_hub_models.utils.base_config import EnumListWithParseableAll
+from qai_hub_models.utils.hub_clients import (
+    default_hub_client_as,
+    get_scorecard_client_or_raise,
+)
 
 
 class ScorecardProfilePathMeta(EnumMeta):
@@ -36,11 +46,32 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
     QNN_CONTEXT_BINARY = "qnn_context_binary"
     ONNX = "onnx"
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
+    GENIE = "genie"
+    ONNXRUNTIME_GENAI = "onnxruntime_genai"
     ONNX_DML_GPU = "onnx_dml_gpu"
     QNN_DLC_GPU = "qnn_dlc_gpu"
 
     def __str__(self):
         return self.name.lower()
+
+    @staticmethod
+    def from_runtime(runtime: TargetRuntime) -> ScorecardProfilePath:
+        """
+        Get the scorecard path that corresponds with default behavior of the given target runtime.
+        """
+        return ScorecardProfilePath(runtime.value)
+
+    @property
+    def tool_versions(self) -> ToolVersions:
+        """
+        Get the tool versions applicable for the given path in the current environment.
+        """
+        tool_versions = ToolVersions()
+        with default_hub_client_as(
+            get_scorecard_client_or_raise(DeploymentEnvvar.get())
+        ):
+            tool_versions.qairt = QAIRTVersionEnvvar.get_qairt_version(self.runtime)
+        return tool_versions
 
     @property
     def spreadsheet_name(self) -> str:
@@ -156,6 +187,8 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             ScorecardProfilePath.ONNX,
             ScorecardProfilePath.PRECOMPILED_QNN_ONNX,
             ScorecardProfilePath.TFLITE,
+            ScorecardProfilePath.GENIE,
+            ScorecardProfilePath.ONNXRUNTIME_GENAI,
         ]
 
     @property
@@ -176,6 +209,10 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             or self == ScorecardProfilePath.QNN_DLC_GPU
         ):
             return TargetRuntime.QNN_DLC
+        if self == ScorecardProfilePath.GENIE:
+            return TargetRuntime.GENIE
+        if self == ScorecardProfilePath.ONNXRUNTIME_GENAI:
+            return TargetRuntime.ONNXRUNTIME_GENAI
         assert_never(self)
 
     @property
@@ -195,6 +232,10 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             or self == ScorecardProfilePath.QNN_DLC_GPU
         ):
             return ScorecardCompilePath.QNN_DLC
+        if self == ScorecardProfilePath.GENIE:
+            return ScorecardCompilePath.GENIE
+        if self == ScorecardProfilePath.ONNXRUNTIME_GENAI:
+            return ScorecardCompilePath.ONNXRUNTIME_GENAI
         assert_never(self)
 
     @cached_property
@@ -230,10 +271,10 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             not self.has_nonstandard_profile_options
             and not self.compile_path.has_nonstandard_compile_options
         ):
-            jit_runtime = self.runtime.jit_equivalent
-            for path in ScorecardProfilePath:
-                if path.runtime == jit_runtime:
-                    return path
+            if jit_runtime := self.runtime.jit_equivalent:
+                for path in ScorecardProfilePath:
+                    if path.runtime == jit_runtime:
+                        return path
 
         return None
 
@@ -249,17 +290,17 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         the QNN Converters to create a graph, use QNN to compile to a binary, then use
         QNN to execute that binary.
         """
-        if (
-            self.has_nonstandard_profile_options
-            or self.compile_path.has_nonstandard_compile_options
-        ):
-            return [self]
-
-        return [
-            x
-            for x in ScorecardProfilePath
-            if x.runtime.conversion_toolchain == self.runtime.conversion_toolchain
-        ]
+        out: list[ScorecardProfilePath] = [self]
+        for x in ScorecardProfilePath:
+            if (
+                x != self
+                and x.runtime.conversion_toolchain == self.runtime.conversion_toolchain
+                and not x.has_nonstandard_profile_options
+                and not x.compile_path.has_nonstandard_compile_options
+                and not x.runtime.is_exclusively_for_genai
+            ):
+                out.append(x)
+        return out
 
     @property
     def has_nonstandard_profile_options(self):
@@ -282,7 +323,7 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
             )
 
         qairt_version_str = QAIRTVersionEnvvar.get()
-        if qairt_version_str == QAIRTVersion.DEFAULT_QAIHM_TAG:
+        if QAIRTVersionEnvvar.is_default(qairt_version_str):
             # We typically don't want the default QAIRT version added here if it matches with the AI Hub models default.
             # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.
             #

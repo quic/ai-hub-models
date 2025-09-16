@@ -8,12 +8,7 @@ import qai_hub as hub
 from qai_hub.client import JobType
 from qai_hub.public_rest_api import get_job_results
 
-from qai_hub_models.models.common import (
-    InferenceEngine,
-    Optional,
-    QAIRTVersion,
-    TargetRuntime,
-)
+from qai_hub_models.models.common import Optional, QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.qai_hub_helpers import extract_job_options
 
@@ -51,7 +46,10 @@ class ToolVersions(BaseQAIHMConfig):
         Raises:
             ValueError if the model was not compiled by AI Hub.
         """
-        if model.producer is None or not model.producer._job_type == JobType.COMPILE:
+        if model.producer is None or model.producer._job_type not in [
+            JobType.COMPILE,
+            JobType.LINK,
+        ]:
             raise ValueError(
                 "Model must be compiled with AI Hub to extract tool versions."
             )
@@ -117,12 +115,26 @@ class ToolVersions(BaseQAIHMConfig):
             ValueError if the job type is invalid.
         """
         # Use job_type instead of isinstance to support test mocking.
-        if job._job_type not in [JobType.COMPILE, JobType.PROFILE, JobType.INFERENCE]:
+        if job._job_type not in [
+            JobType.COMPILE,
+            JobType.LINK,
+            JobType.PROFILE,
+            JobType.INFERENCE,
+        ]:
             raise ValueError(
                 f"Cannot extract QAIRT SDK version from job of type {job.job_type}"
             )
 
         if not job.get_status().success:
+            if job._job_type == JobType.LINK:
+                # Link jobs inherit their QAIRT version from input model files.
+                models = cast(hub.LinkJob, job).models
+                for model in models:
+                    if model.producer is not None:
+                        return ToolVersions.from_compiled_model(model)
+                # None of the source models came from us, so we can't detect what QAIRT version to use.
+                return ToolVersions()
+
             # If the job is not successful, the only way to get the QAIRT version is to look at the job flags.
             job_options = extract_job_options(job)
             version: Optional[str] = None
@@ -135,10 +147,7 @@ class ToolVersions(BaseQAIHMConfig):
                     # QAIRT is applicable for compile jobs only if the target runtime uses QAIRT converters.
                     if x := job_options.get("target_runtime"):
                         rts = [rt for rt in TargetRuntime if rt.value == x]
-                        if (
-                            len(rts) == 1
-                            and rts[0].inference_engine == InferenceEngine.QNN
-                        ):
+                        if len(rts) == 1 and rts[0].qairt_version_changes_compilation:
                             version = "default"
                 else:
                     version = "default"
@@ -157,7 +166,7 @@ class ToolVersions(BaseQAIHMConfig):
                 qairt=QAIRTVersion(version, validate_exists_on_ai_hub=False)
             )
 
-        if job._job_type == JobType.COMPILE:
+        if job._job_type == JobType.COMPILE or job._job_type == JobType.LINK:
             return ToolVersions.from_compiled_model(
                 cast(hub.Model, cast(hub.CompileJob, job).get_target_model())
             )

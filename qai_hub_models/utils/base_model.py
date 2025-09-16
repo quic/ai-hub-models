@@ -346,6 +346,7 @@ class HubModel(HubModelProtocol):
         self,
         target_runtime: TargetRuntime,
         other_profile_options: str = "",
+        context_graph_name: str | None = None,
     ) -> str:
         """
         AI Hub profile options recommended for the model.
@@ -354,6 +355,18 @@ class HubModel(HubModelProtocol):
             other_profile_options = (
                 other_profile_options
                 + f" {target_runtime.default_qairt_version.hub_option}"
+            )
+
+        if context_graph_name is not None:
+            if (
+                not target_runtime.compilation_uses_qnn_converters
+                or not target_runtime.is_aot_compiled
+            ):
+                raise ValueError(
+                    "Cannot specify a context binary graph name if the target is not precompiled QAIRT."
+                )
+            other_profile_options += (
+                f" --qnn_options context_enable_graphs={context_graph_name}"
             )
 
         return other_profile_options
@@ -482,6 +495,7 @@ class BaseModel(
         precision: Precision,
         other_compile_options: str = "",
         device: Optional[Device] = None,
+        context_graph_name: str | None = None,
     ) -> str:
         """
         AI Hub compile options recommended for the model.
@@ -519,6 +533,18 @@ class BaseModel(
                 # Uint8 has not been thoroughly tested with other paths,
                 # so it is enabled only for TF Lite today.
                 compile_options += " --quantize_io_type uint8"
+
+        if context_graph_name is not None:
+            if (
+                not target_runtime.compilation_uses_qnn_converters
+                or not target_runtime.is_aot_compiled
+            ):
+                raise ValueError(
+                    "Cannot specify a context binary graph name if the target is not a compiled QAIRT graph."
+                )
+            compile_options += (
+                f" --qnn_options context_enable_graphs={context_graph_name}"
+            )
 
         if other_compile_options != "":
             return compile_options + " " + other_compile_options
@@ -577,12 +603,12 @@ class BaseModel(
             precision == Precision.w8a8_mixed_int16
             or precision == Precision.w8a16_mixed_int16
         ):
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};overide_qtype=int16"
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
         elif (
             precision == Precision.w8a8_mixed_fp16
             or precision == Precision.w8a16_mixed_fp16
         ):
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};overide_qtype=fp16"
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         else:
             return ""  # default to range_scheme mse_minimizer
 

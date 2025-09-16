@@ -12,11 +12,16 @@ from typing import Optional
 import qai_hub as hub
 from typing_extensions import assert_never
 
-from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard.envvars import (
+    DeploymentEnvvar,
     EnabledPathsEnvvar,
     QAIRTVersionEnvvar,
     SpecialPathSetting,
+)
+from qai_hub_models.utils.hub_clients import (
+    default_hub_client_as,
+    get_hub_client_or_raise,
 )
 
 
@@ -27,6 +32,8 @@ class ScorecardCompilePath(Enum):
     QNN_CONTEXT_BINARY = "qnn_context_binary"
     ONNX = "onnx"
     PRECOMPILED_QNN_ONNX = "precompiled_qnn_onnx"
+    GENIE = "genie"
+    ONNXRUNTIME_GENAI = "onnxruntime_genai"
     ONNX_FP16 = "onnx_fp16"
 
     def __str__(self):
@@ -102,6 +109,10 @@ class ScorecardCompilePath(Enum):
             return TargetRuntime.QNN_CONTEXT_BINARY
         if self == ScorecardCompilePath.QNN_DLC:
             return TargetRuntime.QNN_DLC
+        if self == ScorecardCompilePath.GENIE:
+            return TargetRuntime.GENIE
+        if self == ScorecardCompilePath.ONNXRUNTIME_GENAI:
+            return TargetRuntime.ONNXRUNTIME_GENAI
         assert_never(self)
 
     @property
@@ -136,10 +147,10 @@ class ScorecardCompilePath(Enum):
             return self
 
         if not self.has_nonstandard_compile_options:
-            jit_runtime = self.runtime.jit_equivalent
-            for path in ScorecardCompilePath:
-                if path.runtime == jit_runtime:
-                    return path
+            if jit_runtime := self.runtime.jit_equivalent:
+                for path in ScorecardCompilePath:
+                    if path.runtime == jit_runtime:
+                        return path
 
         return None
 
@@ -181,7 +192,11 @@ class ScorecardCompilePath(Enum):
 
         if self.runtime.qairt_version_changes_compilation:
             qairt_version_str = QAIRTVersionEnvvar.get()
-            if qairt_version_str == QAIRTVersion.DEFAULT_QAIHM_TAG:
+            with default_hub_client_as(get_hub_client_or_raise(DeploymentEnvvar.get())):
+                qairt_version = QAIRTVersionEnvvar.get_qairt_version(
+                    self.runtime, qairt_version_str
+                )
+            if QAIRTVersionEnvvar.is_default(qairt_version_str):
                 # We typically don't want the default QAIRT version added here if it matches with the AI Hub models default.
                 # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.
                 #
@@ -190,11 +205,8 @@ class ScorecardCompilePath(Enum):
                     # Certain runtimes use their own default version of QAIRT.
                     # If the user picks our the qaihm_default tag, we need use the runtime's
                     # default QAIRT version instead.
-                    qairt_version = self.runtime.default_qairt_version
                     out = out + f" {qairt_version.explicit_hub_option}"
             else:
-                qairt_version = QAIRTVersion(qairt_version_str)
-
                 # The explicit option will always pass `--qairt_version 2.XX`,
                 # regardless of whether this is the AI Hub default.
                 #

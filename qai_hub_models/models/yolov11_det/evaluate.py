@@ -14,16 +14,12 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.yolov11_det import MODEL_ID, Model
 from qai_hub_models.models.yolov11_det.export import export_model
-from qai_hub_models.utils.args import (
-    evaluate_parser,
-    get_model_kwargs,
-    validate_precision_runtime,
-)
+from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
 
-def main(restrict_to_precision: Precision | None = None):
+def main():
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
@@ -41,6 +37,12 @@ def main(restrict_to_precision: Precision | None = None):
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
+        Precision.w8a8_mixed_int16: [
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
         Precision.w8a16: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
@@ -49,20 +51,12 @@ def main(restrict_to_precision: Precision | None = None):
         ],
     }
 
-    if restrict_to_precision:
-        supported_precision_runtimes = {
-            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
-        }
-
     parser = evaluate_parser(
         model_cls=Model,
         supported_datasets=eval_datasets,
         supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
 
     if len(eval_datasets) == 0:
         print(

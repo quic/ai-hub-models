@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from qai_hub_models.models._shared.llm.app import ChatApp as App
 from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
@@ -16,7 +14,6 @@ from qai_hub_models.models._shared.llm.model import (
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser
-from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.huggingface import has_model_access
 
@@ -29,15 +26,12 @@ def llm_chat_demo(
     model_cls: type[LLM_AIMETOnnx],
     fp_model_cls: type[LLMBase],
     model_id: str,
-    prepare_combined_attention_mask: Callable,
     end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str,
     supported_precisions: list[Precision],
     test_checkpoint: CheckpointSpec | None = None,
-    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
-    bundled_kvcache: bool = True,
 ):
     """
     Shared Chat Demo App to generate output for provided input prompt
@@ -101,6 +95,12 @@ def llm_chat_demo(
         prompt = args.prompt
     else:
         prompt = default_prompt
+
+    # Make sure that we can pass "\n" (0x0A) as part of the prompt, since that
+    # is often a common feature of prompt formats. If this gets interpreted as
+    # "\\n" (0x5C 0x6E), the LLM can react poorly (quantized models have been
+    # observed to be particularly sensitive to this).
+    prompt = prompt.replace("\\n", "\n")
 
     if args.raw:
 

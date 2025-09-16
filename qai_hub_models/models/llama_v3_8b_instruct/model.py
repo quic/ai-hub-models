@@ -16,7 +16,10 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
-from qai_hub_models.models._shared.llm.model import determine_precision_from_checkpoint
+from qai_hub_models.models._shared.llm.model import (
+    MainLLMInputType,
+    determine_precision_from_checkpoint,
+)
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
@@ -75,6 +78,7 @@ class Llama3_8B(Llama3Base):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
+        main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
         _skip_optimizations: list[str] | None = None,
     ) -> Llama3_8B:
         """
@@ -101,6 +105,7 @@ class Llama3_8B(Llama3Base):
             context_length=context_length,
             host_device=host_device,
             load_pretrained=load_pretrained,
+            main_input_type=main_input_type,
             _skip_optimizations=_skip_optimizations,
         )
 
@@ -113,6 +118,7 @@ class Llama3_8B(Llama3Base):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        main_input_name: str = MainLLMInputType.input_ids.name,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -121,6 +127,7 @@ class Llama3_8B(Llama3Base):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            main_input_name=main_input_name,
         )
 
 
@@ -174,6 +181,7 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
                     context_length=context_length,
                     export_sequence_lengths=[sequence_length],
                     host_device=host_device,
+                    main_input_type=fp_model.main_input_type,
                 )
 
                 cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
@@ -196,6 +204,7 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        main_input_name: str = MainLLMInputType.input_ids.name,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -204,4 +213,5 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            main_input_name=main_input_name,
         )

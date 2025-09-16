@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+from functools import partial
 
 import torch
 
@@ -14,9 +15,10 @@ from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     LLM_AIMETOnnx,
     LLMBase,
+    MainLLMInputType,
 )
 from qai_hub_models.models.common import Precision
-from qai_hub_models.utils.args import get_quantize_action_with_default
+from qai_hub_models.utils.args import ParseEnumAction, get_quantize_action_with_default
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 
 
@@ -31,6 +33,7 @@ def quantize(
     checkpoint: str | None = None,
     use_seq_mse: bool = False,
     allow_cpu_to_quantize: bool = False,
+    main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
 ):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     if device.type != "cuda":
@@ -47,6 +50,7 @@ def quantize(
     extra = dict(
         sequence_length=seq_len,
         context_length=context_length,
+        main_input_type=main_input_type,
     )
     if checkpoint:
         extra["checkpoint"] = checkpoint  # type: ignore[assignment]
@@ -135,6 +139,14 @@ def llm_quantize(
         choices=[str(p) for p in supported_precisions],
         help="Pick the precision with which the model must be quantized.",
     )
+    parser.add_argument(
+        "--input-type",
+        type=str,
+        action=partial(ParseEnumAction, enum_type=MainLLMInputType),  # type: ignore[arg-type]
+        default=MainLLMInputType.input_ids,
+        choices=[input_type.value for input_type in MainLLMInputType],
+        help="Main LLM input type.",
+    )
     args = parser.parse_args()
 
     quantize(
@@ -148,6 +160,7 @@ def llm_quantize(
         checkpoint=args.checkpoint,
         use_seq_mse=args.use_seq_mse,
         allow_cpu_to_quantize=allow_cpu_to_quantize,
+        main_input_type=args.input_type,
     )
     print("Quantization completed successfully.")
     print()
@@ -157,7 +170,7 @@ def llm_quantize(
     print()
     print("Evaluate:")
     print(
-        f"    python -m qai_hub_models.models.{model_id}.evaluate --checkpoint {args.output_dir} --task wikitext-ppl"
+        f"    python -m qai_hub_models.models.{model_id}.evaluate --checkpoint {args.output_dir} --task wikitext"
     )
     print()
     print("Demo:")

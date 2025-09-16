@@ -11,12 +11,13 @@ from typing import Any
 
 import onnx
 import torch
+from packaging.version import Version
 from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llm.model import PositionProcessorBase
 
 
-def make_ort_genai_config(
+def make_onnxruntime_genai_config(
     llm_config: PretrainedConfig,
     context_length: int,
     prompt_sequence_length: int,
@@ -55,7 +56,7 @@ def make_ort_genai_config(
                 "pipeline": [config_pipeline],
             },
             "eos_token_id": llm_config.eos_token_id,
-            "pad_token_id": llm_config.eos_token_id[0],  # correct?
+            "pad_token_id": llm_config.pad_token_id or llm_config.eos_token_id,
             "type": "decoder-pipeline",
             "vocab_size": llm_config.vocab_size,
         },
@@ -78,7 +79,7 @@ def make_ort_genai_config(
     }
 
 
-def create_ort_genai_assets(
+def create_onnxruntime_genai_assets(
     model_name: str,
     llm_config: PretrainedConfig,
     position_processor_cls: type[PositionProcessorBase],
@@ -100,6 +101,26 @@ def create_ort_genai_assets(
 
     with open(encodings_path) as f:
         encodings = json.load(f)
+
+    uses_lists = Version(encodings["version"]) >= Version("1.0.0")
+
+    if uses_lists:
+        # Convert encodings to dictionaries for faster look-ups
+        encodings["activation_encodings"] = {
+            v["name"]: v for v in encodings["activation_encodings"]
+        }
+        encodings["param_encodings"] = {
+            v["name"]: v for v in encodings["param_encodings"]
+        }
+
+        def extract_scalar(container, key):
+            return container[key][0]
+
+    else:
+
+        def extract_scalar(container, key):
+            return container[0][key]
+
     act_encodings = encodings["activation_encodings"]
 
     # Wrap ONNX files
@@ -127,9 +148,9 @@ def create_ort_genai_assets(
     attention_mask_before_processor = torch.randint(
         0, 2, (1, context_length), dtype=torch.int32
     )
-    position_ids = torch.randint(0, 128, (1, 128), dtype=torch.int32)
+    position_ids = torch.randint(0, 128, (1, prompt_sequence_length), dtype=torch.int32)
 
-    model = position_processor_cls(context_length=context_length)
+    model = position_processor_cls(context_length=context_length, config=llm_config)
     attention_mask, position_ids_cos, position_ids_sin = model(
         attention_mask_before_processor, position_ids
     )
@@ -163,16 +184,16 @@ def create_ort_genai_assets(
     # Generate auxiliary file: Quantize
     qparams = {
         "attention_mask": QuantParams(
-            act_encodings["attention_mask"][0]["scale"],
-            -act_encodings["attention_mask"][0]["offset"],
+            extract_scalar(act_encodings["attention_mask"], "scale"),
+            -extract_scalar(act_encodings["attention_mask"], "offset"),
         ),
         "position_ids_cos": QuantParams(
-            act_encodings["position_ids_cos"][0]["scale"],
-            -act_encodings["position_ids_cos"][0]["offset"],
+            extract_scalar(act_encodings["position_ids_cos"], "scale"),
+            -extract_scalar(act_encodings["position_ids_cos"], "offset"),
         ),
         "position_ids_sin": QuantParams(
-            act_encodings["position_ids_sin"][0]["scale"],
-            -act_encodings["position_ids_sin"][0]["offset"],
+            extract_scalar(act_encodings["position_ids_sin"], "scale"),
+            -extract_scalar(act_encodings["position_ids_sin"], "offset"),
         ),
     }
     quantizer_model, quantizer_inputs, quantizer_outputs = quantizer(qparams)
@@ -276,7 +297,7 @@ def create_ort_genai_assets(
     }
 
     # Create ORT GenAI config file
-    config_dict = make_ort_genai_config(
+    config_dict = make_onnxruntime_genai_config(
         llm_config,
         context_length,
         prompt_sequence_length,

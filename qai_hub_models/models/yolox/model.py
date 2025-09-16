@@ -236,6 +236,13 @@ class YoloX(Yolo):
             self.include_postprocessing, self.split_output
         )
 
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        """
+        return 10
+
 
 def _load_yolox_source_model_from_weights(
     weights_path: str, weights_name: str

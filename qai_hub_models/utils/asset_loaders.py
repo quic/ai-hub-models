@@ -503,11 +503,23 @@ class ModelZooAssetConfig:
     def get_labels_file_path(self, labels_file: str) -> str:
         return self.labels_path.lstrip("/").format(labels_file=labels_file)
 
-    def get_qaihm_repo(self, model_id: str, relative=True) -> Path | str:
+    def get_qaihm_repo(
+        self, model_id: str, relative=True, qaihm_version_tag: str | None = None
+    ) -> Path | str:
         relative_path = Path(self.qaihm_repo.lstrip("/").format(model_id=model_id))
+        repo_url = self.repo_url
+        if qaihm_version_tag:
+            repo_url = repo_url.replace("/blob/main", f"/refs/tags/{qaihm_version_tag}")
         if not relative:
-            return f"{self.repo_url.rstrip('/')}/{relative_path.as_posix()}"
+            return f"{repo_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
+
+    def get_qaihm_repo_download_url(
+        self, model_id: str, file_name: str, qaihm_version_tag: str | None = None
+    ) -> str:
+        repo_url = self.get_qaihm_repo(model_id, False, qaihm_version_tag)
+        repo_url = os.path.join(str(repo_url), file_name)
+        return repo_url.replace("github.com", "raw.githubusercontent.com")
 
     def get_website_url(self, model_id: str, relative=False) -> Path | str:
         relative_path = Path(
@@ -988,14 +1000,14 @@ class CachedWebDatasetAsset(CachedWebAsset):
         )
 
 
-def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
+def download_file(
+    web_url: str, dst_path: str, num_retries: int = 4, verbose: bool = True
+) -> str:
     """
     Downloads data from the internet and stores in `dst_folder`.
     `dst_folder` should be relative to the local cache root for qai_hub_models.
     """
     if not os.path.exists(dst_path):
-        print(f"Downloading data at {web_url} to {dst_path}")
-
         # Streaming, so we can iterate over the response.
         response = requests.get(web_url, stream=True)
         if response.status_code != 200:
@@ -1008,12 +1020,15 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
         with qaihm_temp_dir() as tmp_dir:
             tmp_filepath = os.path.join(tmp_dir, Path(dst_path).name)
             with tqdm(total=total_size, unit="B", unit_scale=True) as progress_bar:
+                progress_bar.set_description(
+                    f"Downloading data at {web_url} to {dst_path}"
+                )
                 with open(tmp_filepath, "wb") as file:
                     for data in response.iter_content(block_size):
                         progress_bar.update(len(data))
                         file.write(data)
+                progress_bar.set_postfix_str("Done")
             shutil.move(tmp_filepath, dst_path)
-        print("Done")
     return dst_path
 
 

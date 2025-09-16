@@ -4,18 +4,17 @@
 # ---------------------------------------------------------------------
 
 
+import argparse
 import os
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PIL import Image
-from skimage import io
 
 from qai_hub_models.models.facemap_3dmm.app import FaceMap_3DMMApp
 from qai_hub_models.models.facemap_3dmm.model import (
     INPUT_IMAGE_PATH,
-    MODEL_ASSET_VERSION,
     MODEL_ID,
     FaceMap_3DMM,
 )
@@ -25,12 +24,20 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
 
-INPUT_FBOX_PATH = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "face_img_fbox.txt"
-)
+
+def _parse_face_box(face_box_str: str) -> list[float]:
+    try:
+        values = [float(x) for x in face_box_str.split(",")]
+        if len(values) != 4:
+            raise ValueError
+        return values
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "Face box must be 4 comma-separated float values: left,right,top,bottom (normalized to [0,1])"
+        )
 
 
 # Run FaceMap_3DMM end-to-end on a sample image.
@@ -49,24 +56,35 @@ def facemap_3dmm_demo(
         default=str(INPUT_IMAGE_PATH.fetch()),
         help="image file path or URL",
     )
+    parser.add_argument(
+        "--face-box",
+        type=_parse_face_box,
+        default="0.0,1.0,0.0,1.0",
+        help=(
+            "Part of image where to apply face landmark algorithm. "
+            "This should be centered around the face for best landmark performance. "
+            "We recommend using a face detector to retrieve the face box (not included in this demo). "
+            "The values are expressed as 'left,right,top,bottom' with floating point values "
+            "normalized to [0, 1]."
+        ),
+    )
     args = parser.parse_args([] if is_test else None)
     model = demo_model_from_cli_args(model_cls, model_id, args)
     validate_on_device_demo_args(args, model_id)
 
     # Load image
-    image = io.imread(args.image)
+    image = load_image(args.image)
 
     print("Model Loaded")
 
     app = FaceMap_3DMMApp(model)
 
     # Get face bounding box info (from file or face detector)
-    fbox = np.loadtxt(INPUT_FBOX_PATH.fetch())
     x0, x1, y0, y1 = (
-        np.int32(fbox[0]),
-        np.int32(fbox[1]),
-        np.int32(fbox[2]),
-        np.int32(fbox[3]),
+        np.int32(round(image.width * args.face_box[0])),
+        np.int32(round(image.width * args.face_box[1])),
+        np.int32(round(image.height * args.face_box[2])),
+        np.int32(round(image.height * args.face_box[3])),
     )
 
     lmk, output = app.landmark_prediction(image, x0, x1, y0, y1)

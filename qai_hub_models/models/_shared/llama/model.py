@@ -296,6 +296,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
         device: Optional[Device] = None,
+        context_graph_name: str | None = None,
     ) -> str:
 
         if not (
@@ -310,27 +311,27 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
             raise RuntimeError("Only w8a16 precision is supported")
 
         compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name or self.get_qnn_graph_name(),
         )
         compile_options += " --quantize_full_type w8a16"
-        graph_name = self.get_qnn_graph_name()
-
-        if graph_name is not None:
-            compile_options += f" --qnn_options context_enable_graphs={graph_name}"
         return compile_options
 
     def get_hub_profile_options(
         self,
         target_runtime: TargetRuntime,
         other_profile_options: str = "",
+        context_graph_name: str | None = None,
     ) -> str:
         profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
+            target_runtime,
+            other_profile_options,
+            context_graph_name or self.get_qnn_graph_name(),
         )
         profile_options += " --max_profiler_iterations 50"
-        graph_name = self.get_qnn_graph_name()
-        if graph_name is not None:
-            profile_options += f" --qnn_options context_enable_graphs={graph_name}"
         return profile_options
 
     @staticmethod

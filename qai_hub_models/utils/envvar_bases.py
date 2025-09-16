@@ -86,6 +86,15 @@ class QAIHMEnvvar(Generic[ParsedT]):
         raise NotImplementedError()
 
     @classmethod
+    def is_default(cls, value: ParsedT | None = None) -> bool:
+        """
+        Returns whether the given value is the default.
+
+        If value is None, returns whether the current value of this envvar is the default.
+        """
+        return (value or cls.get()) == cls.default()
+
+    @classmethod
     def parse(cls, value: str) -> ParsedT:
         """
         Parse the string envvar value.

@@ -14,11 +14,7 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.efficientvit_l2_seg import MODEL_ID, Model
 from qai_hub_models.models.efficientvit_l2_seg.export import export_model
-from qai_hub_models.utils.args import (
-    evaluate_parser,
-    get_model_kwargs,
-    validate_precision_runtime,
-)
+from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
@@ -39,9 +35,6 @@ def main():
         num_calibration_samples=5,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
 
     if len(eval_datasets) == 0:
         print(

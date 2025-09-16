@@ -36,7 +36,7 @@ from qai_hub_models.utils.qai_hub_helpers import download_model_in_memory
 
 QUANT_RESULTS_PATH = os.environ.get("QUANT_RESULTS_PATH", os.path.expanduser("~"))
 RESULTS_FOLDER = Path(QUANT_RESULTS_PATH) / "quant_debug"
-HIGHER_PRECISION_FOR_MIXED_PRECISION = "w16a16"
+HIGHER_PRECISION_FOR_MIXED_PRECISION = "float16"
 
 
 def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
@@ -137,7 +137,7 @@ def _create_aimet_quantsim(
         _calibration_forward_pass(sim.session, dataloader)
 
     # Export to QDQ
-    onnx_qdq_model = sim._to_onnx_qdq()
+    onnx_qdq_model = sim.to_onnx_qdq()
     onnx.save(
         onnx_qdq_model, str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx")
     )
@@ -258,7 +258,7 @@ def debug_quant_accuracy(
         calibration_dataset_name = model.eval_datasets()[0]
     assert calibration_dataset_name is not None
     model_calibration_data = get_dataset_from_name(
-        calibration_dataset_name, DatasetSplit.VAL
+        calibration_dataset_name, DatasetSplit.VAL, input_spec
     )
     samples_per_job = model_calibration_data.default_samples_per_job()
     dataloader = get_deterministic_sample(model_calibration_data, 100, samples_per_job)
@@ -336,7 +336,7 @@ def debug_quant_accuracy(
                 _calibration_forward_pass(sim.session, dataloader)
 
             # Export to QDQ
-            onnx_qdq_model = sim._to_onnx_qdq()
+            onnx_qdq_model = sim.to_onnx_qdq()
             onnx.save(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
@@ -385,7 +385,7 @@ def debug_quant_accuracy(
                 _calibration_forward_pass(sim.session, dataloader)
 
             # Export to QDQ
-            onnx_qdq_model = sim._to_onnx_qdq()
+            onnx_qdq_model = sim.to_onnx_qdq()
             onnx.save(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),

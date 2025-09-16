@@ -300,7 +300,7 @@ def cli_chipset_with_options(
         assert mock_get_hub_compile_options.call_count == parts * 2
         compile_options += " --qnn_bin_conversion_via_model_library"
         if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            compile_options += " --qairt_version 2.33"
+            compile_options += " --qairt_version 2.36"
         assert all(
             call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list

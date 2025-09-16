@@ -28,6 +28,7 @@ HF_PIPELINE_TAGS = {
     "audio-classification",
     "voice-activity-detection",
     "depth-estimation",
+    "gaze-estimation",
     "image-classification",
     "object-detection",
     "image-segmentation",

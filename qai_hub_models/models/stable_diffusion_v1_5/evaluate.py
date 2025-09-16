@@ -14,11 +14,7 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.stable_diffusion_v1_5 import MODEL_ID, Model
 from qai_hub_models.models.stable_diffusion_v1_5.export import export_model
-from qai_hub_models.utils.args import (
-    evaluate_parser,
-    get_model_kwargs,
-    validate_precision_runtime,
-)
+from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
@@ -29,7 +25,6 @@ def main():
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a16: [
             TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
 
@@ -40,9 +35,6 @@ def main():
         uses_quantize_job=False,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
 
     if len(eval_datasets) == 0:
         print(

@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum, unique
 from pathlib import Path
 
-from qai_hub_models.models.common import QAIRTVersion
+from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.envvar_bases import (
     QAIHMBoolEnvvar,
     QAIHMDateFormatEnvvar,
@@ -245,7 +245,24 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
 
     @classmethod
     def default(cls):
-        return QAIRTVersion.DEFAULT_QAIHM_TAG
+        return "qaihm_default"
+
+    @classmethod
+    def get_qairt_version(cls, runtime: TargetRuntime, value: str | None = None):
+        """
+        Parse this envvar value as a QAIRTVersion object.
+
+        Parameters:
+            runtime:
+                Runtime for which we are getting the QAIRT version.
+            value:
+                If set, converts this envvar value to a QAIRTVersion object.
+                If None, uses the current environment variable value instead.
+        """
+        value = value or cls.get()
+        if cls.is_default(value):
+            return runtime.default_qairt_version
+        return QAIRTVersion(value)
 
 
 class IgnoreKnownFailuresEnvvar(QAIHMBoolEnvvar):

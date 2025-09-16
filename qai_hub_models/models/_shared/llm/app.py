@@ -137,9 +137,16 @@ class ChatApp:
         inferencer = LLM_Generator(models, self.tokenizer, rope_embedding)
 
         # can set temperature, topK, topP, etc here
+        end_token_ids = []
+        for token in self.end_tokens:
+            token_ids = self.tokenizer.encode(token, add_special_tokens=False)
+            if len(token_ids) == 1:
+                token_id = token_ids[0]
+                end_token_ids.append(token_id)
+        end_token_ids.append(self.tokenizer.eos_token_id)
         inferencer.generation_config = GenerationConfig(
             max_new_tokens=max_output_tokens,
-            eos_token_id=self.tokenizer.eos_token_id,
+            eos_token_id=end_token_ids,
             pad_token_id=self.tokenizer.pad_token_id,
             do_sample=True,
             top_k=40,

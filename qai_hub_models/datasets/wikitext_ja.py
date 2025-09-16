@@ -8,9 +8,6 @@ from __future__ import annotations
 from datasets import Dataset, load_dataset
 
 from qai_hub_models.datasets.wikitext import WikiText
-from qai_hub_models.datasets.wikitext import collate_fn as wikitext_collate_fn
-
-collate_fn = wikitext_collate_fn
 
 
 class WikiText_Japanese(WikiText):

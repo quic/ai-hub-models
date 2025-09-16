@@ -1,0 +1,243 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import torch
+
+from qai_hub_models.models._shared.llama3.model import (
+    DEFAULT_CONTEXT_LENGTH,
+    DEFAULT_SEQUENCE_LENGTH,
+    Llama3Base,
+    Llama3Base_AIMETOnnx,
+)
+from qai_hub_models.models._shared.llm.model import (
+    MainLLMInputType,
+    determine_precision_from_checkpoint,
+)
+from qai_hub_models.models.common import Precision
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+from qai_hub_models.utils.input_spec import InputSpec
+
+MODEL_ID = __name__.split(".")[-2]
+MODEL_ASSET_VERSION = 1
+
+NUM_LAYERS = 28
+NUM_SPLITS = 5
+NUM_LAYERS_PER_SPLIT = 8
+HIDDEN_SIZE = 3072
+NUM_KEY_VALUE_HEADS = 4
+NUM_ATTN_HEADS = 12
+
+# Hugging face repo name and url
+HF_REPO_NAME = "tiiuae/Falcon3-7B-Instruct"
+HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
+
+END_TEXT = "<|endoftext|>"
+END_TOKENS = {END_TEXT}
+
+# Minimum memory (RAM+swap) recommended for export.
+MIN_MEMORY_RECOMMENDED = 80
+
+DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
+DEFAULT_USER_PROMPT = "What do falcons eat? Keep the answer under ten words."
+DEFAULT_PRECISION = Precision.w4a16
+SUPPORTED_PRECISIONS = [Precision.w4a16]
+DEFAULT_CHECKPOINT = {Precision.w4a16: "falcon_v3_7b_instruct_ckpt_w4a16_seqmse"}
+
+
+class Falcon3_7B(Llama3Base):
+    min_memory_recommended = MIN_MEMORY_RECOMMENDED
+
+    def __init__(
+        self,
+        checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(
+            checkpoint=checkpoint,  # type: ignore[misc]
+            *args,
+            **kwargs,
+        )
+
+    @staticmethod
+    def get_input_prompt_with_tags(
+        user_input_prompt: str = DEFAULT_USER_PROMPT,
+        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
+    ) -> str:
+        return f"<|system|>\n{system_context_prompt}\n<|user|>\n{user_input_prompt}\n<|assistant|>\n"
+
+    def _verify_ckpt(self):
+        super()._verify_ckpt()
+        if not (
+            self.llm_config.num_hidden_layers == NUM_LAYERS
+            and self.llm_config.hidden_size == HIDDEN_SIZE
+            and self.llm_config.num_attention_heads == NUM_ATTN_HEADS
+            and self.llm_config.num_key_value_heads == NUM_KEY_VALUE_HEADS
+        ):
+            raise ValueError("Model config is not compatible with our implementation.")
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+        host_device: torch.device | None = None,
+        load_pretrained: bool = True,
+        main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
+        _skip_optimizations: list[str] | None = None,
+    ) -> Falcon3_7B:
+        """
+        Load a pre-trained Falcon 3 (7B) model from TII via HuggingFace.
+
+        checkpoint:
+            Local path or Hugging Face name of floating point checkpoint.
+        sequence_length:
+            Instantiate with this token sequence length input. A longer
+            sequence length means the model is capable of processing more
+            tokens at once. This can only be set to greater than one to process
+            prompts, since responses are auto-regressive in nature and require
+            this to be 1.
+        context_length:
+            Total context length of model. Longer context length means the
+            model is more capable of making longer connections in the input
+            prompt. However, it also hurts runtime performance (both time-to-
+            first-token and tokens-per-second), so this is a tradeoff that may
+            depend on the use case.
+        """
+        return cls(
+            checkpoint=checkpoint,
+            sequence_length=sequence_length,
+            context_length=context_length,
+            host_device=host_device,
+            load_pretrained=load_pretrained,
+            main_input_type=main_input_type,
+            _skip_optimizations=_skip_optimizations,
+        )
+
+    @staticmethod
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
+
+    @staticmethod
+    def get_input_spec(
+        llm_config: dict,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+        main_input_name: str = MainLLMInputType.input_ids.name,
+    ) -> InputSpec:
+        return Llama3Base._get_input_spec(
+            num_hidden_layers=llm_config["num_hidden_layers"],
+            sequence_length=sequence_length,
+            context_length=context_length,
+            hidden_size=llm_config["hidden_size"],
+            num_key_value_heads=llm_config["num_key_value_heads"],
+            num_attention_heads=llm_config["num_attention_heads"],
+            main_input_name=main_input_name,
+        )
+
+
+class Falcon3_7B_AIMETOnnx(Llama3Base_AIMETOnnx):
+    def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
+        super().__init__(
+            checkpoint=checkpoint,  # type: ignore[misc]
+            *args,
+            **kwargs,
+        )
+
+    get_input_prompt_with_tags = Falcon3_7B.get_input_prompt_with_tags
+    eval_datasets = Falcon3_7B.eval_datasets
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        checkpoint: str | os.PathLike | Path | None = "DEFAULT",
+        host_device: torch.device | None = None,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+        precision: Precision = DEFAULT_PRECISION,
+        fp_model: torch.nn.Module | None = None,
+        _skip_quantsim_creation: bool = False,
+    ) -> Falcon3_7B_AIMETOnnx:
+        """
+        Load weight from Huggingface and create Aimet-ONNX QuantSim.
+        Optionally load onnx model and AIMET encodings from a checkpoint.
+
+        Args:
+
+        - checkpoint: Path to previously calibrated AIMET encodings and ONNX
+          models. Note that encodings are sensitive to AIMET ONNX versions.
+          If passing None, initializes without encodings.
+        """
+
+        if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
+            precision = determine_precision_from_checkpoint(checkpoint) or precision
+            if precision not in SUPPORTED_PRECISIONS:
+                available_precisions = [str(p) for p in SUPPORTED_PRECISIONS]
+                raise ValueError(
+                    f"This model is not supported for {str(precision)} precision. "
+                    f"Models are available in following precisions: {','.join(available_precisions)}."
+                )
+            if precision not in DEFAULT_CHECKPOINT:
+                available_checkpoints = [str(p) for p in DEFAULT_CHECKPOINT]
+                raise ValueError(
+                    f"No checkpoint is available for this model in {str(precision)} precision. If you would "
+                    f"like to continue with this precision, please generate a local quantized checkpoint. "
+                    f"Checkpoints are available in the following precisions: {','.join(available_checkpoints)}."
+                )
+            precision_checkpoint = DEFAULT_CHECKPOINT[precision]
+            checkpoint = os.path.join(
+                CachedWebModelAsset.from_asset_store(
+                    MODEL_ID, MODEL_ASSET_VERSION, precision_checkpoint + ".zip"
+                ).fetch(extract=True),
+                precision_checkpoint,
+            )
+            # Generate necessary ONNX models
+            if fp_model is not None:
+                cls.create_onnx_models(
+                    checkpoint=checkpoint,
+                    fp_model=fp_model,
+                    context_length=context_length,
+                    export_sequence_lengths=[sequence_length],
+                    host_device=host_device,
+                    main_input_type=fp_model.main_input_type,
+                )
+
+                cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
+        return super().from_pretrained(
+            checkpoint=checkpoint,
+            host_device=host_device,
+            sequence_length=sequence_length,
+            context_length=context_length,
+            precision=precision,
+            fp_model=fp_model,
+            _skip_quantsim_creation=_skip_quantsim_creation,
+        )
+
+    @staticmethod
+    def get_output_names():
+        return Llama3Base._get_output_names(NUM_LAYERS)
+
+    @staticmethod
+    def get_input_spec(
+        llm_config: dict,
+        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
+        context_length: int = DEFAULT_CONTEXT_LENGTH,
+        main_input_name: str = MainLLMInputType.input_ids.name,
+    ) -> InputSpec:
+        return Llama3Base._get_input_spec(
+            num_hidden_layers=llm_config["num_hidden_layers"],
+            sequence_length=sequence_length,
+            context_length=context_length,
+            hidden_size=llm_config["hidden_size"],
+            num_key_value_heads=llm_config["num_key_value_heads"],
+            num_attention_heads=llm_config["num_attention_heads"],
+            main_input_name=main_input_name,
+        )

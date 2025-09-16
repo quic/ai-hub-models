@@ -6,16 +6,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 import torch
+
+if TYPE_CHECKING:
+    from PIL.Image import Image
 
 from qai_hub_models.models.facemap_3dmm.model import FaceMap_3DMM
 from qai_hub_models.models.facemap_3dmm.utils import (
     project_landmark,
     transform_landmark_coordinates,
 )
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
 
 class FaceMap_3DMMApp:
@@ -26,7 +31,7 @@ class FaceMap_3DMMApp:
         * FaceMap_3DMM
 
     For a given image input, the app will:
-        * pre-process the image (convert to range[-1, 1])
+        * pre-process the image (convert to RGB of range[0, 1])
         * Run FaceMap_3DMM inference
         * Convert the output parameters into landmark points
         * Display the output lanrmarks on the image
@@ -40,7 +45,7 @@ class FaceMap_3DMMApp:
 
     def landmark_prediction(
         self,
-        _image: np.ndarray,
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image,
         x0: np.int32,
         x1: np.int32,
         y0: np.int32,
@@ -50,7 +55,12 @@ class FaceMap_3DMMApp:
         Return the input image with the predicted lmk overlayed on it.
 
         Parameters:
-            _image: numpy array (H W C x uint8) -- RGB channel layout
+            pixel_values_or_image:
+                PIL image(s)
+                or
+                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+                or
+                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
             x0: numpy int32 -- left coordinate of face bounding box
             x1: numpy int32 -- right coordinate of face bounding box
             y0: numpy int32 -- top coordinate of face bounding box
@@ -59,13 +69,14 @@ class FaceMap_3DMMApp:
         Returns:
             lmk_images: numpy array -- images with predicted landmarks displayed.
         """
+        [image], _ = app_to_net_image_inputs(pixel_values_or_image)
 
         resized_height, resized_width = FaceMap_3DMM.get_input_spec()["image"][0][2:]
 
         CHW_fp32_torch_crop_image = (
             torch.from_numpy(
                 cv2.resize(
-                    _image[y0 : y1 + 1, x0 : x1 + 1],
+                    image[y0 : y1 + 1, x0 : x1 + 1],
                     (resized_height, resized_width),
                     interpolation=cv2.INTER_LINEAR,
                 )
@@ -83,8 +94,14 @@ class FaceMap_3DMMApp:
             resized_width,
         )
 
+        output_image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+        # Draw face box
+        output_image = cv2.rectangle(
+            output_image, (int(x0), int(y0)), (int(x1), int(y1)), (0, 255, 0), 2
+        )
+
         # Draw landmark
-        output_image = cv2.cvtColor(_image, cv2.COLOR_RGB2BGR)
         for n in range(landmark.shape[0]):
             output_image = cv2.circle(
                 output_image,

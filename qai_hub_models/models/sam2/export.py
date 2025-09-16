@@ -20,11 +20,7 @@ from torch.utils import mobile_optimizer
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.models.sam2 import Model
 from qai_hub_models.utils import quantization as quantization_utils
-from qai_hub_models.utils.args import (
-    export_parser,
-    get_model_kwargs,
-    validate_precision_runtime,
-)
+from qai_hub_models.utils.args import export_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
@@ -213,7 +209,7 @@ def export_model(
     target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
-    fetch_static_assets: bool = False,
+    fetch_static_assets: str | None = None,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -255,7 +251,8 @@ def export_model(
         target_runtime: Which on-device runtime to target. Default is TFLite.
         compile_options: Additional options to pass when submitting the compile job.
         profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
+        fetch_static_assets:
+            If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
         **additional_model_kwargs: Additional optional kwargs used to customize
             `model_cls.from_pretrained`
 
@@ -295,7 +292,7 @@ def export_model(
             compile_options,
             profile_options,
             component_arg,
-            is_forced_static_asset_fetch=fetch_static_assets,
+            qaihm_version_tag=fetch_static_assets,
         )
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
@@ -415,9 +412,6 @@ def main():
         supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
     export_model(**vars(args))
 
 

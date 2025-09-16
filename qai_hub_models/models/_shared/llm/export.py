@@ -6,56 +6,56 @@
 
 from __future__ import annotations
 
-import glob
-import os
+import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
-import numpy as np
-import onnx
 import qai_hub as hub
-from qai_hub.public_rest_api import DatasetEntries
-from transformers import PretrainedConfig
+import torch
+from typing_extensions import assert_never
 
+from qai_hub_models.models._shared.llm.export_helpers import (
+    VALID_TARGET_RUNTIMES,
+    compile_subcomponent,
+    create_genie_bundle,
+    create_onnxruntime_genai_bundle,
+    export_to_single_onnx_bundle,
+    inference_instantiation,
+    link_component,
+    print_subcomponent_profile_metrics,
+    profile_subcomponent,
+    split_onnx_into_subcomponents,
+)
+from qai_hub_models.models._shared.llm.export_structs import (
+    LLMComponent,
+    LLMInstantiation,
+    LLMInstantiationType,
+)
 from qai_hub_models.models._shared.llm.model import (
-    DEFAULT_SEQUENCE_LENGTH,
+    LLMBase,
     PositionProcessorBase,
+    determine_precision_from_checkpoint,
 )
-from qai_hub_models.models._shared.llm.split_onnx_utils import utils
-from qai_hub_models.models.common import (
-    ExportResult,
-    Precision,
-    QAIRTVersion,
-    TargetRuntime,
+from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
+from qai_hub_models.utils.args import (
+    enable_model_caching,
+    export_parser,
+    get_input_spec_kwargs,
+    get_model_kwargs,
 )
-from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
-from qai_hub_models.utils.compare import torch_inference
-from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
-from qai_hub_models.utils.printing import (
-    print_inference_metrics,
-    print_profile_metrics_from_job,
-)
+from qai_hub_models.utils.model_cache import CacheMode
+from qai_hub_models.utils.printing import print_inference_metrics
 
 if TYPE_CHECKING:
     from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx
-
-
-def get_graph_name(
-    sub_component_name: str, context_length: int, sequence_length: int
-) -> str:
-    model_type, part, _, num_splits = sub_component_name.split("_")
-    assert model_type in {"prompt", "token"}
-    assert part <= num_splits
-    return f"{model_type}_ar{sequence_length}_cl{context_length}_{part}_of_{num_splits}"
 
 
 def export_model(
     model_cls: type[LLM_AIMETOnnx],
     model_name: str,
     model_asset_version: int,
-    components: list[str],
-    sub_components: dict[str, list[str]],
+    num_splits: int,
     num_layers_per_split: int,
     precision: Precision,
     position_processor_cls: type[PositionProcessorBase] | None = None,
@@ -66,7 +66,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
+    target_runtime: VALID_TARGET_RUNTIMES = TargetRuntime.GENIE,
     compile_options: str = "",
     link_options: str = "",
     profile_options: str = "",
@@ -75,57 +75,47 @@ def export_model(
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult]:
     """
-    In this workflow, two instantiations of the LLM model are exported (AR-1,
-    AR-128). AR-<seq_len> refers to a model with input sequence length <seq_len>.
-    We produce two models:
-        AR-128: Used to process prompts.
-        AR-1: Used to process response.
-    Both instantiations have context length 4096 (with KV cache input of
-    4096 minus <seq_len>).
-
-    This function accomplishes several tasks:
-
-        1. Performs the following steps for both AR-1 and AR-128:
-            a. Instantiates a PyTorch model and exports it to ONNX.
-            b. Converts source AIMET Pro encodings to be compatible with this ONNX model.
-            c. Splits the ONNX into multiple parts (due to runtime size limitation).
-            d. For each part: Compile the model to a QNN context binary.
-        2. For each part (across both AR-1 and AR-128):
-            a. Link AR-1 part and AR-128 part together using link jobs.
-        3. Profiles the model performance on real devices.
-        4. Inferences the model on sample inputs (stringing together the parts).
-        5. Downloads the model asset to the local directory.
-        6. Summarizes the results from profiling and inference.
-
-    Each of the last four steps can be optionally skipped using the input options.
+    Export the given LLM class for use with Genie or ONNX Runtime GenAI.
 
     Parameters:
-        model_cls: LLM_AIMETOnnx class.
-        model_name: Model name.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to ALL_COMPONENTS if not specified.
-        sub_components: dictionary of strings pointing to lists of strings,
-            where each sub-component will be grouped using weight sharing with
-            other sub-components to form a component.
-        num_layers_per_split: How many layers to include in each model part.
+        model_cls:
+            LLM class to export.
+        model_name:
+            Model name.
+        num_splits:
+            Number of times to split the model for compatibility with HTP high bandwidth memory.
+        num_layers_per_split:
+            How many layers to include in each model part.
         device: Device for which to export the model.
             Full list of available devices can be found by running `hub.get_devices()`.
             Defaults to DEFAULT_DEVICE if not specified.
-        chipset: Specify the device in terms of chipset instead.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_downloading: If set, skips downloading of compiled model.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling and inference.
+        chipset:
+            Specify the device in terms of chipset instead.
+        skip_profiling:
+            If set, skips profiling of compiled model on real devices.
+        skip_inferencing:
+            If set, skips computing on-device outputs from sample data.
+        skip_downloading:
+            If set, skips creation of the model runtime bundle on-disk.
+        skip_summary:
+            If set, skips waiting for and summarizing results from profiling and inference jobs.
         output_dir: Directory to store generated assets (e.g. compiled model).
             Defaults to `<cwd>/build/<model_name>`.
-        target_runtime: Which on-device runtime to target.
-        compile_options: Additional options to pass when submitting the compile job.
-        profile_options: Additional options to pass when submitting the profile job.
-        synchronous: Let each job finish before submitting the next.
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_pretrained`
+        target_runtime:
+            Which on-device GenAI runtime to target.
+        compile_options:
+            Additional options to pass when submitting the compile job.
+        link_options:
+            Additional options to pass when submitting the link job.
+        profile_options:
+            Additional options to pass when submitting the profile job.
+        synchronous:
+            Let each job finish before submitting the next.
+        model_cache_mode:
+            This script can cache compile jobs so they don't need to be resubmitted.
+            This changed how caching of compile jobs behaves. See CacheMode struct.
+        **additional_model_kwargs:
+            Additional optional kwargs used to customize `model_cls.from_pretrained`
 
     Returns:
         A Mapping from sub-component name to a 3-tuple of:
@@ -133,17 +123,14 @@ def export_model(
             * A ProfileJob containing metadata about the profile job (None if profiling skipped).
             * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
-
-    num_splits = len(components)
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    hub_devices = hub.get_devices(
-        name=device if device and not chipset else "",
-        attributes=f"chipset:{chipset}" if chipset else [],
-    )
 
     # Pick a device
+    hub_device = hub.get_devices(
+        name=device if device and not chipset else "",
+        attributes=f"chipset:{chipset}" if chipset else [],
+    )[-1]
 
-    hub_device = hub_devices[-1]
     # Check if weight sharing is supported.
     if "htp-supports-weight-sharing:true" not in hub_device.attributes:
         raise ValueError(
@@ -151,350 +138,255 @@ def export_model(
         )
 
     # Instantiation names and input sequence length
-    # 1. Initialize PyTorch model
-    model_params = dict(get_model_kwargs(model_cls, additional_model_kwargs))
-    prompt_sequence_length = model_params.pop(
-        "sequence_length", DEFAULT_SEQUENCE_LENGTH
+    # 1. Initialize PyTorch models
+    model_params = get_model_kwargs(model_cls, additional_model_kwargs)
+
+    #
+    # One limitation of HTP inference is that it must execute a statically-compiled graph.
+    # That means we can't pass a different input shape than what we compiled with.
+    # This is a challenge because Large Language Models typically execute in two "modes":
+    #
+
+    #   Mode 1: The Prompt Processor. Sequence length default is 128
+    #    This can process a large input sequence length, and can generate the KV cache
+    #    for a large portion of (or the entire) the user prompt in 1 inference.
+    #    This is much faster than creating the KV cache by feeding 1 token at a time.
+    #    The logits output is typically discarded.
+    prompt_processor = LLMInstantiation(
+        LLMInstantiationType.PROMPT_PROCESSOR, model_cls.from_pretrained(**model_params)
     )
-    assert isinstance(prompt_sequence_length, int)
 
-    # If user specifies sequence length, it will define the prompt
-    # generator's sequence length only
-    instantiations = [
-        ("prompt", prompt_sequence_length),
-        ("token", 1),
-    ]
+    #   Mode 2: The Token Generator. Sequence length is always 1
+    #    This takes one additional token at a time as input (a sequence length of 1).
+    #    It is used in an autoregressive manner to predict the next output token in response to a user prompt.
+    token_generator = LLMInstantiation(
+        LLMInstantiationType.TOKEN_GENERATOR,
+        model_cls.from_pretrained(**{**model_params, "sequence_length": 1}),
+    )
 
-    compile_jobs_to_link: dict[str, list[hub.client.CompileJob]] = {}
-    compile_jobs: dict[str, hub.client.CompileJob] = {}
-    link_jobs: dict[str, hub.client.LinkJob] = {}
-    profile_options_per_instantiation: dict[str, str] = {}
-    onnx_model_path_from_sub_component_name: dict[str, str] = {}
-    llm_config: PretrainedConfig | None = None
+    llm_components = [LLMComponent(idx) for idx in range(0, num_splits)]
 
-    sub_component_names: dict[str, list[str]] = {}
-    component_from_sub_component_names = {}
-    input_encodings_path: str | None = None
-
-    # Target QNN context binaries
-    hub_target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
-    compile_options += " --qnn_bin_conversion_via_model_library"
-
-    for instantiation_name, seq_len in instantiations:
-        full_name = f"{model_name}_{instantiation_name}"
-        model = model_cls.from_pretrained(
-            sequence_length=seq_len, precision=precision, **model_params
+    # 2. Split each PyTorch model into parts, and compile them.
+    #
+    # A second limitation of HTP inference is that HTP can only load graphs
+    # of a certain file size. It is therefore necessary to split the LLM into
+    # smaller parts that can fit inside HTP high bandwidth memory.
+    #
+    # Each model "mode" (or instantiation) will be split into `num_splits` ONNX files.
+    # Then each ONNX split will be compiled to a QAIRT context binary.
+    # In the end, you get 2 x num_splits context binaries.
+    for instantiation in [prompt_processor, token_generator]:
+        onnx_output_path = output_path / instantiation.name
+        export_to_single_onnx_bundle(
+            instantiation=instantiation,
+            target_runtime=target_runtime,
+            output_path=onnx_output_path,
+            input_spec=None,
+            **get_input_spec_kwargs(instantiation.model, additional_model_kwargs),
         )
 
-        llm_config = model.llm_config
-        sub_component_names[instantiation_name] = []
-
-        profile_options_per_instantiation[instantiation_name] = (
-            model.get_hub_profile_options(hub_target_runtime, profile_options)
+        split_onnx_into_subcomponents(
+            instantiation=instantiation,
+            components=llm_components,
+            model_name=model_name,
+            num_layers_per_split=num_layers_per_split,
+            output_path=onnx_output_path,
         )
-
-        input_spec = model.get_input_spec(
-            **{
-                **get_input_spec_kwargs(model, additional_model_kwargs),
-                "sequence_length": seq_len,
-                "context_length": model.context_length,
-                "llm_config": llm_config.to_dict(),
-            },
-        )
-
-        # Export the full model to ONNX model
-        sub_output_path = output_path / instantiation_name
-        source_model = model.convert_to_hub_source_model(
-            hub_target_runtime,
-            sub_output_path,
-            input_spec,
-            external_onnx_weights=True,
-            output_names=model.get_output_names(),
-        )
-        assert source_model is not None
-        source_model_path = Path(source_model)
-        input_onnx_path = glob.glob((source_model_path / "*.onnx").as_posix())[0]
-        encodings_files = glob.glob((source_model_path / "*.encodings").as_posix())
-        input_encodings_path = encodings_files[0] if encodings_files else None
-
-        # Split encodings
-        model_artifact = Path(output_dir or Path.cwd()) / instantiation_name
-        os.makedirs(model_artifact, exist_ok=True)
-
-        onnx.checker.check_model(input_onnx_path, full_check=True)
-        if num_splits == 1:
-            model_artifact = source_model_path
-        else:
-            utils.split_onnx(
-                onnxfile=input_onnx_path,
-                modelname=full_name,
-                num_splits=num_splits,
-                num_layers_per_split=num_layers_per_split,
-                output_dir=model_artifact,
-                split_embedding=True,
-                encoding_file=input_encodings_path,
-                using_qairt_workflow=True,
-            )
 
         # Submit the parts for compilation
-        for i in range(num_splits):
-            # Sequence length (ar...) and context lenght (cl...) in graph name
-            # are semantically important to Genie
-            sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
-            graph_name = get_graph_name(
-                sub_component_name, model.context_length, seq_len
-            )
-            component_name = f"part_{i + 1}_of_{num_splits}"
-            sub_component_names[instantiation_name].append(sub_component_name)
-            full_name = f"{model_name}_{sub_component_name}"
-            ext = ".aimet" if input_encodings_path is not None else ".onnx"
-            if num_splits == 1:
-                aimet_path = Path(source_model_path)
-            else:
-                aimet_path = Path(model_artifact) / (full_name + ext)
-            onnx_files = list(aimet_path.glob("*.onnx"))
-            if len(onnx_files) != 1:
-                raise FileNotFoundError(
-                    f"Expected exactly one .onnx file, but found {len(onnx_files)}"
-                )
-            onnx_path = onnx_files[0]
-            onnx.checker.check_model(onnx_path, full_check=True)
-
-            if len(list(aimet_path.glob("*"))) == 1:
-                # Exactly one .onnx file under aimet_path (no external weights
-                # or encodings). Change aimet_path to that onnx directly
-                aimet_path = onnx_path
-
-            onnx_model_path_from_sub_component_name[sub_component_name] = str(onnx_path)
-            if QAIRTVersion.HUB_FLAG not in compile_options:
-                if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-                    compile_options += (
-                        f" {target_runtime.default_qairt_version.hub_option}"
-                    )
-            model_compile_options = (
-                model.get_hub_compile_options(
-                    hub_target_runtime, precision, compile_options
-                )
-                + f" --qnn_options context_enable_graphs={graph_name}"
-            )
-            current_model = get_or_create_cached_model(
-                model_name=model_name,
-                model_asset_version=model_asset_version,
-                cache_name=sub_component_name,
-                cache_mode=model_cache_mode,
-                model_path=str(aimet_path),
-                additional_keys={
-                    "context_length": str(model.context_length),
-                    "sequence_length": str(seq_len),
-                    "precision": str(precision),
-                },
-            )
-
-            submitted_compile_job = hub.submit_compile_job(
-                model=current_model,
+        for component in llm_components:
+            compile_subcomponent(
+                instantiation=instantiation,
+                component=component,
+                num_components=num_splits,
+                target_runtime=target_runtime,
+                precision=precision,
                 device=hub_device,
-                name=full_name,
-                options=model_compile_options,
+                model_name=model_name,
+                synchronous=synchronous,
+                model_asset_version=model_asset_version,
+                model_cache_mode=model_cache_mode,
+                compile_options=compile_options,
             )
-            if synchronous:
-                submitted_compile_job.wait()
-            if component_name not in compile_jobs_to_link:
-                compile_jobs_to_link[component_name] = []
 
-            compile_jobs_to_link[component_name].append(
-                cast(hub.client.CompileJob, submitted_compile_job)
-            )
-            compile_jobs[sub_component_name] = cast(
-                hub.client.CompileJob, submitted_compile_job
-            )
-            component_from_sub_component_names[sub_component_name] = component_name
-
-    # 2. Link jobs
-    for component_name, cjobs in compile_jobs_to_link.items():
-        models = [cast(hub.Model, cjob.get_target_model()) for cjob in cjobs]
-        full_name = f"{model_name}_{component_name}"
-        if QAIRTVersion.HUB_FLAG not in link_options:
-            if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-                link_options += f" {target_runtime.default_qairt_version.hub_option}"
-        model_link_options = model.get_hub_link_options(
-            hub_target_runtime, link_options
+    # 3. "Link" each component.
+    #
+    # Each component will have 2 associated context binaries:
+    # one for the prompt processor and one for the token generator.
+    #
+    # The weights inside these two context binaries are identical.
+    # The graphs are also identical except for the sequence length.
+    #
+    # When we "link" the two binaries together, we create a single binary
+    # with both graphs but only 1 copy of the weights.
+    for component in llm_components:
+        link_component(
+            model=token_generator.model,
+            component=component,
+            num_components=num_splits,
+            model_name=model_name,
+            target_runtime=target_runtime,
+            synchronous=synchronous,
+            link_options=link_options,
         )
 
-        link_job = hub.submit_link_job(
-            models,  # type: ignore[arg-type]
-            name=full_name,
-            options=model_link_options,
-        )
-        if synchronous:
-            link_job.wait()
-        link_jobs[component_name] = link_job
-
-    # 3. Profile the model assets on real devices
-    profile_jobs: dict[str, hub.client.ProfileJob] = {}
+    # 4. Profile the model assets on real devices.
+    # Each graph (the prompt processor and token generator for each component) is profiled separately.
+    # This means 2 x num_splits profile jobs.
     if not skip_profiling:
-        for instantiation_name, seq_len in instantiations:
-            for sub_component_name in sub_component_names[instantiation_name]:
-                component_name = component_from_sub_component_names[sub_component_name]
-                graph_name = get_graph_name(
-                    sub_component_name, model.context_length, seq_len
-                )
-                profile_options = (
-                    profile_options_per_instantiation[instantiation_name]
-                    + f" --qnn_options context_enable_graphs={graph_name}"
-                )
-                print(
-                    f"Profiling model {instantiation_name} {sub_component_name} on a hosted device."
-                )
-                link_job = link_jobs[component_name]
-                if not link_job.wait().success:
-                    raise RuntimeError(
-                        f"Link job {link_job.job_id} failed. Please go to {link_job.url} and consult the error log."
-                    )
-                full_name = f"{model_name}_{sub_component_name}"
-                if QAIRTVersion.HUB_FLAG not in profile_options:
-                    if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-                        profile_options += (
-                            f" {target_runtime.default_qairt_version.hub_option}"
-                        )
-                submitted_profile_job = hub.submit_profile_job(
-                    model=link_job.get_target_model(),
+        for instantiation in [prompt_processor, token_generator]:
+            for component in llm_components:
+                profile_subcomponent(
+                    instantiation=instantiation,
+                    component=component,
+                    num_components=num_splits,
                     device=hub_device,
-                    name=full_name,
-                    options=profile_options,
-                )
-                if synchronous:
-                    submitted_profile_job.wait()
-                profile_jobs[sub_component_name] = cast(
-                    hub.client.ProfileJob, submitted_profile_job
+                    model_name=model_name,
+                    target_runtime=target_runtime,
+                    synchronous=synchronous,
+                    profile_options=profile_options,
                 )
 
-    # 4. Run inference on-device with sample inputs
-    inference_jobs: dict[str, hub.client.InferenceJob] = {}
-    final_device_output_data: dict[str, DatasetEntries] = {}
-    final_ref_output_data: dict[str, list[np.ndarray]] = {}
+    # 5. Run inference on-device with sample inputs
+    # Each graph (the prompt processor and token generator for each component) is inferenced separately.
+    # This means 2 x len(components) inference jobs.
     if not skip_inferencing:
-        for instantiation_name, seq_len in instantiations:
-            model = model_cls.from_pretrained(sequence_length=seq_len, **model_params)
-            full_model_sample_inputs = model.sample_inputs()
-            output_data: DatasetEntries = {}
-            for sub_component_name in sub_component_names[instantiation_name]:
-                component_name = component_from_sub_component_names[sub_component_name]
-                print(
-                    f"Running inference for {sub_component_name} on a hosted device with example inputs."
-                )
-
-                compile_job = compile_jobs[sub_component_name]
-                target_shapes = compile_job.target_shapes
-
-                # Source inputs from full inputs and previous part's outputs
-                sample_inputs = {}
-                for key in target_shapes:
-                    if key in output_data:
-                        sample_inputs[key] = output_data[key]
-                    elif key in full_model_sample_inputs:
-                        sample_inputs[key] = full_model_sample_inputs[key]
-
-                # Load model with no-AIMET mode
-                graph_name = sub_component_name.replace(
-                    instantiation_name,
-                    f"{instantiation_name}_ar{seq_len}_cl{model.context_length}",
-                )
-                inference_options = (
-                    profile_options_per_instantiation[instantiation_name]
-                    + f" --qnn_options context_enable_graphs={graph_name}"
-                )
-                # Load individual model part
-                full_name = f"{model_name}_{sub_component_name}"
-                submitted_inference_job = hub.submit_inference_job(
-                    model=link_jobs[component_name].get_target_model(),
-                    inputs=sample_inputs,
-                    device=hub_device,
-                    name=full_name,
-                    options=inference_options,
-                )
-                if synchronous:
-                    submitted_inference_job.wait()
-                    output_data = cast(
-                        DatasetEntries, submitted_inference_job.download_output_data()
-                    )
-                inference_jobs[sub_component_name] = cast(
-                    hub.client.InferenceJob, submitted_inference_job
-                )
-
-            # Store the final output data
-            final_device_output_data[instantiation_name] = output_data
-
-            if not skip_summary:
-                # Compute reference (PyTorch) output data
-                ref_output_data_list = torch_inference(model, full_model_sample_inputs)
-                final_ref_output_data[instantiation_name] = ref_output_data_list
-
-    # 5. Download the model assets to a local file
-    if not skip_downloading:
-        os.makedirs(output_path, exist_ok=True)
-        for component_name, link_job in link_jobs.items():
-            target_model = link_job.get_target_model()
-            assert target_model is not None
-            target_model.download(
-                str(output_path / f"{model_name}_{component_name}.bin")
+        for instantiation in [prompt_processor, token_generator]:
+            inference_instantiation(
+                instantiation=instantiation,
+                components=llm_components,
+                device=hub_device,
+                input_data=None,
+                model_name=model_name,
+                target_runtime=target_runtime,
+                synchronous=synchronous,
+                inference_options=profile_options,
+                compute_torch=not skip_summary,
             )
 
-    # 6. Summarize the results from profiling and inference
+    # 6. Download combined context binaries for each component.
+    if not skip_downloading:
+        if target_runtime == TargetRuntime.GENIE:
+            create_genie_bundle(
+                token_generator=token_generator,
+                components=llm_components,
+                device=hub_device,
+                model_name=model_name,
+                output_path=output_path / "genie_bundle",
+            )
+            print(
+                "These models can be deployed on-device using the Genie SDK. "
+                "For a full tutorial, please follow the instructions here: "
+                "https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
+            )
+        elif target_runtime == TargetRuntime.ONNXRUNTIME_GENAI:
+            if position_processor_cls is None:
+                raise ValueError(
+                    "Cannot generate a ONNX Runtime GenAI bundle without a position processor defined."
+                )
+            create_onnxruntime_genai_bundle(
+                prompt_processor=prompt_processor,
+                token_generator=token_generator,
+                position_processor_cls=position_processor_cls,
+                components=llm_components,
+                model_name=model_name,
+                output_path=output_path / "onnxruntime_genai_bundle",
+            )
+            print("These models can be deployed on-device using ONNX Runtime GenAI.")
+        else:
+            assert_never(target_runtime)
+
+    # 7. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:
-        for instantiation_name, _ in instantiations:
-            for sub_component_name in sub_component_names[instantiation_name]:
-                profile_job = profile_jobs[sub_component_name]
-                assert profile_job is not None and profile_job.wait().success
-                profile_data: dict[str, Any] = profile_job.download_profile()
-                print_profile_metrics_from_job(profile_job, profile_data)
+        for instantiation in [prompt_processor, token_generator]:
+            for component in llm_components:
+                print_subcomponent_profile_metrics(
+                    instantiation_type=instantiation.type,
+                    component=component,
+                    num_components=num_splits,
+                )
 
     if not skip_summary and not skip_inferencing:
-        for instantiation_name, _ in instantiations:
-            # Get ordered model output names
-            torch_out = final_ref_output_data[instantiation_name]
-            inference_result = final_device_output_data[instantiation_name]
-            print_inference_metrics(
-                None,
-                inference_result,
-                torch_out,
-            )
-
-    if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-        assert position_processor_cls is not None
-        assert llm_config is not None
-        assert input_encodings_path is not None
-
-        hub_model = next(iter(link_jobs.values())).get_target_model()
-        assert hub_model is not None
-
-        qairt_version = hub_model.metadata[hub.ModelMetadataKey.QAIRT_SDK_VERSION]
-
-        model.prepare_ort_genai_assets(
-            model_name=model_name,
-            llm_config=llm_config,
-            position_processor_cls=position_processor_cls,
-            encodings_path=input_encodings_path,
-            context_length=model_params["context_length"],
-            prompt_sequence_length=prompt_sequence_length,
-            onnx_model_path_from_sub_component_name=onnx_model_path_from_sub_component_name,
-            num_splits=num_splits,
-            qairt_version=qairt_version,
-            output_dir=output_path,
-        )
-        print(
-            "These models can be deployed on-device using ONNX Runtime with the GenAI extension."
-        )
-    else:
-        print(
-            "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
-        )
+        for instantiation in [prompt_processor, token_generator]:
+            if (
+                instantiation.device_output is not None
+                and instantiation.gt_output is not None
+            ):
+                print_inference_metrics(
+                    inference_job=None,
+                    inference_result=instantiation.device_output,
+                    torch_out=instantiation.gt_output,
+                )
 
     return {
-        sub_component_name: ExportResult(
-            link_job=link_jobs[component_name],
-            profile_job=profile_jobs.get(sub_component_name, None),
-            inference_job=inference_jobs.get(sub_component_name, None),
+        component.subcomponent_name(subcomponent_type, num_splits): ExportResult(
+            compile_job=component.subcomponent_compile_job[subcomponent_type],
+            profile_job=component.subcomponent_profile_job.get(subcomponent_type),
+            inference_job=component.subcomponent_inference_job.get(subcomponent_type),
+            link_job=component.link_job,
         )
-        for component_name in components
-        for sub_component_name in sub_components[component_name]
+        for component in llm_components
+        for subcomponent_type in component.subcomponent_compile_job
     }
+
+
+def export_main(
+    model_id: str,
+    model_asset_version: int,
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
+    num_splits: int,
+    num_layers_per_split: int,
+    model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    position_processor_cls: type[PositionProcessorBase],
+    default_export_device: str,
+    default_precision: Precision,
+):
+    warnings.filterwarnings("ignore")
+    parser = export_parser(
+        model_cls=model_cls,
+        supported_precision_runtimes=supported_precision_runtimes,
+        default_export_device=default_export_device,
+        uses_link_job=True,
+    )
+    parser.add_argument(
+        "--synchronous",
+        action="store_true",
+        help="Wait for each command to finish before submitting new.",
+    )
+    parser = enable_model_caching(parser)
+    parser.set_defaults(
+        _skip_quantsim_creation=True,
+        precision=default_precision,
+        target_runtime=TargetRuntime.GENIE,
+    )
+    args = parser.parse_args()
+    additional_model_kwargs = vars(args)
+    if not args.skip_inferencing:
+        additional_model_kwargs["_skip_quantsim_creation"] = False
+    fp_model_params = dict(
+        sequence_length=additional_model_kwargs["sequence_length"],
+        context_length=additional_model_kwargs["context_length"],
+    )
+    if isinstance(
+        additional_model_kwargs["checkpoint"], str
+    ) and additional_model_kwargs["checkpoint"].startswith("DEFAULT"):
+        additional_model_kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
+            **fp_model_params
+        )
+        additional_model_kwargs["precision"] = (
+            determine_precision_from_checkpoint(additional_model_kwargs["checkpoint"])
+            or default_precision
+        )
+    if host_device := additional_model_kwargs.get("host_device"):
+        additional_model_kwargs["host_device"] = torch.device(host_device)
+
+    export_model(
+        model_cls=model_cls,
+        position_processor_cls=position_processor_cls,
+        model_name=model_id,
+        model_asset_version=model_asset_version,
+        num_splits=num_splits,
+        num_layers_per_split=num_layers_per_split,
+        **additional_model_kwargs,
+    )

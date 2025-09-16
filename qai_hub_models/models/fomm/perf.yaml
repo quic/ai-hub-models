@@ -1,6 +1,5 @@
 supported_devices:
 - Snapdragon 8 Elite QRD
-- Snapdragon X Elite CRD
 - Samsung Galaxy S24
 - Samsung Galaxy S24 Ultra
 - Samsung Galaxy S24+
@@ -16,155 +15,154 @@ supported_devices:
 - Samsung Galaxy S21
 - Samsung Galaxy S21 Ultra
 - Samsung Galaxy S21+
-- Snapdragon X Plus 8-Core CRD
+- QCS8550 (Proxy)
 supported_chipsets:
 - qualcomm-snapdragon-8-elite
-- qualcomm-snapdragon-x-elite
 - qualcomm-snapdragon-8gen3
 - qualcomm-snapdragon-8gen2
 - qualcomm-snapdragon-8gen1
 - qualcomm-snapdragon-888
-- qualcomm-snapdragon-x-plus-8-core
+- qualcomm-qcs8550-proxy
 precisions:
   float:
     components:
       FOMMDetector:
         universal_assets:
           onnx:
-            model_id: mn0dl1r8m
+            model_id: mnj2o3lym
             tool_versions:
-              qairt: 2.33.2.250410134701_117956
+              qairt: 2.36.4.250725200057_123280
               onnx_runtime: 1.22.0
         performance_metrics:
-          Samsung Galaxy S23:
+          QCS8550 (Proxy):
             onnx:
-              job_id: jgkq4oxog
+              job_id: jp31o2exg
               job_status: Passed
-              inference_time_milliseconds: 4.799
+              inference_time_milliseconds: 4.527
               estimated_peak_memory_range_mb:
                 min: 0
-                max: 88
+                max: 91
               primary_compute_unit: NPU
               layer_counts:
                 total: 57
                 npu: 57
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
+                onnx_runtime: 1.22.0
+          Samsung Galaxy S23:
+            onnx:
+              job_id: jp29onlxg
+              job_status: Passed
+              inference_time_milliseconds: 4.55
+              estimated_peak_memory_range_mb:
+                min: 1
+                max: 80
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 57
+                npu: 57
+              tool_versions:
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0
           Samsung Galaxy S24:
             onnx:
-              job_id: jgl2xomlp
+              job_id: jp02o7l25
               job_status: Passed
-              inference_time_milliseconds: 3.56
+              inference_time_milliseconds: 3.392
               estimated_peak_memory_range_mb:
                 min: 0
-                max: 21
+                max: 23
               primary_compute_unit: NPU
               layer_counts:
                 total: 57
                 npu: 57
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0
           Snapdragon 8 Elite QRD:
             onnx:
-              job_id: jp319x0zg
+              job_id: jgkq6m3yg
               job_status: Passed
-              inference_time_milliseconds: 3.264
+              inference_time_milliseconds: 3.036
               estimated_peak_memory_range_mb:
-                min: 1
-                max: 19
+                min: 0
+                max: 18
               primary_compute_unit: NPU
               layer_counts:
                 total: 57
                 npu: 57
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
-                onnx_runtime: 1.22.0
-          Snapdragon X Elite CRD:
-            onnx:
-              job_id: jpvrdekm5
-              job_status: Passed
-              inference_time_milliseconds: 5.01
-              estimated_peak_memory_range_mb:
-                min: 28
-                max: 28
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 57
-                npu: 57
-              tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0
       FOMMGenerator:
         universal_assets:
           onnx:
-            model_id: mn1jeg1rn
+            model_id: mq2v0ol7m
             tool_versions:
-              qairt: 2.33.2.250410134701_117956
+              qairt: 2.36.4.250725200057_123280
               onnx_runtime: 1.22.0
         performance_metrics:
-          Samsung Galaxy S23:
+          QCS8550 (Proxy):
             onnx:
-              job_id: j5qryzqmp
+              job_id: jgondq34p
               job_status: Passed
-              inference_time_milliseconds: 26.54
+              inference_time_milliseconds: 26.623
               estimated_peak_memory_range_mb:
-                min: 26
-                max: 34
+                min: 23
+                max: 31
               primary_compute_unit: NPU
               layer_counts:
                 total: 151
                 npu: 139
                 cpu: 12
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
+                onnx_runtime: 1.22.0
+          Samsung Galaxy S23:
+            onnx:
+              job_id: jpyj806rp
+              job_status: Passed
+              inference_time_milliseconds: 26.52
+              estimated_peak_memory_range_mb:
+                min: 0
+                max: 198
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 151
+                npu: 139
+                cpu: 12
+              tool_versions:
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0
           Samsung Galaxy S24:
             onnx:
-              job_id: j56z7r47g
+              job_id: jp8mjvzz5
               job_status: Passed
-              inference_time_milliseconds: 18.762
+              inference_time_milliseconds: 19.121
               estimated_peak_memory_range_mb:
                 min: 23
-                max: 88
+                max: 80
               primary_compute_unit: NPU
               layer_counts:
                 total: 151
                 npu: 139
                 cpu: 12
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0
           Snapdragon 8 Elite QRD:
             onnx:
-              job_id: jgonro6dp
+              job_id: j5qr4o37p
               job_status: Passed
-              inference_time_milliseconds: 18.472
+              inference_time_milliseconds: 19.071
               estimated_peak_memory_range_mb:
-                min: 19
-                max: 84
+                min: 0
+                max: 56
               primary_compute_unit: NPU
               layer_counts:
                 total: 151
                 npu: 139
                 cpu: 12
               tool_versions:
-                qairt: 2.33.2.250410134701_117956
-                onnx_runtime: 1.22.0
-          Snapdragon X Elite CRD:
-            onnx:
-              job_id: jgj27on85
-              job_status: Passed
-              inference_time_milliseconds: 25.164
-              estimated_peak_memory_range_mb:
-                min: 89
-                max: 89
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 151
-                npu: 139
-                cpu: 12
-              tool_versions:
-                qairt: 2.33.2.250410134701_117956
+                qairt: 2.36.4.250725200057_123280
                 onnx_runtime: 1.22.0

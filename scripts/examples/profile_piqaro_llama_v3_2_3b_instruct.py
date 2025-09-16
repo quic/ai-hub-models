@@ -198,15 +198,6 @@ if __name__ == "__main__":
         num_layers_per_split = 14 if args.opt == "manual" else 10
     logger.info(f"Split parameters: {num_splits=}, {num_layers_per_split=}")
 
-    all_components = [f"part_{i + 1}_of_{num_splits}" for i in range(num_splits)]
-    all_sub_components = {
-        f"part_{i + 1}_of_{num_splits}": [
-            f"prompt_{i + 1}_of_{num_splits}",
-            f"token_{i + 1}_of_{num_splits}",
-        ]
-        for i in range(num_splits)
-    }
-
     devices = [
         "Snapdragon X Elite CRD",
         "Samsung Galaxy S23 (Family)",
@@ -220,8 +211,7 @@ if __name__ == "__main__":
             model_cls=model_cls,
             model_name=model_name,
             model_asset_version=MODEL_ASSET_VERSION,
-            components=all_components,
-            sub_components=all_sub_components,
+            num_splits=num_splits,
             num_layers_per_split=num_layers_per_split,
             device=device,
             output_dir=output_dir,

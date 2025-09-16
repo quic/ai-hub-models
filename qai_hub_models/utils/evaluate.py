@@ -849,7 +849,9 @@ def evaluate_session_on_dataset(
     assert isinstance(
         torch_model, BaseModel
     ), "Evaluation is not yet supported for CollectionModels."
-    source_torch_dataset = get_dataset_from_name(dataset_name, DatasetSplit.VAL)
+    source_torch_dataset = get_dataset_from_name(
+        dataset_name, DatasetSplit.VAL, torch_model.get_input_spec()
+    )
     num_samples = num_samples or DEFAULT_NUM_EVAL_SAMPLES
 
     _validate_inputs(num_samples, source_torch_dataset)

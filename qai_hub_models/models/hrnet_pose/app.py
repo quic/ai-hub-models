@@ -172,7 +172,7 @@ class HRNetPoseApp:
 
         # create predictions from heatmap
         keypoints, scores = get_final_preds(
-            heatmaps, np.array([center]), np.array([scale]) / 200
+            heatmaps, np.array([center]), np.array([scale])
         )
         keypoints = np.round(keypoints).astype(np.int32)
         if raw_output:
