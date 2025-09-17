@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 # isort: off
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet_onnx import (
     AIMETOnnxQuantizableMixin,
-    ensure_max_aimet_onnx_version,
 )
 
 # isort: on
@@ -19,9 +20,11 @@ from pathlib import Path
 
 import diffusers
 import torch
-from aimet_common.defs import QuantScheme
-from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-from aimet_onnx.quantsim import load_encodings_to_sim
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+
+
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
 from huggingface_hub import hf_hub_download
@@ -48,9 +51,9 @@ from qai_hub_models.utils.checkpoint import (
 )
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
+from qai_hub_models.utils.quantization_aimet_onnx import ensure_max_aimet_onnx_version
 
 MAX_AIMET_ONNX_VERSION = "2.6.0"
-ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION)
 
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):
@@ -108,6 +111,11 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION, cls.model_id)
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -227,6 +235,11 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION, cls.model_id)
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -324,6 +337,11 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION, cls.model_id)
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(

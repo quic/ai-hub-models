@@ -41,13 +41,18 @@ def hf_glob_patch(file_exists: bool = True, component_glob_result: list[str] = [
             This is the list of component names. The glob will return 1 file path per component.
     """
 
-    def hf_glob(self, path: str):
+    def hf_glob(self, path: str, revision: str | None = None):
+        if revision is not None:
+            org, repo, file = path.split("/", maxsplit=2)
+            path = "/".join([org, repo + f"@{revision}", file])
+
         if file_exists and component_glob_result:
             # Act like the .* in the glob returns each component
             return [
                 path.replace("*", f"_{component}" if component else "")
                 for component in component_glob_result
             ]
+
         return [path] if file_exists else []
 
     return mock.patch("qai_hub_models.utils.huggingface.HfFileSystem.glob", hf_glob)

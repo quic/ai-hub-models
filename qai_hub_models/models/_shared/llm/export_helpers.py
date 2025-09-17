@@ -491,8 +491,8 @@ def fetch_context_binaries(
     # Download each component's context binary.
     for component in components:
         link_job = component.link_job
-        assert link_job is not None and link_job.get_status().success
-        target_model_filename = f"{model_name}_{component.name}.bin"
+        assert link_job is not None and link_job.wait().success
+        target_model_filename = f"{model_name}_{component.name(len(components))}.bin"
         target_model_list.append(target_model_filename)
         cast(hub.Model, link_job.get_target_model()).download(
             str(output_path / target_model_filename)
@@ -522,7 +522,7 @@ def print_subcomponent_profile_metrics(
         AssertionError if the profile job failed.
     """
     profile_job = component.subcomponent_profile_job[instantiation_type]
-    if not profile_job.get_status().success:
+    if not profile_job.wait().success:
         print(
             f"Profile job for {component.subcomponent_name(instantiation_type, num_components=num_components)} failed:\n"
             f"    {profile_job.get_status().message}"

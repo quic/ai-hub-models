@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import posixpath
 from pathlib import Path
 
 from huggingface_hub import HfApi, HfFileSystem, hf_hub_download, hf_hub_url
@@ -76,14 +77,15 @@ def fetch_huggingface_target_model(
     hf_path = config.get_huggingface_path(model_name)
     file_types = [runtime_path.file_extension]
 
-    files = []
+    files: list[str] = []
     for component_name in model_components or ["COMPONENT"]:  # type: ignore[list-item]
         for file_type in file_types:
             files += fs.glob(
-                os.path.join(
+                posixpath.join(
                     hf_path,
                     f"{get_huggingface_model_filename(model_name, component_name, precision, chipset if runtime_path.is_aot_compiled else None, runtime_path.is_aot_compiled).replace('_COMPONENT', '*')}.{file_type}",
-                )
+                ),
+                revision=qaihm_version_tag,
             )
 
     if not files:
@@ -96,10 +98,11 @@ def fetch_huggingface_target_model(
     paths: list[Path] = []
     urls: list[str] = []
     for file in files:
+        _org, _repo_and_revision, filepath = file.split("/", maxsplit=2)
         if output_folder:
             path = hf_hub_download(
                 hf_path,
-                file[len(hf_path) + 1 :],
+                filepath,
                 local_dir=str(output_folder),
                 revision=qaihm_version_tag,
             )
@@ -107,7 +110,7 @@ def fetch_huggingface_target_model(
 
         url = hf_hub_url(
             hf_path,
-            file[len(hf_path) + 1 :],
+            filepath,
             revision=qaihm_version_tag,
         )
         urls.append(url)
