@@ -1,0 +1,115 @@
+name: Notify public Github activity on Slack
+
+on:
+  issues:
+    types: [opened, labeled, closed]
+  issue_comment:
+    types: [created] # Listen only for newly created comments
+
+  pull_request:
+    branches:
+      - main
+
+env:
+  SLACK_CHANNEL_ID: "C05LEEK0N8J"
+  ISSUE_EMOJI: ":ladybug:"
+  PR_EMOJI: ":male-technologist:"
+  MSG_TITLE: "[Public GitHub]"
+
+jobs:
+  notify_new_issue:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'issues'
+      && github.event.action == 'opened'
+      && !contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
+    name: Notify Slack - New Issue
+    runs-on: ubuntu-latest
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.ISSUE_EMOJI }} ${{ env.MSG_TITLE }} New issue created: <${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+
+  notify_new_issue_comment:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'issue_comment'
+      && !github.event.issue.pull_request
+      && github.event.action == 'created'
+      && !contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
+    name: Notify Slack - New Issue
+    runs-on: ubuntu-latest
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.ISSUE_EMOJI }} ${{ env.MSG_TITLE }} New issue comment: <${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+
+  notify_stale_issues:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'issues'
+      && github.event.action == 'labeled'
+      && github.event.label.name == 'stale'
+      && github.actor == 'github-actions[bot]'
+    runs-on: ubuntu-lates
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.ISSUE_EMOJI }} ${{ env.MSG_TITLE }} An issue became stale:<${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+
+  notify_closed_stale_issues:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'issues'
+      && github.event.action == 'closed'
+      && github.actor == 'github-actions[bot]'
+    runs-on: ubuntu-lates
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.ISSUE_EMOJI }} ${{ env.MSG_TITLE }} A stale issue was auto-closed: <${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>}"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+
+  notify_new_pr:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'pull_request'
+      && github.event.action == 'opened'
+      && !contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
+    name: Notify Slack - New PR
+    runs-on: ubuntu-latest
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.PR_EMOJI }} ${{ env.MSG_TITLE }} New PR: <${{ github.event.pull_request.html_url }}|${{ github.event.pull_request.title }}>"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}
+
+  notify_new_pr_comment:
+    if: >-
+      github.repository == 'quic/ai-hub-models'
+      && github.event_name == 'issue_comment'
+      && github.event.issue.pull_request
+      && github.event.action == 'created'
+      && !contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
+    name: Notify Slack - New PR Comment
+    runs-on: ubuntu-latest
+    steps:
+    - uses: slackapi/slack-github-action@v1.25.0
+      with:
+        channel-id: ${{ env.SLACK_CHANNEL_ID }}
+        slack-message: "${{ env.PR_EMOJI }} ${{ env.MSG_TITLE }} New PR Comment: <${{ github.event.issue.pull_request.html_url }}|${{ github.event.issue.pull_request.title }}>"
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_NOTIFIER_TOKEN }}

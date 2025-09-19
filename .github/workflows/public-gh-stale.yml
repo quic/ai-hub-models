@@ -1,0 +1,27 @@
+name: Notify, Mark, and Close Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight UTC
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      issues: write
+    steps:
+      - uses: actions/stale@v9 # Use the latest version of the stale action
+        with:
+          days-before-stale: 10
+          days-before-close: 7
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          mark-comment: >
+            This issue has been automatically marked as stale because it has not had
+            recent activity. It will be closed if no further activity occurs.
+          close-comment: >
+            Closing this issue due to inactivity. If you feel this issue is still relevant,
+            please reopen it and provide additional information.
+          exempt-labels: 'pinned,security'
+          enable-statistics: true
