@@ -14,7 +14,7 @@ from qai_hub_models.scorecard.path_profile import (
     TargetRuntime,
 )
 from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_patches
-from qai_hub_models.test.utils.set_env import set_temp_env
+from qai_hub_models.utils.set_env import set_temp_env
 
 
 def test_profile_qnn_version():
@@ -77,9 +77,7 @@ def test_profile_qnn_version():
                     not profile_path_with_different_qairt_version.runtime.is_aot_compiled
                     or profile_path_with_different_qairt_version.runtime.qairt_version_changes_compilation
                 )
-                path_flag_with_different_qairt_version = (
-                    TargetRuntime.PRECOMPILED_QNN_ONNX.default_qairt_version.explicit_hub_option
-                )
+                path_flag_with_different_qairt_version = TargetRuntime.PRECOMPILED_QNN_ONNX.default_qairt_version.explicit_hub_option
                 paths_with_different_qairt_version.append(
                     (
                         profile_path_with_different_qairt_version,

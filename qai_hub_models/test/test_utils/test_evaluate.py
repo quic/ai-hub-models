@@ -57,9 +57,9 @@ class VariableIODummyModel(BaseModel):
 
         for kwarg_name, kwarg in kwargs.items():
             assert kwarg_name not in inputs, f"Specified input arg {kwarg_name} twice."
-            assert (
-                kwarg_name in self.get_input_spec().keys()
-            ), f"Unknown input arg {kwarg_name}"
+            assert kwarg_name in self.get_input_spec().keys(), (
+                f"Unknown input arg {kwarg_name}"
+            )
             inputs[kwarg_name] = kwarg
 
         if len(inputs) < len(self.get_input_spec()):

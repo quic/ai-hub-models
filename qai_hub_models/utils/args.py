@@ -6,6 +6,7 @@
 """
 Utility Functions for parsing input args for export and other customer facing scripts.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,12 +15,15 @@ import inspect
 import os
 import sys
 from collections.abc import Mapping
+from enum import Enum
 from functools import partial
+from pathlib import Path
 from pydoc import locate
-from typing import Any, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
 import qai_hub as hub
 import torch
+from numpydoc.docscrape import FunctionDoc
 from qai_hub.client import APIException, InternalError, UserError
 
 from qai_hub_models._version import __version__
@@ -37,7 +41,6 @@ from qai_hub_models.utils.base_model import (
 )
 from qai_hub_models.utils.evaluate import EvalMode
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
-from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
@@ -213,9 +216,9 @@ def _add_device_args(
     default_chipset: str | None = None,
 ) -> QAIHMArgumentParser:
     # This is an assertion because this is a logic error; it shouldn't be possible to get this at runtime.
-    assert not (
-        default_device and default_chipset
-    ), "Only one of default_device or default_chipset may be specified."
+    assert not (default_device and default_chipset), (
+        "Only one of default_device or default_chipset may be specified."
+    )
 
     device_group = parser.add_argument_group("Device Selection")
     device_mutex_group = device_group.add_mutually_exclusive_group()
@@ -256,7 +259,6 @@ def add_output_dir_arg(parser: ParserT) -> ParserT:
 def _get_default_runtime(available_runtimes: list[TargetRuntime] | set[TargetRuntime]):
     if len(available_runtimes) == 0:
         raise RuntimeError("available_runtimes empty, expecting at-least one runtime.")
-
     return (
         TargetRuntime.TFLITE
         if TargetRuntime.TFLITE in available_runtimes
@@ -384,13 +386,14 @@ def get_on_device_demo_parser(
     )
 
     # TODO: This should only include supported precisions.
-    default_precisions = {Precision.float, Precision.w8a8, Precision.w8a16}
-    supported_precisions = supported_precisions or default_precisions
+    default_precisions = [Precision.float, Precision.w8a8, Precision.w8a16]
+    new_supported_precisions = supported_precisions or default_precisions
+
     add_precision_arg(
         parser,
-        supported_precisions,
-        list(supported_precisions)[0],
-        list(supported_precisions)[0],
+        set(new_supported_precisions),
+        list(new_supported_precisions)[0],
+        list(new_supported_precisions)[0],
     )
 
     return parser
@@ -423,6 +426,77 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
         sys.exit(1)
 
 
+def add_function_parser_args(
+    signature: dict[str, inspect.Parameter],
+    parser: QAIHMArgumentParser,
+    help_fn: Callable[[str, Any], str],
+) -> None:
+    """
+    Given a function signature, add the inputs to the function as args to the parser.
+
+    Parameters
+    ----------
+    signature
+        The function signature represented as
+        a dict from arg name to parameter metadata.
+    parser
+        The parser object to which the args are added.
+    help_fn
+        A function that takes the argument name and the default value
+        and returns the help string for the that arg.
+    """
+    for name, param in signature.items():
+        # Determining type from param.annotation is non-trivial (it can be a
+        # strings like "Optional[str]" or "bool | None").
+        bool_action = None
+        arg_name = f"--{name.replace('_', '-')}"
+        if param.default is not None:
+            type_ = type(param.default)
+            if type_ is bool:
+                if param.default:
+                    bool_action = "store_false"
+                    # If the default is true, and the arg name does not start with no_,
+                    # then add the no- to the argument (as it should be passed as --no-enable-flag, not --enable-flag)
+                    if name.startswith("no_"):
+                        arg_name = f"--{name[3:].replace('_', '-')}"
+                    elif name.startswith("skip_"):
+                        arg_name = f"--do-{name[5:].replace('_', '-')}"
+                    else:
+                        arg_name = f"--no-{name.replace('_', '-')}"
+                else:
+                    bool_action = "store_true"
+                    # If the default is false, and the arg name starts with no_,
+                    # then remove the no- from the argument (as it should be passed as --enable-flag, not --no-enable-flag)
+                    arg_name = f"--{name.replace('_', '-')}"
+        elif param.annotation == "bool":
+            type_ = bool
+        else:
+            type_ = str
+
+        help_str = help_fn(name, param.default)
+        if bool_action:
+            parser.add_argument(arg_name, dest=name, action=bool_action, help=help_str)
+        elif issubclass(type_, Enum):
+            parser.add_argument(
+                arg_name,
+                type=str,
+                action=partial(ParseEnumAction, enum_type=type_),  # type: ignore[arg-type]
+                default=param.default,
+                choices=[
+                    enum.name.lower() for enum in list(type_.__members__.values())
+                ],
+                help=help_str,
+            )
+        else:
+            parser.add_argument(
+                arg_name,
+                dest=name,
+                type=type_,
+                default=param.default,
+                help=help_str,
+            )
+
+
 def get_model_cli_parser(
     cls: type[FromPretrainedTypeVar],
     parser: QAIHMArgumentParser | None = None,
@@ -437,64 +511,28 @@ def get_model_cli_parser(
         parser = get_parser(allow_dupe_args=allow_dupe_args)
 
     from_pretrained_sig = inspect.signature(cls.from_pretrained)
-    for name, param in from_pretrained_sig.parameters.items():
-        if name == "cls":
-            continue
+
+    def get_help(name: str, default_value: Any) -> str:
+        # Suppress help for argument that need not be exposed for model.
+        arg_name = f"--{name.replace('_', '-')}"
+        if suppress_help_arguments is not None:
+            if arg_name in suppress_help_arguments:
+                return argparse.SUPPRESS
         help = (
             f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
         )
+        if default_value is True:
+            help = f"{help} Setting this flag will set parameter {name} to False."
+        elif default_value is False:
+            help = f"{help} Setting this flag will set parameter {name} to True."
+        return help
 
-        def get_help(arg_name: str) -> str:
-            # Suppress help for argument that need not be exposed for model.
-            if suppress_help_arguments is not None:
-                if arg_name in suppress_help_arguments:
-                    return argparse.SUPPRESS
-            return help
-
-        # Determining type from param.annotation is non-trivial (it can be a
-        # strings like "Optional[str]" or "bool | None").
-        bool_action = None
-        arg_name = f"--{name.replace('_', '-')}"
-        if param.default is not None:
-            type_ = type(param.default)
-
-            if type_ == bool:
-                if param.default:
-                    bool_action = "store_false"
-                    # If the default is true, and the arg name does not start with no_,
-                    # then add the no- to the argument (as it should be passed as --no-enable-flag, not --enable-flag)
-                    if name.startswith("no_"):
-                        arg_name = f"--{name[3:].replace('_', '-')}"
-                    else:
-                        arg_name = f"--no-{name.replace('_', '-')}"
-                    help = (
-                        f"{help} Setting this flag will set parameter {name} to False."
-                    )
-                else:
-                    bool_action = "store_true"
-                    # If the default is false, and the arg name starts with no_,
-                    # then remove the no- from the argument (as it should be passed as --enable-flag, not --no-enable-flag)
-                    arg_name = f"--{name.replace('_', '-')}"
-                    help = (
-                        f"{help} Setting this flag will set parameter {name} to True."
-                    )
-        elif param.annotation == "bool":
-            type_ = bool
-        else:
-            type_ = str
-
-        if bool_action:
-            parser.add_argument(
-                arg_name, dest=name, action=bool_action, help=get_help(arg_name)
-            )
-        else:
-            parser.add_argument(
-                arg_name,
-                dest=name,
-                type=type_,
-                default=param.default,
-                help=get_help(arg_name),
-            )
+    signature = dict(from_pretrained_sig.parameters)
+    if "cls" in signature:
+        signature.pop("cls")
+    if "precision" in signature:
+        signature.pop("precision")
+    add_function_parser_args(signature, parser, get_help)
     return parser
 
 
@@ -512,6 +550,54 @@ def get_model_kwargs(
             continue
         model_kwargs[name] = args_dict.get(name)
     return model_kwargs
+
+
+def get_export_model_name(
+    model_cls: type[FromPretrainedTypeVar],
+    model_id: str,
+    precision: Precision,
+    model_kwargs: Mapping[str, Any],
+) -> str:
+    """
+    When exporting a model with custom model_kwargs, use a different name
+    for the model file saved to disk. Incorporate all customized string args
+    into the name.
+    """
+    if sys.version_info >= (3, 10):
+        sig = inspect.signature(model_cls.from_pretrained, eval_str=True)
+    else:
+        sig = inspect.signature(model_cls.from_pretrained)
+
+    name = f"{model_id}_{precision}"
+    for key, value in sig.parameters.items():
+        # Check for a simple string type.
+        anno = value.annotation
+
+        if key not in model_kwargs:
+            continue
+
+        if sys.version_info >= (3, 10):
+            from types import UnionType
+
+            if not (
+                anno is str
+                or (
+                    isinstance(anno, UnionType)
+                    and any(arg is str for arg in anno.__args__)
+                )
+            ):
+                continue
+        else:
+            if not isinstance(value.annotation, str) or "str" not in value.annotation:
+                continue
+
+        if model_kwargs[key] != sig.parameters[key].default:
+            # If the weights are a url or filepath, .stem will take the final name
+            # in the path, it will also trim the suffix (i.e., yolov8n.pt -> yolov8n)
+            # Note: if a string arg has a '/' character that is not part of a path,
+            # we will erroneously truncate everything before it, which we're ok with.
+            name += f"_{Path(str(model_kwargs[key])).stem}"
+    return name
 
 
 def model_from_cli_args(
@@ -555,8 +641,7 @@ def demo_model_components_from_cli_args(
     if cli_args.hub_model_id:
         if len(cli_args.hub_model_id.split(",")) != len(component_classes):
             raise ValueError(
-                f"Expected {len(component_classes)} components in "
-                f"hub-model-id, but got {cli_args.hub_model_id}"
+                f"Expected {len(component_classes)} components in hub-model-id, but got {cli_args.hub_model_id}"
             )
 
     cli_args_comp = copy.deepcopy(cli_args)
@@ -615,7 +700,11 @@ def demo_model_from_cli_args(
                 device,
                 inference_options=cli_args.inference_options,
             )
-            print(f"Exported asset: {model_id}\n")
+            print(
+                f"Exported asset: {model_id}"
+                + (f"::{component}" if component else "")
+                + "\n"
+            )
 
     else:
         inference_model = model_from_cli_args(model_cls, cli_args)
@@ -707,10 +796,6 @@ def _get_qcom_chipsets() -> set[str]:
 def _evaluate_export_common_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
-    uses_quantize_job: bool = True,
-    exporting_compiled_model: bool = False,
-    num_calibration_samples: int | None = None,
-    uses_link_job: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Common arguments between export and evaluate scripts.
@@ -718,47 +803,21 @@ def _evaluate_export_common_parser(
     # Set handler to resolve, to allow from_pretrained and get_input_spec
     # to have the same argument names.
     parser = get_parser(supported_precision_runtimes, allow_dupe_args=True)
-    if uses_quantize_job:
-        parser.add_argument(
-            "--num-calibration-samples",
-            type=int,
-            default=num_calibration_samples,
-            help="The number of calibration data samples to use for quantization.",
-        )
     # Default runtime for compiled model is fixed for given model
-    available_runtimes = set()
+    # Python doesn't have ordered sets, so use a dictionary to preserver order
+    available_runtimes: dict[TargetRuntime, None] = dict()
     for rts in supported_precision_runtimes.values():
-        available_runtimes.update(rts)
+        for rt in rts:
+            available_runtimes[rt] = None
 
-    default_runtime = _get_default_runtime(available_runtimes)
+    available_runtimes_list = list(available_runtimes.keys())
+    default_runtime = _get_default_runtime(available_runtimes_list)
     add_target_runtime_arg(
         parser,
-        available_target_runtimes=available_runtimes,
+        available_target_runtimes=available_runtimes_list,
         default=default_runtime,
         help="The runtime for which to export.",
     )
-    if not exporting_compiled_model:
-        # No compilation for compiled models
-        parser.add_argument(
-            "--compile-options",
-            type=str,
-            default="",
-            help="Additional options to pass when submitting the compile job.",
-        )
-
-    parser.add_argument(
-        "--profile-options",
-        type=str,
-        default="",
-        help="Additional options to pass when submitting the profile job.",
-    )
-    if uses_link_job:
-        parser.add_argument(
-            "--link-options",
-            type=str,
-            default="",
-            help="Additional options to pass when submitting the link job.",
-        )
     if issubclass(model_cls, FromPretrainedProtocol):
         # Skip adding CLI from model for compiled model
         # TODO: #9408 Refactor BaseModel, BasePrecompiledModel to fetch
@@ -788,104 +847,111 @@ def _evaluate_export_common_parser(
     return parser
 
 
+def add_export_function_args(export_fn: Callable, parser: QAIHMArgumentParser) -> None:
+    """
+    Extracts the relevant inputs to the export function and
+    adds them to the parser.
+    """
+    signature = dict(inspect.signature(export_fn).parameters)
+    for key in [
+        "components",
+        "precision",
+        "target_runtime",
+        "additional_model_kwargs",
+        # LLM specific args
+        "model_cls",
+        "position_processor_cls",
+        "model_name",
+        "model_asset_version",
+        "sub_components",
+        "num_layers_per_split",
+        "num_splits",
+    ]:
+        if key in signature:
+            signature.pop(key)
+
+    if "fetch_static_assets" in signature:
+        signature.pop("fetch_static_assets")
+        parser.add_argument(
+            "--fetch-static-assets",
+            nargs="?",
+            const=f"v{__version__}",
+            default=None,
+            help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
+            "    `--fetch-static-assets`            (get current release assets)\n"
+            "    `--fetch-static-assets latest`     (get latest release assets)\n"
+            "    `--fetch-static-assets v<version>` (get assets for a specific version)\n",
+        )
+
+    raw_doc = inspect.getdoc(export_fn)
+    assert raw_doc is not None, "Export function must have a docstring."
+
+    export_docs = {
+        param.name: "\n".join(param.desc)
+        for param in FunctionDoc(export_fn)["Parameters"]
+    }
+
+    def _get_export_help(param_name: str, default_value: Any) -> str:
+        description = export_docs[param_name]
+        assert description is not None, f"Input `{param_name}` must have a description."
+        if default_value is True:
+            description = description.replace("skips", "does")
+        return description
+
+    add_function_parser_args(signature, parser, _get_export_help)
+
+
 def export_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
+    export_fn: Callable,
     components: Optional[list[str]] = None,
-    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
-        Precision.float: [TargetRuntime.TFLITE],
-    },
-    uses_quantize_job: bool = True,
-    exporting_compiled_model: bool = False,
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     default_export_device: str | None = None,
-    num_calibration_samples: int | None = None,
-    uses_link_job: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
 
-    Parameters:
-        model_cls: Class of the model to be exported. Used to add additional
-            args for model instantiation.
-        components: Only used for model with component and sub-component, such
-            as Llama 2, 3, where two subcomponents (e.g.,
-            PromptProcessor_1, TokenGenerator_1)
-            are classified under one component (e.g. Llama2_Part1_Quantized).
-        supported_precision_runtimes:
-            The list of supported (precision, runtime) pairs for this model.
-        uses_quantize_job:
-            Whether this model uses quantize job to quantize the model.
-        exporting_compiled_model:
-            True when exporting compiled model.
-            If set, removing skip_profiling flag from export arguments.
-            Default = False.
-        default_export_device: Default device to set for export.
-        num_calibration_samples:
-            How many samples to calibrate on when quantizing by default.
-            If not set, defers to the dataset to decide the number.
+    Parameters
+    ----------
+    model_cls
+        Class of the model to be exported. Used to add additional
+        args for model instantiation.
+    components
+        Only used for model with component and sub-component, such
+        as Llama 2, 3, where two subcomponents (e.g.,
+        PromptProcessor_1, TokenGenerator_1)
+        are classified under one component (e.g. Llama2_Part1_Quantized).
+    supported_precision_runtimes
+        The list of supported (precision, runtime) pairs for this model.
+    uses_quantize_job
+        Whether this model uses quantize job to quantize the model.
+    exporting_compiled_model
+        True when exporting compiled model.
+        If set, removing skip_profiling flag from export arguments.
+        Default = False.
+    default_export_device
+        Default device to set for export.
+    num_calibration_samples
+        How many samples to calibrate on when quantizing by default.
+        If not set, defers to the dataset to decide the number.
 
-    Returns:
-        argparse ArgumentParser object.
+    Returns
+    -------
+    argparse ArgumentParser object.
     """
+    if supported_precision_runtimes is None:
+        supported_precision_runtimes = {
+            Precision.float: [TargetRuntime.TFLITE],
+        }
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
         supported_precision_runtimes=supported_precision_runtimes,
-        exporting_compiled_model=exporting_compiled_model,
-        num_calibration_samples=num_calibration_samples,
-        uses_link_job=uses_link_job,
     )
-
+    add_export_function_args(export_fn, parser)
     _add_device_args(parser, default_device=default_export_device)
-
-    if uses_quantize_job:
-        parser.add_argument(
-            "--skip-compiling",
-            action="store_true",
-            help="If set, skips compiling to asset that can run on device.",
-        )
-    parser.add_argument(
-        "--skip-profiling",
-        action="store_true",
-        help="If set, writes compiled model to local directory without profiling.",
-    )
-    parser.add_argument(
-        "--skip-inferencing",
-        action="store_true",
-        help="If set, skips verifying on-device output vs local cpu.",
-    )
-    if not exporting_compiled_model:
-        parser.add_argument(
-            "--skip-downloading",
-            action="store_true",
-            help="If set, skips downloading of compiled model.",
-        )
-    parser.add_argument(
-        "--skip-summary",
-        action="store_true",
-        help="If set, skips printing summary of inference and profiling.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default=None,
-        help="Directory to store generated assets (e.g. compiled model). "
-        "Defaults to `<cwd>/build/<model_name>`.",
-    )
-    parser.add_argument(
-        "--fetch-static-assets",
-        nargs="?",
-        const=f"v{__version__}",
-        default=None,
-        help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
-        "    `--fetch-static-assets`            (get current release assets)\n"
-        "    `--fetch-static-assets latest`     (get latest release assets)\n"
-        "    `--fetch-static-assets v<version>` (get assets for a specific version)\n",
-    )
-
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (
-            components
-            if components is not None
-            else model_cls.component_class_names  # type: ignore
+            components if components is not None else model_cls.component_class_names  # type: ignore
         )
         parser.add_argument(
             "--components",
@@ -910,31 +976,51 @@ def evaluate_parser(
     """
     Arg parser to be used in evaluate scripts.
 
-    Parameters:
-        model_cls:
-            Class of the model to be exported. Used to add additional args for model instantiation.
-        supported_datasets:
-            List of supported dataset names.
-        supported_precision_runtimes:
-            The list of supported (precision, runtime) pairs for this model.
-        uses_quantize_job:
-            Whether this model uses quantize job to quantize the model.
-        num_calibration_samples:
-            How many samples to calibrate on when quantizing by default.
-            If not set, defers to the dataset to decide the number.
+    Parameters
+    ----------
+    model_cls
+        Class of the model to be exported. Used to add additional args for model instantiation.
+    supported_datasets
+        List of supported dataset names.
+    supported_precision_runtimes
+        The list of supported (precision, runtime) pairs for this model.
+    uses_quantize_job
+        Whether this model uses quantize job to quantize the model.
+    num_calibration_samples
+        How many samples to calibrate on when quantizing by default.
+        If not set, defers to the dataset to decide the number.
 
-    Returns:
-        Arg parser object.
+    Returns
+    -------
+    Arg parser object.
     """
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
         supported_precision_runtimes=supported_precision_runtimes,
-        uses_quantize_job=uses_quantize_job,
-        num_calibration_samples=num_calibration_samples,
     )
+    parser.add_argument(
+        "--compile-options",
+        type=str,
+        default="",
+        help="Additional options to pass when submitting the compile job.",
+    )
+    parser.add_argument(
+        "--profile-options",
+        type=str,
+        default="",
+        help="Additional options to pass when submitting the profile job.",
+    )
+
     _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen3")
     if len(supported_datasets) == 0:
         return parser
+    if uses_quantize_job:
+        parser.add_argument(
+            "--num-calibration-samples",
+            type=int,
+            default=num_calibration_samples,
+            help="The number of calibration data samples to use for quantization.",
+        )
     parser.add_argument(
         "--samples-per-job",
         type=int,
@@ -958,8 +1044,7 @@ def evaluate_parser(
         "--seed",
         type=int,
         default=None,
-        help="Random seed to use when shuffling the data. "
-        "If not set, samples data deterministically.",
+        help="Random seed to use when shuffling the data. If not set, samples data deterministically.",
     )
     parser.add_argument(
         "--hub-model-id",
@@ -977,8 +1062,7 @@ def evaluate_parser(
         parser.add_argument(
             "--compute-quant-cpu-accuracy",
             action="store_true",
-            help="If flag is set, computes the accuracy "
-            "of the quantized onnx model on the CPU.",
+            help="If flag is set, computes the accuracy of the quantized onnx model on the CPU.",
         )
     parser.add_argument(
         "--skip-device-accuracy",
@@ -989,20 +1073,5 @@ def evaluate_parser(
         "--skip-torch-accuracy",
         action="store_true",
         help="If flag is set, skips computing accuracy with the torch model.",
-    )
-    return parser
-
-
-def enable_model_caching(parser):
-    parser.add_argument(
-        "--model-cache-mode",
-        type=str,
-        default=CacheMode.ENABLE,
-        action=partial(ParseEnumAction, enum_type=CacheMode),
-        choices=[cm.name.lower() for cm in list(CacheMode.__members__.values())],
-        help="Cache uploaded AI Hub model during export."
-        " If enable, caches uploaded model i.e. re-uses uploaded AI Hub model from cache. "
-        " If disable, disables caching i.e. no reading from and write to cache."
-        " If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.",
     )
     return parser

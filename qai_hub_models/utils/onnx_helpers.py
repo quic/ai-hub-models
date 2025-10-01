@@ -83,7 +83,7 @@ class ONNXBundle:
 
 # Maps type strings returned by onnxruntime.InferenceSession.get_inputs() to numpy types.
 ORT_TENSOR_STR_TO_NP_TYPE = {
-    f"tensor({tensor_dtype_to_string(dtype)[len('TensorProto.'):].lower()})": tensor_dtype_to_np_dtype(
+    f"tensor({tensor_dtype_to_string(dtype)[len('TensorProto.') :].lower()})": tensor_dtype_to_np_dtype(
         dtype
     )
     for dtype in get_all_tensor_dtypes()
@@ -197,9 +197,9 @@ def _extract_zero_point(initializer: onnx.TensorProto) -> int:
             format, size = valid_data_types[dtype]
             if len(initializer.int32_data) == 1:
                 return initializer.int32_data[0]
-            assert (
-                len(initializer.raw_data) == size
-            ), f"Expect raw data to have {size} byte(s)."
+            assert len(initializer.raw_data) == size, (
+                f"Expect raw data to have {size} byte(s)."
+            )
             return struct.unpack(format, initializer.raw_data)[0]
     raise ValueError(
         f"Quantization zero point constant has unknown data type {initializer.data_type}.",

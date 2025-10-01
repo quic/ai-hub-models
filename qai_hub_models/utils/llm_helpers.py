@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 import json
+import os
+import platform
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -80,9 +83,10 @@ def create_genie_config(
                 ],
             },
         }
-        genie_config["dialog"]["engine"]["model"][
-            "positional-encodings"
-        ] = positional_encodings
+        del genie_config["dialog"]["engine"]["backend"]["QnnHtp"]["pos-id-dim"]
+        genie_config["dialog"]["engine"]["model"]["positional-encoding"] = (
+            positional_encodings
+        )
 
     return genie_config
 
@@ -113,14 +117,36 @@ def print_commands_for_genie_bundle(hub_device: qai_hub.Device, output_path: Pat
     )
 
     if hexagon_arch is not None and lib_name is not None and genie_file is not None:
-        message = f"""
-        To run the model with Genie SDK, genie_bundle directory must be made.
-        Run the following commands to complete creating the genie_bundle (set environment variable QNN_SDK_ROOT):
+        # Print copy commands depending on host platform
+        if platform.system() == "Windows":
+            shells = [
+                ("Command Prompt", "copy", '"%QNN_SDK_ROOT%"'),
+                ("PowerShell", "Copy-Item", '"$env:QNN_SDK_ROOT"'),
+            ]
+        else:
+            shells = [("Linux Shell", "cp", '"$QNN_SDK_ROOT"')]
 
-            cp $QNN_SDK_ROOT/lib/{hexagon_arch}/unsigned/* {output_path}
-            cp $QNN_SDK_ROOT/lib/{lib_name}/* {output_path}
-            cp $QNN_SDK_ROOT/bin/{lib_name}/{genie_file} {output_path}
-        """
+        message_body = ""
+        for shell_name, cp_cmd, qnn_path in shells:
+            path_libhex = os.path.join(qnn_path, "lib", hexagon_arch, "unsigned", "*")
+            path_libqnn = os.path.join(qnn_path, "lib", lib_name, "*")
+            path_exe = os.path.join(qnn_path, "bin", lib_name, genie_file)
+
+            message_body += textwrap.dedent(f"""
+                 On {shell_name}:
+
+                    {cp_cmd} {path_libhex} "{output_path}"
+                    {cp_cmd} {path_libqnn} "{output_path}"
+                    {cp_cmd} {path_exe} "{output_path}"
+            """)
+
+        message_header = textwrap.dedent("""
+            To run the model with Genie SDK, genie_bundle directory must be made.
+            Run the following commands to complete creating the genie_bundle
+            (first set environment variable QNN_SDK_ROOT):
+        """)
+
+        message = message_header + textwrap.indent(message_body, "    ")
         print(message)
 
 

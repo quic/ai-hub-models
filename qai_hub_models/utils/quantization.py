@@ -102,9 +102,9 @@ def get_calibration_data(
     """
     calibration_dataset_name = model.calibration_dataset_name()
     if calibration_dataset_name is None:
-        assert (
-            num_samples is None
-        ), "Cannot set num_samples if model doesn't have calibration dataset."
+        assert num_samples is None, (
+            "Cannot set num_samples if model doesn't have calibration dataset."
+        )
         print(
             "WARNING: Model will be quantized using only a single sample for calibration. "
             + "The quantized model should be only used for performance evaluation, and is unlikely to "

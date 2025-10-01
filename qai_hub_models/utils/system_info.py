@@ -38,7 +38,7 @@ def has_recommended_memory(required_memory_in_gb: float) -> None:
             "# Total size = <bs> * count",
             "#            = 1 MB * 40k = ~40GB",
             f"sudo dd if=/dev/zero of=/local/mnt/swapfile bs=1M count={recommended_swap}k",
-            "" "# Set the correct permissions",
+            "# Set the correct permissions",
             "sudo chmod 0600 /local/mnt/swapfile",
             "",
             "sudo mkswap /local/mnt/swapfile  # Set up a Linux swap area",

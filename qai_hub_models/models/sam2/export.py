@@ -18,9 +18,13 @@ import torch
 from torch.utils import mobile_optimizer
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.sam2 import Model
+from qai_hub_models.models.sam2 import MODEL_ID, Model
 from qai_hub_models.utils import quantization as quantization_utils
-from qai_hub_models.utils.args import export_parser, get_model_kwargs
+from qai_hub_models.utils.args import (
+    export_parser,
+    get_export_model_name,
+    get_model_kwargs,
+)
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
@@ -225,48 +229,67 @@ def export_model(
 
     Each of the last 5 steps can be optionally skipped using the input options.
 
-    Parameters:
-        device: Device for which to export the model.
-            Full list of available devices can be found by running `hub.get_devices()`.
-            Defaults to DEFAULT_DEVICE if not specified.
-        chipset: If set, will choose a random device with this chipset.
-            Overrides the `device` argument.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to all components of the CollectionModel if not specified.
-        precision: The precision to which this model should be quantized.
-            Quantization is skipped if the precision is float.
-        num_calibration_samples: The number of calibration data samples
-            to use for quantization. If not set, uses the default number
-            specified by the dataset. If model doesn't have a calibration dataset
-            specified, this must be None.
-        skip_compiling: If set, skips compiling model to format that can run on device.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_downloading: If set, skips downloading of compiled model.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling and inference.
-        output_dir: Directory to store generated assets (e.g. compiled model).
-            Defaults to `<cwd>/build/<model_name>`.
-        target_runtime: Which on-device runtime to target. Default is TFLite.
-        compile_options: Additional options to pass when submitting the compile job.
-        profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets:
-            If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_pretrained`
+    Parameters
+    ----------
+    device
+        Device for which to export the model.
+        Full list of available devices can be found by running `hub.get_devices()`.
+        Defaults to `Samsung Galaxy S25 (Family)` if not specified.
+    chipset
+        If set, will choose a random device with this chipset.
+        Overrides the `device` argument.
+    components
+        List of sub-components of the model that will be exported.
+        Each component is compiled and profiled separately.
+        Defaults to all components of the CollectionModel if not specified.
+    precision
+        The precision to which this model should be quantized.
+        Quantization is skipped if the precision is float.
+    num_calibration_samples
+        The number of calibration data samples
+        to use for quantization. If not set, uses the default number
+        specified by the dataset. If model doesn't have a calibration dataset
+        specified, this must be None.
+    skip_compiling
+        If set, skips compiling of model to format that can run on device.
+    skip_profiling
+        If set, skips profiling of compiled model on real devices.
+    skip_inferencing
+        If set, skips computing on-device outputs from sample data.
+    skip_downloading
+        If set, skips downloading of compiled model.
+    skip_summary
+        If set, skips waiting for and summarizing results
+        from profiling and inference.
+    output_dir
+        Directory to store generated assets (e.g. compiled model).
+        Defaults to `<cwd>/build/<model_name>`.
+    target_runtime
+        Which on-device runtime to target. Default is TFLite.
+    compile_options
+        Additional options to pass when submitting the compile job.
+    profile_options
+        Additional options to pass when submitting the profile job.
+    fetch_static_assets
+        If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
+    additional_model_kwargs
+        Additional optional kwargs used to customize
+        `model_cls.from_pretrained`
 
-    Returns:
-        A Mapping from component_name to a struct of:
-            * A CompileJob object containing metadata about the compile job submitted to hub (None if compiling skipped).
-            * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
-            * A QuantizeJob object containing metadata about the quantize job submitted to hub
+    Returns
+    -------
+    A Mapping from component_name to a struct of:
+        * A CompileJob object containing metadata about the compile job submitted to hub (None if compiling skipped).
+        * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = "sam2"
+    model_name = get_export_model_name(
+        Model, MODEL_ID, precision, additional_model_kwargs
+    )
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
-        hub_device = hub.Device("Snapdragon 8 Elite QRD")
+        hub_device = hub.Device("Samsung Galaxy S25 (Family)")
     else:
         hub_device = hub.Device(
             name=device or "", attributes=f"chipset:{chipset}" if chipset else []
@@ -278,7 +301,7 @@ def export_model(
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
-            "sam2",
+            MODEL_ID,
             "Segment-Anything-Model-2",
             hub_device.name,
             chipset,
@@ -404,11 +427,15 @@ def main():
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
 
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()

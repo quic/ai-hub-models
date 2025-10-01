@@ -86,7 +86,6 @@ class FaceMap3DMMDataset(BaseDataset):
                 and adjusted_x0 + adjusted_width - 1 < image_width
                 and adjusted_y0 + adjusted_height - 1 < image_height
             ):
-
                 x0, y0 = adjusted_x0, adjusted_y0
                 x1 = x0 + adjusted_width - 1
                 y1 = y0 + adjusted_height - 1

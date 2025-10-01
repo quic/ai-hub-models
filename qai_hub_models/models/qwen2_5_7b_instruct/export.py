@@ -16,7 +16,7 @@ from qai_hub_models.models.qwen2_5_7b_instruct.model import (
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
 )
-from qai_hub_models.utils.args import enable_model_caching, export_parser
+from qai_hub_models.utils.args import export_parser
 
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
 
@@ -25,16 +25,10 @@ def main():
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         supported_precision_runtimes={Precision.w8a16: [TargetRuntime.GENIE]},
         default_export_device=DEFAULT_EXPORT_DEVICE,
-        uses_link_job=True,
     )
-    parser.add_argument(
-        "--synchronous",
-        action="store_true",
-        help="Wait for each command to finish before submitting new.",
-    )
-    parser = enable_model_caching(parser)
     args = parser.parse_args()
     export_model(
         model_cls=Model,

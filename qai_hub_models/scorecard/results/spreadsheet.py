@@ -167,8 +167,11 @@ class ResultsSpreadsheet(list):
                     return branch
                 if field_name == "known_issue":
                     if meta := self._model_metadata.get(model_id):
-                        if failure_reasons := meta.known_failure_reasons.get_disable_reasons(
-                            entry.precision, entry.runtime.runtime
+                        if (
+                            failure_reasons
+                            := meta.known_failure_reasons.get_disable_reasons(
+                                entry.precision, entry.runtime.runtime
+                            )
                         ):
                             if failure_reasons.has_failure:
                                 return failure_reasons.failure_reason

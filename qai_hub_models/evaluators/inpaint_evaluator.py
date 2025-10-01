@@ -153,7 +153,7 @@ class InpaintEvaluator(BaseEvaluator):
         for i in range(n_batches):
             start = i * batch_size
             end = min(start + batch_size, d0)
-            batch = torch.from_numpy(images[start:end]).type(torch.FloatTensor)
+            batch = torch.from_numpy(images[start:end]).type(torch.float)
             batch = Variable(batch).cpu()
             with torch.no_grad():
                 pred = model(batch)[0]

@@ -82,7 +82,6 @@ class HRNET_W48_OCR(CityscapesSegmentor):
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ) as repo_path:
-
             fixup_repo(repo_path=repo_path)
 
             from lib.config import config

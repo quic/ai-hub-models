@@ -61,7 +61,7 @@ def draw_points(
 def draw_connections(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
-    connections: list[tuple[int, int]],
+    connections: list[tuple[int, int]] | None = None,
     color: tuple[int, int, int] = (0, 0, 0),
     size: int = 1,
 ):
@@ -78,10 +78,26 @@ def draw_connections(
             or
             array (N * 2,) where layout is
                 x1, y1, x2, y2, ...
+            or
+            array (N, 2, 2) where layout is
+                [
+                  [ # connection 1
+                    [ x1, y1 ]
+                    [ x2, y2 ]
+                  ],
+                  [ # connection 2
+                    [ x1, y1 ]
+                    [ x2, y2 ]
+                  ],
+                  ...
+                ]
+                (in this case, connections is unused and can be None)
 
         connections:
             List of points that should be connected by a line.
             Format is [(src point index, dst point index), ...]
+
+            Unused if points is of shape (N, 2, 2).
 
         color:
             Color of drawn points (RGB)
@@ -92,14 +108,28 @@ def draw_connections(
     Returns:
         None; modifies frame in place.
     """
-    if len(points.shape) == 1:
-        points = points.reshape(-1, 2)
-    point_pairs = [
-        ((int(points[i][0]), int(points[i][1])), (int(points[j][0]), int(points[j][1])))
-        for (i, j) in connections
-    ]
+    point_pairs: (
+        list[tuple[tuple[int, int], tuple[int, int]]] | torch.Tensor | np.ndarray
+    )
+    if len(points.shape) == 3:
+        point_pairs = points
+    else:
+        assert connections is not None
+        if len(points.shape) == 1:
+            points = points.reshape(-1, 2)
+        point_pairs = [
+            (
+                (int(points[i][0]), int(points[i][1])),
+                (int(points[j][0]), int(points[j][1])),
+            )
+            for (i, j) in connections
+        ]
     cv2.polylines(
-        frame, np.array(point_pairs), isClosed=False, color=color, thickness=size  # type: ignore[call-overload]
+        frame,
+        np.asarray(point_pairs, dtype=np.int64),
+        isClosed=False,
+        color=color,
+        thickness=size,  # type: ignore[call-overload]
     )
 
 

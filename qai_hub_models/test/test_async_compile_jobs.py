@@ -5,10 +5,13 @@
 
 import datetime
 import os
+from pprint import pformat
 
 import pytest
 import qai_hub as hub
 
+from qai_hub_models.scorecard.envvars import ArtifactsDirEnvvar
+from qai_hub_models.test.utils.envvars import DisableCompileJobTimeoutEnvvar
 from qai_hub_models.utils.asset_loaders import load_yaml
 
 
@@ -18,7 +21,7 @@ def test_compile_jobs_success():
     finish is too slow. Instead, job ids are written to a file upon submission,
     and success is validated all at once in the end using this test.
     """
-    compile_jobs_file = os.environ.get("COMPILE_JOBS_FILE", None)
+    compile_jobs_file = ArtifactsDirEnvvar.get() / "compile-jobs.yaml"
     if not compile_jobs_file or not os.path.exists(compile_jobs_file):
         pytest.skip("No compile jobs file found")
 
@@ -31,25 +34,34 @@ def test_compile_jobs_success():
     timeout_jobs = {}
     for name, job_id in job_ids.items():
         job = hub.get_job(job_id)
-        status = job.get_status()
-        if not status.finished:
-            # Wait a maximum of 55 minutes for a compile job
-            timemax = datetime.timedelta(minutes=55)
+
+        status = None
+        if DisableCompileJobTimeoutEnvvar.get():
+            status = job.wait()
+        else:
+            # Wait a maximum of 60 minutes for a compile job
+            timemax = datetime.timedelta(minutes=60)
             timediff = datetime.datetime.now() - job.date
             if timediff < timemax:
                 try:
-                    job.wait(int((timemax - timediff).total_seconds()))
+                    status = job.wait(int((timemax - timediff).total_seconds()))
                 except TimeoutError:
                     timeout_jobs[name] = job.url
             else:
                 timeout_jobs[name] = job.url
-        elif not job.get_status().success:
-            failed_jobs[name] = job.url
+
+        if status is not None and not status.success:
+            if status.message is not None and "timed out" in status.message:
+                timeout_jobs[name] = job.url
+            else:
+                failed_jobs[name] = job.url
 
     error_strs = []
     if failed_jobs:
-        error_strs.append(f"The following jobs failed to compile: {failed_jobs}")
+        error_strs.append(
+            f"The following jobs failed to compile:\n{pformat(failed_jobs)}"
+        )
     if timeout_jobs:
-        error_strs.append(f"The following jobs timed out: {timeout_jobs}")
+        error_strs.append(f"The following jobs timed out:\n{pformat(timeout_jobs)}")
     if len(error_strs) > 0:
         raise ValueError("\n".join(error_strs))

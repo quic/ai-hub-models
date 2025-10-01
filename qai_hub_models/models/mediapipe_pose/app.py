@@ -15,6 +15,7 @@ from qai_hub_models.models.mediapipe_pose.model import (
     DETECT_DXY,
     DETECT_SCORE_SLIPPING_THRESHOLD,
     DRAW_POSE_KEYPOINT_INDICES,
+    FILTER_OOB_BOX,
     POSE_KEYPOINT_INDEX_END,
     POSE_KEYPOINT_INDEX_START,
     POSE_LANDMARK_CONNECTIONS,
@@ -41,7 +42,10 @@ class MediaPipePoseApp(MediaPipeApp):
 
     def __init__(
         self,
-        pose_detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
+        pose_detector: Callable[
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ],
         pose_landmark_detector: Callable[
             [torch.Tensor], tuple[torch.Tensor, torch.Tensor]
         ],
@@ -61,8 +65,31 @@ class MediaPipePoseApp(MediaPipeApp):
 
             See parent initializer for further parameter documentation.
         """
+
+        def unified_pose_detector(
+            inp: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """
+            Combines the pose detector's four output tensors into two unified tensors
+            and does the concat outside of the model for optimization purposes.
+
+            Args:
+                inp (torch.Tensor): Input image tensor to the pose detector model
+
+            Returns:
+                tuple[torch.Tensor, torch.Tensor]:
+                    - box_coords: bounding box coordinates with shape [1, 896, 12]
+                         (batch_size, num_anchors, 12_coordinates_per_anchor)
+                    - box_scores: confidence scores with shape [1, 896, 1]
+                         (batch_size, num_anchors, 1_score_per_anchor)
+            """
+            box_coords1, box_coords2, box_scores1, box_scores2 = pose_detector(inp)
+            box_coords = torch.cat([box_coords1, box_coords2], dim=1)
+            box_scores = torch.cat([box_scores1, box_scores2], dim=1)
+            return box_coords, box_scores
+
         super().__init__(
-            pose_detector,
+            unified_pose_detector,
             anchors,
             pose_landmark_detector,
             cast(
@@ -84,6 +111,7 @@ class MediaPipePoseApp(MediaPipeApp):
             min_landmark_score,
             POSE_LANDMARK_CONNECTIONS,
             DRAW_POSE_KEYPOINT_INDICES,
+            FILTER_OOB_BOX,
         )
 
     def _compute_object_roi(

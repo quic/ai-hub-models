@@ -30,16 +30,16 @@ class MPIIGazeEvaluator(BaseEvaluator):
         """
         if isinstance(output, tuple):
             output = output[-1]
-        for pred, gt in zip(output, target):
-            pred = pred.squeeze().cpu().numpy()
-            gt = gt.squeeze().cpu().numpy()
+        for pred_pt, gt_pt in zip(output, target):
+            pred = pred_pt.squeeze().cpu().numpy()
+            gt = gt_pt.squeeze().cpu().numpy()
             self.predictions.append(pred)
             self.targets.append(gt)
 
     def reset(self):
         """Reset stored predictions and targets"""
-        self.predictions = []
-        self.targets = []
+        self.predictions: list[np.ndarray] = []
+        self.targets: list[np.ndarray] = []
 
     def _compute_metrics(self) -> float:
         """Compute mean angular error"""

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import torch
 
 from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
@@ -42,7 +41,7 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
         maxvals = pred_scores.detach().cpu().numpy()
         for idx in range(batch_size):
             preds_batch = refine_and_transform_keypoints(
-                np.expand_dims(preds[idx], axis=0),
+                keypoints.unsqueeze(dim=0),
                 heatmaps[idx].unsqueeze(0),
                 bboxes[idx],
                 scale[idx],

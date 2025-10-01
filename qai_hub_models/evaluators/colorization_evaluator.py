@@ -28,9 +28,11 @@ class ColorizationEvaluator(BaseEvaluator):
             gt: torch.Tensor with shape (B, 1, 256, 256)
                 ground truth image in L format (lightness)
         """
-        output, gt = output.numpy(), gt.numpy()
+        output_np, gt_np = output.numpy(), gt.numpy()
         for i in range(output.shape[0]):
-            output_lab = np.concatenate((gt[i], output[i].transpose(1, 2, 0)), axis=-1)
+            output_lab = np.concatenate(
+                (gt_np[i], output_np[i].transpose(1, 2, 0)), axis=-1
+            )
             output_bgr = cv2.cvtColor(output_lab, cv2.COLOR_LAB2BGR)
 
             output_img = (output_bgr * 255.0).round().astype(np.uint8)

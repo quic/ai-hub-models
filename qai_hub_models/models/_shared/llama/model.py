@@ -113,7 +113,6 @@ def load_input_cached_data(
     )
     inputs_pkl_path: Optional[Path] = None
     try:
-
         # Load local data path if already generated
         inputs_pkl_path = ASSET_CONFIG.get_local_store_model_path(
             model_id,
@@ -298,7 +297,6 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         device: Optional[Device] = None,
         context_graph_name: str | None = None,
     ) -> str:
-
         if not (
             target_runtime.is_aot_compiled
             and target_runtime.compilation_uses_qnn_converters

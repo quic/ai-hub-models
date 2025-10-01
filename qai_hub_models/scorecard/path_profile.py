@@ -160,6 +160,7 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         enabled: Optional[bool] = None,
         supports_precision: Optional[Precision] = None,
         is_aot_compiled: Optional[bool] = None,
+        include_genai_paths: bool = False,
     ) -> list[ScorecardProfilePath]:
         """
         Get all profile paths that match the given attributes.
@@ -177,6 +178,7 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
                 is_aot_compiled is None
                 or path.runtime.is_aot_compiled == is_aot_compiled
             )
+            and (include_genai_paths or (not path.runtime.is_exclusively_for_genai))
         ]
 
     @property

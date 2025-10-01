@@ -28,7 +28,9 @@ class DeepLabV3PlusMobilenet(DeepLabV3Model):
         dst = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEEPLABV3_WEIGHTS
         ).fetch()
-        checkpoint = torch.load(dst, map_location=torch.device("cpu"))
+        checkpoint = torch.load(
+            dst, map_location=torch.device("cpu"), weights_only=False
+        )
         model.load_state_dict(checkpoint["state_dict"])
 
         return cls(model, normalize_input)

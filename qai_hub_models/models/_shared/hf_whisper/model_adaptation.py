@@ -19,6 +19,7 @@ from transformers.models.whisper.modeling_whisper import (
 )
 
 from qai_hub_models.utils.model_adapters import Conv2dLinear
+from qai_hub_models.utils.torch_typing_helpers import Conv2DWithBias, TypedModuleList
 
 
 def expand_to_rank4(tensor: torch.Tensor) -> torch.Tensor:
@@ -69,16 +70,16 @@ class SHAAttention(nn.Module):
         self.is_causal = origin_attn.is_causal
 
         # Initialize Conv2D layers for key, value, and query projections
-        self.q_proj_sha = nn.ModuleList(
-            nn.Conv2d(self.embed_dim, self.head_dim, kernel_size=1, bias=True)
+        self.q_proj_sha: TypedModuleList[Conv2DWithBias] = TypedModuleList(
+            Conv2DWithBias(self.embed_dim, self.head_dim, kernel_size=1)
             for _ in range(self.num_heads)
         )
-        self.k_proj_sha = nn.ModuleList(
+        self.k_proj_sha: TypedModuleList[nn.Conv2d] = TypedModuleList(
             nn.Conv2d(self.embed_dim, self.head_dim, kernel_size=1, bias=False)
             for _ in range(self.num_heads)
         )
-        self.v_proj_sha = nn.ModuleList(
-            nn.Conv2d(self.embed_dim, self.head_dim, kernel_size=1, bias=True)
+        self.v_proj_sha: TypedModuleList[Conv2DWithBias] = TypedModuleList(
+            Conv2DWithBias(self.embed_dim, self.head_dim, kernel_size=1)
             for _ in range(self.num_heads)
         )
         # Copy and convert the weights from original attention for qkv_proj_sha
@@ -109,14 +110,10 @@ class SHAAttention(nn.Module):
             self.v_proj_sha[i].bias.data.copy_(v_bias)
 
         # Initialize output projection layer
-        self.out_proj = nn.Conv2d(
-            self.embed_dim, self.embed_dim, kernel_size=1, bias=True
-        )
+        self.out_proj = Conv2DWithBias(self.embed_dim, self.embed_dim, kernel_size=1)
 
         # Initialize output projection layer
-        self.out_proj = nn.Conv2d(
-            self.embed_dim, self.embed_dim, kernel_size=1, bias=True
-        )
+        self.out_proj = Conv2DWithBias(self.embed_dim, self.embed_dim, kernel_size=1)
         # Copy and convert the weights from original attention for out_proj
         out_weight = expand_to_rank4(origin_attn.out_proj.weight.data.clone())
         self.out_proj.weight.data.copy_(out_weight)
@@ -127,7 +124,7 @@ class SHAAttention(nn.Module):
         hidden_states: torch.Tensor,
         past_key_value: Optional[tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.Tensor] = None,
-    ) -> tuple[list[Any], tuple[Any, Any] | None]:
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         """
         Forward-pass routine for SHAAttention.
         Args:
@@ -300,7 +297,7 @@ class QcWhisperDecoderLayer(nn.Module):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         past_key_value: Optional[torch.Tensor] = None,
-        cross_attn_past_key_value: Optional[tuple[torch.Tensor]] = None,
+        cross_attn_past_key_value: Optional[tuple[torch.Tensor] | torch.Tensor] = None,
     ) -> tuple[torch.Tensor, ...]:
         """
         Forward-pass routine for the optimized Whisper decoder layer.
@@ -376,11 +373,11 @@ class QcWhisperEncoder(nn.Module):
         self.num_mel_bins = orig_encoder.num_mel_bins
 
         # Replace orig_encoder.conv1(Conv1d) with Conv2d
-        self.conv1 = nn.Conv2d(
+        self.conv1 = Conv2DWithBias(
             self.num_mel_bins, embed_dim, kernel_size=(1, 3), padding=(0, 1)
         )
         # Replace orig_encoder.conv2(Conv1d) with Conv2d
-        self.conv2 = nn.Conv2d(
+        self.conv2 = Conv2DWithBias(
             embed_dim, embed_dim, kernel_size=(1, 3), stride=2, padding=(0, 1)
         )
         # Copy weights from original encoder
@@ -399,41 +396,49 @@ class QcWhisperEncoder(nn.Module):
         )
 
         # Initialize encoder layers
-        self.layers = nn.ModuleList(
+        self.layers: TypedModuleList[QcWhisperEncoderLayer] = TypedModuleList(
             [QcWhisperEncoderLayer(layer) for layer in orig_encoder.layers]
         )
         self.layer_norm = orig_encoder.layer_norm
 
         # Initialize attention projection layers
-        self.encoder_k_proj_sha = nn.ModuleList(
-            nn.ModuleList(
-                nn.Conv2d(embed_dim, self.head_dim, kernel_size=1, bias=False)
-                for _ in range(self.num_heads)
+        self.encoder_k_proj_sha: TypedModuleList[TypedModuleList[nn.Conv2d]] = (
+            TypedModuleList(
+                TypedModuleList(
+                    nn.Conv2d(embed_dim, self.head_dim, kernel_size=1, bias=False)
+                    for _ in range(self.num_heads)
+                )
+                for _ in range(self.config.decoder_layers)
             )
-            for _ in range(self.config.decoder_layers)
         )
-        self.encoder_v_proj_sha = nn.ModuleList(
-            nn.ModuleList(
-                nn.Conv2d(embed_dim, self.head_dim, kernel_size=1, bias=True)
-                for _ in range(self.num_heads)
+        self.encoder_v_proj_sha: TypedModuleList[TypedModuleList[Conv2DWithBias]] = (
+            TypedModuleList(
+                TypedModuleList(
+                    Conv2DWithBias(embed_dim, self.head_dim, kernel_size=1)
+                    for _ in range(self.num_heads)
+                )
+                for _ in range(self.config.decoder_layers)
             )
-            for _ in range(self.config.decoder_layers)
         )
+
         # Copy cross-attention weights from the optimized decoder to the encoder
         for i in range(qc_decoder.config.decoder_layers):
             for num_head in range(qc_decoder.config.decoder_attention_heads):
                 # Get the encoder attention layer from the decoder
                 layer = qc_decoder.layers[i].encoder_attn
+
                 # Copy the key projection weights from the decoder to the encoder
                 self.encoder_k_proj_sha[i][num_head].weight.data.copy_(
                     layer.k_proj_sha[num_head].weight.data
                 )
+
                 # Copy the value projection weights from the decoder to the encoder
                 self.encoder_v_proj_sha[i][num_head].weight.data.copy_(
                     layer.v_proj_sha[num_head].weight.data
                 )
+
                 # Copy the value projection biases from the decoder to the encoder
-                self.encoder_v_proj_sha[i][num_head].bias.data.copy_(
+                self.encoder_v_proj_sha[i][num_head].bias.data.copy_(  # type: ignore[index]
                     layer.v_proj_sha[num_head].bias.data
                 )
 
@@ -497,7 +502,7 @@ class QcWhisperDecoder(nn.Module):
         self.embed_tokens = orig_decoder.embed_tokens
         self.embed_positions = orig_decoder.embed_positions
 
-        self.layers = nn.ModuleList(
+        self.layers: TypedModuleList[QcWhisperDecoderLayer] = TypedModuleList(
             [QcWhisperDecoderLayer(layer) for layer in orig_decoder.layers]
         )
 
@@ -511,11 +516,11 @@ class QcWhisperDecoder(nn.Module):
 
     def forward(
         self,
-        input_ids: torch.Tensor = None,
-        attention_mask: torch.Tensor = None,
-        past_key_values: torch.Tensor = None,
-        cross_attn_past_key_value: torch.Tensor = None,
-        position_ids: torch.Tensor = None,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        past_key_values: torch.Tensor,
+        cross_attn_past_key_value: torch.Tensor,
+        position_ids: torch.BoolTensor,
     ) -> tuple[Any, Any]:
         """
         Forward-pass routine for the QcWhisperDecoder.
@@ -528,14 +533,6 @@ class QcWhisperDecoder(nn.Module):
         Returns:
             tuple: The output of the decoder, including the next cache.
         """
-        if (
-            attention_mask is None
-            or input_ids is None
-            or past_key_values is None
-            or cross_attn_past_key_value is None
-            or position_ids is None
-        ):
-            raise ValueError("You have to provide all the inputs")
         input_shape = input_ids.size()
         input_ids = input_ids.view(-1, input_shape[-1])
         past_key_values_length = (

@@ -247,9 +247,9 @@ def make_hub_dataset_entries(
         channel_last_input: Comma-separated list of input names to transpose channel.
     """
     dataset = {}
-    assert len(tensors_tuple) == len(
-        input_names
-    ), "Number of elements in tensors_tuple must match number of inputs"
+    assert len(tensors_tuple) == len(input_names), (
+        "Number of elements in tensors_tuple must match number of inputs"
+    )
     for name, inputs in zip(input_names, tensors_tuple):
         input_seq = inputs if isinstance(inputs, (list, tuple)) else [inputs]
 
@@ -287,8 +287,7 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
         return f"Unable to determine hexagon version for {device.name}"
     if hex_version < 73:
         return (
-            "AIMET-ONNX requires hexagon v73 or above for Stable "
-            "Diffusion VaeDecoder. "
+            "AIMET-ONNX requires hexagon v73 or above for Stable Diffusion VaeDecoder. "
         )
     return None
 

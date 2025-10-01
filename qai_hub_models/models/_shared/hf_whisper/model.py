@@ -137,6 +137,12 @@ class HfWhisperEncoder(BaseModel):
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
             )
+
+        if target_runtime.compilation_uses_qnn_converters:
+            compile_options = (
+                compile_options + " --qnn_bin_conversion_via_model_library"
+            )
+
         return compile_options
 
 
@@ -300,6 +306,10 @@ class HfWhisperDecoder(BaseModel):
         ):
             compile_options = (
                 compile_options + " --quantize_full_type float16 --quantize_io"
+            )
+        if target_runtime.compilation_uses_qnn_converters:
+            compile_options = (
+                compile_options + "  --qnn_bin_conversion_via_model_library"
             )
         return compile_options
 

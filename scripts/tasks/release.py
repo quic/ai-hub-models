@@ -11,7 +11,7 @@ import shutil
 from typing import Optional, cast
 
 from .task import CompositeTask
-from .util import get_pip
+from .util import get_pip, on_ci
 from .venv import CreateVenvTask, RunCommandsTask, RunCommandsWithVenvTask
 
 qaihm_path = pathlib.Path(__file__).parent.parent.parent / "qai_hub_models"
@@ -141,10 +141,7 @@ class PushRepositoryTask(CompositeTask):
 
 Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             # Verify Tag does not exist
-            "if [ $(git tag -l '$QAIHM_TAG') ];"
-            "then echo 'Tag $QAIHM_TAG already exists. Aborting release.';"
-            "exit 1;"
-            "fi",
+            "if [ $(git tag -l '$QAIHM_TAG') ];then echo 'Tag $QAIHM_TAG already exists. Aborting release.';exit 1;fi",
             # Push to remote
             "git push -u origin HEAD:main",
             "git tag $QAIHM_TAG",
@@ -197,10 +194,8 @@ class BuildWheelTask(CompositeTask):
                     commands=[
                         f"rm -rf {os.path.join(self.wheel_dir, '*.whl')}",
                         f"cd {self.repo_dir} && "
-                        f"python setup.py "
-                        f"build --build-base {relative_wheel_dir} "
-                        f"egg_info --egg-base {relative_wheel_dir} "
-                        f"bdist_wheel --dist-dir {relative_wheel_dir}",
+                        f"python -m build --outdir {relative_wheel_dir}"
+                        + (" > /dev/null" if on_ci() else ""),
                     ],
                 )
             )

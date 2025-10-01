@@ -25,6 +25,9 @@ def main():
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
             TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
 
@@ -45,6 +48,8 @@ def main():
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
+            compile_options=args.compile_options,
+            profile_options=args.profile_options,
             **get_model_kwargs(Model, vars(args)),
         )
         return

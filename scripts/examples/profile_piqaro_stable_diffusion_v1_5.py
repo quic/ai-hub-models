@@ -11,6 +11,7 @@ Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
 
 This is broken currently. Will fix soon.
 """
+
 import argparse
 import logging
 import os
@@ -94,8 +95,7 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help=(
-            "Directory where ONNX files are stored. Defaults to "
-            "./build/{component}_{opt}.onnx.zip"
+            "Directory where ONNX files are stored. Defaults to ./build/{component}_{opt}.onnx.zip"
         ),
     )
     parser.add_argument(

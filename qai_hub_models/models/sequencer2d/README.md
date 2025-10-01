@@ -1,6 +1,6 @@
 # [Sequencer2D: Imagenet classifier and general purpose backbone](https://aihub.qualcomm.com/models/sequencer2d)
 
-sequencer2d is a vision transformer model that can classify images from the Imagenet dataset.
+Sequencer2D is a vision transformer model that can classify images from the Imagenet dataset.
 
 This is based on the implementation of Sequencer2D found [here](https://github.com/okojoalg/sequencer). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
@@ -42,7 +42,7 @@ Additional options are documented with the `--help` option.
 
 ## License
 * The license for the original implementation of Sequencer2D can be found
-  [here](https://github.com/facebookresearch/LeViT?tab=Apache-2.0-1-ov-file).
+  [here](https://github.com/okojoalg/sequencer/blob/main/LICENSE).
 * The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 

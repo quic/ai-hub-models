@@ -161,7 +161,9 @@ def compute_statistics_jit(
     return tp, fp, fn, similarity, thresholds[:thresh_idx]
 
 
-def _prepare_data(gt_annos: list[dict], dt_annos: list[dict], difficulty: int) -> tuple[
+def _prepare_data(
+    gt_annos: list[dict], dt_annos: list[dict], difficulty: int
+) -> tuple[
     list[np.ndarray],
     list[np.ndarray],
     list[np.ndarray],
@@ -356,8 +358,9 @@ def eval_class(
         gt = gt_annos[idx : idx + n]
         dt = dt_annos[idx : idx + n]
 
-        g, d = np.concatenate([a["bbox"] for a in gt]), np.concatenate(
-            [a["bbox"] for a in dt]
+        g, d = (
+            np.concatenate([a["bbox"] for a in gt]),
+            np.concatenate([a["bbox"] for a in dt]),
         )
         bbox_o = get_bbox_iou_matrix(d, g)
 

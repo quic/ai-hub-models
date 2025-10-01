@@ -191,8 +191,7 @@ def compile_model_from_args(
     model_name = model_id + (f".{component}" if component else "")
     print(f"Compiling on-device model asset for {model_name}.")
     print(
-        f"Running python -m {export_file} {cli_str} "
-        f"--target-runtime {cli_args.target_runtime.name.lower()}\n"
+        f"Running python -m {export_file} {cli_str} --target-runtime {cli_args.target_runtime.name.lower()}\n"
     )
     component_kwargs = {}
     if component is not None:
@@ -394,7 +393,9 @@ class AsyncOnDeviceModel:
         else:
             tensors = tuple(args)
             dataset_entries = make_hub_dataset_entries(
-                tensors, self.input_names, self.channel_last_input
+                tensors,  # type: ignore[arg-type]
+                self.input_names,
+                self.channel_last_input,
             )
             dataset = hub.upload_dataset(dataset_entries)
 

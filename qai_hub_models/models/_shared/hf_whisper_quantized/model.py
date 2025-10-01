@@ -19,6 +19,7 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 import logging
 from typing import Optional
 
+import aimet_onnx
 import onnx
 import torch
 from aimet_common.defs import QuantScheme
@@ -41,10 +42,6 @@ from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
-
-# Define the bitwidth for parameters and activations
-PARAM_BITWIDTH = 8
-ACTIVATION_BITWIDTH = 16
 
 # Define the path to the AIMET configuration file
 WHISPER_AIMET_CONFIG = os.path.abspath(
@@ -122,12 +119,10 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         # Create a QuantizationSimModel instance
         quant_sim = QuantizationSimModel(
             model=onnx_model,
-            quant_scheme=QuantScheme.post_training_tf,
-            default_param_bw=PARAM_BITWIDTH,
-            default_activation_bw=ACTIVATION_BITWIDTH,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=WHISPER_AIMET_CONFIG,
-            use_symmetric_encodings=True,
-            use_cuda=False,
         )
 
         if aimet_encodings:
@@ -237,12 +232,10 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
         # Create a QuantizationSimModel instance
         quant_sim = QuantizationSimModel(
             model=onnx_model,
-            quant_scheme=QuantScheme.post_training_tf,
-            default_param_bw=PARAM_BITWIDTH,
-            default_activation_bw=ACTIVATION_BITWIDTH,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=WHISPER_AIMET_CONFIG,
-            use_symmetric_encodings=True,
-            use_cuda=False,
         )
 
         if aimet_encodings:

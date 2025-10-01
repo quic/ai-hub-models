@@ -27,4 +27,4 @@ else
 fi
 
 # echo "Checking ${mypy_files[*]}"
-mypy --ignore-missing-imports --warn-unused-configs --config-file="${REPO_ROOT}/mypy.ini" "${mypy_files[@]}"
+mypy --ignore-missing-imports --warn-unused-configs --config-file="${REPO_ROOT}/pyproject.toml" "${mypy_files[@]}"

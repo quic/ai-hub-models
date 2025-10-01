@@ -73,7 +73,11 @@ class AOTGAN(RepaintModel):
 
             args = InpaintArgs()
             model = InpaintGenerator(args)
-            model.load_state_dict(torch.load(downloaded_model_path, map_location="cpu"))
+            model.load_state_dict(
+                torch.load(
+                    downloaded_model_path, map_location="cpu", weights_only=False
+                )
+            )
             return cls(model)
 
     def forward(self, image: torch.Tensor, mask: torch.Tensor):

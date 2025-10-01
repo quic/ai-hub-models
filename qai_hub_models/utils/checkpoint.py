@@ -31,7 +31,6 @@ CheckpointSpec = Union[
 
 @unique
 class CheckpointType(Enum):
-
     # For most models, the default is the pretrained fp checkpoint, which can be
     # optionally quantized via submit_quantize_job.
     #
@@ -75,8 +74,7 @@ def hf_repo_exists(repo_id: str) -> bool:
         from huggingface_hub import HfApi
     except ImportError:
         warnings.warn(
-            "huggingface_hub is not installed; "
-            f"Unable to check if {repo_id} is a valid HF repo",
+            f"huggingface_hub is not installed; Unable to check if {repo_id} is a valid HF repo",
             ImportWarning,
         )
         return False
@@ -212,8 +210,7 @@ class FromPretrainedMixin(Generic[T]):
         ]
         if ckpt_type not in required_ckpt_types:
             raise ValueError(
-                f"{checkpoint} ({subfolder=}) is an unsupported "
-                f"checkpoint type {ckpt_type}. for torch_from_pretrained"
+                f"{checkpoint} ({subfolder=}) is an unsupported checkpoint type {ckpt_type}. for torch_from_pretrained"
             )
 
         # 2) load from HF Hub or local
@@ -223,7 +220,7 @@ class FromPretrainedMixin(Generic[T]):
         ]:
             if cls.hf_repo_id == "":
                 raise NotImplementedError(
-                    "Default Huggingface repo " "not defined in cls.hf_repo_id"
+                    "Default Huggingface repo not defined in cls.hf_repo_id"
                 )
             model = cls.hf_model_cls.from_pretrained(
                 cls.hf_repo_id,

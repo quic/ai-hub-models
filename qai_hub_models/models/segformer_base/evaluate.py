@@ -33,10 +33,12 @@ def main():
         Precision.w8a16: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
         Precision.w8a8: [
             TargetRuntime.TFLITE,
+            TargetRuntime.ONNX,
         ],
     }
 
@@ -57,6 +59,8 @@ def main():
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
+            compile_options=args.compile_options,
+            profile_options=args.profile_options,
             **get_model_kwargs(Model, vars(args)),
         )
         return

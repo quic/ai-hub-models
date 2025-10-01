@@ -18,6 +18,7 @@ from qai_hub_models.models.yolov8_det.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.set_env import set_temp_env
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -30,7 +31,10 @@ WEIGHTS = "yolov8n.pt"
 def test_numerical() -> None:
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
-    source_model = ultralytics_YOLO(WEIGHTS).model
+    # Set the environment variable to force torch.load to use weights_only=False
+    # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+    with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+        source_model = ultralytics_YOLO(WEIGHTS).model
     qaihm_model = YoloV8Detector.from_pretrained(WEIGHTS)
 
     with torch.no_grad():

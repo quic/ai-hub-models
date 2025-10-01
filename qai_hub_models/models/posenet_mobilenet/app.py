@@ -340,26 +340,26 @@ def decode_multiple_poses(
             - Numpy array of keypoint confidence scores.
             - Numpy array of keypoint coordinates.
     """
-    part_scores, part_idx = build_part_with_score_torch(
+    part_scores_pt, part_idx_pt = build_part_with_score_torch(
         score_threshold, max_vals, scores
     )
-    part_scores = part_scores.cpu().numpy()
-    part_idx = part_idx.cpu().numpy()
+    part_scores = part_scores_pt.cpu().numpy()
+    part_idx = part_idx_pt.cpu().numpy()
 
-    scores = scores.cpu().numpy()
-    height = scores.shape[1]
-    width = scores.shape[2]
+    scores_np = scores.cpu().numpy()
+    height = scores_np.shape[1]
+    width = scores_np.shape[2]
     # change dimensions from (x, h, w) to (x//2, h, w, 2) to allow return of complete coord array
-    offsets = (
+    offsets_np = (
         offsets.cpu().numpy().reshape(2, -1, height, width).transpose((1, 2, 3, 0))
     )
-    displacements_fwd = (
+    displacements_fwd_np = (
         displacements_fwd.cpu()
         .numpy()
         .reshape(2, -1, height, width)
         .transpose((1, 2, 3, 0))
     )
-    displacements_bwd = (
+    displacements_bwd_np = (
         displacements_bwd.cpu()
         .numpy()
         .reshape(2, -1, height, width)
@@ -374,7 +374,7 @@ def decode_multiple_poses(
     for root_score, (root_id, root_coord_y, root_coord_x) in zip(part_scores, part_idx):
         root_coord = np.array([root_coord_y, root_coord_x])
         root_image_coords = (
-            root_coord * OUTPUT_STRIDE + offsets[root_id, root_coord_y, root_coord_x]
+            root_coord * OUTPUT_STRIDE + offsets_np[root_id, root_coord_y, root_coord_x]
         )
 
         if within_nms_radius_fast(
@@ -388,10 +388,10 @@ def decode_multiple_poses(
             root_score,
             root_id,
             root_image_coords,
-            scores,
-            offsets,
-            displacements_fwd,
-            displacements_bwd,
+            scores_np,
+            offsets_np,
+            displacements_fwd_np,
+            displacements_bwd=displacements_bwd_np,
         )
 
         pose_score = get_instance_score_fast(

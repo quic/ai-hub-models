@@ -48,7 +48,10 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
             gt_landmark = gt_landmarks[i].numpy()
             pred_landmark = project_landmark(output[i])
             transform_landmark_coordinates(
-                pred_landmark, bboxes[i], self.image_height, self.image_width
+                pred_landmark,
+                tuple(int(x) for x in bboxes[i]),  # type: ignore[arg-type]
+                self.image_height,
+                self.image_width,
             )
 
             pred_landmark = pred_landmark[:, :2].numpy()

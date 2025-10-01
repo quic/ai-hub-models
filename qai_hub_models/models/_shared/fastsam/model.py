@@ -5,10 +5,16 @@
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
-from ultralytics import FastSAM
+from typing import cast
 
+import torch
+from ultralytics.models import FastSAM
+from ultralytics.nn.tasks import SegmentationModel
+
+from qai_hub_models.models._shared.fastsam.ultralytics_patches import (
+    patch_fastsam_segmentation_head,
+)
+from qai_hub_models.models._shared.yolo.utils import transform_box_layout_xywh2xyxy
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.base_model import BaseModel
@@ -19,19 +25,20 @@ from qai_hub_models.utils.input_spec import InputSpec
 class Fast_SAM(BaseModel):
     """Exportable FastSAM model, end-to-end."""
 
-    def __init__(self, model: nn.Module) -> None:
+    def __init__(self, model: SegmentationModel) -> None:
         super().__init__()
+        patch_fastsam_segmentation_head(model)
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str):
-        model = FastSAM(ckpt_name).model
-        return cls(model)
+    def from_pretrained(cls, ckpt_name: str = ""):
+        return cls(cast(SegmentationModel, FastSAM(model=ckpt_name).model))
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Run FastSAM on `image`, and produce high quality segmentation masks.
-        Faster than SAM as it is based on YOLOv8.
 
         Parameters:
             image: Pixel values pre-processed for encoder consumption.
@@ -40,16 +47,29 @@ class Fast_SAM(BaseModel):
         Returns:
             Tuple of 2 tensors:
                 boxes:
-                    Shape [batch_size, num_candidate_boxes, box_data]
-                    where box_data is length num_classes + 5 and contains
-                    box coordinates, objectness confidence, and per-class confidence.
-                masks:
-                    Shape [batch_size, h / 4, w / 4, num_classes]
-                    With the probability that each pixel belongs to a given class.
+                    Shape [1, num_anchors, 4]
+                    where 4 = [x1, y1, x2, y2] (box coordinates in pixel space)
+                scores:
+                    Shape [batch_size, num_anchors]
+                    per-anchor confidence of whether the anchor box
+                    contains an object / box or does not contain an object
+                mask_coeffs:
+                    Shape [batch_size, num_anchors, num_prototype_masks]
+                    Per-anchor mask coefficients
+                mask_protos:
+                    Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size]
+                    Mask protos.
         """
-        predictions = self.model(image)
-        # Return predictions as a tuple instead of nested tuple.
-        return (predictions[0], predictions[1][2])
+        boxes: torch.Tensor
+        scores: torch.Tensor
+        mask_coeffs: torch.Tensor
+        mask_protos: torch.Tensor
+        boxes, scores, mask_coeffs, mask_protos = self.model(image)
+
+        # Convert boxes to (x1, y1, x2, y2)
+        boxes = transform_box_layout_xywh2xyxy(boxes.permute(0, 2, 1))
+
+        return boxes, scores.squeeze(1), mask_coeffs.permute(0, 2, 1), mask_protos
 
     @staticmethod
     def get_input_spec(
@@ -65,7 +85,7 @@ class Fast_SAM(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["boxes", "mask"]
+        return ["boxes", "scores", "mask_coeffs", "mask_protos"]
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -73,7 +93,7 @@ class Fast_SAM(BaseModel):
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
-        return ["mask"]
+        return ["mask_protos"]
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

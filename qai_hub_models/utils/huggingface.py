@@ -54,9 +54,9 @@ def get_huggingface_model_filename(
     )
 
     if precompiled:
-        assert (
-            chipset is not None
-        ), "You must specify a chipset to get the file name of pre-compiled model."
+        assert chipset is not None, (
+            "You must specify a chipset to get the file name of pre-compiled model."
+        )
 
     precompiled_folder_prefix = "precompiled/" if precompiled else ""
     chipset_folder_prefix = f"{chipset}/" if chipset is not None else ""

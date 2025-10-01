@@ -121,7 +121,6 @@ class RTMPosebody2dApp:
         model: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         inferencer: Any,
     ):
-
         self.model = model
         self.inferencer = inferencer
 
@@ -212,7 +211,6 @@ class RTMPosebody2dApp:
 
         # draw keypoints and skeleton
         for i, img in enumerate(NHWC_int_numpy_frames):
-
             add_skeleton_edges(
                 img, keypoints[i], skeleton, color=(255, 0, 255), thickness=2
             )

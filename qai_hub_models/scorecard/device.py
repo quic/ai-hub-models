@@ -45,12 +45,12 @@ class ScorecardDevice:
         if device_name == cs_universal.reference_device_name:
             # Sanity check in case universal device changes
             assert (
-                cs_universal.reference_device_name == cs_8_gen_2.reference_device_name
+                cs_universal.reference_device_name == cs_8_gen_3.reference_device_name
             )
 
             # Don't return cs_universal for a specific device name.
             # Always return the specific device instead
-            return cs_8_gen_2
+            return cs_8_gen_3
 
         # Return any device with a matching reference device name
         if out := [
@@ -178,18 +178,18 @@ class ScorecardDevice:
             raise ValueError("Device " + name + "already registered.")
 
         if mirror_device:
-            assert (
-                not compile_paths
-            ), "Compile paths should not be set, mirror devices will use the mirror device settings."
-            assert (
-                not profile_paths
-            ), "Profile paths should not be set, mirror devices will use the mirror device settings."
-            assert (
-                not disabled_models
-            ), "Disabled models should not be set, mirror devices will use the mirror device settings."
-            assert (
-                not execution_device_name
-            ), "Execution device is not applicable when mirroring results of a different device."
+            assert not compile_paths, (
+                "Compile paths should not be set, mirror devices will use the mirror device settings."
+            )
+            assert not profile_paths, (
+                "Profile paths should not be set, mirror devices will use the mirror device settings."
+            )
+            assert not disabled_models, (
+                "Disabled models should not be set, mirror devices will use the mirror device settings."
+            )
+            assert not execution_device_name, (
+                "Execution device is not applicable when mirroring results of a different device."
+            )
 
         self.name = name
         self.disabled_models: list[str] = (
@@ -500,14 +500,13 @@ class ScorecardDevice:
 #
 # A placeholder for compiling universal assets (that are applicable to any device)
 #
-# .tflite and .onnx are always universal, so they are compiled once for this device
+# .tflite, .onnx, and .dlc are always universal, so they are compiled once for this device
 # and used for inference on all other devices.
 #
-# This device also produces an android-arm64 QNN .so that is used for inference on all Android devices.
 ##
 cs_universal = ScorecardDevice(
     name=UNIVERSAL_DEVICE_SCORECARD_NAME,
-    reference_device_name="Samsung Galaxy S23",
+    reference_device_name="Samsung Galaxy S24",
     compile_paths=[path for path in ScorecardCompilePath if path.is_universal],
     profile_paths=[],
 )
@@ -516,12 +515,6 @@ cs_universal = ScorecardDevice(
 ##
 # Mobile Chipsets (cs)
 ##
-cs_8_gen_2 = ScorecardDevice(
-    name="cs_8_gen_2",
-    reference_device_name="Samsung Galaxy S23",
-    execution_device_name="Samsung Galaxy S23 (Family)",
-)
-
 cs_8_gen_3 = ScorecardDevice(
     name="cs_8_gen_3",
     reference_device_name="Samsung Galaxy S24",
@@ -529,8 +522,22 @@ cs_8_gen_3 = ScorecardDevice(
 )
 
 cs_8_elite = ScorecardDevice(
-    name="cs_8_elite", reference_device_name="Snapdragon 8 Elite QRD"
+    name="cs_8_elite",
+    reference_device_name="Samsung Galaxy S25",
+    execution_device_name="Samsung Galaxy S25 (Family)",
 )
+
+# Temporarily disabled new devices.
+"""
+cs_7_gen_5 = ScorecardDevice(
+    name="cs_7_gen_5",
+    reference_device_name="Snapdragon 7 Gen 5",
+)
+
+cs_8_elite_gen_5 = ScorecardDevice(
+    name="cs_8_elite_gen_5", reference_device_name="Snapdragon 8 Elite Gen 5 QRD"
+)
+"""
 
 
 ##
@@ -539,7 +546,6 @@ cs_8_elite = ScorecardDevice(
 cs_x_elite = ScorecardDevice(
     name="cs_x_elite",
     reference_device_name="Snapdragon X Elite CRD",
-    always_produce_aot_assets=True,
 )
 
 
@@ -578,7 +584,6 @@ cs_auto_lemans_8775 = ScorecardDevice(
 cs_6490 = ScorecardDevice(
     name="cs_6490",
     reference_device_name="RB3 Gen 2 (Proxy)",
-    always_produce_aot_assets=True,
 )
 
 cs_8250 = ScorecardDevice(

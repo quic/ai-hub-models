@@ -57,7 +57,7 @@ def main(is_test: bool = False):
     add_output_dir_arg(parser)
 
     print(
-        "Note: This readme is running through torch, and not meant to be real-time without dedicated ML hardware."
+        "Note: This demo is running through torch, and not meant to be real-time without dedicated ML hardware."
     )
     print("Use Ctrl+C in your terminal to exit.")
 

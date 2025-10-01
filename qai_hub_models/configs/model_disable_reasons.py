@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import Field, model_serializer, model_validator
-from typing_extensions import TypeAlias
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -59,13 +58,10 @@ class ModelDisableReasons(BaseQAIHMConfig):
         return self.scorecard_failure or self.issue  # type: ignore[return-value]
 
 
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_data_type: TypeAlias = "Dict[Precision, Dict[TargetRuntime, ModelDisableReasons]]"
-
-
 class ModelDisableReasonsMapping(BaseQAIHMConfig):
-    data: _data_type = Field(default_factory=dict)
+    data: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = Field(
+        default_factory=dict
+    )
 
     def __getitem__(self, key: Precision) -> dict[TargetRuntime, ModelDisableReasons]:
         return self.data[key]
@@ -105,7 +101,7 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         # Skip serialization of dict items that don't have failure reasons set
-        out: _data_type = {}
+        out: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = {}
         for precision, runtimes in self.data.items():
             serialized_runtimes = {}
             for runtime, reasons in runtimes.items():

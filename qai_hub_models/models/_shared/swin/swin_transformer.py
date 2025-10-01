@@ -213,8 +213,8 @@ def shifted_window_attention_inf(
             num_windows, window_size[0] * window_size[1]
         )
         attn_mask = attn_mask.unsqueeze(1) - attn_mask.unsqueeze(2)
-        attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
-            attn_mask == 0, float(0.0)
+        attn_mask = attn_mask.masked_fill(attn_mask != 0, (-100.0)).masked_fill(
+            attn_mask == 0, 0.0
         )
         # ==== Local change begin ===
         attn = attn.view(

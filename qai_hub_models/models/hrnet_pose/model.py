@@ -57,11 +57,10 @@ class HRNetPose(BaseModel):
 
     @classmethod
     def from_pretrained(cls, variant: str = DEFAULT_VARIANT) -> HRNetPose:
-
         weights_file = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, WEIGHTS[variant]
         ).fetch()
-        weights = torch.load(weights_file, map_location="cpu")
+        weights = torch.load(weights_file, map_location="cpu", weights_only=False)
         with SourceAsRoot(
             SOURCE_REPOSITORY,
             COMMIT_HASH,

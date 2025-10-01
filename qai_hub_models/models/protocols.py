@@ -17,6 +17,7 @@ checker that the class that inherits the mixin must implement HubModelProtocol.
 
 These are type checked at compile time.
 """
+
 from __future__ import annotations
 
 from abc import abstractmethod

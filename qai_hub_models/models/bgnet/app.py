@@ -86,7 +86,7 @@ class BGNetApp:
 
 
 def postprocess_masks(
-    pred_masks: torch.Tensor, input_size: tuple[int, int]
+    pred_masks: torch.Tensor, input_size: tuple[int, int] | torch.Size
 ) -> torch.Tensor:
     """
     Process raw model outputs into segmentation masks by resizing,

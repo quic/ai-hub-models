@@ -330,8 +330,7 @@ def run_diffusion_steps_on_latents(
             if guidance_scale != 0:
                 if uncond_embeddings is None:
                     raise ValueError(
-                        "uncond_embeddings must be provided when guidance_scale"
-                        " is nonzero"
+                        "uncond_embeddings must be provided when guidance_scale is nonzero"
                     )
 
                 unet_inputs["uncond_emb"].append(uncond_embeddings)

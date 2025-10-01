@@ -40,13 +40,20 @@ class TrOCREncoder(BaseModel):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.cross_attn_kv_shape: Callable = decoder.model.decoder.layers[
-            0
-        ].encoder_attn._shape
+
+    @staticmethod
+    def cross_attn_kv_shape(
+        attn: TrOCRAttention, tensor: torch.Tensor, seq_len: int, bsz: int
+    ):
+        return (
+            tensor.view(bsz, seq_len, attn.num_heads, attn.head_dim)
+            .transpose(1, 2)
+            .contiguous()
+        )
 
     def forward(
         self,
-        pixel_values: torch.FloatTensor,
+        pixel_values: torch.Tensor,
     ) -> KVCache:
         """
         Run the encoder on `pixel_values`, and produce a cross attention key/value cache that can be used as decoder input.
@@ -69,10 +76,10 @@ class TrOCREncoder(BaseModel):
         for layer in self.decoder.model.decoder.layers:
             layer_attn: TrOCRAttention = layer.encoder_attn
             key_states = self.cross_attn_kv_shape(
-                layer_attn.k_proj(encoder_hidden_states), -1, batch_size
+                layer_attn, layer_attn.k_proj(encoder_hidden_states), -1, batch_size
             )
             value_states = self.cross_attn_kv_shape(
-                layer_attn.v_proj(encoder_hidden_states), -1, batch_size
+                layer_attn, layer_attn.v_proj(encoder_hidden_states), -1, batch_size
             )
             kv_cache.append(key_states)
             kv_cache.append(value_states)
@@ -343,12 +350,8 @@ class TrOCR(CollectionModel):
         source_model: VisionEncoderDecoderModel, io_processor: TrOCRProcessor
     ) -> TrOCR:
         assert source_model.encoder is not None
-        encoder = TrOCREncoder(
-            source_model.encoder, source_model.decoder
-        )  # pyright: ignore[reportArgumentType]
-        decoder = TrOCRDecoder(
-            source_model.decoder
-        )  # pyright: ignore[reportArgumentType]
+        encoder = TrOCREncoder(source_model.encoder, source_model.decoder)  # pyright: ignore[reportArgumentType]
+        decoder = TrOCRDecoder(source_model.decoder)  # pyright: ignore[reportArgumentType]
         assert source_model.generation_config is not None
         return TrOCR(
             encoder,

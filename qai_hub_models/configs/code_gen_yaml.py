@@ -7,20 +7,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 from pydantic import Field, model_validator
-from typing_extensions import TypeAlias
 
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
-
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_outputs_to_skip_validation_type: TypeAlias = "Optional[Dict[int, str]]"
 
 
 class QAIHMModelCodeGen(BaseQAIHMConfig):
@@ -64,7 +59,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
-    outputs_to_skip_validation: _outputs_to_skip_validation_type = None
+    outputs_to_skip_validation: Optional[dict[int, str]] = None
 
     # True for Collection model comprises of components, such as Whisper model's
     # encoder and decoder.

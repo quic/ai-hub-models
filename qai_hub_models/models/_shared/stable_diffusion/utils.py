@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 import tempfile
 from collections import defaultdict
-from typing import DefaultDict
 
 import cv2
 import diffusers
@@ -123,15 +122,15 @@ def make_calib_data(
     if guidance_scale > 0:
         uncond_emb = text_encoder_hf(uncond_token)
 
-    calib_unet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
-    calib_vae: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+    calib_unet: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
+    calib_vae: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
     if use_controlnet:
-        calib_controlnet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+        calib_controlnet: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
         image_conds = torch.load(image_cond_path, weights_only=False)
 
     for i, cond_token in tqdm(
         enumerate(cond_tokens),
-        desc=f"Running {num_steps} diffusion steps on " f"{len(cond_tokens)} samples",
+        desc=f"Running {num_steps} diffusion steps on {len(cond_tokens)} samples",
     ):
         cond_emb = text_encoder_hf(cond_token)
         extra_inputs = {}

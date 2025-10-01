@@ -17,12 +17,10 @@ from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     FFNET_SOURCE_REPO_COMMIT,
     FFNET_SOURCE_REPOSITORY,
     FFNET_SOURCE_VERSION,
+    CityscapesSegmentor,
 )
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     MODEL_ID as CS_MODEL_ID,
-)
-from qai_hub_models.models._shared.cityscapes_segmentation.model import (
-    CityscapesSegmentor,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
 from qai_hub_models.utils.input_spec import InputSpec
@@ -104,7 +102,6 @@ def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
         FFNET_SOURCE_VERSION,
         source_repo_patches=FFNET_SOURCE_PATCHES,
     ):
-
         # config, models are top-level packages in the FFNet repo
         import config
 

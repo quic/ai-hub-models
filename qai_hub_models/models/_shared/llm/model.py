@@ -11,7 +11,6 @@ try:
     from aimet_common.defs import QuantizationDataType
     from aimet_common.utils import AimetLogger
 except (ImportError, ModuleNotFoundError):
-
     print(
         "Some quantized models require the AIMET-ONNX package, which is only supported on Linux. "
         "Quantized model can be exported without this requirement."
@@ -169,9 +168,7 @@ def sample_input(
     )
     num_tokens = int(
         min(
-            torch.sum(
-                input_tokens["attention_mask"]
-            ).item(),  # pyright: ignore [reportArgumentType]
+            torch.sum(input_tokens["attention_mask"]).item(),  # pyright: ignore [reportArgumentType]
             sequence_length,
         )
     )
@@ -179,9 +176,7 @@ def sample_input(
         "input_ids"
     ].type(  # pyright: ignore [reportAttributeAccessIssue]
         torch.int32
-    )[
-        :, -sequence_length:
-    ]
+    )[:, -sequence_length:]
 
     padding_size = sequence_length - num_tokens
     position_ids = [0] * (padding_size) + list(range(0, sequence_length - padding_size))
@@ -591,9 +586,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
                 k = torch.cat(k_split, axis=1).permute(0, 1, 3, 2)
                 v = torch.cat(v_split, axis=1)
 
-                kv_cache.update(
-                    k, v, layer_idx, {}
-                )  # pyright: ignore [reportArgumentType]
+                kv_cache.update(k, v, layer_idx, {})  # pyright: ignore [reportArgumentType]
         else:
             kv_cache = SHADynamicCacheNewValueOnly()
             for layer_idx, (k, v) in enumerate(
@@ -607,9 +600,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
                 ]
 
                 # kv_cache doesn't report supporting lists of tensors, but it seems to work
-                kv_cache.update(
-                    k_split, v_split, layer_idx, {}
-                )  # pyright: ignore [reportArgumentType]
+                kv_cache.update(k_split, v_split, layer_idx, {})  # pyright: ignore [reportArgumentType]
 
         model_kwargs = {
             self.main_input_name: input_tokens,
@@ -684,9 +675,9 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
 
         # TODO: We could support sequence_length == CONTEXT_LENGTH, but the
         # KV cache input needs to be removed.
-        assert (
-            sequence_length < context_length
-        ), "It is currently not supported to set input sequence length to the same as or longer than context length. There should be no KV cache input at all in such case."
+        assert sequence_length < context_length, (
+            "It is currently not supported to set input sequence length to the same as or longer than context length. There should be no KV cache input at all in such case."
+        )
 
         for layer in range(num_hidden_layers):
             past_k_name = f"past_key_{layer}_in"
@@ -812,7 +803,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
         assert (
             tokenizer is not None and llm_config is not None
-        ) or checkpoint is not None, f"{self.__class__.__name__} is unable to instantiate tokenizer/config. Must pass either checkpoint or tokenizer/config explicitly."
+        ) or checkpoint is not None, (
+            f"{self.__class__.__name__} is unable to instantiate tokenizer/config. Must pass either checkpoint or tokenizer/config explicitly."
+        )
 
         self.tokenizer = tokenizer or get_tokenizer(checkpoint)
         llm_config = llm_config or get_llm_config(checkpoint)

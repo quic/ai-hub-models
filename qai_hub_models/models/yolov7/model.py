@@ -16,6 +16,7 @@ from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
+from qai_hub_models.utils.set_env import set_temp_env
 
 YOLOV7_SOURCE_REPOSITORY = "https://github.com/WongKinYiu/yolov7"
 YOLOV7_SOURCE_REPO_COMMIT = "84932d70fb9e2932d0a70e4a1f02a1d6dd1dd6ca"
@@ -319,7 +320,12 @@ def _load_yolov7_source_model_from_weights(weights_name: str) -> torch.nn.Module
         from models.experimental import attempt_load
         from models.yolo import Model
 
-        yolov7_model = attempt_load(weights_name, map_location="cpu")  # load FP32 model
+        # Set the environment variable to force torch.load to use weights_only=False
+        # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+        with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+            yolov7_model = attempt_load(
+                weights_name, map_location="cpu"
+            )  # load FP32 model
 
         assert isinstance(yolov7_model, Model)
         return yolov7_model

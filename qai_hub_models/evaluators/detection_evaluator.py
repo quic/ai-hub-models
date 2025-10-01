@@ -253,9 +253,9 @@ class DetectionEvaluator(mAPEvaluator):
 
         if self.nms_iou_threshold is not None:
             (
-                pred_boxes,
-                pred_scores,
-                pred_class_idx,
+                pred_nms_boxes,
+                pred_nms_scores,
+                pred_nms_class_idx,
             ) = batched_nms(
                 self.nms_iou_threshold,
                 self.score_threshold,
@@ -263,14 +263,18 @@ class DetectionEvaluator(mAPEvaluator):
                 pred_scores,
                 pred_class_idx,
             )
+        else:
+            pred_nms_boxes = list(pred_boxes)
+            pred_nms_scores = list(pred_scores)
+            pred_nms_class_idx = list(pred_class_idx)
 
         for i in range(len(image_ids)):
             image_id = image_ids[i]
-            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
-            classes = all_classes[i][: all_num_boxes[i].item()]
-            curr_pred_box = pred_boxes[i : i + 1]
-            curr_pred_score = pred_scores[i : i + 1]
-            curr_pred_class = pred_class_idx[i : i + 1]
+            bboxes = all_bboxes[i][: int(all_num_boxes[i].item())]
+            classes = all_classes[i][: int(all_num_boxes[i].item())]
+            curr_pred_box = pred_nms_boxes[i : i + 1]
+            curr_pred_score = pred_nms_scores[i : i + 1]
+            curr_pred_class = pred_nms_class_idx[i : i + 1]
 
             # Collect GT and prediction boxes
             gt_bb_entry = [

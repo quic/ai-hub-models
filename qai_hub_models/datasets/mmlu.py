@@ -109,7 +109,8 @@ class MMLU(BaseDataset):
 
             formatted_question = list(
                 map(
-                    lambda question, choices: f"{question.strip()}\nA. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:",
+                    lambda question,
+                    choices: f"{question.strip()}\nA. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:",
                     question,
                     choices,
                 )

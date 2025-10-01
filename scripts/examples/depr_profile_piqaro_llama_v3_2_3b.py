@@ -9,6 +9,7 @@ Llama3.2-3b-chat
 
 Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
 """
+
 import argparse
 import logging
 import os
@@ -25,8 +26,11 @@ from transformers import AutoConfig
 from transformers.models.llama import LlamaConfig
 
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models.llama_v3_2_3b_chat import MODEL_ID as model_id_orig
-from qai_hub_models.models.llama_v3_2_3b_chat.model import MODEL_ASSET_VERSION, Llama3_2
+from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
+    MODEL_ASSET_VERSION,
+    MODEL_ID,
+    Llama3_2_3B,
+)
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.onnx_helpers import (
@@ -88,8 +92,7 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help=(
-            "Directory where ONNX files are stored. Defaults to "
-            f"./build/{MODEL_NAME}_<opt>.onnx.zip"
+            f"Directory where ONNX files are stored. Defaults to ./build/{MODEL_NAME}_<opt>.onnx.zip"
         ),
     )
     parser.add_argument(
@@ -123,7 +126,7 @@ if __name__ == "__main__":
     shutil.rmtree(output_dir, ignore_errors=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    class Llama3_2_PiQaro(Llama3_2):
+    class Llama3_2_PiQaro(Llama3_2_3B):
         def __init__(self, *args, **kwargs):
             if truncate_model:
                 kwargs["load_pretrained"] = False  # Vocab size mismatch
@@ -228,7 +231,7 @@ if __name__ == "__main__":
             return output_dir
 
     model_cls = Llama3_2_PiQaro
-    model_name = model_id_orig + f"_{args.opt}"
+    model_name = MODEL_ID + f"_{args.opt}"
 
     if truncate_model:
         num_splits = 1

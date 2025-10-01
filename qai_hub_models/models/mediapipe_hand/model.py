@@ -41,31 +41,29 @@ SAMPLE_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 #      1    \     /
 #       \    \   /
 #        ------0-
-HAND_LANDMARK_CONNECTIONS = (
-    [  # Landmark model will output 18 points. They map to the points above.
-        (0, 1),
-        (1, 2),
-        (2, 3),
-        (3, 4),
-        (5, 6),
-        (6, 7),
-        (7, 8),
-        (9, 10),
-        (10, 11),
-        (11, 12),
-        (13, 14),
-        (14, 15),
-        (15, 16),
-        (17, 18),
-        (18, 19),
-        (19, 20),
-        (0, 5),
-        (5, 9),
-        (9, 13),
-        (13, 17),
-        (0, 17),
-    ]
-)
+HAND_LANDMARK_CONNECTIONS = [  # Landmark model will output 18 points. They map to the points above.
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+    (0, 5),
+    (5, 9),
+    (9, 13),
+    (13, 17),
+    (0, 17),
+]
 
 # Palm detector model parameters.
 BATCH_SIZE = 1

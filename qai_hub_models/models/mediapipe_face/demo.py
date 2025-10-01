@@ -19,6 +19,7 @@ from qai_hub_models.utils.args import (
     demo_model_components_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
+    model_from_cli_args,
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
@@ -64,7 +65,7 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
     get_on_device_demo_parser(parser)
 
     print(
-        "Note: This readme is running through torch, and not meant to be real-time without dedicated ML hardware."
+        "Note: This demo is running through torch, and not meant to be real-time without dedicated ML hardware."
     )
     print("Use Ctrl+C in your terminal to exit.")
 
@@ -74,16 +75,11 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
     if is_test:
         args.image = INPUT_IMAGE_ADDRESS
 
-    torch_model = model_cls.from_pretrained()
+    torch_model = model_from_cli_args(model_cls, args)
     if args.eval_mode == EvalMode.ON_DEVICE:
-        if args.hub_model_id:
-            detector, landmark_detector = demo_model_components_from_cli_args(
-                MediaPipeFace, MODEL_ID, args
-            )
-        else:
-            raise ValueError(
-                "If running this demo with on device, must supply hub_model_id."
-            )
+        detector, landmark_detector = demo_model_components_from_cli_args(
+            MediaPipeFace, MODEL_ID, args
+        )
     else:
         detector = torch_model.face_detector
         landmark_detector = torch_model.face_landmark_detector

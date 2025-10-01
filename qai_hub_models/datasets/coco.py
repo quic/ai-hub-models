@@ -156,8 +156,8 @@ class CocoDataset(BaseDataset):
             torch_image, (self.target_h, self.target_w)
         )
 
-        boxes = []
-        labels = []
+        boxes_list = []
+        labels_list = []
         if sample.ground_truth is not None:
             for annotation in sample.ground_truth.detections:
                 x, y, w, h = annotation.bounding_box
@@ -169,12 +169,12 @@ class CocoDataset(BaseDataset):
                     scale_factor,
                     pad,
                 )
-                boxes.append(list(transformed_coords.flatten()))
+                boxes_list.append(list(transformed_coords.flatten()))
 
                 # Convert string label to int idx
-                labels.append(self.label_map[annotation.label])
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
+                labels_list.append(self.label_map[annotation.label])
+        boxes = torch.tensor(boxes_list)
+        labels = torch.tensor(labels_list)
 
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)

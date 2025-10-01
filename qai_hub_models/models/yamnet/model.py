@@ -37,7 +37,6 @@ class YamNet(BaseModel):
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> YamNet:
-
         model = _load_yamnet_source_model_from_weights(weights_path)
         return cls(model)
 
@@ -110,7 +109,9 @@ def _load_yamnet_source_model_from_weights(
 
         model = YAMNet()
         pretrained_dict = torch.load(
-            str(weights_path_yamnet), map_location=torch.device("cpu")
+            str(weights_path_yamnet),
+            map_location=torch.device("cpu"),
+            weights_only=False,
         )
         model.load_state_dict(pretrained_dict)
         model.to("cpu").eval()

@@ -156,9 +156,10 @@ def test_hf_model_with_multiple_components():
     ]
     with TemporaryDirectory() as tmpdir:
         # Default (all components)
-        with hf_glob_patch(
-            component_glob_result=component_names
-        ), hf_hub_download_patch():
+        with (
+            hf_glob_patch(component_glob_result=component_names),
+            hf_hub_download_patch(),
+        ):
             local_paths, urls = fetch_static_assets(
                 "mobilenet_v2", TargetRuntime.TFLITE, output_folder=tmpdir
             )

@@ -19,9 +19,7 @@ class Beit(ImagenetClassifier):
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
-
         return cls(BeitForImageClassification.from_pretrained(ckpt_name))
 
     def forward(self, image_tensor):
-
         return self.net(image_tensor, return_dict=False)[0]

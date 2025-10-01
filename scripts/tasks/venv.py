@@ -115,7 +115,7 @@ class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
         if qaihm_wheel_dir is not None:
             # Find wheel file and install it (use relative path to work in both local and CI)
             commands = [
-                f'{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ""}'
+                f"{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ''}"
             ]
             install_method = "wheel"
         else:

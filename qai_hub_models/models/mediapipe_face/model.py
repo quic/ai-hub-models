@@ -18,9 +18,10 @@ from qai_hub_models.utils.asset_loaders import (
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.set_env import set_temp_env
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 # Vertex indices can be found in
 # https://github.com/google/mediapipe/blob/0.8.1/mediapipe/modules/face_geometry/data/canonical_face_model_uv_visualization.png
@@ -179,6 +180,27 @@ LANDMARK_DETECTOR_SAMPLE_INPUTS_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
+def _apply_blazeface_fixes(repo_path: str) -> None:
+    """
+    Apply necessary fixes to the BlazeFace repository code.
+    These fixes include:
+    1. Changing return statement to return separate tensors as concat reduces the w8a8 accuracy
+    2. Changing padding to be symmetric for better quantization accuracy
+    """
+    find_replace_in_repo(
+        repo_path,
+        "blazeface.py",
+        "return [r, c]",
+        "return [r1, r2, c1, c2]",
+    )
+    find_replace_in_repo(
+        repo_path,
+        "blazeface.py",
+        'x = F.pad(x, (1, 2, 1, 2), "constant", 0)',
+        'x = F.pad(x, (2, 2, 2, 2), "constant", 0)',
+    )
+
+
 class FaceDetector(BaseModel):
     """
     Face detection model. Input is an image, output is
@@ -187,7 +209,10 @@ class FaceDetector(BaseModel):
 
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ],
         anchors: torch.Tensor,
     ):
         super().__init__()
@@ -203,11 +228,15 @@ class FaceDetector(BaseModel):
         detector_weights: str = "blazefaceback.pth",
         detector_anchors: str = "anchors_face_back.npy",
     ) -> FaceDetector:
-        with MediaPipePyTorchAsRoot():
+        with MediaPipePyTorchAsRoot() as repo_path:
+            _apply_blazeface_fixes(repo_path)
             from blazeface import BlazeFace
 
             face_detector = BlazeFace(back_model=True)
-            face_detector.load_weights(detector_weights)
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                face_detector.load_weights(detector_weights)
             face_detector.load_anchors(detector_anchors)
             return cls(face_detector, face_detector.anchors)
 
@@ -221,7 +250,7 @@ class FaceDetector(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["box_coords", "box_scores"]
+        return ["box_coords_1", "box_coords_2", "box_scores_1", "box_scores_2"]
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -267,7 +296,10 @@ class FaceLandmarkDetector(BaseModel):
             from blazeface_landmark import BlazeFaceLandmark
 
             face_regressor = BlazeFaceLandmark()
-            face_regressor.load_weights(landmark_detector_weights)
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                face_regressor.load_weights(landmark_detector_weights)
             return cls(face_regressor)
 
     @staticmethod
@@ -329,14 +361,22 @@ class MediaPipeFace(CollectionModel):
                 repo_path, "blazeface_landmark.py", "if x.shape[0] == 0:", "if False:"
             )
 
+            _apply_blazeface_fixes(repo_path)
+
             from blazeface import BlazeFace
             from blazeface_landmark import BlazeFaceLandmark
 
             face_detector = BlazeFace(back_model=True)
-            face_detector.load_weights(detector_weights)
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                face_detector.load_weights(detector_weights)
             face_detector.load_anchors(detector_anchors)
             face_regressor = BlazeFaceLandmark()
-            face_regressor.load_weights(landmark_detector_weights)
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                face_regressor.load_weights(landmark_detector_weights)
 
             return cls(
                 FaceDetector(face_detector, face_detector.anchors),

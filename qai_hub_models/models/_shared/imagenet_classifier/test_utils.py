@@ -77,12 +77,12 @@ def run_imagenet_classifier_test(
 
     predicted_class = torch.argmax(probabilities, dim=0)
     predicted_probability = probabilities[TEST_IMAGENET_CLASS].item()
-    assert (
-        predicted_probability > probability_threshold
-    ), f"Predicted probability {predicted_probability:.3f} is below the threshold {probability_threshold}."
-    assert (
-        predicted_class == TEST_IMAGENET_CLASS
-    ), f"Model predicted class {predicted_class} when correct class was {TEST_IMAGENET_CLASS}."
+    assert predicted_probability > probability_threshold, (
+        f"Predicted probability {predicted_probability:.3f} is below the threshold {probability_threshold}."
+    )
+    assert predicted_class == TEST_IMAGENET_CLASS, (
+        f"Model predicted class {predicted_class} when correct class was {TEST_IMAGENET_CLASS}."
+    )
 
 
 def run_imagenet_classifier_trace_test(

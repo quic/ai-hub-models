@@ -119,7 +119,11 @@ class MMMLU(BaseDataset):
 
             formatted_question = list(
                 map(
-                    lambda question, A, B, C, D: f"{question.strip()}\nA. {A}\nB. {B}\nC. {C}\nD. {D}\nAnswer:",
+                    lambda question,
+                    A,
+                    B,
+                    C,
+                    D: f"{question.strip()}\nA. {A}\nB. {B}\nC. {C}\nD. {D}\nAnswer:",
                     question,
                     A,
                     B,

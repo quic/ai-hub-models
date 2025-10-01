@@ -6,6 +6,7 @@
 import os
 import subprocess
 
+import torch
 from torchvision.datasets import ImageNet
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
@@ -81,6 +82,9 @@ class ImagenetDataset(BaseDataset, ImageNet):
             print(f"Expected 50000 images but got {total_images}")
             return False
         return True
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return super().__getitem__(index)
 
     def __len__(self) -> int:
         return ImageNet.__len__(self)

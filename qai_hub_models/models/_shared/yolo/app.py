@@ -12,7 +12,6 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms import Resize
-from ultralytics.utils.ops import process_mask
 
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
 from qai_hub_models.utils.bounding_box_processing import batched_nms
@@ -144,22 +143,24 @@ class YoloObjectDetectionApp:
             )
 
         # Non Maximum Suppression on each batch
-        pred_boxes, pred_scores, pred_class_idx = batched_nms(
-            self.nms_iou_threshold,
-            self.nms_score_threshold,
-            pred_boxes,
-            pred_scores,
-            pred_class_idx,
+        pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx = (
+            batched_nms(
+                self.nms_iou_threshold,
+                self.nms_score_threshold,
+                pred_boxes,
+                pred_scores,
+                pred_class_idx,
+            )
         )
 
         # Return raw output if requested
         if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
-            print(pred_boxes, pred_scores, pred_class_idx)
-            return (pred_boxes, pred_scores, pred_class_idx)
+            print(pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx)
+            return (pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx)
 
         # Add boxes to each batch
-        for batch_idx in range(len(pred_boxes)):
-            pred_boxes_batch = pred_boxes[batch_idx]
+        for batch_idx in range(len(pred_post_nms_boxes)):
+            pred_boxes_batch = pred_post_nms_boxes[batch_idx]
             for box in pred_boxes_batch:
                 draw_box_from_xyxy(
                     NHWC_int_numpy_frames[batch_idx],
@@ -342,7 +343,12 @@ class YoloSegmentationApp:
         )
 
         # Non Maximum Suppression on each batch
-        pred_boxes, pred_scores, pred_class_idx, pred_masks = batched_nms(
+        (
+            pred_post_nms_boxes,
+            pred_post_nms_scores,
+            pred_post_nms_class_idx,
+            pred_post_nms_masks,
+        ) = batched_nms(
             self.nms_iou_threshold,
             self.nms_score_threshold,
             pred_boxes,
@@ -352,18 +358,20 @@ class YoloSegmentationApp:
         )
 
         # Process mask and upsample to input shape
-        for batch_idx in range(len(pred_masks)):
-            pred_masks[batch_idx] = process_mask(
+        from ultralytics.utils.ops import process_mask
+
+        for batch_idx in range(len(pred_post_nms_masks)):
+            pred_post_nms_masks[batch_idx] = process_mask(
                 proto[batch_idx],
-                pred_masks[batch_idx],
-                pred_boxes[batch_idx],
+                pred_post_nms_masks[batch_idx],
+                pred_post_nms_boxes[batch_idx],
                 (self.input_height, self.input_width),
                 upsample=True,
             ).numpy()
 
         # Resize masks to match with input image shape
-        pred_masks = F.interpolate(
-            input=torch.Tensor(pred_masks),
+        pred_post_nms_resized_masks: torch.Tensor = F.interpolate(
+            input=torch.Tensor(pred_post_nms_masks),
             size=(input_h, input_w),
             mode="bilinear",
             align_corners=False,
@@ -371,10 +379,15 @@ class YoloSegmentationApp:
 
         # Return raw output if requested
         if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
-            return (pred_boxes, pred_scores, pred_masks, pred_class_idx)
+            return (
+                pred_post_nms_boxes,
+                pred_post_nms_scores,
+                list(pred_post_nms_resized_masks),
+                pred_post_nms_class_idx,
+            )
 
         # Create color map and convert segmentation mask to RGB image
-        pred_mask_img = torch.argmax(pred_masks, 1)
+        pred_mask_img = torch.argmax(pred_post_nms_resized_masks, 1)
 
         # Overlay the segmentation masks on the image.
         color_map = create_color_map(pred_mask_img.max().item() + 1)

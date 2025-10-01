@@ -45,6 +45,7 @@ def main():
         PositionProcessor,
         DEFAULT_EXPORT_DEVICE,
         DEFAULT_PRECISION,
+        constrained_device_max_context_length=1024,
     )
 
 

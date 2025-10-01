@@ -44,8 +44,8 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         self,
         preds: np.ndarray,
         maxvals: np.ndarray,
-        image_ids: torch.Tensor,
-        category_ids: torch.Tensor,
+        image_ids: torch.Tensor | list[int],
+        category_ids: torch.Tensor | list[int],
     ):
         """
         Store pose predictions in COCO evaluation format.

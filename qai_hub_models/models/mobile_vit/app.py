@@ -18,7 +18,6 @@ class MobileVITApp:
         self.model = model
 
     def predict(self, image: Image):
-
         feature = self.model.feature_extractor(images=image, return_tensors="pt")
         logits = self.model(feature.pixel_values)
         probabilities = torch.softmax(logits[0], dim=0)

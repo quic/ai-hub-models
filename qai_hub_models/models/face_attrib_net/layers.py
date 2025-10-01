@@ -65,7 +65,7 @@ class HeadBlock(nn.Module):
             ),
         ]
         self.bran2 = nn.Sequential(*bran2_block)
-
+        self.activ: nn.Module | None
         if activ_type == "prelu":
             self.activ = nn.PReLU()
         elif activ_type == "relu":
@@ -86,9 +86,9 @@ class HeadBlock(nn.Module):
 class DownsampleBlock(nn.Module):
     def __init__(self, chan, group_size=32, activ_type="prelu"):
         super().__init__()
-        assert (
-            chan % group_size == 0
-        ), f"chan {chan:d} cannot be divided by group_size {group_size:d}"
+        assert chan % group_size == 0, (
+            f"chan {chan:d} cannot be divided by group_size {group_size:d}"
+        )
 
         self.bran1 = nn.Sequential(
             Conv2dBlock(
@@ -157,7 +157,7 @@ class DownsampleBlock(nn.Module):
         ]
 
         self.bran2 = nn.Sequential(*bran2_block)
-
+        self.activ: nn.Module | None
         if activ_type == "prelu":
             self.activ = nn.PReLU()
         elif activ_type == "relu":
@@ -177,9 +177,9 @@ class DownsampleBlock(nn.Module):
 class NormalBlock(nn.Module):
     def __init__(self, chan, group_size=32, activ_type="prelu"):
         super().__init__()
-        assert (
-            chan % group_size == 0
-        ), f"chan {chan:d} cannot be divided by group_size {group_size:d}"
+        assert chan % group_size == 0, (
+            f"chan {chan:d} cannot be divided by group_size {group_size:d}"
+        )
         model_block = [
             Conv2dBlock(
                 chan,
@@ -217,7 +217,7 @@ class NormalBlock(nn.Module):
         ]
 
         self.model = nn.Sequential(*model_block)
-
+        self.activ: nn.Module | None
         if activ_type == "prelu":
             self.activ = nn.PReLU()
         elif activ_type == "relu":
@@ -283,6 +283,7 @@ class Conv2dBlock(nn.Module):
             bias=False,
         )
 
+        self.norm: nn.BatchNorm2d | None
         if norm == "bn":
             self.norm = nn.BatchNorm2d(out_chan)
         elif norm == "none":
@@ -290,6 +291,7 @@ class Conv2dBlock(nn.Module):
         else:
             assert 0, f"Unsupported normalization: {norm}"
 
+        self.activ: nn.Module | None
         if activ == "prelu":
             self.activ = nn.PReLU()
         elif activ == "relu":

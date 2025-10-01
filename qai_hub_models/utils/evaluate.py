@@ -205,7 +205,7 @@ def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
     qdq_model = get_qdq_onnx(model)
     assert qdq_model is not None, "Model must be from a quantize job."
     local_dir = Path("build/qdq_cache_dir")
-    local_dir.mkdir(exist_ok=True)
+    local_dir.mkdir(parents=True, exist_ok=True)
     local_path = local_dir / f"{qdq_model.model_id}"
     output_path = qdq_model.download(str(local_path))
     return OnnxModelTorchWrapper.OnCPU(output_path)
@@ -288,6 +288,16 @@ def _populate_data_cache(
     If called again with an old samples_per_job that still has its
     `samples_per_job_{samples_per_job}.txt` present, the data from those ids will
     be downloaded to the local cache instead of creating new hub datasets.
+
+    Directory structure:
+
+    hub_datasets{_nt}/
+        {dataset_name}_{input_spec_hash}/
+            samples_per_job_{num_samples}.txt  # Contains input and gt hub dataset ids
+            cache/
+                current_samples_per_job.txt  # Contains a single number of how many samples per job
+                dataset-dxxxx.h5  # Raw data of what was uploaded to hub for input
+                dataset-dyyyy.h5  # Raw data of what was uploaded to hub for gt
 
     Parameters:
         dataset_from_name_args: Args to instantiate the pyTorch dataset (if it is not cached) by calling get_dataset_from_name.
@@ -416,9 +426,9 @@ class HubDataset(Dataset):
         self.samples_per_hub_dataset: int = cast(
             int, get_dataset_cache_samples_per_job(folder_name)
         )
-        assert (
-            self.samples_per_hub_dataset is not None
-        ), "Dataset cache must be pre-populated"
+        assert self.samples_per_hub_dataset is not None, (
+            "Dataset cache must be pre-populated"
+        )
         dataset_ids_filepath = get_dataset_ids_filepath(
             folder_name, self.samples_per_hub_dataset
         )
@@ -718,9 +728,9 @@ def evaluate_on_dataset(
         If any accuracy was not computed, its value in the tuple will be None.
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
-    assert isinstance(
-        torch_model, BaseModel
-    ), "Evaluation is not yet supported for CollectionModels."
+    assert isinstance(torch_model, BaseModel), (
+        "Evaluation is not yet supported for CollectionModels."
+    )
 
     input_names = list(torch_model.get_input_spec().keys())
     output_names = torch_model.get_output_names()
@@ -766,9 +776,10 @@ def evaluate_on_dataset(
             num_samples = len(source_torch_dataset)
         _validate_inputs(num_samples, source_torch_dataset)
         if seed is not None:
-            torch_dataset = sample_dataset(source_torch_dataset, num_samples, seed)
             dataloader = DataLoader(
-                torch_dataset, batch_size=samples_per_job, shuffle=False
+                dataset=sample_dataset(source_torch_dataset, num_samples, seed),
+                batch_size=samples_per_job,
+                shuffle=False,
             )
         else:
             dataloader = get_deterministic_sample(
@@ -846,9 +857,9 @@ def evaluate_session_on_dataset(
         Tuple of accuracy(in float), formatted accuracy (as a string)
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
-    assert isinstance(
-        torch_model, BaseModel
-    ), "Evaluation is not yet supported for CollectionModels."
+    assert isinstance(torch_model, BaseModel), (
+        "Evaluation is not yet supported for CollectionModels."
+    )
     source_torch_dataset = get_dataset_from_name(
         dataset_name, DatasetSplit.VAL, torch_model.get_input_spec()
     )
@@ -867,6 +878,7 @@ def evaluate_session_on_dataset(
         model_inputs, ground_truth_values, *_ = sample
 
         for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+            ground_truth: torch.Tensor | tuple[torch.Tensor, ...]
             if isinstance(ground_truth_values, torch.Tensor):
                 ground_truth = ground_truth_values[j : j + 1]
             else:

@@ -160,7 +160,7 @@ class FootTrackNet(BaseModel):
             print("Loading pretrained weights into state dict...")
 
             pretrained_dict = torch.load(
-                base_file, map_location=lambda storage, loc: storage
+                base_file, map_location=lambda storage, loc: storage, weights_only=False
             )
             model_dict = self.state_dict()
 

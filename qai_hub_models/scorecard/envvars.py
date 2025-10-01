@@ -22,6 +22,8 @@ from qai_hub_models.utils.envvar_bases import (
 from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.path_helpers import get_git_branch
 
+DEFAULT_AGGREGATED_CSV_NAME = "aggregated_scorecard_results.csv"
+
 
 @unique
 class SpecialModelSetting(Enum):
@@ -434,17 +436,3 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
 
     DATE_ENVVAR = DateEnvvar
     DATE_FORMAT_ENVVAR = FormatEnvvar
-
-
-class ResultsCSVFilenameEnvvar(QAIHMStringEnvvar):
-    """
-    Name of the performance results CSV file written to disk.
-    """
-
-    VARNAME = "QAIHM_TEST_RESULTS_CSV_FILENAME"
-    CLI_ARGNAMES = ["--results-csv-name"]
-    CLI_HELP_MESSAGE = "Name of results CSV file."
-
-    @classmethod
-    def default(cls):
-        return "aggregated_scorecard_results.csv"

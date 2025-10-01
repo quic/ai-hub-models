@@ -11,7 +11,7 @@ from qai_hub_models.scorecard.path_compile import (
     ScorecardCompilePath,
 )
 from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_patches
-from qai_hub_models.test.utils.set_env import set_temp_env
+from qai_hub_models.utils.set_env import set_temp_env
 
 
 def test_compile_qnn_version():
@@ -59,9 +59,7 @@ def test_compile_qnn_version():
             frameworks, api_version, per_runtime_api_version
         ):
             qairt_agnostic_compile_path = ScorecardCompilePath.TFLITE
-            assert (
-                not qairt_agnostic_compile_path.runtime.qairt_version_changes_compilation
-            )
+            assert not qairt_agnostic_compile_path.runtime.qairt_version_changes_compilation
 
             qairt_dependent_compile_path = ScorecardCompilePath.QNN_CONTEXT_BINARY
             assert (

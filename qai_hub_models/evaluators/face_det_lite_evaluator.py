@@ -61,8 +61,8 @@ class FaceDetLiteEvaluator(mAPEvaluator):
 
         for i in range(len(image_ids)):
             image_id = image_ids[i]
-            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
-            classes = all_classes[i][: all_num_boxes[i].item()]
+            bboxes = all_bboxes[i][: int(all_num_boxes[i].item())]
+            classes = all_classes[i][: int(all_num_boxes[i].item())]
             if bboxes.numel() == 0:
                 continue
 

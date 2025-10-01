@@ -9,6 +9,7 @@ Llama3.2-3b-chat
 
 Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
 """
+
 import argparse
 import logging
 import os
@@ -66,8 +67,7 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help=(
-            "Directory where ONNX files are stored. Defaults to "
-            f"./build/{MODEL_NAME}_<opt>.onnx.zip"
+            f"Directory where ONNX files are stored. Defaults to ./build/{MODEL_NAME}_<opt>.onnx.zip"
         ),
     )
     parser.add_argument(

@@ -11,7 +11,7 @@ import torch
 
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.bounding_box_processing import batched_nms, box_xywh_to_xyxy
-from qai_hub_models.utils.image_processing import resize_pad
+from qai_hub_models.utils.image_processing import preprocess_PIL_image, resize_pad
 
 
 def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
@@ -47,7 +47,7 @@ def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
                     score = obj_score * cls_score
                     if score < thr:
                         continue
-                    c = np.argmax(pred[5:])
+                    c = int(np.argmax(pred[5:]))
                     bx = (pred[0].sigmoid() * 2 - 0.5 + x) * strides[s]
                     by = (pred[1].sigmoid() * 2 - 0.5 + y) * strides[s]
                     bw = 4 * pred[2].sigmoid() ** 2 * anchors[s][a][0]
@@ -115,7 +115,7 @@ def postprocess(
 class BodyDetectionApp:
     """Body detection application"""
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
+    def __init__(self, model: Callable[[torch.Tensor], list[torch.Tensor]]) -> None:
         """
         Initialize BodyDetectionApp.
 
@@ -144,8 +144,7 @@ class BodyDetectionApp:
             Detection result. Shape is (N, 6). N is the number of detected objects. Each object is represented by
             (cls_id, x1, y1, x2, y2, score)
         """
-        img = np.array(load_image(imgfile))
-        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0) / 255.0
+        img = preprocess_PIL_image(load_image(imgfile))
         input, scale, pad = resize_pad(img, (height, width))
         output = self.model(input)
         for t, o in enumerate(output):

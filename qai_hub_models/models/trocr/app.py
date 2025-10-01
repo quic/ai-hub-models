@@ -13,7 +13,6 @@ import torch
 from PIL.Image import Image
 
 from qai_hub_models.models.trocr.model import TrOCR
-from qai_hub_models.utils.model_adapters import TorchNumpyAdapter
 
 KVCacheNp = tuple[np.ndarray, ...]
 
@@ -38,11 +37,6 @@ class TrOCRApp:
         self.model = model
         self.encoder = model.encoder
         self.decoder = model.decoder
-        # Wraps torch Module so it takes np ndarray as input and outputs
-        if isinstance(self.encoder, torch.nn.Module):
-            self.encoder = TorchNumpyAdapter(self.encoder)
-        if isinstance(self.decoder, torch.nn.Module):
-            self.decoder = TorchNumpyAdapter(self.decoder)
         self.io_processor = model.io_processor
 
         self.pad_token_id = model.pad_token_id
@@ -56,9 +50,9 @@ class TrOCRApp:
 
         For more information on preprocessing, see https://huggingface.co/docs/transformers/preprocessing.
         """
-        assert (
-            self.io_processor is not None
-        ), "TrOCR processor most be provided to use type Image as an input."
+        assert self.io_processor is not None, (
+            "TrOCR processor most be provided to use type Image as an input."
+        )
         return self.io_processor(
             image.convert("RGB"), return_tensors="pt"
         ).pixel_values.numpy()
@@ -124,7 +118,8 @@ class TrOCRApp:
 
         # Run encoder
         kv_cache_cross_attn = cast(
-            KVCacheNp, self.encoder(torch.from_numpy(pixel_values))
+            KVCacheNp,
+            [np.asarray(x) for x in self.encoder(torch.from_numpy(pixel_values))],
         )
 
         # Initial KV Cache
@@ -157,7 +152,12 @@ class TrOCRApp:
             self.max_seq_len is None or output_ids.shape[-1] < self.max_seq_len
         ):
             # Get next tokens. Shape: [batch_size]
-            outputs = self.decoder(input_ids, decode_pos, *kv_cache)
+            outputs_pt = self.decoder(
+                torch.as_tensor(input_ids),
+                torch.as_tensor(decode_pos),
+                *tuple(torch.as_tensor(x) for x in kv_cache),
+            )
+            outputs = tuple(o.numpy() for o in outputs_pt)
             next_tokens = outputs[0]
             kv_cache_attn = cast(tuple[np.ndarray, ...], outputs[1:])
 

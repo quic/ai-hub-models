@@ -46,7 +46,6 @@ def demo(
         TargetRuntime.__members__.values()
     ),
 ):
-
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(

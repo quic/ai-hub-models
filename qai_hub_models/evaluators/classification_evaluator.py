@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from torch.types import Number
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
@@ -30,9 +31,9 @@ class ClassificationEvaluator(BaseEvaluator):
         self.top1_count += torch.sum(top5[:, :1] == gt_tensor).item()
 
     def reset(self):
-        self.top1_count = 0
-        self.top5_count = 0
-        self.total_samples = 0
+        self.top1_count: Number = 0
+        self.top5_count: Number = 0
+        self.total_samples: Number = 0
 
     def top1(self) -> float:
         if self.total_samples == 0:

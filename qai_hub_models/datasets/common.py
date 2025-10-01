@@ -187,8 +187,7 @@ def setup_fiftyone_env():
         import fiftyone as fo
     except (ImportError, ModuleNotFoundError):
         raise ImportError(
-            "This dataset requires the `fiftyone` module. "
-            "Run `pip install fiftyone==1.0.1` to use this dataset."
+            "This dataset requires the `fiftyone` module. Run `pip install fiftyone>=1.0.1,<1.9` to use this dataset."
         )
 
     fiftyone_dir = os.path.join(LOCAL_STORE_DEFAULT_PATH, "fiftyone")

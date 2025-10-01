@@ -447,8 +447,11 @@ def compile_via_export(
 
     # Use export script to create a compile job.
     with (
-        device_patch
-    ), pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
+        device_patch,
+        pre_quantize_compile_job_patch,
+        quantize_job_patch,
+        calibration_data_patch,
+    ):
         export_result = _parse_export_result(
             export_model(  # type:ignore[misc]
                 device=device.execution_device_name,
@@ -647,8 +650,11 @@ def profile_via_export(
         )
 
         with (
-            device_patch
-        ), calibration_data_patch, quantize_job_patch, compile_job_patch:
+            device_patch,
+            calibration_data_patch,
+            quantize_job_patch,
+            compile_job_patch,
+        ):
             export_result = _parse_export_result(
                 export_model(
                     device=device.execution_device_name,
@@ -825,8 +831,12 @@ def export_test_e2e(
 
     # Test export script end to end
     with (
-        device_patch
-    ), calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
+        device_patch,
+        calibration_data_patch,
+        quantize_job_patch,
+        compile_job_patch,
+        profile_job_patch,
+    ):
         export_model(  # type:ignore[misc]
             device=device.execution_device_name,
             chipset=device.chipset,
@@ -924,10 +934,9 @@ def torch_inference_for_accuracy_validation(
         model_id:
             Model ID
     """
-    assert isinstance(
-        model, BaseModel
-    ), "This function is not yet supported for CollectionModel."
-
+    assert isinstance(model, BaseModel), (
+        "This function is not yet supported for CollectionModel."
+    )
     # Get the first dim of the first input. This is always the batch size.
     compiled_batch_size = next(iter(model.get_input_spec().values()))[0][0]
 
@@ -1105,12 +1114,14 @@ def accuracy_on_sample_inputs_via_export(
     )
 
     with (
-        device_patch
-    ), (
-        calibration_data_patch
-    ), (
-        quantize_job_patch
-    ), compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
+        device_patch,
+        calibration_data_patch,
+        quantize_job_patch,
+        compile_job_patch,
+        profile_job_patch,
+        inference_job_patch,
+        tabulate_patch,
+    ):
         export_model(  # type:ignore[misc]
             target_runtime=scorecard_path.runtime,
             precision=precision,
@@ -1188,9 +1199,9 @@ def accuracy_on_dataset_via_evaluate_and_export(
         device:
             Scorecard device
     """
-    assert isinstance(
-        model, BaseModel
-    ), "This function is not yet supported for CollectionModel."
+    assert isinstance(model, BaseModel), (
+        "This function is not yet supported for CollectionModel."
+    )
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
     )
@@ -1260,8 +1271,11 @@ def accuracy_on_dataset_via_evaluate_and_export(
     # Run eval script to collect accuracy metrics
     num_samples = get_num_eval_samples(dataset_name)
     with (
-        cache_path_patch
-    ), dataset_download_patch, on_device_call_patch, torch_call_patch:
+        cache_path_patch,
+        dataset_download_patch,
+        on_device_call_patch,
+        torch_call_patch,
+    ):
         inference_job = inference_jobs[None]
         evaluate_result = evaluate_on_dataset(
             compiled_model=inference_job.model,

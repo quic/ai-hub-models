@@ -150,7 +150,6 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         fp_model: torch.nn.Module | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_8B_AIMETOnnx:
-
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:

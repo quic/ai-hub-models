@@ -10,7 +10,7 @@ from typing import Any, Callable, Optional, cast
 
 import torch
 from torch import nn
-from transformers.cache_utils import Cache
+from transformers.cache_utils import DynamicCache
 from transformers.models.llama.modeling_llama import (
     LlamaAttention,
     LlamaForCausalLM,
@@ -109,7 +109,6 @@ class SHALlamaAttention(LlamaAttention):
             del self.o_proj
 
     def prepare_sha(self):
-
         # Ensure conv preparation is done first
         if not (
             hasattr(self, "q_proj_conv")
@@ -147,7 +146,7 @@ class SHALlamaAttention(LlamaAttention):
                         torch.Tensor,
                         torch.Tensor | None,
                         torch.LongTensor | None,
-                        Cache | None,
+                        DynamicCache | None,
                         bool,
                         bool,
                         torch.LongTensor | None,
@@ -159,10 +158,7 @@ class SHALlamaAttention(LlamaAttention):
                 ],
                 self.forward,  # type: ignore[has-type]
             )
-            # pyright doesn't like that self.forward_sha doesn't take kwargs
-            self.forward = (
-                self.forward_sha
-            )  # pyright: ignore[reportAttributeAccessIssue]
+            self.forward = self.forward_sha  # type: ignore[assignment, method-assign]
 
         for i in range(self.num_heads):
             self.q_proj_sha[i].weight.data.copy_(
@@ -186,27 +182,26 @@ class SHALlamaAttention(LlamaAttention):
         hidden_states: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
+        past_key_value: Optional[DynamicCache] = None,
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: Optional[torch.LongTensor] = None,
         position_embeddings: Optional[
             tuple[torch.Tensor, torch.Tensor]
         ] = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[Cache]]:
-
+    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[DynamicCache]]:
         bsz, q_len, _ = hidden_states.size()
 
         hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
         hidden_states = hidden_states.transpose(1, 3)
 
-        query_states = [
+        query_states: list[torch.Tensor] = [
             q_proj(hidden_states).permute(0, 2, 3, 1) for q_proj in self.q_proj_sha
         ]
-        key_states = [
+        key_states: list[torch.Tensor] = [
             k_proj(hidden_states).permute(0, 2, 3, 1) for k_proj in self.k_proj_sha
         ]
-        value_states = [
+        value_states: list[torch.Tensor] = [
             v_proj(hidden_states).permute(0, 2, 3, 1) for v_proj in self.v_proj_sha
         ]
 
@@ -252,8 +247,12 @@ class SHALlamaAttention(LlamaAttention):
                 torch.cat([pv, v], dim=2) for pv, v in zip(past_value, value_states)
             ]
 
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        key_states = cast(
+            list[torch.Tensor], repeat_kv(key_states, self.num_key_value_groups)
+        )
+        value_states = cast(
+            list[torch.Tensor], repeat_kv(value_states, self.num_key_value_groups)
+        )
 
         attn_weights = [
             torch.matmul(q, k) / math.sqrt(self.head_dim)
@@ -261,8 +260,7 @@ class SHALlamaAttention(LlamaAttention):
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is"
-                f" {attn_weights[0].size()}"
+                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attn_weights[0].size()}"
             )
 
         if attention_mask is not None:
@@ -283,8 +281,7 @@ class SHALlamaAttention(LlamaAttention):
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is"
-                f" {attn_output[0].size()}"
+                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is {attn_output[0].size()}"
             )
 
         attn_output_return: torch.Tensor = torch.cat(attn_output, dim=3)
@@ -313,7 +310,7 @@ class ConvInplaceLinear(torch.nn.Conv2d):
         )
 
         self.weight.data.copy_(weight.data[:, :, None, None])
-        if bias is not None:
+        if bias is not None and self.bias is not None:
             self.bias.data.copy_(bias.data)
         self.to(module.weight.data.device)
 

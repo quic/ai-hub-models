@@ -370,7 +370,7 @@ class ResUnit(nn.Module):
     ):
         super().__init__()
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
-
+        self.body: nn.Module
         if bottleneck:
             self.body = ResBottleneck(
                 in_channels=in_channels,

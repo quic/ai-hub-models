@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection
-
 import jiwer
 import torch
 
@@ -28,17 +26,15 @@ class LibriSpeechEvaluator(BaseEvaluator):
 
     def add_batch(
         self,
-        output: Collection[tuple[torch.Tensor, torch.Tensor]],
-        target: Collection[str],
+        output: torch.Tensor,
+        target: torch.Tensor,
     ):
         """
         Args:
             output: List of logits [(batch_size, seq_len, vocab_size)] from model
-            target: List of ground-truth transcriptions [batch_size,200]
+            target: Tensor of shape [max_text_length] containing ASCII character codes for the transcription, padded with zeros if needed.
         """
-
-        if isinstance(output, tuple):
-            output = output[0]
+        output = output[0]
 
         # Decode predictions
         pred_ids = torch.argmax(output, dim=-1)

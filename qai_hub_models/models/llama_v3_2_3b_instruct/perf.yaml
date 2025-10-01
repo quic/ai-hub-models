@@ -2,10 +2,12 @@ supported_devices:
   - Snapdragon X Elite CRD
   - Snapdragon 8 Elite QRD
   - SA8255P ADP
+  - SA8295P ADP
 supported_chipsets:
   - qualcomm-snapdragon-8-elite
   - qualcomm-snapdragon-x-elite
   - qualcomm-sa8255p
+  - qualcomm-sa8295p
 precisions:
   w4a16:
     components:
@@ -13,29 +15,40 @@ precisions:
         performance_metrics:
           Snapdragon 8 Elite QRD:
             genie:
+              context_length: 4096
               time_to_first_token_range_milliseconds:
                 min: 88.195
                 max: 2822.250
               tokens_per_second: 23.4718
           Snapdragon X Elite CRD:
             genie:
+              context_length: 4096
               time_to_first_token_range_milliseconds:
                 min: 125.936
                 max: 4029.952
               tokens_per_second: 18.4176
           SA8255P ADP:
             genie:
+              context_length: 4096
               time_to_first_token_range_milliseconds:
                 min: 187.414
                 max: 5997.257
               tokens_per_second: 14.02377
   w4:
-      components:
-        Llama-v3.2-3B-Instruct:
-          performance_metrics:
-            Snapdragon 8 Elite QRD:
-              genie:
-                time_to_first_token_range_milliseconds:
-                  min: 88.195
-                  max: 2822.250
-                tokens_per_second: 13.83
+    components:
+      Llama-v3.2-3B-Instruct:
+        performance_metrics:
+          Snapdragon 8 Elite QRD:
+            genie:
+              context_length: 4096
+              time_to_first_token_range_milliseconds:
+                min: 88.195
+                max: 2822.250
+              tokens_per_second: 13.83
+          SA8295P ADP:
+            genie:
+              context_length: 1024
+              time_to_first_token_range_milliseconds:
+                min: 373.117
+                max: 2984.936
+              tokens_per_second: 3.523

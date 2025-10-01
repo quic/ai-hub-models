@@ -186,7 +186,6 @@ def nms_bbox_landmark(
     keep = []
     flags = [0] * len(objs)
     for index, obj in enumerate(objs):
-
         if flags[index] != 0:
             continue
 
@@ -235,18 +234,18 @@ def detect_images_multiclass_fb(
     )
 
     landmark = output_landmark[0].cpu().data.numpy().reshape(1, -1, hm_height, hm_width)
-    vis = vis[0].cpu().data.numpy().reshape(1, -1, hm_height, hm_width)
+    vis_np = vis[0].cpu().data.numpy().reshape(1, -1, hm_height, hm_width)
     nmskey = hm
 
-    kscore, kinds, kcls, kys, kxs = restructure_topk(nmskey, 1000)
+    kscore_pt, kinds_pt, kcls_pt, kys_pt, kxs_pt = restructure_topk(nmskey, 1000)
 
-    kys = kys.cpu().data.numpy().astype(np.int32)
-    kxs = kxs.cpu().data.numpy().astype(np.int32)
-    kcls = kcls.cpu().data.numpy().astype(np.int32)
-    kscore = kscore.cpu().data.numpy().astype(np.float32)
-    kinds = kinds.cpu().data.numpy().astype(np.int32)
+    kys = kys_pt.cpu().data.numpy().astype(np.int32)
+    kxs = kxs_pt.cpu().data.numpy().astype(np.int32)
+    kcls = kcls_pt.cpu().data.numpy().astype(np.int32)
+    kscore = kscore_pt.cpu().data.numpy().astype(np.float32)
+    kinds = kinds_pt.cpu().data.numpy().astype(np.int32)
 
-    key: list[list[np.int32 | np.float32]] = [
+    key: list[list[np.ndarray]] = [
         [],  # [kys..]
         [],  # [kxs..]
         [],  # [score..]
@@ -285,7 +284,7 @@ def detect_images_multiclass_fb(
                 x5y5 = landmark[0, : n_lmk * 2, cy, cx]
                 x5y5 = (x5y5 + np.array([cx] * n_lmk + [cy] * n_lmk)) * stride
                 boxlandmark = np.array(list(zip(x5y5[:n_lmk], x5y5[n_lmk:])))
-                box_vis = vis[0, :, cy, cx].tolist()
+                box_vis = vis_np[0, :, cy, cx].tolist()
             else:
                 boxlandmark = None
                 box_vis = None
@@ -410,9 +409,9 @@ class FootTrackNet_App:
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
         )
-        assert (
-            NCHW_fp32_torch_frames.shape[0] == 1
-        ), "This app supports only a batch size of 1."
+        assert NCHW_fp32_torch_frames.shape[0] == 1, (
+            "This app supports only a batch size of 1."
+        )
 
         # Center-pad & scale image to fit compiled network input image size.
         if self.compiled_image_input_size:

@@ -16,6 +16,7 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from pycocotools.coco import COCO
+from torch.types import Number
 
 from qai_hub_models.datasets.coco_foot_track_dataset import CocoFootTrackDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
@@ -43,7 +44,9 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
         """Resets the collected predictions."""
         self.predictions = []
 
-    def undo_resize_pad_bbox(self, bbox: BBox_landmarks, scale: float, padding: list):
+    def undo_resize_pad_bbox(
+        self, bbox: BBox_landmarks, scale: Number, padding: tuple[int, int]
+    ):
         """
         undo the resize and pad in place of the BBox_landmarks object.
         operation in place to replace the inner coordinates
@@ -102,7 +105,7 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
                     objs_person.append(obj)
             objs_person = self.nms_bbox_landmark(objs_person, iou=iou_thr[1])
             for obj in objs_person:
-                self.undo_resize_pad_bbox(obj, scale[idx], [0, 0])
+                self.undo_resize_pad_bbox(obj, scale[idx].item(), (0, 0))
                 x, y, r, b = (int(bb + 0.5) for bb in np.array(obj.box).astype(int))
                 b_box = [x, y, r - x + 1, b - y + 1]
                 keypoints = []
@@ -143,7 +146,6 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
         keep = []
         flags = [0] * len(objs)
         for index, obj in enumerate(objs):
-
             if flags[index] != 0:
                 continue
 
@@ -185,10 +187,10 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
             )
         else:
             raise ValueError("output_landmark is None, expected a tensor.")
-        if vis is not None:
-            vis = vis[0].cpu().data.numpy().reshape(1, -1, hm_height, hm_width)
-        else:
+        if vis is None:
             raise ValueError("vis is None, expected a tensor.")
+
+        vis_np = vis[0].cpu().data.numpy().reshape(1, -1, hm_height, hm_width)
         nmskey = hm
 
         kscore, kinds, kcls, kys, kxs = self.restructure_topk(nmskey, 1000)
@@ -231,7 +233,7 @@ class CocoFootTrackNetEvaluator(BaseEvaluator):
                     x5y5 = landmark[0, : n_lmk * 2, cy, cx]
                     x5y5 = (x5y5 + np.array([cx] * n_lmk + [cy] * n_lmk)) * stride
                     boxlandmark = np.array(list(zip(x5y5[:n_lmk], x5y5[n_lmk:])))
-                    box_vis = vis[0, :, cy, cx].tolist()
+                    box_vis = vis_np[0, :, cy, cx].tolist()
                 else:
                     boxlandmark = None
                     box_vis = None

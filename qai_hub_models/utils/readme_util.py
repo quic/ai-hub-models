@@ -86,7 +86,7 @@ def _get_package_instructions(
 ):
     # Use dashes in model name to avoid an issue where older pip versions may not install modules correctly.
     install_pkg = "qai-hub-models" + (
-        f'[{model_id.replace("_", "-")}]' if model_has_reqs else ""
+        f"[{model_id.replace('_', '-')}]" if model_has_reqs else ""
     )
     if model_has_reqs:
         # Package extras include brackets in the package name, which confuses
@@ -102,13 +102,13 @@ Note: GPU is unnecessary if you wish to only export the model for on-device depl
 For {model_id}, a dedicated CUDA enabled GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is needed to quantize the model on your local machine. GPU can also increase the speed of evaluation and demo of your quantized model significantly.
 Install the GPU package via pip:
 ```bash
-pip install {install_pkg}{f' {pip_install_flags_gpu}'}
+pip install {install_pkg}{f" {pip_install_flags_gpu}"}
 ```
 """
 
     return f"""
 Install the package via pip:
 ```bash
-pip install {install_pkg}{f' {pip_install_flags}' if pip_install_flags else ''}
+pip install {install_pkg}{f" {pip_install_flags}" if pip_install_flags else ""}
 ```{gpu_installation_instructions}
 """

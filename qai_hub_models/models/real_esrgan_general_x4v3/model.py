@@ -115,7 +115,9 @@ def _load_realesrgan_source_model_from_weights(
             upscale=4,
             act_type="prelu",
         )
-        pretrained_dict = torch.load(weights_path, map_location=torch.device("cpu"))
+        pretrained_dict = torch.load(
+            weights_path, map_location=torch.device("cpu"), weights_only=False
+        )
 
         if "params_ema" in pretrained_dict:
             keyname = "params_ema"

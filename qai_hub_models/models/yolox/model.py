@@ -43,9 +43,9 @@ class YoloX(Yolo):
             from yolox.models.yolo_head import YOLOXHead
             from yolox.utils import meshgrid, replace_module
 
-        assert isinstance(
-            yolox_source_model.head, YOLOXHead
-        ), "Only the YOLOXHead defined in yolo_head.py is supported."
+        assert isinstance(yolox_source_model.head, YOLOXHead), (
+            "Only the YOLOXHead defined in yolo_head.py is supported."
+        )
         # pytorch SiLU activation function has to be replaced by a custom implementation
         yolox_source_model = replace_module(yolox_source_model, nn.SiLU, SiLU)
 
@@ -260,7 +260,7 @@ def _load_yolox_source_model_from_weights(
         weights_name = weights_name.replace("_", "-").replace(".pth", "")
         exp = get_exp(exp_name=weights_name)
         model = exp.get_model()
-        ckpt = torch.load(weights_path, map_location="cpu")
+        ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
         model.load_state_dict(ckpt["model"])
         model.to("cpu").eval()
 

@@ -1,0 +1,147 @@
+[build-system]
+requires = ["setuptools >= 75.8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qai_hub_models"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = "Popular Machine Learning models optimized for Qualcomm chipsets."
+requires-python = ">=3.9, <3.13"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [
+    { name = "Qualcomm® Technologies, Inc", email = "ai-hub-support@qti.qualcomm.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://aihub.qualcomm.com/models"
+GitHub = "https://github.com/quic/ai-hub-models"
+Issues = "https://github.com/quic/ai-hub-models/issues"
+Slack = "https://aihub.qualcomm.com/community/slack"
+HuggingFace = "https://huggingface.co/qualcomm"
+
+[tool.setuptools.package-data]
+qai_hub_models = ["**/*.yaml", "**/*.txt", "**/*.json", "**/*.diff", "**/*.md", "**/*.j2", "**/*.env", "**/*.csv"]
+
+[tool.setuptools.packages.find]
+include = ["qai_hub_models*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "qai_hub_models._version.__version__"}
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes (flake8 replacement) rules
+    "I", # sort inputs
+    "UP" # pyupgrade replacement rules
+]
+ignore = [
+    "E501", # line too long
+    "E741", # Ambiguous variable names
+]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["qai_hub_models"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "torch.*"
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.*"
+disable_error_code = ["type-abstract", "override"]
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+tmp_path_retention_policy = "failed"
+testpaths = "qai_hub_models"
+norecursedirs = "build"
+python_files = ["tests.py", "test_*.py", "test.py"]
+filterwarnings = [
+    "ignore::DeprecationWarning:torch.*:",
+    "ignore::DeprecationWarning:torchvision.*:",
+]
+markers = [
+    "slow: marks tests as slow",
+    "slow_cloud: marks test as slow and cloud-dependent",
+    "compile: marks tests that run compile jobs",
+    "profile: marks tests that run profile jobs",
+    "inference: marks tests that run inference jobs",
+    "export: marks tests that run full export scripts",
+    "unmarked: default marker added to any job with no markers",
+]
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._internal.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.llm.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.llama3.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v2_7b_chat.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/falcon_v3_7b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_8b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_1_8b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_2_3b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_2_1b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_1_sea_lion_3_5_8b_r.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_elyza_jp_8b.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_taide_8b_chat.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_3b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_7b_instruct.*"
+ignore_errors = true

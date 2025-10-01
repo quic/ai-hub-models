@@ -5,21 +5,20 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
-import torch.nn as nn
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import DetectionModel
 
 from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
-from qai_hub_models.models.common import Precision
-from qai_hub_models.utils.asset_loaders import (
-    SourceAsRoot,
-    find_replace_in_repo,
-    wipe_sys_modules,
+from qai_hub_models.models._shared.yolo.ultralytics_patches import (
+    patch_yolo_detection_head,
 )
+from qai_hub_models.models.common import Precision
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
-SOURCE_REPO = "https://github.com/ultralytics/ultralytics"
-SOURCE_REPO_COMMIT = "7a6c76d16c01f3e4ce9ed20eedc6ed27421b3268"
 
 SUPPORTED_WEIGHTS = [
     "yolo11n.pt",
@@ -36,7 +35,7 @@ class YoloV11Detector(Yolo):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: DetectionModel,
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
@@ -44,6 +43,7 @@ class YoloV11Detector(Yolo):
         self.model = model
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
+        patch_yolo_detection_head(self.model)
 
     @classmethod
     def from_pretrained(
@@ -52,33 +52,12 @@ class YoloV11Detector(Yolo):
         include_postprocessing: bool = True,
         split_output: bool = False,
     ):
-        with SourceAsRoot(
-            SOURCE_REPO,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ) as repo_path:
-            # Boxes and scores have different scales, so return separately
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/head.py",
-                "return torch.cat((dbox, cls.sigmoid()), 1)",
-                "return (dbox, cls.sigmoid())",
-            )
-
-            import ultralytics
-
-            wipe_sys_modules(ultralytics)
-            from ultralytics import YOLO as ultralytics_YOLO
-
-            model = ultralytics_YOLO(ckpt_name).model
-            assert isinstance(model, torch.nn.Module)
-
-            return cls(
-                model,
-                include_postprocessing,
-                split_output,
-            )
+        model = cast(DetectionModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(
+            model,
+            include_postprocessing,
+            split_output,
+        )
 
     def forward(self, image):
         """
@@ -108,7 +87,7 @@ class YoloV11Detector(Yolo):
                 Same as previous case but with boxes and scores concatenated into a single tensor.
                 Shape [batch, 4 + num_classes, num_preds]
         """
-        (boxes, scores), _ = self.model(image)
+        boxes, scores = self.model(image)
 
         if not self.include_postprocessing:
             if self.split_output:

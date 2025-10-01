@@ -261,7 +261,12 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
 
         parser.add_argument(
             *args,
-            action=partial(cls.StoreTrueFalseAction, const=not cls.get(default), envvar=cls, setenv=setenv),  # type: ignore[arg-type]
+            action=partial(
+                cls.StoreTrueFalseAction,
+                const=not cls.get(default),
+                envvar=cls,
+                setenv=setenv,
+            ),  # type: ignore[arg-type]
             default=cls.get(default),
             dest=dest,
             help=cls.CLI_HELP_MESSAGE,

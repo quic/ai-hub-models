@@ -69,7 +69,6 @@ class CocoFootTrackDataset(BaseDataset):
             ratio = self.input_width / self.input_height
 
             for ann in annotations:
-
                 # Store cleaned bound boxes
                 x, y, w, h = ann["bbox"]
                 x1 = max(0, x)

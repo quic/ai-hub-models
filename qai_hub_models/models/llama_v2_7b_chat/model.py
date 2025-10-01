@@ -206,11 +206,9 @@ class Llama2Wrapper(torch.nn.Module):
             )
 
         # Reduce # of hidden layers as per split
-        self.model.model.layers = (
-            self.model.model.layers[  # pyright: ignore[reportAttributeAccessIssue]
-                hidden_layers_start:hidden_layers_end
-            ]
-        )
+        self.model.model.layers = self.model.model.layers[  # pyright: ignore[reportAttributeAccessIssue]
+            hidden_layers_start:hidden_layers_end
+        ]
 
         # Apply model conversion
         # Convert MHA to SHA
@@ -283,7 +281,6 @@ def _get_llama_model_with_split(
     split_part: int = 1,
     is_token_generator: bool = False,
 ) -> tuple[torch.nn.Module, str]:
-
     # Ensure User has access to model,
     # otherwise point to instructions to get access and error out.
     has_model_access(HF_REPO_NAME, HF_REPO_URL)

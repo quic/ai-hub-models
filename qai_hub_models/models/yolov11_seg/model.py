@@ -5,16 +5,17 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
+from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import SegmentationModel
 
 from qai_hub_models.models._shared.yolo.model import YoloSeg, yolo_segment_postprocess
-from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
 
-SOURCE_REPO = "https://github.com/ultralytics/ultralytics"
-SOURCE_REPO_COMMIT = "7a6c76d16c01f3e4ce9ed20eedc6ed27421b3268"
 
 SUPPORTED_WEIGHTS = [
     "yolo11n-seg.pt",
@@ -24,11 +25,14 @@ SUPPORTED_WEIGHTS = [
     "yolo11x-seg.pt",
 ]
 DEFAULT_WEIGHTS = "yolo11n-seg.pt"
-NUM_ClASSES = 80
 
 
 class YoloV11Segmentor(YoloSeg):
     """Exportable YoloV11 segmentor, end-to-end."""
+
+    def __init__(self, model: SegmentationModel):
+        super().__init__(model)
+        self.num_classes: int = model.nc
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
@@ -37,22 +41,8 @@ class YoloV11Segmentor(YoloSeg):
                 f"Unsupported checkpoint name provided {ckpt_name}.\n"
                 f"Supported checkpoints are {list(SUPPORTED_WEIGHTS)}."
             )
-        with SourceAsRoot(
-            SOURCE_REPO,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ):
-
-            import ultralytics
-
-            wipe_sys_modules(ultralytics)
-            from ultralytics import YOLO as ultralytics_YOLO
-
-            model = ultralytics_YOLO(ckpt_name).model
-            assert isinstance(model, torch.nn.Module)
-
-            return cls(model)
+        model = cast(SegmentationModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(model)
 
     def forward(self, image: torch.Tensor):
         """
@@ -78,6 +68,6 @@ class YoloV11Segmentor(YoloSeg):
         """
         predictions = self.model(image)
         boxes, scores, masks, classes = yolo_segment_postprocess(
-            predictions[0], NUM_ClASSES
+            predictions[0], self.num_classes
         )
         return boxes, scores, masks, classes.to(torch.uint8), predictions[1][-1]

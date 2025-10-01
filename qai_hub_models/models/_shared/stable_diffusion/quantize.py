@@ -104,8 +104,7 @@ def stable_diffusion_quantize(
         "--prompt",
         type=str,
         help=(
-            "Path to a plain text file where each line is a prompt. "
-            "The default uses a preset of 500 prompts"
+            "Path to a plain text file where each line is a prompt. The default uses a preset of 500 prompts"
         ),
         **kwargs,
     )

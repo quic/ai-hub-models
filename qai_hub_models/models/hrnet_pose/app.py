@@ -31,9 +31,9 @@ def get_max_preds(batch_heatmaps):
     get predictions from score maps
     heatmaps: numpy.ndarray([batch_size, num_joints, height, width])
     """
-    assert isinstance(
-        batch_heatmaps, np.ndarray
-    ), "batch_heatmaps should be numpy.ndarray"
+    assert isinstance(batch_heatmaps, np.ndarray), (
+        "batch_heatmaps should be numpy.ndarray"
+    )
     assert batch_heatmaps.ndim == 4, "batch_images should be 4-ndim"
 
     batch_size = batch_heatmaps.shape[0]

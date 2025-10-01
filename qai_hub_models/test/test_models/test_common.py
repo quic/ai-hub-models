@@ -47,16 +47,22 @@ def reset_hub_frameworks_patches(
         if api_url is not None
         else nullcontext()
     )
-    with mock.patch(
-        "qai_hub_models.models.common.get_framework_list",
-        mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
-    ), mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", dict()
-    ), mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", dict()
-    ), mock.patch(
-        "qai_hub.hub._global_client.config.api_url", "https://app.aihub.qualcomm.com"
-    ), version_patch, api_url_patch:
+    with (
+        mock.patch(
+            "qai_hub_models.models.common.get_framework_list",
+            mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
+        ),
+        mock.patch("qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", dict()),
+        mock.patch(
+            "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", dict()
+        ),
+        mock.patch(
+            "qai_hub.hub._global_client.config.api_url",
+            "https://app.aihub.qualcomm.com",
+        ),
+        version_patch,
+        api_url_patch,
+    ):
         yield
 
 

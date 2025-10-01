@@ -26,7 +26,7 @@ Note: GPU is unnecessary if you wish to only export the model for on-device depl
 For llama_v3_8b_instruct, a dedicated CUDA enabled GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is needed to quantize the model on your local machine. GPU can also increase the speed of evaluation and demo of your quantized model significantly.
 Install the GPU package via pip:
 ```bash
-pip install "qai-hub-models[llama-v3-8b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.10.0/aimet_onnx-2.10.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+pip install "qai-hub-models[llama-v3-8b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.14.0/aimet_onnx-2.14.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 

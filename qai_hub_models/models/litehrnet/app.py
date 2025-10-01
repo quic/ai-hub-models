@@ -126,18 +126,16 @@ def refine_and_transform_keypoints(
     Returns:
         refined_keypoints [batch, 17, 2]
     """
-    predictions = (
-        predictions.numpy() if isinstance(predictions, torch.Tensor) else predictions
-    )
-    heatmaps = heatmaps.numpy() if isinstance(heatmaps, torch.Tensor) else heatmaps
-    bbox = bbox.numpy() if isinstance(bbox, torch.Tensor) else bbox
-    scale = scale.numpy() if isinstance(scale, torch.Tensor) else scale
+    predictions_np = np.asarray(predictions)
+    heatmaps_np = np.asarray(heatmaps)
+    bbox_np = np.asarray(bbox)
+    scale_np = np.asarray(scale)
 
     input_size = np.array(input_size)
 
-    keypoints = refine_keypoints(predictions, heatmaps.squeeze(0))
-    scale_factor = np.array([4.0, 4.0])
+    keypoints = refine_keypoints(predictions_np, heatmaps_np.squeeze(0))
+    scale_factor = np.array(object=[4.0, 4.0])
     keypoints = keypoints * scale_factor
-    center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-    keypoints = keypoints / input_size * scale + center - 0.5 * scale
+    center = [(bbox_np[0] + bbox_np[2]) / 2, (bbox_np[1] + bbox_np[3]) / 2]
+    keypoints = keypoints / input_size * scale_np + center - 0.5 * scale_np
     return keypoints

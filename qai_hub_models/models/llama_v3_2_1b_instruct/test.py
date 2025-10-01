@@ -4,27 +4,219 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import pytest
+import qai_hub as hub
 import torch
-from transformers import PretrainedConfig
+from transformers import AutoConfig, PretrainedConfig
 
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.model import MainLLMInputType, cleanup
 from qai_hub_models.models._shared.llm.quantize import quantize
+from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.models.llama_v3_2_1b_instruct import MODEL_ID, FP_Model, Model
 from qai_hub_models.models.llama_v3_2_1b_instruct.demo import llama_3_2_1b_chat_demo
+from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
+    DEFAULT_EXPORT_DEVICE,
+    NUM_SPLITS,
+)
+from qai_hub_models.models.llama_v3_2_1b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_2_1b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_PRECISION,
     DEFAULT_SEQUENCE_LENGTH,
     HF_REPO_NAME,
 )
+from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.checkpoint import CheckpointSpec
+from qai_hub_models.utils.llm_helpers import create_genie_config
+from qai_hub_models.utils.model_cache import CacheMode
 
 DEFAULT_EVAL_SEQLEN = 2048
+
+
+@pytest.mark.parametrize(
+    "model_name, rope_dim, kv_dim, has_pos_enc, eos_token",
+    [
+        ("meta-llama/Llama-3.2-1B-Instruct", 32, 64, True, [128001, 128008, 128009]),
+        ("meta-llama/Llama-3.2-3B-Instruct", 64, 128, True, [128001, 128008, 128009]),
+        ("meta-llama/Meta-Llama-3-8B-Instruct", 64, 128, False, 128009),
+    ],
+)
+def test_create_genie_config(
+    model_name: str, rope_dim: int, kv_dim: int, has_pos_enc: bool, eos_token: list[int]
+):
+    context_length = 1024
+    llm_config = AutoConfig.from_pretrained(model_name)
+    model_list = ["model1.bin", "model2.bin"]
+    actual_config = create_genie_config(context_length, llm_config, "rope", model_list)
+    expected_config: dict[str, Any] = {
+        "dialog": {
+            "version": 1,
+            "type": "basic",
+            "context": {
+                "version": 1,
+                "size": 1024,
+                "n-vocab": 128256,
+                "bos-token": 128000,
+                "eos-token": eos_token,
+            },
+            "sampler": {
+                "version": 1,
+                "seed": 42,
+                "temp": 0.8,
+                "top-k": 40,
+                "top-p": 0.95,
+            },
+            "tokenizer": {"version": 1, "path": "tokenizer.json"},
+            "engine": {
+                "version": 1,
+                "n-threads": 3,
+                "backend": {
+                    "version": 1,
+                    "type": "QnnHtp",
+                    "QnnHtp": {
+                        "version": 1,
+                        "use-mmap": False,
+                        "spill-fill-bufsize": 0,
+                        "mmap-budget": 0,
+                        "poll": True,
+                        "cpu-mask": "0xe0",
+                        "kv-dim": kv_dim,
+                        "allow-async-init": False,
+                    },
+                    "extensions": "htp_backend_ext_config.json",
+                },
+                "model": {
+                    "version": 1,
+                    "type": "binary",
+                    "binary": {
+                        "version": 1,
+                        "ctx-bins": [
+                            "model1.bin",
+                            "model2.bin",
+                        ],
+                    },
+                },
+            },
+        }
+    }
+    if has_pos_enc:
+        expected_config["dialog"]["engine"]["model"]["positional-encodings"] = {
+            "type": "rope",
+            "rope-dim": rope_dim,
+            "rope-theta": 500000,
+            "rope-scaling": {
+                "rope-type": "llama3",
+                "factor": 8.0,
+                "low-freq-factor": 1.0,
+                "high-freq-factor": 4.0,
+                "original-max-position-embeddings": 8192,
+            },
+        }
+
+    assert expected_config == actual_config
+
+
+@pytest.mark.unmarked
+@pytest.mark.parametrize(
+    "skip_inferencing, skip_profiling, target_runtime",
+    [
+        (True, True, TargetRuntime.GENIE),
+        (True, False, TargetRuntime.GENIE),
+        (False, True, TargetRuntime.GENIE),
+        (False, False, TargetRuntime.GENIE),
+    ],
+)
+def test_cli_device_with_skips(
+    tmp_path: Path,
+    skip_inferencing: bool,
+    skip_profiling: bool,
+    target_runtime: TargetRuntime,
+):
+    test.test_cli_device_with_skips(
+        export_main,
+        Model,
+        tmp_path,
+        MODEL_ID,
+        NUM_SPLITS,
+        hub.Device(DEFAULT_EXPORT_DEVICE),
+        skip_inferencing,
+        skip_profiling,
+        target_runtime,
+    )
+
+
+def test_cli_device_with_skips_unsupported_device(
+    tmp_path: Path,
+):
+    test.test_cli_device_with_skips_unsupported_device(
+        export_main, Model, tmp_path, MODEL_ID
+    )
+
+
+@pytest.mark.unmarked
+@pytest.mark.parametrize(
+    "chipset, context_length, sequence_length, target_runtime",
+    [
+        ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.GENIE),
+        ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.GENIE),
+    ],
+)
+def test_cli_chipset_with_options(
+    tmp_path: Path,
+    context_length: int,
+    sequence_length: int,
+    chipset: str,
+    target_runtime: TargetRuntime,
+):
+    test.test_cli_chipset_with_options(
+        export_main,
+        Model,
+        tmp_path,
+        MODEL_ID,
+        NUM_SPLITS,
+        chipset,
+        context_length,
+        sequence_length,
+        target_runtime,
+        precision=Precision.w4,
+    )
+
+
+@pytest.mark.unmarked
+@pytest.mark.parametrize(
+    "cache_mode, skip_download, skip_summary, target_runtime",
+    [
+        (CacheMode.ENABLE, True, True, TargetRuntime.GENIE),
+        (CacheMode.DISABLE, True, False, TargetRuntime.GENIE),
+        (CacheMode.OVERWRITE, False, False, TargetRuntime.GENIE),
+    ],
+)
+def test_cli_default_device_select_component(
+    tmp_path: Path,
+    cache_mode: CacheMode,
+    skip_download: bool,
+    skip_summary: bool,
+    target_runtime: TargetRuntime,
+):
+    test.test_cli_default_device_select_component(
+        export_main,
+        Model,
+        tmp_path,
+        MODEL_ID,
+        NUM_SPLITS,
+        hub.Device(DEFAULT_EXPORT_DEVICE),
+        cache_mode,
+        skip_download,
+        skip_summary,
+        target_runtime,
+    )
 
 
 # Dummy model

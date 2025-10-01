@@ -103,7 +103,13 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, self.precision, None, self.device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            self.precision,
+            None,
+            self.device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
@@ -241,7 +247,13 @@ class ScorecardModelPrecisionSummary(
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, self.precision, None, device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            self.precision,
+            None,
+            device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
@@ -331,7 +343,13 @@ class ScorecardModelSummary(
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, precision, None, device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            precision,
+            None,
+            device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
@@ -549,7 +567,6 @@ class ModelPerfSummary(
         exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
         model_name: str | None = None,
     ) -> QAIHMModelPerf:
-
         precision_cards = {
             p: s.get_perf_card(
                 include_failed_jobs,

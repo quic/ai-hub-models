@@ -72,9 +72,7 @@ def print_inference_metrics(
             return f"{x:.4g}"
         return x
 
-    formatted_df = df_eval.applymap(
-        custom_float_format
-    )  # pyright: ignore[reportCallIssue]
+    formatted_df = df_eval.applymap(custom_float_format)  # pyright: ignore[reportCallIssue]
 
     print(
         "\nComparing on-device vs. local-cpu inference"
@@ -237,13 +235,11 @@ def print_on_target_demo_cmd(
         f"\nRun compiled model{'s' if len(target_model_id) > 1 else ''} on a hosted device on sample data using:"
     )
     print(
-        f"python {model_folder / 'demo.py'} "
-        "--eval-mode on-device "
-        f"--hub-model-id {target_model_id_str} ",
+        f"python {model_folder / 'demo.py'} --eval-mode on-device --hub-model-id {target_model_id_str} ",
         end="",
     )
     if device.attributes:
-        print(f"--chipset {device.attributes[len('chipset:'):]}\n")
+        print(f"--chipset {device.attributes[len('chipset:') :]}\n")
     else:
         print(f'--device "{device.name}"\n')
 

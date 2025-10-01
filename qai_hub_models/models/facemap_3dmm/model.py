@@ -37,7 +37,6 @@ class FaceMap_3DMM(BaseModel):
 
     @classmethod
     def from_pretrained(cls):
-
         resnet_model = resnet18_wd2(pretrained=False)
 
         checkpoint_path = CachedWebModelAsset.from_asset_store(

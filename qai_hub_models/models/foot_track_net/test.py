@@ -34,7 +34,6 @@ OUTPUT_RST_ADDRESS = CachedWebModelAsset.from_asset_store(
 # Verify that the output from Torch is as expected. bbox, landmark, visibility
 @skip_clone_repo_check
 def test_task() -> None:
-
     # error tolerance
     diff_tol = 0.1
     atol = 5

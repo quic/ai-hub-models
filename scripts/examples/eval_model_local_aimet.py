@@ -153,7 +153,6 @@ def _create_aimet_quantsim(
 def flip_layers_to_higher_precision(
     sim, sqnr_dict: dict, percent_to_flip: int = 10, higher_precision: str = "float"
 ):
-
     sqnr_list = sorted(sqnr_dict.items(), key=lambda item: item[1])
     sqnr_list = sqnr_list[: math.ceil(len(sqnr_list) * percent_to_flip / 100)]
     cg_ops = sim.connected_graph.get_all_ops()
@@ -192,7 +191,6 @@ def evaluate_and_save_results(session, model, num_samples, overall_results, tag)
 
 
 def run_quant_analyzer(onnx_model, sim, eval_callback, input_spec, results_dir):
-
     # Check if we can use cached results
     if (
         Path(results_dir).is_dir()
@@ -313,7 +311,6 @@ def debug_quant_accuracy(
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
-
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,
@@ -426,7 +423,6 @@ def debug_quant_accuracy(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description="Use AIMET QuantSim locally to debug accuracy bottlenecks for given models"
     )

@@ -23,7 +23,6 @@ from qai_hub_models.utils.base_model import BaseModel
 
 
 def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
-
     # Get dataset by name
     kwargs = dict(
         tokenizer=model.tokenizer,
@@ -51,7 +50,6 @@ def evaluate(
     task: str,
     kwargs: Mapping[str, Any],
 ) -> tuple[float, str]:
-
     is_quantized = is_quantized_checkpoint(kwargs["checkpoint"])
 
     host_device = (

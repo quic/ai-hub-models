@@ -50,7 +50,9 @@ class LiteHRNet(BaseModel):
     def from_pretrained(cls, inferencer_arch=DEFAULT_INFERENCER_ARCH) -> LiteHRNet:
         """LiteHRNet comes from the MMPose library, so we load using an internal config
         rather than a public weights file"""
-        inferencer = MMPoseInferencer(inferencer_arch, device=torch.device(type="cpu"))
+        inferencer = MMPoseInferencer(
+            inferencer_arch, device=torch.device(device="cpu")
+        )
         return cls(inferencer)
 
     def forward(

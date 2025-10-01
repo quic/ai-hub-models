@@ -17,7 +17,7 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 KEYPOINT_SCORES_GT = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "kpt_gt.npy"
+    MODEL_ID, MODEL_ASSET_VERSION, "kpt_gt2.npy"
 )
 
 
@@ -25,7 +25,7 @@ KEYPOINT_SCORES_GT = CachedWebModelAsset.from_asset_store(
 def test_task():
     image = load_image(IMAGE_ADDRESS)
     model = Movenet.from_pretrained()
-    h, w = Movenet.get_input_spec()["image"][0][1:3]
+    h, w = Movenet.get_input_spec()["image"][0][2:4]
     app = MovenetApp(model, h, w)
     kpt_with_conf = app.predict(image, raw_output=True)
     np.testing.assert_allclose(

@@ -385,7 +385,7 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
         m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)
         t = str(m)[8:-2].replace("__main__.", "")
         np = sum([x.numel() for x in m_.parameters()])
-        m_.i, m_.f, m_.type, m_.np = (i, f, t, np)
+        m_.i, m_.f, m_.type, m_.np = (i, f, t, np)  # type: ignore[method-assign]
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)
         layers.append(m_)
         if i == 0:

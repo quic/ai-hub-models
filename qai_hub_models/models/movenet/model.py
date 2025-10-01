@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import torch
+
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.movenet_evaluator import MovenetPoseEvaluator
 from qai_hub_models.utils.asset_loaders import (
@@ -38,7 +40,6 @@ class Movenet(BaseModel):
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ) as repo_path:
-
             find_replace_in_repo(
                 repo_path, "movenet/models/movenet.py", "x = x.permute(0, 3, 1, 2)", "#"
             )
@@ -48,14 +49,14 @@ class Movenet(BaseModel):
 
             return cls(model)
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         This method performs forward inference on the Movenet_pytorch model.
         Args :
             -image (torch.Tensor) : Input tensor of shape (N, C, H, W) with range [0, 1] in RGB format of shape `(1, 3, 192, 192)`
-        Returns : Dictionary with the key `'kpt_with_conf'` having a tensor of shape `(1, 1, 17, 3)`,
+        Returns : Dictionary with the key `'kpt_with_conf'` having a tensor of shape `(N, 1, 17, 3)`,
 
-            - `1` -> batch size
+            - `N` -> batch size
             - `1` -> Single detected person
             - `17`-> Number of keypoints detected
             - `3` -> Each keypoint consists of (x, y) coordinates and confidence score.

@@ -58,7 +58,9 @@ def _load_pidnet_source_model_from_weights(
         reload(models)
         # number of class
         model = models.pidnet.get_pred_model("pidnet-s", 19)
-        pretrained_dict = torch.load(weights_path_pidnet, map_location="cpu")
+        pretrained_dict = torch.load(
+            weights_path_pidnet, map_location="cpu", weights_only=False
+        )
         if "state_dict" in pretrained_dict:
             pretrained_dict = pretrained_dict["state_dict"]
         model_dict = model.state_dict()

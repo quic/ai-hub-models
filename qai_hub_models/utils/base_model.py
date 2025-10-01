@@ -56,9 +56,9 @@ class CollectionModel:
 
     def __init__(self, *args):
         component_names = type(self).component_class_names
-        components: dict[str, BaseModel | BasePrecompiledModel] = (
-            {}
-        )  # class name -> instantiated object
+        components: dict[
+            str, BaseModel | BasePrecompiledModel
+        ] = {}  # class name -> instantiated object
 
         # Process positional arguments.
         if len(args) != len(component_names):
@@ -204,8 +204,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
                 comp = _call_with_supported(component_cls.from_pretrained, base_kwargs)
             except Exception as e:
                 raise AttributeError(
-                    f"Component '{component_cls.__name__}' does not have "
-                    f"a callable from_pretrained method. {e}"
+                    f"Component '{component_cls.__name__}' does not have a callable from_pretrained method. {e}"
                 )
             components.append(comp)
 
@@ -227,8 +226,7 @@ class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
                 and callable(component_cls.from_precompiled)
             ):
                 raise AttributeError(
-                    f"Component '{component_cls.__name__}' does not have "
-                    "a callable from_precompiled method"
+                    f"Component '{component_cls.__name__}' does not have a callable from_precompiled method"
                 )
             components.append(component_cls.from_precompiled())
         return cls(*components)

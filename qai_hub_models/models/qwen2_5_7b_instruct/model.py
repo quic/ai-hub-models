@@ -16,8 +16,8 @@ from qai_hub.client import Device
 from qai_hub.public_rest_api import DatasetEntries
 from transformers import AutoConfig, PretrainedConfig
 
-from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llama.model import LlamaMixin
+from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
@@ -181,7 +181,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device, context_graph_name
         )
-        return options + " --truncate_64bit_io"
+        return options + " --truncate_64bit_io --qnn_bin_conversion_via_model_library"
 
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str

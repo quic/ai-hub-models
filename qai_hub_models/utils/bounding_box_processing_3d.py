@@ -125,7 +125,7 @@ def transform_to_matrix(translation: list, rotation: list) -> np.ndarray:
 
 def rotation_3d_in_axis(
     points: torch.Tensor,
-    angles: torch.Tensor,
+    angles: torch.Tensor | float | int,
     axis: int = 0,
     return_mat: bool = False,
     clockwise: bool = False,
@@ -153,14 +153,16 @@ def rotation_3d_in_axis(
     if batch_free:
         points = points[None]
 
-    if isinstance(angles, float) or len(angles.shape) == 0:
+    if isinstance(angles, float) or isinstance(angles, int):
         angles = torch.full(points.shape[:1], angles)
+    elif len(angles.shape) == 0:
+        angles = torch.full(points.shape[:1], angles.item())
 
     assert (
         len(points.shape) == 3
         and len(angles.shape) == 1
         and points.shape[0] == angles.shape[0]
-    ), (f"Incorrect shape of points " f"angles: {points.shape}, {angles.shape}")
+    ), f"Incorrect shape of points angles: {points.shape}, {angles.shape}"
 
     assert points.shape[-1] in [
         2,
@@ -198,9 +200,7 @@ def rotation_3d_in_axis(
                 ]
             )
         else:
-            raise ValueError(
-                f"axis should in range " f"[-3, -2, -1, 0, 1, 2], got {axis}"
-            )
+            raise ValueError(f"axis should in range [-3, -2, -1, 0, 1, 2], got {axis}")
     else:
         rot_mat_T = torch.stack(
             [torch.stack([rot_cos, rot_sin]), torch.stack([-rot_sin, rot_cos])]
@@ -227,8 +227,8 @@ def rotation_3d_in_axis(
 
 
 def circle_nms(
-    dets: torch.Tensor, thresh: float, post_max_size: int = 83
-) -> torch.Tensor:
+    dets: np.ndarray, thresh: float, post_max_size: int = 83
+) -> torch.LongTensor:
     """Circular NMS.
 
     An object is only counted as positive if no other center
@@ -242,7 +242,7 @@ def circle_nms(
             Defaults to 83.
 
     Returns:
-        torch.Tensor: Indexes of the detections to be kept.
+        torch.LongTensor: Indexes of the detections to be kept.
     """
     x1 = dets[:, 0]
     y1 = dets[:, 1]
@@ -250,7 +250,7 @@ def circle_nms(
     order = scores.argsort()[::-1].astype(np.int32)  # highest->lowest
     ndets = dets.shape[0]
     suppressed = np.zeros((ndets), dtype=np.int32)
-    keep = []
+    keep: list[int] = []
     for _i in range(ndets):
         i = order[_i]  # start with highest score box
         if suppressed[i] == 1:  # if any box have enough iou with this, remove it
@@ -268,9 +268,242 @@ def circle_nms(
                 suppressed[j] = 1
 
     if post_max_size < len(keep):
-        return keep[:post_max_size]
+        return torch.LongTensor(keep[:post_max_size])
+
+    return torch.LongTensor(keep)
+
+
+def compute_iou_bev(box_a, box_b):
+    """
+    Compute the IoU (Intersection over Union) between two rotated 3D bounding boxes in BEV.
+
+    Each box is represented as [x_center, y_center, width, height, rotation].
+    This version accurately mimics the CUDA function `boxesioubevLauncher()`.
+    """
+
+    x_a, y_a, w_a, h_a, angle_a = box_a
+    x_b, y_b, w_b, h_b, angle_b = box_b
+
+    # Convert rotated boxes to corner points
+    def get_corners(x, y, w, h, angle):
+        """Compute corner points of the rotated rectangle"""
+        cos_a = np.cos(angle)
+        sin_a = np.sin(angle)
+        w_half, h_half = w / 2, h / 2
+        corners = np.array(
+            [
+                [
+                    x - w_half * cos_a + h_half * sin_a,
+                    y - w_half * sin_a - h_half * cos_a,
+                ],
+                [
+                    x + w_half * cos_a + h_half * sin_a,
+                    y + w_half * sin_a - h_half * cos_a,
+                ],
+                [
+                    x + w_half * cos_a - h_half * sin_a,
+                    y + w_half * sin_a + h_half * cos_a,
+                ],
+                [
+                    x - w_half * cos_a - h_half * sin_a,
+                    y - w_half * sin_a + h_half * cos_a,
+                ],
+            ]
+        )
+        return corners
+
+    corners_a = get_corners(x_a, y_a, w_a, h_a, angle_a)
+    corners_b = get_corners(x_b, y_b, w_b, h_b, angle_b)
+
+    # Compute polygon intersection area using Shapely
+    from shapely.geometry import Polygon
+
+    poly_a = Polygon(corners_a)
+    poly_b = Polygon(corners_b)
+
+    if not poly_a.is_valid or not poly_b.is_valid:
+        return 0.0
+
+    intersection_area = poly_a.intersection(poly_b).area
+    union_area = poly_a.area + poly_b.area - intersection_area
+
+    iou = intersection_area / union_area if union_area > 0 else 0
+    return iou
+
+
+def nms_cpu(boxes, scores, thresh=0.4, pre_maxsize=None, post_max_size=None):
+    """
+    CPU Implementation of 3D NMS (Non-Maximum Suppression) using Rotated IoU.
+
+    Args:
+        boxes (np.ndarray or torch.Tensor): [N, 5] (x_center, y_center, width, height, ry).
+        scores (np.ndarray or torch.Tensor): [N] Confidence scores.
+        thresh (float): IoU threshold for suppression.
+        pre_maxsize (int, optional): Maximum number of boxes before NMS.
+        _post_maxsize (int, optional): Maximum number of boxes after NMS.
+
+    Returns:
+        np.ndarray: Indices of selected boxes after NMS.
+    """
+
+    is_torch = isinstance(boxes, torch.Tensor)
+    if is_torch:
+        boxes = boxes.cpu().detach().numpy()
+        scores = scores.cpu().detach().numpy()
+
+    # Sort boxes by scores in descending order
+    order = np.argsort(-scores)
+
+    if pre_maxsize is not None:
+        order = order[:pre_maxsize]
+
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+
+        if order.size == 1:
+            break
+
+        ious = np.array([compute_iou_bev(boxes[i], boxes[j]) for j in order[1:]])
+
+        # Keep boxes with IoU below the threshold
+        remaining = np.where(ious < thresh)[0]
+        order = order[remaining + 1]  # Shift indices due to slicing
+
+    keep = np.array(keep, dtype=np.int64).tolist()
+
+    if post_max_size is not None:
+        keep = keep[:post_max_size]
 
     return keep
+
+
+def xywhr2xyxyr(boxes_xywhr):
+    """Convert a rotated boxes in XYWHR format to XYXYR format.
+
+    Args:
+        boxes_xywhr (torch.Tensor): Rotated boxes in XYWHR format.
+
+    Returns:
+        torch.Tensor: Converted boxes in XYXYR format.
+    """
+    boxes = torch.zeros_like(boxes_xywhr)
+    half_w = boxes_xywhr[:, 2] / 2
+    half_h = boxes_xywhr[:, 3] / 2
+
+    boxes[:, 0] = boxes_xywhr[:, 0] - half_w
+    boxes[:, 1] = boxes_xywhr[:, 1] - half_h
+    boxes[:, 2] = boxes_xywhr[:, 0] + half_w
+    boxes[:, 3] = boxes_xywhr[:, 1] + half_h
+    boxes[:, 4] = boxes_xywhr[:, 4]
+    return boxes
+
+
+def compute_corners(tensor):
+    """Initialize 3D boxes and compute corners
+
+    Args:
+        tensor (torch.Tensor): Input tensor of shape [N, box_dim].
+        box_dim (int): Dimension of each box (default: 9).
+        with_yaw (bool): Whether boxes include yaw (default: True).
+        origin (tuple): Relative position of box origin (default: (0.5, 0.5, 0)).
+
+    Returns:
+        torch.Tensor: Corners of boxes in shape [N, 8, 3].
+    """
+
+    dims = tensor[:, 3:6]  # w, l, h
+    corners_norm = torch.from_numpy(
+        np.stack(np.unravel_index(np.arange(8), [2] * 3), axis=1)
+    ).to(device=dims.device, dtype=dims.dtype)
+
+    corners_norm = corners_norm[[0, 1, 3, 2, 4, 5, 7, 6]]
+    # use relative origin [0.5, 0.5, 0]
+    corners_norm = corners_norm - dims.new_tensor([0.5, 0.5, 0])
+    corners = dims.view([-1, 1, 3]) * corners_norm.reshape([1, 8, 3])
+
+    # rotate around z axis
+    corners = rotate_3d_along_axis(corners, tensor[:, 6], axis=2)
+    corners += tensor[:, :3].view(-1, 1, 3)
+    return corners
+
+
+def onnx_atan2(y, x):
+    # Create a pi tensor with the same device and data type as y
+    pi = torch.tensor(torch.pi, device=y.device, dtype=y.dtype)
+    half_pi = pi / 2
+    eps = 1e-6
+
+    # Compute the arctangent of y/x
+    ans = torch.atan(y / (x + eps))
+
+    # Create boolean tensors representing positive, negative, and zero values of y and x
+    y_positive = y > 0
+    y_negative = y < 0
+    x_negative = x < 0
+    x_zero = x == 0
+
+    # Adjust ans based on the positive, negative, and zero values of y and x
+    ans += torch.where(
+        y_positive & x_negative, pi, torch.zeros_like(ans)
+    )  # Quadrants I and II
+    ans -= torch.where(
+        y_negative & x_negative, pi, torch.zeros_like(ans)
+    )  # Quadrants III and IV
+    ans = torch.where(y_positive & x_zero, half_pi, ans)  # Positive y-axis
+    ans = torch.where(y_negative & x_zero, -half_pi, ans)  # Negative y-axis
+
+    return ans
+
+
+def rotate_3d_along_axis(points, angles, axis=0):
+    """Rotate points by angles according to axis.
+
+    Args:
+        points (torch.Tensor): Points of shape (N, M, 3).
+        angles (torch.Tensor): Vector of angles in shape (N,)
+        axis (int, optional): The axis to be rotated. Defaults to 0.
+
+    Raises:
+        ValueError: when the axis is not in range [0, 1, 2], it will \
+            raise value error.
+
+    Returns:
+        torch.Tensor: Rotated points in shape (N, M, 3)
+    """
+    rot_sin = torch.sin(angles)
+    rot_cos = torch.cos(angles)
+    ones = torch.ones_like(rot_cos)
+    zeros = torch.zeros_like(rot_cos)
+    if axis == 1:
+        rot_mat_T = torch.stack(
+            [
+                torch.stack([rot_cos, zeros, -rot_sin]),
+                torch.stack([zeros, ones, zeros]),
+                torch.stack([rot_sin, zeros, rot_cos]),
+            ]
+        )
+    elif axis == 2 or axis == -1:
+        rot_mat_T = torch.stack(
+            [
+                torch.stack([rot_cos, -rot_sin, zeros]),
+                torch.stack([rot_sin, rot_cos, zeros]),
+                torch.stack([zeros, zeros, ones]),
+            ]
+        )
+    elif axis == 0:
+        rot_mat_T = torch.stack(
+            [
+                torch.stack([zeros, rot_cos, -rot_sin]),
+                torch.stack([zeros, rot_sin, rot_cos]),
+                torch.stack([ones, zeros, zeros]),
+            ]
+        )
+    else:
+        raise ValueError(f"axis should in range [0, 1, 2], got {axis}")
+
+    return torch.einsum("aij,jka->aik", (points, rot_mat_T))
 
 
 @njit

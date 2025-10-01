@@ -8,10 +8,10 @@ from __future__ import annotations
 import functools
 import math
 from collections.abc import Callable
+from typing import Literal, TypeVar
 
 import cv2
 import numpy as np
-import numpy.typing as npt
 import torch
 from PIL.Image import Image
 from PIL.Image import fromarray as ImageFromArray
@@ -30,8 +30,9 @@ IMAGENET_TRANSFORM = transforms.Compose(
 
 def app_to_net_image_inputs(
     pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
+    image_layout: str = "RGB",
     to_float: bool = True,
-) -> tuple[list[npt.NDArray[np.uint8]], torch.Tensor]:
+) -> tuple[list[np.ndarray], torch.Tensor]:
     """
     Convert the provided images to application inputs.
     ~~This does not change channel order. RGB stays RGB etc~~
@@ -55,23 +56,23 @@ def app_to_net_image_inputs(
             List of numpy arrays (one per input image with uint8 dtype, [H W C] shape, and RGB or grayscale layout.
             This output is typically used for use of drawing/displaying images with PIL and CV2
 
-        NCHW_fp32_torch_frames: torch.Tensor
-            Tensor of images in fp32 (range 0:1), with shape [Batch, Channels, Height, Width], and RGB or grayscale layout.
+        NCHW_torch_frames: torch.Tensor
+            Tensor of images with shape [Batch, Channels, Height, Width], and RGB or grayscale layout.
 
     Based on https://github.com/zmurez/MediaPipePyTorch/blob/master/blazebase.py
     """
     NHWC_int_numpy_frames: list[np.ndarray] = []
-    NCHW_fp32_torch_frames: torch.Tensor
+    NCHW_torch_frames: torch.Tensor
     if isinstance(pixel_values_or_image, Image):
         pixel_values_or_image = [pixel_values_or_image]
     if isinstance(pixel_values_or_image, list):
-        fp32_frames = []
+        frames = []
         for image in pixel_values_or_image:
-            NHWC_int_numpy_frames.append(np.array(image.convert("RGB")))
-            fp32_frames.append(preprocess_PIL_image(image, to_float=to_float))
-        NCHW_fp32_torch_frames = torch.cat(fp32_frames)
+            NHWC_int_numpy_frames.append(np.array(image.convert(image_layout)))
+            frames.append(preprocess_PIL_image(image, to_float=to_float))
+        NCHW_torch_frames = torch.cat(frames)
     elif isinstance(pixel_values_or_image, torch.Tensor):
-        NCHW_fp32_torch_frames = pixel_values_or_image
+        NCHW_torch_frames = pixel_values_or_image
         for b_img in pixel_values_or_image:
             NHWC_int_numpy_frames.append((b_img.permute(1, 2, 0) * 255).byte().numpy())
     else:
@@ -81,9 +82,9 @@ def app_to_net_image_inputs(
             if len(pixel_values_or_image.shape) == 3
             else [x for x in pixel_values_or_image]
         )
-        NCHW_fp32_torch_frames = numpy_image_to_torch(pixel_values_or_image)
+        NCHW_torch_frames = numpy_image_to_torch(pixel_values_or_image)
 
-    return NHWC_int_numpy_frames, NCHW_fp32_torch_frames
+    return NHWC_int_numpy_frames, NCHW_torch_frames
 
 
 def preprocess_PIL_image(image: Image, to_float: bool = True) -> torch.Tensor:
@@ -188,7 +189,9 @@ def resize_pad(
     image: torch.Tensor,
     dst_size: tuple[int, int],
     pad_mode: str = "constant",
-    pad_value=0.0,
+    pad_value: int | float = 0.0,
+    vertical_float: Literal["center", "top", "bottom"] = "center",
+    horizontal_float: Literal["center", "left", "right"] = "center",
 ) -> tuple[torch.Tensor, float, tuple[int, int]]:
     """
     Resize and pad image to be shape [..., dst_size[0], dst_size[1]]
@@ -204,6 +207,24 @@ def resize_pad(
 
         dst_size: (height, width)
             Size to which the image should be reshaped.
+
+        pad_mode:
+            Padding mode.
+
+        pad_value:
+            Padding value.
+
+        vertical_float:
+            Where the image should float vertically in the resulting canvas.
+            For example, if "float" is bottom, the image will be written
+            in the bottom of the frame, and the remainder of the frame
+            (above the image) is padded.
+
+        horizontal_float:
+            Where the image should float horizontally in the resulting canvas.
+            For example, if "float" is left, the image will be written
+            in the left of the frame, and the remainder of the frame
+            (to the right of the image) is padded.
 
     Returns:
         rescaled_padded_image:
@@ -234,13 +255,26 @@ def resize_pad(
 
     new_height = math.floor(height * scale)
     new_width = math.floor(width * scale)
-    pad_h = dst_frame_height - new_height
-    pad_w = dst_frame_width - new_width
 
-    pad_top = int(pad_h // 2)
-    pad_bottom = int(pad_h // 2 + pad_h % 2)
-    pad_left = int(pad_w // 2)
-    pad_right = int(pad_w // 2 + pad_w % 2)
+    def _split_padding(
+        float_img_in_frame: Literal["center", "left", "right", "top", "bottom"],
+        pad_size: int,
+    ):
+        """
+        Split padding into (Left, Rright), or (Top, Bottom)
+        splits based on where the image should float in the frame.
+        """
+        if float_img_in_frame == "center":
+            return (int(pad_size // 2), int(pad_size // 2 + pad_size % 2))
+        elif float_img_in_frame in ["right", "bottom"]:
+            return (pad_size, 0)
+        elif float_img_in_frame in ["left", "top"]:
+            return (0, pad_size)
+        else:
+            raise ValueError(f"Invalid pad type: {float_img_in_frame}")
+
+    pad_top, pad_bottom = _split_padding(vertical_float, dst_frame_height - new_height)
+    pad_left, pad_right = _split_padding(horizontal_float, dst_frame_width - new_width)
 
     rescaled_image = interpolate(
         image, size=[int(new_height), int(new_width)], mode="bilinear"
@@ -436,9 +470,12 @@ def apply_batched_affines_to_frame(
     return np.stack(imgs)
 
 
+ndarrayOrTensor = TypeVar("ndarrayOrTensor", np.ndarray, torch.Tensor)
+
+
 def apply_affine_to_coordinates(
-    coordinates: torch.Tensor, affine: torch.Tensor
-) -> torch.Tensor:
+    coordinates: ndarrayOrTensor, affine: ndarrayOrTensor
+) -> ndarrayOrTensor:
     """
     Apply the given affine matrix to the given coordinates.
 

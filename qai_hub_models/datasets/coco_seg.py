@@ -38,7 +38,9 @@ class CocoSegDataset(CocoDataset):
             split, input_spec, max_boxes, num_samples, num_classes, label_types
         )
 
-    def __getitem__(self, item):
+    def __getitem__(
+        self, item: int
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, int]]:
         """
         Returns a tuple of input image tensor and label data.
 
@@ -55,8 +57,8 @@ class CocoSegDataset(CocoDataset):
         image = image.resize((self.target_w, self.target_h))
         width, height = image.size
 
-        masks = []
-        labels = []
+        masks_list = []
+        labels_list = []
         if sample.ground_truth is not None:
             for annotation in sample.ground_truth.detections:
                 if annotation.label not in self.label_map:
@@ -80,11 +82,11 @@ class CocoSegDataset(CocoDataset):
                 mask_image = np.zeros((height, width))
                 mask_image[point_y1:point_y2, point_x1:point_x2] = mask_resized
 
-                masks.append(mask_image)
-                labels.append(self.label_map[annotation.label])
+                masks_list.append(mask_image)
+                labels_list.append(self.label_map[annotation.label])
 
-        masks = torch.tensor(masks).to(torch.uint8)
-        labels = torch.tensor(labels).to(torch.uint8)
+        masks = torch.tensor(masks_list).to(torch.uint8)
+        labels = torch.tensor(labels_list).to(torch.uint8)
 
         num_boxes = len(labels)
         if num_boxes == 0:
@@ -109,9 +111,8 @@ class CocoSegDataset(CocoDataset):
             masks = torch.concat([masks, extra_masks])
             labels = torch.concat([labels, extra_labels])
 
-        image = app_to_net_image_inputs(image)[1].squeeze(0)
-
-        return image, [masks, labels, num_boxes]
+        image_pt = app_to_net_image_inputs(image)[1].squeeze(0)
+        return image_pt, (masks, labels, num_boxes)
 
     @staticmethod
     def default_samples_per_job() -> int:

@@ -46,6 +46,8 @@ def main():
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
+            compile_options=args.compile_options,
+            profile_options=args.profile_options,
             num_calibration_samples=args.num_calibration_samples,
             **get_model_kwargs(Model, vars(args)),
         )

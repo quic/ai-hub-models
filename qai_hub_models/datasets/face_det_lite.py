@@ -82,13 +82,8 @@ class FaceDetLiteDataset(BaseDataset):
         labels_gt = labels_gt.astype(np.float32)
         labels_gt = np.reshape(labels_gt, (-1, 5))
 
-        boxes = []
-        labels = []
-        for label in labels_gt:
-            boxes.append(label[1:5])
-            labels.append(label[0])
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
+        boxes = torch.tensor(labels_gt[:, 1:5])
+        labels = torch.tensor(labels_gt[:, 0])
 
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)

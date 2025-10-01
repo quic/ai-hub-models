@@ -116,6 +116,5 @@ class RTMDet(Yolo):
 def _load_rtmdet_source_model_from_weights(
     model_config_path: str, model_weights_path: str
 ) -> torch.nn.Module:
-
     model = init_detector(str(model_config_path), str(model_weights_path), device="cpu")
     return model

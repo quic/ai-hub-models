@@ -29,7 +29,6 @@ from typing import Any
 import torch
 from packaging import version
 from qai_hub.client import DatasetEntries
-from torch.utils.data import DataLoader
 from tqdm.autonotebook import tqdm
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader
@@ -38,7 +37,7 @@ from qai_hub_models.models.protocols import PretrainedHubModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_dir
 from qai_hub_models.utils.base_model import Precision
-from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+from qai_hub_models.utils.dataset_util import DataLoader, dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx_helpers import kwargs_to_dict, mock_torch_onnx_inference
 from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
@@ -79,7 +78,7 @@ def ensure_min_aimet_onnx_version(expected_version: str, model_id: str | None = 
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
             f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {str(aimet_onnx.__version__)}\n"
-            f"Please run `pip install transformers=={expected_version}`"
+            f"Please run `pip install aimet-onnx=={expected_version}`"
         )
 
 
@@ -224,7 +223,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     def quantize(
         self,
-        data: _DataLoader | None = None,
+        data: DataLoader | None = None,
         num_samples: int | None = None,
         use_seq_mse: bool = False,
     ) -> None:
@@ -238,8 +237,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             calib_data = self.get_calibration_data()
             if calib_data is None:
                 raise ValueError(
-                    "`data` must be specified if "
-                    "get_calibration_data is not defined."
+                    "`data` must be specified if get_calibration_data is not defined."
                 )
             data = dataset_entries_to_dataloader(calib_data)
 
@@ -289,6 +287,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self.quant_sim.export(str(export_dir), "model")
         print(f"{self.__class__.__name__} saved to {export_dir}")
 
+    @staticmethod
     def get_ort_providers(
         device: torch.device,
     ) -> list[str | tuple[str, dict[str, int]]]:

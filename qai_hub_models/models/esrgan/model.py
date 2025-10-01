@@ -59,6 +59,9 @@ def _load_esrgan_source_model_from_weights(
 
         esrgan_model = arch.RRDBNet(3, 3, 64, 23, gc=32)
         esrgan_model.load_state_dict(
-            torch.load(weights_path, map_location=torch.device("cpu")), strict=True
+            torch.load(
+                weights_path, map_location=torch.device("cpu"), weights_only=False
+            ),
+            strict=True,
         )
         return esrgan_model

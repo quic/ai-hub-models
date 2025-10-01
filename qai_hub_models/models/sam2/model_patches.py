@@ -82,6 +82,7 @@ class SplitHeadSAMEncoderAttention(nn.Module):
                 ]
             )
 
+            assert projList.conv2d.bias is not None
             projList.conv2d.bias.data.copy_(
                 attention_block.qkv.bias[
                     (chunk) * self.out_feature : (chunk + 1) * self.out_feature,

@@ -77,6 +77,7 @@ class MediaPipeApp(BaseCollectionApp):
         min_landmark_score: float = 0.5,
         landmark_connections: list[tuple[int, int]] | None = None,
         draw_keypoint_idx: list[int] | None = None,
+        filter_oob_box: bool = True,
     ):
         """
         Create a MediaPipe application.
@@ -137,6 +138,10 @@ class MediaPipeApp(BaseCollectionApp):
             draw_keypoint_idx: list[int] | None
                 If set, only the keypoints with the following indices are drawn on the image.
                 If unset, all keypoints are drawn on the image.
+
+            filter_oob_box: bool
+                If True, discards detections with coordinates outside the image bounds (negative or exceeding image dimensions).
+                If False, retains all detections regardless of their coordinates.
         """
         self.detector = detector
         self.detector_anchors = detector_anchors
@@ -154,6 +159,7 @@ class MediaPipeApp(BaseCollectionApp):
         self.min_landmark_score = min_landmark_score
         self.landmark_connections = landmark_connections
         self.draw_keypoint_idx = draw_keypoint_idx
+        self.filter_oob_box = filter_oob_box
 
     def predict(self, *args, **kwargs):
         # See predict_landmarks_from_image.
@@ -331,7 +337,10 @@ class MediaPipeApp(BaseCollectionApp):
             -self.detector_score_clipping_threshold,
             self.detector_score_clipping_threshold,
         )
-        box_scores = box_scores.sigmoid().squeeze(dim=-1)
+        box_scores = box_scores.sigmoid()
+        # Ensure scores are of shape [B, N]
+        if box_scores.dim() == 3 and box_scores.size(-1) == 1:
+            box_scores = box_scores.squeeze(dim=-1)
 
         # Reshape outputs so that they have shape [..., # of coordinates, 2], where 2 == (x, y)
         box_coords = box_coords.view(list(box_coords.shape)[:-1] + [-1, 2])
@@ -363,20 +372,40 @@ class MediaPipeApp(BaseCollectionApp):
         for i in range(0, len(batched_selected_coords)):
             selected_coords = batched_selected_coords[i]
             if len(selected_coords) != 0:
-                # Reshape outputs again so that they have shape [..., # of boxes, 2], where 2 == (x, y)
-                selected_coords = batched_selected_coords[i].view(
-                    list(batched_selected_coords[i].shape)[:-1] + [-1, 2]
-                )
+                boxes_list = []
+                kps_list = []
+                for j in range(0, len(selected_coords)):
+                    selected_coords_ = selected_coords[j : j + 1].view(
+                        list(selected_coords[j : j + 1].shape)[:-1] + [-1, 2]
+                    )
 
-                denormalize_coordinates(
-                    selected_coords,
-                    self.detector_input_dims,
-                    pd_net_input_scale,
-                    pd_net_input_pad,
-                )
+                    denormalize_coordinates(
+                        selected_coords_,
+                        self.detector_input_dims,
+                        pd_net_input_scale,
+                        pd_net_input_pad,
+                    )
 
-                selected_boxes.append(selected_coords[:, :2])
-                selected_keypoints.append(selected_coords[:, 2:])
+                    # # removed out-of-bound boxes
+                    if self.filter_oob_box and (
+                        selected_coords_.min() < 0
+                        or selected_coords_[..., 0].max()
+                        > NCHW_fp32_torch_frames.shape[-1]
+                        or selected_coords_[..., 1].max()
+                        > NCHW_fp32_torch_frames.shape[-2]
+                    ):
+                        continue
+
+                    boxes_list.append(selected_coords_[:, :2])
+                    kps_list.append(selected_coords_[:, 2:])
+                    break
+
+                if boxes_list:
+                    selected_boxes.append(torch.cat(boxes_list, dim=0))
+                    selected_keypoints.append(torch.cat(kps_list, dim=0))
+                else:
+                    selected_boxes.append(torch.Tensor())
+                    selected_keypoints.append(torch.Tensor())
             else:
                 selected_boxes.append(torch.Tensor())
                 selected_keypoints.append(torch.Tensor())

@@ -32,7 +32,7 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
         )
         self.seq_len = seq_len
 
-    def __getitem__(self, index: int) -> tuple[tuple[torch.tensor, torch.Tensor], int]:
+    def __getitem__(self, index: int) -> tuple[tuple[torch.Tensor, torch.Tensor], int]:
         """
         Returns a tuple of input data and label data
 

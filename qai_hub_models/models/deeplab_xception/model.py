@@ -63,7 +63,6 @@ class DeeplabXception(DeepLabV3Model):
                 and hasattr(cfg.MODEL, "BN_EPS_FOR_ENCODER")
                 and cfg.MODEL.BN_EPS_FOR_ENCODER
             ):
-
                 for name, module in instance.model.encoder.named_modules():
                     if isinstance(module, (nn.BatchNorm2d, nn.SyncBatchNorm)):
                         module.eps = cfg.MODEL.BN_EPS_FOR_ENCODER

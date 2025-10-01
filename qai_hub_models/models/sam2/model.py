@@ -73,9 +73,9 @@ with SourceAsRoot(
 ) as repo_path:
     from sam2.build_sam import build_sam2
     from sam2.modeling.backbones.hieradet import MultiScaleBlock as SAM2_Encoder_Block
+    from sam2.modeling.sam.transformer import TwoWayAttentionBlock, TwoWayTransformer
     from sam2.modeling.sam2_base import SAM2Base as Sam2
     from sam2.modeling.sam2_utils import MLP as SAM2MaskDecoderMLP
-    from sam2.modeling.sam.transformer import TwoWayAttentionBlock, TwoWayTransformer
 
 
 class SAM2Encoder(BaseModel):
@@ -319,7 +319,6 @@ class SAM2Loader:
     def load(
         model_type: str = SMALL_MODEL_TYPE,
     ) -> tuple[Sam2, SAM2Encoder, SAM2Decoder]:
-
         sam2 = SAM2Loader._load_sam2_from_repo(model_type)
         SAM2Loader._patch_sam2_for_qnn_comatibility(sam2)
         encoder = SAM2Encoder(sam2)

@@ -40,7 +40,7 @@ class CocoWholeBodyDataset(CocoBodyDataset):
         super().__init__(split, input_spec)
         with suppress_stdout():
             self.inference = MMPoseInferencer(
-                DEFAULT_INFERENCER_ARCH, device=torch.device(type="cpu")
+                DEFAULT_INFERENCER_ARCH, device=torch.device(device="cpu")
             )
 
     def __getitem__(self, idx: int) -> tuple[Any, tuple[Any, Any, Any, Any]]:

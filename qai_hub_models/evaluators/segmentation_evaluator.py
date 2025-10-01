@@ -37,14 +37,14 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         return Acc
 
     def Pixel_Accuracy_Class(self):
-        Acc = torch.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
+        Acc = torch.diag(self.confusion_matrix) / self.confusion_matrix.sum(dim=1)
         Acc = torch.nanmean(Acc)
         return Acc
 
     def Intersection_over_Union(self):
         return torch.diag(self.confusion_matrix) / (
-            torch.sum(self.confusion_matrix, axis=1)
-            + torch.sum(self.confusion_matrix, axis=0)
+            torch.sum(self.confusion_matrix, dim=1)
+            + torch.sum(self.confusion_matrix, dim=0)
             - torch.diag(self.confusion_matrix)
         )
 
@@ -52,12 +52,12 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         return torch.nanmean(self.Intersection_over_Union())
 
     def Frequency_Weighted_Intersection_over_Union(self):
-        freq = torch.sum(self.confusion_matrix, axis=1) / torch.sum(
+        freq = torch.sum(self.confusion_matrix, dim=1) / torch.sum(
             self.confusion_matrix
         )
         iu = torch.diag(self.confusion_matrix) / (
-            torch.sum(self.confusion_matrix, axis=1)
-            + torch.sum(self.confusion_matrix, axis=0)
+            torch.sum(self.confusion_matrix, dim=1)
+            + torch.sum(self.confusion_matrix, dim=0)
             - torch.diag(self.confusion_matrix)
         )
 

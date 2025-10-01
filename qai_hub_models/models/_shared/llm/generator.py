@@ -233,9 +233,10 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         input_length = inputs.shape[1]
         for idx in range(0, input_length, sequence_length)[::-1]:
             idx = input_length - idx
-            yield inputs[:, max(0, idx - sequence_length) : idx], attention_mask[
-                :, max(0, idx - sequence_length) : idx
-            ]
+            yield (
+                inputs[:, max(0, idx - sequence_length) : idx],
+                attention_mask[:, max(0, idx - sequence_length) : idx],
+            )
 
     def prepare_inputs(
         self,

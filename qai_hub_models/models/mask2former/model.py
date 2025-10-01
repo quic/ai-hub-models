@@ -53,7 +53,6 @@ class Mask2Former(BaseModel):
             MODEL_ASSET_VERSION,
             source_repo_patches=M2F_SOURCE_PATCHES,
         ) as repo_path:
-
             net_repo_path = Path(repo_path) / "src"
             sys.path.insert(0, str(net_repo_path))
 

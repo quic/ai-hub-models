@@ -34,8 +34,7 @@ from qai_hub_models.utils.base_model import TargetRuntime
 def _get_model_class(split_part: int, is_token_generator: bool = False):
     if split_part < 1 or split_part > 4:
         raise RuntimeError(
-            "Incorrect index provided to request Model split class."
-            f" Must be within (1-4), provided ({split_part})."
+            f"Incorrect index provided to request Model split class. Must be within (1-4), provided ({split_part})."
         )
 
     if is_token_generator:

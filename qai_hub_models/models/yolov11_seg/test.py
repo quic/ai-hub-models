@@ -12,7 +12,7 @@ from qai_hub_models.models._shared.yolo.app import YoloSegmentationApp
 from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
 from qai_hub_models.models.yolov11_seg.demo import IMAGE_ADDRESS, OUTPUT_IMAGE_ADDRESS
 from qai_hub_models.models.yolov11_seg.demo import main as demo_main
-from qai_hub_models.models.yolov11_seg.model import NUM_ClASSES, YoloV11Segmentor
+from qai_hub_models.models.yolov11_seg.model import YoloV11Segmentor
 from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
 from qai_hub_models.utils.testing import assert_most_close, skip_clone_repo_check
@@ -33,7 +33,9 @@ def test_task() -> None:
     with torch.no_grad():
         # original model output
         source_out = source_model(processed_sample_image)
-        source_out_postprocessed = yolo_segment_postprocess(source_out[0], NUM_ClASSES)
+        source_out_postprocessed = yolo_segment_postprocess(
+            source_out[0], source_model.nc
+        )
         source_out = [*source_out_postprocessed, source_out[1][-1]]
 
         # Qualcomm AI Hub Model output

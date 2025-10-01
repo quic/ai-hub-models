@@ -16,12 +16,16 @@ from typing import Any, Optional, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.baichuan2_7b import Model
+from qai_hub_models.models.baichuan2_7b import MODEL_ID, Model
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.utils.args import export_parser
+from qai_hub_models.utils.args import (
+    export_parser,
+)
 from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
-from qai_hub_models.utils.printing import print_profile_metrics_from_job
+from qai_hub_models.utils.printing import (
+    print_profile_metrics_from_job,
+)
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
@@ -115,39 +119,50 @@ def export_model(
 
     Each of the last 3 steps can be optionally skipped using the input options.
 
-    Parameters:
-        device: Device for which to export the model.
-            Full list of available devices can be found by running `hub.get_devices()`.
-            Defaults to DEFAULT_DEVICE if not specified.
-        chipset: If set, will choose a random device with this chipset.
-            Overrides the `device` argument.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to all components of the CollectionModel if not specified.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling.
-        output_dir: Directory to store generated assets (e.g. compiled model).
-            Defaults to `<cwd>/build/<model_name>`.
-        profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets:
-            If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_precompiled`
+    Parameters
+    ----------
+    device
+        Device for which to export the model.
+        Full list of available devices can be found by running `hub.get_devices()`.
+        Defaults to `Samsung Galaxy S25 (Family)` if not specified.
+    chipset
+        If set, will choose a random device with this chipset.
+        Overrides the `device` argument.
+    components
+        List of sub-components of the model that will be exported.
+        Each component is compiled and profiled separately.
+        Defaults to all components of the CollectionModel if not specified.
+    skip_profiling
+        If set, skips profiling of compiled model on real devices.
+    skip_inferencing
+        If set, skips computing on-device outputs from sample data.
+    skip_summary
+        If set, skips waiting for and summarizing results
+        from profiling.
+    output_dir
+        Directory to store generated assets (e.g. compiled model).
+        Defaults to `<cwd>/build/<model_name>`.
+    profile_options
+        Additional options to pass when submitting the profile job.
+    fetch_static_assets
+        If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
+    additional_model_kwargs
+        Additional optional kwargs used to customize
+        `model_cls.from_precompiled`
 
-    Returns:
-        A Mapping from component_name to a struct of:
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+    Returns
+    -------
+    A Mapping from component_name to a struct of:
+        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
     """
     if not skip_inferencing:
         raise ValueError(
             "This model does not support inferencing. Please pass --skip-inferencing"
         )
-    model_name = "baichuan2_7b"
+    model_name = MODEL_ID
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     if not device and not chipset:
-        hub_device = hub.Device("Snapdragon 8 Elite QRD")
+        hub_device = hub.Device("Samsung Galaxy S25 (Family)")
     else:
         hub_device = hub.Device(
             name=device or "", attributes=f"chipset:{chipset}" if chipset else []
@@ -159,7 +174,7 @@ def export_model(
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
-            "baichuan2_7b",
+            MODEL_ID,
             "Baichuan2-7B",
             hub_device.name,
             chipset,
@@ -246,9 +261,8 @@ def main():
 
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
-        uses_quantize_job=False,
-        exporting_compiled_model=True,
     )
     args = parser.parse_args()
     export_model(**vars(args))

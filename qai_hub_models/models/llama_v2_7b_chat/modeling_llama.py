@@ -25,6 +25,7 @@
 # limitations under the License.
 
 """PyTorch LLaMA model."""
+
 from __future__ import annotations
 
 import math
@@ -401,7 +402,6 @@ class LlamaAttention(nn.Module):
         output_attentions: bool = False,
         use_cache: bool = False,
     ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
-
         bsz, q_len, _ = hidden_states.size()
 
         hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
@@ -479,8 +479,7 @@ class LlamaAttention(nn.Module):
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is"
-                f" {attn_weights[0].size()}"
+                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attn_weights[0].size()}"
             )
 
         if attention_mask is not None:
@@ -501,8 +500,7 @@ class LlamaAttention(nn.Module):
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is"
-                f" {attn_output[0].size()}"
+                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is {attn_output[0].size()}"
             )
 
         attn_output = torch.cat(attn_output, dim=3)

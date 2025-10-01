@@ -41,6 +41,7 @@ def main():
         PositionProcessor,
         DEFAULT_EXPORT_DEVICE,
         DEFAULT_PRECISION,
+        False,
     )
 
 

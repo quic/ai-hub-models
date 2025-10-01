@@ -104,9 +104,9 @@ def assert_most_same(arr1: np.ndarray, arr2: np.ndarray, diff_tol: float) -> Non
     """
 
     different_values = arr1 != arr2
-    assert (
-        np.mean(different_values) <= diff_tol
-    ), f"More than {diff_tol * 100}% of values were different."
+    assert np.mean(different_values) <= diff_tol, (
+        f"More than {diff_tol * 100}% of values were different."
+    )
 
 
 def assert_most_close(
@@ -140,9 +140,9 @@ def assert_most_close(
     """
 
     not_close_values = ~np.isclose(arr1, arr2, atol=atol, rtol=rtol)
-    assert (
-        np.mean(not_close_values) <= diff_tol
-    ), f"More than {diff_tol * 100}% of values were not close."
+    assert np.mean(not_close_values) <= diff_tol, (
+        f"More than {diff_tol * 100}% of values were not close."
+    )
 
 
 def mock_on_device_model_call(inference_job: hub.InferenceJob) -> Callable:
@@ -194,6 +194,40 @@ def get_and_sync_datasets_cache_dir(
     samples_per_job: int,
     model_cls: type[BaseModel] | type[CollectionModel],
 ) -> Path:
+    """
+    Write the validation input and gt hub dataset ids to a file to be
+    used by utils/evaluate.py
+
+    This avoids having the script re-uploading the validation dataset for each
+    model, which is the default behavior.
+
+    While the dataset ids are already cached in dataset-ids.yaml, the cache used
+    by this utility expects a different format. The directory structure is:
+
+    hub_datasets{_nt}/
+        {dataset_name}_{input_spec_hash}/
+            samples_per_job_{num_samples}.txt  # Contains input and gt hub dataset ids
+            cache/
+                current_samples_per_job.txt  # Contains a single number of how many samples per job
+                dataset-dxxxx.h5  # Raw data of what was uploaded to hub for input
+                dataset-dyyyy.h5  # Raw data of what was uploaded to hub for gt
+
+    Parameters
+    ----------
+    has_channel_transpose
+        Whether the input data should have the channel last transpose applied
+    dataset_name
+        Name of the dataset
+    samples_per_job
+        Number of samples in each hub dataset. Since we only run one inference job
+        per model, this is also equivalent to the overall total number of evaluation samples.
+    model_cls
+        Class of the model being evaluated. Needed to get the input spec.
+
+    Returns
+    -------
+    Path to dataset cache
+    """
     folder_name = "hub_datasets"
     if not has_channel_transpose:
         folder_name += "_nt"
@@ -242,6 +276,28 @@ def get_and_sync_datasets_cache_dir(
 def mock_get_calibration_data(
     model: BaseModel, input_spec: InputSpec, num_samples: int
 ) -> hub.Dataset:
+    """
+    Gets the calibration data needed to quantize the input model.
+
+    Since many models use the same calibration data, we save the hub dataset
+    id to a file and re-use it across models to avoid re-uploading the same data
+    to hub.
+
+    Each dataset is uniquely identified by the dataset name and input spec.
+
+    Parameters
+    ----------
+    model
+        Pytorch model to get calibration data
+    input_spec
+        Model input spec
+    num_samples
+        Number of samples used to calibrate
+
+    Returns
+    -------
+        Hub dataset object that was uploaded
+    """
     cache_prefix_name = model.calibration_dataset_name() or model.__class__.__name__
     cache_prefix = get_folder_name(cache_prefix_name, input_spec)
     cache_key = cache_prefix + "_train"
@@ -258,6 +314,25 @@ def mock_get_calibration_data(
 def get_val_dataset_id_keys(
     dataset_name: str, apply_channel_transpose: bool
 ) -> tuple[str, str]:
+    """
+    Gets the keys used to store the hub dataset id in a yaml file.
+
+    This gives the keys for the validation split used to compute accuracy.
+
+    Some runtimes have channel transpose applied while others don't, so
+    we need separate hub datasets for each.
+
+    Parameters
+    ----------
+    dataset_name
+        Name of dataset to get keys
+    apply_channel_transpose
+        Whether to apply channel last transpose to input data
+
+    Returns
+    -------
+    Tuple of dataset id key for input and ground truth
+    """
     base_name = f"{dataset_name}_val_"
     if not apply_channel_transpose:
         base_name += "nt_"  # no transpose
@@ -286,19 +361,25 @@ def get_hub_val_dataset(
     representative model. The assumption being that all models using this dataset
     have the same values for both of those things.
 
-    Parameters:
-        dataset_name: Name of the dataset. Dataset must be registered in
-            qai_hub_models.datasets.__init__.py
-        ids_file: Path to file where dataset ids are stored.
-        model_cls: The model class using this data. Used to determine input spec
-            and channel last inputs.
-        apply_channel_transpose: If False, returns all inputs in channel first format.
-            If True, applies channel last transpose for the inputs specified by the model.
-        num_samples: Number of samples to sample from the full dataset.
+    Parameters
+    ----------
+    dataset_name
+        Name of the dataset. Dataset must be registered in
+        qai_hub_models.datasets.__init__.py
+    ids_file
+        Path to file where dataset ids are stored.
+    model_cls
+        The model class using this data. Used to determine input spec
+        and channel last inputs.
+    apply_channel_transpose
+        If False, returns all inputs in channel first format.
+        If True, applies channel last transpose for the inputs specified by the model.
+    num_samples
+        Number of samples to sample from the full dataset.
     """
-    assert issubclass(
-        model_cls, BaseModel
-    ), "CollectionModel is not yet supported by this function."
+    assert issubclass(model_cls, BaseModel), (
+        "CollectionModel is not yet supported by this function."
+    )
     dataset_ids = load_yaml(ids_file)
     input_spec = model_cls.get_input_spec()
     folder_name = get_folder_name(dataset_name, input_spec)
@@ -408,8 +489,12 @@ def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     )
 
     with (
-        patch_hub_compile
-    ), patch_hub_profile, patch_hub_inference, patch_hub_link, patch_hub_quantize:
+        patch_hub_compile,
+        patch_hub_profile,
+        patch_hub_inference,
+        patch_hub_link,
+        patch_hub_quantize,
+    ):
         # Yield mocks to allow assertions
         yield SimpleNamespace(
             submit_compile_job=mock_submit_compile_job,

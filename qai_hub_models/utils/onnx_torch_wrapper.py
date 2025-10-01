@@ -100,7 +100,7 @@ def _verify_onnxruntime_qnn_installed() -> None:
             [
                 "You're targeting QNN, but have additional onnxruntime packages installed. Only 1 onnxruntime package can be installed at once.",
                 "Run the following commands EXACTLY (just copy paste; DO NOT EDIT):",
-                f'    pip uninstall -y {" ".join(additional_runtimes_installed)}{f" {ORT_QNN_PACKAGE_NAME}" if qnn_runtime_installed else ""}',
+                f"    pip uninstall -y {' '.join(additional_runtimes_installed)}{f' {ORT_QNN_PACKAGE_NAME}' if qnn_runtime_installed else ''}",
                 f"    pip install {ORT_QNN_PACKAGE_NAME}",
             ]
         )
@@ -404,9 +404,7 @@ class QNNExecutionProviderOptions(ExecutionProviderOptions):
     htp_performance_mode: QNNExecutionProviderOptions.HTPPerformanceMode = (
         HTPPerformanceMode.default()
     )
-    htp_graph_finalization_optimization_mode: (
-        QNNExecutionProviderOptions.HTPFinalizationOptimizationMode
-    ) = HTPFinalizationOptimizationMode.default()
+    htp_graph_finalization_optimization_mode: QNNExecutionProviderOptions.HTPFinalizationOptimizationMode = HTPFinalizationOptimizationMode.default()
     qnn_context_priority: QNNExecutionProviderOptions.ContextPriority = (
         ContextPriority.default()
     )

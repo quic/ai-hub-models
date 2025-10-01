@@ -55,7 +55,10 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
         for idx in range(batch_size):
             face_landmark = project_landmark(output[idx])
             transform_landmark_coordinates(
-                face_landmark, bbox[idx], self.width, self.height
+                face_landmark,
+                tuple(bbox[idx]),  # type: ignore[arg-type]
+                self.width,
+                self.height,
             )
             # added score as 1
             face_landmark = torch.concat([face_landmark, torch.ones(68, 1)], dim=1)

@@ -162,7 +162,7 @@ class SHAAttention(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         **kwargs,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
+    ) -> torch.Tensor:
         """
         Forward pass for Split-Head Cross Attention.
         Processes each head separately using head-specific Conv2D projection layers.
@@ -198,9 +198,7 @@ class SHAAttention(nn.Module):
 
         # Prepare for attention computation
         attn_outputs = []
-        for head_idx, (q, k, v) in enumerate(
-            zip(query_states, key_states, value_states)
-        ):
+        for _, (q, k, v) in enumerate(zip(query_states, key_states, value_states)):
             q_flat = q.permute(0, 2, 3, 1)  # (bsz, H, W, dim_head)
             k_flat = k.view(
                 bsz, 1, self.dim_head, -1
@@ -334,7 +332,7 @@ def replace_gelu_and_approx_gelu_with_conv2d(activation_module: nn.Module) -> nn
     # Copy weights from Linear to Conv2d
     with torch.no_grad():
         conv.weight.copy_(activation_module.proj.weight.view(dim_out, dim_in, 1, 1))
-        if bias:
+        if bias is not None and conv.bias is not None:
             conv.bias.copy_(activation_module.proj.bias)
 
     # Replace the Linear layer with Conv2d
@@ -477,7 +475,7 @@ def replace_feedforward_with_conv2d(feedforward_module: nn.Module) -> nn.Module:
                             module.out_features, module.in_features, 1, 1
                         )
                     )
-                    if module.bias is not None:
+                    if module.bias is not None and conv.bias is not None:
                         conv.bias.copy_(module.bias.data)
                 # Append the Conv2d layer instead of Linear
                 new_net.append(conv)

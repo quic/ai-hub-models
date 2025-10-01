@@ -72,6 +72,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds
         ] = None
         tokens_per_second: Optional[float] = None
+        context_length: Optional[int] = None
 
         # Only set for non-LLMs.
         job_id: Optional[str] = None
@@ -99,9 +100,9 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             """Extract asset details from the given compile or profile job."""
             if job._job_type == JobType.COMPILE:
                 job = cast(hub.CompileJob, job)
-                assert (
-                    job.get_status().success
-                ), f"Cannot extract asset details from failed compile job {job.job_id}"
+                assert job.get_status().success, (
+                    f"Cannot extract asset details from failed compile job {job.job_id}"
+                )
                 model_id = cast(hub.Model, job.get_target_model()).model_id
             elif job._job_type == JobType.PROFILE:
                 job = cast(hub.ProfileJob, job)

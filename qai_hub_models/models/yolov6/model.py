@@ -18,6 +18,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_path,
     qaihm_temp_dir,
 )
+from qai_hub_models.utils.set_env import set_temp_env
 
 YOLOV6_SOURCE_REPOSITORY = "https://github.com/meituan/YOLOv6"
 YOLOV6_SOURCE_REPO_COMMIT = "55d80c317edd0fb5847e599a1802d394f34a3141"
@@ -113,9 +114,12 @@ def _load_yolov6_source_model_from_weights(
             from yolov6.layers.common import RepVGGBlock
             from yolov6.utils.checkpoint import load_checkpoint
 
-            model = load_checkpoint(
-                model_path, map_location="cpu", inplace=True, fuse=True
-            )
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                model = load_checkpoint(
+                    model_path, map_location="cpu", inplace=True, fuse=True
+                )
             model.export = True
 
             for layer in model.modules():

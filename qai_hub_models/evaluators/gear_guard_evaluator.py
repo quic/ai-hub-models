@@ -29,8 +29,8 @@ class GearGuardNetEvaluator(mAPEvaluator):
 
         for i in range(len(image_ids)):
             image_id = image_ids[i]
-            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
-            classes = all_classes[i][: all_num_boxes[i].item()]
+            bboxes = all_bboxes[i][: int(all_num_boxes[i].item())]
+            classes = all_classes[i][: int(all_num_boxes[i].item())]
             if bboxes.numel() == 0:
                 continue
 
@@ -53,8 +53,8 @@ class GearGuardNetEvaluator(mAPEvaluator):
             output_single = [o[i : i + 1].permute(0, 2, 3, 1).detach() for o in output]
             result = postprocess(
                 output_single,
-                scales[i],
-                paddings[i],
+                float(scales[i].item()),
+                (int(paddings[i][0]), int(paddings[i][1])),
                 self.score_threshold,
                 self.nms_iou_threshold,
             )

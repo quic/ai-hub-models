@@ -131,9 +131,7 @@ class MediaPipeHandApp(MediaPipeApp):
                         ...
                     ]
         """
-        return super().predict_landmarks_from_image(
-            pixel_values_or_image, raw_output
-        )  # type: ignore[return-value]
+        return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore[return-value]
 
     def _draw_predictions(
         self,

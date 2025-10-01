@@ -118,9 +118,8 @@ class CamVidSegmentationDataset(BaseDataset):
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
         label = np.array(gt_image)
         label = self._convert_to_one_hot(label).astype(np.uint8)
-        label = torch.from_numpy(label)
 
-        return image_tensor, label
+        return image_tensor, torch.from_numpy(label)
 
     def _convert_to_one_hot(self, label: np.ndarray) -> np.ndarray:
         """

@@ -139,6 +139,7 @@ class Mbv3SmallFast(nn.Module):
             )
 
         self.bn1 = nn.BatchNorm2d(16)
+        self.hs1: nn.Module
         if act == "relu":
             self.hs1 = nn.ReLU(inplace=True)
         elif act == "prelu":
@@ -168,7 +169,6 @@ class Mbv3SmallFast(nn.Module):
         print("random init...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
@@ -219,6 +219,7 @@ class CBAModule(nn.Module):
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
         )
         self.bn = nn.BatchNorm2d(out_channels)
+        self.act: nn.Module
         if act == "relu":
             self.act = nn.ReLU(inplace=True)
         elif act == "identity":

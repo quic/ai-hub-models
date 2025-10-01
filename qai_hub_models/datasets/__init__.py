@@ -54,9 +54,9 @@ def _try_import_dataset(module_name: str, cls: str, name: str | None = None):
 
     if x := getattr(module, cls, None):
         xds = cast(type[BaseDataset], x)
-        assert (
-            name == xds.dataset_name()
-        ), f"Name is not consistent with call to dataset_name(): {name} vs. {xds.dataset_name()}"
+        assert name == xds.dataset_name(), (
+            f"Name is not consistent with call to dataset_name(): {name} vs. {xds.dataset_name()}"
+        )
         DATASET_NAME_MAP[name] = xds
     else:
         raise ValueError(
@@ -75,6 +75,7 @@ _try_import_dataset(".coco91class", "Coco91ClassDataset")
 _try_import_dataset(".coco_face", "CocoFaceDataset")
 _try_import_dataset(".human_faces", "HumanFacesDataset")
 _try_import_dataset(".human_faces", "HumanFaces192Dataset", name="human_faces_192")
+_try_import_dataset(".human_poses", "HumanPosesDataset")
 _try_import_dataset(".coco_panoptic_seg", "CocoPanopticSegmentationDataset")
 _try_import_dataset(".foot_track_dataset", "FootTrackDataset")
 _try_import_dataset(".gear_guard_dataset", "GearGuardDataset")
@@ -90,6 +91,7 @@ _try_import_dataset(".imagenette", "ImagenetteDataset")
 _try_import_dataset(".imagenette_colorization", "ImagenetteColorizationDataset")
 _try_import_dataset(".imagenette_256", "Imagenette_256Dataset")
 _try_import_dataset(".nyuv2", "NyUv2Dataset")
+_try_import_dataset(".cofw", "COFWDataset")
 _try_import_dataset(".nyuv2x518", "NyUv2x518Dataset")
 _try_import_dataset(".pascal_voc", "VOCSegmentationDataset")
 _try_import_dataset(".mpii", "MPIIDataset")

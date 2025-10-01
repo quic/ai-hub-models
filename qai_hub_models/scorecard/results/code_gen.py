@@ -77,9 +77,9 @@ def update_code_gen_failure_reasons(
                 precision, device, path.compile_path, component_id
             )
             if compile_job.failed:
-                compile_failures[precision][path.compile_path][
-                    component_id
-                ] = compile_job
+                compile_failures[precision][path.compile_path][component_id] = (
+                    compile_job
+                )
             elif device == default_device:
                 # Skip model if it can't be profiled on its default device.
                 profile_job = profile_summary.get_run(

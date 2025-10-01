@@ -108,7 +108,9 @@ def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
     from net.Res2Net import Bottle2neck, Res2Net
 
     model = Res2Net(Bottle2neck, [3, 4, 6, 3], baseWidth=26, scale=4, **kwargs)
-    model_state = torch.load(weights_path_res2net50, map_location="cpu")
+    model_state = torch.load(
+        weights_path_res2net50, map_location="cpu", weights_only=False
+    )
     model.load_state_dict(model_state)
     return model
 
@@ -139,7 +141,9 @@ def _load_bgnet_source_model_from_weights(
 
         model = Net()
         model.resnet = res2net50_v1b_26w_4s(pretrained=True)
-        checkpoint = torch.load(weights_path_bgnet, map_location="cpu")
+        checkpoint = torch.load(
+            weights_path_bgnet, map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint)
         model.to("cpu").eval()
     return model

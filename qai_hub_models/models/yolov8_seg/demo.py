@@ -16,9 +16,6 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "test_images/bus.jpg"
 )
-OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "test_images/out_bus_with_mask.png"
-)
 
 
 def main(is_test: bool = False):

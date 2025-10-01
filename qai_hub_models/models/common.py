@@ -393,9 +393,9 @@ class InferenceEngine(Enum):
         Default QAIRT version used by this inference engine.
         """
         if self == InferenceEngine.ONNX:
-            qairt_version = "2.36"
-        else:
             qairt_version = "2.37"
+        else:
+            qairt_version = "2.38"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -650,6 +650,8 @@ class TargetRuntime(Enum):
 
         THIS MIGHT BE DIFFERENT THAN AI HUB's DEFAULT VERSION.
         """
+        if self == TargetRuntime.GENIE:
+            return QAIRTVersion("2.37")
         return self.inference_engine.default_qairt_version
 
     @property
@@ -758,7 +760,7 @@ class Precision:
             and override_type not in self._allowed_override_dtypes
         ):
             raise ValueError(
-                f"Invalid override_type: {override_type}. Supported: {','. join([str(x) for x in self._allowed_override_dtypes])}"
+                f"Invalid override_type: {override_type}. Supported: {','.join([str(x) for x in self._allowed_override_dtypes])}"
             )
 
         self.weights_type: QuantizeDtype | None = weights_type
@@ -804,7 +806,7 @@ class Precision:
                 continue
             if enum_name not in QuantizeDtype._member_names_:
                 raise ValueError(
-                    f"Unsupported bit width {bit_width} for quantization {name}. Supported: {','. join([str(x) for x in QuantizeDtype])}"
+                    f"Unsupported bit width {bit_width} for quantization {name}. Supported: {','.join([str(x) for x in QuantizeDtype])}"
                 )
 
         def _is_allowed_override_dtype(enum_name: str) -> bool:

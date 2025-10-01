@@ -9,12 +9,11 @@ import os
 from collections.abc import Iterable, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Literal, cast, overload
+from typing import Callable, Literal, cast, overload
 
 import qai_hub as hub
 from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
-from typing_extensions import TypeAlias
 
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
@@ -25,6 +24,7 @@ from qai_hub_models.scorecard import (
 )
 from qai_hub_models.scorecard.device import cs_universal
 from qai_hub_models.scorecard.envvars import (
+    DEFAULT_AGGREGATED_CSV_NAME,
     ArtifactsDirEnvvar,
     EnableAsyncTestingEnvvar,
 )
@@ -572,11 +572,6 @@ def write_accuracy(
     append_line_to_file(get_accuracy_file(), line)
 
 
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_compile_job_cache_dict_type: TypeAlias = "Dict[str, bool]"
-
-
 class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
     """
     When running scorecard, users have the option to enable a caching feature. This feature:
@@ -607,9 +602,7 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
         Component models are considered "identical" only if all components' compile jobs are identical (per the above guidelines).
     """
 
-    compile_jobs_are_identical: _compile_job_cache_dict_type = Field(
-        default_factory=dict
-    )
+    compile_jobs_are_identical: dict[str, bool] = Field(default_factory=dict)
 
     def is_identical(
         self,
@@ -764,3 +757,42 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
                     current_model_files, previous_model_files
                 )
             )
+
+
+def get_accuracy_csv_path(manual_path: str | None = None) -> Path | None:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    if artifacts_dir is None:
+        return None
+    for subpath in artifacts_dir.iterdir():
+        if subpath.name.startswith("Accuracy Metrics"):
+            return subpath / "accuracy.csv"
+    return None
+
+
+def get_scorecard_csv_path(manual_path: str | None = None) -> Path:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    assert artifacts_dir is not None
+    folder = artifacts_dir
+    for subpath in folder.iterdir():
+        if not subpath.name.startswith("Scorecard Results"):
+            continue
+        for scorecard_file in subpath.iterdir():
+            if scorecard_file.name.startswith("scorecard-summary"):
+                return scorecard_file
+    raise ValueError("No perf data found.")
+
+
+def get_aggreggated_results_csv_path(manual_path: str | None = None) -> Path:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    if artifacts_dir is not None:
+        for subpath in artifacts_dir.iterdir():
+            if subpath.name.startswith("Scorecard CSV"):
+                return subpath / DEFAULT_AGGREGATED_CSV_NAME
+        return artifacts_dir / DEFAULT_AGGREGATED_CSV_NAME
+    return Path(f"build/{DEFAULT_AGGREGATED_CSV_NAME}")

@@ -14,7 +14,10 @@ from scipy.io import loadmat
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.image_processing import pre_process_with_affine
+from qai_hub_models.utils.image_processing import (
+    pre_process_with_affine,
+)
+from qai_hub_models.utils.input_spec import InputSpec
 
 MPII_FOLDER_NAME = "mpii"
 MPII_VERSION = 1
@@ -60,16 +63,14 @@ class MPIIDataset(BaseDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 256,
-        input_width: int = 192,
+        input_spec: InputSpec | None = None,
         num_samples: int = -1,
     ):
-
         BaseDataset.__init__(
             self, str(MPII_ASSET.path().parent / "images_train_val"), split
         )
         assert self.split_str in ["train", "val"]
-
+        input_spec = input_spec or {"image": ((1, 3, 256, 192), "")}
         self.num_joints = 16
         gt_mat = GT.fetch()
         anno_path = CachedWebDatasetAsset.from_asset_store(
@@ -80,8 +81,8 @@ class MPIIDataset(BaseDataset):
 
         self.gt_dict = loadmat(gt_mat)
 
-        self.input_height = input_height
-        self.input_width = input_width
+        self.input_height = input_spec["image"][0][2]
+        self.input_width = input_spec["image"][0][3]
 
         with open(anno_path) as anno_file:
             anno = json.load(anno_file)

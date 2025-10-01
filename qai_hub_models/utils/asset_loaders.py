@@ -116,7 +116,7 @@ def _query_yes_no(question, default="yes"):
     elif default == "no":
         prompt = " [y/N] "
     else:
-        raise ValueError("invalid default answer: '%s'" % default)
+        raise ValueError(f"invalid default answer: {default}")
 
     while True:
         print(question + prompt, end="")
@@ -126,7 +126,7 @@ def _query_yes_no(question, default="yes"):
         elif choice in valid:
             return valid[choice]
         else:
-            print("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+            print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
 def maybe_clone_git_repo(
@@ -233,7 +233,7 @@ def load_numpy(file: PathType) -> Any:
 
 
 def load_torch(pt: PathType) -> Any:
-    return _load_file(pt, partial(torch.load, map_location="cpu"))
+    return _load_file(pt, partial(torch.load, map_location="cpu", weights_only=False))
 
 
 def load_json(json_filepath: PathType) -> dict:
@@ -606,8 +606,7 @@ class ModelZooAssetConfig:
                     _, env_var_name, default = values
                 else:
                     raise NotImplementedError(
-                        "Environment vars should be specified in asset_bases "
-                        "using format env::<var_name>::<default>"
+                        "Environment vars should be specified in asset_bases using format env::<var_name>::<default>"
                     )
 
                 data[key] = os.environ.get(env_var_name, default)

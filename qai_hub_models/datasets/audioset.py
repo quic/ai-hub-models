@@ -49,7 +49,6 @@ class AudioSetDataset(BaseDataset):
         target_sample_rate: int = 16000,
         max_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
     ):
-
         self.csv_path = AUDIOSET_CSV.path()
         self.audio_dir = AUDIOSET_ASSET.path(extracted=True).parent
         self.class_map_path = AUDIOSET_CLASS_MAP.path()

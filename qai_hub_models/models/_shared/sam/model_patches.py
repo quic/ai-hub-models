@@ -85,6 +85,8 @@ class Conv2DInplaceLinear(nn.Module):
 
     @staticmethod
     def from_linear(mod: torch.nn.Linear | torch.nn.Conv1d) -> Conv2DInplaceLinear:
+        weight: torch.Tensor | torch.nn.Parameter
+        bias: torch.Tensor | torch.nn.Parameter | None
         if isinstance(mod, torch.nn.Linear):
             weight, bias = mod.weight, mod.bias
             bias = mod.bias
@@ -175,7 +177,8 @@ class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
     """
 
     def __init__(
-        self, mlp_block  # from segment_anything.modeling.image_encoder import MLPBlock,
+        self,
+        mlp_block,  # from segment_anything.modeling.image_encoder import MLPBlock,
     ):
         super().__init__()
         self.lin1 = Conv2DInplaceLinear.from_linear(mlp_block.lin1)
@@ -215,8 +218,7 @@ class SplitHeadSAMDecoderAttention(nn.Module):
                 )
                 split_layer.conv2d.weight.data.copy_(
                     merged_layer.weight[
-                        i
-                        * self.qkv_out_features_per_head : (i + 1)
+                        i * self.qkv_out_features_per_head : (i + 1)
                         * self.qkv_out_features_per_head,
                         :,
                         None,
@@ -224,10 +226,10 @@ class SplitHeadSAMDecoderAttention(nn.Module):
                     ]
                 )
 
+                assert split_layer.conv2d.bias is not None
                 split_layer.conv2d.bias.data.copy_(
                     merged_layer.bias[
-                        i
-                        * self.qkv_out_features_per_head : (i + 1)
+                        i * self.qkv_out_features_per_head : (i + 1)
                         * self.qkv_out_features_per_head
                     ]
                 )

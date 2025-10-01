@@ -105,7 +105,6 @@ def cli_device_with_skips_unsupported_device(
         patch_onnx_files,
         patch_get_or_create_cached_model,
     ):
-
         sys.argv = [
             "export.py",
             "--device",

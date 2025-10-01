@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import DefaultDict, cast
+from typing import cast
 
 import numpy as np
 import torch
@@ -100,7 +100,7 @@ class ClassificationEvaluator(BaseEvaluator):
             idxs = np.arange(len(y))
         np.random.seed(self.seed)
         np.random.shuffle(idxs)
-        label_counter: DefaultDict[str, int] = defaultdict(int)
+        label_counter: defaultdict[str, int] = defaultdict(int)
         for i in idxs:
             if label_counter[y[i]] < samples_per_label:
                 X_sampled.append(X[i])

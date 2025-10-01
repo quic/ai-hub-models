@@ -55,7 +55,7 @@ class MMLUEvaluator(BaseEvaluator):
     @staticmethod
     def _get_choices(
         tokenizer: PreTrainedTokenizer,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         def tokenize_letter(letter: str):
             return tokenizer(letter, add_special_tokens=False, return_tensors="pt")[
                 "input_ids"
@@ -123,7 +123,7 @@ class MMLUEvaluator(BaseEvaluator):
             logsoft_fp_5 = torch.cat(
                 [
                     logsoft_fp_answers,
-                    logsoft_fp_rest.logsumexp(dim=-1, keepdims=True),
+                    logsoft_fp_rest.logsumexp(dim=-1, keepdim=True),
                 ],
                 dim=-1,
             )
@@ -133,7 +133,7 @@ class MMLUEvaluator(BaseEvaluator):
             logsoft_q_5 = torch.cat(
                 [
                     logsoft_q_answers,
-                    logsoft_q_rest.logsumexp(dim=-1, keepdims=True),
+                    logsoft_q_rest.logsumexp(dim=-1, keepdim=True),
                 ],
                 dim=-1,
             )
@@ -243,7 +243,7 @@ class MMLUEvaluator(BaseEvaluator):
         data: _DataLoader,
         num_samples: int | None = None,
         callback: (
-            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            Callable[[list[torch.Tensor], CausalLMOutputWithPast, torch.Tensor], None]
             | None
         ) = None,
     ) -> None:

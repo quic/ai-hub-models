@@ -151,6 +151,8 @@ class CocoBodyDataset(BaseDataset):
         data_numpy = cv2.imread(
             str(img_path), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
         )
+
+        assert data_numpy is not None, f"Image not found at {img_path}"
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
         image = pre_process_with_affine(

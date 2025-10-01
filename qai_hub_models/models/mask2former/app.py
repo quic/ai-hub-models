@@ -115,8 +115,8 @@ class Mask2FormerApp:
         threshold: float = 0.5,
         mask_threshold: float = 0.5,
         overlap_mask_area_threshold: float = 0.8,
-        label_ids_to_fuse=None,
-        target_sizes=None,
+        label_ids_to_fuse: set[int] | None = None,
+        target_sizes: list[tuple[int, int]] | None = None,
     ):
         """
         Converts the output of [`Mask2FormerForUniversalSegmentationOutput`] into image panoptic segmentation
@@ -201,7 +201,8 @@ class Mask2FormerApp:
                 mask_threshold=mask_threshold,
                 overlap_mask_area_threshold=overlap_mask_area_threshold,
                 label_ids_to_fuse=label_ids_to_fuse,
-                target_size=target_size,
+                # (transformers has a bad type annotation)
+                target_size=target_size,  # type: ignore[arg-type]
             )
 
             results.append({"segmentation": segmentation, "segments_info": segments})

@@ -119,7 +119,9 @@ def _load_bisenet_source_model_from_weights(
 
         model = BiSeNet(12, "resnet18")
         # load pretrained model
-        checkpoint = torch.load(weights_path_bisenet, map_location="cpu")
+        checkpoint = torch.load(
+            weights_path_bisenet, map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint)
         model.to("cpu").eval()
     return model

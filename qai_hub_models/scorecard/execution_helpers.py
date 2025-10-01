@@ -28,10 +28,15 @@ from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 try:
     from qai_hub_models.scorecard.internal.list_models import (
         get_bench_pytorch_w8a8_models,
+        get_bench_pytorch_w8a16_models,
     )
+
 except ImportError:
 
     def get_bench_pytorch_w8a8_models() -> list[str]:  # type: ignore[misc]
+        return []
+
+    def get_bench_pytorch_w8a16_models() -> list[str]:  # type: ignore[misc]
         return []
 
 
@@ -76,9 +81,9 @@ def for_each_scorecard_path_and_device(
                 callback(precision, path, device)  # type: ignore[arg-type]
 
 
-def get_enabled_test_precisions() -> (
-    tuple[SpecialPrecisionSetting | None, list[Precision]]
-):
+def get_enabled_test_precisions() -> tuple[
+    SpecialPrecisionSetting | None, list[Precision]
+]:
     """
     Determine what precisions are enabled based on the test environment.
 
@@ -163,6 +168,11 @@ def get_model_test_precisions(
             and model_id in get_bench_pytorch_w8a8_models()
         ):
             enabled_precisions.add(Precision.w8a8)
+        if (
+            Precision.w8a16 in model_supported_precisions
+            and model_id in get_bench_pytorch_w8a16_models()
+        ):
+            enabled_precisions.add(Precision.w8a16)
     if can_use_quantize_job:
         # If quantize job is supported, this model can run tests on any desired precision.
         enabled_precisions.update(extra_enabled_precisions)
@@ -330,7 +340,7 @@ def pytest_device_idfn(val):
     Pytest generates test titles based on the parameterization of each test.
     This title can both be used as a filter during test selection and is
     printed to console to identify the test. An example title:
-    qai_hub_models/models/whisper_base/test_generated.py::test_compile[qnn-cs_8_gen_2]
+    qai_hub_models/models/whisper_base/test_generated.py::test_compile[qnn-cs_8_gen_3]
 
     Several unit tests parameterize based on device objects. Pytest is not capable by default
     of understanding what string identifier to use for a device object, so it will print

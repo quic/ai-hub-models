@@ -40,7 +40,6 @@ def get_components(model_id: str) -> list[str] | None:
                             and decorator.func.value.id == "CollectionModel"
                             and decorator.func.attr == "add_component"
                         ):
-
                             # Expecting exactly one argument: the component.
                             if len(decorator.args) == 1:
                                 component_arg = decorator.args[0]

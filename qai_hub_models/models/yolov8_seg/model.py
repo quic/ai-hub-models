@@ -5,12 +5,16 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import SegmentationModel
 
 from qai_hub_models.models._shared.yolo.model import YoloSeg, yolo_segment_postprocess
+from qai_hub_models.models.common import Precision
 
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 MODEL_ID = __name__.split(".")[-2]
 
 SUPPORTED_WEIGHTS = [
@@ -21,21 +25,27 @@ SUPPORTED_WEIGHTS = [
     "yolov8x-seg.pt",
 ]
 DEFAULT_WEIGHTS = "yolov8n-seg.pt"
-NUM_ClASSES = 80
 
 
 class YoloV8Segmentor(YoloSeg):
     """Exportable YoloV8 segmentor, end-to-end."""
 
+    def __init__(self, model: SegmentationModel, precision: Precision):
+        super().__init__(model)
+        self.num_classes: int = model.nc
+        self.precision = precision
+
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(
+        cls, ckpt_name: str = DEFAULT_WEIGHTS, precision: Precision = Precision.float
+    ):
         if ckpt_name not in SUPPORTED_WEIGHTS:
             raise ValueError(
                 f"Unsupported checkpoint name provided {ckpt_name}.\n"
                 f"Supported checkpoints are {list(SUPPORTED_WEIGHTS)}."
             )
-        model = ultralytics_YOLO(ckpt_name).model
-        return cls(model)
+        model = cast(SegmentationModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(model, precision)
 
     def forward(self, image: torch.Tensor):
         """
@@ -61,6 +71,10 @@ class YoloV8Segmentor(YoloSeg):
         """
         predictions = self.model(image)
         boxes, scores, masks, classes = yolo_segment_postprocess(
-            predictions[0], NUM_ClASSES
+            predictions[0], self.num_classes
         )
-        return boxes, scores, masks, classes.to(torch.float32), predictions[1][-1]
+
+        if self.precision == Precision.float:
+            classes = classes.to(torch.float32)
+
+        return boxes, scores, masks, classes, predictions[1][-1]

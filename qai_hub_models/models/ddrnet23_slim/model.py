@@ -75,7 +75,7 @@ class DDRNet(CityscapesSegmentor):
             )
 
             pretrained_dict = torch.load(
-                checkpoint_to_load, map_location=torch.device("cpu")
+                checkpoint_to_load, map_location=torch.device("cpu"), weights_only=False
             )
             if "state_dict" in pretrained_dict:
                 pretrained_dict = pretrained_dict["state_dict"]

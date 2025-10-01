@@ -97,9 +97,9 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
                 )
 
             # Verify keypoint count
-            assert (
-                len(keypoints_list) == self.total_kpts * 3
-            ), f"Expected {self.total_kpts * 3}, got {len(keypoints_list)}"
+            assert len(keypoints_list) == self.total_kpts * 3, (
+                f"Expected {self.total_kpts * 3}, got {len(keypoints_list)}"
+            )
 
             body_kpts = keypoints_list[cuts[0] : cuts[1]]
             foot_kpts = keypoints_list[cuts[1] : cuts[2]]

@@ -118,17 +118,17 @@ def detect(
     hm = hm.sigmoid()
     hm_pool = F.max_pool2d(hm, 3, 1, 1)
     lens = ((hm == hm_pool).float() * hm).view(1, -1).cpu().shape[1]
-    scores, indices = (
+    scores_pt, indices = (
         ((hm == hm_pool).float() * hm).view(1, -1).cpu().topk(min(lens, 2000))
     )
 
     hm_height, hm_width = hm.shape[2:]
 
-    scores = scores.squeeze()
+    scores_pt = scores_pt.squeeze()
     indices = indices.squeeze()
     ys = list(torch.div(indices, hm_width).int().data.numpy())
     xs = list((indices % hm_width).int().data.numpy())
-    scores = list(scores.data.numpy())
+    scores: list[float] = list(scores_pt.data.numpy())
 
     objs = []
     for cx, cy, score in zip(xs, ys, scores):

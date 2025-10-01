@@ -165,7 +165,9 @@ def _load_salsanext_source_model_from_weights(
         model = SalsaNext(20)
         model = torch.nn.DataParallel(model)
         # load pretrained model
-        checkpoint = torch.load(str(weights_path_salsanext), map_location="cpu")
+        checkpoint = torch.load(
+            str(weights_path_salsanext), map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint["state_dict"], strict=True)
         model.to("cpu").eval()
     return model

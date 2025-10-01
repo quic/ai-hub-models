@@ -13,6 +13,7 @@ from easyocr.model.model import Model as Recognizer
 from easyocr.model.vgg_model import Model as VGGRecognizer
 
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
@@ -42,7 +43,7 @@ class EasyOCRDetector(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.detector)  # pyright: ignore[reportArgumentType]
+        return cls(ocr_reader.detector)
 
     def forward(self, image: torch.Tensor):
         """
@@ -53,11 +54,14 @@ class EasyOCRDetector(BaseModel):
                    Range: float[0, 1]
                    3-channel Color Space: RGB
         """
+        # Run network
         if isinstance(self.model, CRAFTDetector):
-            return self.model(image)
+            image = normalize_image_torchvision(image)
+            return self.model(image)[0]
         elif isinstance(self.model, DBNetDetector):
+            image *= 255
             assert self.model.model is not None
-            return self.model.model(image, training=False)
+            return self.model.model(image, training=False)[0]
         else:
             raise NotImplementedError("Unknown detector model")
 
@@ -71,7 +75,7 @@ class EasyOCRDetector(BaseModel):
 
     @staticmethod
     def get_output_names(*args, **kwargs):
-        return ["results", "features"]
+        return ["results"]
 
 
 class EasyOCRRecognizer(BaseModel):
@@ -94,7 +98,7 @@ class EasyOCRRecognizer(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.recognizer)  # pyright: ignore[reportArgumentType]
+        return cls(ocr_reader.recognizer)
 
     def forward(self, image: torch.Tensor):
         """
@@ -108,7 +112,7 @@ class EasyOCRRecognizer(BaseModel):
         Returns:
             segmented mask per class: Shape [batch, T, classes]
         """
-        return self.model(image, None)
+        return self.model((image - 0.5) / 0.5, None)
 
     @staticmethod
     def get_input_spec(

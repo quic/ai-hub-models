@@ -136,6 +136,7 @@ class CBAModule(nn.Module):
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
         )
         self.bn = nn.BatchNorm2d(out_channels)
+        self.act: nn.Module
         if act == "relu":
             self.act = nn.ReLU(inplace=True)
         elif act == "identity":
@@ -271,6 +272,7 @@ class HeadModule(nn.Module):
             )
 
     def init_normal(self, std: float, bias: float):
+        assert self.head.bias is not None
         nn.init.normal_(self.head.weight, std=std)
         nn.init.constant_(self.head.bias, bias)
 

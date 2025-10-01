@@ -19,7 +19,6 @@ def _load_sesr_source_model(
     # Load SESR model from the source repository using the given weights.
     # Returns <source repository>.utils.super_resolution.models.SESRRelease
     with aimet_zoo_as_root():
-
         from aimet_zoo_torch.common.super_resolution.models import SESRRelease
 
         return SESRRelease(

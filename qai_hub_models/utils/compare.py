@@ -23,8 +23,7 @@ def _flatten_tuple(out_tuple):
         out_tuple = tuple(out_tuple)
     else:
         raise ValueError(
-            f"Invalid type for out_tuple: {type(out_tuple)}. "
-            "Expected torch.Tensor or Iterable."
+            f"Invalid type for out_tuple: {type(out_tuple)}. Expected torch.Tensor or Iterable."
         )
 
     flattened_tuple = []
@@ -202,9 +201,7 @@ def generate_comparison_metrics(
     df_res = pd.DataFrame(None, columns=["shape"] + metrics_ls, index=idx)
     for i, (expected_arr, actual_arr) in enumerate(zip(expected, actual)):
         loc = i if not names else names[i]
-        df_res.loc[loc, "shape"] = (
-            expected_arr.shape
-        )  # pyright: ignore[reportArgumentType,reportCallIssue]
+        df_res.loc[loc, "shape"] = expected_arr.shape  # pyright: ignore[reportArgumentType,reportCallIssue]
         for m in metrics_ls:
             df_res.loc[loc, m] = METRICS_FUNCTIONS[m][0](expected_arr, actual_arr)  # type: ignore[operator]
     return df_res

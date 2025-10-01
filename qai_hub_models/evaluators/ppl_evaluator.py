@@ -44,7 +44,7 @@ class PerplexityEvaluator(BaseEvaluator):
 
         self.reset()
 
-    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.tensor):
+    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.Tensor):
         self.batch_index += 1
         logits = output.logits
         assert logits is not None
@@ -76,7 +76,7 @@ class PerplexityEvaluator(BaseEvaluator):
         data: _DataLoader,
         num_samples: int | None = None,
         callback: (
-            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            Callable[[list[torch.Tensor], CausalLMOutputWithPast, torch.Tensor], None]
             | None
         ) = None,
     ) -> None:

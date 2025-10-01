@@ -78,6 +78,7 @@ class ScorecardCompilePath(Enum):
         enabled: Optional[bool] = None,
         supports_precision: Optional[Precision] = None,
         is_aot_compiled: Optional[bool] = None,
+        include_genai_paths: bool = False,
     ) -> list[ScorecardCompilePath]:
         """
         Get all compile paths that match the given attributes.
@@ -95,6 +96,7 @@ class ScorecardCompilePath(Enum):
                 is_aot_compiled is None
                 or path.runtime.is_aot_compiled == is_aot_compiled
             )
+            and (include_genai_paths or (not path.runtime.is_exclusively_for_genai))
         ]
 
     @property

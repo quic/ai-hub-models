@@ -77,6 +77,6 @@ def test_info_yaml():
             assert False, f"{model_id} config validation failed: {str(err)}"
 
         # Verify model ID is the same as folder name
-        assert (
-            info_spec.id == model_id
-        ), f"{model_id} config ID does not match the model's folder name"
+        assert info_spec.id == model_id, (
+            f"{model_id} config ID does not match the model's folder name"
+        )

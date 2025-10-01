@@ -76,9 +76,9 @@ def get_split_tensors(
     """
     model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
 
-    def get_nodes() -> (
-        tuple[dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]]
-    ):
+    def get_nodes() -> tuple[
+        dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]
+    ]:
         nodes = {i.name: i for i in model.graph.node}
         seq = {i.name: idx for idx, i in enumerate(model.graph.node)}
         producers: collections.defaultdict[str, Optional[str]] = (
@@ -355,7 +355,6 @@ def fill_input_encodings_of_split(
     encodingfile: Optional[PathLike],
     output_tensor_list: list[str],
 ) -> None:
-
     changed = False
     encodings = _load_encoding(encodingfile, no_merge=True)
     enc_act, enc_param = encodings["activation_encodings"], encodings["param_encodings"]
@@ -488,9 +487,9 @@ def split_onnx(
         names_to_split.append(",".join(outputs))
 
     names_to_split = names_to_split[: num_splits - 1]
-    assert (
-        num_splits == len(names_to_split) + 1
-    ), f"Failed to split into {num_splits} pieces!"
+    assert num_splits == len(names_to_split) + 1, (
+        f"Failed to split into {num_splits} pieces!"
+    )
     return split_onnx_by_names(
         onnxfile,
         modelname,

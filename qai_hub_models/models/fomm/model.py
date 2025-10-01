@@ -199,7 +199,6 @@ class FOMM(PretrainedCollectionModel):
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ):
-
             # Change filename to avoid import clash with current file
             if os.path.exists("demo.py"):
                 os.rename("demo.py", "fomm_demo.py")

@@ -51,6 +51,32 @@ def test_perf_yaml():
                         raise ValueError(
                             f"If model has 1 component, the component name (found: {component_name}) should match the model name (expected: {model_name})"
                         )
+                # For LLMs, check if the performance details are complete
+                if model_name is not None:
+                    for (
+                        device,
+                        runtime_performance_details,
+                    ) in precision_perf.components[
+                        model_name
+                    ].performance_metrics.items():
+                        for performance_details in runtime_performance_details.values():
+                            tps_is_none = performance_details.tokens_per_second is None
+                            ttft_is_none = (
+                                performance_details.time_to_first_token_range_milliseconds
+                                is None
+                            )
+                            cl_is_none = performance_details.context_length is None
 
+                            assert tps_is_none == ttft_is_none == cl_is_none, (
+                                "Either all of TPS, TTFT, and context length must all be set, or must all be None"
+                            )
+                            if (
+                                performance_details.time_to_first_token_range_milliseconds
+                                is not None
+                            ):
+                                assert (
+                                    performance_details.time_to_first_token_range_milliseconds.max
+                                    >= performance_details.time_to_first_token_range_milliseconds.min
+                                )
         except Exception as err:
             assert False, f"{model_id} perf yaml validation failed: {str(err)}"
