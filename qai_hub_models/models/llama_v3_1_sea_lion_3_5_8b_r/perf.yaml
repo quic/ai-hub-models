@@ -1,14 +1,23 @@
 supported_devices:
-- Snapdragon X Elite CRD
-- Snapdragon 8 Elite QRD
+  - Snapdragon X Elite CRD
+  - Snapdragon 8 Elite QRD
+  - Snapdragon 8 Elite Gen 5 QRD
 supported_chipsets:
-- qualcomm-snapdragon-8-elite
-- qualcomm-snapdragon-x-elite
+  - qualcomm-snapdragon-8-elite
+  - qualcomm-snapdragon-x-elite
+  - qualcomm-snapdragon-8-elite-gen-5
 precisions:
   w4a16:
     components:
       Llama-SEA-LION-v3.5-8B-R:
         performance_metrics:
+          Snapdragon 8 Elite Gen 5 QRD:
+            genie:
+              context_length: 4096
+              time_to_first_token_range_milliseconds:
+                min: 109.992
+                max: 3519.753
+              tokens_per_second: 14.91757
           Snapdragon 8 Elite QRD:
             genie:
               context_length: 4096

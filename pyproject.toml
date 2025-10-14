@@ -79,11 +79,17 @@ python_files = ["tests.py", "test_*.py", "test.py"]
 filterwarnings = [
     "ignore::DeprecationWarning:torch.*:",
     "ignore::DeprecationWarning:torchvision.*:",
+    "ignore::torch.jit.TracerWarning",
+
 ]
 markers = [
     "slow: marks tests as slow",
     "slow_cloud: marks test as slow and cloud-dependent",
+    "demo: marks tests that run demo for models",
+    "evaluate: marks tests that run model evaluation",
     "compile: marks tests that run compile jobs",
+    "compile_ram_intensive: marks tests that run compile jobs on GPU host (more RAM is needed.)",
+    "qdc: marks tests that run on QDC",
     "profile: marks tests that run profile jobs",
     "inference: marks tests that run inference jobs",
     "export: marks tests that run full export scripts",

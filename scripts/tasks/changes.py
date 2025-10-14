@@ -44,9 +44,12 @@ MANUAL_EDGES = {
     "qai_hub_models/datasets/__init__.py": [
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
+    "qai_hub_models/datasets/common.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/models/common.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/asset_loaders.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/envvars.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
@@ -54,6 +57,7 @@ MANUAL_EDGES = {
     "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/onnx_torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
@@ -331,7 +335,7 @@ def get_all_models() -> set[str]:
     static_models = {x[:-5] for x in os.listdir(bench_dir) if x.endswith(".yaml")}
 
     # Select a subset of models based on user input
-    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", None).lower()
+    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", "all").lower()
     if allowed_models_str and allowed_models_str not in ["all", "pytorch"]:
         if allowed_models_str == "bench":
             with open(PUBLIC_BENCH_MODELS) as f:

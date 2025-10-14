@@ -9,7 +9,7 @@ import itertools
 import math
 from collections.abc import Mapping
 from contextlib import nullcontext
-from typing import Callable, Literal, Union, cast
+from typing import Any, Callable, Literal, Union, cast
 from unittest import mock
 
 import numpy as np
@@ -393,6 +393,9 @@ def compile_via_export(
     scorecard_path: ScorecardCompilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    skip_compile_options: bool = False,
+    extra_model_arguments: dict[str, Any] | None = None,
+    skip_downloading: bool = True,
 ) -> None:
     """
     Use the provided export script function to submit compile jobs.
@@ -457,12 +460,17 @@ def compile_via_export(
                 device=device.execution_device_name,
                 chipset=device.chipset,
                 precision=precision,
-                skip_downloading=True,
+                skip_downloading=skip_downloading,
                 skip_profiling=True,
                 skip_inferencing=True,
                 skip_summary=True,
-                compile_options=scorecard_path.get_compile_options(precision),
+                compile_options=(
+                    scorecard_path.get_compile_options(precision)
+                    if not skip_compile_options
+                    else ""
+                ),
                 target_runtime=scorecard_path.runtime,
+                **extra_model_arguments or {},
             )
         )
 

@@ -10,7 +10,6 @@ import torch.nn.functional as F
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models._shared.yolo.utils import (
-    box_transform_xywh2xyxy_split_input,
     get_most_likely_score,
     transform_box_layout_xywh2xyxy,
 )
@@ -52,7 +51,7 @@ def yolo_detect_postprocess(
     scores = torch.permute(scores, [0, 2, 1])
 
     # Convert boxes to (x1, y1, x2, y2)
-    boxes = box_transform_xywh2xyxy_split_input(boxes[..., 0:2], boxes[..., 2:4])
+    boxes = transform_box_layout_xywh2xyxy(boxes)
 
     # TODO(13933) Revert once QNN issues with ReduceMax are fixed
     if scores.shape[-1] == 1:
@@ -157,15 +156,7 @@ class Yolo(BaseModel):
         return "coco"
 
 
-class YoloSeg(Yolo):
-    @staticmethod
-    def get_output_names() -> list[str]:
-        return ["boxes", "scores", "masks", "class_idx", "protos"]
-
-    @staticmethod
-    def get_channel_last_outputs() -> list[str]:
-        return ["protos"]
-
+class YoloSegEvalMixin(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         # This is imported here so detection models don't have to install the requirements for the segmentation dataset.
         from qai_hub_models.evaluators.yolo_segmentation_evaluator import (

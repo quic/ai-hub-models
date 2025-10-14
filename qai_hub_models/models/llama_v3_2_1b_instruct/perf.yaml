@@ -1,14 +1,23 @@
 supported_devices:
   - Snapdragon 8 Elite QRD
   - SA8295P ADP
+  - Snapdragon 8 Elite Gen 5 QRD
 supported_chipsets:
   - qualcomm-snapdragon-8-elite
   - qualcomm-sa8295p
+  - qualcomm-snapdragon-8-elite-gen-5
 precisions:
   w4:
     components:
       Llama-v3.2-1B-Instruct:
         performance_metrics:
+          Snapdragon 8 Elite Gen 5 QRD:
+            genie:
+              context_length: 4096
+              time_to_first_token_range_milliseconds:
+                min: 53.757
+                max: 1720.243
+              tokens_per_second: 36.89705
           Snapdragon 8 Elite QRD:
             genie:
               context_length: 4096
@@ -27,6 +36,13 @@ precisions:
     components:
       Llama-v3.2-1B-Instruct:
         performance_metrics:
+          Snapdragon 8 Elite Gen 5 QRD:
+            genie:
+              context_length: 4096
+              time_to_first_token_range_milliseconds:
+                min: 30.937
+                max: 990.003
+              tokens_per_second: 64.04112
           Snapdragon 8 Elite QRD:
             genie:
               context_length: 4096

@@ -20,11 +20,12 @@ venv="${VENV_PATH:-qaihm-dev}"
 # echo "Activating venv in ${venv}"
 source "${venv}/bin/activate"
 
-if [ "$#" -eq 0 ]; then
-  mypy_files=(qai_hub_models)
+if [[ "$#" -eq 0 || "$#" -gt 100 ]]; then
+  # If the changed file list is empty or especially large, just check the whole package.
+  mypy_files=("-p" "qai_hub_models")
 else
   mypy_files=("$@")
 fi
 
 # echo "Checking ${mypy_files[*]}"
-mypy --ignore-missing-imports --warn-unused-configs --config-file="${REPO_ROOT}/pyproject.toml" "${mypy_files[@]}"
+mypy --warn-unused-configs --config-file="${REPO_ROOT}/pyproject.toml" "${mypy_files[@]}"

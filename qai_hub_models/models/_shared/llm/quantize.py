@@ -87,6 +87,11 @@ def quantize(
 
     model_quant.save_calibrated_checkpoint(output_dir, fp_model=fp_model)
 
+    model_quant.to("cpu")
+    del model_quant
+    fp_model.to("cpu")
+    del fp_model
+
 
 def llm_quantize(
     quantized_model_cls: type[LLM_AIMETOnnx],

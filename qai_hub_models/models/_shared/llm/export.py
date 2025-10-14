@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import os
 import tempfile
 import textwrap
@@ -150,11 +151,9 @@ def export_model(
 
     # Pick a device
     hub_device = hub_devices[-1]
-    # Check if weight sharing is supported.
+    # Throw a warning if weight sharing is not supported.
     if "htp-supports-weight-sharing:true" not in hub_device.attributes:
-        raise ValueError(
-            "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
-        )
+        warnings.warn("The selected device may not support weight sharing.")
 
     if (
         "chipset:qualcomm-sa8295p" in hub_device.attributes
@@ -162,6 +161,10 @@ def export_model(
     ):
         raise ValueError(
             "The selected precision (w4a16) is not supported on this target device"
+        )
+    if target_runtime == TargetRuntime.ONNXRUNTIME_GENAI and precision == Precision.w4:
+        raise ValueError(
+            "The selected precision (w4) is not supported on target runtime onnxruntime_genai."
         )
 
     # Instantiation names and input sequence length
@@ -203,6 +206,13 @@ def export_model(
     component_from_sub_component_names = {}
     input_encodings_path: str | None = None
 
+    # TODO(#12640): This scope is not ideal and only a temporary fix until
+    # this issue has landed and we can pull this IO information from the
+    # AI Hub model directly.
+    tmpdir_handler = tempfile.TemporaryDirectory()
+    atexit.register(tmpdir_handler.cleanup)
+    tmpdir = tmpdir_handler.name
+
     for instantiation_name, seq_len in instantiations:
         full_name = f"{model_name}_{instantiation_name}"
         model = model_cls.from_pretrained(
@@ -221,103 +231,96 @@ def export_model(
                 "main_input_name": model.main_input_name,
             },
         )
-        # Export the full model to ONNX model
-        with tempfile.TemporaryDirectory() as tmpdir:
-            sub_output_path = Path(tmpdir) / instantiation_name
-            source_model_dir = model.convert_to_hub_source_model(
+
+        sub_output_path = Path(tmpdir) / instantiation_name
+        source_model_dir = model.convert_to_hub_source_model(
+            target_runtime,
+            sub_output_path,
+            input_spec,
+            external_onnx_weights=True,
+            output_names=model.get_output_names(),
+        )
+        assert source_model_dir is not None
+        source_model_bundle = ONNXBundle.from_bundle_path(source_model_dir)
+        input_encodings_path = str(source_model_bundle.aimet_encodings_path)
+
+        # Split encodings
+        model_artifact = Path(tmpdir) / instantiation_name
+        os.makedirs(model_artifact, exist_ok=True)
+
+        onnx.checker.check_model(source_model_bundle.onnx_graph_path, full_check=True)
+        subcomponent_onnx_bundles: list[ONNXBundle]
+        if num_splits == 1:
+            subcomponent_onnx_bundles = [source_model_bundle]
+        else:
+            subcomponent_onnx_bundles = utils.split_onnx(
+                onnxfile=source_model_bundle,
+                modelname=full_name,
+                num_splits=num_splits,
+                num_layers_per_split=num_layers_per_split,
+                output_dir=model_artifact,
+                split_embedding=True,
+                using_qairt_workflow=True,
+            )
+
+        # Submit the parts for compilation
+        for i, onnx_model_bundle in enumerate(subcomponent_onnx_bundles):
+            # Sequence length (ar...) and context lenght (cl...) in graph name
+            # are semantically important to Genie
+            sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
+            component_name = f"part_{i + 1}_of_{num_splits}"
+            sub_component_names[instantiation_name].append(sub_component_name)
+            full_name = f"{model_name}_{sub_component_name}"
+
+            onnx_path = onnx_model_bundle.onnx_graph_path.as_posix()
+            onnx.checker.check_model(onnx_path, full_check=True)
+
+            onnx_model_path_from_sub_component_name[sub_component_name] = str(onnx_path)
+            model_compile_options = model.get_hub_compile_options(
                 target_runtime,
-                sub_output_path,
-                input_spec,
-                external_onnx_weights=True,
-                output_names=model.get_output_names(),
+                precision,
+                compile_options,
+                context_graph_name=model.get_qairt_context_graph_name(i, num_splits),
             )
-            assert source_model_dir is not None
-            source_model_bundle = ONNXBundle.from_bundle_path(source_model_dir)
-            input_encodings_path = str(source_model_bundle.aimet_encodings_path)
-
-            # Split encodings
-            model_artifact = Path(tmpdir) / instantiation_name
-            os.makedirs(model_artifact, exist_ok=True)
-
-            onnx.checker.check_model(
-                source_model_bundle.onnx_graph_path, full_check=True
+            current_model = get_or_create_cached_model(
+                model_name=model_name,
+                model_asset_version=model_asset_version,
+                cache_name=sub_component_name,
+                cache_mode=model_cache_mode,
+                model_path=onnx_model_bundle.bundle_path.as_posix(),
+                additional_keys={
+                    "context_length": str(model.context_length),
+                    "sequence_length": str(seq_len),
+                    "precision": str(precision),
+                },
             )
-            subcomponent_onnx_bundles: list[ONNXBundle]
-            if num_splits == 1:
-                subcomponent_onnx_bundles = [source_model_bundle]
-            else:
-                subcomponent_onnx_bundles = utils.split_onnx(
-                    onnxfile=source_model_bundle,
-                    modelname=full_name,
-                    num_splits=num_splits,
-                    num_layers_per_split=num_layers_per_split,
-                    output_dir=model_artifact,
-                    split_embedding=True,
-                    using_qairt_workflow=True,
-                )
 
-            # Submit the parts for compilation
-            for i, onnx_model_bundle in enumerate(subcomponent_onnx_bundles):
-                # Sequence length (ar...) and context lenght (cl...) in graph name
-                # are semantically important to Genie
-                sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
-                component_name = f"part_{i + 1}_of_{num_splits}"
-                sub_component_names[instantiation_name].append(sub_component_name)
-                full_name = f"{model_name}_{sub_component_name}"
+            submitted_compile_job = hub.submit_compile_job(
+                model=current_model,
+                device=hub_device,
+                name=full_name,
+                options=model_compile_options,
+            )
+            if synchronous:
+                submitted_compile_job.wait()
+            if component_name not in compile_jobs_to_link:
+                compile_jobs_to_link[component_name] = []
 
-                onnx_path = onnx_model_bundle.onnx_graph_path.as_posix()
-                onnx.checker.check_model(onnx_path, full_check=True)
+            compile_jobs_to_link[component_name].append(
+                cast(hub.client.CompileJob, submitted_compile_job)
+            )
+            compile_jobs[sub_component_name] = cast(
+                hub.client.CompileJob, submitted_compile_job
+            )
+            component_from_sub_component_names[sub_component_name] = component_name
 
-                onnx_model_path_from_sub_component_name[sub_component_name] = str(
-                    onnx_path
-                )
-                model_compile_options = model.get_hub_compile_options(
+            profile_options_per_subcomponent[sub_component_name] = (
+                model.get_hub_profile_options(
                     target_runtime,
-                    precision,
-                    compile_options,
-                    context_graph_name=model.get_qairt_context_graph_name(
-                        i, num_splits
-                    ),
+                    profile_options,
+                    model.get_qairt_context_graph_name(i, num_splits),
                 )
-                current_model = get_or_create_cached_model(
-                    model_name=model_name,
-                    model_asset_version=model_asset_version,
-                    cache_name=sub_component_name,
-                    cache_mode=model_cache_mode,
-                    model_path=onnx_model_bundle.bundle_path.as_posix(),
-                    additional_keys={
-                        "context_length": str(model.context_length),
-                        "sequence_length": str(seq_len),
-                        "precision": str(precision),
-                    },
-                )
-
-                submitted_compile_job = hub.submit_compile_job(
-                    model=current_model,
-                    device=hub_device,
-                    name=full_name,
-                    options=model_compile_options,
-                )
-                if synchronous:
-                    submitted_compile_job.wait()
-                if component_name not in compile_jobs_to_link:
-                    compile_jobs_to_link[component_name] = []
-
-                compile_jobs_to_link[component_name].append(
-                    cast(hub.client.CompileJob, submitted_compile_job)
-                )
-                compile_jobs[sub_component_name] = cast(
-                    hub.client.CompileJob, submitted_compile_job
-                )
-                component_from_sub_component_names[sub_component_name] = component_name
-
-                profile_options_per_subcomponent[sub_component_name] = (
-                    model.get_hub_profile_options(
-                        target_runtime,
-                        profile_options,
-                        model.get_qairt_context_graph_name(i, num_splits),
-                    )
-                )
+            )
 
     # 2. Link jobs
     for component_name, cjobs in compile_jobs_to_link.items():
@@ -452,13 +455,16 @@ def export_model(
 
         qairt_version = ToolVersions.from_job(link_job).qairt
         assert qairt_version is not None
+        version = f"{qairt_version.api_version}.{qairt_version.framework.patch}"
+        with open(output_path / "qairt_version.txt", "w") as f:
+            f.write(version)
 
         if target_runtime == TargetRuntime.ONNXRUNTIME_GENAI:
             assert position_processor_cls is not None
             assert llm_config is not None
             assert input_encodings_path is not None
 
-            model.prepare_ort_genai_assets(
+            model.prepare_onnxruntime_genai_assets(
                 model_name=model_name,
                 llm_config=llm_config,
                 position_processor_cls=position_processor_cls,
@@ -484,24 +490,23 @@ def export_model(
                     output_path=output_path,
                 )
 
-            assert qairt_version is not None
-            version = f"{qairt_version.api_version}.{qairt_version.framework.patch}"
-            raw_message = f"""
-                These models can be deployed on-device using the Genie SDK.
-                The assets were compiled with QAIRT SDK {version} and we
-                recommend matching this version for on-device deployment.
+                raw_message = f"""
+                    These models can be deployed on-device using the Genie SDK.
+                    The assets were compiled with QAIRT SDK {version} and we
+                    recommend matching this version for on-device deployment.
 
-                [Note] Avoid QAIRT SDK 2.38 since it has a known Genie issue.
+                    [Note] Avoid QAIRT SDK 2.38 since it has a known Genie issue.
 
-                For a full tutorial, please follow the instructions here:
+                    For a full tutorial, please follow the instructions here:
 
-                    https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie.
-            """
+                        https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie.
+                """
 
             print(textwrap.dedent(raw_message))
 
     return {
         sub_component_name: ExportResult(
+            compile_job=compile_jobs[sub_component_name],
             link_job=link_jobs[component_name],
             profile_job=profile_jobs.get(sub_component_name, None),
             inference_job=inference_jobs.get(sub_component_name, None),

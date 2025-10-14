@@ -54,9 +54,11 @@ from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
 
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
-        model.config.return_dict = False
+        model.config.return_dict = False  # type: ignore[union-attr]
 
         class TextEncoderWrapper(torch.nn.Module):
             """Return only the first output (cond and uncond embedding)"""
@@ -96,6 +98,9 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
         TextEncoderBase.__init__(self, None)
         self.host_device = host_device
+
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        return super(AIMETOnnxQuantizableMixin, self).forward(tokens)
 
     @classmethod
     def from_pretrained(
@@ -153,13 +158,15 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
 
 
 class UnetBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
         the onnx model"""
-        model.get_time_embed = get_timestep_embedding
+        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined, assignment]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -178,7 +185,9 @@ class UnetBase(BaseModel, FromPretrainedMixin):
 
         return UNet2DConditionModelWrapper(model)
 
-    def forward(self, latent, time_emb, text_emb) -> torch.Tensor:
+    def forward(
+        self, latent: torch.Tensor, time_emb: torch.Tensor, text_emb: torch.Tensor
+    ) -> torch.Tensor:
         return self.model(latent, time_emb, text_emb)
 
     @staticmethod
@@ -218,6 +227,13 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         # model is None as we don't do anything with the torch model
         UnetBase.__init__(self, None)
         self.host_device = host_device
+
+    def forward(
+        self, latent: torch.Tensor, time_emb: torch.Tensor, text_emb: torch.Tensor
+    ) -> torch.Tensor:
+        return super(AIMETOnnxQuantizableMixin, self).forward(
+            latent, time_emb, text_emb
+        )
 
     @classmethod
     def from_pretrained(
@@ -269,8 +285,8 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
         return self.model(latent)
 
     @classmethod
-    def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
-        model.config.return_dict = False
+    def adapt_torch_model(cls, model: AutoencoderKL) -> torch.nn.Module:
+        model.config.return_dict = False  # type: ignore[attr-defined]
 
         class AutoencoderKLDecoder(torch.nn.Module):
             def __init__(self, model: AutoencoderKL):
@@ -325,7 +341,7 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetQuantizableBase:
+    ) -> VaeDecoderQuantizableBase:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -357,6 +373,9 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         if aimet_encodings:
             load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        return super(AIMETOnnxQuantizableMixin, self).forward(latent)
 
     def get_unsupported_reason(
         self, target_runtime: TargetRuntime, device: Device

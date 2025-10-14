@@ -385,10 +385,12 @@ class QcWhisperEncoder(nn.Module):
         self.conv1.weight.data.copy_(
             orig_encoder.conv1.weight.data.clone().unsqueeze(-2)
         )
+        assert orig_encoder.conv1.bias is not None
         self.conv1.bias.data.copy_(orig_encoder.conv1.bias.data.clone())
         self.conv2.weight.data.copy_(
             orig_encoder.conv2.weight.data.clone().unsqueeze(-2)
         )
+        assert orig_encoder.conv2.bias is not None
         self.conv2.bias.data.copy_(orig_encoder.conv2.bias.data.clone())
 
         self.embed_positions = nn.Parameter(
@@ -397,7 +399,10 @@ class QcWhisperEncoder(nn.Module):
 
         # Initialize encoder layers
         self.layers: TypedModuleList[QcWhisperEncoderLayer] = TypedModuleList(
-            [QcWhisperEncoderLayer(layer) for layer in orig_encoder.layers]
+            [
+                QcWhisperEncoderLayer(cast(WhisperEncoderLayer, layer))
+                for layer in orig_encoder.layers
+            ]
         )
         self.layer_norm = orig_encoder.layer_norm
 
@@ -503,7 +508,10 @@ class QcWhisperDecoder(nn.Module):
         self.embed_positions = orig_decoder.embed_positions
 
         self.layers: TypedModuleList[QcWhisperDecoderLayer] = TypedModuleList(
-            [QcWhisperDecoderLayer(layer) for layer in orig_decoder.layers]
+            [
+                QcWhisperDecoderLayer(cast(WhisperDecoderLayer, layer))
+                for layer in orig_decoder.layers
+            ]
         )
 
         self.layer_norm = orig_decoder.layer_norm

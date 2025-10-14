@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 import torch
 from diffusers import ControlNetModel, UNet2DConditionModel
 
-from qai_hub_models.models._shared.stable_diffusion.model import UnetQuantizableBase
 from qai_hub_models.models._shared.stable_diffusion.model_adaptation import (
     get_timestep_embedding,
     monkey_patch_model,
@@ -44,13 +43,15 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
     residuals from controlnet. Output is the same as UnetBase.
     """
 
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
         the onnx model"""
-        model.get_time_embed = get_timestep_embedding
+        model.get_time_embed = get_timestep_embedding  # type: ignore[assignment, attr-defined]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -204,7 +205,7 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetQuantizableBase:
+    ) -> ControlUnetQuantizableBase:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -241,9 +242,11 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
 
 
 class ControlNetBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: ControlNetModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         class ControlNetWrapper(torch.nn.Module):
             """Just to unpack the output dict with key "sample" """

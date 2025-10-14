@@ -113,7 +113,7 @@ class FusedConvBatchNorm(nn.Module):
             groups=groups,
             bias=False,
         )
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.03)
         self.act = (
             nn.ReLU(True)
             if act is True
@@ -443,10 +443,10 @@ class DoubleBlazeBlock(nn.Module):
                 groups=in_channels,
                 bias=bias,
             ),
-            nn.BatchNorm2d(in_channels),
+            nn.BatchNorm2d(in_channels, eps=0.001, momentum=0.03),
             # pw-linear
             nn.Conv2d(in_channels, hidden_channels, 1, 1, 0, bias=bias),
-            nn.BatchNorm2d(hidden_channels),
+            nn.BatchNorm2d(hidden_channels, eps=0.001, momentum=0.03),
         )
         self.act = nn.ReLU(inplace=True)
 
@@ -462,10 +462,10 @@ class DoubleBlazeBlock(nn.Module):
                 groups=hidden_channels,
                 bias=bias,
             ),
-            nn.BatchNorm2d(hidden_channels),
+            nn.BatchNorm2d(hidden_channels, eps=0.001, momentum=0.03),
             # pw-linear
             nn.Conv2d(hidden_channels, out_channels, 1, 1, 0, bias=bias),
-            nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.03),
         )
 
         if self.use_pooling:

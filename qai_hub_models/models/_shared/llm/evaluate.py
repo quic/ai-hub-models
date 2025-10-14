@@ -150,6 +150,9 @@ def evaluate(
         data=eval_dataloader,
         eval_iterations=len(eval_dataloader),
     )
+
+    model.to("cpu")
+    del model
     return evaluator.get_accuracy_score(), evaluator.formatted_accuracy()
 
 

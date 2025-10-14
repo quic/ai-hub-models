@@ -17,7 +17,7 @@ class TypedModuleList(Generic[T], nn.ModuleList):
     """
 
     def __iter__(self) -> Iterator[T]:
-        return super().__iter__()  # type: ignore[no-any-return]
+        return super().__iter__()  # type: ignore[return-value]
 
     def append(self, module: T) -> "TypedModuleList[T]":  # type: ignore[override]
         return super().append(module)  # type: ignore[return-value]

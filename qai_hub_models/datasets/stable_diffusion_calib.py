@@ -12,7 +12,12 @@ import torch
 from qai_hub.client import DatasetEntries
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
-from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.models._shared.controlnet.model import ControlNetBase
+from qai_hub_models.models._shared.stable_diffusion.model import (
+    StableDiffusionBase,
+    TextEncoderBase,
+    UnetBase,
+)
 from qai_hub_models.models._shared.stable_diffusion.utils import (
     load_calib_dataset_entries,
     load_calib_tokens,
@@ -88,16 +93,18 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         self.controlnet_calib_path = self.data_path / "controlnet_calib.pt"
         BaseDataset.__init__(self, self.data_path, split=DatasetSplit.VAL)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor | tuple[torch.Tensor, ...], int]:
         # [0] to squash batch dim
-        tensors = tuple(torch.tensor(v[index][0]) for v in self.ds.values())
+        tensors = tuple(torch.tensor(v[index][0]) for v in self.ds.values())  # type: ignore[attr-defined]
         label = 1  # fake label
         if len(tensors) == 1:
             return tensors[0], label
         return tensors, label
 
     def __len__(self):
-        return len(list(self.ds.values())[0])
+        return len(list(self.ds.values())[0])  # type: ignore[attr-defined]
 
     @abstractmethod
     def _validate_data(self) -> bool:
@@ -110,11 +117,14 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         scheduler = self.sd_cls.make_scheduler(self.checkpoint)
 
         text_encoder_cls = self.sd_cls.component_classes[0]
-        text_encoder_hf = text_encoder_cls.torch_from_pretrained(  # type: ignore
+        assert issubclass(text_encoder_cls, TextEncoderBase)
+        text_encoder_hf = text_encoder_cls.torch_from_pretrained(
             checkpoint=self.checkpoint, host_device=self.host_device
         )
+
         unet_cls = self.sd_cls.component_classes[1]
-        unet_hf = unet_cls.torch_from_pretrained(  # type: ignore
+        assert issubclass(unet_cls, UnetBase)
+        unet_hf = unet_cls.torch_from_pretrained(
             checkpoint=self.checkpoint,
             adapt_torch_model_options={"on_device_opt": False},
             host_device=self.host_device,
@@ -123,7 +133,8 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         controlnet_hf = None
         if self.use_controlnet:
             controlnet_cls = self.sd_cls.component_classes[3]
-            controlnet_hf = controlnet_cls.torch_from_pretrained(  # type: ignore
+            assert issubclass(controlnet_cls, ControlNetBase)
+            controlnet_hf = controlnet_cls.torch_from_pretrained(
                 checkpoint=self.checkpoint,
                 adapt_torch_model_options={"on_device_opt": False},
                 host_device=self.host_device,

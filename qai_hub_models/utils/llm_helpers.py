@@ -2,10 +2,10 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import glob
 import json
 import os
-import platform
-import textwrap
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +46,7 @@ def create_genie_config(
                     "type": "QnnHtp",
                     "QnnHtp": {
                         "version": 1,
-                        "use-mmap": False,
+                        "use-mmap": True,
                         "spill-fill-bufsize": 0,
                         "mmap-budget": 0,
                         "poll": True,
@@ -54,6 +54,7 @@ def create_genie_config(
                         "kv-dim": llm_config.head_dim,
                         "pos-id-dim": llm_config.head_dim // 2,
                         "allow-async-init": False,
+                        "rope-theta": int(llm_config.rope_theta),
                     },
                     "extensions": "htp_backend_ext_config.json",
                 },
@@ -87,6 +88,7 @@ def create_genie_config(
         genie_config["dialog"]["engine"]["model"]["positional-encoding"] = (
             positional_encodings
         )
+        del genie_config["dialog"]["engine"]["backend"]["QnnHtp"]["rope-theta"]
 
     return genie_config
 
@@ -97,8 +99,10 @@ ABI_TO_LIB_FOLDER: dict[str, str] = {
 }
 
 
-def print_commands_for_genie_bundle(hub_device: qai_hub.Device, output_path: Path):
-    """Prints the commands that need to be run to complete creating the genie_bundle."""
+def copy_qairt_files_for_genie_bundle(
+    hub_device: qai_hub.Device, output_path: Path, qairt_sdk_path: Path
+):
+    """Copy the QAIRT files needed to create the genie_bundle."""
     hexagon_arch, abi_name, genie_file = None, None, None
     for attr in hub_device.attributes:
         if "hexagon" in attr:
@@ -115,39 +119,26 @@ def print_commands_for_genie_bundle(hub_device: qai_hub.Device, output_path: Pat
         if "os:windows" in hub_device.attributes
         else "genie-t2t-run"
     )
-
+    files_copied = []
     if hexagon_arch is not None and lib_name is not None and genie_file is not None:
-        # Print copy commands depending on host platform
-        if platform.system() == "Windows":
-            shells = [
-                ("Command Prompt", "copy", '"%QNN_SDK_ROOT%"'),
-                ("PowerShell", "Copy-Item", '"$env:QNN_SDK_ROOT"'),
-            ]
-        else:
-            shells = [("Linux Shell", "cp", '"$QNN_SDK_ROOT"')]
+        path_libhex = os.path.join(qairt_sdk_path, "lib", hexagon_arch, "unsigned", "*")
+        path_libqnn = os.path.join(qairt_sdk_path, "lib", lib_name, "*")
+        path_exe = os.path.join(qairt_sdk_path, "bin", lib_name, genie_file)
 
-        message_body = ""
-        for shell_name, cp_cmd, qnn_path in shells:
-            path_libhex = os.path.join(qnn_path, "lib", hexagon_arch, "unsigned", "*")
-            path_libqnn = os.path.join(qnn_path, "lib", lib_name, "*")
-            path_exe = os.path.join(qnn_path, "bin", lib_name, genie_file)
+        for file in glob.glob(path_libhex):
+            shutil.copy(file, output_path)
+            files_copied.append(file)
 
-            message_body += textwrap.dedent(f"""
-                 On {shell_name}:
+        for file in glob.glob(path_libqnn):
+            shutil.copy(file, output_path)
+            files_copied.append(file)
 
-                    {cp_cmd} {path_libhex} "{output_path}"
-                    {cp_cmd} {path_libqnn} "{output_path}"
-                    {cp_cmd} {path_exe} "{output_path}"
-            """)
-
-        message_header = textwrap.dedent("""
-            To run the model with Genie SDK, genie_bundle directory must be made.
-            Run the following commands to complete creating the genie_bundle
-            (first set environment variable QNN_SDK_ROOT):
-        """)
-
-        message = message_header + textwrap.indent(message_body, "    ")
-        print(message)
+        shutil.copy(path_exe, output_path)
+        files_copied.append(path_exe)
+    with open(output_path / "copied_files.txt", "w") as f:
+        for file in files_copied:
+            new_path = os.path.join(output_path, os.path.basename(file))
+            f.write(f"{new_path}\n")
 
 
 def save_htp_config_for_genie_bundle(hub_device: qai_hub.Device, output_path: Path):

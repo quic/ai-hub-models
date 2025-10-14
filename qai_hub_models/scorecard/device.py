@@ -417,13 +417,19 @@ class ScorecardDevice:
         if self.mirror_device:
             return self.mirror_device.supported_runtimes
 
-        runtimes = []
+        supports_qnn = False
+        runtimes: list[TargetRuntime] = []
         for attr in self.reference_device.attributes:
             if attr.startswith(_FRAMEWORK_ATTR_PREFIX):
                 fw_name = attr[len(_FRAMEWORK_ATTR_PREFIX) + 1 :].lower()
                 runtimes.extend(
                     [x for x in TargetRuntime if x.inference_engine.value == fw_name]
                 )
+                supports_qnn = supports_qnn or fw_name == InferenceEngine.QNN.value
+
+        if not supports_qnn:
+            # No QNN support == QAIRT converters can't be used
+            runtimes = [x for x in runtimes if not x.compilation_uses_qnn_converters]
 
         return runtimes
 
@@ -527,17 +533,14 @@ cs_8_elite = ScorecardDevice(
     execution_device_name="Samsung Galaxy S25 (Family)",
 )
 
-# Temporarily disabled new devices.
-"""
 cs_7_gen_5 = ScorecardDevice(
     name="cs_7_gen_5",
-    reference_device_name="Snapdragon 7 Gen 5",
+    reference_device_name="Snapdragon 7 Gen 5 QRD",
 )
 
 cs_8_elite_gen_5 = ScorecardDevice(
     name="cs_8_elite_gen_5", reference_device_name="Snapdragon 8 Elite Gen 5 QRD"
 )
-"""
 
 
 ##

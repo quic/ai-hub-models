@@ -64,6 +64,20 @@ def check_code_gen_field(model_name: str, field_name: str) -> bool:
 
 
 @functools.cache
+def check_info_field(model_name: str, field_name: str) -> bool:
+    """
+    This process does not have the yaml package, so use this primitive way
+    to check if a code gen field is true and apply branching logic within CI/scorecard.
+    """
+    yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "info.yaml"
+    if yaml_path.exists():
+        with open(yaml_path) as f:
+            if f"{field_name}: true" in f.read():
+                return True
+    return False
+
+
+@functools.cache
 def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
     """
     This process does not have the yaml package, so use this primitive way to get code-gen field value.
@@ -77,6 +91,11 @@ def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
                     return line[len(field) : -1].strip("'").strip('"').strip()
 
     return None
+
+
+def is_quantized_llm_model(model_name: str) -> bool:
+    quantize_script = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "quantize.py"
+    return check_info_field(model_name, "model_type_llm") and quantize_script.exists()
 
 
 def can_support_aimet(platform: str = sys.platform) -> bool:

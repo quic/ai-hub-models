@@ -54,11 +54,11 @@ class YoloV7(Yolo):
         # Load PyTorch model from disk
         yolov7_model = _load_yolov7_source_model_from_weights(weights_name)
 
-        yolov7_model.profile = False
+        yolov7_model.profile = False  # type: ignore[assignment]
 
         # When traced = True, the model will skip the "Detect" step,
         # which allows us to override it with an exportable version.
-        yolov7_model.traced = True
+        yolov7_model.traced = True  # type: ignore[assignment]
 
         # Generate replacement detector that can be traced
         detector_head_state_dict = yolov7_model.model[-1].state_dict()

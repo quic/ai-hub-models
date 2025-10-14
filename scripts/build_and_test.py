@@ -46,12 +46,19 @@ from tasks.task import (
     RunCommandsWithVenvTask,
     Task,
 )
-from tasks.test import PyTestModelsTask, PyTestQAIHMTask
+from tasks.test import (
+    GenerateTestSummaryTask,
+    GPUPyTestModelsTask,
+    InstallGlobalRequirementsTask,
+    PyTestModelsTask,
+    PyTestQAIHMTask,
+)
 from tasks.util import echo, get_env_bool, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
     DownloadPrivateDatasetsTask,
+    DownloadQAIRTAndQDCWheelTask,
     GenerateGlobalRequirementsTask,
     SyncLocalQAIHMVenvTask,
 )
@@ -270,6 +277,16 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Install Global Requirements")
+    @depends(["install_deps", "generate_global_requirements"])
+    def install_global_requirements(
+        self, plan: Plan, step_id: str = "install_deps"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            InstallGlobalRequirementsTask(self.venv_path),
+        )
+
     @public_task("Generate Global Requirements")
     @depends(["install_deps"])
     def generate_global_requirements(
@@ -302,6 +319,18 @@ class TaskLibrary:
         return plan.add_step(
             step_id,
             DownloadPrivateDatasetsTask(
+                venv=self.venv_path,
+            ),
+        )
+
+    @public_task("Download QDC wheel")
+    @depends(["install_deps", "validate_aws_credentials"])
+    def download_qairt_and_qdc_wheel(
+        self, plan: Plan, step_id: str = "download_qairt_and_qdc_wheel"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            DownloadQAIRTAndQDCWheelTask(
                 venv=self.venv_path,
             ),
         )
@@ -344,6 +373,36 @@ class TaskLibrary:
             PyTestQAIHMTask(self.venv_path),
         )
 
+    def _get_mypy_models_task(self, models) -> PyTestModelsTask:
+        return PyTestModelsTask(
+            self.python_executable,
+            models,
+            models,
+            self.venv_path,
+            venv_for_each_model=False,
+            use_shared_cache=True,
+            test_trace=False,
+            run_mypy=True,
+            run_general=False,
+            run_export_compile=False,
+            qaihm_wheel_dir=get_test_venv_wheel_dir(),
+        )
+
+    @public_task("Run mypy on changed models.")
+    @depends(["model_test_setup"])
+    def run_mypy_changed_models(
+        self, plan: Plan, step_id: str = "quantize_changed_models"
+    ) -> str:
+        _, models_to_test_export = get_models_to_test()
+        return plan.add_step(step_id, self._get_mypy_models_task(models_to_test_export))
+
+    @public_task("Run MyPy all models in Model Zoo.")
+    @depends(["model_test_setup"])
+    def run_mypy_all_models(
+        self, plan: Plan, step_id: str = "test_compile_all_models"
+    ) -> str:
+        return plan.add_step(step_id, self._get_mypy_models_task(get_all_models()))
+
     def _get_quantize_models_task(self, models) -> PyTestModelsTask:
         return PyTestModelsTask(
             self.python_executable,
@@ -353,9 +412,9 @@ class TaskLibrary:
             venv_for_each_model=False,
             use_shared_cache=True,
             test_trace=False,
+            run_general=False,
             run_export_quantize=True,
             run_export_compile=False,
-            skip_standard_unit_test=True,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
 
@@ -428,8 +487,16 @@ class TaskLibrary:
                 venv_for_each_model=False,
                 use_shared_cache=True,
                 test_trace=False,
+                run_mypy=True,
                 qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
+        )
+
+    @public_task("Run GPU tests.")
+    def test_gpu_models(self, plan: Plan, step_id: str = "test_gpu_models") -> str:
+        return plan.add_step(
+            step_id,
+            GPUPyTestModelsTask(venv=self.venv_path),
         )
 
     @public_task(
@@ -449,6 +516,7 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=True,
                 use_shared_cache=False,
+                run_mypy=True,
                 qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
@@ -492,6 +560,7 @@ class TaskLibrary:
 
     def _make_hub_scorecard_task(
         self,
+        mypy: bool = False,
         quantize: bool = False,
         compile: bool = False,
         profile: bool = False,
@@ -505,13 +574,13 @@ class TaskLibrary:
             self.venv_path,
             venv_for_each_model=False,
             use_shared_cache=True,
+            run_general=False,
             run_export_quantize=quantize,
             run_export_compile=compile,
             run_export_profile=profile,
             run_export_inference=inference,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
-            skip_standard_unit_test=True,
             test_trace=False,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
@@ -568,10 +637,10 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
+                run_general=False,
                 run_export_compile=False,
                 run_export_profile=False,
                 run_full_export=True,
-                skip_standard_unit_test=True,
                 # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
                 exit_after_single_model_failure=False,
                 test_trace=False,
@@ -676,6 +745,17 @@ class TaskLibrary:
         return plan.add_step(
             step_id,
             NoOpTask("Release AI Hub Models"),
+        )
+
+    @public_task("Generate Test Failure Summary")
+    def generate_test_summary(
+        self, plan: Plan, step_id: str = "generate_test_summary"
+    ) -> str:
+        # Use the workspace directory for test results
+        results_dir = os.path.join(os.getcwd(), "test-results")
+        return plan.add_step(
+            step_id,
+            GenerateTestSummaryTask(results_dir),
         )
 
     # This task has no depedencies and does nothing.

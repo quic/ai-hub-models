@@ -125,7 +125,7 @@ def patched_in_projection_packed():
     Avoid unflatten that causes ONNX export failure.
     https://github.com/pytorch/pytorch/issues/135764
     """
-    original_in_projection_packed = torch.nn.functional._in_projection_packed
+    original_in_projection_packed = torch.nn.functional._in_projection_packed  # type: ignore[attr-defined]
 
     def patched_in_projection_packed(
         q: Tensor,
@@ -141,9 +141,9 @@ def patched_in_projection_packed():
             return proj[0], proj[1], proj[2]
         return original_in_projection_packed(q, k, v, w, b)
 
-    torch.nn.functional._in_projection_packed = patched_in_projection_packed
+    torch.nn.functional._in_projection_packed = patched_in_projection_packed  # type: ignore[attr-defined]
 
     try:
         yield
     finally:
-        torch.nn.functional._in_projection_packed = original_in_projection_packed
+        torch.nn.functional._in_projection_packed = original_in_projection_packed  # type: ignore[attr-defined]

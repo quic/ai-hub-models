@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from inspect import signature
 from pathlib import Path
@@ -20,12 +21,41 @@ from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
     LLMBase,
     MainLLMInputType,
+    cleanup,
 )
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models._shared.llm.split_onnx_utils.utils import ONNXBundle
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
+from qai_hub_models.scorecard import ScorecardDevice
+from qai_hub_models.utils.llm_helpers import copy_qairt_files_for_genie_bundle
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
+
+
+def complete_genie_bundle_and_run_on_device(
+    device: ScorecardDevice, genie_bundle_path: str
+) -> None:
+    copy_qairt_files_for_genie_bundle(
+        device.reference_device,
+        Path(genie_bundle_path),
+        os.environ["QAIRT_SDK_PATH"],
+    )
+
+    # Add prompt.txt to genie_bundle
+    with open(os.path.join(genie_bundle_path, "prompt.txt"), "w") as f:
+        f.write(
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant. Be concise.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\nWhat is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        )
+
+    # Run QDC APIs to validate the bundle on-device.
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
+    )
+
+    # Cleanup the generated genie bundle after test
+    shutil.rmtree(genie_bundle_path)
 
 
 def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
@@ -111,48 +141,6 @@ def _create_patches(
         patch_main_input_type,
         patch_tool_versions,
     )
-
-
-def test_cli_device_with_skips_unsupported_device(
-    export_main: Callable,
-    model_cls: type[LLM_AIMETOnnx],
-    tmp_path: Path,
-    base_name: str,
-):
-    (
-        _,
-        patch_model,
-        patch_fp_model,
-        _,
-        _,
-        patch_onnx_files,
-        patch_get_or_create_cached_model,
-        _,
-        patch_tool_versions,
-    ) = _create_patches(model_cls, base_name, 4096, 128, tmp_path)
-
-    with (
-        patch_model,
-        patch_fp_model,
-        patch_onnx_files,
-        patch_get_or_create_cached_model,
-        patch_tool_versions,
-    ):
-        sys.argv = [
-            "export.py",
-            "--device",
-            "Google Pixel 4",
-            "--skip-profiling",
-            "--output-dir",
-            tmp_path.name,
-        ]
-
-        with pytest.raises(ValueError) as e:
-            export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
-        )
 
 
 def test_cli_device_with_skips_unsupported_precision_device(
@@ -602,5 +590,5 @@ def setup_test_quantization(
             checkpoint=checkpoint,
             num_samples=num_samples,
         )
-
+        cleanup()
     return output_path

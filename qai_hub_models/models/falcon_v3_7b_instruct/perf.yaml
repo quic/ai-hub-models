@@ -1,6 +1,7 @@
 supported_devices:
   - Snapdragon X Elite CRD
   - Snapdragon 8 Elite QRD
+  - Snapdragon 8 Elite Gen 5 QRD
 supported_chipsets:
   - qualcomm-snapdragon-8-elite
   - qualcomm-snapdragon-x-elite
@@ -9,6 +10,13 @@ precisions:
     components:
       Falcon3-7B-Instruct:
         performance_metrics:
+          Snapdragon 8 Elite Gen 5 QRD:
+            genie:
+              context_length: 4096
+              time_to_first_token_range_milliseconds:
+                min: 109.030
+                max: 3488.966
+              tokens_per_second: 15.83030
           Snapdragon 8 Elite QRD:
             genie:
               context_length: 4096

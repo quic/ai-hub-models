@@ -22,22 +22,19 @@ from qai_hub_models.models.falcon_v3_7b_instruct.model import (
 )
 
 DEFAULT_EXPORT_DEVICE = "Snapdragon 8 Elite QRD"
+SUPPORTED_PRECISION_RUNTIMES = {
+    Precision.w4a16: [
+        TargetRuntime.GENIE,
+        TargetRuntime.ONNXRUNTIME_GENAI,
+    ]
+}
 
 
 def main():
     export_main(
         MODEL_ID,
         MODEL_ASSET_VERSION,
-        {
-            Precision.w4a16: [
-                TargetRuntime.GENIE,
-                TargetRuntime.ONNXRUNTIME_GENAI,
-            ],
-            Precision.w4: [
-                TargetRuntime.GENIE,
-                TargetRuntime.ONNXRUNTIME_GENAI,
-            ],
-        },
+        SUPPORTED_PRECISION_RUNTIMES,
         NUM_SPLITS,
         NUM_LAYERS_PER_SPLIT,
         Model,

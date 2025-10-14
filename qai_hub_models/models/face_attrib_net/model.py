@@ -297,12 +297,11 @@ class FaceAttribNet(BaseModel):
             self.mask_cls = nn.Linear(self.base_chan * 2, 2)
 
     def _make_net(self, chan, n):
-        cnn_x = []
+        cnn_x: list[nn.Module] = []
         cnn_x += [DownsampleBlock(chan)]
         for i in range(n - 1):
             cnn_x += [NormalBlock(2 * chan)]
-        cnn_x = nn.Sequential(*cnn_x)
-        return cnn_x
+        return nn.Sequential(*cnn_x)
 
     def forward(self, image, target=None):
         """

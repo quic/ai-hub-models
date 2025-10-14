@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 import torch
-from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import DetectionModel
 
 from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 from qai_hub_models.models.yolov8_det.app import YoloV8DetectionApp
@@ -34,7 +37,7 @@ def test_numerical() -> None:
     # Set the environment variable to force torch.load to use weights_only=False
     # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
     with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
-        source_model = ultralytics_YOLO(WEIGHTS).model
+        source_model = cast(DetectionModel, ultralytics_YOLO(WEIGHTS).model)
     qaihm_model = YoloV8Detector.from_pretrained(WEIGHTS)
 
     with torch.no_grad():

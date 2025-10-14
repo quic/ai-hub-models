@@ -11,6 +11,7 @@ from collections.abc import Iterable
 
 from .constants import (
     DEFAULT_PYTHON,
+    GLOBAL_REQUIREMENTS_PATH,
     PY_PACKAGE_INSTALL_ROOT,
     PY_PACKAGE_MODELS_ROOT,
     REPO_ROOT,
@@ -96,6 +97,36 @@ class DownloadPrivateDatasetsTask(RunCommandsWithVenvTask):
             env,
             raise_on_failure,
             ignore_return_codes or [],
+        )
+
+
+class DownloadQAIRTAndQDCWheelTask(RunCommandsWithVenvTask):
+    # Needed to run tests relying on QDC (e.g. Genie exports)
+    def __init__(
+        self,
+        venv,
+        env=None,
+        raise_on_failure=True,
+        ignore_return_codes: list[int] | None = None,
+    ):
+        super().__init__(
+            "Download QAIRT and QDC Wheel",
+            venv,
+            ["python -m qai_hub_models.scripts.download_qairt_and_qdc_tools"],
+            env,
+            raise_on_failure,
+            ignore_return_codes or [],
+        )
+
+
+class InstallGlobalRequirementsTask(RunCommandsWithVenvTask):
+    def __init__(self, venv_path):
+        super().__init__(
+            group_name="Install Global Requirements",
+            venv=venv_path,
+            commands=[
+                f'{get_pip()} install -r "{GLOBAL_REQUIREMENTS_PATH}" ',
+            ],
         )
 
 

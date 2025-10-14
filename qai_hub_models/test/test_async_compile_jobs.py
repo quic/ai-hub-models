@@ -35,23 +35,26 @@ def test_compile_jobs_success():
     for name, job_id in job_ids.items():
         job = hub.get_job(job_id)
 
-        status = None
-        if DisableCompileJobTimeoutEnvvar.get():
-            status = job.wait()
-        else:
-            # Wait a maximum of 60 minutes for a compile job
-            timemax = datetime.timedelta(minutes=60)
-            timediff = datetime.datetime.now() - job.date
-            if timediff < timemax:
-                try:
-                    status = job.wait(int((timemax - timediff).total_seconds()))
-                except TimeoutError:
-                    timeout_jobs[name] = job.url
+        status = job.get_status()
+        if not status.finished:
+            if DisableCompileJobTimeoutEnvvar.get():
+                status = job.wait()
             else:
-                timeout_jobs[name] = job.url
+                # Wait a maximum of 60 minutes for a compile job
+                timemax = datetime.timedelta(minutes=60)
+                timediff = datetime.datetime.now() - job.date
+                if timediff < timemax:
+                    try:
+                        status = job.wait(int((timemax - timediff).total_seconds()))
+                    except TimeoutError:
+                        pass
 
-        if status is not None and not status.success:
-            if status.message is not None and "timed out" in status.message:
+        if not status.success:
+            if not status.finished or (
+                status.failure
+                and status.message is not None
+                and "timed out" in status.message
+            ):
                 timeout_jobs[name] = job.url
             else:
                 failed_jobs[name] = job.url

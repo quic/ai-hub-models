@@ -41,7 +41,6 @@ from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
-from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
 
 # Define the path to the AIMET configuration file
 WHISPER_AIMET_CONFIG = os.path.abspath(
@@ -65,13 +64,13 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
 
     @classmethod
-    def make_torch_model(cls) -> torch.nn.Module:
+    def make_torch_model(cls) -> HfWhisperEncoder:
         raise NotImplementedError()
 
     @classmethod
     def from_pretrained(
         cls,
-        aimet_encodings: str | None = "DEFAULT",
+        aimet_encodings: str | os.PathLike | None = "DEFAULT",
     ) -> WhisperEncoderQuantizableBase:
         """
         Creates a WhisperEncoderQuantizableBase instance from a pre-trained model.
@@ -83,10 +82,12 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
             WhisperEncoderQuantizableBase: The created instance.
         """
         fp_encoder = cls.make_torch_model()
+        aimet_encodings_path = aimet_encodings
         if aimet_encodings == "DEFAULT":
             # Load the ONNX model with AIMET encodings
             onnx_file, encodings_path = cls.get_calibrated_aimet_model()
             onnx_model = onnx.load_model(onnx_file)
+            aimet_encodings_path = encodings_path
         else:
             # Create a temporary ONNX model from the pre-trained encoder
             specs = fp_encoder._get_input_spec_for_instance()
@@ -125,12 +126,12 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
             config_file=WHISPER_AIMET_CONFIG,
         )
 
-        if aimet_encodings:
-            if aimet_encodings == "DEFAULT":
-                aimet_encodings = encodings_path
+        if aimet_encodings_path is not None:
             # Load the AIMET encodings into the QuantizationSimModel instance
             with set_aimet_log_level(logging.WARN):
-                load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
+                load_encodings_to_sim(
+                    quant_sim, str(aimet_encodings_path), strict=False
+                )
 
         return cls(fp_encoder.config, quant_sim)
 
@@ -141,15 +142,6 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         Override same func in AIMETOnnxQuantizableMixin.
         """
         return super(HfWhisperEncoder, self)._sample_inputs_impl(input_spec)
-
-    def get_unsupported_reason(
-        self, target_runtime: TargetRuntime, device: Device
-    ) -> None | str:
-        """
-        Gets the reason why the model is not supported for the given target runtime and device.
-        """
-        # Call the ensure_v73_or_later function to check if the target runtime and device are supported
-        return ensure_v73_or_later(target_runtime, device)
 
     def get_hub_compile_options(
         self,
@@ -179,13 +171,13 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
 
     @classmethod
-    def make_torch_model(cls) -> torch.nn.Module:
+    def make_torch_model(cls) -> HfWhisperDecoder:
         raise NotImplementedError()
 
     @classmethod
     def from_pretrained(
         cls,
-        aimet_encodings: str | None = "DEFAULT",
+        aimet_encodings: str | os.PathLike | None = "DEFAULT",
     ) -> WhisperDecoderQuantizableBase:
         """
         Creates a WhisperDecoderQuantizableBase instance from a pre-trained model.
@@ -196,10 +188,12 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
             WhisperDecoderQuantizableBase: The created instance.
         """
         fp_decoder = cls.make_torch_model()
+        aimet_encodings_path = aimet_encodings
         if aimet_encodings == "DEFAULT":
             # Load the ONNX model with AIMET encodings
             onnx_file, encodings_path = cls.get_calibrated_aimet_model()
             onnx_model = onnx.load(onnx_file)
+            aimet_encodings_path = encodings_path
         else:
             # Create a temporary ONNX model from the pre-trained decoder
             specs = fp_decoder._get_input_spec_for_instance()
@@ -238,12 +232,12 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
             config_file=WHISPER_AIMET_CONFIG,
         )
 
-        if aimet_encodings:
-            if aimet_encodings == "DEFAULT":
-                aimet_encodings = encodings_path
+        if aimet_encodings_path is not None:
             # Load the AIMET encodings into the QuantizationSimModel instance
             with set_aimet_log_level(logging.WARN):
-                load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
+                load_encodings_to_sim(
+                    quant_sim, str(aimet_encodings_path), strict=False
+                )
 
         return cls(fp_decoder.config, quant_sim)
 
@@ -254,15 +248,6 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
         Override same impl func in AIMETOnnxQuantizableMixin.
         """
         return super(HfWhisperDecoder, self)._sample_inputs_impl(input_spec)
-
-    def get_unsupported_reason(
-        self, target_runtime: TargetRuntime, device: Device
-    ) -> None | str:
-        """
-        Gets the reason why the model is not supported for the given target runtime and device.
-        """
-        # Call the ensure_v73_or_later function to check if the target runtime and device are supported
-        return ensure_v73_or_later(target_runtime, device)
 
     def get_hub_compile_options(
         self,

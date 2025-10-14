@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import importlib.metadata
 import os
 import platform
 from abc import abstractmethod
@@ -19,7 +20,6 @@ from typing import Any, cast
 import numpy as np
 import onnx
 import onnxruntime
-import pkg_resources
 import torch
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
@@ -72,8 +72,10 @@ def _verify_onnxruntime_qnn_installed() -> None:
             raise ONNXRUNTIME_QNN_ERROR
         return
 
-    pkgs = cast(pkg_resources.WorkingSet, pkg_resources.working_set)
-    pkg_names = {cast(str, p.key) for p in pkgs}
+    pkgs = importlib.metadata.distributions()
+    # We use dist.metadata['Name'] here instead of dist.name because
+    # dist.name is not available with python 3.9.
+    pkg_names = {cast(str, p.metadata["Name"]) for p in pkgs}
 
     ORT_QNN_PACKAGE_NAME = "onnxruntime-qnn"
     ORT_PACKAGE_NAME = "onnxruntime"

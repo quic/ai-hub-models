@@ -208,16 +208,13 @@ def create_onnxruntime_genai_assets(
 
     for instantiation_name, seq_len in instantiations:
         for i in range(num_splits):
+            sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
             part_name = f"{i + 1}_of_{num_splits}"
             base_name = f"{model_name}_{instantiation_name}_{part_name}"
 
-            # onnx_model_path_from_sub_component_name["prompt_1_of_3"] = output_dir / "prompt" / "llama_v3_2_3b_instruct_prompt_1_of_3.aimet" / "llama_v3_2_3b_instruct_prompt_1_of_3.onnx"
-            onnx_original_path = (
-                output_dir
-                / instantiation_name
-                / (base_name + ".aimet")
-                / (base_name + ".onnx")
-            )
+            onnx_original_path = onnx_model_path_from_sub_component_name[
+                sub_component_name
+            ]
 
             # Check IO
             onnx_split = onnx.load(onnx_original_path)

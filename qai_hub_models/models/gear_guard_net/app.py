@@ -147,7 +147,6 @@ class BodyDetectionApp:
         img = preprocess_PIL_image(load_image(imgfile))
         input, scale, pad = resize_pad(img, (height, width))
         output = self.model(input)
-        for t, o in enumerate(output):
-            output[t] = o.permute(0, 2, 3, 1).detach()
+        output = [tensor.permute(0, 2, 3, 1).detach() for tensor in output]
         result = postprocess(output, scale, pad, conf, 0.5)
         return result

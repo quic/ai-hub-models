@@ -163,3 +163,4 @@ class ChatApp:
             generation_config=inferencer.generation_config,
             streamer=streamer,
         )
+        del inferencer

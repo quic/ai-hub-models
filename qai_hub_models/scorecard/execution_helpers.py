@@ -199,6 +199,7 @@ def get_model_test_parameterizations(
     devices: list[ScorecardDevice] | None = None,
     include_unsupported_paths: bool | None = None,
     only_include_aot_paths: bool = False,
+    only_include_genai_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]]:
     """
     Get a list of parameterizations for testing a model.
@@ -249,6 +250,7 @@ def get_model_test_parameterizations(
             * Be compatible with the model:
                 - See parameter documentation for details.
     """
+
     ret: list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]] = []
     if include_unsupported_paths is None:
         include_unsupported_paths = IgnoreKnownFailuresEnvvar.get()
@@ -269,10 +271,16 @@ def get_model_test_parameterizations(
         path_list = path_type.all_paths(  # type: ignore[attr-defined]
             enabled=True,
             supports_precision=precision,
+            include_genai_paths=only_include_genai_paths,
         )
 
-        if only_include_aot_paths:
-            # Only include AOT paths.
+        if only_include_genai_paths:
+            # Only include GenAI paths.
+            path_list = [
+                path for path in path_list if path.runtime.is_exclusively_for_genai
+            ]
+        elif only_include_aot_paths:
+            # Only include AOT compiled paths.
             path_list = [
                 path
                 for path in path_list
@@ -308,6 +316,7 @@ def get_model_test_parameterizations(
         ]
 
         # For each test path...
+
         for sc_path in path_list:
             for device in devices or ScorecardDevice.all_devices(is_mirror=False):
                 if not device.enabled or not device.npu_supports_precision(precision):
@@ -331,7 +340,6 @@ def get_model_test_parameterizations(
                 ):
                     continue
                 ret.append((precision, sc_path, device))
-
     return ret
 
 
@@ -376,6 +384,7 @@ def get_compile_parameterized_pytest_config(
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
     only_include_aot_paths: bool = False,
+    only_include_genai_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
     """
     Get a pytest parameterization list of all enabled (device, compile path) pairs.
@@ -387,6 +396,7 @@ def get_compile_parameterized_pytest_config(
         ScorecardCompilePath,
         can_use_quantize_job,
         only_include_aot_paths=only_include_aot_paths,
+        only_include_genai_paths=only_include_genai_paths,
     )
 
 

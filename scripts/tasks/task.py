@@ -210,6 +210,7 @@ class PyTestTask(RunCommandsWithVenvTask):
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
         include_pytest_cmd_in_status_message: bool = True,
+        junit_xml_path: Optional[str] = None,  # Add this parameter
     ) -> None:
         pytest_options = ""
 
@@ -227,6 +228,10 @@ class PyTestTask(RunCommandsWithVenvTask):
             pytest_options += ' -m "not serial"'
 
         pytest_options += " -ra -vvv"
+
+        # Add JUnit XML output option if specified
+        if junit_xml_path:
+            pytest_options += f" --junit-xml={junit_xml_path}"
 
         if extra_args:
             pytest_options += f" {extra_args}"

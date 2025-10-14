@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,7 +42,7 @@ class SalsaNextApp:
             self.data = yaml.safe_load(f)
         self.nclasses = len(self.data["learning_map_inv"])
 
-    def preprocess_lidar(self, lidar_input: str) -> torch.Tensor:
+    def preprocess_lidar(self, lidar_input: str) -> tuple[torch.Tensor, Any]:
         color_map = self.data["color_map"]
         self.learning_map: Mapping[int, int] = self.data["learning_map"]
 

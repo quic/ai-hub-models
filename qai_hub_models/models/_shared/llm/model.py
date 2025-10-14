@@ -149,6 +149,7 @@ def cleanup():
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+    gc.collect()
 
 
 def sample_input(

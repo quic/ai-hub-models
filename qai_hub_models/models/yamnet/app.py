@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 import resampy
@@ -21,6 +20,7 @@ from qai_hub_models.models.yamnet.model import (
     YAMNET_PROXY_REPOSITORY,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.evaluate import ExecutableModelProtocol
 
 SAMPLE_RATE = 16000
 CHUNK_LENGTH = 0.98
@@ -148,7 +148,7 @@ class YamNetApp:
         * Return the class index of audio CHUNK_LENGTH of 0.98 seconds.
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: ExecutableModelProtocol[torch.Tensor]):
         self.model = model
 
     def predict(self, path: str | Path, audio_sample_rate: int | None = None):
@@ -200,9 +200,7 @@ class YamNetApp:
         Returns:
             raw_prediction: class_probs for each chunk of audio samples
         """
-        segment = torch.tensor(segment)
-        patches, spectrogram = preprocessing_yamnet_from_source(segment)
+        patches, _ = preprocessing_yamnet_from_source(torch.tensor(segment))
         # Inference using mdoel
         raw_prediction = self.model(patches)
-        raw_prediction = raw_prediction.numpy()
-        return raw_prediction
+        return raw_prediction.numpy()

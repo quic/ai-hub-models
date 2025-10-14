@@ -9,6 +9,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from PIL.Image import Image
 
 from qai_hub_models.utils.display import is_headless, is_running_in_notebook
@@ -16,7 +17,9 @@ from qai_hub_models.utils.display import is_headless, is_running_in_notebook
 
 ## Helper routines
 def show_image(
-    image: Image, masks: np.ndarray | None = None, output_dir: str | None = None
+    image: Image,
+    masks: np.ndarray | torch.Tensor | None = None,
+    output_dir: str | None = None,
 ) -> None:
     """Show input image with mask applied"""
     if masks is None:

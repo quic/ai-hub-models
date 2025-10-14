@@ -10,8 +10,8 @@ import torch
 from ultralytics.models import YOLO as ultralytics_YOLO
 from ultralytics.nn.tasks import DetectionModel
 
-from qai_hub_models.models._shared.yolo.ultralytics_patches import (
-    patch_yolo_detection_head,
+from qai_hub_models.models._shared.ultralytics.detect_patches import (
+    patch_ultralytics_detection_head,
 )
 from qai_hub_models.models.yolov5.demo import IMAGE_ADDRESS
 from qai_hub_models.models.yolov5.demo import main as demo_main
@@ -29,7 +29,7 @@ from qai_hub_models.utils.testing import skip_clone_repo_check
 def test_task() -> None:
     # source model
     source_model = cast(DetectionModel, ultralytics_YOLO(DEFAULT_WEIGHTS).model)
-    patch_yolo_detection_head(source_model)
+    patch_ultralytics_detection_head(source_model)
 
     # Qualcomm AI Hub Model
     qaihm_model = YoloV5.from_pretrained()

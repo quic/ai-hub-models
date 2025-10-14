@@ -15,8 +15,10 @@ from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
 from huggingface_hub import hf_hub_download
 
 from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import CheckpointSpec, hf_repo_exists
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+from qai_hub_models.utils.inference import AIMETOnnxQuantizableMixin
 from qai_hub_models.utils.quantization import get_calibration_data
 
 
@@ -126,6 +128,7 @@ def stable_diffusion_quantize(
     component = component_cls.from_pretrained(
         checkpoint=args.checkpoint, host_device=host_device
     )
+    assert isinstance(component, BaseModel)
     dataset_options = dict(
         sd_cls=model_cls,
         num_samples=args.num_samples,
@@ -139,10 +142,13 @@ def stable_diffusion_quantize(
     # get_calibration_data is also used in submit_quantize_job for non-aimet
     # models
     ds = get_calibration_data(
-        component, num_samples=args.num_samples, dataset_options=dataset_options
+        component,
+        num_samples=args.num_samples,
+        dataset_options=dataset_options,
     )
     data_loader = dataset_entries_to_dataloader(ds)
 
+    assert isinstance(component, AIMETOnnxQuantizableMixin)
     component.quantize(data_loader, num_samples=args.num_samples)
 
     output_dir = args.output or str(Path() / "build" / model_id)

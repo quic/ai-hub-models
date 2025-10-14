@@ -11,10 +11,10 @@ import torch
 from ultralytics.models import YOLO as ultralytics_YOLO
 from ultralytics.nn.tasks import DetectionModel
 
-from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
-from qai_hub_models.models._shared.yolo.ultralytics_patches import (
-    patch_yolo_detection_head,
+from qai_hub_models.models._shared.ultralytics.detect_patches import (
+    patch_ultralytics_detection_head,
 )
+from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
 
 MODEL_ASSET_VERSION = 2
 MODEL_ID = __name__.split(".")[-2]
@@ -41,7 +41,7 @@ class YoloV10Detector(Yolo):
         self.model = model
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
-        patch_yolo_detection_head(model)
+        patch_ultralytics_detection_head(model)
 
     @classmethod
     def from_pretrained(

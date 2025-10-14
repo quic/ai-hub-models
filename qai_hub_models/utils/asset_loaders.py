@@ -39,6 +39,8 @@ from qai_hub.util.dataset_entries_converters import h5_to_dataset_entries
 from schema import And, Schema, SchemaError
 from tqdm import tqdm
 
+from qai_hub_models.utils.envvars import IsOnCIEnvvar
+
 ASSET_BASES_DEFAULT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "asset_bases.yaml"
 )
@@ -1024,9 +1026,15 @@ def download_file(
                 )
                 with open(tmp_filepath, "wb") as file:
                     for data in response.iter_content(block_size):
-                        progress_bar.update(len(data))
+                        if not IsOnCIEnvvar.get():
+                            progress_bar.update(len(data))
                         file.write(data)
-                progress_bar.set_postfix_str("Done")
+
+                if IsOnCIEnvvar.get():
+                    progress_bar.set_postfix_str("Done", refresh=False)
+                    progress_bar.update(total_size)
+                else:
+                    progress_bar.set_postfix_str("Done")
             shutil.move(tmp_filepath, dst_path)
     return dst_path
 

@@ -97,9 +97,19 @@ def _get_package_instructions(
     if pip_install_flags_gpu:
         gpu_installation_instructions = f"""
 
-Note: GPU is unnecessary if you wish to only export the model for on-device deployment.
+For {model_id}, some additional functionality can be faster or is availiable
+only with a GPU on the host machine.
 
-For {model_id}, a dedicated CUDA enabled GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is needed to quantize the model on your local machine. GPU can also increase the speed of evaluation and demo of your quantized model significantly.
+- 🟢 Exporting the model for on-device deployment (GPU not required)
+- 🟡 Running the demo (GPU recommended for speed, but not required)
+- 🟡 Running evaluation (GPU recommended for speed, but not required)
+- 🔴 Quantizing the model (GPU required)
+
+If you are quantizing your own variant of {model_id}, a dedicated CUDA enabled
+GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is recommended. A GPU
+can also increase the speed of evaluation and demo of your quantized model
+significantly but it not strictly required.
+
 Install the GPU package via pip:
 ```bash
 pip install {install_pkg}{f" {pip_install_flags_gpu}"}

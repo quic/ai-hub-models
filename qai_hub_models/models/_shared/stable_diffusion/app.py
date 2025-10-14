@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
+from typing import Any, cast
 
 import diffusers
 import torch
@@ -42,7 +42,7 @@ class StableDiffusionApp:
         self,
         text_encoder: ExecutableModelProtocol,
         vae_decoder: ExecutableModelProtocol,
-        unet: ExecutableModelProtocol,
+        unet: ExecutableModelProtocol[torch.Tensor],
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
         channel_last_latent: bool,
@@ -215,7 +215,7 @@ class StableDiffusionApp:
 
 
 def run_diffusion_steps_on_latents(
-    unet: ExecutableModelProtocol,
+    unet: ExecutableModelProtocol[torch.Tensor],
     scheduler: diffusers.DPMSolverMultistepScheduler,
     cond_embeddings: torch.Tensor,
     uncond_embeddings: torch.Tensor | None = None,
@@ -225,7 +225,7 @@ def run_diffusion_steps_on_latents(
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
     host_device: torch.device = torch.device("cpu"),
-    controlnet: ExecutableModelProtocol | None = None,
+    controlnet: ExecutableModelProtocol[tuple[torch.Tensor, ...]] | None = None,
     cond_image: torch.Tensor | None = None,
 ) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
     """
@@ -337,12 +337,14 @@ def run_diffusion_steps_on_latents(
 
                 if isinstance(unet, OnDeviceModel):
                     # Batch data into one inference job
-                    unet_extra_inputs = tuple([t, t] for t in controlnet_out)
-                    noise = unet(
-                        [latent_input, latent_input],
-                        [time_input, time_input],
-                        [cond_embeddings, uncond_embeddings],
-                        *unet_extra_inputs,
+                    noise = cast(
+                        torch.Tensor,
+                        unet(
+                            [latent_input, latent_input],
+                            [time_input, time_input],
+                            [cond_embeddings, uncond_embeddings],
+                            *tuple([t, t] for t in controlnet_out),  # type: ignore[arg-type]
+                        ),
                     )
                     noise_cond, noise_uncond = torch.split(noise, 1, 0)
                 else:
@@ -356,12 +358,14 @@ def run_diffusion_steps_on_latents(
             else:
                 if isinstance(unet, OnDeviceModel):
                     # Batch data into one inference job
-                    unet_extra_inputs = tuple([t] for t in controlnet_out)
-                    noise_pred = unet(
-                        [latent_input],
-                        [time_input],
-                        [cond_embeddings],
-                        *unet_extra_inputs,
+                    noise_pred = cast(
+                        torch.Tensor,
+                        unet(
+                            [latent_input],
+                            [time_input],
+                            [cond_embeddings],
+                            *tuple([t] for t in controlnet_out),  # type: ignore[arg-type]
+                        ),
                     )
                 else:
                     noise_pred = unet(

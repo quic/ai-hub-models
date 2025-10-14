@@ -19,7 +19,7 @@ pip install "qai-hub-models[rtmpose-body2d]" torch==2.4.1 --trusted-host downloa
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.rtmpose_body2d.demo { --quantize w8a16 }
@@ -31,7 +31,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

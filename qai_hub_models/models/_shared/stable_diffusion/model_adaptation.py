@@ -5,7 +5,7 @@
 
 import math
 import types
-from typing import Callable, Optional
+from typing import Callable, Optional, cast
 
 import diffusers.models.attention_processor as attention_processor
 import torch
@@ -17,6 +17,7 @@ from diffusers.models.attention import BasicTransformerBlock, FeedForward
 from diffusers.models.transformers.transformer_2d import Transformer2DModel
 
 from qai_hub_models.utils.model_adapters import Conv2dLinear
+from qai_hub_models.utils.torch_typing_helpers import TypedModuleList
 
 
 class SHAAttention(nn.Module):
@@ -58,6 +59,8 @@ class SHAAttention(nn.Module):
 
         # Verify to_k and to_v dimensions
         expected_kv_out = self.kv_heads * self.dim_head
+        assert orig_attn.to_k is not None
+        assert orig_attn.to_v is not None
         if orig_attn.to_k.out_features != expected_kv_out:
             raise ValueError(
                 f"to_k.out_features ({orig_attn.to_k.out_features}) does not match expected {expected_kv_out}."
@@ -68,7 +71,7 @@ class SHAAttention(nn.Module):
             )
 
         # Initialize separate Conv2D projection layers for each head
-        self.q_proj_sha = nn.ModuleList(
+        self.q_proj_sha: TypedModuleList[nn.Conv2d] = TypedModuleList(
             [
                 nn.Conv2d(
                     orig_attn.to_q.in_features,
@@ -79,7 +82,7 @@ class SHAAttention(nn.Module):
                 for _ in range(self.heads)
             ]
         )
-        self.k_proj_sha = nn.ModuleList(
+        self.k_proj_sha: TypedModuleList[nn.Conv2d] = TypedModuleList(
             [
                 nn.Conv2d(
                     orig_attn.to_k.in_features,
@@ -90,7 +93,7 @@ class SHAAttention(nn.Module):
                 for _ in range(self.kv_heads)
             ]
         )
-        self.v_proj_sha = nn.ModuleList(
+        self.v_proj_sha: TypedModuleList[nn.Conv2d] = TypedModuleList(
             [
                 nn.Conv2d(
                     orig_attn.to_v.in_features,
@@ -115,7 +118,9 @@ class SHAAttention(nn.Module):
             )  # Shape: (dim_head, in_features, 1, 1)
             self.q_proj_sha[i].weight.data.copy_(q_weight)
             if orig_attn.to_q.bias is not None:
-                self.q_proj_sha[i].bias.data.copy_(
+                sha_bias = self.q_proj_sha[i].bias
+                assert sha_bias is not None
+                sha_bias.data.copy_(
                     orig_attn.to_q.bias.data[
                         i * self.dim_head : (i + 1) * self.dim_head
                     ].clone()
@@ -131,7 +136,9 @@ class SHAAttention(nn.Module):
             )  # Shape: (dim_head, in_features, 1, 1)
             self.k_proj_sha[i].weight.data.copy_(k_weight)
             if orig_attn.to_k.bias is not None:
-                self.k_proj_sha[i].bias.data.copy_(
+                sha_bias = self.k_proj_sha[i].bias
+                assert sha_bias is not None
+                sha_bias.copy_(
                     orig_attn.to_k.bias.data[
                         i * self.dim_head : (i + 1) * self.dim_head
                     ].clone()
@@ -146,7 +153,9 @@ class SHAAttention(nn.Module):
             )  # Shape: (dim_head, in_features, 1, 1)
             self.v_proj_sha[i].weight.data.copy_(v_weight)
             if orig_attn.to_v.bias is not None:
-                self.v_proj_sha[i].bias.data.copy_(
+                sha_bias = self.v_proj_sha[i].bias
+                assert sha_bias is not None
+                sha_bias.data.copy_(
                     orig_attn.to_v.bias.data[
                         i * self.dim_head : (i + 1) * self.dim_head
                     ].clone()
@@ -305,7 +314,9 @@ def replace_attention_modules(model: nn.Module):
         model (nn.Module): The model in which to replace Attention modules.
     """
     traverse_and_replace(
-        model, attention_processor.Attention, lambda orig_attn: SHAAttention(orig_attn)
+        model,
+        attention_processor.Attention,
+        lambda orig_attn: SHAAttention(cast(attention_processor.Attention, orig_attn)),
     )
 
 
@@ -336,7 +347,7 @@ def replace_gelu_and_approx_gelu_with_conv2d(activation_module: nn.Module) -> nn
             conv.bias.copy_(activation_module.proj.bias)
 
     # Replace the Linear layer with Conv2d
-    activation_module.proj = conv
+    activation_module.proj = conv  # type: ignore[assignment]
     return activation_module
 
 
@@ -516,13 +527,13 @@ def replace_layer_norm_modules(model: nn.Module):
         Returns:
             BasicTransformerBlock: The modified transformer block.
         """
-        block.norm1 = PermuteLayerNorm(block.norm1)
-        block.norm2 = PermuteLayerNorm(block.norm2)
+        block.norm1 = PermuteLayerNorm(block.norm1)  # type: ignore[assignment]
+        block.norm2 = PermuteLayerNorm(block.norm2)  # type: ignore[assignment]
         if hasattr(block, "norm3"):
-            block.norm3 = PermuteLayerNorm(block.norm3)
+            block.norm3 = PermuteLayerNorm(block.norm3)  # type: ignore[assignment]
         return block
 
-    traverse_and_replace(model, BasicTransformerBlock, replace_layer_norm)
+    traverse_and_replace(model, BasicTransformerBlock, replace_layer_norm)  # type: ignore[arg-type]
 
 
 def replace_transformer2d_modules(model: nn.Module):
@@ -547,12 +558,12 @@ def replace_transformer2d_modules(model: nn.Module):
         _patch_instance(m)
         # 2) swap out the Linear‐based proj_in / proj_out for Conv2dLinear
         if isinstance(m.proj_in, nn.Linear):
-            m.proj_in = Conv2dLinear(m.proj_in)
+            m.proj_in = Conv2dLinear(m.proj_in)  # type: ignore[assignment]
         if isinstance(m.proj_out, nn.Linear):
-            m.proj_out = Conv2dLinear(m.proj_out)
+            m.proj_out = Conv2dLinear(m.proj_out)  # type: ignore[assignment]
         return m
 
-    traverse_and_replace(model, Transformer2DModel, _replace_transformer2d)
+    traverse_and_replace(model, Transformer2DModel, _replace_transformer2d)  # type: ignore[arg-type]
 
 
 def optimized_operate_on_continuous_inputs(self, hidden_states):
@@ -619,8 +630,8 @@ def monkey_patch_model(model: UNet2DConditionModel):
     diffusion 1.5
     """
     print("Monkeypatching Unet (replacing MHA with SHA attention etc)")
-    replace_attention_modules(model)
-    replace_activations_with_conv2d(model)
-    replace_layer_norm_modules(model)
-    replace_feedforward_modules(model)
-    replace_transformer2d_modules(model)
+    replace_attention_modules(model)  # type: ignore[arg-type]
+    replace_activations_with_conv2d(model)  # type: ignore[arg-type]
+    replace_layer_norm_modules(model)  # type: ignore[arg-type]
+    replace_feedforward_modules(model)  # type: ignore[arg-type]
+    replace_transformer2d_modules(model)  # type: ignore[arg-type]

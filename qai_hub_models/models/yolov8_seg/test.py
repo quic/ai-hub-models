@@ -3,10 +3,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 import pytest
 import torch
-from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import SegmentationModel
 
 from qai_hub_models.models._shared.yolo.app import YoloSegmentationApp
 from qai_hub_models.models._shared.yolo.model import yolo_segment_postprocess
@@ -33,7 +36,7 @@ def test_task() -> None:
     # Set the environment variable to force torch.load to use weights_only=False
     # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
     with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
-        source_model = ultralytics_YOLO(WEIGHTS).model
+        source_model = cast(SegmentationModel, ultralytics_YOLO(WEIGHTS).model)
     qaihm_model = YoloV8Segmentor.from_pretrained(WEIGHTS)
     qaihm_app = YoloSegmentationApp(qaihm_model)
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
@@ -43,7 +46,7 @@ def test_task() -> None:
         # original model output
         source_out = source_model(processed_sample_image)
         source_out_postprocessed = yolo_segment_postprocess(
-            source_out[0], source_model.nc
+            source_out[0], qaihm_model.num_classes
         )
         source_out = [*source_out_postprocessed, source_out[1][-1]]
 

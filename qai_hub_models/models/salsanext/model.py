@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import torch
 import yaml  # type: ignore
@@ -64,7 +65,7 @@ class SalsaNext(BaseModel):
         predict = self.model(lidar)
         return predict
 
-    def load_lidar_bin(self, lidar_bin_path: str) -> torch.Tensor:
+    def load_lidar_bin(self, lidar_bin_path: str) -> tuple[torch.Tensor, Any]:
         with open(ARCH_ADDRESS) as f:
             arch = yaml.safe_load(f)
         with open(DATA_ADDRESS) as f:

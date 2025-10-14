@@ -58,6 +58,7 @@ def _load_pidnet_source_model_from_weights(
         reload(models)
         # number of class
         model = models.pidnet.get_pred_model("pidnet-s", 19)
+        assert weights_path_pidnet is not None
         pretrained_dict = torch.load(
             weights_path_pidnet, map_location="cpu", weights_only=False
         )

@@ -52,16 +52,16 @@ class GearGuardNet(BaseModel):
             Multi-scale object detection output.
         """
         y: list[Optional[int]] = []
-        for m in self.model:
+        for m in self.model:  # type: ignore[attr-defined]
             if m.f != -1:
                 x = (
-                    y[m.f]
+                    y[m.f]  # type: ignore[assignment]
                     if isinstance(m.f, int)
                     else [x if j == -1 else y[j] for j in m.f]
                 )
             x = m(x)
-            y.append(x if m.i in self.save else None)
-        return x
+            y.append(x if m.i in self.save else None)  # type: ignore[arg-type]
+        return x  # type: ignore[return-value]
 
     @classmethod
     def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> nn.Module:

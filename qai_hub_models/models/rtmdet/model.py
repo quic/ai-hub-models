@@ -69,7 +69,7 @@ class RTMDet(Yolo):
 
         output = self.model._forward(image)
         # decode
-        boxes = []
+        boxes_list = []
         for i, (cls, box) in enumerate(zip(*output)):
             cls = cls.permute(0, 2, 3, 1)
             box = box.permute(0, 2, 3, 1)
@@ -94,11 +94,11 @@ class RTMDet(Yolo):
             box[..., :2] = block - box[..., :2]
             box[..., 2:4] = block + box[..., 2:4]
             box = box.reshape(1, -1, 6)
-            boxes.append(box)
-        result_box = torch.cat(boxes, dim=1)
+            boxes_list.append(box)
+        result_box = torch.cat(boxes_list, dim=1)
         if not self.include_postprocessing:
             return result_box
-        boxes = result_box[:, :, :4]
+        boxes: torch.Tensor = result_box[:, :, :4]
         scores = result_box[:, :, 5]
         class_idx = result_box[:, :, 4]
         return boxes, scores, class_idx.to(torch.int8)

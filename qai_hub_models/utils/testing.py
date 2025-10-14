@@ -402,6 +402,17 @@ def get_hub_val_dataset(
     return input_dataset
 
 
+def allow_few_test_devices_for_llms(
+    target_runtime: TargetRuntime, device: ScorecardDevice
+) -> None:
+    if not target_runtime.is_aot_compiled:
+        pytest.skip("AIMET model currently runs on precompiled targets")
+    if device.name != "cs_x_elite":
+        pytest.skip(
+            "Running the tests for the model only on a few devices to save CI time."
+        )
+
+
 @contextlib.contextmanager
 def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     """

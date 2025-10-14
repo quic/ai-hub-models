@@ -315,7 +315,9 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
             device,
             context_graph_name or self.get_qnn_graph_name(),
         )
-        compile_options += " --quantize_full_type w8a16"
+        compile_options += (
+            " --quantize_full_type w8a16 --qnn_bin_conversion_via_model_library"
+        )
         return compile_options
 
     def get_hub_profile_options(

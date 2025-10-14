@@ -19,6 +19,7 @@ from typing import Any, NamedTuple, final
 from torch.utils.data import Dataset, default_collate
 
 from qai_hub_models.utils.asset_loaders import LOCAL_STORE_DEFAULT_PATH
+from qai_hub_models.utils.envvars import IsOnCIEnvvar
 from qai_hub_models.utils.input_spec import InputSpec
 
 
@@ -195,3 +196,5 @@ def setup_fiftyone_env():
     fo.config.dataset_zoo_dir = fiftyone_dir
     fo.config.default_dataset_dir = fiftyone_dir
     fo.config.model_zoo_dir = os.path.join(fiftyone_dir, "__models__")
+    if IsOnCIEnvvar.get():
+        fo.config.show_progress_bars = False

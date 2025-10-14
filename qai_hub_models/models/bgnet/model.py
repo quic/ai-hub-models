@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -116,11 +118,11 @@ def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
 
 
 def _load_bgnet_source_model_from_weights(
-    weights_path_bgnet: str | None = None,
+    weights_path_bgnet: str | Path | None = None,
 ) -> torch.nn.Module:
     # Load BGNET model from the source repository using the given weights.
     # download the weights file
-    if not weights_path_bgnet:
+    if weights_path_bgnet is None:
         weights_path_bgnet = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         ).fetch()

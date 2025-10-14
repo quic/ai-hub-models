@@ -29,6 +29,7 @@ supported_devices:
 - Samsung Galaxy S25
 - Samsung Galaxy S25 Ultra
 - Samsung Galaxy S25+
+- Snapdragon 8 Elite Gen 5 QRD
 supported_chipsets:
 - qualcomm-snapdragon-x-elite
 - qualcomm-snapdragon-8gen3
@@ -46,6 +47,7 @@ supported_chipsets:
 - qualcomm-sa7255p
 - qualcomm-sa8295p
 - qualcomm-snapdragon-8-elite-for-galaxy
+- qualcomm-snapdragon-8-elite-gen5
 precisions:
   float:
     components:
@@ -275,6 +277,37 @@ precisions:
               estimated_peak_memory_range_mb:
                 min: 0
                 max: 52
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 1259
+                npu: 1258
+                cpu: 1
+              tool_versions:
+                qairt: 2.37.1.250807093845_124904
+                onnx_runtime: 1.22.2
+          Snapdragon 8 Elite Gen 5 QRD:
+            tflite:
+              job_id: jpx62mw3p
+              job_status: Passed
+              inference_time_milliseconds: 2.12
+              estimated_peak_memory_range_mb:
+                min: 0
+                max: 60
+              primary_compute_unit: NPU
+              layer_counts:
+                total: 1112
+                npu: 1110
+                cpu: 2
+              tool_versions:
+                qairt: 2.38.0.250901140452_125126
+                tflite: 2.17.0
+            onnx:
+              job_id: jp3128y3g
+              job_status: Passed
+              inference_time_milliseconds: 2.854
+              estimated_peak_memory_range_mb:
+                min: 1
+                max: 54
               primary_compute_unit: NPU
               layer_counts:
                 total: 1259

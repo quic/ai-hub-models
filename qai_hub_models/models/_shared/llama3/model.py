@@ -30,6 +30,7 @@ import torch
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
+
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
@@ -52,7 +53,6 @@ from qai_hub_models.models._shared.llm.model import (
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
-    print_commands_for_genie_bundle,
     save_htp_config_for_genie_bundle,
 )
 
@@ -451,12 +451,9 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                 Path(checkpoint) / "tokenizer.json",
                 output_path / "tokenizer.json",
             )
-
         # Save the HTP config
         save_htp_config_for_genie_bundle(hub_device, output_path)
         # Save the genie config
         config = create_genie_config(context_length, llm_config, "rope", model_list)
         with open(output_path / "genie_config.json", "w") as f:
             json.dump(config, f, indent=4)
-        # Print Genie Bundle commands
-        print_commands_for_genie_bundle(hub_device, output_path)
