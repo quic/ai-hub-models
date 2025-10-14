@@ -315,7 +315,7 @@ class PyTestModelTask(CompositeTask):
                             f"MyPy: {model_name}",
                             model_venv,
                             [
-                                f'mypy --warn-unused-configs --config-file="{REPO_ROOT}/pyproject.toml" --package qai_hub_models.models'
+                                f'mypy --warn-unused-configs --config-file="{REPO_ROOT}/pyproject.toml" --package qai_hub_models.models.{model_name}'
                             ],
                             raise_on_failure=False,
                         )

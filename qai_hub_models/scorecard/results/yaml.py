@@ -128,7 +128,10 @@ class ScorecardJobYaml(
             keys_to_delete = [
                 key
                 for key in self.job_id_mapping
-                if (model_id in key and f"{model_id}_quantized" not in key)
+                if (
+                    key.startswith(f"{model_id}_")
+                    and not key.startswith(f"{model_id}_quantized_")
+                )
             ]
 
             # Delete keys

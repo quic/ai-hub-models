@@ -1,0 +1,38 @@
+name: Whisper-Base
+id: whisper_base
+status: public
+headline: Transformer-based automatic speech recognition (ASR) model for multilingual transcription and translation available on HuggingFace.
+domain: Audio
+description: HuggingFace Whisper-Small ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. This model is based on the transformer architecture and has been optimized for edge inference by replacing Multi-Head Attention (MHA) with Single-Head Attention (SHA) and linear layers with convolutional (conv) layers. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a max decoded length specified below.
+use_case: Speech Recognition
+tags:
+- foundation
+applicable_scenarios:
+- Smart Home
+- Accessibility
+related_models:
+- whisper_tiny
+- whisper_small
+- huggingface_wavlm_base_plus
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset: []
+technical_details:
+  Model checkpoint: openai/whisper-base
+  Input resolution: 80x3000 (30 seconds audio)
+  Max decoded sequence length: 200 tokens
+  Number of parameters (HfWhisperEncoder): 23.7M
+  Model size (HfWhisperEncoder) (float): 90.7 MB
+  Number of parameters (HfWhisperDecoder): 48.9M
+  Model size (HfWhisperDecoder) (float): 187 MB
+license_type: apache-2.0
+research_paper: https://cdn.openai.com/papers/whisper.pdf
+research_paper_title: Robust Speech Recognition via Large-Scale Weak Supervision
+source_repo: https://github.com/huggingface/transformers/tree/v4.42.3/src/transformers/models/whisper
+license: https://github.com/huggingface/transformers/blob/v4.42.3/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+deploy_license_type: ai-hub-models-license

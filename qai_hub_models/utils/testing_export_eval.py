@@ -1095,7 +1095,7 @@ def accuracy_on_sample_inputs_via_export(
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
-        profile_job_patch,
+        _,  # profile_job_patch
         inference_job_patch,
     ) = patch_hub_with_cached_jobs(
         model_id,
@@ -1105,7 +1105,7 @@ def accuracy_on_sample_inputs_via_export(
         component_names,
         patch_quantization=True,
         patch_compile=True,
-        patch_profile=True,
+        patch_profile=False,
         patch_inference=True,
     )
 
@@ -1126,7 +1126,6 @@ def accuracy_on_sample_inputs_via_export(
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
-        profile_job_patch,
         inference_job_patch,
         tabulate_patch,
     ):
