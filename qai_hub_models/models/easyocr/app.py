@@ -375,7 +375,7 @@ class EasyOCRApp:
                 img,
                 self.recognizer_img_shape,
                 horizontal_float="left",
-                pad_value=img[0][0][0][0],
+                pad_value=img[0][0][0][0].item(),
             )
             cutout_frames_list.append(frame_resized)
 
@@ -398,9 +398,10 @@ class EasyOCRApp:
                 if RECOGNIZER_ARGS["contrast_ths"]
                 else 1
             )
-            low_confience_high_contrast_cutout_frames = torch.cat(
-                [TRF.adjust_contrast(img, contrast) for img in low_confience_cutouts]
-            )
+            low_confience_high_contrast_cutout_frames = [
+                TRF.adjust_contrast(img, contrast).unsqueeze(0)
+                for img in low_confience_cutouts
+            ]
             high_contrast_pred_text_confidence = self.recognizer_inference(
                 low_confience_high_contrast_cutout_frames
             )
@@ -481,8 +482,9 @@ class EasyOCRApp:
         result: list[tuple[str, np.float64]] = []
         preds_list = []
         with torch.no_grad():
-            for cutout_frame in cutout_frames:
-                preds_list.append(self.recognizer(cutout_frame))
+            preds_list = [
+                self.recognizer(cutout_frame) for cutout_frame in cutout_frames
+            ]
         preds = torch.cat(preds_list)
 
         # Select max probabilty (greedy decoding) then decode index to character
@@ -541,13 +543,15 @@ class EasyOCRApp:
         """
         From provided array or image, predict (bounding box of texts, text, scores)
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
                 numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
 
-        Returns:
+        Returns
+        -------
             results: list[tuple[Image.Image, list[str], list[np.float64]]]
                 Predictions for each image.
                 In this tuple:
@@ -561,7 +565,6 @@ class EasyOCRApp:
                         Prediction confidence for each predicted text / bounding box combo.
 
         """
-
         # Get frames
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
         NHWC_int_numpy_GRAY_frames = [
@@ -596,8 +599,8 @@ class EasyOCRApp:
             for box_coords, text, confidence in img_results_horizonal:
                 draw_box_from_xyxy(
                     img,
-                    tuple([box_coords[0], box_coords[2]]),
-                    tuple([box_coords[1], box_coords[3]]),
+                    (box_coords[0], box_coords[2]),
+                    (box_coords[1], box_coords[3]),
                     color=(0, 255, 0),
                     size=2,
                 )

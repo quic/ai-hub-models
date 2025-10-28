@@ -86,8 +86,8 @@ def mediapipe_face_demo(model_cls: type[MediaPipeFace], is_test: bool = False):
 
     # Load app
     app = MediaPipeFaceApp(
-        detector,  # type: ignore
-        landmark_detector,  # type: ignore
+        detector,  # type: ignore[arg-type]
+        landmark_detector,  # type: ignore[arg-type]
         torch_model.face_detector.anchors,
         torch_model.face_detector.get_input_spec(),
         torch_model.face_landmark_detector.get_input_spec(),

@@ -27,11 +27,13 @@ CAMO_ASSET = CachedWebDatasetAsset.from_asset_store(
 class CamouflageDataset(BaseDataset):
     def __init__(
         self,
-        dataset_names: list = ["CAMO", "CHAMELEON", "COD10K", "NC4K"],
+        dataset_names: list[str] | None = None,
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 416,
         input_width: int = 416,
     ):
+        if dataset_names is None:
+            dataset_names = ["CAMO", "CHAMELEON", "COD10K", "NC4K"]
         self.dataset_names = dataset_names
         self.input_height = input_height
         self.input_width = input_width

@@ -12,15 +12,13 @@ T = TypeVar("T", bound=nn.Module)
 
 
 class TypedModuleList(Generic[T], nn.ModuleList):
-    """
-    Identical to nn.ModuleList with valid typings for indexing.
-    """
+    """Identical to nn.ModuleList with valid typings for indexing."""
 
     def __iter__(self) -> Iterator[T]:
         return super().__iter__()  # type: ignore[return-value]
 
     def append(self, module: T) -> "TypedModuleList[T]":  # type: ignore[override]
-        return super().append(module)  # type: ignore[return-value]
+        return super().append(module)
 
     @overload
     def __getitem__(self, idx: slice) -> "TypedModuleList[T]": ...
@@ -28,7 +26,7 @@ class TypedModuleList(Generic[T], nn.ModuleList):
     @overload
     def __getitem__(self, idx: int) -> T: ...
 
-    def __getitem__(self, idx):  # type: ignore[no-untyped-def]
+    def __getitem__(self, idx):
         return super().__getitem__(idx)
 
     def __setitem__(self, idx: int, module: T) -> None:  # type: ignore[override]
@@ -36,9 +34,7 @@ class TypedModuleList(Generic[T], nn.ModuleList):
 
 
 class Conv2DWithBias(nn.Conv2d):
-    """
-    Identical to nn.Conv2D, but bias is strongly typed as non-None.
-    """
+    """Identical to nn.Conv2D, but bias is strongly typed as non-None."""
 
     def __init__(self, *args, **kwargs):
         if "bias" in kwargs:

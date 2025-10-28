@@ -2,13 +2,16 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from sys import platform
 from typing import Optional, Union
 
+from .constants import REPO_ROOT
 from .github import end_group, start_group
 from .util import BASH_EXECUTABLE, debug_mode, default_parallelism, echo, have_root
 
@@ -24,20 +27,14 @@ class Task(ABC):
 
     @abstractmethod
     def does_work(self) -> bool:
-        """
-        Return True if this task actually does something (e.g., runs commands).
-        """
+        """Return True if this task actually does something (e.g., runs commands)."""
 
     @abstractmethod
     def run_task(self) -> bool:
-        """
-        Entry point for implementations: perform the task's action.
-        """
+        """Entry point for implementations: perform the task's action."""
 
     def run(self) -> bool:
-        """
-        Entry point for callers: perform any startup/teardown tasks and call run_task.
-        """
+        """Entry point for callers: perform any startup/teardown tasks and call run_task."""
         self.last_result_exception = None
 
         if self.group_name:
@@ -100,9 +97,7 @@ class NoOpTask(Task):
 
 
 class RunCommandsTask(Task):
-    """
-    A Task that runs a list of commands using the shell.
-    """
+    """A Task that runs a list of commands using the shell."""
 
     def __init__(
         self,
@@ -112,8 +107,10 @@ class RunCommandsTask(Task):
         env: Optional[dict[str, str]] = None,
         cwd: Optional[str] = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = [],
+        ignore_return_codes: list[int] = None,
     ) -> None:
+        if ignore_return_codes is None:
+            ignore_return_codes = []
         super().__init__(group_name, raise_on_failure)
         if isinstance(commands, str):
             self.commands = [commands]
@@ -171,8 +168,10 @@ class RunCommandsWithVenvTask(RunCommandsTask):
         commands: Union[list[str], str],
         env: Optional[dict[str, str]] = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = [],
+        ignore_return_codes: list[int] = None,
     ) -> None:
+        if ignore_return_codes is None:
+            ignore_return_codes = []
         super().__init__(
             group_name,
             commands,
@@ -211,8 +210,9 @@ class PyTestTask(RunCommandsWithVenvTask):
         ignore_no_tests_return_code: bool = False,
         include_pytest_cmd_in_status_message: bool = True,
         junit_xml_path: Optional[str] = None,  # Add this parameter
+        config_file: str | os.PathLike = os.path.join(REPO_ROOT, "pyproject.toml"),
     ) -> None:
-        pytest_options = ""
+        pytest_options = f"--config-file={config_file}"
 
         if ignore:
             if isinstance(ignore, str):
@@ -267,9 +267,7 @@ class PyTestTask(RunCommandsWithVenvTask):
 
 
 class CompositeTask(Task):
-    """
-    A Task composed of a list of other Tasks.
-    """
+    """A Task composed of a list of other Tasks."""
 
     def __init__(
         self,

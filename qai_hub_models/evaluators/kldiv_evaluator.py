@@ -165,7 +165,7 @@ class KLDivEvaluator(BaseEvaluator):
         data: _DataLoader,
         num_samples: int | None = None,
         callback: (
-            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            Callable[[list[torch.Tensor], CausalLMOutputWithPast, torch.Tensor], None]
             | None
         ) = None,
     ) -> None:

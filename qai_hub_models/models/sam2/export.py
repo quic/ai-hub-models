@@ -18,7 +18,7 @@ import torch
 from torch.utils import mobile_optimizer
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.sam2 import MODEL_ID, Model
+from qai_hub_models.models.sam2 import MODEL_ID, App, Model
 from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
@@ -69,7 +69,11 @@ def quantize_model(
                 )
 
             calibration_data = quantization_utils.get_calibration_data(
-                component, input_spec, num_calibration_samples
+                component,
+                input_spec,
+                num_calibration_samples,
+                app=App,
+                collection_model=model,
             )
             quantize_jobs[component_name] = hub.submit_quantize_job(
                 model=onnx_compile_job.get_target_model(),
@@ -106,11 +110,11 @@ def compile_model(
             )
 
             source_model = mobile_optimizer.optimize_for_mobile(
-                source_model,
+                source_model,  # type: ignore[assignment, arg-type]
                 optimization_blocklist={
-                    mobile_optimizer.MobileOptimizerType.HOIST_CONV_PACKED_PARAMS,
-                    mobile_optimizer.MobileOptimizerType.INSERT_FOLD_PREPACK_OPS,
-                    mobile_optimizer.MobileOptimizerType.CONV_BN_FUSION,
+                    mobile_optimizer.MobileOptimizerType.HOIST_CONV_PACKED_PARAMS,  # type: ignore[attr-defined]
+                    mobile_optimizer.MobileOptimizerType.INSERT_FOLD_PREPACK_OPS,  # type: ignore[attr-defined]
+                    mobile_optimizer.MobileOptimizerType.CONV_BN_FUSION,  # type: ignore[attr-defined]
                 },
             )
 
@@ -426,6 +430,12 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+        Precision.w8a8: [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,

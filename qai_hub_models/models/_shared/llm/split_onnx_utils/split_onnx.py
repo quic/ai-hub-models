@@ -174,8 +174,8 @@ class OnnxSplitter:
                 if attribute.type == onnx.AttributeProto.GRAPH:
                     yield from cls.get_all_tensors(attribute.g)
                 if attribute.type == onnx.AttributeProto.GRAPHS:
-                    for graph in attribute.graphs:
-                        yield from cls.get_all_tensors(graph)
+                    for subgraph in attribute.graphs:
+                        yield from cls.get_all_tensors(subgraph)
                 if attribute.HasField("t"):
                     yield attribute.t
                 yield from attribute.tensors

@@ -50,9 +50,7 @@ class RepaintModel(BaseModel):
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        """
-        Provides an example image of a man with a mask over the glasses.
-        """
+        """Provides an example image of a man with a mask over the glasses."""
         image = load_image(IMAGE_ADDRESS)
         mask = load_image(MASK_ADDRESS)
         if input_spec is not None:

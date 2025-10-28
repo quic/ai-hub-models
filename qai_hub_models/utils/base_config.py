@@ -43,7 +43,8 @@ class BaseQAIHMConfig(BaseModel):
         """
         Converts this class to a dict and saves that dict to a YAML file.
 
-        parameters:
+        Parameters
+        ----------
             path : str | Path
                 Path to save the file.
 
@@ -98,9 +99,7 @@ class BaseQAIHMConfig(BaseModel):
         path: str | Path,
         create_empty_if_no_file: bool = False,
     ) -> BaseQAIHMConfigTypeVar:
-        """
-        Reads the yaml file at the given path and loads it into an instance of this class.
-        """
+        """Reads the yaml file at the given path and loads it into an instance of this class."""
         if create_empty_if_no_file and (
             not os.path.exists(path) or os.path.getsize(path) == 0
         ):
@@ -148,11 +147,11 @@ class EnumListWithParseableAll(list[EnumT], Generic[EnumT]):
 
     @classmethod
     def serialize(
-        cls: type[EnumListWithParseableAllTypeVar], list: list[EnumT]
+        cls: type[EnumListWithParseableAllTypeVar], enum_list: list[EnumT]
     ) -> list[str]:
-        if len(set(list)) == len(cls.EnumType):
+        if len(set(enum_list)) == len(cls.EnumType):
             return ["all"]
-        return [x.value for x in list]
+        return [x.value for x in enum_list]
 
     @classmethod
     def __get_pydantic_core_schema__(

@@ -73,11 +73,13 @@ class FastSAMApp:
         """
         Upscale provided images
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 Input PIL image (before pre-processing) or pyTorch tensor (after image pre-processing).
 
-        Returns:
+        Returns
+        -------
             if raw_output is False:
                 images: list[PIL.Image.Image]
                     A list of images with masks / boxes/ confidences drawn.

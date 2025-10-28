@@ -5,27 +5,14 @@
 
 import numpy as np
 import torch
+from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 from qai_hub_models.models.sam2.app import SAM2App, SAM2InputImageLayout
 from qai_hub_models.models.sam2.demo import IMAGE_ADDRESS
 from qai_hub_models.models.sam2.demo import main as demo_main
 from qai_hub_models.models.sam2.model import DEFAULT_MODEL_TYPE, SAM2, SAM2Loader
-from qai_hub_models.models.sam2.model_patches import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    SAM2_SOURCE_REPO,
-    SAM2_SOURCE_REPO_COMMIT,
-)
-from qai_hub_models.utils.asset_loaders import SourceAsRoot, load_image
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
-
-with SourceAsRoot(
-    SAM2_SOURCE_REPO,
-    SAM2_SOURCE_REPO_COMMIT,
-    MODEL_ID,
-    MODEL_ASSET_VERSION,
-) as repo_path:
-    from sam2.sam2_image_predictor import SAM2ImagePredictor
 
 
 def test_e2e_numerical() -> None:
@@ -33,7 +20,7 @@ def test_e2e_numerical() -> None:
     model_type = DEFAULT_MODEL_TYPE
 
     # OOTB SAM Objects
-    sam2_without_our_edits = SAM2Loader._load_sam2_from_repo(model_type)
+    sam2_without_our_edits = SAM2Loader._load_sam2(model_type)
     sam2_predictor = SAM2ImagePredictor(sam2_without_our_edits)
 
     # QAIHM SAMApp
@@ -61,8 +48,13 @@ def test_e2e_numerical() -> None:
         qaihm_image_embeddings,
         qaihm_high_res_feat1,
         qaihm_high_res_feat2,
+        sparse_embedding,
         input_images_original_size,
-    ) = qaihm_app.predict_embeddings(input_image_data)
+    ) = qaihm_app.predict_embeddings(
+        input_image_data,
+        point_coords,
+        point_labels,
+    )
     assert_most_close(
         sam2_predictor._features["image_embed"].numpy(),
         qaihm_image_embeddings.numpy(),
@@ -101,8 +93,7 @@ def test_e2e_numerical() -> None:
         qaihm_image_embeddings,
         qaihm_high_res_feat1,
         qaihm_high_res_feat2,
-        point_coords,
-        point_labels,
+        sparse_embedding,
         input_images_original_size,
     )
 

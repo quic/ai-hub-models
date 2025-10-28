@@ -72,12 +72,14 @@ class YoloV8Detector(Yolo):
         """
         Run YoloV8 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
@@ -121,22 +123,14 @@ class YoloV8Detector(Yolo):
         )
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        if (
-            precision == Precision.w8a8_mixed_int16
-            or precision == Precision.w8a16_mixed_int16
-        ):
+        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        elif (
-            precision == Precision.w8a8_mixed_fp16
-            or precision == Precision.w8a16_mixed_fp16
-        ):
+        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         else:
             return "--range_scheme min_max"
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10

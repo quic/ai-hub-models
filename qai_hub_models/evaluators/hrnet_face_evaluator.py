@@ -27,7 +27,8 @@ class HRNetFaceEvaluator(BaseEvaluator):
     def add_batch(self, output: tuple[torch.Tensor], gt: list[Any]) -> None:
         """Processes a batch of model outputs and ground truth.
 
-        Args:
+        Parameters
+        ----------
             output (tuple[torch.Tensor]): Model output containing heatmaps shape: [B,K,H,W].
             gt (list[Any]): Ground truth data [centers, scales, landmarks].
                 - centers: [B, 2] (x,y centers).
@@ -57,11 +58,13 @@ class HRNetFaceEvaluator(BaseEvaluator):
     def _compute_nme(self, preds: np.ndarray, gts: np.ndarray) -> np.ndarray:
         """Computes Normalized Mean Error (NME) for 29 keypoints.
 
-        Args:
+        Parameters
+        ----------
             preds (np.ndarray): Predicted keypoints, shape [N, 29, 2].
             gts (np.ndarray): Ground truth keypoints, shape [N, 29, 2].
 
-        Returns:
+        Returns
+        -------
             np.ndarray: NME values for each sample, normalized by inter-ocular distance.
 
         Source:

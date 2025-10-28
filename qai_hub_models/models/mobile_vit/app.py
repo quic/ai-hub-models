@@ -10,9 +10,7 @@ from qai_hub_models.models.mobile_vit.model import MobileVIT
 
 
 class MobileVITApp:
-    """
-    Encapsulates the logic for running inference on a MobileVIT model.
-    """
+    """Encapsulates the logic for running inference on a MobileVIT model."""
 
     def __init__(self, model: MobileVIT):
         self.model = model

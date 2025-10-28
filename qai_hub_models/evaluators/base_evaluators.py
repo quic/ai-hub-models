@@ -28,31 +28,34 @@ class MetricMetadata(NamedTuple):
 
 
 class BaseEvaluator(ABC):
-    """
-    Evaluates one or more outputs of a model in comparison to a ground truth.
-    """
+    """Evaluates one or more outputs of a model in comparison to a ground truth."""
 
     @abstractmethod
     def add_batch(
         self,
-        output,  # torch.Tensor | Collection[torch.Tensor]
-        gt,  # torch.Tensor | Collection[torch.Tensor]
+        output: torch.Tensor
+        | torch.NumberType
+        | Collection[torch.Tensor | torch.NumberType],
+        gt: torch.Tensor
+        | torch.NumberType
+        | Collection[torch.Tensor | torch.NumberType],
     ) -> None:
         """
         Add a batch of data to this evaluator.
 
-        Parameters:
-            output: torch.Tensor | Collection[torch.Tensor]
-                Torch model output(s) for a single inference.
+        Parameters
+        ----------
+        output
+            Torch model output(s) for a single inference.
 
-                If the model forward() function has 1 output, this is a tensor.
-                If the model forward() function outputs multiple tensors, this is a tuple of tensors.
+            If the model forward() function has 1 output, this is a tensor.
+            If the model forward() function outputs multiple tensors, this is a tuple of tensors.
 
-            gt: torch.Tensor | Collection[torch.Tensor]
-                The ground truth(s) for this output.
+        gt: torch.Tensor | Collection[torch.Tensor]
+            The ground truth(s) for this output.
 
-                Some evaluators may accept only a Collection. Others may accept only a tensor.
-                The meaning of the ground truth is dependent on this method's implementation.
+            Some evaluators may accept only a Collection. Others may accept only a tensor.
+            The meaning of the ground truth is dependent on this method's implementation.
         """
         pass
 
@@ -88,25 +91,26 @@ class BaseEvaluator(ABC):
         data: _DataLoader,
         eval_iterations: int | None = None,
         device: str = "cpu",
-    ) -> None:
+    ):
         """
         Populates this evaluator with data from the provided the data loader.
 
-        Parameters:
-            model: torch.nn.Module
-                Model to use to compute model outputs.
+        Parameters
+        ----------
+        model
+            Model to use to compute model outputs.
 
-            data: torch DataLoader | Collection
-                Data loader for the dataset to use for evaluation. Iterator should return:
-                    tuple(inputs: Collection[torch.Tensor] | torch.Tensor,
-                          ground_truth: Collection[torch.Tensor] | torch.Tensor)
+        data
+            Data loader for the dataset to use for evaluation. Iterator should return:
+                tuple(inputs: Collection[torch.Tensor] | torch.Tensor,
+                        ground_truth: Collection[torch.Tensor] | torch.Tensor)
 
-            eval_iterations: int | None
-                Number of samples to use for evaluation. One sample is one iteration from iter(data).
-                If none, defaults to the number of samples in the dataset.
+        eval_iterations
+            Number of samples to use for evaluation. One sample is one iteration from iter(data).
+            If none, defaults to the number of samples in the dataset.
 
-            device: str
-                Name of device on which inference should be run.
+        device
+            Name of device on which inference should be run.
         """
 
         def _add_batch(
@@ -124,34 +128,35 @@ def _for_each_batch(
     device: str = "cpu",
     data_has_gt: bool = False,
     callback: Callable | None = None,
-) -> None:
+):
     """
     Run the model on each batch of data.
 
-    Parameters:
-        model: torch.nn.Module
-            Model to use to compute model outputs.
+    Parameters
+    ----------
+    model
+        Model to use to compute model outputs.
 
-        data: torch DataLoader | Collection
-            Data loader for the dataset. Iterator should return:
-                if data_has_gt:
-                    tuple(inputs: Collection[torch.Tensor] | torch.Tensor,
-                          ground_truth: Collection[torch.Tensor] | torch.Tensor)
-                else:
-                    Collection[torch.Tensor] | torch.Tensor
+    data
+        Data loader for the dataset. Iterator should return:
+            if data_has_gt:
+                tuple(inputs: Collection[torch.Tensor] | torch.Tensor,
+                        ground_truth: Collection[torch.Tensor] | torch.Tensor)
+            else:
+                Collection[torch.Tensor] | torch.Tensor
 
-        num_samples: int | None
-            Number of samples to use for evaluation. One sample is one iteration from iter(data).
-            If none, defaults to the number of samples in the dataset.
+    num_samples
+        Number of samples to use for evaluation. One sample is one iteration from iter(data).
+        If none, defaults to the number of samples in the dataset.
 
-        device: str
-            Name of device on which inference should be run.
+    device
+        Name of device on which inference should be run.
 
-        data_has_gt: bool
-            If true, changes the type this function expects the dataloader to return. See `data` parameter.
+    data_has_gt
+        If true, changes the type this function expects the dataloader to return. See `data` parameter.
 
-        callback: Callable | None
-            The input, output, and (if provided) ground_truth will be passed to this function after each inference.
+    callback
+        The input, output, and (if provided) ground_truth will be passed to this function after each inference.
     """
     torch_device = torch.device(device)
     model.to(torch_device)
@@ -180,10 +185,10 @@ def _for_each_batch(
                     outputs = model(inputs)
                 else:
                     inputs = [
-                        input.to(  # pyright: ignore[reportAttributeAccessIssue]
+                        i.to(  # pyright: ignore[reportAttributeAccessIssue]
                             torch_device
                         )
-                        for input in inputs
+                        for i in inputs
                     ]
                     outputs = model(*inputs)
 

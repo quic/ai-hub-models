@@ -85,7 +85,8 @@ class AOTGAN(RepaintModel):
         Run AOTGAN Inpaint Generator on `image` with given `mask`
         and generates new high-resolution in-painted image.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image to which the mask should be applied. [N, C, H, W]
                     Range: float[0, 1]
                     3-channel color Space: RGB
@@ -93,7 +94,8 @@ class AOTGAN(RepaintModel):
                     Range: float[0, 1] and only values of 0. or 1.
                     1-channel binary image.
 
-        Returns:
+        Returns
+        -------
             In-painted image for given image and mask of shape [N, C, H, W]
             Range: float[0, 1]
             3-channel color space: RGB

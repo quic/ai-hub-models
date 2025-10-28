@@ -49,7 +49,11 @@ def posenet_demo(model_cls: type[PosenetMobilenet], is_test: bool = False):
     h, w = model_cls.get_input_spec()["image"][0][2:]
 
     # OnDeviceModel is underspecified to have a fully-baked type here
-    app = PosenetApp(model, h, w)  # type: ignore[reportArgumentType]
+    app = PosenetApp(
+        model,  # type: ignore[arg-type]
+        h,
+        w,
+    )
     keypoints = app.predict_pose_keypoints(image)
     assert isinstance(keypoints, Image)
     if not is_test:

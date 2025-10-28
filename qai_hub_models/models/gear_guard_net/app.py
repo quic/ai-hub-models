@@ -119,9 +119,10 @@ class BodyDetectionApp:
         """
         Initialize BodyDetectionApp.
 
-        Inputs:
-            model: Callable[[torch.Tensor], torch.Tensor]
-                Detection model.
+        Parameters
+        ----------
+        model
+            Detection model.
         """
         self.model = model
 
@@ -131,22 +132,26 @@ class BodyDetectionApp:
         """
         Detect objects from input images.
 
-        Inputs:
-            imgfile: str
-                Input image file
-            height: int
-                Model input height.
-            width: int
-                Model input width.
-            conf: float
-                Detection threshold.
-        Outputs: np.ndarray
+        Parameters
+        ----------
+        imgfile
+            Input image file
+        height
+            Model input height.
+        width
+            Model input width.
+        conf
+            Detection threshold.
+
+        Returns
+        -------
+        np.ndarray
             Detection result. Shape is (N, 6). N is the number of detected objects. Each object is represented by
             (cls_id, x1, y1, x2, y2, score)
         """
         img = preprocess_PIL_image(load_image(imgfile))
-        input, scale, pad = resize_pad(img, (height, width))
-        output = self.model(input)
+        x, scale, pad = resize_pad(img, (height, width))
+        output = self.model(x)
         output = [tensor.permute(0, 2, 3, 1).detach() for tensor in output]
         result = postprocess(output, scale, pad, conf, 0.5)
         return result

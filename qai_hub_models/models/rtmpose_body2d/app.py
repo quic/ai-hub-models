@@ -94,9 +94,7 @@ def add_skeleton_edges(
     color: tuple[int, int, int] = (255, 0, 0),
     thickness: int = 2,
 ) -> None:
-    """
-    Draws Lines connecting specified keypoiny pairs to from a skeleton.
-    """
+    """Draws Lines connecting specified keypoiny pairs to from a skeleton."""
     for p1, p2 in skeleton:
         x1, y1 = points[p1]
         x2, y2 = points[p2]
@@ -134,13 +132,15 @@ class RTMPosebody2dApp:
         """Decode keypoint coordinates from SimCC representations. The decoded
         coordinates are in the input image space.
 
-        Args:
+        Parameters
+        ----------
             encoded (Tuple[np.ndarray, np.ndarray]): SimCC labels for x-axis
                 and y-axis
             simcc_x (np.ndarray): SimCC label for x-axis
             simcc_y (np.ndarray): SimCC label for y-axis
 
-        Returns:
+        Returns
+        -------
             tuple:
             - keypoints (np.ndarray): Decoded coordinates in shape (N, K, D)
             - socres (np.ndarray): The keypoint scores in shape (N, K).
@@ -162,7 +162,8 @@ class RTMPosebody2dApp:
         """
         Predicts pose keypoints for a person in the image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -173,7 +174,8 @@ class RTMPosebody2dApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.

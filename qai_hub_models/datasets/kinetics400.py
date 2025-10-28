@@ -143,14 +143,14 @@ class Kinetics400Dataset(BaseDataset):
             else preprocess_video_224(tensor)
         )
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         video = read_video_per_second(str(self.videos_folder / self.mp4_files[index]))
         video = sample_video(video, self.num_frames)
         video = self.preprocess_tensor(video)
 
         # Type hint says output must be a tensor, but this only works correctly
         # if the raw int label is returned.
-        return (video, self.label_indices[index])  # type: ignore
+        return (video, self.label_indices[index])
 
     def _download_data(self) -> None:
         self.videos_asset.fetch(extract=True)
@@ -162,9 +162,7 @@ class Kinetics400Dataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

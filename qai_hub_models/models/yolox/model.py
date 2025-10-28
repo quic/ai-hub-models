@@ -5,20 +5,20 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from torch import nn
+from yolox.exp import get_exp
+from yolox.models.network_blocks import SiLU
+from yolox.models.yolo_head import YOLOXHead
+from yolox.models.yolox import YOLOX
+from yolox.utils import meshgrid, replace_module
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
-from qai_hub_models.models.yolov3.model import MODEL_ASSET_VERSION, MODEL_ID
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
-IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "yolov3_demo_640.jpg"
-)
-
-SOURCE_REPOSITORY = "https://github.com/Megvii-BaseDetection/YOLOX"
-SOURCE_REPO_COMMIT = "d872c71bf63e1906ef7b7bb5a9d7a529c7a59e6a"
 MODEL_ID = __name__.split(".")[-2]
 DEFAULT_WEIGHTS = "yolox_s.pth"
 MODEL_ASSET_VERSION = 1
@@ -29,28 +29,20 @@ class YoloX(Yolo):
 
     def __init__(
         self,
-        yolox_source_model: torch.nn.Module,
+        yolox_source_model: YOLOX,
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
-        with SourceAsRoot(
-            SOURCE_REPOSITORY,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ):
-            from yolox.models.network_blocks import SiLU
-            from yolox.models.yolo_head import YOLOXHead
-            from yolox.utils import meshgrid, replace_module
-
         assert isinstance(yolox_source_model.head, YOLOXHead), (
             "Only the YOLOXHead defined in yolo_head.py is supported."
         )
         # pytorch SiLU activation function has to be replaced by a custom implementation
-        yolox_source_model = replace_module(yolox_source_model, nn.SiLU, SiLU)
+        yolox_source_model = cast(
+            YOLOX, replace_module(yolox_source_model, nn.SiLU, SiLU)
+        )
 
-        super().__init__()
-        self.model = yolox_source_model
+        super().__init__(yolox_source_model)
+        self.model: YOLOX
         self.yolox_meshgrid = meshgrid
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
@@ -82,7 +74,6 @@ class YoloX(Yolo):
         This keeps xywh and scores tensors separate, rather than concatenating them into a single tensor.
         Keeping those tensors separate makes quantization viable.
         """
-
         #  list (one element per anchor set) of:
         #     tuple[
         #          xywh: [b, 4, # anchors, # anchors]
@@ -94,7 +85,7 @@ class YoloX(Yolo):
         #               [b, 1:81, ...] -> Probability of which class the object belongs to.
         #     ]
         outputs: list[tuple[torch.Tensor, torch.Tensor]] = []
-        for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
+        for k, (cls_conv, reg_conv, _stride_this_level, x) in enumerate(
             zip(
                 self.model.head.cls_convs,
                 self.model.head.reg_convs,
@@ -136,18 +127,18 @@ class YoloX(Yolo):
         This keeps xywh and scores tensors separate, rather than concatenating them into a single tensor.
         Keeping those tensors separate makes quantization viable.
         """
-        grids = []
-        strides = []
+        grids_list = []
+        strides_list = []
 
         hw = [single_output[0].shape[-2:] for single_output in outputs]
         for (hsize, wsize), stride in zip(hw, self.model.head.strides):
             yv, xv = self.yolox_meshgrid([torch.arange(hsize), torch.arange(wsize)])
             grid = torch.stack((xv, yv), 2).view(1, -1, 2)
-            grids.append(grid)
+            grids_list.append(grid)
             shape = grid.shape[:2]
-            strides.append(torch.full((*shape, 1), stride))
-        grids = torch.cat(grids, dim=1).type(dtype)
-        strides = torch.cat(strides, dim=1).type(dtype)
+            strides_list.append(torch.full((*shape, 1), stride))
+        grids: torch.Tensor = torch.cat(grids_list, dim=1).type(dtype)
+        strides: torch.Tensor = torch.cat(strides_list, dim=1).type(dtype)
 
         # convert from list of tensors to [b, n_anchors_all, 4]
         raw_xywh = torch.cat(
@@ -168,12 +159,14 @@ class YoloX(Yolo):
         """
         Run YoloX on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float
                    3-channel Color Space: RGB [0-1]
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations. Shape [batch, num preds, 4] where 4 == (topleft_x, topleft_y, bottomright_x, bottomright_y)
@@ -238,30 +231,20 @@ class YoloX(Yolo):
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
 
 def _load_yolox_source_model_from_weights(
     weights_path: str, weights_name: str
-) -> torch.nn.Module:
+) -> YOLOX:
     # Load Yolox model from the source repository using the given weights.
     # Returns <source repository>.models.yolo.Model
-    with SourceAsRoot(
-        SOURCE_REPOSITORY,
-        SOURCE_REPO_COMMIT,
-        MODEL_ID,
-        MODEL_ASSET_VERSION,
-    ):
-        from yolox.exp import get_exp
+    weights_name = weights_name.replace("_", "-").replace(".pth", "")
+    exp = get_exp(exp_name=weights_name)
+    model = cast(YOLOX, exp.get_model())
+    ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
+    model.load_state_dict(ckpt["model"])
+    model.to("cpu").eval()
 
-        weights_name = weights_name.replace("_", "-").replace(".pth", "")
-        exp = get_exp(exp_name=weights_name)
-        model = exp.get_model()
-        ckpt = torch.load(weights_path, map_location="cpu", weights_only=False)
-        model.load_state_dict(ckpt["model"])
-        model.to("cpu").eval()
-
-        return model
+    return model

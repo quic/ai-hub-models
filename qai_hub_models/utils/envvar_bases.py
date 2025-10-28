@@ -17,9 +17,7 @@ ParsedT = TypeVar("ParsedT")
 
 
 class QAIHMEnvvar(Generic[ParsedT]):
-    """
-    Class for defining environment variables used in the QAIHM package.
-    """
+    """Class for defining environment variables used in the QAIHM package."""
 
     # Environment variable name.
     VARNAME: str
@@ -96,21 +94,16 @@ class QAIHMEnvvar(Generic[ParsedT]):
 
     @classmethod
     def parse(cls, value: str) -> ParsedT:
-        """
-        Parse the string envvar value.
-        """
+        """Parse the string envvar value."""
         raise NotImplementedError()
 
     @classmethod
     def serialize(cls, value: ParsedT) -> str:
-        """
-        Serialize the parsed envvar value to string.
-        """
+        """Serialize the parsed envvar value to string."""
         raise NotImplementedError()
 
     class ParseAction(argparse.Action):
-        """
-        Makes sure that the ar"""
+        """Makes sure that the ar"""
 
         def __init__(
             self,
@@ -140,7 +133,8 @@ class QAIHMEnvvar(Generic[ParsedT]):
         """
         Adds an argument to the given parser or arg group for this envvar.
 
-        Parameters:
+        Parameters
+        ----------
             parser:
                 Argument parser or group.
 
@@ -274,9 +268,7 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
 
 
 class QAIHMStringEnvvar(QAIHMEnvvar[str]):
-    """
-    String (unparsed) environment variable.
-    """
+    """String (unparsed) environment variable."""
 
     @classmethod
     def parse(cls, value: str) -> str:
@@ -391,30 +383,30 @@ class QAIHMDateFormatEnvvar:
                 return default
         else:
             date = cls.DATE_ENVVAR.get()
-        format = cls.DATE_FORMAT_ENVVAR.get()
-        return datetime.strptime(date, format)
+        dformat = cls.DATE_FORMAT_ENVVAR.get()
+        return datetime.strptime(date, dformat)
 
     @classmethod
-    def set(cls, date: datetime | str | None, format: str | None):
+    def set(cls, date: datetime | str | None, dformat: str | None):
         if isinstance(date, datetime):
-            date = cls.serialize(date, format or cls.DATE_FORMAT_ENVVAR.get())
+            date = cls.serialize(date, dformat or cls.DATE_FORMAT_ENVVAR.get())
         cls.DATE_ENVVAR.set(date)
-        cls.DATE_FORMAT_ENVVAR.set(format)
+        cls.DATE_FORMAT_ENVVAR.set(dformat)
 
     @classmethod
-    def patchenv(cls, monkeypatch, date: datetime | str | None, format: str | None):
+    def patchenv(cls, monkeypatch, date: datetime | str | None, dformat: str | None):
         if isinstance(date, datetime):
-            date = cls.serialize(date, format or cls.DATE_FORMAT_ENVVAR.get())
+            date = cls.serialize(date, dformat or cls.DATE_FORMAT_ENVVAR.get())
         cls.DATE_ENVVAR.patchenv(monkeypatch, date)
-        cls.DATE_FORMAT_ENVVAR.patchenv(monkeypatch, format)
+        cls.DATE_FORMAT_ENVVAR.patchenv(monkeypatch, dformat)
 
     @classmethod
-    def parse(cls, date: str, format: str) -> datetime:
-        return datetime.strptime(date, format)
+    def parse(cls, date: str, dformat: str) -> datetime:
+        return datetime.strptime(date, dformat)
 
     @classmethod
-    def serialize(cls, date: datetime, format: str) -> str:
-        return date.strftime(format)
+    def serialize(cls, date: datetime, dformat: str) -> str:
+        return date.strftime(dformat)
 
     @classmethod
     def add_arg_group(

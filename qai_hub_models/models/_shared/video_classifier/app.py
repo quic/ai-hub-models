@@ -21,10 +21,13 @@ from qai_hub_models.models._shared.video_classifier.utils import (
 def recognize_action_kinetics_400(prediction: torch.Tensor) -> list[str]:
     """
     Return the top 5 class names.
-    Parameters:
+
+    Parameters
+    ----------
         prediction: Get the probability for all classes.
 
-    Returns:
+    Returns
+    -------
         classnames: List of class ids from Kinetics-400 dataset is returned.
 
     """
@@ -58,13 +61,14 @@ class KineticsClassifierApp:
         From the provided path of the video, predict probability distribution
         over the 400 Kinetics classes and return the class name.
 
-        Parameters:
+        Parameters
+        ----------
             path: Path to the raw video
 
-        Returns:
+        Returns
+        -------
             prediction: list[str] with top 5 most probable classes for a given video.
         """
-
         # Reads the video via provided path
         input_video = read_video_per_second(str(path))
 

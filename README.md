@@ -240,11 +240,13 @@ and many more.
 | | |
 | **Object Detection**
 | [3D-Deep-BOX](https://aihub.qualcomm.com/models/deepbox) | [qai_hub_models.models.deepbox](qai_hub_models/models/deepbox/README.md) |
+| [CavaFace](qai_hub_models/models/cavaface/README.md) | [qai_hub_models.models.cavaface](qai_hub_models/models/cavaface/README.md) |
 | [Conditional-DETR-ResNet50](https://aihub.qualcomm.com/models/conditional_detr_resnet50) | [qai_hub_models.models.conditional_detr_resnet50](qai_hub_models/models/conditional_detr_resnet50/README.md) |
 | [DETR-ResNet101](https://aihub.qualcomm.com/models/detr_resnet101) | [qai_hub_models.models.detr_resnet101](qai_hub_models/models/detr_resnet101/README.md) |
 | [DETR-ResNet101-DC5](https://aihub.qualcomm.com/models/detr_resnet101_dc5) | [qai_hub_models.models.detr_resnet101_dc5](qai_hub_models/models/detr_resnet101_dc5/README.md) |
 | [DETR-ResNet50](https://aihub.qualcomm.com/models/detr_resnet50) | [qai_hub_models.models.detr_resnet50](qai_hub_models/models/detr_resnet50/README.md) |
 | [DETR-ResNet50-DC5](https://aihub.qualcomm.com/models/detr_resnet50_dc5) | [qai_hub_models.models.detr_resnet50_dc5](qai_hub_models/models/detr_resnet50_dc5/README.md) |
+| [DeformableDETR](https://aihub.qualcomm.com/models/deformable_detr) | [qai_hub_models.models.deformable_detr](qai_hub_models/models/deformable_detr/README.md) |
 | [Facial-Attribute-Detection](https://aihub.qualcomm.com/models/face_attrib_net) | [qai_hub_models.models.face_attrib_net](qai_hub_models/models/face_attrib_net/README.md) |
 | [Lightweight-Face-Detection](https://aihub.qualcomm.com/models/face_det_lite) | [qai_hub_models.models.face_det_lite](qai_hub_models/models/face_det_lite/README.md) |
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) |
@@ -275,6 +277,9 @@ and many more.
 | [Depth-Anything](https://aihub.qualcomm.com/models/depth_anything) | [qai_hub_models.models.depth_anything](qai_hub_models/models/depth_anything/README.md) |
 | [Depth-Anything-V2](https://aihub.qualcomm.com/models/depth_anything_v2) | [qai_hub_models.models.depth_anything_v2](qai_hub_models/models/depth_anything_v2/README.md) |
 | [Midas-V2](https://aihub.qualcomm.com/models/midas) | [qai_hub_models.models.midas](qai_hub_models/models/midas/README.md) |
+| | |
+| **Driver Assistance**
+| [BEVFusion](https://aihub.qualcomm.com/models/bevfusion_det) | [qai_hub_models.models.bevfusion_det](qai_hub_models/models/bevfusion_det/README.md) |
 
 ### Multimodal
 
@@ -296,7 +301,6 @@ and many more.
 | [Whisper-Base](https://aihub.qualcomm.com/models/whisper_base) | [qai_hub_models.models.whisper_base](qai_hub_models/models/whisper_base/README.md) |
 | [Whisper-Large-V3-Turbo](https://aihub.qualcomm.com/models/whisper_large_v3_turbo) | [qai_hub_models.models.whisper_large_v3_turbo](qai_hub_models/models/whisper_large_v3_turbo/README.md) |
 | [Whisper-Small](https://aihub.qualcomm.com/models/whisper_small) | [qai_hub_models.models.whisper_small](qai_hub_models/models/whisper_small/README.md) |
-| [Whisper-Small-Quantized](https://aihub.qualcomm.com/models/whisper_small_quantized) | [qai_hub_models.models.whisper_small_quantized](qai_hub_models/models/whisper_small_quantized/README.md) |
 | [Whisper-Tiny](https://aihub.qualcomm.com/models/whisper_tiny) | [qai_hub_models.models.whisper_tiny](qai_hub_models/models/whisper_tiny/README.md) |
 | | |
 | **Audio Classification**
@@ -306,11 +310,6 @@ and many more.
 
 | Model | README |
 | -- | -- |
-| | |
-| **Image Generation**
-| [ControlNet-Canny](https://aihub.qualcomm.com/models/controlnet_canny) | [qai_hub_models.models.controlnet_canny](qai_hub_models/models/controlnet_canny/README.md) |
-| [Stable-Diffusion-v1.5](https://aihub.qualcomm.com/models/stable_diffusion_v1_5) | [qai_hub_models.models.stable_diffusion_v1_5](qai_hub_models/models/stable_diffusion_v1_5/README.md) |
-| [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1) | [qai_hub_models.models.stable_diffusion_v2_1](qai_hub_models/models/stable_diffusion_v2_1/README.md) |
 | | |
 | **Text Generation**
 | [Baichuan2-7B](https://aihub.qualcomm.com/models/baichuan2_7b) | [qai_hub_models.models.baichuan2_7b](qai_hub_models/models/baichuan2_7b/README.md) |
@@ -331,6 +330,7 @@ and many more.
 | [PLaMo-1B](https://aihub.qualcomm.com/models/plamo_1b) | [qai_hub_models.models.plamo_1b](qai_hub_models/models/plamo_1b/README.md) |
 | [Phi-3.5-Mini-Instruct](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct) | [qai_hub_models.models.phi_3_5_mini_instruct](qai_hub_models/models/phi_3_5_mini_instruct/README.md) |
 | [Qwen2-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_7b_instruct) | [qai_hub_models.models.qwen2_7b_instruct](qai_hub_models/models/qwen2_7b_instruct/README.md) |
+| [Qwen2.5-1.5B-Instruct](https://aihub.qualcomm.com/models/qwen2_5_1_5b_instruct) | [qai_hub_models.models.qwen2_5_1_5b_instruct](qai_hub_models/models/qwen2_5_1_5b_instruct/README.md) |
 | [Qwen2.5-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_5_7b_instruct) | [qai_hub_models.models.qwen2_5_7b_instruct](qai_hub_models/models/qwen2_5_7b_instruct/README.md) |
 
 

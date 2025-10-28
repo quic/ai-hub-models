@@ -49,7 +49,8 @@ class SAMApp:
         resize_longest_side: Callable,
     ):
         """
-        Parameters:
+        Parameters
+        ----------
             encoder_input_img_size: int
                 The input dimension for images passed the encoder. Height and width are always the same, hence 1 value here.
 
@@ -91,7 +92,8 @@ class SAMApp:
         """
         Predict segmentation masks from given points and image(s).
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
@@ -111,7 +113,8 @@ class SAMApp:
             return_logits: bool
                 If False, returns boolean masks. If true, returns raw fp32 mask predictions.
 
-        Returns:
+        Returns
+        -------
             upscaled_masks: torch.Tensor of shape [b, k, <input image spatial dims>].
                 See parameter return_logits for type info
 
@@ -139,7 +142,8 @@ class SAMApp:
         """
         Predict embeddings from given image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
@@ -149,7 +153,8 @@ class SAMApp:
                 pyTorch tensor (N C H W x int8, value range is [0, 255])
                     channel layout consistent with self.input_image_channel_layout
 
-        Returns:
+        Returns
+        -------
             image_embeddings: torch.Tensor of shape [b, k, <encoder embed dim>]
                 image embeddings
 
@@ -211,7 +216,8 @@ class SAMApp:
         """
         Predict segmentation masks from given points and image embeddings.
 
-        Parameters:
+        Parameters
+        ----------
             image_embeddings: torch.Tensor of shape [b, k, <encoder embed dim>]
                 image embeddings
 
@@ -228,7 +234,8 @@ class SAMApp:
             return_logits: bool
                 If False, returns boolean masks. If true, returns raw fp32 mask predictions.
 
-        Returns:
+        Returns
+        -------
             upscaled_masks: torch.Tensor of shape [b, k, <input image spatial dims>].
                 See parameter return_logits for type info
 

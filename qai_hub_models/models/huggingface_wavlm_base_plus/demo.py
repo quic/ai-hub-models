@@ -42,7 +42,7 @@ def demo_main(is_test: bool = False):
     # Load audio
     audio = load_numpy(args.audio)["audio"]
 
-    feature_vec = app.predict_features(input=audio)
+    feature_vec = app.predict_features(audio)
 
     # Get output from model
     if not is_test:

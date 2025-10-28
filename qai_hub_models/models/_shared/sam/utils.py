@@ -19,11 +19,12 @@ from qai_hub_models.utils.display import is_headless, is_running_in_notebook
 def show_image(
     image: Image,
     masks: np.ndarray | torch.Tensor | None = None,
+    input_coords: list[list[int]] | None = None,
     output_dir: str | None = None,
 ) -> None:
     """Show input image with mask applied"""
-    if masks is None:
-        print("No masks detected, so no images to display.")
+    if masks is None or input_coords is None:
+        print("No masks or points detected, so no images to display.")
         return
 
     should_display_in_notebook = is_running_in_notebook()
@@ -48,6 +49,16 @@ def show_image(
         plt.figure(num=mask_idx, figsize=(10, 10))
         plt.title(f"Predicted Mask {mask_idx}")
         plt.imshow(image)
+        x_coords_points = [p[0] for p in input_coords]
+        y_coords_points = [p[1] for p in input_coords]
+        plt.scatter(
+            x_coords_points,
+            y_coords_points,
+            color="red",  # Color of the points
+            marker="o",  # Marker style (e.g., 'o' for circle, 'x', '+', '*')
+            s=100,  # Size of the markers
+            label="Points",
+        )
         _draw_mask(mask)
         plt.axis("off")
         if should_save_to_disk:

@@ -21,7 +21,8 @@ class DDColorApp:
     Args :
         img(np.ndarray or PIL.Image) : Input RGB image.
 
-    Returns:
+    Returns
+    -------
         PIL.Image.Image: The final colorized image.
 
     """
@@ -46,10 +47,10 @@ class DDColorApp:
         Arg :
             img : Input image in RGB format.
 
-        Returns:
+        Returns
+        -------
             PIL.Image.Image : colorized output image.
         """
-
         img = np.array(pil_image)
         height, width = img.shape[:2]
 

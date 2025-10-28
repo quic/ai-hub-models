@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.face_det_lite_evaluator import FaceDetLiteEvaluator
@@ -103,13 +103,15 @@ class FaceDetLite(BaseModel):
         """
         Run FaceDetLite on `image`, and produce a the list of face bounding box
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    1-channel gray scale image
                    Width/height must be divisible by 32.
 
-        Returns:
+        Returns
+        -------
             heatmap: N,C,H,W the heatmap for the person/face detection.
             bbox: N,C*4, H,W the bounding box coordinate as a map.
             landmark: N,C*10,H,W the coordinates of landmarks as a map.
@@ -140,7 +142,6 @@ class FaceDetLite(BaseModel):
     @classmethod
     def from_pretrained(cls, checkpoint_path: str | None = None):
         """Load FaceDetLite from a weightfile created by the source FaceDetLite repository."""
-
         checkpoint_to_load = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         )

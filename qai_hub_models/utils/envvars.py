@@ -6,9 +6,7 @@ from qai_hub_models.utils.envvar_bases import QAIHMBoolEnvvar
 
 
 class IsOnCIEnvvar(QAIHMBoolEnvvar):
-    """
-    If this is true, the tests are running in a continuous integration environment.
-    """
+    """If this is true, the tests are running in a continuous integration environment."""
 
     VARNAME = "QAIHM_CI"
     CLI_ARGNAMES = ["--ci-mode"]

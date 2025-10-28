@@ -100,10 +100,12 @@ class CityscapesSegmentationApp:
         From the provided image or tensor, predict semantic segmentation over
         the Cityscapes classes.
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format.
 
-        Returns:
+        Returns
+        -------
             If raw_output is False it will return an annotated image of the
             same size as the input image. If True, it will return raw logit
             probabilities as an numpy array of shape [1, CLASSES, HEIGHT,

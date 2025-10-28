@@ -37,9 +37,7 @@ def deployment_is_prod(deployment: str):
 
 
 def _get_global_client() -> Optional[tuple[str, HubClient]]:
-    """
-    Returns [global client Hub deployment name], [global client]
-    """
+    """Returns [global client Hub deployment name], [global client]"""
     try:
         global_client = hub.hub._global_client
         # The deployment name is the subdomain of AIHub that is used by the config.
@@ -123,7 +121,6 @@ def get_hub_client(
         # "prod" deployment is "app.aihub.qualcomm.com"
         #
         deployment_name_url = "app" if deployment_name == "prod" else deployment_name
-        #
 
         api_url = os.environ.get(
             f"HUB_API_URL_{upper_deployment_name}",
@@ -188,17 +185,22 @@ def get_scorecard_client_or_raise(
 
 def set_default_hub_client(
     client: hub.client.Client,
-    hub_attr_overrides: dict[str, Any] = dict(),
-    hub_hub_attr_overrides: dict[str, Any] = dict(),
+    hub_attr_overrides: dict[str, Any] | None = None,
+    hub_hub_attr_overrides: dict[str, Any] | None = None,
 ):
     """
     Sets the default hub client.
 
-    Parameters:
+    Parameters
+    ----------
         client: Hub client to make the default.
         hub_attr_overrides: If set, uses these values to override `hub.submit_...`, instead of setting the value to `client.submit_...`
         hhub_hub_attr_overrides: If set, uses these values to override `hub.hub.submit_...`, instead of setting the value to `client.submit_...`
     """
+    if hub_hub_attr_overrides is None:
+        hub_hub_attr_overrides = dict()
+    if hub_attr_overrides is None:
+        hub_attr_overrides = dict()
     hub.hub._global_client = client
     for default_global_client_method in hub.hub.__all__:
         setattr(

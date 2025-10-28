@@ -48,7 +48,7 @@ def main(is_test: bool = False):
     orig_image = load_image(args.image)
     print("Model Loaded")
 
-    app = FaceDetLiteApp(model)
+    app = FaceDetLiteApp(model)  # type: ignore[arg-type]
     res, out = app.run_inference_on_image(orig_image)
     out_dict = {}
 

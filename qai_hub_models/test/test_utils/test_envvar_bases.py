@@ -73,7 +73,7 @@ def test_bool_envvar(monkeypatch):
         assert DefaultTrueEnvvar.get(False)
         assert DefaultFalseEnvvar.get(False)
 
-    for value in {"0", "false", "", "abc"}:
+    for value in ("0", "false", "", "abc"):
         # Parsing every value should return false.
         assert not DefaultTrueEnvvar.parse(value)
         assert not DefaultFalseEnvvar.parse(value)

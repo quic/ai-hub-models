@@ -30,7 +30,8 @@ def yolo_detect_postprocess(
     Post processing to break newer ultralytics yolo models (e.g. Yolov8, Yolo11) detector output into multiple, consumable tensors (eg. for NMS).
         such as bounding boxes, scores and classes.
 
-    Parameters:
+    Parameters
+    ----------
         boxes: torch.Tensor
             Shape is [batch, 4, num_preds] where 4 == [x_center, y_center, w, h]
         scores: torch.Tensor
@@ -38,7 +39,8 @@ def yolo_detect_postprocess(
             Each element represents the probability that a given box is
                 an instance of a given class.
 
-    Returns:
+    Returns
+    -------
         boxes: torch.Tensor
             Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
         scores: torch.Tensor
@@ -69,7 +71,8 @@ def yolo_segment_postprocess(detector_output: torch.Tensor, num_classes: int):
     Post processing to break Yolo Segmentation output into multiple, consumable tensors (eg. for NMS).
         such as bounding boxes, scores, masks and classes.
 
-    Parameters:
+    Parameters
+    ----------
         detector_output: torch.Tensor
             The output of Yolo Detection model
             Shape is [batch, k, num_preds]
@@ -79,7 +82,8 @@ def yolo_segment_postprocess(detector_output: torch.Tensor, num_classes: int):
         num_classes: int
             number of classes
 
-    Returns:
+    Returns
+    -------
         boxes: torch.Tensor
             Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
         scores: torch.Tensor

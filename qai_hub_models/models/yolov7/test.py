@@ -35,8 +35,8 @@ def test_numerical() -> None:
 
     with torch.no_grad():
         # original model output
-        source_model.model[-1].training = False
-        source_model.model[-1].export = False
+        source_model.model[-1].training = False  # type: ignore[index, union-attr]
+        source_model.model[-1].export = False  # type: ignore[index, union-attr]
         source_detect_out = source_model(processed_sample_image)[0]
         source_out_postprocessed = detect_postprocess(source_detect_out)
 

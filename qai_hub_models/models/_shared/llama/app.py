@@ -29,9 +29,7 @@ def _get_tokens_from_logits(output: torch.Tensor):
 
 
 class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
-    """
-    Llama Pipeline to execute model splits one after another
-    """
+    """Llama Pipeline to execute model splits one after another"""
 
     def __init__(
         self,
@@ -154,9 +152,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
 
 class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
-    """
-    Pipeline wrapper for OnDeviceModels
-    """
+    """Pipeline wrapper for OnDeviceModels"""
 
     def __init__(
         self,
@@ -203,9 +199,7 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
 
 
 class LlamaModelPipeline(LlamaModelPipelineBase):
-    """
-    Pipeline wrapper for PyTorch base model
-    """
+    """Pipeline wrapper for PyTorch base model"""
 
     def __init__(
         self,

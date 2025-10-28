@@ -54,9 +54,7 @@ def class_map_lookup(key: int):
 
 
 class CityscapesDataset(BaseDataset):
-    """
-    Wrapper class around Cityscapes dataset https://www.cityscapes-dataset.com/
-    """
+    """Wrapper class around Cityscapes dataset https://www.cityscapes-dataset.com/"""
 
     def __init__(
         self,
@@ -147,9 +145,7 @@ class CityscapesDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 50
 
     @staticmethod

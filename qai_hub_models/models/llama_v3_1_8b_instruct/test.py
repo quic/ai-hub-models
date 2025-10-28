@@ -38,6 +38,7 @@ from qai_hub_models.models.llama_v3_1_8b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_PRECISION,
     DEFAULT_SEQUENCE_LENGTH,
+    HF_REPO_NAME,
     MODEL_ASSET_VERSION,
 )
 from qai_hub_models.scorecard import (
@@ -58,10 +59,9 @@ DEFAULT_EVAL_SEQLEN = 2048
 
 
 def test_create_genie_config():
-    model_name = "meta-llama/Llama-3.1-8B-Instruct"
     context_length = 4096
-    llm_config = AutoConfig.from_pretrained(model_name)
-    model_list = ["model1.bin", "model2.bin", "model3.bin", "model4.bin"]
+    llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
+    model_list = [f"llama_v3_1_8b_instruct_part_{i}_of_5.bin" for i in range(1, 6)]
     actual_config = create_genie_config(context_length, llm_config, "rope", model_list)
     expected_config: dict[str, Any] = {
         "dialog": {
@@ -105,12 +105,7 @@ def test_create_genie_config():
                     "type": "binary",
                     "binary": {
                         "version": 1,
-                        "ctx-bins": [
-                            "model1.bin",
-                            "model2.bin",
-                            "model3.bin",
-                            "model4.bin",
-                        ],
+                        "ctx-bins": model_list,
                     },
                     "positional-encoding": {
                         "type": "rope",

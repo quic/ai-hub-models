@@ -34,7 +34,7 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+    safe_torch_onnx_export,
 )
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
 
@@ -67,7 +67,7 @@ def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
     onnx_path = os.path.join(export_dir, "model.onnx")
     logger.info(f"Saving piqaro-onnx optimized ONNX model to {onnx_path}")
 
-    torch_onnx_export_with_large_model_size_check(torch_model, sample_input, onnx_path)
+    safe_torch_onnx_export(torch_model, sample_input, onnx_path)
 
     onnx_model = onnx.load(onnx_path)
     import onnxsim
@@ -133,9 +133,7 @@ if __name__ == "__main__":
             super().__init__(*args, **kwargs)
 
         def _llm_config(self, _make_small_for_debugging: bool = False) -> LlamaConfig:
-            """
-            Construct and return a HuggingFace LLM config.
-            """
+            """Construct and return a HuggingFace LLM config."""
             if not truncate_model:
                 return super()._llm_config(
                     _make_small_for_debugging=_make_small_for_debugging

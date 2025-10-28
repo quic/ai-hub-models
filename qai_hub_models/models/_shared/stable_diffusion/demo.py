@@ -48,7 +48,8 @@ def stable_diffusion_demo(
     default_image: Union[str, None] = None,
 ):
     """
-    Args:
+    Parameters
+    ----------
         default_image is only used if use_controlnet is True
     """
     parser = get_model_cli_parser(model_cls)

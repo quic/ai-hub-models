@@ -37,12 +37,14 @@ def clip_extreme_values(
 
     This is needed until AIMET-4029 is resolved.
 
-    Parameters:
+    Parameters
+    ----------
     model: The ONNX model to process.
     extreme_value_threshold: The threshold below which values will be clipped. Default is -1e15.
     clip_value: The value to which extreme values will be clipped. Default is -1e4.
 
-    Returns:
+    Returns
+    -------
     onnx.ModelProto: The modified ONNX model with extreme values clipped.
     """
     extreme_value_threshold_np = np.float32(extreme_value_threshold)
@@ -101,8 +103,8 @@ def make_calib_data(
     """
     Generate calibration data for Unet, Vae, and controlnet if specified.
 
-    Args:
-
+    Parameters
+    ----------
     - export_path_*: must end with .pt
 
     - prompt_path: txt file where each line is a prompt
@@ -146,7 +148,7 @@ def make_calib_data(
             num_steps=num_steps,
             guidance_scale=guidance_scale,
             return_all_steps=True,
-            **extra_inputs,  # type: ignore
+            **extra_inputs,  # type: ignore[arg-type]
         )
 
         # Add the output to calib_*
@@ -172,7 +174,7 @@ def load_calib_tokens(
 ) -> tuple[list[torch.Tensor], torch.Tensor]:
     """
     Returns
-
+    -------
     - tokens: List of length `num_samples` (500 if None) of
     torch.Tensor(int32) representing conditional tokens.
 
@@ -212,7 +214,7 @@ def load_unet_calib_dataset_entries(
 
     # torch.Tensor -> numpy
     for k, v in calib_data.items():
-        calib_data[k] = [v.detach().numpy() for v in calib_data[k]]
+        calib_data[k] = [vv.detach().numpy() for vv in v]
 
     if num_samples is not None and num_samples < len(calib_data["latent"]):
         rng = np.random.RandomState(42)
@@ -297,9 +299,7 @@ def make_canny(
     low_threshold: int = 100,
     high_threshold: int = 200,
 ) -> torch.Tensor:
-    """
-    Resize and convert from PIL Image to NCHW torch.Tensor.
-    """
+    """Resize and convert from PIL Image to NCHW torch.Tensor."""
     img = np.array(image)
     img = cv2.Canny(img, low_threshold, high_threshold)
     img = img[:, :, None]

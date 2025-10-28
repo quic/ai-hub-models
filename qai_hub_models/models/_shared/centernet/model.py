@@ -47,7 +47,7 @@ class CenterNet(BaseModel):
             from models.networks.DCNv2.dcn_v2 import DCN
             from models.networks.pose_dla_dcn import get_pose_net
 
-            setattr(DCN, "forward", custom_dcn_forward)
+            DCN.forward = custom_dcn_forward
             model = get_pose_net(
                 num_layers=34,
                 heads=heads,

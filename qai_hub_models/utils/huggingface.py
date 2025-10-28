@@ -28,7 +28,8 @@ def get_huggingface_model_filename(
     """
     Get the model file name (without the extension) that we upload to Hugging Face for the given parameters.
 
-    Parameters:
+    Parameters
+    ----------
     model_name:
         The NAME of the model (NOT THE MODEL ID)
         Typically this is QAIHMModelInfo.from_model(model_id).name
@@ -78,7 +79,7 @@ def fetch_huggingface_target_model(
     file_types = [runtime_path.file_extension]
 
     files: list[str] = []
-    for component_name in model_components or ["COMPONENT"]:  # type: ignore[list-item]
+    for component_name in model_components or ["COMPONENT"]:
         for file_type in file_types:
             files += fs.glob(
                 posixpath.join(
@@ -135,7 +136,7 @@ def has_model_access(repo_name: str, repo_url: str | None = None):
             f"\n 2. Setup Huggingface API token as described in https://huggingface.co/docs/huggingface_hub/en/quick-start#login-command"
             f"\nOnce access request is approved, you should be able to export/load {repo_name} via AI-Hub."
         )
-        raise RuntimeError(no_access_error)
+        raise RuntimeError(no_access_error) from None
 
     # Model is accesible for current User.
     return True

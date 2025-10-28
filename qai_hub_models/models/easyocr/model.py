@@ -49,7 +49,8 @@ class EasyOCRDetector(BaseModel):
         """
         Run detector on `image`, and produce a ((text score map, link score map), features).
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for detector consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
@@ -104,12 +105,14 @@ class EasyOCRRecognizer(BaseModel):
         """
         Run recognizer on `image`, and produce a score matrix corresponding to character classes.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for detector consumption.
                    Range: float[0, 1]
                    1-channel Color Space: grey
 
-        Returns:
+        Returns
+        -------
             segmented mask per class: Shape [batch, T, classes]
         """
         return self.model((image - 0.5) / 0.5, None)
@@ -153,7 +156,8 @@ class EasyOCR(CollectionModel):
         """
         Create an EasyOCR model.
 
-        Parameters:
+        Parameters
+        ----------
             lang_list: list[str]
                 Language List
 

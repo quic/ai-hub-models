@@ -5,12 +5,15 @@
 
 from __future__ import annotations
 
+import importlib
+import importlib.metadata
 import os
 import struct
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import onnx
@@ -21,6 +24,7 @@ from onnx.helper import (
     tensor_dtype_to_np_dtype,
     tensor_dtype_to_string,
 )
+from packaging.version import parse as parse_version
 
 
 @dataclass
@@ -92,14 +96,19 @@ ORT_TENSOR_STR_TO_NP_TYPE = {
 QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
 
 
-def torch_onnx_export_with_large_model_size_check(*args, **kwargs):
+@wraps(torch.onnx.export)
+def safe_torch_onnx_export(*args, **kwargs):
     """
     Calls torch.onnx.export.
 
-    Catches large model export failures caused by a bug in
-    Torch 2.5 and appends a helpful message.
+    1. Makes sure ONNX installed is compatible with AI Hub.
+    2. Makes sure dynamo export is not used by default.
+    3. Catches large model export failures caused by a bug in Torch 2.5.
     """
     try:
+        if "dynamo" not in kwargs:
+            kwargs = {**kwargs, "dynamo": False}
+        verify_onnx_export_is_compatible_with_ai_hub()
         return torch.onnx.export(*args, **kwargs)
     except RuntimeError as e:
         if torch.__version__.startswith(
@@ -107,7 +116,7 @@ def torch_onnx_export_with_large_model_size_check(*args, **kwargs):
         ) and "The serialized model is larger than the 2GiB" in str(e):
             raise ValueError(
                 "Large model export to ONNX is broken in torch 2.5. Install a different torch version and try again."
-            )
+            ) from None
         raise e
 
 
@@ -115,7 +124,8 @@ def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
     """
     Convert args + kwargs to a key / value dictionary.
 
-    Parameters:
+    Parameters
+    ----------
         argnames
             Argument names, in order. Orderd arguments will be mapped to these names.
 
@@ -125,10 +135,12 @@ def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
         kwargs
             Keyword arguments.
 
-    Returns:
+    Returns
+    -------
         Ordered key / value dictionary, in order of "argnames".
 
-    Raises:
+    Raises
+    ------
         ValueError if an input is passed twice or an argname is missing.
     """
     input_dict: dict[str, Any] = dict()
@@ -192,15 +204,14 @@ def _extract_zero_point(initializer: onnx.TensorProto) -> int:
         "INT16": ("<h", 2),
         "INT32": ("<i", 4),
     }
-    for dtype in valid_data_types:
+    for dtype, (sformat, size) in valid_data_types.items():
         if initializer.data_type == onnx.TensorProto.DataType.Value(dtype):
-            format, size = valid_data_types[dtype]
             if len(initializer.int32_data) == 1:
                 return initializer.int32_data[0]
             assert len(initializer.raw_data) == size, (
                 f"Expect raw data to have {size} byte(s)."
             )
-            return struct.unpack(format, initializer.raw_data)[0]
+            return struct.unpack(sformat, initializer.raw_data)[0]
     raise ValueError(
         f"Quantization zero point constant has unknown data type {initializer.data_type}.",
     )
@@ -237,24 +248,24 @@ def extract_io_types_from_onnx_model(
     For a model with quantized IO, return the quantization parameters (scale, offset) for every
     quantized input and output.
 
-    Returns:
+    Returns
+    -------
         dict[name, tuple[shape, dtype, qdq params or None]]
     """
-
     inputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
     outputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
     if isinstance(onnx_model, onnxruntime.InferenceSession):
         # extract from inference session
-        input_names = {input.name for input in onnx_model.get_inputs()}
+        input_names = {i.name for i in onnx_model.get_inputs()}
         output_names = {output.name for output in onnx_model.get_outputs()}
 
         inputs = {
-            input.name: (
-                tuple(input.shape),
-                ORT_TENSOR_STR_TO_NP_TYPE[input.type],
+            i.name: (
+                tuple(i.shape),
+                ORT_TENSOR_STR_TO_NP_TYPE[i.type],
                 None,
             )
-            for input in onnx_model.get_inputs()
+            for i in onnx_model.get_inputs()
         }
         outputs = {
             output.name: (
@@ -266,18 +277,18 @@ def extract_io_types_from_onnx_model(
         }
     else:
         # extract from onnx GraphProto
-        input_names = {input.name for input in onnx_model.graph.input}
+        input_names = {i.name for i in onnx_model.graph.input}
         output_names = {output.name for output in onnx_model.graph.output}
         initializer_indices = {
             init.name: idx for idx, init in enumerate(onnx_model.graph.initializer)
         }
         inputs = {
-            input.name: (
-                tuple(x.dim_value for x in input.type.tensor_type.shape.dim),
-                tensor_dtype_to_np_dtype(input.type.tensor_type.elem_type),
+            i.name: (
+                tuple(x.dim_value for x in i.type.tensor_type.shape.dim),
+                tensor_dtype_to_np_dtype(i.type.tensor_type.elem_type),
                 None,
             )
-            for input in onnx_model.graph.input
+            for i in onnx_model.graph.input
         }
         outputs = {
             output.name: (
@@ -297,7 +308,7 @@ def extract_io_types_from_onnx_model(
                         if dtype in QUANTIZED_IO_TYPES:
                             print(
                                 f"Warning: Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
-                                + " Cannot determine the QDQ parameters for the input."
+                                " Cannot determine the QDQ parameters for the input."
                             )
 
                 for output_name in node.output:
@@ -306,7 +317,7 @@ def extract_io_types_from_onnx_model(
                         if dtype in QUANTIZED_IO_TYPES:
                             print(
                                 f"Warning: Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
-                                + " Cannot determine the QDQ parameters for the output."
+                                " Cannot determine the QDQ parameters for the output."
                             )
 
             if node.op_type == "DequantizeLinear":
@@ -341,3 +352,49 @@ def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto):
     return len(onnx_model.graph.node) <= max_num_nodes and any(
         x.op_type == "EPContext" for x in onnx_model.graph.node
     )
+
+
+ONNX_ENV_CHECKED: bool = False
+ONNX_ENV_ERROR: str | None = None
+ONNX_PACKAGE_NAME = "onnx"
+ONNX_MAX_COMPATIBLE_VERSION = "1.18.0"
+ONNX_MIN_INCOMPATIBLE_VERSION = "1.19.0"
+
+
+def verify_onnx_export_is_compatible_with_ai_hub(
+    pkg_versions: dict[str, str] | None = None,
+):
+    """
+    Throws an exception if onnx:
+        * is not installed
+        * is too new (produces an IR version that AI Hub cannot handle)
+
+    Runs only once then caches the result for this python session.
+    """
+    global ONNX_ENV_CHECKED  # noqa: PLW0603
+    global ONNX_ENV_ERROR  # noqa: PLW0603
+    if not ONNX_ENV_CHECKED:
+        if pkg_versions is None:
+            pkgs = importlib.metadata.distributions()
+            # We use dist.metadata['Name'] here instead of dist.name because
+            # dist.name is not available with python 3.9.
+            pkg_versions = {
+                cast(str, p.metadata["Name"]): p.metadata["Version"] for p in pkgs
+            }
+
+        if ONNX_PACKAGE_NAME not in pkg_versions:
+            ONNX_ENV_ERROR = (
+                "Package 'onnx' is not installed in your python environment."
+            )
+        elif parse_version(pkg_versions[ONNX_PACKAGE_NAME]) >= parse_version(
+            ONNX_MIN_INCOMPATIBLE_VERSION
+        ):
+            ONNX_ENV_ERROR = f"Installed onnx package (onnx=={pkg_versions[ONNX_PACKAGE_NAME]}) is too new for compatibility with AI Hub."
+
+        if ONNX_ENV_ERROR is not None:
+            ONNX_ENV_ERROR = f"{ONNX_ENV_ERROR} Install {ONNX_MAX_COMPATIBLE_VERSION} or earlier:  pip install onnx=={ONNX_MAX_COMPATIBLE_VERSION}"
+        ONNX_ENV_CHECKED = True
+
+    if ONNX_ENV_CHECKED:
+        if ONNX_ENV_ERROR:
+            raise ValueError(ONNX_ENV_ERROR)

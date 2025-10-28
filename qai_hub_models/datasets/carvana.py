@@ -22,9 +22,7 @@ GT_DIR_NAME = "train_masks"
 
 
 class CarvanaDataset(BaseDataset):
-    """
-    Wrapper class around carvana dataset
-    """
+    """Wrapper class around carvana dataset"""
 
     def __init__(
         self,
@@ -45,11 +43,21 @@ class CarvanaDataset(BaseDataset):
         self.input_height = 640
         self.input_width = 1280
 
-    def __getitem__(self, index):
-        """Returns:
-        tuple: (image_tensor, mask_tensor) where:
-            - image_tensor: Normalized image tensor [C, H, W]
-            - mask_tensor: Binary mask tensor [H, W] (0=background, 1=car)
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Get dataset item.
+
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image_tensor
+            Normalized image tensor [C, H, W]
+        mask_tensor
+            Binary mask tensor [H, W] (0=background, 1=car)
         """
         orig_image = Image.open(self.images[index]).convert("RGB")
         image = orig_image.resize((self.input_width, self.input_height), Image.BILINEAR)
@@ -115,9 +123,7 @@ class CarvanaDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

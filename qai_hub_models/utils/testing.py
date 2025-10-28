@@ -12,6 +12,7 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -92,17 +93,18 @@ def assert_most_same(arr1: np.ndarray, arr2: np.ndarray, diff_tol: float) -> Non
 
     Instead of using np.assert_allclose, this may be a better way to test image outputs.
 
-    Parameters:
+    Parameters
+    ----------
         arr1: First input image array.
         arr2: Second input image array.
         diff_tol: Float in range [0,1] representing percentage of values
             that can be different while still having the assertion pass.
 
-    Raises:
+    Raises
+    ------
         AssertionError if input arrays are different size,
             or too many values are different.
     """
-
     different_values = arr1 != arr2
     assert np.mean(different_values) <= diff_tol, (
         f"More than {diff_tol * 100}% of values were different."
@@ -124,7 +126,8 @@ def assert_most_close(
 
     Instead of using np.assert_allclose, this may be a better way to test image outputs.
 
-    Parameters:
+    Parameters
+    ----------
         arr1: First input image array.
         arr2: Second input image array.
         diff_tol: Float in range [0,1] representing percentage of values
@@ -134,11 +137,11 @@ def assert_most_close(
             `absolute(a - b) <= (atol + rtol * absolute(b))`
             Documentation copied from `np.isclose`.
 
-    Raises:
+    Raises
+    ------
         AssertionError if input arrays are different size,
             or too many values are not close.
     """
-
     not_close_values = ~np.isclose(arr1, arr2, atol=atol, rtol=rtol)
     assert np.mean(not_close_values) <= diff_tol, (
         f"More than {diff_tol * 100}% of values were not close."
@@ -183,7 +186,7 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
 
 def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
     psnr_values = []
-    for i, (_, value) in enumerate(df.iterrows()):
+    for _, value in df.iterrows():
         psnr_values.append(value.psnr)
     return psnr_values, tabulate(df, **kwargs)  # pyright: ignore[reportArgumentType]
 
@@ -274,7 +277,11 @@ def get_and_sync_datasets_cache_dir(
 
 
 def mock_get_calibration_data(
-    model: BaseModel, input_spec: InputSpec, num_samples: int
+    model: BaseModel,
+    input_spec: InputSpec,
+    num_samples: int,
+    app: Any = None,
+    collection_model: CollectionModel | None = None,
 ) -> hub.Dataset:
     """
     Gets the calibration data needed to quantize the input model.
@@ -305,7 +312,9 @@ def mock_get_calibration_data(
     dataset_ids = load_yaml(dataset_ids_file)
     if dataset_ids and cache_key in dataset_ids:
         return hub.get_dataset(dataset_ids[cache_key])
-    dataset = get_calibration_data(model, input_spec, num_samples)
+    dataset = get_calibration_data(
+        model, input_spec, num_samples, app=app, collection_model=collection_model
+    )
     hub_dataset = hub.upload_dataset(dataset)
     append_line_to_file(dataset_ids_file, f"{cache_key}: {hub_dataset.dataset_id}")
     return hub_dataset
@@ -521,11 +530,13 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
     Check whether the 'get_unsupported_reason' attribute is defined in the given class
     or any of its parent classes up to (but not including) any class in stop_at_classes.
 
-    Parameters:
+    Parameters
+    ----------
         cls (type): The class to check.
         stop_at_classes (list[type]): A list of classes at which to stop the search in the MRO.
 
-    Returns:
+    Returns
+    -------
         bool: True if 'get_unsupported_reason' is found in cls or one of its parent classes
               before reaching any of the stop_at_classes; False otherwise.
     """
@@ -545,12 +556,13 @@ def _skip_if_unsupported_reason(
     if not has_get_unsupported_reason(model_cls, [BaseModel, BasePrecompiledModel]):
         return
     # check get_unsupported_reason
+    model: BaseModel | BasePrecompiledModel
     if issubclass(model_cls, BaseModel):
         model = model_cls.from_pretrained()
     else:
-        model = model_cls.from_precompiled()  # type: ignore
+        model = model_cls.from_precompiled()
     hub_device = device.execution_device
-    reason = model.get_unsupported_reason(runtime, hub_device)  # type: ignore
+    reason = model.get_unsupported_reason(runtime, hub_device)
     if reason:
         pytest.xfail(reason)
 

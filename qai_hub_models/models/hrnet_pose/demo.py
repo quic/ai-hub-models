@@ -42,7 +42,7 @@ def main(is_test: bool = False):
     image = load_image(args.image)
     print("Model Loaded")
 
-    app = HRNetPoseApp(model)
+    app = HRNetPoseApp(model)  # type: ignore[arg-type]
     keypoints = app.predict_pose_keypoints(image)[0]
     if not is_test:
         display_or_save_image(

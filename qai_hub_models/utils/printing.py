@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from collections import Counter
 from collections.abc import Iterable
 from contextlib import contextmanager, redirect_stdout
@@ -216,9 +217,7 @@ def print_on_target_demo_cmd(
     model_folder: Path,
     device: hub.Device,
 ) -> None:
-    """
-    Outputs a command that will run a model's demo script via inference job.
-    """
+    """Outputs a command that will run a model's demo script via inference job."""
     model_folder = model_folder.resolve()
     if not isinstance(compile_job, Iterable):
         compile_job = [compile_job]
@@ -261,19 +260,20 @@ To fix this, install the variant of MMCV compatible with your torch version:
 ------
 """
     )
-    exit(1)
+    sys.exit(1)
 
 
 def print_file_tree_changes(
     base_dir: str,
     files_unmodified: list[str],
-    files_added: list[str] = [],
-    files_removed: list[str] = [],
+    files_added: list[str] | None = None,
+    files_removed: list[str] | None = None,
 ) -> list[str]:
     """
     Given a set of absolute paths, prints the file tree with modifications highlighted.
 
-    Parameters:
+    Parameters
+    ----------
         base_dir: str
             The "top level" directory in which all files live.
 
@@ -286,14 +286,20 @@ def print_file_tree_changes(
         files_unmodified: list[str]
             ABSOLUTE paths to files in base_dir that will be removed.
 
-    Returns:
+    Returns
+    -------
         list[str]
             Output lines (return value mainly used for unit testing)
 
-    Raises:
+    Raises
+    ------
         AssertionError
             If any file path is not contained within base_dir.
     """
+    if files_removed is None:
+        files_removed = []
+    if files_added is None:
+        files_added = []
     changed = len(files_added) > 0 or len(files_removed) > 0
     outlines = [f"--- File Tree {'Changes' if changed else ' (Unchanged)'} ---"]
 

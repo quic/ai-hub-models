@@ -53,7 +53,8 @@ class ClassificationEvaluator(BaseEvaluator):
 
     def add_batch(self, out: torch.Tensor, gt: torch.Tensor):
         """
-        Args:
+        Parameters
+        ----------
             out: torch.Tensor
                 Transformer embeddings of shape [1, 512], dtype of fp32
 
@@ -76,7 +77,8 @@ class ClassificationEvaluator(BaseEvaluator):
         """
         Undersample data to have samples_per_label samples of each label
 
-        Args:
+        Parameters
+        ----------
             X: list[str]
                 List of samples text
             y: list[int]
@@ -86,7 +88,8 @@ class ClassificationEvaluator(BaseEvaluator):
             idxs: np.ndarray
                 List of indices of the samples to undersample from
 
-        returns:
+        Returns
+        -------
             X_sampled: list[str]
                 List of under_sampled samples text
             y_sampled: list[int]
@@ -98,8 +101,7 @@ class ClassificationEvaluator(BaseEvaluator):
         y_sampled = []
         if idxs is None:
             idxs = np.arange(len(y))
-        np.random.seed(self.seed)
-        np.random.shuffle(idxs)
+        np.random.default_rng(self.seed).shuffle(idxs)
         label_counter: defaultdict[str, int] = defaultdict(int)
         for i in idxs:
             if label_counter[y[i]] < samples_per_label:

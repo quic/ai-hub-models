@@ -9,7 +9,6 @@ from copy import deepcopy
 from typing import Optional
 
 import torch
-import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.gear_guard_evaluator import GearGuardNetEvaluator
@@ -64,7 +63,7 @@ class GearGuardNet(BaseModel):
         return x  # type: ignore[return-value]
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> nn.Module:
+    def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> GearGuardNet:
         """
         Load model from pretrained weights.
 

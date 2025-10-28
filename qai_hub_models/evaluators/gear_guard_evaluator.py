@@ -35,20 +35,19 @@ class GearGuardNetEvaluator(mAPEvaluator):
                 continue
 
             # Collect GT and prediction boxes
-            gt_bb_entry = []
-            for j in range(len(bboxes)):
-                if classes[j] == 0 or classes[j] == 1:
-                    gt_bb_entry.append(
-                        BoundingBox.of_bbox(
-                            image_id,
-                            int(classes[j]),
-                            bboxes[j][0].item(),
-                            bboxes[j][1].item(),
-                            bboxes[j][2].item(),
-                            bboxes[j][3].item(),
-                            1.0,
-                        )
-                    )
+            gt_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    int(classes[j]),
+                    bboxes[j][0].item(),
+                    bboxes[j][1].item(),
+                    bboxes[j][2].item(),
+                    bboxes[j][3].item(),
+                    1.0,
+                )
+                for j in range(len(bboxes))
+                if classes[j] == 0 or classes[j] == 1
+            ]
 
             output_single = [o[i : i + 1].permute(0, 2, 3, 1).detach() for o in output]
             result = postprocess(

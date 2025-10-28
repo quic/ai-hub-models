@@ -19,7 +19,7 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 @skip_clone_repo_check
 def test_task() -> None:
-    input = load_image(
+    image = load_image(
         INPUT_IMAGE_ADDRESS,
     )
     expected_output = load_image(
@@ -27,7 +27,7 @@ def test_task() -> None:
     )
     wrapper = DeepBox.from_pretrained()
     app = DeepBoxApp(wrapper.yolo_2d_det, wrapper.vgg_3d_det)
-    assert np.allclose(np.asarray(app.detect_image(input)), np.asarray(expected_output))
+    assert np.allclose(np.asarray(app.detect_image(image)), np.asarray(expected_output))
 
 
 @skip_clone_repo_check

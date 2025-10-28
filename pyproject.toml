@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 75.8.0"]
+requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -46,12 +46,72 @@ select = [
     "E", # pycodestyle
     "F", # pyflakes (flake8 replacement) rules
     "I", # sort inputs
-    "UP" # pyupgrade replacement rules
+    "UP", # pyupgrade replacement rules
+    "PGH", # disallow naked type: ignore with no reason
+    "T10", # looks for breakpoints
+    "ISC", # Fixes incorrect string concat
+    "INP", # Missing __init__.py
+    "D", # docstring format
+    "NPY", # Numpy rules
+    "PD", # Pandas rules
+    "PERF", # Various minor syntax changes that improve performance
+    "PL", # Pylint rules
+    "YTT", # Linting rules around for comparison of python versions
+    "A",  # disallows variables that mirror builtins
+    "B",  # catches common bugs
 ]
 ignore = [
     "E501", # line too long
     "E741", # Ambiguous variable names
+    ###
+    # Rules that require every function / class / module to have a docstring
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    ###
+    # Rules that are overly picky about docstring verbage / formatting.
+    "D205",
+    "D400",
+    "D401",
+    "D404",
+    "D415",
+    ###
+    "PLR2004", # Magic value for constant
+    "PLC0415", # Import should be at top of file. We can't do this a lot of the time.
+    "PLR0915", # function too long
+    "PLR0913", # too many arguments
+    "PLR0914", # too many locals
+    "PLR0912", # too many branches
+    "PLR0911", # too many returns
+    "PLR0904", # too many public methods
+    "PLR0916", # too many boolean expressions
+    "PLR0917", # too many positional args
+    "PLR1702", # too many nested blocks
+    "PLW2901", # for loop variable overwritten inside loop. This is often seen in model code, so it is disabled.
+    "B019", # functools.cache can lead to memory leaks
 ]
+
+[tool.pydoclint]
+style = 'numpy'
+arg-type-hints-in-docstring = false
+skip-checking-short-docstrings = true
+skip-checking-raises = true
+allow-init-docstring = true
+check-return-types = false
+check-style-mismatch = true
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["INP", "PERF"]
+"qai_hub_models/models/_internal/*" = ["INP", "PL"]
+"qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py" = ["D"] # Transformers does some odd docstring validation that this breaks.
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["torch.device", "os.path.join"]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
@@ -59,16 +119,16 @@ keep-runtime-typing = true
 [tool.ruff.lint.isort]
 known-first-party = ["qai_hub_models"]
 
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
 [tool.mypy]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "torch.*"
-follow_imports = "skip"
+warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models.*"
-disable_error_code = ["type-abstract", "override"]
+disable_error_code = ["type-abstract", "override", "method-assign"]
 check_untyped_defs = true
 
 [tool.pytest.ini_options]
@@ -77,10 +137,7 @@ testpaths = "qai_hub_models"
 norecursedirs = "build"
 python_files = ["tests.py", "test_*.py", "test.py"]
 filterwarnings = [
-    "ignore::DeprecationWarning:torch.*:",
     "ignore::DeprecationWarning:torchvision.*:",
-    "ignore::torch.jit.TracerWarning",
-
 ]
 markers = [
     "slow: marks tests as slow",
@@ -106,6 +163,10 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models.models._shared.llama3.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.qwen2.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
@@ -142,6 +203,10 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models/models/llama_v3_taide_8b_chat.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_1_5b_instruct.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

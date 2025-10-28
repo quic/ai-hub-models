@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-# type: ignore
+
 
 # coding=utf-8
 # Copyright 2022 EleutherAI and the HuggingFace Inc. team. All rights reserved.
@@ -62,9 +62,7 @@ def _make_causal_mask(
     past_key_values_length: int = 0,
     mask_neg: float = -100.0,
 ):
-    """
-    Make causal mask used for bi-directional self-attention.
-    """
+    """Make causal mask used for bi-directional self-attention."""
     bsz, tgt_len = input_ids_shape
     # mask = torch.full((tgt_len, tgt_len), torch.tensor(torch.finfo(dtype).min, device=device), device=device)
     mask = torch.full(
@@ -96,9 +94,7 @@ def _expand_mask(
     mask_neg: float = -100.0,
     tgt_len: Optional[int] = None,
 ):
-    """
-    Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`.
-    """
+    """Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`."""
     bsz, src_len = mask.size()
     tgt_len = tgt_len if tgt_len is not None else src_len
 
@@ -112,9 +108,7 @@ def _expand_mask(
 
 class LlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
-        """
-        LlamaRMSNorm is equivalent to T5LayerNorm
-        """
+        """LlamaRMSNorm is equivalent to T5LayerNorm"""
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
@@ -205,9 +199,7 @@ def apply_rotary_pos_emb_single(x, cos, sin, position_ids):
 
 
 def apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
-    """
-    Based on FacebookResearch's llama, provided by Carl
-    """
+    """Based on FacebookResearch's llama, provided by Carl"""
     rope_real = rope_vals[0]  # shape should be 1, 1, seqlen, head_dim/2
     rope_im = rope_vals[1]  # shape should be 1, 1, seqlen, head_dim/2
 
@@ -665,7 +657,6 @@ class LlamaDecoderLayer(nn.Module):
                 (see `past_key_values`).
             past_key_value (`tuple(torch.FloatTensor)`, *optional*): cached past key and value projection states
         """
-
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
@@ -1079,9 +1070,7 @@ class LlamaModel(LlamaPreTrainedModel):
 
 ### ------- QCOM EDITS STARTS ------- ###
 class CustomLogitWarper(nn.Module):
-    """
-    Customized transformers.TopKLogitsWarper: Temperature + Topk + Softmax
-    """
+    """Customized transformers.TopKLogitsWarper: Temperature + Topk + Softmax"""
 
     def __init__(self, top_k, temperature, filter_value=-float("inf")):
         super().__init__()
@@ -1176,7 +1165,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     ) -> Union[tuple, CausalLMOutputWithPast]:
         r"""
         Args:
-            labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
+            labels: (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
                 Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
                 config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
                 (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
@@ -1184,22 +1173,21 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         Returns:
 
         Example:
-
         ```python
         >>> from transformers import AutoTokenizer, LlamaForCausalLM
 
         >>> model = LlamaForCausalLM.from_pretrained(PATH_TO_CONVERTED_WEIGHTS)
         >>> tokenizer = AutoTokenizer.from_pretrained(PATH_TO_CONVERTED_TOKENIZER)
 
-        >>> prompt = "Hey, are you consciours? Can you talk to me?"
+        >>> prompt = "Hey, are you conscious? Can you talk to me?"
         >>> inputs = tokenizer(prompt, return_tensors="pt")
 
         >>> # Generate
         >>> generate_ids = model.generate(inputs.input_ids, max_length=30)
         >>> tokenizer.batch_decode(generate_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
-        "Hey, are you consciours? Can you talk to me?\nI'm not consciours, but I can talk to you."
-        ```"""
-
+        "Hey, are you conscious? Can you talk to me?\nI'm not conscious, but I can talk to you."
+        ```
+        """
         output_attentions = (
             output_attentions
             if output_attentions is not None

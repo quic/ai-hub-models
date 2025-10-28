@@ -28,7 +28,8 @@ def compute_statistics_jit(
     Compute evaluation statistics (TP, FP, FN, AOS) for a single frame between
     ground truth and detections, following KITTI's evaluation rules.
 
-    Args:
+    Parameters
+    ----------
         overlaps (np.ndarray):
             IoU matrix of shape [num_dets, num_gts] between detections and ground truths.
         gt_datas (np.ndarray):
@@ -46,7 +47,8 @@ def compute_statistics_jit(
         thresh (float): Score threshold to filter detections.
         compute_fp (bool): Whether to compute false positives and AOS (True for final eval).
 
-    Returns:
+    Returns
+    -------
         tp (int): Number of true positives.
         fp (int): Number of false positives.
         fn (int): Number of false negatives.
@@ -175,12 +177,14 @@ def _prepare_data(
     """
     Prepares data for KITTI evaluation by filtering, packing and summarizing GT and DT annotations.
 
-    Args:
+    Parameters
+    ----------
         gt_annos (list[dict]): list of GT annotations.
         dt_annos (list[dict]): list of DT annotations.
         difficulty (int): Difficulty level.
 
-    Returns:
+    Returns
+    -------
         gt_datas_list (list[np.ndarray]):
             List of concatenated GT bboxes and alpha, each element of shape (N_i, 5).
         dt_datas_list (list[np.ndarray]):
@@ -191,7 +195,6 @@ def _prepare_data(
         total_dc_num (np.ndarray): Count of don't-care objects per frame, of shape (num_frames,).
         total_num_valid_gt (int): Total number of valid GTs across all frames.
     """
-
     MIN_HEIGHT = [40, 25, 25]
     MAX_OCCLUSION = [0, 1, 2]
     MAX_TRUNCATION = [0.15, 0.3, 0.5]
@@ -275,12 +278,14 @@ def get_thresholds(
     """
     Computes confidence thresholds based on score distribution for recall interpolation.
 
-    Args:
+    Parameters
+    ----------
         scores (np.ndarray): Detection scores, of shape (N,).
         num_gt (int): Number of valid GT objects.
         num_sample_pts (int): Number of precision samples.
 
-    Returns:
+    Returns
+    -------
         list[float]: list of score thresholds.
     """
     scores = np.sort(scores)[::-1]
@@ -305,7 +310,8 @@ def eval_class(
     """
     Perform KITTI-style evaluation for the 'Car' class.
 
-    Args:
+    Parameters
+    ----------
         gt_annos (list[dict]):
             List of ground truth annotations per sample (frame). Each dict has keys like:
                 'bbox' (np.ndarray),
@@ -329,7 +335,8 @@ def eval_class(
         z_axis (int): Axis representing height (default is 1 for KITTI).
         num_parts (int): Number of chunks to split data for large eval sets.
 
-    Returns:
+    Returns
+    -------
         bbox (np.ndarray):
             Average precision (AP) for 'Car' class based on 2D bounding box IoU,
             with shape of (len(difficultys),).
@@ -472,10 +479,12 @@ def get_mAP(prec: np.ndarray) -> np.ndarray:
     """
     Computes mean average precision (mAP) using 11-point interpolation.
 
-    Args:
+    Parameters
+    ----------
         prec (np.ndarray): Interpolated precision values, with shape (num_difficulties, num_sample_pts).
 
-    Returns:
+    Returns
+    -------
         np.ndarray: mAP score for each difficulty level, of shape (num_difficulties,).
     """
     sums = np.array([0.0] * prec.shape[0])

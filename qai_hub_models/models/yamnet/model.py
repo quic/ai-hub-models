@@ -31,9 +31,7 @@ MELS_AUDIO_LEN = 96
 
 
 class YamNet(BaseModel):
-    """
-    Defines the YAMNet waveform-to-class-scores model.
-    """
+    """Defines the YAMNet waveform-to-class-scores model."""
 
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> YamNet:
@@ -44,10 +42,12 @@ class YamNet(BaseModel):
         """
         Run Yamnet  on audio, and produce class probabilities
 
-            Parameters:
+        Parameters
+        ----------
                 input: preprocessed 1x1x96x64 tensor(log mel spectrogram patches of a 1-D waveform)
 
-            Returns:
+        Returns
+        -------
                 Scores is a matrix of (time_frames, num_classes) classifier scores
                 class_scores: Shape (1,521)
         """

@@ -9,7 +9,7 @@ from xtcocotools.coco import COCO
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_image
-from qai_hub_models.utils.image_processing import resize_pad
+from qai_hub_models.utils.image_processing import numpy_image_to_torch, resize_pad
 from qai_hub_models.utils.printing import suppress_stdout
 
 PPE_FOLDER_NAME = "ppe"
@@ -96,28 +96,49 @@ class PPEDataset(BaseDataset):
                     )
         return bbox_db
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[
+        torch.Tensor, tuple[int, int, torch.Tensor, float, torch.Tensor, torch.Tensor]
+    ]:
         """
         Returns a tuple of input image tensor and label data.
 
-        label data is a List with the following entries:
-            - imageId (int): The ID of the image.
-            - category_id (int) : the category ID
-            - padding (torch.Tensor): Padding values applied during resizing
-            - scale (torch.Tensor): Scaling factor applied to the image
-            - bbox (torch.Tensor): Coordinates of the object bounding box
-            - person_bbox (torch.Tensor): Coordinates of the person bounding box
-        """
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
 
-        (file_name, image_id, category_id, bbox, person_bbox) = self.bbox_db[idx]
+        Returns
+        -------
+        input_image
+            NCHW, channel layout RGB, range [0-1] network input image.
+            Height and width will conform to self.input_height and self.input_width
+
+        gt_data
+            imageId
+                The ID of the image.
+            category_id
+                The category ID
+            padding
+                Padding values applied during resizing
+            scale
+                Scaling factor applied to the image
+            bbox
+                Coordinates of the object bounding box
+            person_bbox
+                Coordinates of the person bounding box
+        """
+        (file_name, image_id, category_id, bbox, person_bbox) = self.bbox_db[index]
 
         img_path = self.image_dir / file_name
 
         img = np.array(load_image(img_path))
         px1, py1, px2, py2 = map(int, person_bbox.tolist())
         img = img[py1:py2, px1:px2]
-        img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze_(0) / 255.0
-        image, scale, padding = resize_pad(img, (self.input_height, self.input_width))
+        image, scale, padding = resize_pad(
+            numpy_image_to_torch(img), (self.input_height, self.input_width)
+        )
         image = image.squeeze(0)
         return image, (
             image_id,

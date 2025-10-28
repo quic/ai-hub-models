@@ -50,8 +50,9 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
         cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
-        the onnx model"""
-        model.get_time_embed = get_timestep_embedding  # type: ignore[assignment, attr-defined]
+        the onnx model
+        """
+        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -97,7 +98,7 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
                     controlnet_downblock11,
                 )
 
-                return self.model(  # type: ignore
+                return self.model(  # type: ignore[operator]
                     latent,
                     timestep,
                     text_emb,
@@ -249,7 +250,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
         cls, model: ControlNetModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         class ControlNetWrapper(torch.nn.Module):
-            """Just to unpack the output dict with key "sample" """
+            """Just to unpack the output dict with key "sample"."""
 
             def __init__(self, model: ControlNetModel):
                 super().__init__()
@@ -257,7 +258,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, latent, timestep, text_emb, image_cond):
-                down_block_res_samples, mid_block_res_sample = self.model(  # type: ignore
+                down_block_res_samples, mid_block_res_sample = self.model(  # type: ignore[operator]
                     latent,
                     # model expects timestep without batch dim
                     timestep.squeeze(0),

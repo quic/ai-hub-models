@@ -47,11 +47,13 @@ class NomicEmbedTextApp:
         """
         Predicts embeddings from text.
 
-        Parameters:
+        Parameters
+        ----------
             text: str
                 Text from which embeddings should be generated.
 
-        Returns:
+        Returns
+        -------
             token_embeddings: torch.Tensor
                 The generated transformer embeddings of shape [1, 512], dtype of fp32
         """

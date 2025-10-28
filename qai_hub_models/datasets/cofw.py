@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 from hdf5storage import loadmat
+from numpy.typing import NDArray
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
@@ -56,19 +58,32 @@ class COFWDataset(BaseDataset):
     def __len__(self) -> int:
         return len(self.images)
 
-    def __getitem__(self, idx: int):
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[
+        torch.Tensor,
+        tuple[NDArray[np.float32], NDArray[np.float32], NDArray[np.float32]],
+    ]:
         """
         Retrieve a preprocessed image and ground truth at index.
 
-        Args:
-            idx (int): Index of the dataset item.
+        Parameters
+        ----------
+        idx
+            Index of the dataset item.
 
-        Returns:
-            tuple: (image_tensor, (center, scale, pts)) where:
-                - image_tensor (torch.Tensor): Preprocessed image (3, 256, 256, float32) via affine warping.
-                - center (np.ndarray): Bounding box center (x, y).
-                - scale (np.ndarray): Bounding box scale (w, h).
-                - pts (np.ndarray): Landmarks (29, 2) as (x, y).
+        Returns
+        -------
+        image
+            Input image resized for the network. RGB, floating point range [0-1].
+
+        ground_truth
+            center
+                Bounding box center (x, y).
+            scale
+                Bounding box scale (w, h).
+            pts
+                Landmarks (29, 2) as (x, y).
         """
         # Load image
         img = self.images[idx][0]
@@ -93,9 +108,7 @@ class COFWDataset(BaseDataset):
         return image_tensor, (center, scale, pts)
 
     def _validate_data(self) -> bool:
-        """
-        Validate dataset by checking if the dataset directory and .mat file exist.
-        """
+        """Validate dataset by checking if the dataset directory and .mat file exist."""
         return self.dataset_path.exists()
 
     def _download_data(self) -> None:
@@ -103,9 +116,7 @@ class COFWDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 507
 
     @staticmethod
@@ -113,8 +124,10 @@ class COFWDataset(BaseDataset):
         """
         Return metadata for the COFW dataset.
 
-        Returns:
-            DatasetMetadata: Contains dataset URL and split description (train or test).
+        Returns
+        -------
+        DatasetMetadata
+            Contains dataset URL and split description (train or test).
         """
         return DatasetMetadata(
             link="https://1drv.ms/u/s!AiWjZ1LamlxzdmYbSkHpPYhI8Ms",

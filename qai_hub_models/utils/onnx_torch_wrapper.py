@@ -35,26 +35,28 @@ ONNXRUNTIME_QNN_ERROR: ValueError | None = None
 
 
 def _hash_dataclass(
-    cls: object, ignore_fields: list[str] = [], hash: hashlib._Hash | None = None
+    cls: object,
+    ignore_fields: list[str] | None = None,
+    hasher: hashlib._Hash | None = None,
 ) -> hashlib._Hash:
-    hash = hash or hashlib.md5()
+    hasher = hasher or hashlib.md5()
     for field in dataclasses.fields(cls):  # type: ignore[arg-type]
-        if field.name in ignore_fields:
+        if field.name in (ignore_fields or []):
             continue
-        hash.update(
+        hasher.update(
             bytes(f"{field.name}: {str(getattr(cls, field.name))}", encoding="utf-8")
         )
-    return hash
+    return hasher
 
 
 def _hash_file(
-    path: Path | os.PathLike | str, hash: hashlib._Hash | None = None
+    path: Path | os.PathLike | str, hasher: hashlib._Hash | None = None
 ) -> hashlib._Hash:
-    hash = hash or hashlib.md5()
+    hasher = hasher or hashlib.md5()
     with open(path, "rb") as f:
         while chunk := f.read(8192):
-            hash.update(chunk)
-    return hash
+            hasher.update(chunk)
+    return hasher
 
 
 def _verify_onnxruntime_qnn_installed() -> None:
@@ -65,8 +67,8 @@ def _verify_onnxruntime_qnn_installed() -> None:
 
     Runs only once then caches the result for this python session.
     """
-    global ONNXRUNTIME_ENV_CHECKED
-    global ONNXRUNTIME_QNN_ERROR
+    global ONNXRUNTIME_ENV_CHECKED  # noqa: PLW0603
+    global ONNXRUNTIME_QNN_ERROR  # noqa: PLW0603
     if ONNXRUNTIME_ENV_CHECKED:
         if ONNXRUNTIME_QNN_ERROR:
             raise ONNXRUNTIME_QNN_ERROR
@@ -139,7 +141,8 @@ def extract_onnx_zip(
     Extract the zip file at the given path and returns the paths
     where the `model.onnx` and `model.data` files can be found.
 
-    Parameters:
+    Parameters
+    ----------
         path:
             a folder to validate or zip file to unzip.
             The zip should have been created by AI Hub, or the
@@ -153,7 +156,8 @@ def extract_onnx_zip(
         validate:
             If True, raises an error if the .onnx file can't be found.
 
-    Returns:
+    Returns
+    -------
         tuple(
             model path (always exists if validate_exists is true)
             model weights path (may not exist, even if validate_exists is true)
@@ -181,9 +185,7 @@ def extract_onnx_zip(
 
 @dataclass()
 class OnnxSessionOptions:
-    """
-    ONNX Runtime session level options.
-    """
+    """ONNX Runtime session level options."""
 
     enable_mem_pattern: bool = True
     enable_cpu_mem_arena: bool = True
@@ -290,9 +292,11 @@ class OnnxSessionOptions:
             "disable_cpu_ep_fallback",
         ]
 
-    def session_context_hash(self, hash: hashlib._Hash | None = None) -> hashlib._Hash:
+    def session_context_hash(
+        self, hasher: hashlib._Hash | None = None
+    ) -> hashlib._Hash:
         """Get a hash that can be used to identify a session context that was compiled with these options applied."""
-        return _hash_dataclass(self, self.session_context_agnostic_fields, hash)
+        return _hash_dataclass(self, self.session_context_agnostic_fields, hasher)
 
 
 @dataclass
@@ -337,9 +341,11 @@ class ExecutionProviderOptions:
         """Fields that don't change a session's compiled context."""
         return []
 
-    def session_context_hash(self, hash: hashlib._Hash | None = None) -> hashlib._Hash:
+    def session_context_hash(
+        self, hasher: hashlib._Hash | None = None
+    ) -> hashlib._Hash:
         """Get a hash that can be used to identify a session context that was compiled with these options applied."""
-        return _hash_dataclass(self, self.session_context_agnostic_fields, hash)
+        return _hash_dataclass(self, self.session_context_agnostic_fields, hasher)
 
 
 @dataclass
@@ -442,14 +448,14 @@ class QNNExecutionProviderOptions(ExecutionProviderOptions):
 
     @property
     def provider_options_dict(self) -> dict[str, str]:
-        dict = super().provider_options_dict
+        provider_options_dict = super().provider_options_dict
 
         # The superclass ignores default values.
         # backend_pack must always be specified
-        if "backend_path" not in dict:
-            dict["backend_path"] = str(self.backend_path)
+        if "backend_path" not in provider_options_dict:
+            provider_options_dict["backend_path"] = str(self.backend_path)
 
-        return dict
+        return provider_options_dict
 
     @classmethod
     def aihub_defaults(cls) -> QNNExecutionProviderOptions:
@@ -542,7 +548,8 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
             **kwargs
                 Keyword inputs of any type that can be converted to a numpy array.
 
-        Returns:
+        Returns
+        -------
             Model output in default order defined by the ONNX model.
             If the model has 1 output, it will be returned as a Tensor. Otherwise this returns a tuple of Tensors.
         """
@@ -560,7 +567,8 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
             **kwargs
                 Keyword inputs of any type that can be converted to a numpy array.
 
-        Returns:
+        Returns
+        -------
             Model output in default order defined by the ONNX model.
             If the model has 1 output, it will be returned as a Tensor. Otherwise this returns a tuple of Tensors.
         """
@@ -573,11 +581,13 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
         """
         Run the model (equivalent to onnx.InferenceSession.run) with the given inputs.
 
-        Parameters:
+        Parameters
+        ----------
             inputs
                 Network inputs. Values can be any type that can be converted to a numpy array.
 
-        Returns:
+        Returns
+        -------
             Network outputs in default order defined by the ONNX model.
         """
         session_inputs = self._prepare_inputs(inputs)
@@ -593,14 +603,17 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
                 - qdq parameters are defined in self.inputs
                 - self.quantize_io is true
 
-        Parameters:
+        Parameters
+        ----------
             inputs
                 Network inputs.
 
-        Returns:
+        Returns
+        -------
             Network inputs compatible with the input dtypes defined by the model.
 
-        Raises:
+        Raises
+        ------
             ValueError if:
                 - "inputs" contains input names that aren't defined by the model.
                 - An input's dtype is not compatible with the input dtype defined by the model.
@@ -659,14 +672,17 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
                 - qdq parameters are defined in self.outputs
                 - self.quantize_io is true
 
-        Parameters:
+        Parameters
+        ----------
             outputs
                 Network outputs.
 
-        Returns:
+        Returns
+        -------
             Processed network outputs.
 
-        Raises:
+        Raises
+        ------
             ValueError if "outputs" contains a different number of outputs than defined by the ONNX model.
         """
         if len(outputs) != len(self.outputs):

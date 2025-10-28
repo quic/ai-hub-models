@@ -52,6 +52,7 @@ class ResultsSpreadsheet(list):
         known_failure_reasons: ModelDisableReasonsMapping
         public_status: str
         is_pytorch: bool
+        default_quantized_precision: Precision | None
 
     @dataclass
     class Entry:
@@ -160,6 +161,11 @@ class ResultsSpreadsheet(list):
                         return ""
                     metadata = self._model_metadata[model_id]
                     tags = [x.name for x in metadata.tags]
+                    if (
+                        metadata.default_quantized_precision is not None
+                        and metadata.default_quantized_precision == entry.precision
+                    ):
+                        tags.append("default_quantized")
                     tags.append(metadata.public_status)
                     tags.append("pytorch" if metadata.is_pytorch else "static")
                     return ", ".join(tags)
@@ -228,10 +234,17 @@ class ResultsSpreadsheet(list):
         tags: list[MODEL_TAG],
         public_status: str,
         is_pytorch: bool,
-        known_failure_reasons: ModelDisableReasonsMapping = ModelDisableReasonsMapping(),
+        default_quantized_precision: Precision | None,
+        known_failure_reasons: ModelDisableReasonsMapping | None = None,
     ):
         self._model_metadata[model_id] = ResultsSpreadsheet.ModelMetadata(
-            domain, use_case, tags, known_failure_reasons, public_status, is_pytorch
+            domain,
+            use_case,
+            tags,
+            known_failure_reasons or ModelDisableReasonsMapping(),
+            public_status,
+            is_pytorch,
+            default_quantized_precision,
         )
 
     def set_date(self, date: datetime | None):

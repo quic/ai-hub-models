@@ -91,9 +91,9 @@ def get_split_tensors(
 
     def maybe_skip_cast(a: str) -> str:
         if nodes[a].op_type == "Cast":
-            input = producers[nodes[a].input[0]]
-            assert input is not None
-            return input
+            inp = producers[nodes[a].input[0]]
+            assert inp is not None
+            return inp
         else:
             return a
 
@@ -168,8 +168,10 @@ def get_split_tensors(
 def _load_model(
     onnxfile: PathLike,
     load_external_data=False,
-    model_cache: dict[str, onnx.ModelProto] = {},
+    model_cache: dict[str, onnx.ModelProto] = None,
 ) -> onnx.ModelProto:
+    if model_cache is None:
+        model_cache = {}
     cache_key = str(onnxfile)
     if onnxfile not in model_cache:
         model_cache[cache_key] = onnx.load(
@@ -179,15 +181,15 @@ def _load_model(
 
 
 def _load_encoding(encodingfile: Optional[PathLike], no_merge: bool = False) -> Any:
-    all = {}
+    all_encodings = {}
     if encodingfile is not None:
         with open(encodingfile) as json_file:
             quant_encoding_dict = json.load(json_file)
         if no_merge:
             return quant_encoding_dict
-        all.update(quant_encoding_dict["activation_encodings"])
-        all.update(quant_encoding_dict["param_encodings"])
-    return all
+        all_encodings.update(quant_encoding_dict["activation_encodings"])
+        all_encodings.update(quant_encoding_dict["param_encodings"])
+    return all_encodings
 
 
 def _save_encoding(encodings: Any, encodingfile: PathLike) -> None:
@@ -323,7 +325,7 @@ def split_onnx_by_names(
 
 
 def _get_lm_head_sizes(onnxmodel: onnx.ModelProto) -> tuple[int, int]:
-    "Get dimensions of the LM head : embedding_size, vocab_size"
+    """Get dimensions of the LM head : embedding_size, vocab_size"""
     lm_head_weight_name = next(
         node.input[1]
         for node in reversed(onnxmodel.graph.node)
@@ -421,9 +423,7 @@ def split_onnx(
 
     # Infer the shape of per-layer tensors
     (input_tokens,) = (
-        i
-        for i in onnxmodel.graph.input
-        if i.name == "input_ids" or i.name == "inputs_embeds"
+        i for i in onnxmodel.graph.input if i.name in {"input_ids", "inputs_embeds"}
     )
     input_tokens_shape = tuple(
         i.dim_value for i in input_tokens.type.tensor_type.shape.dim

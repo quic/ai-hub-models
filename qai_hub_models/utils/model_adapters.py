@@ -30,7 +30,6 @@ def suppress_warnings():
     This is helpful to supress warning when one loads part of the model and
     sub-module throws warning which should be ignored for clean UX.
     """
-
     old_level = logging.root.manager.disable
     logging.disable(logging.WARNING)
     try:
@@ -45,7 +44,8 @@ class Conv2dLinear(torch.nn.Module):
     This allows the linear transformation to be applied to the channel dimension
     at each spatial location in the input tensor.
 
-    Args:
+    Parameters
+    ----------
         linear (nn.Linear): The original linear layer to be converted.
     """
 
@@ -75,10 +75,12 @@ class Conv2dLinear(torch.nn.Module):
         """
         Forward-pass routine for the Conv2D layer.
 
-        Args:
+        Parameters
+        ----------
             x (torch.Tensor): The input tensor in NCHW format.
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: The output tensor after applying the Conv2D transformation.
         """
         return self.conv(x)

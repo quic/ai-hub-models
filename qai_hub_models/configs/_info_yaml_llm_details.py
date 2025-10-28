@@ -25,17 +25,13 @@ class LLM_CALL_TO_ACTION(Enum):
 
 
 class LLMDeviceRuntimeDetails(BaseQAIHMConfig):
-    """
-    LLM details for a specific device+runtime combo.
-    """
+    """LLM details for a specific device+runtime combo."""
 
     model_download_url: str
 
 
 class LLMDetails(BaseQAIHMConfig):
-    """
-    LLM details included in model info.yaml.
-    """
+    """LLM details included in model info.yaml."""
 
     call_to_action: LLM_CALL_TO_ACTION
     genie_compatible: bool = False
@@ -68,7 +64,7 @@ class LLMDetails(BaseQAIHMConfig):
                 k: v for k, v in val_dict.items() if k not in dict_to_parse
             }
 
-        return super().__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @model_validator(mode="after")
     def check_fields(self) -> LLMDetails:

@@ -34,12 +34,14 @@ class SINetApp:
         """
         From the provided image or tensor, segment the image
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format of size 224x224.
             raw_output: if True, output returned is the raw class predictions per pixel
             show_face: if True, image output returned is the background
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 masks: np.ndarray
                     a tuple of arrays 1x2xHxW of mask predictions per pixel as 0 or 1
@@ -48,7 +50,6 @@ class SINetApp:
                 segmented_images: list[PIL.Image]
                     Image of face segmented out or background segmented out
         """
-
         input_tensor = transforms.ToTensor()(image).unsqueeze(0)
         output = self.model(input_tensor)
 

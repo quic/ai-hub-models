@@ -38,7 +38,6 @@ class Real_ESRGAN_General_x4v3(SuperResolutionModel):
         weight_path: str = DEFAULT_WEIGHTS,
     ) -> Real_ESRGAN_General_x4v3:
         """Load Real_ESRGAN_General_x4v3 from a weightfile created by the source RealESRGAN repository."""
-
         # Load PyTorch model from disk
         realesrgan_model = _load_realesrgan_source_model_from_weights(weight_path)
 
@@ -103,7 +102,7 @@ def _load_realesrgan_source_model_from_weights(
                     torchvision.transforms.functional
                 )
             # ----
-            import realesrgan.archs.srvgg_arch as srvgg_arch
+            from realesrgan.archs import srvgg_arch
         else:
             srvgg_arch = sys.modules["basicsr.archs.srvgg_arch"]
 

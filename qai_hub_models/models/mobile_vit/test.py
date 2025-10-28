@@ -38,7 +38,8 @@ def run_classifier_test(
     """
     Evaluates the classifier on a test image and validates the output.
 
-    Parameters:
+    Parameters
+    ----------
         model: The model to evaluate.
         model_name: Identifier used to lookup the expected output file.
         asset_version: Version of the expected output file to lookup.
@@ -50,7 +51,6 @@ def run_classifier_test(
         atol: Absolute tolerance allowed for two numbers to be "close".
         rtol: Relative tolerance allowed for two numbers to be "close".
     """
-
     img = load_image(TEST_IMAGE)
     app = MobileVITApp(model)
     probabilities = app.predict(img)

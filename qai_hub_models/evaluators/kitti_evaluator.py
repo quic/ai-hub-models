@@ -31,7 +31,7 @@ class KittiEvaluator(BaseEvaluator):
                 torch.Tensor,
                 int,
             ],
-            torch.tensor,
+            torch.Tensor,
         ],
         max_dets: int = 100,
         peak_thresh: float = 0.2,
@@ -66,7 +66,7 @@ class KittiEvaluator(BaseEvaluator):
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ):
         """
-        output : tuple of following tensor
+        Output : tuple of following tensor
             hm (torch.Tensor): Heatmap with the shape of
                 [B, num_classes, H//4, W//4].
             dep (torch.Tensor): depth value with the
@@ -91,10 +91,9 @@ class KittiEvaluator(BaseEvaluator):
         """
         hm, dep, rot, dim, wh, reg = output
         img_id, c, s, calib = gt
-        dets = self.decode(hm, rot, dep, dim, wh, reg, self.max_dets)
-        dets = dets.detach().numpy()
+        dets_arr = self.decode(hm, rot, dep, dim, wh, reg, self.max_dets).numpy()
         dets = ddd_post_process(
-            dets,
+            dets_arr,
             list(np.array(c)),
             list(np.array(s)),
             (int(hm.shape[2]), int(hm.shape[3])),

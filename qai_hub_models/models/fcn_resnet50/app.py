@@ -23,10 +23,12 @@ def preprocess_image(image: Image) -> torch.Tensor:
     as prescribed here:
     https://pytorch.org/hub/pytorch_vision_resnet/
 
-    Parameters:
+    Parameters
+    ----------
         image: Input image to be run through the classifier model.
 
-    Returns:
+    Returns
+    -------
         torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = transforms.ToTensor()(image)
@@ -51,10 +53,12 @@ class FCN_ResNet50App:
         """
         From the provided image or tensor, segment the image
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 masks: np.ndarray
                     A list of predicted masks.
@@ -63,7 +67,6 @@ class FCN_ResNet50App:
                 segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
-
         input_tensor = preprocess_image(image)
         output = self.model(input_tensor)
         output = output[0]

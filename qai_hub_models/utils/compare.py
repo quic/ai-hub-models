@@ -64,14 +64,16 @@ def torch_inference(
     """
     Performs inference on a torch model given a set of sample inputs.
 
-    Parameters:
+    Parameters
+    ----------
         model: The torch model.
         sample_inputs: Map from input name to list of values for that input.
         return_channel_last_output: If set, will transpose outputs to channel last
             format. Will only transpose the outputs specified by
             `model.get_channel_last_outputs()`.
 
-    Returns:
+    Returns
+    -------
         List of numpy array outputs,
     """
     numpy_outputs = _torch_inference_impl(model, sample_inputs)
@@ -130,17 +132,13 @@ def compare_psnr(
     eps: float = 1e-5,
     eps2: float = 1e-10,
 ) -> None:
-    """
-    Raises an error if the PSNR between two tensors is above a threshold.
-    """
+    """Raises an error if the PSNR between two tensors is above a threshold."""
     psnr = compute_psnr(output_a, output_b, eps, eps2)
     assert psnr > psnr_threshold
 
 
 def compute_top_k_accuracy(expected, actual, k):
-    """
-    expected, actual: logit / softmax prediction of the same 1D shape.
-    """
+    """expected, actual: logit / softmax prediction of the same 1D shape."""
     top_k_expected = np.argpartition(expected.flatten(), -k)[-k:]
     top_k_actual = np.argpartition(actual.flatten(), -k)[-k:]
 
@@ -177,12 +175,14 @@ def generate_comparison_metrics(
     Compares the outputs of a model run in two different ways.
     For example, expected might be run on local cpu and actual run on device.
 
-    Parameters:
+    Parameters
+    ----------
         expected: List of numpy array outputs computed from a ground truth model.
         actual: List of numpy array outputs computed from an experimental model.
         metrics: comma-separated metrics names, e.g., "psnr,top1,top5"
 
-    Returns:
+    Returns
+    -------
         DataFrame with range index (0, 1, 2...) and shape,  metrics as columns
         (e.g., shape | psnr | top1 | top5.
     """

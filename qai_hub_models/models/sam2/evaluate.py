@@ -29,6 +29,12 @@ def main():
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
+        Precision.w8a8: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
     }
 
     parser = evaluate_parser(
@@ -72,6 +78,7 @@ def main():
         args.seed,
         args.profile_options,
         args.use_dataset_cache,
+        compute_quant_cpu_accuracy=args.compute_quant_cpu_accuracy,
         skip_device_accuracy=args.skip_device_accuracy,
         skip_torch_accuracy=args.skip_torch_accuracy,
     )

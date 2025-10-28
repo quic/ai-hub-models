@@ -29,9 +29,7 @@ class DynamicMockModule(types.ModuleType):
 
 @pytest.fixture(autouse=True, scope="function")
 def mock_imports(monkeypatch):
-    """
-    Mock imports of custom packages needed for some models.
-    """
+    """Mock imports of custom packages needed for some models."""
     # monkeypatch.setattr("qai_hub_models.utils.quantization_aimet_onnx", "ensure_min_aimet_onnx_version", MagicMock(return_value=True))
     for module_name in [
         "sounddevice",

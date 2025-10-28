@@ -67,18 +67,24 @@ def reset_hub_frameworks_patches(
 
 
 def test_precision_has_float():
+    assert not Precision.float.has_quantized_activations
     assert Precision.float.has_float_activations
     assert Precision.float.has_float_weights
+    assert Precision.w8a8.has_quantized_activations
     assert not Precision.w8a8.has_float_activations
     assert not Precision.w8a8.has_float_weights
+    assert Precision.w8a8_mixed_int16.has_quantized_activations
     assert not Precision.w8a8_mixed_int16.has_float_activations
     assert not Precision.w8a8_mixed_int16.has_float_weights
+    assert Precision.w8a16_mixed_int16.has_quantized_activations
     assert not Precision.w8a16_mixed_int16.has_float_activations
     assert not Precision.w8a16_mixed_int16.has_float_weights
     assert Precision.w8a8_mixed_fp16.has_float_weights
     assert Precision.w8a8_mixed_fp16.has_float_activations
+    assert Precision.w8a8_mixed_fp16.has_quantized_activations
     assert Precision.w8a16_mixed_fp16.has_float_weights
     assert Precision.w8a16_mixed_fp16.has_float_activations
+    assert Precision.w8a16_mixed_fp16.has_quantized_activations
 
 
 def test_precision_eq():
@@ -262,7 +268,7 @@ def test_qairt_version():
     # Verify "too old" QAIHM default behavior
     with reset_hub_frameworks_patches(frameworks, "2.30"):
         with pytest.raises(ValueError):
-            global_default_runtime.default_qairt_version
+            global_default_runtime.default_qairt_version  # noqa: B018
 
         # fallback is to the Hub default since the QAIHM default is not available
         default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)

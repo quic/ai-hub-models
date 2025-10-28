@@ -19,10 +19,6 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-OPENPOSE_SOURCE_REPOSITORY = (
-    "https://huggingface.co/patrickvonplaten/wavlm-libri-clean-100h-base-plus/tree/main"
-)
-OPENPOSE_SOURCE_REPO_COMMIT = "02c289c4471cd1ba4b0ff3e7c304afe395c5026a"
 DEFAULT_WEIGHTS = "patrickvonplaten/wavlm-libri-clean-100h-base-plus"
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -38,15 +34,11 @@ SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
 class HuggingFaceWavLMBasePlus(BaseModel):
     """Exportable Voice Recognition model"""
 
-    def __init__(
-        self, wavlm_model: torch.nn.Module, apply_npu_opt: bool = False
-    ) -> None:
-        super().__init__()
-
+    def __init__(self, wavlm_model: WavLMForCTC, apply_npu_opt: bool = False) -> None:
         if apply_npu_opt:
             wavlm_model = convert_to_wavlm_npu(wavlm_model)
-
-        self.model = wavlm_model
+        super().__init__(wavlm_model)
+        self.model: WavLMForCTC
 
     @classmethod
     def from_pretrained(
@@ -60,19 +52,21 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
         return cls(model, apply_npu_opt)
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Run WAvLM on `input`, and produce feature vector
+        Run WAvLM on `x`, and produce feature vector
 
-        Parameters:
-            input: 1x320000 tensor
+        Parameters
+        ----------
+            x: 1x320000 tensor
                    20 seconds of audio sampled at 16kHz
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: Logits tensor of shape (1, sequence_length, vocab_size)
             Where sequence_length = 499 , vocab_size = 31 , representing the predicted token probabilities
         """
-        return self.model(input)
+        return self.model(x)
 
     @staticmethod
     def get_input_spec(
@@ -198,9 +192,7 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
 
 
 def convert_to_wavlm_npu(model: WavLMForCTC):
-    """
-    Apply changes to make model NPU friendly
-    """
+    """Apply changes to make model NPU friendly"""
     assert isinstance(model, WavLMForCTC)
     conv_layer = model.wavlm.feature_extractor.conv_layers[0]
     assert isinstance(conv_layer, WavLMGroupNormConvLayer)

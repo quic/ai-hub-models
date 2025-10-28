@@ -34,9 +34,7 @@ WEBSITE_CHIPSET_ORDER = [
 
 
 def sorted_chipsets(chips: set[str]) -> list[str]:
-    """
-    Sort the set of chipsets in order they should show up on the website.
-    """
+    """Sort the set of chipsets in order they should show up on the website."""
     chips = set(chips)
 
     out = []

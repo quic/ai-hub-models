@@ -24,7 +24,9 @@ class BBox:
     ):
         """
         A bounding box plus landmarks structure to hold the hierarchical result.
-        parameters:
+
+        Parameters
+        ----------
             label:str the class label
             xyrb: 4 list for bbox left, top,  right bottom coordinates
             score:the score of the deteciton
@@ -50,7 +52,7 @@ class BBox:
         )
         return (
             f"(BBox[{self.label}]: x={self.x:.2f}, y={self.y:.2f}, r={self.r:.2f}, "
-            + f"b={self.b:.2f}, width={self.width:.2f}, height={self.height:.2f}, landmark={landmark_formated})"
+            f"b={self.b:.2f}, width={self.width:.2f}, height={self.height:.2f}, landmark={landmark_formated})"
         )
 
     @property
@@ -80,7 +82,7 @@ class BBox:
 
 def nms(objs: list[BBox], iou: float = 0.5) -> list[BBox]:
     """
-    nms function customized to work on the BBox objects list.
+    Nms function customized to work on the BBox objects list.
     parameter:
         objs: the list of the BBox objects.
     return:

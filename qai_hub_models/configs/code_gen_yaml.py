@@ -19,9 +19,7 @@ from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 
 class QAIHMModelCodeGen(BaseQAIHMConfig):
-    """
-    Schema & loader for model code-gen.yaml.
-    """
+    """Schema & loader for model code-gen.yaml."""
 
     # Whether the model is quantized with aimet.
     is_aimet: bool = False
@@ -167,9 +165,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         runtime: TargetRuntime,
         include_scorecard_failures: bool = True,
     ) -> Optional[str]:
-        """
-        Return the reason a model failed or None if the model did not fail.
-        """
+        """Return the reason a model failed or None if the model did not fail."""
         if self.supported_genai_runtimes:
             if runtime not in self.supported_genai_runtimes:
                 return f"{runtime} is not supported for this GenAI model."
@@ -215,6 +211,14 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
                 supports_at_least_1_runtime = self.is_supported(precision, runtime)
         return supports_at_least_1_runtime
 
+    @property
+    def default_quantized_precision(self) -> Precision | None:
+        for precision in self.supported_precisions:
+            assert isinstance(precision, Precision)
+            if precision.has_quantized_activations:
+                return precision
+        return None
+
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
         model_folder = QAIHM_MODELS_ROOT / model_id
@@ -239,9 +243,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
     @property
     def runs_in_scorecard(self) -> bool:
-        """
-        Whether the model runs in scorecard.
-        """
+        """Whether the model runs in scorecard."""
         return not self.skip_hub_tests_and_scorecard and not self.skip_scorecard
 
     @property

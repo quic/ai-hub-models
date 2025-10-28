@@ -52,7 +52,8 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
         Processes OpenPose outputs (PAFs and heatmaps) and converts them to
         COCO-format keypoint predictions
 
-        Args:
+        Parameters
+        ----------
             output: Tuple containing :
                - paf: Tensor[float] of part affinity fields [batch, 2, H, W]
                - heatmaps: Tensor[float] of keypoint heatmaps [batch, 19, H, W]

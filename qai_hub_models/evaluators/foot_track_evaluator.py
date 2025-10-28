@@ -26,7 +26,7 @@ class FootTrackNetEvaluator(mAPEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        gt should be a tuple of tensors with the following tensors:
+        Gt should be a tuple of tensors with the following tensors:
             - image_ids of shape (batch_size,)
             - image heights of shape (batch_size,)
             - image widths of shape (batch_size,)
@@ -62,46 +62,42 @@ class FootTrackNetEvaluator(mAPEvaluator):
                 continue
 
             # Collect GT and prediction boxes
-            gt_bb_entry = []
-            for j in range(len(bboxes)):
-                if classes[j] == 0 or classes[j] == 1:
-                    gt_bb_entry.append(
-                        BoundingBox.of_bbox(
-                            image_id,
-                            int(classes[j]),
-                            bboxes[j][0].item(),
-                            bboxes[j][1].item(),
-                            bboxes[j][2].item(),
-                            bboxes[j][3].item(),
-                            1.0,
-                        )
-                    )
-
-            pd_bb_entry = []
-            for item in face_result:
-                pd_bb_entry.append(
-                    BoundingBox.of_bbox(
-                        image_id,
-                        0,
-                        float(item.x),
-                        float(item.y),
-                        float(item.r),
-                        float(item.b),
-                        item.score,
-                    )
+            gt_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    int(classes[j]),
+                    bboxes[j][0].item(),
+                    bboxes[j][1].item(),
+                    bboxes[j][2].item(),
+                    bboxes[j][3].item(),
+                    1.0,
                 )
+                for j in range(len(bboxes))
+                if classes[j] == 0 or classes[j] == 1
+            ]
 
-            for item in person_result:
-                pd_bb_entry.append(
-                    BoundingBox.of_bbox(
-                        image_id,
-                        1,
-                        float(item.x),
-                        float(item.y),
-                        float(item.r),
-                        float(item.b),
-                        item.score,
-                    )
+            pd_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    0,
+                    float(item.x),
+                    float(item.y),
+                    float(item.r),
+                    float(item.b),
+                    item.score,
                 )
+                for item in face_result
+            ] + [
+                BoundingBox.of_bbox(
+                    image_id,
+                    1,
+                    float(item.x),
+                    float(item.y),
+                    float(item.r),
+                    float(item.b),
+                    item.score,
+                )
+                for item in person_result
+            ]
 
             self.store_bboxes_for_eval(gt_bb_entry, pd_bb_entry)

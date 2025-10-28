@@ -27,11 +27,7 @@ def main():
             TargetRuntime.TFLITE,
             TargetRuntime.ONNX,
         ],
-        Precision.w8a16: [
-            TargetRuntime.QNN_DLC,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
-        ],
+        Precision.w8a16: [],
     }
 
     parser = evaluate_parser(

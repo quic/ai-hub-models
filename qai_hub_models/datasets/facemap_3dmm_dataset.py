@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import cast
 
 import cv2
 import numpy as np
@@ -43,24 +44,32 @@ class FaceMap3DMMDataset(BaseDataset):
         self.input_width = input_spec["image"][0][3]
         BaseDataset.__init__(self, self.data_path, split=split)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, tuple[int, torch.Tensor, torch.Tensor]]:
         """
-        this function return the image tensor and gt list
-        image_tensor:
-            shape  - [3, 128, 128]
-            layout - [C, H, W]
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        input_image
+            shape  - [3, H, W]
             range  - [0, 1]
             channel layout - [RGB]
-        gt_list:
-            0 - image_id_tensor:
+
+        ground_truth:
+            image_id_tensor
                 integer value to represent image id, not used
-            1 - gt_landmarks_tensor:
+            gt_landmarks_tensor
                 the ground truth x, y positions of facial landmarks, for evaluation only - [68,2]
-            2 - bbox_tensor
+            bbox_tenso
                 the location of the face bounding box, represented as a tensor with shape [4] and layout [left, right, top, bottom]. It is used to crop the face from the original image, for evaluation only.
         """
         image_path = self.image_list[index]
-        image_array = cv2.imread(image_path)
+        image_array = cv2.imread(cast(str, image_path))
 
         bbox = [-1, -1, -1, -1]
         landmark_position = np.zeros([76, 2], dtype=np.float32)
@@ -104,11 +113,11 @@ class FaceMap3DMMDataset(BaseDataset):
 
         image_id = abs(hash(str(image_path.name[:-4]))) % (10**8)
 
-        return image_tensor_rgb_norm, [
+        return image_tensor_rgb_norm, (
             image_id,
             torch.tensor(landmark_position[:68, :], dtype=torch.float32),
             torch.tensor(bbox, dtype=torch.float32),
-        ]
+        )
 
     def __len__(self):
         return len(self.image_list)
@@ -150,14 +159,10 @@ class FaceMap3DMMDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 400
 
     @staticmethod
     def default_num_calibration_samples() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 530

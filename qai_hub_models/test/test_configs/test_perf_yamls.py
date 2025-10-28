@@ -23,20 +23,18 @@ def test_perf_yaml():
         if device.reference_device_name not in valid_devices:
             raise ValueError(
                 f"Invalid device '{device.reference_device_name}'. Device must be listed in {SCORECARD_DEVICE_YAML_PATH}.\n"
-                + "You may need to re-generate the valid device list via `python qai_hub_models/models/generate_scorecard_device_yaml.py`"
+                "You may need to re-generate the valid device list via `python qai_hub_models/models/generate_scorecard_device_yaml.py`"
             )
 
-    for model_id in MODEL_IDS:
-        try:
+    model_id = ""
+    try:
+        for model_id in MODEL_IDS:
             perf = QAIHMModelPerf.from_model(model_id, not_exists_ok=True)
             model_name: Optional[str] = None
 
             # Verify all devices are valid AI Hub devices.
-            for precision, precision_perf in perf.precisions.items():
-                for (
-                    component_name,
-                    component_detail,
-                ) in precision_perf.components.items():
+            for precision_perf in perf.precisions.values():
+                for component_detail in precision_perf.components.values():
                     for device in component_detail.performance_metrics:
                         _validate_device(device)
                     for device in component_detail.device_assets:
@@ -53,12 +51,9 @@ def test_perf_yaml():
                         )
                 # For LLMs, check if the performance details are complete
                 if model_name is not None:
-                    for (
-                        device,
-                        runtime_performance_details,
-                    ) in precision_perf.components[
+                    for runtime_performance_details in precision_perf.components[
                         model_name
-                    ].performance_metrics.items():
+                    ].performance_metrics.values():
                         for performance_details in runtime_performance_details.values():
                             tps_is_none = performance_details.tokens_per_second is None
                             ttft_is_none = (
@@ -78,5 +73,7 @@ def test_perf_yaml():
                                     performance_details.time_to_first_token_range_milliseconds.max
                                     >= performance_details.time_to_first_token_range_milliseconds.min
                                 )
-        except Exception as err:
-            assert False, f"{model_id} perf yaml validation failed: {str(err)}"
+    except Exception as err:
+        raise AssertionError(
+            f"{model_id} perf yaml validation failed: {str(err)}"
+        ) from None

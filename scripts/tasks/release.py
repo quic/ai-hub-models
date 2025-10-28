@@ -28,9 +28,7 @@ COMMIT_MSG_VARNAME = "QAIHM_COMMIT_MESSAGE"
 
 
 class CreateReleaseVenv(CompositeTask):
-    """
-    Create a venv for building and releasing the repository / wheel.
-    """
+    """Create a venv for building and releasing the repository / wheel."""
 
     def __init__(
         self,
@@ -55,9 +53,7 @@ class CreateReleaseVenv(CompositeTask):
 
 
 class BuildPublicRepositoryTask(CompositeTask):
-    """
-    Create a public version of the repository.
-    """
+    """Create a public version of the repository."""
 
     def __init__(self, venv: str | None, repo_output_dir: str | os.PathLike):
         tasks = []

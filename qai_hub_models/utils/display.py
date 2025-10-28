@@ -88,13 +88,15 @@ def display_or_save_image(
     Else try to display image.
     If displaying image fails, save to disk in a default location.
 
-    Parameters:
+    Parameters
+    ----------
         image: PIL Image to save.
         output_dir: If set, saves image to this directory.
         filename: If saving to directory, the filename to use.
         desc: Description of what the image is, used in a print statement.
 
-    Returns:
+    Returns
+    -------
         True if displaying was attempted.
     """
     if output_dir is not None:
@@ -113,10 +115,12 @@ def to_uint8(image: np.ndarray) -> np.ndarray:
     Converts a numpy array image to uint8 type. Values are clipped the values
     to the range [0, 255].
 
-    Parameters:
+    Parameters
+    ----------
     image (numpy array): The input image array.
 
-    Returns:
+    Returns
+    -------
     numpy array: The processed image in uint8 format.
     """
     clipped_image = np.clip(image, 0, 1)

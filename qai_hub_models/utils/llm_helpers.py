@@ -2,15 +2,19 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import glob
 import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import qai_hub
-from transformers import PretrainedConfig
+
+if TYPE_CHECKING:
+    from transformers import PretrainedConfig
 
 
 def create_genie_config(
@@ -19,6 +23,9 @@ def create_genie_config(
     embedding_type: str,
     model_list: list[str],
 ):
+    kv_dim = getattr(
+        llm_config, "head_dim", llm_config.hidden_size // llm_config.num_attention_heads
+    )
     genie_config: dict[str, Any] = {
         "dialog": {
             "version": 1,
@@ -51,8 +58,8 @@ def create_genie_config(
                         "mmap-budget": 0,
                         "poll": True,
                         "cpu-mask": "0xe0",
-                        "kv-dim": llm_config.head_dim,
-                        "pos-id-dim": llm_config.head_dim // 2,
+                        "kv-dim": kv_dim,
+                        "pos-id-dim": kv_dim // 2,
                         "allow-async-init": False,
                         "rope-theta": int(llm_config.rope_theta),
                     },
@@ -72,7 +79,7 @@ def create_genie_config(
     if hasattr(llm_config, "rope_scaling") and llm_config.rope_scaling is not None:
         positional_encodings = {
             "type": embedding_type,
-            "rope-dim": llm_config.head_dim // 2,
+            "rope-dim": kv_dim // 2,
             "rope-theta": int(llm_config.rope_theta),
             "rope-scaling": {
                 "rope-type": llm_config.rope_scaling["rope_type"],
@@ -100,7 +107,9 @@ ABI_TO_LIB_FOLDER: dict[str, str] = {
 
 
 def copy_qairt_files_for_genie_bundle(
-    hub_device: qai_hub.Device, output_path: Path, qairt_sdk_path: Path
+    hub_device: qai_hub.Device,
+    output_path: Path,
+    qairt_sdk_path: Path,
 ):
     """Copy the QAIRT files needed to create the genie_bundle."""
     hexagon_arch, abi_name, genie_file = None, None, None
@@ -124,21 +133,17 @@ def copy_qairt_files_for_genie_bundle(
         path_libhex = os.path.join(qairt_sdk_path, "lib", hexagon_arch, "unsigned", "*")
         path_libqnn = os.path.join(qairt_sdk_path, "lib", lib_name, "*")
         path_exe = os.path.join(qairt_sdk_path, "bin", lib_name, genie_file)
-
+        # Copy the lib files
         for file in glob.glob(path_libhex):
             shutil.copy(file, output_path)
             files_copied.append(file)
-
+        # Copy the bin files
         for file in glob.glob(path_libqnn):
             shutil.copy(file, output_path)
             files_copied.append(file)
-
+        # Copy the genie t2t file
         shutil.copy(path_exe, output_path)
         files_copied.append(path_exe)
-    with open(output_path / "copied_files.txt", "w") as f:
-        for file in files_copied:
-            new_path = os.path.join(output_path, os.path.basename(file))
-            f.write(f"{new_path}\n")
 
 
 def save_htp_config_for_genie_bundle(hub_device: qai_hub.Device, output_path: Path):
@@ -177,8 +182,8 @@ def save_htp_config_for_genie_bundle(hub_device: qai_hub.Device, output_path: Pa
 
 
 def get_kv_cache_names(start: int, end: int) -> list[str]:
-    out_names = []
-    for field in {"key", "value"}:
-        for num in range(start, end):
-            out_names.append(f"past_{field}_{num}_out")
-    return out_names
+    return [
+        f"past_{field}_{num}_out"
+        for num in range(start, end)
+        for field in ("key", "value")
+    ]

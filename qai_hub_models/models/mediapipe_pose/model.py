@@ -116,11 +116,13 @@ class PoseDetector(BaseModel):
         """
         Compute bounding boxes that contain 1 person.
 
-        Parameters:
+        Parameters
+        ----------
             image:
                 RGB, range [0 - 1] image.
 
-         Returns:
+        Returns
+        -------
             tuple containing:
                 - box_coords_1: torch.Tensor, shape (batch_size, num_anchors, num_coordinates)
                     Layout: (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y).
@@ -205,11 +207,13 @@ class PoseLandmarkDetector(BaseModel):
         """
         Compute image landmarks.
 
-        Parameters:
+        Parameters
+        ----------
             image:
                 RGB, range [0 - 1] image. This should be the cropped output of the PoseDetector model.
 
-        Returns:
+        Returns
+        -------
             ld_scores: torch.Tensor
                 Landmark score. Shape [B]
             landmarks:

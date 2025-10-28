@@ -53,7 +53,7 @@ def get_convert(net, probable_names):
     """Convert state dict using probable node names."""
     convert = {}
     i = 0
-    for name, params in net.state_dict().items():
+    for name in net.state_dict():
         convert[name] = probable_names[i]
         i += 1
     return convert

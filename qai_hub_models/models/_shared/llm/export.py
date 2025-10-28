@@ -153,7 +153,9 @@ def export_model(
     hub_device = hub_devices[-1]
     # Throw a warning if weight sharing is not supported.
     if "htp-supports-weight-sharing:true" not in hub_device.attributes:
-        warnings.warn("The selected device may not support weight sharing.")
+        warnings.warn(
+            "The selected device may not support weight sharing.", stacklevel=2
+        )
 
     if (
         "chipset:qualcomm-sa8295p" in hub_device.attributes
@@ -161,6 +163,12 @@ def export_model(
     ):
         raise ValueError(
             "The selected precision (w4a16) is not supported on this target device"
+        )
+    if ("htp-supports-fp16:true" not in hub_device.attributes) and (
+        precision == Precision.w4
+    ):
+        raise ValueError(
+            "The selected precision (w4) is not supported on this target device. Please try a different precision or target device."
         )
     if target_runtime == TargetRuntime.ONNXRUNTIME_GENAI and precision == Precision.w4:
         raise ValueError(
@@ -341,7 +349,7 @@ def export_model(
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
 
     if not skip_profiling:
-        for instantiation_name, seq_len in instantiations:
+        for instantiation_name, _seq_len in instantiations:
             for sub_component_name in sub_component_names[instantiation_name]:
                 component_name = component_from_sub_component_names[sub_component_name]
                 print(
@@ -621,12 +629,11 @@ def export_main(
             determine_precision_from_checkpoint(additional_model_kwargs["checkpoint"])
             or default_precision
         )
-    else:
-        # Cache does not differentiate checkpoints, so must be off
-        if additional_model_kwargs["model_cache_mode"] != CacheMode.DISABLE:
-            raise ValueError(
-                "must use `--model-cache-mode disable` when passing in a custom checkpoint."
-            )
+    # Cache does not differentiate checkpoints, so must be off
+    elif additional_model_kwargs["model_cache_mode"] != CacheMode.DISABLE:
+        raise ValueError(
+            "must use `--model-cache-mode disable` when passing in a custom checkpoint."
+        )
 
     if host_device := additional_model_kwargs.get("host_device"):
         additional_model_kwargs["host_device"] = torch.device(host_device)

@@ -34,17 +34,16 @@ class LamaDilated(RepaintModel):
     @staticmethod
     def from_pretrained(weights_name: str = DEFAULT_WEIGHTS) -> LamaDilated:
         """Load LamaDilated from a weights file created by the source LaMa repository."""
-
         # Load PyTorch model from disk
         lama_dilated_model = _load_lama_dilated_source_model_from_weights(weights_name)
-
         return LamaDilated(lama_dilated_model)
 
     def forward(self, image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         Run LamaDilated on `image` and `mask`, and produce an image with mask area inpainted.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
@@ -53,18 +52,18 @@ class LamaDilated(RepaintModel):
                   Range: float[0, 1] and only values of 0. or 1.
                   1-channel binary image.
 
-        Returns:
+        Returns
+        -------
             inpainted_image: Pixel values
                    Range: float[0, 1]
                    3-channel Color Space: RGB
         """
-
         masked_img = image * (1 - mask)
 
         if self.model.concat_mask:
             masked_img = torch.cat([masked_img, mask], dim=1)
 
-        predicted_image = self.model.generator(masked_img)
+        predicted_image = self.model.generator(masked_img)  # type: ignore[operator]
         inpainted = mask * predicted_image + (1 - mask) * image
         return inpainted
 

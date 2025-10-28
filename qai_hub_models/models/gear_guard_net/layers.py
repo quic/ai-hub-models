@@ -7,7 +7,7 @@ import math
 from typing import Optional, Union
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 def make_divisible(x: int, divisor: int) -> int:
@@ -356,9 +356,9 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
     for i, (f, n, m, args) in enumerate(cfg["backbone"] + cfg["head"]):
         m = eval(m) if isinstance(m, str) else m
         for j, a in enumerate(args):
-            try:
+            try:  # noqa: PERF203
                 args[j] = eval(a) if isinstance(a, str) else a
-            except NameError:
+            except NameError:  # noqa: PERF203
                 pass
 
         n = max(round(n * gd), 1) if n > 1 else n
@@ -385,7 +385,7 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
         m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)
         t = str(m)[8:-2].replace("__main__.", "")
         np = sum([x.numel() for x in m_.parameters()])
-        m_.i, m_.f, m_.type, m_.np = (i, f, t, np)  # type: ignore[method-assign]
+        m_.i, m_.f, m_.type, m_.np = (i, f, t, np)
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)
         layers.append(m_)
         if i == 0:
@@ -395,9 +395,7 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
 
 
 class DoubleBlazeBlock(nn.Module):
-    """
-    DoubleBlaze block
-    """
+    """DoubleBlaze block"""
 
     def __init__(
         self,

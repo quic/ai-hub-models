@@ -13,6 +13,7 @@ from typing import Any, Optional, Union
 
 import torch
 from qai_hub.client import Device
+from typing_extensions import Self
 
 from qai_hub_models.models.common import (
     Precision,
@@ -97,8 +98,8 @@ class CollectionModel:
 
         See test_base_model.py for usage examples.
 
-        Args:
-
+        Parameters
+        ----------
         - component_name: Name the component. By default uses
         component_class.__name__
 
@@ -126,8 +127,8 @@ class CollectionModel:
             # This is needed for controlnet where the controlnet is from a
             # different repo without subfolders
             subfolder = subfolder_hf if subfolder_hf is not None else name
-            setattr(component_class, "default_subfolder", component_name)
-            setattr(component_class, "default_subfolder_hf", subfolder)
+            component_class.default_subfolder = component_name  # type: ignore[attr-defined]
+            component_class.default_subfolder_hf = subfolder  # type: ignore[attr-defined]
             return subclass
 
         return decorator
@@ -166,7 +167,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
         checkpoint: CheckpointSpec = "DEFAULT",
         host_device: Union[torch.device, str] = torch.device("cpu"),
         **kwargs,  # any extra you might want to forward
-    ) -> PretrainedCollectionModel:
+    ) -> Self:
         """
         Instantiate the collection by delegating to each component_cls.from_pretrained,
         but only passing it the arguments it actually declares.
@@ -196,7 +197,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
             return fn(**supported)
 
         components = []
-        for name, component_cls in zip(
+        for _name, component_cls in zip(
             cls.component_class_names, cls.component_classes
         ):
             # call component_cls.from_pretrained but only with the args it accepts
@@ -205,7 +206,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
             except Exception as e:
                 raise AttributeError(
                     f"Component '{component_cls.__name__}' does not have a callable from_pretrained method. {e}"
-                )
+                ) from None
             components.append(comp)
 
         # now build and return your collection model however CollectionModel expects
@@ -233,21 +234,19 @@ class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
 
 
 class HubModel(HubModelProtocol):
-    """
-    Base interface for AI Hub models.
-    """
+    """Base interface for AI Hub models."""
 
     def __init__(self):
         # If a child class implements _get_input_spec_for_instance(),
         # then calling `get_input_spec` on the instance will redirect to it.
         if self._get_input_spec_for_instance.__module__ != __name__:
-            self.get_input_spec = self._get_input_spec_for_instance  # type: ignore[method-assign]
+            self.get_input_spec = self._get_input_spec_for_instance
         if self._get_output_names_for_instance.__module__ != __name__:
-            self.get_output_names = self._get_output_names_for_instance  # type: ignore[method-assign]
+            self.get_output_names = self._get_output_names_for_instance
         if self._get_channel_last_inputs_for_instance.__module__ != __name__:
-            self.get_channel_last_inputs = self._get_channel_last_inputs_for_instance  # type: ignore[method-assign]
+            self.get_channel_last_inputs = self._get_channel_last_inputs_for_instance
         if self._get_channel_last_outputs_for_instance.__module__ != __name__:
-            self.get_channel_last_outputs = self._get_channel_last_outputs_for_instance  # type: ignore[method-assign]
+            self.get_channel_last_outputs = self._get_channel_last_outputs_for_instance
 
     def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
         """
@@ -346,9 +345,7 @@ class HubModel(HubModelProtocol):
         other_profile_options: str = "",
         context_graph_name: str | None = None,
     ) -> str:
-        """
-        AI Hub profile options recommended for the model.
-        """
+        """AI Hub profile options recommended for the model."""
         if QAIRTVersion.HUB_FLAG not in other_profile_options:
             other_profile_options = (
                 other_profile_options
@@ -356,10 +353,7 @@ class HubModel(HubModelProtocol):
             )
 
         if context_graph_name is not None:
-            if (
-                not target_runtime.compilation_uses_qnn_converters
-                or not target_runtime.is_aot_compiled
-            ):
+            if not target_runtime.is_aot_compiled:
                 raise ValueError(
                     "Cannot specify a context binary graph name if the target is not precompiled QAIRT."
                 )
@@ -374,9 +368,7 @@ class HubModel(HubModelProtocol):
         target_runtime: TargetRuntime,
         other_link_options: str = "",
     ) -> str:
-        """
-        AI Hub link options recommended for the model.
-        """
+        """AI Hub link options recommended for the model."""
         if QAIRTVersion.HUB_FLAG not in other_link_options:
             other_link_options = (
                 other_link_options
@@ -408,9 +400,7 @@ class BaseModel(
     PretrainedHubModelProtocol,
     ExecutableModelProtocol,
 ):
-    """
-    A pre-trained PyTorch model with helpers for submission to AI Hub.
-    """
+    """A pre-trained PyTorch model with helpers for submission to AI Hub."""
 
     def __init__(self, model: torch.nn.Module | None = None):
         torch.nn.Module.__init__(self)  # Initialize Torch Module
@@ -469,9 +459,7 @@ class BaseModel(
         external_onnx_weights: bool = False,
         output_names: Optional[list[str]] = None,
     ) -> Optional[str]:
-        """
-        Convert to a AI Hub source model appropriate for the export method.
-        """
+        """Convert to a AI Hub source model appropriate for the export method."""
         # Local import to prevent circular dependency
         from qai_hub_models.utils.inference import prepare_compile_zoo_model_to_hub
 
@@ -495,9 +483,7 @@ class BaseModel(
         device: Optional[Device] = None,
         context_graph_name: str | None = None,
     ) -> str:
-        """
-        AI Hub compile options recommended for the model.
-        """
+        """AI Hub compile options recommended for the model."""
         compile_options = ""
         if "--target_runtime" not in other_compile_options:
             compile_options = target_runtime.aihub_target_runtime_flag
@@ -533,10 +519,7 @@ class BaseModel(
                 compile_options += " --quantize_io_type uint8"
 
         if context_graph_name is not None:
-            if (
-                not target_runtime.compilation_uses_qnn_converters
-                or not target_runtime.is_aot_compiled
-            ):
+            if not target_runtime.is_aot_compiled:
                 raise ValueError(
                     "Cannot specify a context binary graph name if the target is not a compiled QAIRT graph."
                 )
@@ -552,9 +535,7 @@ class BaseModel(
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """
-        Source model format preferred for conversion on AI Hub.
-        """
+        """Source model format preferred for conversion on AI Hub."""
         return SourceModelFormat.TORCHSCRIPT
 
     def get_unsupported_reason(
@@ -597,15 +578,9 @@ class BaseModel(
         """
         if precision == Precision.w8a16:
             return "--range_scheme min_max"
-        elif (
-            precision == Precision.w8a8_mixed_int16
-            or precision == Precision.w8a16_mixed_int16
-        ):
+        elif precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        elif (
-            precision == Precision.w8a8_mixed_fp16
-            or precision == Precision.w8a16_mixed_fp16
-        ):
+        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         else:
             return ""  # default to range_scheme mse_minimizer

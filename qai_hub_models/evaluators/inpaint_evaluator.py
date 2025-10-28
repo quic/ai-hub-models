@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from scipy import linalg
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
+from torch import nn
 from torch.autograd import Variable
 from torch.nn.functional import adaptive_avg_pool2d
 from torchvision import models
@@ -38,7 +38,8 @@ class InpaintEvaluator(BaseEvaluator):
         """
         Compute accuracy for the real and fake images
 
-        Args:
+        Parameters
+        ----------
             fake_images(torch.Tensor): model output with shape (B, 3, 512, 512) and range [0, 1]
             real_images(torch.Tensor): ground truth with shape (B, 3, 512, 512) and range [0, 1]
         """
@@ -57,7 +58,8 @@ class InpaintEvaluator(BaseEvaluator):
         Calculate and store all metrics for one image pair.
 
 
-        Args:
+        Parameters
+        ----------
             real: Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255]
             fake: Model output image with shape (512, 512, 3), type of uint8, and range [0, 255]
         """
@@ -178,11 +180,13 @@ class InceptionV3(nn.Module):
 
     def __init__(
         self,
-        output_blocks=[DEFAULT_BLOCK_INDEX],
+        output_blocks=None,
         resize_input=True,
         normalize_input=True,
         requires_grad=False,
     ):
+        if output_blocks is None:
+            output_blocks = [self.DEFAULT_BLOCK_INDEX]
         super().__init__()
         self.resize_input = resize_input
         self.normalize_input = normalize_input

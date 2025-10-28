@@ -89,16 +89,13 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         if not job.get_status().finished:
             if not self.wait_for_job:
                 return job
+            elif self.wait_for_max_job_duration:
+                time_left = int(
+                    job.date.timestamp() + self.wait_for_max_job_duration - time.time()
+                )
+                job.wait(time_left)
             else:
-                if self.wait_for_max_job_duration:
-                    time_left = int(
-                        job.date.timestamp()
-                        + self.wait_for_max_job_duration
-                        - time.time()
-                    )
-                    job.wait(time_left)
-                else:
-                    job.wait()
+                job.wait()
         return job
 
     @cached_property

@@ -15,7 +15,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/t
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[track-anything]"
+pip install "qai-hub-models[track-anything]" git+https://github.com/ChaoningZhang/MobileSAM@34bbbfd --use-pep517
 ```
 
 

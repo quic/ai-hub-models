@@ -90,8 +90,8 @@ def mediapipe_pose_demo(model_cls: type[MediaPipePose], is_test: bool = False):
 
     # Load app
     app = MediaPipePoseApp(
-        detector,  # type: ignore
-        landmark_detector,  # type: ignore
+        detector,  # type: ignore[arg-type]
+        landmark_detector,  # type: ignore[arg-type]
         torch_model.pose_detector.anchors,
         torch_model.pose_detector.get_input_spec(),
         torch_model.pose_landmark_detector.get_input_spec(),

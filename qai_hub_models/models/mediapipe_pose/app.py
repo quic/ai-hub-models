@@ -73,10 +73,12 @@ class MediaPipePoseApp(MediaPipeApp):
             Combines the pose detector's four output tensors into two unified tensors
             and does the concat outside of the model for optimization purposes.
 
-            Args:
+            Parameters
+            ----------
                 inp (torch.Tensor): Input image tensor to the pose detector model
 
-            Returns:
+            Returns
+            -------
                 tuple[torch.Tensor, torch.Tensor]:
                     - box_coords: bounding box coordinates with shape [1, 896, 12]
                          (batch_size, num_anchors, 12_coordinates_per_anchor)

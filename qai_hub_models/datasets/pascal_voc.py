@@ -87,9 +87,7 @@ class VOCSegmentationDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 400
 
     @staticmethod

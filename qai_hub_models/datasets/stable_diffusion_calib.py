@@ -53,16 +53,36 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         image_cond_path: str | os.PathLike = "",
     ):
         """
-        Args:
+        Parameters
+        ----------
+        sd_cls
+            The model class to use to generate samples.
 
-        - num_samples: Typically num samples are determined at load time.  But
-        here we have to generate the data first. It's possible to generate
-        on-demand and cache them but for now keep it simple
+        num_samples
+            Typically num samples are determined at load time.  But
+            here we have to generate the data first. It's possible to generate
+            on-demand and cache them but for now keep it simple
 
-        - checkpoint: Specify to use custom weight. By default use the default
-        fp weights.
+        num_steps
+            Number of decoder steps used to generate the ground truth.
 
-        - split: ignored. Required by get_dataset_from_name
+        checkpoint
+            Specify to use custom weight. By default use the default fp weights.
+
+        split
+            ignored. Required by get_dataset_from_name
+
+        host_device
+            Torch host device
+
+        use_controlnet
+            Whether to use controlnet to generate ground truth instead of SD.
+
+        prompt_path
+            Path to prompt file (if any)
+
+        image_cond_path
+            Path to image conditional prompt file (if any)
         """
         self.num_samples = num_samples
         self.num_steps = num_steps

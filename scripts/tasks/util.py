@@ -79,16 +79,19 @@ def check_info_field(model_name: str, field_name: str) -> bool:
 
 @functools.cache
 def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
-    """
-    This process does not have the yaml package, so use this primitive way to get code-gen field value.
-    """
+    """This process does not have the yaml package, so use this primitive way to get code-gen field value."""
     yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
     if yaml_path.exists():
         with open(yaml_path) as f:
             field = f"{field_name}:"
             for line in f.readlines():
                 if line.startswith(field):
-                    return line[len(field) : -1].strip("'").strip('"').strip()
+                    field = line[len(field) : -1].strip()
+                    if (field[0] == '"' and field[-1] == '"') or (
+                        field[0] == "'" and field[-1] == "'"
+                    ):
+                        field = field[1:-1]
+                    return field
 
     return None
 
@@ -100,8 +103,10 @@ def is_quantized_llm_model(model_name: str) -> bool:
 
 def can_support_aimet(platform: str = sys.platform) -> bool:
     return (
-        platform == "linux" or platform == "linux2"
-    ) and sys.version_info.minor == 10
+        platform in {"linux", "linux2"}
+        and sys.version_info.major == 3
+        and sys.version_info.minor == 10
+    )
 
 
 def get_is_hub_quantized(model_name) -> bool:
@@ -229,7 +234,11 @@ def debug_mode() -> bool:
 def uv_installed() -> bool:
     try:
         result = subprocess.run(
-            ["which uv"], capture_output=True, executable=BASH_EXECUTABLE, shell=True
+            ["which uv"],
+            check=False,
+            capture_output=True,
+            executable=BASH_EXECUTABLE,
+            shell=True,
         )
         return result.returncode == 0
     except Exception:
@@ -239,7 +248,7 @@ def uv_installed() -> bool:
 @functools.cache
 def get_pip() -> str:
     # UV has trouble building many packages from source on Python 3.12
-    if uv_installed() and (sys.version_info.major == 3 and sys.version_info.minor < 12):
+    if uv_installed() and sys.version_info < (3, 12):
         return "uv pip"
     else:
         return "pip"

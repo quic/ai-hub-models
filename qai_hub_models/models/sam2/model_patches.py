@@ -7,38 +7,22 @@ from __future__ import annotations
 
 from typing import Optional
 
+import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from sam2.modeling.backbones.hieradet import MLP as SAM2MaskDecoderMLP
+from sam2.modeling.backbones.hieradet import (
+    MultiScaleBlock as SAMEncoderAttentionBlock,
+)
+from sam2.modeling.backbones.hieradet import do_pool
+from torch import nn
 from torchvision.transforms import Normalize
 
 from qai_hub_models.models._shared.sam.model_patches import Conv2DInplaceLinear
-from qai_hub_models.utils.asset_loaders import SourceAsRoot
-
-SAM2_SOURCE_REPO = "https://github.com/facebookresearch/sam2"
-SAM2_SOURCE_REPO_COMMIT = "2b90b9f5ceec907a1c18123530e92e794ad901a4"
-MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
-
-with SourceAsRoot(
-    SAM2_SOURCE_REPO,
-    SAM2_SOURCE_REPO_COMMIT,
-    MODEL_ID,
-    MODEL_ASSET_VERSION,
-):
-    from sam2.modeling.backbones.hieradet import MLP as SAM2MaskDecoderMLP
-    from sam2.modeling.backbones.hieradet import (
-        MultiScaleBlock as SAMEncoderAttentionBlock,
-    )
-    from sam2.modeling.backbones.hieradet import do_pool
-    from sam2.sam2_image_predictor import SAM2ImagePredictor  # noqa: F401
-    from sam2.utils.transforms import SAM2Transforms  # noqa: F401
 
 
 class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
-    """
-    SAM MLPBlock that uses 1x1 Conv2D in place of linear layers.
-    """
+    """SAM MLPBlock that uses 1x1 Conv2D in place of linear layers."""
 
     def __init__(self, mlp_block: SAM2MaskDecoderMLP) -> None:
         super().__init__()
@@ -181,7 +165,8 @@ def sam_decoder_predict_masks(
     per-image batch expansion when not required. This helps prevent issues during QNN (Qualcomm Neural Network)
     compilation, such as the introduction of no-op operations or unsupported tensor dimensions.
 
-    Args:
+    Parameters
+    ----------
         image_embeddings (torch.Tensor): Image feature embeddings from the encoder.
         image_pe (torch.Tensor): Positional encodings for the image.
         sparse_prompt_embeddings (torch.Tensor): Sparse prompt tokens (e.g., points, boxes).
@@ -189,7 +174,8 @@ def sam_decoder_predict_masks(
         repeat_image (bool): Whether to repeat image embeddings for each prompt.
         high_res_features (Optional[list[torch.Tensor]]): Optional high-resolution features for refinement.
 
-    Returns:
+    Returns
+    -------
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             - masks: Predicted segmentation masks.
             - iou_pred: Predicted IoU scores for each mask.
@@ -248,12 +234,14 @@ def sam_decoder_predict_masks(
     else:
         dc1, ln1, act1, dc2, act2 = self.output_upscaling
         feat_s0, feat_s1 = high_res_features
-        upscaled_embedding = act1(ln1(dc1(src) + feat_s1))
+        # This normalization doesn't affect the output
+        # upscaled_embedding = act1(ln1(dc1(src) + feat_s1))
+        upscaled_embedding = act1(dc1(src) + feat_s1)
         upscaled_embedding = act2(dc2(upscaled_embedding) + feat_s0)
 
     hyper_in_list: list[torch.Tensor] = []
     for i in range(self.num_mask_tokens):
-        hyper_in_list.append(
+        hyper_in_list.append(  # noqa: PERF401
             self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :])
         )
     hyper_in = torch.stack(hyper_in_list, dim=1)
@@ -281,11 +269,13 @@ def mask_postprocessing(
     This function is adapted from `sam2.utils.transforms.SAM2Transforms.postprocess_masks`,
     modified to be used independently of the decoder class instance.
 
-    Args:
+    Parameters
+    ----------
         low_res_masks (torch.Tensor): A tensor of low-resolution masks, typically output from a model.
         orig_im_size (tuple[int, int]): The original image size as (height, width) to which the masks should be resized.
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: A tensor of masks resized to the original image dimensions.
     """
     masks = torch.nn.functional.interpolate(
@@ -295,3 +285,34 @@ def mask_postprocessing(
         align_corners=False,
     )
     return masks
+
+
+def sam_prompt_encoder_embed_points(
+    self,
+    points: torch.Tensor,
+    labels: torch.Tensor,
+    pad: bool,
+) -> torch.Tensor:
+    """Embeds point prompts."""
+    # combine all the computations, to improve quantization accuracy.
+    points = points * 2 + (
+        -1 + 0.5 / self.input_image_size[0] * 2
+    )  # Shift to center of pixel
+    if pad:
+        padding_point = torch.zeros((points.shape[0], 1, 2), device=points.device)
+        padding_label = -torch.ones((labels.shape[0], 1), device=labels.device)
+        points = torch.cat([points, padding_point], dim=1)
+        labels = torch.cat([labels, padding_label], dim=1)
+
+    points = (points) @ self.pe_layer.positional_encoding_gaussian_matrix
+    points = 2 * np.pi * points
+    point_embedding = torch.cat([torch.sin(points), torch.cos(points)], dim=-1)
+
+    # replace the torch.where, which affects the model accuracy on device.
+    labels = labels.unsqueeze(-1)
+    point_embed = (point_embedding + self.point_embeddings[1].weight) * (
+        labels != -1
+    ).float()
+    not_a_point_embed = self.not_a_point_embed.weight * (labels == -1).float()
+    point_embedding = point_embed + not_a_point_embed
+    return point_embedding

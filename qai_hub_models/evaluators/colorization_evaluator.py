@@ -22,7 +22,8 @@ class ColorizationEvaluator(BaseEvaluator):
         """
         Compute colorfulness of the predicted output.
 
-        Args:
+        Parameters
+        ----------
             output: torch.Tensor with shape (B, 2, 256, 256)
                 predicted out in AB format (colors)
             gt: torch.Tensor with shape (B, 1, 256, 256)

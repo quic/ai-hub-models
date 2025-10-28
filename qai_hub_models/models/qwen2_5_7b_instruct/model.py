@@ -42,9 +42,7 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 
 class Qwen2_5_7B_Instruct(LlamaMixin):
-    """
-    This class represents an AIMET model and not a PyTorch module.
-    """
+    """This class represents an AIMET model and not a PyTorch module."""
 
     def __init__(
         self,
@@ -150,16 +148,18 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
 
     @staticmethod
     def get_input_spec(
-        llm_config: dict = dict(
-            num_hidden_layers=NUM_LAYERS,
-            hidden_size=3584,
-            num_key_value_heads=4,
-            num_attention_heads=28,
-        ),
+        llm_config: dict | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         main_input_name: str = MainLLMInputType.input_ids.name,
     ) -> InputSpec:
+        if llm_config is None:
+            llm_config = dict(
+                num_hidden_layers=NUM_LAYERS,
+                hidden_size=3584,
+                num_key_value_heads=4,
+                num_attention_heads=28,
+            )
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
             sequence_length=sequence_length,
@@ -186,9 +186,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
-        """
-        Make sure AIMET encodings are ready for ONNX split.
-        """
+        """Make sure AIMET encodings are ready for ONNX split."""
         import onnx
 
         with open(src_encodings_path) as f:

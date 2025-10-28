@@ -71,7 +71,6 @@ class StableDiffusionApp:
             True if unet outputs latent of shape like (1, 64, 64, 4). False
             for (1, 4, 64, 64)
         """
-
         self.text_encoder = text_encoder
         self.unet = unet
         self.vae_decoder = vae_decoder
@@ -190,7 +189,6 @@ class StableDiffusionApp:
             (OUT_H, OUT_W, 3). The height and the width may depend on the
             underlying Stable Diffusion version, but is typically 512x512.
         """
-
         # Encode text prompt
         cond_embeddings, uncond_embeddings = self._encode_text_prompt(prompt)
 
@@ -355,22 +353,21 @@ def run_diffusion_steps_on_latents(
                         latent_input, time_input, uncond_embeddings, *controlnet_out
                     )
                 noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
+            elif isinstance(unet, OnDeviceModel):
+                # Batch data into one inference job
+                noise_pred = cast(
+                    torch.Tensor,
+                    unet(
+                        [latent_input],
+                        [time_input],
+                        [cond_embeddings],
+                        *tuple([t] for t in controlnet_out),  # type: ignore[arg-type]
+                    ),
+                )
             else:
-                if isinstance(unet, OnDeviceModel):
-                    # Batch data into one inference job
-                    noise_pred = cast(
-                        torch.Tensor,
-                        unet(
-                            [latent_input],
-                            [time_input],
-                            [cond_embeddings],
-                            *tuple([t] for t in controlnet_out),  # type: ignore[arg-type]
-                        ),
-                    )
-                else:
-                    noise_pred = unet(
-                        latent_input, time_input, cond_embeddings, *controlnet_out
-                    )
+                noise_pred = unet(
+                    latent_input, time_input, cond_embeddings, *controlnet_out
+                )
 
             if channel_last_latent:
                 noise_pred = _make_channel_first_torch(noise_pred).to(host_device)
@@ -384,11 +381,9 @@ def run_diffusion_steps_on_latents(
             if use_controlnet:
                 intermediates["controlnet"] = controlnet_inputs
             # Detach grad and move to cpu
-            for model, inputs in intermediates.items():
-                for input_name, input_list in intermediates[model].items():
-                    intermediates[model][input_name] = [
-                        v.detach().cpu() for v in input_list
-                    ]
+            for intermediate in intermediates.values():
+                for input_name, input_list in intermediate.items():
+                    intermediate[input_name] = [v.detach().cpu() for v in input_list]
             return latents, intermediates
 
         return latents

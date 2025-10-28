@@ -57,7 +57,7 @@ def _create_patches(
     patch_model = patch(
         f"qai_hub_models.models.{base_name}.Model.from_pretrained",
         mock_from_pretrained,
-    )  # type: ignore
+    )
 
     patch_glob = patch("glob.glob", side_effect=_mock_glob)
     patch_onnx_checker = patch("onnx.checker.check_model")

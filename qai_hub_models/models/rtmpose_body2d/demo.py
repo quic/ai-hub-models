@@ -47,7 +47,10 @@ def main(is_test: bool = False):
     image = load_image(args.image)
     print("Model Loaded")
 
-    app = RTMPosebody2dApp(hub_model, rtmpose_model.inferencer)
+    app = RTMPosebody2dApp(
+        hub_model,  # type: ignore[arg-type]
+        rtmpose_model.inferencer,
+    )
     keypoints = app.predict_pose_keypoints(image)[0]
     if not is_test:
         display_or_save_image(

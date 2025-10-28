@@ -37,7 +37,7 @@ def _parse_face_box(face_box_str: str) -> list[float]:
     except ValueError:
         raise argparse.ArgumentTypeError(
             "Face box must be 4 comma-separated float values: left,right,top,bottom (normalized to [0,1])"
-        )
+        ) from None
 
 
 # Run FaceMap_3DMM end-to-end on a sample image.
@@ -77,7 +77,7 @@ def facemap_3dmm_demo(
 
     print("Model Loaded")
 
-    app = FaceMap_3DMMApp(model)
+    app = FaceMap_3DMMApp(model)  # type: ignore[arg-type]
 
     # Get face bounding box info (from file or face detector)
     x0, x1, y0, y1 = (

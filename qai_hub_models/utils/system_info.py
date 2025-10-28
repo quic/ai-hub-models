@@ -10,9 +10,7 @@ from qai_hub_models.utils.printing import print_with_box
 
 
 def has_recommended_memory(required_memory_in_gb: float) -> None:
-    """
-    Prints out warning if system has less memory(RAM+swap-space) than recommended.
-    """
+    """Prints out warning if system has less memory(RAM+swap-space) than recommended."""
     total_ram = psutil.virtual_memory().total
     total_swap = psutil.swap_memory().total
 

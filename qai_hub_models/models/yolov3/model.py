@@ -49,12 +49,14 @@ class YoloV3(Yolo):
         """
         Run YoloV3 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)

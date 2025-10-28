@@ -82,7 +82,6 @@ _try_import_dataset(".gear_guard_dataset", "GearGuardDataset")
 _try_import_dataset(".facemap_3dmm_dataset", "FaceMap3DMMDataset")
 _try_import_dataset(".face_attrib_dataset", "FaceAttribDataset")
 _try_import_dataset(".face_det_lite", "FaceDetLiteDataset")
-_try_import_dataset(".coco_foot_track_dataset", "CocoFootTrackDataset")
 _try_import_dataset(".kinetics400", "Kinetics400Dataset")
 _try_import_dataset(".imagenet", "ImagenetDataset")
 _try_import_dataset(".imagenet_colorization", "ImagenetColorizationDataset")
@@ -90,6 +89,7 @@ _try_import_dataset(".imagenet_256", "Imagenet_256Dataset")
 _try_import_dataset(".imagenette", "ImagenetteDataset")
 _try_import_dataset(".imagenette_colorization", "ImagenetteColorizationDataset")
 _try_import_dataset(".imagenette_256", "Imagenette_256Dataset")
+_try_import_dataset(".nuscenes", "NuscenesDataset")
 _try_import_dataset(".nyuv2", "NyUv2Dataset")
 _try_import_dataset(".cofw", "COFWDataset")
 _try_import_dataset(".nyuv2x518", "NyUv2x518Dataset")
@@ -104,6 +104,7 @@ _try_import_dataset(".camouflage_dataset", "CamouflageDataset")
 _try_import_dataset(".eg1800", "eg1800SegmentationDataset")
 _try_import_dataset(".kitti", "KittiDataset")
 _try_import_dataset(".semantic_kitti", "SemanticKittiDataset")
+_try_import_dataset(".sav", "SaVDataset")
 _try_import_dataset(
     ".stable_diffusion_calib",
     "StableDiffusionCalibDatasetTextEncoder",
@@ -167,4 +168,4 @@ def get_dataset_from_name(
         and "input_spec" in inspect.signature(dataset_cls.__init__).parameters
     ):
         kwargs["input_spec"] = input_spec
-    return dataset_cls(split=split, **kwargs)  # type: ignore[call-arg]
+    return dataset_cls(split=split, **kwargs)

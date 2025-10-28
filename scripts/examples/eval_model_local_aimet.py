@@ -48,17 +48,15 @@ def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
 
 
 def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader):
-    for i, sample in enumerate(dataloader):
+    for sample in dataloader:
         model_inputs, ground_truth_values, *_ = sample
-        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+        for model_input in tqdm(model_inputs, total=len(model_inputs)):
             torch_input = model_input.unsqueeze(0)
             mock_torch_onnx_inference(session, torch_input)
 
 
 def _compute_snr(expected: np.array, actual: np.array):
-    """
-    Computes the SNR for two signals where the noise is defined as expected - actual
-    """
+    """Computes the SNR for two signals where the noise is defined as expected - actual"""
     data_range = np.abs(expected).max()
     noise_pw = np.sum(np.power(expected - actual, 2))
     noise_pw /= actual.size
@@ -76,10 +74,10 @@ def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
     fp_outputs = []
     fp_inputs = []
     inputs, _ = next(iter(dataloader))
-    for index, input in enumerate(inputs):
+    for index, inp in enumerate(inputs):
         if index >= num_samples:
             break
-        torch_input = input.unsqueeze(0)
+        torch_input = inp.unsqueeze(0)
         fp_inputs.append(torch_input)
         fp_outputs.append(mock_torch_onnx_inference(fp_session, torch_input))
 
@@ -88,9 +86,7 @@ def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
 
 def _eval_accuracy(session, args):
     fp_inputs, fp_outputs = args
-    quantized_outputs = []
-    for input in fp_inputs:
-        quantized_outputs.append(mock_torch_onnx_inference(session, input))
+    quantized_outputs = [mock_torch_onnx_inference(session, i) for i in fp_inputs]
     snrs = []
     num_outputs = len(quantized_outputs[0])
     num_outputs = 1

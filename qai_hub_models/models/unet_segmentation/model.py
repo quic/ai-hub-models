@@ -50,14 +50,16 @@ class UNet(BaseModel):
         """
         Run UNet on `image`, and produce a segmentation mask over the image.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, H, W] image.
                    The smaller of H, W should be >= 16, the larger should be >=32
                    Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             mask: Shape [1, n_classes, H, W] where H, W are the same as the input image.
                   n_classes is 2 for the default model.
 

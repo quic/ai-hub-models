@@ -34,7 +34,8 @@ class SemanticKittiEvaluator(BaseEvaluator):
         self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ):
         """
-        Args:
+        Parameters
+        ----------
             output (torch.Tensor): Model predictions.
             gt_data (tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
                 p_x (torch.tensor): x coordinates of lidar points with shape [max_points,]

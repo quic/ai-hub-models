@@ -26,9 +26,7 @@ def load_requirements(path: str | os.PathLike) -> list[str]:
 
 
 def get_extras() -> dict[str, list[str]]:
-    """
-    Generate the valid extras for this version of AI Hub Models.
-    """
+    """Generate the valid extras for this version of AI Hub Models."""
     extras_require = {
         "dev": [
             line.split("#")[0].strip()

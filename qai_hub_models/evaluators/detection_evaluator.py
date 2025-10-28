@@ -17,9 +17,7 @@ from qai_hub_models.utils.bounding_box_processing import batched_nms
 
 
 class mAPEvaluator(BaseEvaluator):
-    """
-    Evaluator that calculates mAP given stored bounding boxes.
-    """
+    """Evaluator that calculates mAP given stored bounding boxes."""
 
     DEFAULT_LOW_IOU = 0.5
     DEFAULT_HIGH_IOU = 0.95
@@ -32,7 +30,8 @@ class mAPEvaluator(BaseEvaluator):
         mAP_default_increment_iOU: float | None = None,
     ):
         """
-        Parameters:
+        Parameters
+        ----------
             mAP_default_low_iOU:
                 The default low iOU (inclusive) of the range for which average mAP should be calculated.
             mAP_default_high_iOU:
@@ -68,7 +67,8 @@ class mAPEvaluator(BaseEvaluator):
         Save the given bounding boxes for evaluation (mAP calculation) to be completed later.
         The boxes will be used when a user calls get_mAP().
 
-        Parameters:
+        Parameters
+        ----------
             gt_bbox:
                 Ground truth bounding boxes. Expected box format is
                     x1, y1, x2, y2, in pixel space.
@@ -93,7 +93,8 @@ class mAPEvaluator(BaseEvaluator):
         """
         Get mAP averaged over the given iOU range.
 
-        Parameters:
+        Parameters
+        ----------
             low_iOU:
                 Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
             high_iOU:
@@ -101,7 +102,8 @@ class mAPEvaluator(BaseEvaluator):
             increment_iOU:
                 iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
 
-        Returns:
+        Returns
+        -------
             mAP@low_iOU:high_iOU
                 mAP averaged over the given iOU range with the given increment.
             mAP_by_iOU
@@ -145,7 +147,8 @@ class mAPEvaluator(BaseEvaluator):
         """
         Get mAP averaged over the given iOU range.
 
-        Parameters:
+        Parameters
+        ----------
             low_iOU:
                 Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
             high_iOU:
@@ -164,7 +167,8 @@ class mAPEvaluator(BaseEvaluator):
         """
         Get mAP averaged over the given iOU range.
 
-        Parameters:
+        Parameters
+        ----------
             low_iOU:
                 Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
             high_iOU:
@@ -188,9 +192,7 @@ class mAPEvaluator(BaseEvaluator):
 
 
 class DetectionEvaluator(mAPEvaluator):
-    """
-    Generic evaluator for detection tasks.
-    """
+    """Generic evaluator for detection tasks."""
 
     def __init__(
         self,
@@ -203,7 +205,8 @@ class DetectionEvaluator(mAPEvaluator):
         mAP_default_increment_iOU: float | None = None,
     ):
         """
-        Parameters:
+        Parameters
+        ----------
             image_height:
                 Model input image height.
             image_width:
@@ -231,7 +234,8 @@ class DetectionEvaluator(mAPEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        Parameters:
+        Parameters
+        ----------
             output: A tuple of tensors containing the predicted bounding boxes, scores, and class indices.
                 - bounding boxes with shape (batch_size, num_candidate_boxes, 4) - 4 order is (x1, y1, x2, y2)
                 - scores with shape (batch_size, num_candidate_boxes)

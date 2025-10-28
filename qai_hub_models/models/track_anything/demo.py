@@ -11,12 +11,12 @@ import cv2
 import numpy as np
 import psutil
 import torch
+from mobile_sam.utils.transforms import ResizeLongestSide
 
 from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models.mobilesam.model import (
     DEFAULT_MODEL_TYPE,
     MobileSAM,
-    ResizeLongestSide,
 )
 from qai_hub_models.models.track_anything.app import TrackAnythingApp
 from qai_hub_models.models.track_anything.model import (
@@ -37,7 +37,8 @@ def generate_video_from_frames(
     """
     Generates a video from a list of frames.
 
-    Args:
+    Parameters
+    ----------
         frames (list of numpy arrays): The frames to include in the video.
         output_path (str): The path to save the generated video.
         fps (int, optional): The frame rate of the output video. Defaults to 30.
@@ -59,10 +60,12 @@ def generate_frames_from_video(video_path: str) -> list[np.ndarray]:
     """
     Generates list of frames from a video.
 
-    Args:
+    Parameters
+    ----------
         video_path (str): The path of the input video.
 
-    Returns:
+    Returns
+    -------
         frames (list of numpy array): frames generated from a video.
     """
     frames: list[np.ndarray] = []

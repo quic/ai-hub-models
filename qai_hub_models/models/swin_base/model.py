@@ -22,7 +22,7 @@ DEFAULT_WEIGHTS = "IMAGENET1K_V1"
 
 class SwinBase(ImagenetClassifier):
     @classmethod
-    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> ImagenetClassifier:
+    def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> SwinBase:
         net = tv_models.swin_b(weights=weights)
         replace_module_recursively(
             net, ShiftedWindowAttention, ShiftedWindowAttentionInf

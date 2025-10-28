@@ -54,7 +54,8 @@ class FaceMap_3DMMApp:
         """
         Return the input image with the predicted lmk overlayed on it.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image:
                 PIL image(s)
                 or
@@ -66,7 +67,8 @@ class FaceMap_3DMMApp:
             y0: numpy int32 -- top coordinate of face bounding box
             y1: numpy int32 -- bottom coordinate of face bounding box
 
-        Returns:
+        Returns
+        -------
             lmk_images: numpy array -- images with predicted landmarks displayed.
         """
         [image], _ = app_to_net_image_inputs(pixel_values_or_image)

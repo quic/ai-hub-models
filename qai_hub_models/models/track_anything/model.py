@@ -86,9 +86,9 @@ with SourceAsRoot(
 
 
 class TrackAnything(BaseModel):
-    def __init__(self, model: TrackAnything):
-        super().__init__()
-        self.model = model
+    def __init__(self, model: XMem):
+        super().__init__(model)
+        self.model: XMem
 
     @classmethod
     def from_pretrained(cls) -> TrackAnything:
@@ -104,11 +104,13 @@ class TrackAnythingEncodeKeyWithShrinkage(TrackAnything):
         """
         Run TrackAnything EncodeKey model and return key, shrinkage, selection, f16 for given image.
 
-        Parameters:
+        Parameters
+        ----------
             image: torch.Tensor of shape [1, 3, height, width]
                 image with value range of [0, 1], RGB channel layout.
 
-        Returns:
+        Returns
+        -------
             key: torch.Tensor of shape [1, 64, height//16, width//16]
                 encoded key
             shrinkage: torch.Tensor of shape [1, 1, height//16, width//16]
@@ -165,7 +167,8 @@ class TrackAnythingEncodeValue(TrackAnything):
         """
         Run TrackAnything Encode_value model and return generated mask for given points
 
-        Parameters:
+        Parameters
+        ----------
             image: torch.Tensor of shape [1, 3, height, width]
                 image with value range of [0, 1], RGB channel layout.
             masks: torch.Tensor of shape [1, height, width]
@@ -174,7 +177,8 @@ class TrackAnythingEncodeValue(TrackAnything):
                 image feature
             hidden_state: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
 
-        Returns:
+        Returns
+        -------
             prob: torch.Tensor of shape [2, height, width]
                 predicted probabilities
             value: torch.Tensor of shape [1, num_label, 512, height//16, width//16]
@@ -240,11 +244,13 @@ class TrackAnythingEncodeKeyWithoutShrinkage(TrackAnything):
         """
         Run TrackAnything Encode_Key model and return key, selection, f16, f8, f4 for given image.
 
-        Parameters:
+        Parameters
+        ----------
             image: torch.Tensor of shape [1, 3, height, width]
                 image with value range of [0, 1], RGB channel layout.
 
-        Returns:
+        Returns
+        -------
             key: torch.Tensor of shape [1, 64, height//16, width//16]
                 encoded key
             selection: torch.Tensor of shape [1, 64, height//16, width//16]
@@ -302,7 +308,8 @@ class TrackAnythingSegment(TrackAnything):
         """
         Run TrackAnything model and return generated mask for given points
 
-        Parameters:
+        Parameters
+        ----------
             f16: torch.Tensor of shape [1, 1024, height//16, width//16]
                 image features
             f8: torch.Tensor of shape [1, 512, height//8, width//8]
@@ -313,7 +320,8 @@ class TrackAnythingSegment(TrackAnything):
                 memory matched with current key and selection
             hidden_state: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
 
-        Returns:
+        Returns
+        -------
             prob: torch.Tensor of shape [2, height, width]
                 predicted probabilities
             hidden: torch.Tensor of shape [1, num_label, 64, height//16, width//16]

@@ -39,9 +39,7 @@ class SimpleAvgPool(torch.nn.Module):
 
 
 class KineticsClassifier(BaseModel):
-    """
-    Base class for all Kinetics Classifier models within QAI Hub Models.
-    """
+    """Base class for all Kinetics Classifier models within QAI Hub Models."""
 
     def __init__(self, model: torch.nn.Module):
         super().__init__(model)
@@ -52,12 +50,14 @@ class KineticsClassifier(BaseModel):
         """
         Predict class probabilities for an input `video`.
 
-        Parameters:
+        Parameters
+        ----------
             video: A [B, C, Number of frames, H, W] video.
                    Assumes video has been resized and normalized to range [0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             A [1, 400] where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """

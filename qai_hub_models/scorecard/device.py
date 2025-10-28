@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
 from enum import Enum, unique
 from functools import cached_property
@@ -13,30 +14,36 @@ from pydantic_core import core_schema
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import InferenceEngine, Precision, TargetRuntime
-from qai_hub_models.scorecard.envvars import EnabledDevicesEnvvar, SpecialDeviceSetting
+from qai_hub_models.scorecard.envvars import (
+    EnabledDevicesEnvvar,
+    SpecialDeviceSetting,
+)
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
+from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 _FRAMEWORK_ATTR_PREFIX = "framework"
-_DEVICE_CACHE: dict[str, hub.Device] = {}
+_DEVICE_CACHE: dict[str, Optional[hub.Device]] = {}
 UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
 
-def _get_cached_device(device_name: str) -> hub.Device:
+def _get_cached_device(device_name: str) -> Optional[hub.Device]:
     # Gets a device with attributes & OS. This only comes from hub.get_devices()
     device = _DEVICE_CACHE.get(device_name, None)
     if not device:
-        device = hub.get_devices(device_name)[0]
+        devices = hub.get_devices(device_name)
+        device = devices[0] if devices else None
         _DEVICE_CACHE[device_name] = device
     return device
 
 
 class ScorecardDevice:
-    _registry: dict[str, "ScorecardDevice"] = {}
+    _registry: dict[str, ScorecardDevice] = {}
 
     @classmethod
-    def get(cls, device_name: str, return_unregistered=False) -> "ScorecardDevice":
+    def get(cls, device_name: str, return_unregistered=False) -> ScorecardDevice:
         # If the name is a device name in the registry, return that device
         if device_name in ScorecardDevice._registry:
             return ScorecardDevice._registry[device_name]
@@ -55,9 +62,8 @@ class ScorecardDevice:
         # Return any device with a matching reference device name
         if out := [
             x
-            for x in ScorecardDevice.all_devices()
-            if x.reference_device_name == device_name
-            or x.execution_device_name == device_name
+            for x in ScorecardDevice.all_devices(check_available_in_hub=False)
+            if device_name in {x.reference_device_name, x.execution_device_name}
         ]:
             return out[0]
 
@@ -68,12 +74,12 @@ class ScorecardDevice:
         raise ValueError(f"Unknown Scorecard Device {device_name}")
 
     @classmethod
-    def parse(cls, object: Any) -> "ScorecardDevice":
-        if isinstance(object, str):
-            return cls.get(object, return_unregistered=True)
-        if isinstance(object, ScorecardDevice):
-            return object
-        raise ValueError(f"Can't parse type {type(object)} as ScorecardDevice")
+    def parse(cls, obj: Any) -> ScorecardDevice:
+        if isinstance(obj, str):
+            return cls.get(obj, return_unregistered=True)
+        if isinstance(obj, ScorecardDevice):
+            return obj
+        raise ValueError(f"Can't parse type {type(obj)} as ScorecardDevice")
 
     @classmethod
     def all_devices(
@@ -82,8 +88,9 @@ class ScorecardDevice:
         npu_supports_precision: Optional[Precision] = None,
         supports_compile_path: Optional[ScorecardCompilePath] = None,
         supports_profile_path: Optional[ScorecardProfilePath] = None,
-        form_factors: Optional[list["ScorecardDevice.FormFactor"]] = None,
+        form_factors: Optional[list[ScorecardDevice.FormFactor]] = None,
         is_mirror: Optional[bool] = None,
+        check_available_in_hub: bool = True,
     ):
         """
         Get all devices that match the given attributes.
@@ -93,7 +100,13 @@ class ScorecardDevice:
             device
             for device in cls._registry.values()
             if (
-                (enabled is None or enabled == device.enabled)
+                (
+                    not check_available_in_hub
+                    # Ignore availability check if AI Hub is not accessible
+                    or not can_access_qualcomm_ai_hub()
+                    or device.available_in_hub
+                )
+                and (enabled is None or enabled == device.enabled)
                 and (
                     npu_supports_precision is None
                     or device.npu_supports_precision(npu_supports_precision)
@@ -128,7 +141,7 @@ class ScorecardDevice:
         QC_LINUX = "Qualcomm Linux"
 
     class OperatingSystem(BaseQAIHMConfig):
-        ostype: "ScorecardDevice.OperatingSystemType"
+        ostype: ScorecardDevice.OperatingSystemType
         version: str
 
         def __str__(self):
@@ -139,17 +152,17 @@ class ScorecardDevice:
         name: str,
         reference_device_name: str,
         execution_device_name: Optional[str] = None,
-        disabled_models: list[str] = [],
+        disabled_models: list[str] | None = None,
         compile_paths: Optional[list[ScorecardCompilePath]] = None,
         profile_paths: Optional[list[ScorecardProfilePath]] = None,
-        always_produce_aot_assets: bool = False,
-        mirror_device: "Optional[ScorecardDevice]" = None,
+        mirror_device: Optional[ScorecardDevice] = None,
         npu_count: Optional[int] = None,
         public: bool = True,
         register: bool = True,
     ):
         """
         Parameters
+        ----------
             name: Name of this device for scorecard use.
 
             reference_device_name: The name of the "reference" device used by the scorecard for metadata when collating results.
@@ -162,15 +175,12 @@ class ScorecardDevice:
 
             profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
 
-            always_produce_aot_assets: If true, models that usually target JIT paths will compile assets for this device when the scorecard path setting is "DEFAULT_WITH_AOT_ASSETS".
-                                       These assets are included in perf.yaml and Hugging Face if the associated JIT asset succeeds. For example, a context binary would be
-                                       included in the release if DLC can profile succesfully.
-
             mirror_device: If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
 
             npu_count: How many NPUs this device has. If undefined, uses the NPU count of the mirror device or defaults to 1.
 
-            public: Whether this device is publicly available.
+            public: Whether this device is publicly available on AI Hub.
+                NOTE: Private devices are not included when "all" devices are selected. They must be explicitly included in the list of devices to test.
 
             register: Whether to register this device in the list of all devices.
         """
@@ -193,11 +203,10 @@ class ScorecardDevice:
 
         self.name = name
         self.disabled_models: list[str] = (
-            mirror_device.disabled_models if mirror_device else disabled_models
+            mirror_device.disabled_models if mirror_device else (disabled_models or [])
         )
         self.reference_device_name = reference_device_name
         self.execution_device_name = execution_device_name
-        self.always_produce_aot_assets = always_produce_aot_assets
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
         self.mirror_device: Optional[ScorecardDevice] = mirror_device
@@ -250,7 +259,7 @@ class ScorecardDevice:
         """
         valid_test_devices = EnabledDevicesEnvvar.get()
         return self.name in ScorecardDevice._registry and (
-            SpecialDeviceSetting.ALL in valid_test_devices
+            (self.public and SpecialDeviceSetting.ALL in valid_test_devices)
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
             or self.name in valid_test_devices
         )
@@ -261,23 +270,34 @@ class ScorecardDevice:
         Get the "reference" device used by the scorecard for metadata when collating results.
         This is not used by any actual scorecard jobs.
         """
-        return _get_cached_device(self.reference_device_name)
+        device = _get_cached_device(self.reference_device_name)
+        if not device:
+            raise ValueError(f"Device {self.reference_device_name} not found on Hub.")
+        return device
 
     @cached_property
     def execution_device(self) -> hub.Device:
-        """
-        Get the "reference" device used by the scorecard for metadata when collating results.
-        This is not used by any actual scorecard jobs.
-        """
+        """Get the device used by the scorecard for job submission."""
         if self.execution_device_name is not None:
-            return _get_cached_device(self.execution_device_name)
+            device = _get_cached_device(self.execution_device_name)
+            if not device:
+                raise ValueError(
+                    f"Device {self.execution_device_name} not found on Hub."
+                )
+            return device
         return self.reference_device
 
     @cached_property
+    def available_in_hub(self) -> bool:
+        """Returns true if this device is available in AI Hub."""
+        return _get_cached_device(self.reference_device_name) is not None and (
+            self.execution_device_name is None
+            or _get_cached_device(self.execution_device_name) is not None
+        )
+
+    @cached_property
     def chipset(self) -> str:
-        """
-        The chipset used by this device.
-        """
+        """The chipset used by this device."""
         device = (
             self.execution_device
             if self.execution_device_name
@@ -290,26 +310,21 @@ class ScorecardDevice:
 
     @cached_property
     def chipset_aliases(self) -> list[str]:
-        """
-        The aliases for the chipset used by this device.
-        """
+        """The aliases for the chipset used by this device."""
         device = (
             self.execution_device
             if self.execution_device_name
             else self.reference_device
         )
 
-        aliases = []
-        for attr in device.attributes:
-            if attr.startswith("chipset:"):
-                aliases.append(attr[8:])
+        aliases = [
+            attr[8:] for attr in device.attributes if attr.startswith("chipset:")
+        ]
         return aliases
 
     @cached_property
     def npu_count(self) -> int:
-        """
-        Returns the number of NPUs on this device.
-        """
+        """Returns the number of NPUs on this device."""
         if self._npu_count is not None:
             return self._npu_count
         if self.mirror_device:
@@ -349,9 +364,7 @@ class ScorecardDevice:
 
     @cached_property
     def os(self) -> OperatingSystem:
-        """
-        The operating system used by this device.
-        """
+        """The operating system used by this device."""
         for attr in self.reference_device.attributes:
             if attr.startswith("os:"):
                 return ScorecardDevice.OperatingSystem(
@@ -364,9 +377,7 @@ class ScorecardDevice:
 
     @cached_property
     def vendor(self) -> str:
-        """
-        The vendor that manufactures this device.
-        """
+        """The vendor that manufactures this device."""
         for attr in self.reference_device.attributes:
             if attr.startswith("vendor:"):
                 return attr.split(":")[-1]
@@ -374,9 +385,7 @@ class ScorecardDevice:
 
     @cached_property
     def form_factor(self) -> FormFactor:
-        """
-        The device form factor (eg. Auto, IoT, Mobile, ...)
-        """
+        """The device form factor (eg. Auto, IoT, Mobile, ...)"""
         for attr in self.reference_device.attributes:
             if attr.startswith("format:"):
                 return ScorecardDevice.FormFactor[attr.split(":")[-1].upper()]
@@ -384,9 +393,7 @@ class ScorecardDevice:
 
     @cached_property
     def hexagon_version(self) -> int:
-        """
-        The chipset hexagon version number
-        """
+        """The chipset hexagon version number"""
         for attr in self.reference_device.attributes:
             if attr.startswith("hexagon:v"):
                 return int(attr[9:])
@@ -394,18 +401,14 @@ class ScorecardDevice:
 
     @cached_property
     def supports_fp16_npu(self) -> bool:
-        """
-        Whether this device's NPU supports FP16 inference.
-        """
+        """Whether this device's NPU supports FP16 inference."""
         if self.mirror_device:
             return self.mirror_device.supports_fp16_npu
 
         return "htp-supports-fp16:true" in self.reference_device.attributes
 
     def npu_supports_precision(self, precision: Precision) -> bool:
-        """
-        Whether this device's NPU supports the given quantization spec.
-        """
+        """Whether this device's NPU supports the given quantization spec."""
         if self.mirror_device:
             return self.mirror_device.npu_supports_precision(precision)
 
@@ -429,7 +432,11 @@ class ScorecardDevice:
 
         if not supports_qnn:
             # No QNN support == QAIRT converters can't be used
-            runtimes = [x for x in runtimes if not x.compilation_uses_qnn_converters]
+            runtimes = [
+                x
+                for x in runtimes
+                if not x.is_aot_compiled and x.inference_engine != InferenceEngine.QNN
+            ]
 
         return runtimes
 
@@ -450,13 +457,13 @@ class ScorecardDevice:
 
         inference_engines_to_test: list[InferenceEngine] = []
         if (
-            self.form_factor == ScorecardDevice.FormFactor.PHONE
+            self.form_factor == ScorecardDevice.FormFactor.PHONE  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self.form_factor == ScorecardDevice.FormFactor.TABLET
             or self.form_factor == ScorecardDevice.FormFactor.IOT
         ):
             inference_engines_to_test = [i for i in InferenceEngine]
         elif (
-            self.form_factor == ScorecardDevice.FormFactor.AUTO
+            self.form_factor == ScorecardDevice.FormFactor.AUTO  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self.form_factor == ScorecardDevice.FormFactor.XR
         ):
             inference_engines_to_test = [InferenceEngine.QNN, InferenceEngine.TFLITE]
@@ -613,3 +620,6 @@ cs_9075 = ScorecardDevice(
 # XR Chipsets (cs)
 ##
 cs_xr_8450 = ScorecardDevice(name="cs_xr_8450", reference_device_name="QCS8450 (Proxy)")
+
+
+DEFAULT_SCORECARD_DEVICE = ScorecardDevice.get(DEFAULT_EXPORT_DEVICE)

@@ -59,16 +59,16 @@ class OpenAIClip(BaseModel):
         """
         with patched_in_projection_packed():
             clipped_text = torch.clip(text, min=0, max=self.eot_token)
-            text_features = self.clip.encode_text(clipped_text)
+            text_features = self.clip.encode_text(clipped_text)  # type: ignore[operator]
             # text_features: torch.Tensor [512 (transformer_width), num_text_prompts]
             # Raw text features.
             text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
-            image_features = self.clip.encode_image(image)
+            image_features = self.clip.encode_image(image)  # type: ignore[operator]
             image_features = image_features / image_features.norm(dim=1, keepdim=True)
             # image_features: torch.Tensor [num_images, 512 (transformer_width)]
             # Raw image features (multiplied to 100)
-            image_features = self.clip.logit_scale.exp() * image_features
+            image_features = self.clip.logit_scale.exp() * image_features  # type: ignore[operator]
 
         return image_features @ text_features.t()
 

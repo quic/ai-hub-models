@@ -72,9 +72,7 @@ class DatasetMetadata(NamedTuple):
 
 
 def get_folder_name(dataset_name: str, input_spec: InputSpec | None = None) -> str:
-    """
-    The name of the folder under which to store this dataset.
-    """
+    """The name of the folder under which to store this dataset."""
     if input_spec is None:
         return dataset_name
     sha256_hasher = hashlib.sha256()
@@ -90,9 +88,7 @@ def get_folder_name(dataset_name: str, input_spec: InputSpec | None = None) -> s
 
 
 class BaseDataset(Dataset, Sized, ABC):
-    """
-    Base class to be extended by Datasets used in this repo for quantizing models.
-    """
+    """Base class to be extended by Datasets used in this repo for quantizing models."""
 
     def __init__(
         self,
@@ -108,9 +104,7 @@ class BaseDataset(Dataset, Sized, ABC):
 
     @staticmethod
     def collate_fn(batch: Any) -> Any:
-        """
-        To be passed into DataLoader(..., collate_fn=...).
-        """
+        """To be passed into DataLoader(..., collate_fn=...)."""
         return default_collate(batch)
 
     @final
@@ -132,15 +126,11 @@ class BaseDataset(Dataset, Sized, ABC):
 
     @abstractmethod
     def _download_data(self) -> None:
-        """
-        Method to download necessary data to disk. To be implemented by subclass.
-        """
+        """Method to download necessary data to disk. To be implemented by subclass."""
         pass
 
     def _validate_data(self) -> bool:
-        """
-        Validates data downloaded on disk. By default just checks that folder exists.
-        """
+        """Validates data downloaded on disk. By default just checks that folder exists."""
         return self.dataset_path.exists()
 
     @classmethod
@@ -154,16 +144,12 @@ class BaseDataset(Dataset, Sized, ABC):
     @staticmethod
     @abstractmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         pass
 
     @staticmethod
     def default_num_calibration_samples() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @cached_property
@@ -189,7 +175,7 @@ def setup_fiftyone_env():
     except (ImportError, ModuleNotFoundError):
         raise ImportError(
             "This dataset requires the `fiftyone` module. Run `pip install fiftyone>=1.0.1,<1.9` to use this dataset."
-        )
+        ) from None
 
     fiftyone_dir = os.path.join(LOCAL_STORE_DEFAULT_PATH, "fiftyone")
     fo.config.database_dir = os.path.join(fiftyone_dir, "mongo")

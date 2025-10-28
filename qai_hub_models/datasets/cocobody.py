@@ -83,7 +83,7 @@ class CocoBodyDataset(BaseDataset):
             )
         with suppress_stdout():
             self.cocoGt = COCO(self.annotation_path)
-        self.img_ids = sorted(self.cocoGt.getImgIds())
+        self.img_ids: list[int] = sorted(self.cocoGt.getImgIds())
         self.kpt_db = self._load_kpt_db()
 
     def _load_kpt_db(self):
@@ -125,26 +125,38 @@ class CocoBodyDataset(BaseDataset):
         return kpt_db
 
     def __getitem__(
-        self, idx: int
+        self, index: int
     ) -> tuple[torch.Tensor, tuple[int, int, np.ndarray, np.ndarray]]:
         """
-        Returns a tuple of input image tensor and label data.
+        Get item in this dataset.
 
-        label data is a List with the following entries:
-            - imageId (int): The ID of the image.
-            - category_id (int) : The category ID.
-            - center (np.ndarray):
-                The center coordinates of the bounding box, with shape(2,).
-            - scale (np.ndarray) : Scaling factor, with shape(2,).
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image
+            Input image resized for the network. RGB, floating point range [0-1].
+
+        ground_truth
+            image_id
+                Image ID within the original dataset
+            category_id
+                Ground truth prediction category ID.
+            center
+                The center coordinates of the bounding box, with shape(2,) -- (x. y).
+            scale
+                Bounding box scaling factor, with shape(2,) -- (x, y).
         """
-
         (
             file_name,
             image_id,
             category_id,
             center,
             scale,
-        ) = self.kpt_db[idx]
+        ) = self.kpt_db[index]
         rotate = 0
         img_path = self.image_dir / file_name
 
@@ -171,18 +183,14 @@ class CocoBodyDataset(BaseDataset):
         )
 
     def _download_data(self) -> None:
-        """
-        Download and extract COCO-WholeBody dataset assets.
-        """
+        """Download and extract COCO-WholeBody dataset assets."""
         # Download and extract images
         COCO_VAL_IMAGES_ASSET.fetch(extract=True)
         COCO_VAL_ANNOTATIONS_ASSET.fetch()
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000
 
     @staticmethod

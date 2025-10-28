@@ -34,11 +34,11 @@ class QAIHMModelPerf(BaseQAIHMConfig):
 
             @staticmethod
             def from_bytes(
-                min: int, max: int
+                mmin: int, mmax: int
             ) -> QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB:
                 return QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB(
-                    min=round(min / (1 << 20)),
-                    max=round(max / (1 << 20)),
+                    min=round(mmin / (1 << 20)),
+                    max=round(mmax / (1 << 20)),
                 )
 
         class LayerCounts(BaseQAIHMConfig):
@@ -157,33 +157,33 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             bool | None,
         ],
         include_paths: Optional[list[ScorecardProfilePath]] = None,
-    ):
+    ) -> None:
         """
         Walk over each valid perf.yaml job entry and call the callback.
 
-        Parameters:
-            callback:
-                A function to call for each perf.yaml job entry.
+        Parameters
+        ----------
+        callback
+            A function to call for each perf.yaml job entry.
+            Func Params:
+                precision: Precision
+                    The precision for this entry,
+                component: str
+                    Component name. Will be Model Name if there is 1 component.
+                device: ScorecardDevice,
+                    Device for this entry.
+                path: ScorecardProfilePath
+                    Path for this entry.
+                QAIHMModelPerf.PerformanceDetails
+                    Actual entry perf data
 
-                Parameters:
-                    precision: Precision
-                        The precision for this entry,
-                    component: str
-                        Component name. Will be Model Name if there is 1 component.
-                    device: ScorecardDevice,
-                        Device for this entry.
-                    path: ScorecardProfilePath
-                        Path for this entry.
-                    QAIHMModelPerf.PerformanceDetails
-                        Actual entry perf data
+            Func Returns:
+                Boolean or None.
+                If None or True, for_each_entry continues to walk over more entries.
+                If False, for_each_entry will stop walking over additional entries.
 
-                Returns:
-                    None or a Bool.
-                        If None or True, for_each_entry continues to walk over more entries.
-                        If False, for_each_entry will stop walking over additional entries.
-
-            include_pathsL
-                If set, only paths in this list will be iterated over.
+        include_paths
+            Scorecard Profile Paths to loop over. If None, uses all enabled paths.
         """
         for precision, precision_perf in self.precisions.items():
             for component_name, component_detail in precision_perf.components.items():

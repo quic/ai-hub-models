@@ -44,9 +44,7 @@ __all__ = [
 
 
 class QAIHMModelInfo(BaseQAIHMConfig):
-    """
-    Schema & loader for model info.yaml.
-    """
+    """Schema & loader for model info.yaml."""
 
     # Name of the model as it will appear on the website.
     # Should have dashes instead of underscores and all
@@ -160,10 +158,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     @model_validator(mode="after")
     def check_fields(self, info: ValidationInfo) -> QAIHMModelInfo:
-        """
-        Returns false with a reason if the info spec for this model is not valid.
-
-        """
+        """Returns false with a reason if the info spec for this model is not valid."""
         validate_urls_exist: bool = info.context is not None and bool(
             info.context.get("validate_urls_exist", False)
         )

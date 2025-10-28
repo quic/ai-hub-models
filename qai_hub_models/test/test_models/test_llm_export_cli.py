@@ -51,7 +51,8 @@ class DummyMockModel(LLM_AIMETOnnx):
         Get a mocked instance of the LLM_AIMETOnnx class.
         Provides real return values for methods used during export without actually instantiating an LLM.
 
-        Parameters:
+        Parameters
+        ----------
             sequence_length:
                 The sequence length of the LLM.
             context_length:

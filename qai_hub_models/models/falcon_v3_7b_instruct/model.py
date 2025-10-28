@@ -61,8 +61,8 @@ class Falcon3_7B(Llama3Base):
         **kwargs,
     ):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -147,8 +147,8 @@ class Falcon3_7B(Llama3Base):
 class Falcon3_7B_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -170,13 +170,12 @@ class Falcon3_7B_AIMETOnnx(Llama3Base_AIMETOnnx):
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
-        Args:
-
+        Parameters
+        ----------
         - checkpoint: Path to previously calibrated AIMET encodings and ONNX
           models. Note that encodings are sensitive to AIMET ONNX versions.
           If passing None, initializes without encodings.
         """
-
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:

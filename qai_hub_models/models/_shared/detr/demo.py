@@ -50,7 +50,11 @@ def detr_demo(
 
     # Run app to scores, labels and boxes
     img = load_image(args.image)
-    app = DETRApp(detr, h, w)
+    app = DETRApp(
+        detr,  # type: ignore[arg-type]
+        h,
+        w,
+    )
     pred_images, _, _, _ = app.predict(img, default_weights)
     pred_image = Image.fromarray(pred_images[0])
 

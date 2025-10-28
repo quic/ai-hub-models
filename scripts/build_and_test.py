@@ -162,13 +162,13 @@ class TaskLibrary:
         self.venv_path = venv_path
 
     @staticmethod
-    def to_dot(highlight: list[str] = []) -> str:
+    def to_dot(highlight: Optional[list[str]] = None) -> str:
         elements: list[str] = []
         for tsk in ALL_TASKS:
             task_attrs: list[str] = []
             if tsk in PUBLIC_TASKS:
                 task_attrs.append("style=filled")
-            if tsk in highlight:
+            if tsk in (highlight or []):
                 task_attrs.append("penwidth=4.0")
             if len(task_attrs) > 0:
                 elements.append(f"{tsk} [{' '.join(task_attrs)}]")
@@ -562,9 +562,9 @@ class TaskLibrary:
         self,
         mypy: bool = False,
         quantize: bool = False,
-        compile: bool = False,
-        profile: bool = False,
-        inference: bool = False,
+        enable_compile: bool = False,
+        enable_profile: bool = False,
+        enable_inference: bool = False,
     ) -> PyTestModelsTask:
         all_models = get_all_models()
         return PyTestModelsTask(
@@ -576,9 +576,9 @@ class TaskLibrary:
             use_shared_cache=True,
             run_general=False,
             run_export_quantize=quantize,
-            run_export_compile=compile,
-            run_export_profile=profile,
-            run_export_inference=inference,
+            run_export_compile=enable_compile,
+            run_export_profile=enable_profile,
+            run_export_inference=enable_inference,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
             test_trace=False,
@@ -590,21 +590,27 @@ class TaskLibrary:
     def test_compile_all_models(
         self, plan: Plan, step_id: str = "test_compile_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(compile=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_compile=True)
+        )
 
     @public_task("Run profile jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
     def test_profile_all_models(
         self, plan: Plan, step_id: str = "test_profile_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(profile=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_profile=True)
+        )
 
     @public_task("Run inference jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
     def test_inference_all_models(
         self, plan: Plan, step_id: str = "test_inference_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(inference=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_inference=True)
+        )
 
     @public_task("Run profile and inference jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
@@ -612,7 +618,8 @@ class TaskLibrary:
         self, plan: Plan, step_id: str = "test_profile_inference_all_models"
     ) -> str:
         return plan.add_step(
-            step_id, self._make_hub_scorecard_task(profile=True, inference=True)
+            step_id,
+            self._make_hub_scorecard_task(enable_profile=True, enable_inference=True),
         )
 
     @public_task("Run quantize jobs for all models in Model Zoo.")

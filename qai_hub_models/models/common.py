@@ -43,7 +43,8 @@ class QAIRTVersion:
         If AI Hub is not configured on this machine, returns a partially completed object. Some fields may be set to
         UNKNOWN because we can't get information from AI Hub.
 
-        Parameters:
+        Parameters
+        ----------
             version_or_tag:
                 QAIRT version or AI Hub version tag.
 
@@ -210,7 +211,9 @@ class QAIRTVersion:
     def _load_frameworks() -> tuple[str, list[ParsedFramework], ParsedFramework | None]:
         """
         Load frameworks from AI Hub and populate cache.
-        Returns:
+
+        Returns
+        -------
             * currently active Hub api_url
             * all valid frameworks on this Hub version
             * framework that corresponds with AI Hub default
@@ -243,9 +246,7 @@ class QAIRTVersion:
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
-        """
-        Defines the parsing & serialization when QAIRTVersion is used in BaseQAIHMConfig objects.
-        """
+        """Defines the parsing & serialization when QAIRTVersion is used in BaseQAIHMConfig objects."""
         return core_schema.with_info_after_validator_function(
             lambda obj, _: (
                 cls(obj, validate_exists_on_ai_hub=False)
@@ -321,7 +322,9 @@ class QAIRTVersion:
             )
 
         @staticmethod
-        def parse(version: str, tags: list[str] = []) -> QAIRTVersion.ParsedFramework:
+        def parse(
+            version: str, tags: list[str] | None = None
+        ) -> QAIRTVersion.ParsedFramework:
             res = QAIRTVersion.ParsedFramework.parse_opt(version, tags)
             if not res:
                 raise ValueError(f"Unable to parse QAIRT version string {version}.")
@@ -329,7 +332,7 @@ class QAIRTVersion:
 
         @staticmethod
         def parse_opt(
-            version: str, tags: list[str] = []
+            version: str, tags: list[str] | None = None
         ) -> QAIRTVersion.ParsedFramework | None:
             if m := re.search(
                 r"v?(?P<major>\d+)\.(?P<minor>\d+)(?P<patch>\.\d+)?(?P<ident>\.\d+\_?\d+)?(?P<flavor>\-.*)?",
@@ -351,16 +354,17 @@ class QAIRTVersion:
                 else:
                     flavor = None
                 return QAIRTVersion.ParsedFramework(
-                    major, minor, patch, ident, flavor, tags
+                    major, minor, patch, ident, flavor, tags or []
                 )
             return None
+
+    def __hash__(self) -> int:
+        return hash(self.full_version_with_flavor)
 
 
 @unique
 class InferenceEngine(Enum):
-    """
-    The inference engine that executes a TargetRuntime asset.
-    """
+    """The inference engine that executes a TargetRuntime asset."""
 
     TFLITE = "tflite"
     QNN = "qnn"
@@ -389,13 +393,11 @@ class InferenceEngine(Enum):
 
     @property
     def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
-        """
-        Default QAIRT version used by this inference engine.
-        """
+        """Default QAIRT version used by this inference engine."""
         if self == InferenceEngine.ONNX:
             qairt_version = "2.37"
         else:
-            qairt_version = "2.38"
+            qairt_version = "2.39"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -416,16 +418,14 @@ class InferenceEngine(Enum):
                     f" OR\n"
                     f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
                     "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
-                )
+                ) from None
             else:
                 raise e
 
 
 @unique
 class ConversionToolchain(Enum):
-    """
-    The toolchain used to convert this asset from the source model format.
-    """
+    """The toolchain used to convert this asset from the source model format."""
 
     AIHUB_TFLITE_CONVERTER = "tflite"
     AIHUB_ONNX_CONVERTER = "onnx"
@@ -434,9 +434,7 @@ class ConversionToolchain(Enum):
 
 @unique
 class TargetRuntime(Enum):
-    """
-    Compilation target.
-    """
+    """Compilation target."""
 
     # TensorFlow Lite Runtime (renamed to LiteRT)
     # https://ai.google.dev/edge/litert
@@ -467,24 +465,24 @@ class TargetRuntime(Enum):
     ONNXRUNTIME_GENAI = "onnxruntime_genai"
 
     @staticmethod
-    def from_hub_model_type(type: hub.SourceModelType):
+    def from_hub_model_type(model_type: hub.SourceModelType):
         for rt in TargetRuntime:
-            if rt.hub_model_type == type:
+            if rt.hub_model_type == model_type:
                 return rt
-        raise ValueError(f"Unsupported Hub model type: {type}")
+        raise ValueError(f"Unsupported Hub model type: {model_type}")
 
     @property
     def inference_engine(self) -> InferenceEngine:
         if self == TargetRuntime.TFLITE:
             return InferenceEngine.TFLITE
         if (
-            self == TargetRuntime.QNN_CONTEXT_BINARY
+            self == TargetRuntime.QNN_CONTEXT_BINARY  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self == TargetRuntime.QNN_DLC
             or self == TargetRuntime.GENIE
         ):
             return InferenceEngine.QNN
         if (
-            self == TargetRuntime.ONNX
+            self == TargetRuntime.ONNX  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self == TargetRuntime.PRECOMPILED_QNN_ONNX
             or self == TargetRuntime.ONNXRUNTIME_GENAI
         ):
@@ -493,9 +491,7 @@ class TargetRuntime(Enum):
 
     @property
     def file_extension(self) -> str:
-        """
-        The file extension (without the .) assets for this runtime use.
-        """
+        """The file extension (without the .) assets for this runtime use."""
         if self == TargetRuntime.TFLITE:
             return "tflite"
         if self == TargetRuntime.QNN_CONTEXT_BINARY:
@@ -515,18 +511,16 @@ class TargetRuntime(Enum):
 
     @property
     def hub_model_type(self) -> hub.SourceModelType:
-        """
-        The associated hub SourceModelType for assets for this TargetRuntime.
-        """
+        """The associated hub SourceModelType for assets for this TargetRuntime."""
         if self == TargetRuntime.QNN_CONTEXT_BINARY:
             return hub.SourceModelType.QNN_CONTEXT_BINARY
         if self == TargetRuntime.QNN_DLC:
             return hub.SourceModelType.QNN_DLC
-        if self == TargetRuntime.PRECOMPILED_QNN_ONNX or self == TargetRuntime.ONNX:
+        if self == TargetRuntime.PRECOMPILED_QNN_ONNX or self == TargetRuntime.ONNX:  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             return hub.SourceModelType.ONNX
         if self == TargetRuntime.TFLITE:
             return hub.SourceModelType.TFLITE
-        if self == TargetRuntime.GENIE or self == TargetRuntime.ONNXRUNTIME_GENAI:
+        if self == TargetRuntime.GENIE or self == TargetRuntime.ONNXRUNTIME_GENAI:  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             raise ValueError(f"No Hub model type is applicable for {self.value}")
         assert_never(self)
 
@@ -543,10 +537,8 @@ class TargetRuntime(Enum):
 
     @property
     def qairt_version_changes_compilation(self) -> bool:
-        """
-        Returns true if different versions of Qualcomm AI Runtime will affect how this runtime is compiled.
-        """
-        return self.is_aot_compiled or self.compilation_uses_qnn_converters
+        """Returns true if different versions of Qualcomm AI Runtime will affect how this runtime is compiled."""
+        return self.is_aot_compiled or self.inference_engine == InferenceEngine.QNN
 
     def supports_precision(self, precision: Precision) -> bool:
         # Float is always supported.
@@ -572,7 +564,7 @@ class TargetRuntime(Enum):
                 Precision.w8a16_mixed_fp16,
             ]
         if (
-            self == TargetRuntime.QNN_DLC
+            self == TargetRuntime.QNN_DLC  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self == TargetRuntime.QNN_CONTEXT_BINARY
             # The following have QAIRT Context binary embedded within,
             # so they support the same precision set as QAIRT paths
@@ -596,50 +588,12 @@ class TargetRuntime(Enum):
         assert_never(self)
 
     @property
-    def compilation_uses_qnn_converters(self) -> bool:
-        """
-        If true, this runtime uses the QNN converters when compiling.
-        The toolchain used to compile this asset.
-        """
-        return self.conversion_toolchain == ConversionToolchain.QAIRT_CONVERTER
-
-    @property
-    def conversion_toolchain(self) -> ConversionToolchain:
-        """
-        The toolchain used to convert this asset from the original source model format.
-        """
-        if self == TargetRuntime.TFLITE:
-            return ConversionToolchain.AIHUB_TFLITE_CONVERTER
-        if self == TargetRuntime.ONNX:
-            return ConversionToolchain.AIHUB_ONNX_CONVERTER
-        if (
-            self == TargetRuntime.PRECOMPILED_QNN_ONNX
-            or self == TargetRuntime.QNN_CONTEXT_BINARY
-            or self == TargetRuntime.QNN_DLC
-            or self == TargetRuntime.GENIE
-            or self == TargetRuntime.ONNXRUNTIME_GENAI
-        ):
-            return ConversionToolchain.QAIRT_CONVERTER
-
-        assert_never(self)
-
-    @property
     def aihub_target_runtime_flag(self) -> str:
-        """
-        AI Hub job flag for compiling to this runtime.
-        """
-        hub_target_runtime_flag = None
-
+        """AI Hub job flag for compiling to this runtime."""
         if self.is_exclusively_for_genai:
-            if self.conversion_toolchain == ConversionToolchain.QAIRT_CONVERTER:
-                hub_target_runtime_flag = TargetRuntime.QNN_CONTEXT_BINARY.value
+            hub_target_runtime_flag = TargetRuntime.QNN_CONTEXT_BINARY.value
         else:
             hub_target_runtime_flag = self.value
-
-        if hub_target_runtime_flag is None:
-            raise NotImplementedError(
-                f"AI Hub does not define a target runtime compatible with {self.value}"
-            )
 
         return f"--target_runtime {hub_target_runtime_flag}"
 
@@ -660,52 +614,17 @@ class TargetRuntime(Enum):
         Returns true if this asset is fully compiled ahead of time (before running on target).
         This means the compiled asset contains a QNN context binary.
         """
-        return self.aot_equivalent == self
+        return self in [
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+            TargetRuntime.GENIE,
+            TargetRuntime.ONNXRUNTIME_GENAI,
+        ]
 
     @property
     def is_exclusively_for_genai(self) -> bool:
-        """
-        Returns true if this runtime is exclusively used to execute GenAI models.
-        """
+        """Returns true if this runtime is exclusively used to execute GenAI models."""
         return self in [TargetRuntime.GENIE, TargetRuntime.ONNXRUNTIME_GENAI]
-
-    @property
-    def aot_equivalent(self) -> TargetRuntime | None:
-        """
-        Returns the equivalent runtime that is compiled ahead of time.
-        Returns None if there is no equivalent runtime that is compiled ahead of time.
-        """
-        if self.is_exclusively_for_genai:
-            # All GenAI runtimes are always precompiled and unique.
-            return self
-
-        inference_engine = self.inference_engine
-        if inference_engine == InferenceEngine.ONNX:
-            return TargetRuntime.PRECOMPILED_QNN_ONNX
-        if inference_engine == InferenceEngine.QNN:
-            return TargetRuntime.QNN_CONTEXT_BINARY
-        if inference_engine == InferenceEngine.TFLITE:
-            return None
-        assert_never(inference_engine)
-
-    @property
-    def jit_equivalent(self) -> TargetRuntime | None:
-        """
-        Returns the equivalent runtime that is compiled "just in time" on target.
-        """
-        if self.is_exclusively_for_genai:
-            # All GenAI runtimes are always precompiled.
-            # No equivalent JIT path exists for GenAI today.
-            return None
-
-        inference_engine = self.inference_engine
-        if inference_engine == InferenceEngine.ONNX:
-            return TargetRuntime.ONNX
-        if inference_engine == InferenceEngine.QNN:
-            return TargetRuntime.QNN_DLC
-        if inference_engine == InferenceEngine.TFLITE:
-            return TargetRuntime.TFLITE
-        assert_never(inference_engine)
 
 
 class _FloatDtype(Enum):
@@ -839,17 +758,25 @@ class Precision:
         )
 
     @property
+    def has_quantized_activations(self) -> bool:
+        """True if ANY model activations are quantized (NOT floating point)."""
+        return (
+            self.activations_type is not None
+            and self.activations_type not in _FloatDtype
+        ) or (self.override_type is not None and self.override_type not in _FloatDtype)
+
+    @property
     def has_float_activations(self) -> bool:
-        # Returns true if any model activations are not quantized.
+        """True if ANY model activations are floating point (not quantized)."""
         return (
             self.activations_type is None
-            if self.override_type is None
-            else self.override_type in _FloatDtype
+            or self.activations_type in _FloatDtype
+            or (self.override_type is not None and self.override_type in _FloatDtype)
         )
 
     @property
     def has_float_weights(self) -> bool:
-        # Returns true if any model weights are not quantized.
+        """True if ANY model weights are floating point (not quantized)."""
         return (
             self.weights_type is None
             if self.override_type is None

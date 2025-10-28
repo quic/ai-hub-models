@@ -105,9 +105,7 @@ class KeyValue(BaseQAIHMConfig):
 
 
 class Cache(BaseQAIHMConfig):
-    """
-    Generic cache config storing List of key and value
-    """
+    """Generic cache config storing List of key and value"""
 
     cache: list[KeyValue]
 
@@ -157,15 +155,18 @@ i.e. <QAIHM_ROOT>/models/{model_name}/{model_asset_version}/model_cache.yaml
 
 
 def _get_model_cache_key(
-    cache_name: str, additional_keys: dict[str, str] = {}
+    cache_name: str, additional_keys: dict[str, str] | None = None
 ) -> dict[str, str]:
     """
     Return dictionary of key for model cache
 
-    Args:
+    Parameters
+    ----------
         cache_name (str): name of the cache, it could be model or subcomponent name
         additional_keys (dict[str, str], optional): Additional keys to include. Defaults to {}.
     """
+    if additional_keys is None:
+        additional_keys = {}
     cache_keys = {
         "cache_name": cache_name,
         "pytorch": str(torch_version),
@@ -181,12 +182,13 @@ def _get_hub_model_id(
     model_asset_version: int,
     cache_name: str,
     cache_mode: CacheMode = CacheMode.ENABLE,
-    additional_keys: dict[str, str] = {},
+    additional_keys: dict[str, str] | None = None,
 ) -> Optional[str]:
     """
     Return cached `hub_model_id` if present, otherwise None.
 
-    Args:
+    Parameters
+    ----------
         model_name (str): Model ID from AI Hub Models repo
         model_asset_version (int): Model asset version from AI Hub Models repo
         cache_name (str): Model name in cache
@@ -195,10 +197,12 @@ def _get_hub_model_id(
             Otherwise, skips cache lookup.
         additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
 
-    Returns:
+    Returns
+    -------
         Optional[str]: Returns cached `hub_model_id` for uploaded AI Hub model if found, otherwise None.
     """
-
+    if additional_keys is None:
+        additional_keys = {}
     if cache_mode != CacheMode.ENABLE:
         return None
 
@@ -225,12 +229,13 @@ def _update_hub_model_id(
     cache_name: str,
     hub_model_id: str,
     cache_mode: CacheMode = CacheMode.ENABLE,
-    additional_keys: dict[str, str] = {},
+    additional_keys: dict[str, str] | None = None,
 ):
     """
     Updates cache with `hub_model_id`
 
-    Args:
+    Parameters
+    ----------
         model_name (str): Model ID from AI Hub Models repo.
         model_asset_version (int): Model asset version from AI Hub Models repo.
         cache_name (str): Model name in cache.
@@ -241,6 +246,8 @@ def _update_hub_model_id(
             If CacheMode.OVERWRITE, then overwrites cache.
         additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
     """
+    if additional_keys is None:
+        additional_keys = {}
     if cache_mode == CacheMode.DISABLE:
         return
 
@@ -267,12 +274,13 @@ def get_or_create_cached_model(
     cache_name: str,
     model_path: str,
     cache_mode: CacheMode = CacheMode.ENABLE,
-    additional_keys: dict[str, str] = {},
+    additional_keys: dict[str, str] | None = None,
 ) -> hub.Model:
     """
     Returns cached model for given model name and asset version
 
-    Args:
+    Parameters
+    ----------
         model_name (str): Model ID from AI Hub Models repo.
         model_asset_version (int): Model asset version from AI Hub Models repo.
         cache_name (str): Model name in cache.
@@ -284,11 +292,13 @@ def get_or_create_cached_model(
         additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
 
 
-    Returns:
+    Returns
+    -------
         hub.Model: Returns hub.Model either from cache or uploaded.
     """
-
     # Check if model exists in cache
+    if additional_keys is None:
+        additional_keys = {}
     model_id = _get_hub_model_id(
         model_name=model_name,
         model_asset_version=model_asset_version,

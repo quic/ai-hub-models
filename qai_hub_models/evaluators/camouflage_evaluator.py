@@ -31,7 +31,9 @@ class CamouflageEvaluator(BaseEvaluator):
     def add_batch(self, pred_images: torch.Tensor, gt_images: torch.Tensor):
         """
         Process a batch of segmentation predictions and ground truth masks.
-        Args:
+
+        Parameters
+        ----------
             pred_images (torch.Tensor):  output predictions with shape
                 [batch_size, 1, height, width]
             gt_images (torch.Tensor): Ground truth masks with shape

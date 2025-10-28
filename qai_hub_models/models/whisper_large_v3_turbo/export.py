@@ -17,7 +17,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.whisper_large_v3_turbo import MODEL_ID, Model
+from qai_hub_models.models.whisper_large_v3_turbo import MODEL_ID, App, Model
 from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
@@ -68,7 +68,11 @@ def quantize_model(
                 )
 
             calibration_data = quantization_utils.get_calibration_data(
-                component, input_spec, num_calibration_samples
+                component,
+                input_spec,
+                num_calibration_samples,
+                app=App,
+                collection_model=model,
             )
             quantize_jobs[component_name] = hub.submit_quantize_job(
                 model=onnx_compile_job.get_target_model(),
@@ -200,7 +204,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.PRECOMPILED_QNN_ONNX,
+    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
     fetch_static_assets: str | None = None,
@@ -416,6 +420,7 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

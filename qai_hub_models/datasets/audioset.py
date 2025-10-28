@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
-from typing import Any
+from typing import cast
 
 import pandas as pd
 import torch
@@ -39,9 +39,7 @@ AUDIOSET_CLASS_MAP = CachedWebDatasetAsset.from_asset_store(
 
 
 class AudioSetDataset(BaseDataset):
-    """
-    Initialize AudioSet dataset for Audio classification tasks.
-    """
+    """Initialize AudioSet dataset for Audio classification tasks."""
 
     def __init__(
         self,
@@ -60,14 +58,16 @@ class AudioSetDataset(BaseDataset):
     def _validate_data(self) -> bool:
         """Validate and load dataset.
 
-        Returns:
-            bool: True if data is valid and loaded successfully, False otherwise
+        Returns
+        -------
+        bool
+            True if data is valid and loaded successfully, False otherwise
         """
         self.audio_files: list = []
-        self.labels: list = []
+        self.labels: list[torch.Tensor] = []
         self.id_to_idx: dict[str, int] = {}
         self.sample_ids: list[str] = []
-        self.csv_data = None
+        self.csv_data: pd.DataFrame | None = None
         self.audio_frames: dict[str, int] = {}
 
         if not self.audio_dir.exists():
@@ -84,19 +84,25 @@ class AudioSetDataset(BaseDataset):
 
         return True
 
-    def __getitem__(self, index) -> tuple[Any, tuple[Any, Any]]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, tuple[torch.Tensor, str]]:
         """Get a single audio sample and its labels by index.
 
-        Args:
-            index: Index of the sample to retrieve.
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
 
-        Returns:
-            tuple: (audio_tensor, (label_tensor, sample_id)) where:
-                - audio_tensor: Preprocessed audio tensor of shape (96, 64)
-                - label_tensor: Multi-hot encoded labels tensor of shape (num_classes,)
-                - sample_id: Original sample ID from the dataset
+        Returns
+        -------
+        audio_tensor
+            Peprocessed audio tensor of shape (96, 64)
+
+        label_and_sample
+            label_tensor:
+                Multi-hot encoded labels tensor of shape (num_classes,)
+            sample_id
+                Original sample ID from the dataset
         """
-
         audio_file = self.audio_files[index]
         audio, sr = torchaudio.load(self.audio_files[index])
         if audio.shape[0] > 1:  # converts to mono
@@ -109,7 +115,9 @@ class AudioSetDataset(BaseDataset):
         frame_idx = index % self.audio_frames[audio_file.stem]
         input_tensor = torch.zeros(1, 96, 64)
         if patches.shape[0] > 0 and frame_idx < patches.shape[0]:
-            input_tensor = patches[frame_idx : frame_idx + 1].squeeze(0)
+            input_tensor = cast(
+                torch.Tensor, patches[frame_idx : frame_idx + 1]
+            ).squeeze(0)
         return input_tensor, (self.labels[index], self.sample_ids[index])
 
     def _parse_audioset_csv(self) -> pd.DataFrame:
@@ -123,7 +131,7 @@ class AudioSetDataset(BaseDataset):
                 engine="python",
             )
         except Exception as e:
-            raise ValueError(f"Failed to parse CSV {self.csv_path}: {str(e)}")
+            raise ValueError(f"Failed to parse CSV {self.csv_path}: {str(e)}") from None
 
     def _load_class_map(self) -> None:
         """Load class ID to index mapping from AudioSet ontology."""
@@ -134,11 +142,10 @@ class AudioSetDataset(BaseDataset):
 
     def _prepare_data(self) -> None:
         """Prepare data by matching audio files with CSV entries."""
-
         # Load CSV data once and create a lookup dictionary
         self.csv_data = self._parse_audioset_csv()
 
-        csv_lookup = {row["YTID"]: row for _, row in self.csv_data.iterrows()}  # type: ignore
+        csv_lookup = {row["YTID"]: row for _, row in self.csv_data.iterrows()}
 
         self.audio_dir = self.audio_dir / "audio" / "eval"
 
@@ -160,7 +167,7 @@ class AudioSetDataset(BaseDataset):
                     if label_id in self.id_to_idx:
                         label_vector[self.id_to_idx[label_id]] = 1.0
                 # Add each frame as a separate sample
-                for frame_idx in range(frames_per_sample):
+                for _frame_idx in range(frames_per_sample):
                     self.audio_files.append(audio_file)
                     self.labels.append(label_vector)
                     self.sample_ids.append(ytid)

@@ -63,7 +63,7 @@ def sam_decoder_predict_masks(
     upscaled_embedding = self.output_upscaling(src)
     hyper_in_list: list[torch.Tensor] = []
     for i in range(self.num_mask_tokens):
-        hyper_in_list.append(
+        hyper_in_list.append(  # noqa: PERF401
             self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :])
         )
     hyper_in = torch.stack(hyper_in_list, dim=1)
@@ -100,7 +100,7 @@ class Conv2DInplaceLinear(nn.Module):
             in_features,
             out_features,
             bias is not None,
-            mod.device if hasattr(mod, "device") else None,
+            mod.device if hasattr(mod, "device") else None,  # type: ignore[arg-type]
         )
         linear.conv2d.weight.data.copy_(weight.data[:, :, None, None])
         if bias is not None:
@@ -150,9 +150,7 @@ class Conv2DInplaceLinear(nn.Module):
 
 
 class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
-    """
-    SAM MLP that uses 1x1 Conv2D in place of linear layers.
-    """
+    """SAM MLP that uses 1x1 Conv2D in place of linear layers."""
 
     def __init__(self, mlp):  # from segment_anything.modeling.mask_decoder import MLP
         super().__init__()
@@ -172,9 +170,7 @@ class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
 
 
 class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
-    """
-    SAM MLPBlock that uses 1x1 Conv2D in place of linear layers.
-    """
+    """SAM MLPBlock that uses 1x1 Conv2D in place of linear layers."""
 
     def __init__(
         self,

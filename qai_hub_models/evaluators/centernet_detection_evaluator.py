@@ -14,9 +14,7 @@ from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
 
 
 class CenternetDetectionEvaluator(DetectionEvaluator):
-    """
-    Evaluator for Centernet detection tasks.
-    """
+    """Evaluator for Centernet detection tasks."""
 
     def __init__(
         self,
@@ -59,7 +57,8 @@ class CenternetDetectionEvaluator(DetectionEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        Parameters:
+        Parameters
+        ----------
             output: A tuple of tensors containing;
                 - hm (torch.Tensor): Heatmap with the shape of
                     [B, num_classes, H//4, W//4].

@@ -8,7 +8,7 @@ from __future__ import annotations
 from importlib import reload
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
@@ -50,12 +50,14 @@ class YoloV6(Yolo):
         """
         Run YoloV6 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
                 scores: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
@@ -86,9 +88,7 @@ class YoloV6(Yolo):
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
 

@@ -38,12 +38,14 @@ class DeepLabV3Model(BaseModel):
         """
         Run DeepLabV3_Plus_Mobilenet on `image`, and produce a tensor of classes for segmentation
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for model consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
            tensor: BxHxW tensor of class indices per pixel
         """
         if self.normalize_input:

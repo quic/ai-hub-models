@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from mmdet.apis import init_detector
+from mmdet.models.detectors.rtmdet import RTMDet as mmdet_RTMDET
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -30,10 +32,11 @@ MODEL_CONFIG_PATH = CachedWebModelAsset.from_asset_store(
 class RTMDet(Yolo):
     """Exportable RTMDet bounding box detector, end-to-end."""
 
-    def __init__(self, model: nn.Module, include_postprocessing: bool = True) -> None:
-        super().__init__()
-
-        self.model = model
+    def __init__(
+        self, model: mmdet_RTMDET, include_postprocessing: bool = True
+    ) -> None:
+        super().__init__(model)
+        self.model: mmdet_RTMDET
         self.stage = [80, 40, 20]
         self.input_shape = 640
         self.include_postprocessing = include_postprocessing
@@ -41,8 +44,8 @@ class RTMDet(Yolo):
     @classmethod
     def from_pretrained(cls, include_postprocessing: bool = True) -> RTMDet:
         """RTMDet comes from the MMDet library, so we load using an internal config
-        rather than a public weights file"""
-
+        rather than a public weights file
+        """
         model = _load_rtmdet_source_model_from_weights(
             str(MODEL_CONFIG_PATH), str(MODEL_LOCAL_PATH)
         )
@@ -52,12 +55,15 @@ class RTMDet(Yolo):
         """
         Run RTMDet on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
         Forward pass for processing the inout image ad obtaining the model outputs.
-        Parameters:
+
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                 Range: float[0, 1]
                 3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
@@ -66,8 +72,15 @@ class RTMDet(Yolo):
                 class_idx: torch.tensor
                     Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
         """
+        # Add a cast. model._forward is not typed correctly.
+        output = cast(
+            tuple[
+                tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+                tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+            ],
+            self.model._forward(image),
+        )
 
-        output = self.model._forward(image)
         # decode
         boxes_list = []
         for i, (cls, box) in enumerate(zip(*output)):
@@ -115,6 +128,7 @@ class RTMDet(Yolo):
 
 def _load_rtmdet_source_model_from_weights(
     model_config_path: str, model_weights_path: str
-) -> torch.nn.Module:
+) -> mmdet_RTMDET:
     model = init_detector(str(model_config_path), str(model_weights_path), device="cpu")
+    assert isinstance(model, mmdet_RTMDET)
     return model

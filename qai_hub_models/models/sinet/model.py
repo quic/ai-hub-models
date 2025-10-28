@@ -46,12 +46,14 @@ class SINet(CityscapesSegmentor):
         """
         Run SINet on `image`, and produce a tensor of classes for segmentation
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for model consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             tensor: 1x2xHxW tensor of class logits per pixel
         """
         # These mean and std values were computed using the prescribed training data
@@ -85,9 +87,7 @@ class SINet(CityscapesSegmentor):
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
 
@@ -119,12 +119,11 @@ def _load_sinet_source_model_from_weights(
 
         if os.path.exists(os.path.expanduser(weights_name_or_path)):
             weights_path = os.path.expanduser(weights_name_or_path)
+        elif not os.path.exists(weights_name_or_path):
+            # Load SINet model from the source repository using the given weights.
+            weights_path = _get_weightsfile_from_name(weights_name_or_path)
         else:
-            if not os.path.exists(weights_name_or_path):
-                # Load SINet model from the source repository using the given weights.
-                weights_path = _get_weightsfile_from_name(weights_name_or_path)
-            else:
-                weights_path = None
+            weights_path = None
         weights = load_torch(weights_path or weights_name_or_path)
 
         # Perform a find and replace for .data.size() in SINet's shuffle implementation

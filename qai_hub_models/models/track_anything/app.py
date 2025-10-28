@@ -55,7 +55,8 @@ class TrackAnythingApp:
         config: dict,
     ):
         """
-        Parameters:
+        Parameters
+        ----------
             EncodeKeyWithShrinkage:
                 TrackAnything Key encoder with shrinkage. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeKeyWithShrinkage
             EncodeValue:
@@ -86,14 +87,16 @@ class TrackAnythingApp:
         """
         Track the masked object in all frames.
 
-        Parameters:
+        Parameters
+        ----------
             frames: list[numpy array] (N H W C x uint8)
                 channel layout RGB
 
             mask: numpy array of shape [1, H, W]
                 mask for object to track
 
-        Returns:
+        Returns
+        -------
             if raw_output is True,
                 out_mask: list[numpy array] (N H W C x uint8)
                     masks of object for all frames
@@ -109,9 +112,8 @@ class TrackAnythingApp:
         # preprocess
         h, w, _ = frames[0].shape[-3:]
         model_h, model_w = TrackAnythingEncodeValue.get_input_spec()["image"][0][-2:]
-        for ti, frame_numpy in enumerate(frames):
+        for frame_numpy in frames:
             frame = torch.from_numpy(frame_numpy).permute(2, 0, 1).float() / 255.0
-
             frame, scale, pad = resize_pad(frame.unsqueeze(0), (model_h, model_w))
             frame_list.append(frame)
         frame_tensor = torch.concat(frame_list, dim=0)

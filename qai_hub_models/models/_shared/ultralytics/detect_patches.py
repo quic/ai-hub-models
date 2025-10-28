@@ -30,8 +30,8 @@ def patch_ultralytics_detection_head(model: DetectionModel):
 
     # Patch inference head to skip concat of boxes & scores
     # This is required for int8 quantization.
-    head._inference = functools.partial(patched_ultryaltics_det_head_inference, head)  # type: ignore[method-assign]
-    head.forward = functools.partial(patched_ultryaltics_det_head_forward, head)  # type: ignore[method-assign]
+    head._inference = functools.partial(patched_ultryaltics_det_head_inference, head)  # type: ignore[assignment]
+    head.forward = functools.partial(patched_ultryaltics_det_head_forward, head)
 
 
 def patched_ultryaltics_det_head_forward(
@@ -47,10 +47,12 @@ def patched_ultryaltics_det_head_forward(
 
     Decode predicted bounding boxes and class probabilities based on multiple-level feature maps.
 
-    Args:
+    Parameters
+    ----------
         x (list[torch.Tensor]): List of feature maps from different detection layers.
 
-    Returns:
+    Returns
+    -------
         tuple[
             torch.Tensor: Bounding Boxes
             torch.Tensor: Class probs
@@ -77,10 +79,12 @@ def patched_ultryaltics_det_head_inference(
 
     Decode predicted bounding boxes and class probabilities based on multiple-level feature maps.
 
-    Args:
+    Parameters
+    ----------
         x (list[torch.Tensor]): List of feature maps from different detection layers.
 
-    Returns:
+    Returns
+    -------
         tuple[
             torch.Tensor: Bounding Boxes
             torch.Tensor: Class probls

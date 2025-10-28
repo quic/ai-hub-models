@@ -389,12 +389,14 @@ def get_bbox_iou_matrix(
 ) -> np.ndarray:
     """Calculate axis-aligned 2D IoU between sets of bounding boxes.
 
-    Args:
+    Parameters
+    ----------
         boxes (np.ndarray): Predicted boxes in format [x1, y1, x2, y2], of shape (N, 4).
         query_boxes (np.ndarray): Ground truth boxes in format [x1, y1, x2, y2], of shape (K, 4).
         criterion (int): If 0, use area of box only; otherwise standard IoU.
 
-    Returns:
+    Returns
+    -------
         np.ndarray: IoU matrix of shape (N, K).
     """
     N, K = boxes.shape[0], query_boxes.shape[0]

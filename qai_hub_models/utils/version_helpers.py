@@ -24,7 +24,8 @@ class QAIHMVersion:
         """
         Fetches and prints all released versions of ai hub models from PyPi.
 
-        Returns:
+        Returns
+        -------
             A list of all releases, latest first.
         """
         url = "https://pypi.org/pypi/qai_hub_models/json"
@@ -37,21 +38,17 @@ class QAIHMVersion:
 
     @classproperty
     def latest_tag(cls) -> str:
-        """
-        Get the version string for the latest released version of AI Hub Models."""
+        """Get the version string for the latest released version of AI Hub Models."""
         return f"v{QAIHMVersion.all[0]}"
 
     @classproperty
     def current_tag(cls) -> str:
-        """
-        Get the version string for the latest released version of AI Hub Models."""
+        """Get the version string for the latest released version of AI Hub Models."""
         return f"v{qaihm_version}"
 
     @staticmethod
     def tag_from_string(version_str: str) -> str:
-        """
-        Gets the version tag from the given version string.
-        """
+        """Gets the version tag from the given version string."""
         if not version_str.startswith("v"):
             if version_str.lower() == "latest":
                 return QAIHMVersion.latest_tag

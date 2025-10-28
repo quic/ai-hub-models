@@ -44,7 +44,10 @@ def segmentation_demo(
         orig_image, (height, width), pad_mode=pad_mode
     )
 
-    app = app_cls(model, normalize_input)
+    app = app_cls(
+        model,  # type: ignore[arg-type]
+        normalize_input,
+    )
     print("Model Loaded")
 
     output = app.segment_image(image)[0]

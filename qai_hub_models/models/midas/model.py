@@ -129,13 +129,15 @@ class Midas(DepthEstimationModel):
         """
         Runs the model on an image tensor and returns a tensor of depth estimates
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, H, W] image.
                    Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             Tensor of depth estimates of size [1, H, W].
         """
         if self.normalize_input:

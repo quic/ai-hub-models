@@ -25,11 +25,11 @@ def repaint_demo(
     default_image: str | CachedWebAsset,
     default_mask: str | CachedWebAsset,
     is_test: bool = False,
-    available_target_runtimes: list[TargetRuntime] = list(
-        TargetRuntime.__members__.values()
-    ),
+    available_target_runtimes: list[TargetRuntime] | None = None,
 ):
     # Demo parameters
+    if available_target_runtimes is None:
+        available_target_runtimes = list(TargetRuntime.__members__.values())
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(
         parser, available_target_runtimes=available_target_runtimes, add_output_dir=True
@@ -56,7 +56,7 @@ def repaint_demo(
     print("Model Loaded")
 
     # Run app
-    app = RepaintMaskApp(model)
+    app = RepaintMaskApp(model)  # type: ignore[arg-type]
     out = app.paint_mask_on_image(image, mask)[0]
 
     if not is_test:

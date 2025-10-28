@@ -97,12 +97,12 @@ def _create_patches(
     patch_model = patch(
         f"qai_hub_models.models.{base_name}.Model.from_pretrained",
         mock_from_pretrained,
-    )  # type: ignore
+    )
 
     patch_fp_model = patch(
         f"qai_hub_models.models.{base_name}.FP_Model.from_pretrained",
         return_value=Mock(),
-    )  # type: ignore
+    )
 
     patch_onnx_checker = patch("onnx.checker.check_model")
 

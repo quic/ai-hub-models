@@ -18,6 +18,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
 )
 from qai_hub_models.utils.image_processing import pre_process_with_affine
+from qai_hub_models.utils.input_spec import InputSpec
 
 KITTI_FOLDER_NAME = "kitti"
 KITTI_VERSION = 1
@@ -46,8 +47,7 @@ class KittiDataset(BaseDataset):
         input_labels_zip: str | None = None,
         input_calibs_zip: str | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
-        input_height: int = 384,
-        input_width: int = 1280,
+        input_spec: InputSpec | None = None,
     ):
         self.input_images_zip = input_images_zip
         self.input_labels_zip = input_labels_zip
@@ -59,8 +59,10 @@ class KittiDataset(BaseDataset):
         self.labels_path = self.data_path / KITTI_LABELS_DIR_NAME
         self.calibs_path = self.data_path / KITTI_CALIBS_DIR_NAME
         BaseDataset.__init__(self, self.data_path, split=split)
-        self.input_width = input_width
-        self.input_height = input_height
+
+        input_spec = input_spec or {"image": ((1, 3, 384, 1280), "")}
+        self.input_width = input_spec["image"][0][3]
+        self.input_height = input_spec["image"][0][2]
         image_set = open(
             VAL_TXT.fetch() if split == DatasetSplit.VAL else TRAIN_TXT.fetch()
         )
@@ -83,13 +85,25 @@ class KittiDataset(BaseDataset):
         self, index: int
     ) -> tuple[torch.Tensor, tuple[int, np.ndarray, np.ndarray, np.ndarray]]:
         """
-        Returns:
-            tuple: (image_tensor, tuple(img_id, center, scale, calib)) where:
-                - image_tensor (torch.Tensor): Normalized image tensor [C, H, W]
-                - img_id (int): image id
-                - center (np.ndarray): center of the image with shape (2,)
-                - scale (np.ndarray): scale of the image with shape (2,)
-                - calib (np.ndarray): camera calibration matrix with shape (3, 4)
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image_tensor
+             Normalized image tensor [C, H, W], RGB [0-1]
+
+        gt_data
+            img_id
+                image id
+            center
+                center of the image with shape (2,)
+            scale
+                scale of the image with shape (2,)
+            calib
+                camera calibration matrix with shape (3, 4)
         """
         image_path = self.sample[index]["img_path"]
         img_id = self.sample[index]["img_id"]
@@ -107,6 +121,7 @@ class KittiDataset(BaseDataset):
         image_tensor = pre_process_with_affine(
             image, c, s, 0, (self.input_height, self.input_width)
         ).squeeze(0)
+
         return image_tensor, (img_id, c, s, calib)
 
     def __len__(self):
@@ -143,7 +158,5 @@ class KittiDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

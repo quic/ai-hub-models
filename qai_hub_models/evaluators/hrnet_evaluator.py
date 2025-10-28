@@ -21,7 +21,8 @@ class HRNetPoseEvaluator(CocoBodyPoseEvaluator):
     ) -> None:
         """Process a batch of HRNet model outputs and ground truth data.
 
-        Args:
+        Parameters
+        ----------
             output: Model predictions which can be :
                    - A tuple containing (heatmaps,) [batch, joints, H, W]
             gt: Ground truth data containing:

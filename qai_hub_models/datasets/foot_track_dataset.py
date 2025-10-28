@@ -25,9 +25,7 @@ CLASS_STR2IDX = {"face": "0", "person": "1", "hand": "2"}
 
 
 class FootTrackDataset(BaseDataset):
-    """
-    Wrapper class for foot_track_net private dataset
-    """
+    """Wrapper class for foot_track_net private dataset"""
 
     def __init__(
         self,
@@ -131,7 +129,5 @@ class FootTrackDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

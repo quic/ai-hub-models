@@ -18,7 +18,7 @@ from transformers import AutoConfig
 from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import cleanup
+from qai_hub_models.models._shared.llm.model import CheckpointSpec, cleanup
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_1b_instruct import (
     MODEL_ID,
@@ -29,6 +29,7 @@ from qai_hub_models.models.llama_v3_2_1b_instruct import (
 from qai_hub_models.models.llama_v3_2_1b_instruct.demo import llama_3_2_1b_chat_demo
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
     DEFAULT_EXPORT_DEVICE,
+    DEFAULT_PRECISION,
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
     SUPPORTED_PRECISION_RUNTIMES,
@@ -36,7 +37,7 @@ from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_2_1b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_PRECISION,
+    HF_REPO_NAME,
     MODEL_ASSET_VERSION,
 )
 from qai_hub_models.scorecard import (
@@ -47,7 +48,6 @@ from qai_hub_models.scorecard.execution_helpers import (
     get_compile_parameterized_pytest_config,
     pytest_device_idfn,
 )
-from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.llm_helpers import create_genie_config
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
@@ -57,10 +57,9 @@ DEFAULT_EVAL_SEQLEN = 2048
 
 
 def test_create_genie_config():
-    model_name = "meta-llama/Llama-3.2-1B-Instruct"
     context_length = 1024
-    llm_config = AutoConfig.from_pretrained(model_name)
-    model_list = ["model1.bin", "model2.bin"]
+    llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
+    model_list = [f"llama_v3_2_1b_instruct_part_{i}_of_3.bin" for i in range(1, 4)]
     actual_config = create_genie_config(context_length, llm_config, "rope", model_list)
     expected_config: dict[str, Any] = {
         "dialog": {
@@ -104,10 +103,7 @@ def test_create_genie_config():
                     "type": "binary",
                     "binary": {
                         "version": 1,
-                        "ctx-bins": [
-                            "model1.bin",
-                            "model2.bin",
-                        ],
+                        "ctx-bins": model_list,
                     },
                     "positional-encoding": {
                         "type": "rope",
@@ -218,13 +214,13 @@ def test_cli_default_device_select_component(
 
 
 # Full model tests
+@pytest.mark.evaluate
 @pytest.mark.parametrize("checkpoint", ["DEFAULT", "DEFAULT_W4A16"])
 def test_load_encodings_to_quantsim(checkpoint):
     cleanup()
     Model.from_pretrained(fp_model=FP_Model.from_pretrained())
 
 
-@pytest.mark.evaluate
 @pytest.fixture(scope="session")
 def setup_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"{MODEL_ID}_ai_nexuz_ckpt")

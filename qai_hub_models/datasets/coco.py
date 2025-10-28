@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
+from typing import Literal
 
 import torch
 import torch.nn.functional as F
@@ -72,25 +73,40 @@ class CocoDataset(BaseDataset):
         max_boxes: int = 100,
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
-        label_types: list[str] = ["detections"],
+        label_types: list[Literal["detections", "segmentations"]] | None = None,
     ):
         """
-        Parameters:
-            target_image_size: The size to which the input images will be resized.
-            split: Whether to use the train or val split of the dataset.
-            max_boxes: The maximum number of boxes for a given sample. Used so that
-                when loading multiple samples in a batch via a dataloader, this will
-                be the tensor dimension.
+        Parameters
+        ----------
+        split
+            Whether to use the train or val split of the dataset.
 
-                If a sample has fewer than this many boxes, the tensor of boxes
-                will be zero padded up to this amount.
+        input_spec
+            Model input spec; determines shapes for model input produced by this dataset.
 
-                If a sample has more than this many boxes, an exception is thrown.
-            num_samples: Number of data samples to download. Needs to be specified
-                during initialization because only as many samples as requested
-                are downloaded.
-            use_all_classes : Flag to indicate whether to use 91 classes (DETR) or 80 classes (YOLO).
+        max_boxes
+            The maximum number of boxes for a given sample. Used so that
+            when loading multiple samples in a batch via a dataloader, this will
+            be the tensor dimension.
+
+            If a sample has fewer than this many boxes, the tensor of boxes
+            will be zero padded up to this amount.
+
+            If a sample has more than this many boxes, an exception is thrown.
+
+        num_samples
+            Number of data samples to download. Needs to be specified
+            during initialization because only as many samples as requested
+            are downloaded.
+
+        num_classes
+            Number of classes this model detects.
+
+        label_types
+            Type of predictions this model produces.
         """
+        if label_types is None:
+            label_types = ["detections"]
         self.num_samples = num_samples
         self.num_classes = num_classes
         self.label_types = label_types
@@ -120,32 +136,45 @@ class CocoDataset(BaseDataset):
         self.max_boxes = max_boxes
 
     def __getitem__(
-        self, item
+        self, index: int
     ) -> tuple[
         torch.Tensor, tuple[int, int, int, torch.Tensor, torch.Tensor, torch.Tensor]
     ]:
         """
-        Returns a tuple of input image tensor and label data.
+        Get an item in this dataset.
 
-        The image:
-            Is scaled & (center) padded to fit the desired model input shape (self.target_h, self.target_w).
-            Is converted to RGB floating point with range [0, 1]
-            Has shape [1, 3, self.target_h, self.target_w] (NHWC)
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
 
-        Label data is a tuple with the following entries:
-          - Image ID within the original dataset
-          - returned image height (in pixels)
-          - returned image width (in pixels)
-          - bounding box data with shape (self.max_boxes, 4)
-              The 4 are (x1, y1, x2, y2), and are normalized [0, 1] fp values.
-              Box coordinates are normalized to reflect their locations in the resized & padded image.
-          - labels with shape (self.max_boxes,)
-          - number of actual boxes present
+
+        Returns
+        -------
+        image
+            Input image resized for the network. RGB, floating point range [0-1].
+
+        ground_truth
+            image_id
+                Image ID within the original dataset
+            target_height
+                Returns image height.
+            target_width
+                Returned image width.
+            bboxes
+                bounding box data with shape (self.max_boxes, 4)
+                The 4 are (x1, y1, x2, y2), and are normalized [0, 1] fp values.
+                Box coordinates are normalized to reflect their locations in the input image
+                    (which has been resized / padded to fit the network input shape).
+            labels
+                Ground truth predicted category IDs with shape (self.max_boxes)
+            num_boxes
+                Number of boxes present in the ground truth data. Shape [1].
         """
         from fiftyone.core.sample import SampleView
 
         # Open PIL image sample.
-        sample: SampleView = self.dataset[item : item + 1].first()
+        sample: SampleView = self.dataset[index : index + 1].first()
         image = Image.open(sample.filepath).convert("RGB")
         src_image_w, src_image_h = image.size
 
@@ -224,9 +253,7 @@ class CocoDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 300
 
     @staticmethod

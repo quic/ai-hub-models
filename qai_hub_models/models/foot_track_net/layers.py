@@ -8,9 +8,9 @@ from __future__ import annotations
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class SeModule(nn.Module):
@@ -343,19 +343,19 @@ class CropLayer(nn.Module):
         assert self.rows_to_crop >= 0
         assert self.cols_to_crop >= 0
 
-    def forward(self, input):
+    def forward(self, x):
         """
         x: N,C,H,W tensor
         return: N,C,H,W tensor
         """
         if self.rows_to_crop == 0 and self.cols_to_crop == 0:
-            return input
+            return x
         elif self.rows_to_crop > 0 and self.cols_to_crop == 0:
-            return input[:, :, self.rows_to_crop : -self.rows_to_crop, :]
+            return x[:, :, self.rows_to_crop : -self.rows_to_crop, :]
         elif self.rows_to_crop == 0 and self.cols_to_crop > 0:
-            return input[:, :, :, self.cols_to_crop : -self.cols_to_crop]
+            return x[:, :, :, self.cols_to_crop : -self.cols_to_crop]
         else:
-            return input[
+            return x[
                 :,
                 :,
                 self.rows_to_crop : -self.rows_to_crop,

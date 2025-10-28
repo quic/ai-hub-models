@@ -56,8 +56,8 @@ class Llama3_1_SEALION_3_5_8B_R(Llama3Base):
         **kwargs,
     ):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -101,7 +101,6 @@ class Llama3_1_SEALION_3_5_8B_R(Llama3Base):
             depend on the use case.
         _skip_optimizations:
         """
-
         return cls(
             checkpoint=checkpoint,
             sequence_length=sequence_length,
@@ -137,8 +136,8 @@ class Llama3_1_SEALION_3_5_8B_R(Llama3Base):
 class Llama3_1_SEALION_3_5_8B_R_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -157,8 +156,8 @@ class Llama3_1_SEALION_3_5_8B_R_AIMETOnnx(Llama3Base_AIMETOnnx):
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
-        Args:
-
+        Parameters
+        ----------
         - checkpoint: Path to previously calibrated AIMET encodings and ONNX
           models. Note that encodings are sensitive to AIMET ONNX versions.
           If passing None, initializes without encodings.

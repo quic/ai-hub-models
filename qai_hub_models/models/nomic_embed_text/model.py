@@ -80,7 +80,8 @@ class NomicEmbedText(BaseModel):
         """
         Create a Nomic Embedding BERT model.
 
-        Parameters:
+        Parameters
+        ----------
             model_version: str
                 Version of the Nomic model (1 or 1.5)
 
@@ -108,7 +109,8 @@ class NomicEmbedText(BaseModel):
         """
         Produce embeddings from the given tokenized inputs.
 
-        Parameters:
+        Parameters
+        ----------
             input_ids: torch.Tensor
                 Tokenized inputs of shape (1, sequence_length), dtype of int32
 
@@ -117,7 +119,8 @@ class NomicEmbedText(BaseModel):
 
             Where the default value of sequence_length is 128.
 
-        Returns:
+        Returns
+        -------
             token_embeddings: torch.Tensor
                 Transformer embeddings of shape [1, 512], dtype of fp32
         """

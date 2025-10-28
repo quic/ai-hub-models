@@ -16,16 +16,23 @@ def calculate_p0(h: int, w: int, stride_h: int, stride_w: int) -> torch.Tensor:
     These are the coordinates for a regular convolution grid, replicated for each
     output pixel and for each kernel point.
 
-    Args:
-        h (int): Output feature map height.
-        w (int): Output feature map width.
-        stride_h (int): Stride in height dimension.
-        stride_w (int): Stride in width dimension.
+    Parameters
+    ----------
+    h
+        Output feature map height.
+    w
+        Output feature map width.
+    stride_h
+        Stride in height dimension.
+    stride_w
+        Stride in width dimension.
 
-    Returns:
-        torch.Tensor: Tensor of shape (1, 2, h, w) representing
-                      the base sampling grid coordinates (y, x) for each
-                      output pixel and each kernel point.
+    Returns
+    -------
+    torch.Tensor
+        Tensor of shape (1, 2, h, w) representing
+        the base sampling grid coordinates (y, x) for each
+        output pixel and each kernel point.
     """
     p0_y, p0_x = torch.meshgrid(
         torch.arange(0, h * stride_h, stride_h),
@@ -46,16 +53,23 @@ def calculate_pk(
     These are the fixed offsets from the center of each receptive field,
     scaled by dilation.
 
-    Args:
-        kernel_h (int): Kernel height.
-        kernel_w (int): Kernel width.
-        dilation_h (int): Dilation in height dimension.
-        dilation_w (int): Dilation in width dimension.
+    Parameters
+    ----------
+    kernel_h
+        Kernel height.
+    kernel_w
+        Kernel width.
+    dilation_h
+        Dilation in height dimension.
+    dilation_w
+        Dilation in width dimension.
 
-    Returns:
-        torch.Tensor: Tensor of shape (K, 2, 1, 1) representing
-                      the relative offsets (y, x) for each kernel point.
-                      K = kernel_h * kernel_w.
+    Returns
+    -------
+    torch.Tensor
+        Tensor of shape (K, 2, 1, 1) representing
+        the relative offsets (y, x) for each kernel point.
+        K = kernel_h * kernel_w.
     """
     pk_y, pk_x = torch.meshgrid(
         torch.arange(0, kernel_h * dilation_h, step=dilation_h),
@@ -67,22 +81,27 @@ def calculate_pk(
     return torch.cat([pk_y, pk_x], dim=1)
 
 
-def bilinear_sample(input: torch.Tensor, coords: torch.Tensor) -> torch.Tensor:
+def bilinear_sample(input_tensor: torch.Tensor, coords: torch.Tensor) -> torch.Tensor:
     """
     Performs bilinear sampling on an input tensor at specified coordinates.
 
     This function implements a custom bilinear interpolation, assuming `coords`
     are absolute pixel coordinates (not normalized).
 
-    Args:
-        input (torch.Tensor): Input feature map of shape (B, C, H, W).
-        coords (torch.Tensor): Coordinates to sample from, shape (K, 2, H_out, W_out).
-                               The coordinates are (y, x) pairs.
+    Parameters
+    ----------
+    input_tensor
+        Input feature map of shape (B, C, H, W).
+    coords
+        Coordinates to sample from, shape (K, 2, H_out, W_out).
+        The coordinates are (y, x) pairs.
 
-    Returns:
-        torch.Tensor: Sampled tensor, shape is (K, H_out, W_out, C).
+    Returns
+    -------
+    torch.Tensor
+        Sampled tensor, shape is (K, H_out, W_out, C).
     """
-    _, _, H, W = input.shape
+    _, _, H, W = input_tensor.shape
     coords = coords.permute(0, 2, 3, 1)
     coords_xy_fp = list(coords.split(1, dim=-1))
     coords_y = torch.floor(coords_xy_fp[0]).int()
@@ -106,19 +125,19 @@ def bilinear_sample(input: torch.Tensor, coords: torch.Tensor) -> torch.Tensor:
     wc = diff_x_inv * diff_y  # bottom-left
     wb = diff_x * diff_y_inv  # top-right
 
-    input = input.permute(0, 2, 3, 1).squeeze(0)
+    input_tensor = input_tensor.permute(0, 2, 3, 1).squeeze(0)
     # Sample values from four corners
-    Ia = input[y0, x0]  # top-left
-    Ib = input[y0, x1]  # top-right
-    Ic = input[y1, x0]  # bottom-left
-    Id = input[y1, x1]  # bottom-right
+    Ia = input_tensor[y0, x0]  # top-left
+    Ib = input_tensor[y0, x1]  # top-right
+    Ic = input_tensor[y1, x0]  # bottom-left
+    Id = input_tensor[y1, x1]  # bottom-right
 
     sample = (wa * Ia + wb * Ib) + (wc * Ic + wd * Id)
     return sample
 
 
 def custom_deformconv2d(
-    input: torch.Tensor,
+    x: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor | None,
     offset: torch.Tensor,
@@ -131,26 +150,38 @@ def custom_deformconv2d(
     """
     Custom implementation of Deformable Conv2D.
 
-    Args:
-        input (torch.Tensor): Input tensor of shape (B, C_in, H_in, W_in).
-        weight (torch.Tensor): Conv weight of shape (C_out, C_in, kernel_h, kernel_w).
-        bias (torch.Tensor|None): Conv bias of shape (C_out,).
-        offset (torch.Tensor): Offset tensor of shape (B, 2*K, H_out, W_out),
-                               where K = kernel_h * kernel_w. These are the
-                               deformable offsets (delta_y, delta_x) for each kernel point.
-        stride (tuple[int, int]): Stride (stride_h, stride_w).
-        padding (tuple[int, int]): Padding (pad_h, pad_w).
-        dilation (tuple[int, int]): Dilation (dil_h, dil_w) for the initial
-                                    grid calculation, not for the final conv.
-        groups (int): Number of groups in the convolution.
-        mask (torch.Tensor|None): Optional modulation mask of shape
-                                       (B, K, H_out, W_out). Applied element-wise
-                                       to the sampled features.
+    Parameters
+    ----------
+    x
+        Input tensor of shape (B, C_in, H_in, W_in).
+    weight
+        Conv weight of shape (C_out, C_in, kernel_h, kernel_w).
+    bias
+        Conv bias of shape (C_out,).
+    offset
+        Offset tensor of shape (B, 2*K, H_out, W_out),
+        where K = kernel_h * kernel_w. These are the
+        deformable offsets (delta_y, delta_x) for each kernel point.
+    stride
+        Stride (stride_h, stride_w).
+    padding
+        Padding (pad_h, pad_w).
+    dilation
+        Dilation (dil_h, dil_w) for the initial
+        grid calculation, not for the final conv.
+    groups
+        Number of groups in the convolution.
+    mask
+        Optional modulation mask of shape
+        (B, K, H_out, W_out). Applied element-wise
+        to the sampled features.
 
-    Returns:
-        torch.Tensor: Output tensor of shape (B, C_out, H_out, W_out).
+    Returns
+    -------
+    torch.Tensor
+        Output tensor of shape (B, C_out, H_out, W_out).
     """
-    B, C_in, H_in, W_in = input.shape
+    B, C_in, H_in, W_in = x.shape
     stride_h, stride_w = stride
     pad_h, pad_w = padding
     dil_h, dil_w = dilation
@@ -162,7 +193,7 @@ def custom_deformconv2d(
     W_out = (W_in + 2 * pad_w - dil_w * (kernel_w - 1) - 1) // stride_w + 1
 
     # Pad input
-    input_padded = F.pad(input, (pad_w, pad_w, pad_h, pad_h), mode="constant", value=0)
+    input_padded = F.pad(x, (pad_w, pad_w, pad_h, pad_h), mode="constant", value=0)
 
     # Base grid (regular convolution coordinates)
     p0 = calculate_p0(H_out, W_out, stride_h, stride_w)
@@ -193,23 +224,27 @@ def custom_deformconv2d(
     )
 
 
-def custom_dcn_forward(self, input: torch.Tensor) -> torch.Tensor:
+def custom_dcn_forward(self, x: torch.Tensor) -> torch.Tensor:
     """
     Patched forward method for a Deformable Conv2D module with custom_deformconv2d..
 
-    Args:
-        input (torch.Tensor): Input feature map of shape (B, C_in, H_in, W_in).
+    Parameters
+    ----------
+    x:
+        Input feature map of shape (B, C_in, H_in, W_in).
 
-    Returns:
-        torch.Tensor: Output feature map of shape (B, C_out, H_out, W_out).
+    Returns
+    -------
+    torch.Tensor
+        Output feature map of shape (B, C_out, H_out, W_out).
     """
-    out = self.conv_offset_mask(input)
+    out = self.conv_offset_mask(x)
     o1, o2, mask = torch.chunk(out, 3, dim=1)
     offset = torch.cat((o1, o2), dim=1)
     mask = torch.sigmoid(mask)
     # -- Begin Qualcomm Change
     return custom_deformconv2d(
-        input,
+        x,
         self.weight,
         self.bias,
         offset,

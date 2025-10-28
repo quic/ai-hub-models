@@ -23,7 +23,8 @@ class ValentiniEvaluator(BaseEvaluator):
         target_sample_rate: int = 16000,
     ):
         """
-        Args:
+        Parameters
+        ----------
             target_sample_rate: Sample rate to resample audio to (Hz)
         """
         self.target_sample_rate = target_sample_rate
@@ -35,11 +36,11 @@ class ValentiniEvaluator(BaseEvaluator):
         target: Collection[torch.Tensor],
     ):
         """
-        Args:
+        Parameters
+        ----------
             output: Enhanced audio waveforms [batch, samples]
             target: Clean reference waveforms [batch, samples]
         """
-
         for enhanced, clean in zip(output, target):
             enhanced = enhanced.squeeze()
             clean = clean.squeeze()

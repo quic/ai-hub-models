@@ -9,7 +9,7 @@ import sys
 from importlib import reload
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.hrnet_evaluator import HRNetPoseEvaluator
@@ -86,9 +86,7 @@ class HRNetPose(BaseModel):
             return cls(net, variant)
 
     def forward(self, image):
-        """
-        Image inputs are expected to be in RGB format in the range [0, 1].
-        """
+        """Image inputs are expected to be in RGB format in the range [0, 1]."""
         image = normalize_image_torchvision(image)
         return self.model(image)
 

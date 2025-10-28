@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import numpy as np
 import torch
@@ -18,6 +19,11 @@ from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
 
 try:
     from mmpose.apis import MMPoseInferencer
+    from mmpose.structures.pose_data_sample import PoseDataSample
+
+    from qai_hub_models.models._shared.mmpose.silence import (
+        set_mmpose_inferencer_show_progress,
+    )
 except ImportError as e:
     print_mmcv_import_failure_and_exit(e, "hrnet_pose", "MMPose")
 
@@ -28,7 +34,7 @@ DEFAULT_INFERENCER_ARCH = "td-hm_hrnet-w32_8xb64-210e_coco-256x192"
 
 def get_max_preds(batch_heatmaps):
     """
-    get predictions from score maps
+    Get predictions from score maps
     heatmaps: numpy.ndarray([batch_size, num_joints, height, width])
     """
     assert isinstance(batch_heatmaps, np.ndarray), (
@@ -89,9 +95,8 @@ class HRNetPoseApp:
     ):
         self.model = model
         # Use mmpose inferencer for example preprocessing
-        self.inferencer = MMPoseInferencer(
-            DEFAULT_INFERENCER_ARCH, device=torch.device(type="cpu")
-        )
+        self.inferencer = MMPoseInferencer(DEFAULT_INFERENCER_ARCH, device="cpu")
+        set_mmpose_inferencer_show_progress(self.inferencer, False)
         self.pre_processor = self.inferencer.inferencer.model.data_preprocessor
 
     def predict(self, *args, **kwargs):
@@ -135,7 +140,8 @@ class HRNetPoseApp:
         """
         Predicts pose keypoints for a person in the image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -146,7 +152,8 @@ class HRNetPoseApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
@@ -160,20 +167,22 @@ class HRNetPoseApp:
         )
 
         # run inference
-        heatmaps = self.model(x)
-        heatmaps = heatmaps.detach().numpy()
+        heatmaps = self.model(x).detach().numpy()
 
         # Coordinates are relative to the cropped bbox, not the original image.
         # We need to grab the box center and scale to transform the coordinates
         # back to the original image.
-        bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]
+
+        # The 3 below lines are poorly typed in MMCV and need casts to work around the issue.
+        # We use cast instead of assert here because PoseDataSample may not be defined (given
+        # it is imported in a try-catch block), and pylance can't deal with that.
+        data_sample = cast(PoseDataSample, proc_inputs["data_samples"][0])
+        bbox = cast(np.ndarray, data_sample.gt_instances["bboxes"][0])
+        scale = cast(np.ndarray, data_sample.gt_instances["bbox_scales"][0])
         center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-        scale = proc_inputs["data_samples"][0].gt_instances.bbox_scales[0]
 
         # create predictions from heatmap
-        keypoints, scores = get_final_preds(
-            heatmaps, np.array([center]), np.array([scale])
-        )
+        keypoints, _ = get_final_preds(heatmaps, np.array([center]), np.array([scale]))
         keypoints = np.round(keypoints).astype(np.int32)
         if raw_output:
             return keypoints

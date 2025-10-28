@@ -372,7 +372,9 @@ def main():
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a16: [],
+        Precision.w8a16: [
+            TargetRuntime.ONNX,
+        ],
     }
 
     parser = export_parser(

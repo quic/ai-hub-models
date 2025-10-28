@@ -33,8 +33,8 @@ TEST_IMAGENET_CLASS = 258
 @pytest.fixture(scope="module")
 def imagenet_sample_torch() -> torch.Tensor:
     """
-    Returns:
-
+    Returns
+    -------
     - Preprocessed (normalized etc) image as torch.Tensor with shape [1, 3, 224, 224]
     """
     img = load_image(TEST_IMAGENET_IMAGE, desc="imagenet_classifier")
@@ -53,7 +53,8 @@ def run_imagenet_classifier_test(
     """
     Evaluates the classifier on a test image and validates the output.
 
-    Parameters:
+    Parameters
+    ----------
         model: The model to evaluate.
         model_name: Identifier used to lookup the expected output file.
         asset_version: Version of the expected output file to lookup.
@@ -65,7 +66,6 @@ def run_imagenet_classifier_test(
         atol: Absolute tolerance allowed for two numbers to be "close".
         rtol: Relative tolerance allowed for two numbers to be "close".
     """
-
     img = load_image(TEST_IMAGENET_IMAGE)
     app = ImagenetClassifierApp(model)
     probabilities = app.predict(img)

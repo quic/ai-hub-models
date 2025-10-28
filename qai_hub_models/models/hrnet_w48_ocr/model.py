@@ -109,13 +109,15 @@ class HRNET_W48_OCR(CityscapesSegmentor):
         """
         Predict semantic segmentation an input `image`.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, height, width] image.
                    RGB, range [0 - 1]
                    Assumes image has been resized and normalized using the
                    Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 
-        Returns:
+        Returns
+        -------
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

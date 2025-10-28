@@ -8,9 +8,7 @@ from qai_hub_models.datasets.nyuv2 import NyUv2Dataset
 
 
 class NyUv2x518Dataset(NyUv2Dataset):
-    """
-    Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html
-    """
+    """Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html"""
 
     def __init__(
         self,
@@ -23,7 +21,5 @@ class NyUv2x518Dataset(NyUv2Dataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

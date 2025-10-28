@@ -47,7 +47,10 @@ def main(is_test: bool = False):
     image = load_image(args.image)
     print("Model Loaded")
 
-    app = LiteHRNetApp(hub_model, litehrnet_model.inferencer)
+    app = LiteHRNetApp(
+        hub_model,  # type: ignore[arg-type]
+        litehrnet_model.inferencer,
+    )
     keypoints = app.predict_pose_keypoints(image)[0]
     if not is_test:
         display_or_save_image(keypoints, args.output_dir, "litehrnet_demo_output.png")

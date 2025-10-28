@@ -55,8 +55,8 @@ class Llama3_8B(Llama3Base):
         **kwargs,
     ):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -134,8 +134,8 @@ class Llama3_8B(Llama3Base):
 class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            *args,  # noqa: B026
             **kwargs,
         )
 

@@ -31,9 +31,7 @@ SPLIT_ASSET = CachedWebDatasetAsset.from_asset_store(
 
 
 class NyUv2Dataset(BaseDataset):
-    """
-    Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html
-    """
+    """Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html"""
 
     def __init__(
         self,
@@ -73,9 +71,7 @@ class NyUv2Dataset(BaseDataset):
         self.input_width = input_width
 
     def _validate_data(self) -> bool:
-        """
-        Validates data downloaded on disk. By default just checks that folder exists.
-        """
+        """Validates data downloaded on disk. By default just checks that folder exists."""
         try:
             with h5py.File(str(self.dataset_path)) as f:
                 images = cast(list[npt.NDArray[np.int8]], f["images"])
@@ -131,9 +127,7 @@ class NyUv2Dataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

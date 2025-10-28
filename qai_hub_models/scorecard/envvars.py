@@ -137,12 +137,6 @@ class SpecialPathSetting(Enum):
     # Enable default set of profile paths (tflite, qnn_dlc or qnn_context_binary, onnx or precompiled_qnn_onnx) used in standard scorecards.
     DEFAULT = "default"
 
-    # Enable the default set of profile paths (same as the "default" settings). Always enables AOT --COMPILE-- paths (eg. context binary)
-    # even if they don't correspond to an applicable profile path.
-    #
-    # This is typically used to generate pre-compiled assets for upload to Hugging Face (or aihub.qualcomm.com), when the equivalent JIT path is profiled.
-    DEFAULT_WITH_AOT_ASSETS = "default_with_aot_assets"
-
     # Enable all profile paths.
     ALL = "all"
 
@@ -254,7 +248,8 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
         """
         Parse this envvar value as a QAIRTVersion object.
 
-        Parameters:
+        Parameters
+        ----------
             runtime:
                 Runtime for which we are getting the QAIRT version.
             value:
@@ -323,9 +318,7 @@ class IgnoreDeviceJobCacheEnvvar(QAIHMBoolEnvvar):
 
 
 class ArtifactsDirEnvvar(QAIHMPathEnvvar):
-    """
-    The directory where all intermediate and results artifacts from scorecard are stored.
-    """
+    """The directory where all intermediate and results artifacts from scorecard are stored."""
 
     VARNAME = "QAIHM_TEST_ARTIFACTS_DIR"
     CLI_ARGNAMES = ["--artifacts-dir"]
@@ -337,9 +330,7 @@ class ArtifactsDirEnvvar(QAIHMPathEnvvar):
 
 
 class StaticModelsDirEnvvar(QAIHMPathEnvvar):
-    """
-    The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub) configuration yamls are stored.
-    """
+    """The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub) configuration yamls are stored."""
 
     VARNAME = "QAIHM_TEST_STATIC_MODELS_DIR"
     CLI_ARGNAMES = ["--static-models-dir"]
@@ -351,9 +342,7 @@ class StaticModelsDirEnvvar(QAIHMPathEnvvar):
 
 
 class DeploymentEnvvar(QAIHMStringEnvvar):
-    """
-    The deployment to target.
-    """
+    """The deployment to target."""
 
     VARNAME = "QAIHM_TEST_DEPLOYMENT"
     CLI_ARGNAMES = ["--deployment"]
@@ -365,9 +354,7 @@ class DeploymentEnvvar(QAIHMStringEnvvar):
 
 
 class DeploymentListEnvvar(QAIHMStringListEnvvar):
-    """
-    A list of deplotyments to target (generally used only when syncing static models / datasets to several deployments at once).
-    """
+    """A list of deplotyments to target (generally used only when syncing static models / datasets to several deployments at once)."""
 
     VARNAME = "QAIHM_TEST_DEPLOYMENTS"
     CLI_ARGNAMES = ["--deployments"]
@@ -414,9 +401,7 @@ class TableauBranchNameEnvvar(QAIHMStringEnvvar):
 
 
 class DateFormatEnvvar(QAIHMDateFormatEnvvar):
-    """
-    Date & format used for the results spreadsheet.
-    """
+    """Date & format used for the results spreadsheet."""
 
     class FormatEnvvar(QAIHMDateFormatEnvvar.FormatEnvvar):
         VARNAME = "QAIHM_TEST_DATE_FORMAT"

@@ -150,17 +150,16 @@ def export_without_hub_access(
                     can_access_qualcomm_ai_hub=False,
                 )
                 print("")
+        elif qaihm_version_tag:
+            print(
+                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub.\n"
+                f"Run without the --fetch-static-assets flag to target this device."
+            )
         else:
-            if qaihm_version_tag:
-                print(
-                    f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub.\n"
-                    f"Run without the --fetch-static-assets flag to target this device."
-                )
-            else:
-                print(
-                    f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without an API token.\n"
-                    f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
-                )
+            print(
+                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without an API token.\n"
+                f"Please sign-up for {_AIHUB_NAME} to run this configuration on hosted devices."
+            )
 
     if not skip_inferencing and not skip_summary:
         print("\n--- Skipping on-device numerical validation. ---")

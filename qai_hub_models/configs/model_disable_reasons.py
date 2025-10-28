@@ -86,9 +86,7 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
     def get_disable_reasons(
         self, precision: Precision, runtime: TargetRuntime
     ) -> ModelDisableReasons:
-        """
-        Get disable reasons for the given precision + runtime pair. Create if it doesn't exist.
-        """
+        """Get disable reasons for the given precision + runtime pair. Create if it doesn't exist."""
         if precision not in self.data:
             self.data[precision] = {}
         precision_mapping: dict[TargetRuntime, ModelDisableReasons] = self.data[
@@ -103,11 +101,11 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
         # Skip serialization of dict items that don't have failure reasons set
         out: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = {}
         for precision, runtimes in self.data.items():
-            serialized_runtimes = {}
-            for runtime, reasons in runtimes.items():
-                if reasons.has_failure:
-                    serialized_runtimes[runtime] = reasons
-
+            serialized_runtimes = {
+                runtime: reasons
+                for runtime, reasons in runtimes.items()
+                if reasons.has_failure
+            }
             if serialized_runtimes:
                 out[precision] = serialized_runtimes
 

@@ -98,8 +98,10 @@ class ChatApp:
         context_length: int,
         max_output_tokens: int,
         checkpoint: CheckpointSpec | None = None,
-        model_from_pretrained_extra: dict = {},
+        model_from_pretrained_extra: dict = None,
     ):
+        if model_from_pretrained_extra is None:
+            model_from_pretrained_extra = {}
         set_seed(self.seed)
         input_prompt_processed = self.get_input_prompt_with_tags(
             user_input_prompt=input_prompt
@@ -134,7 +136,11 @@ class ChatApp:
         rope_embedding = self.model_cls.EmbeddingClass(
             max_length=context_length, config=config
         )
-        inferencer = LLM_Generator(models, self.tokenizer, rope_embedding)
+        inferencer = LLM_Generator(
+            models,
+            self.tokenizer,
+            rope_embedding,
+        )
 
         # can set temperature, topK, topP, etc here
         end_token_ids = []

@@ -59,7 +59,7 @@ def test_create_genie_config():
     model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
     context_length = 2048
     llm_config = AutoConfig.from_pretrained(model_name)
-    model_list = ["model1.bin", "model2.bin", "model3.bin"]
+    model_list = [f"llama_v3_8b_instruct_part_{i}_of_5.bin" for i in range(1, 6)]
     actual_config = create_genie_config(context_length, llm_config, "rope", model_list)
     expected_config: dict[str, Any] = {
         "dialog": {
@@ -105,11 +105,7 @@ def test_create_genie_config():
                     "type": "binary",
                     "binary": {
                         "version": 1,
-                        "ctx-bins": [
-                            "model1.bin",
-                            "model2.bin",
-                            "model3.bin",
-                        ],
+                        "ctx-bins": model_list,
                     },
                 },
             },

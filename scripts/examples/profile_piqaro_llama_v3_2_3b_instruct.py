@@ -152,9 +152,7 @@ if __name__ == "__main__":
             external_onnx_weights: bool = False,
             output_names: Optional[list[str]] = None,
         ) -> Optional[str]:
-            """
-            Convert to a AI Hub source model appropriate for the export method.
-            """
+            """Convert to a AI Hub source model appropriate for the export method."""
 
             def apply_piqaro_onnx(onnx_model):
                 import onnxsim

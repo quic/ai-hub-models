@@ -41,7 +41,9 @@ MODEL_IDS = sorted(_get_all_models())
 def get_git_branch():
     try:
         res = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=False,
+            capture_output=True,
         )
         if "not a git repository" in res.stderr.decode():
             # repo not found, this must be a release

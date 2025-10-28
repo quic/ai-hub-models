@@ -20,11 +20,13 @@ def window_partition_5d(
 
     Partition into non-overlapping windows with padding if needed.
 
-    Args:
+    Parameters
+    ----------
         x (tensor): input tokens with [B, H, W, C].
         window_size (int): window size.
 
-    Returns:
+    Returns
+    -------
         windows: windows after partition with [B * num_windows, window_size, window_size, C].
         (Hp, Wp): padded height and width before partition
     """
@@ -59,13 +61,15 @@ def window_unpartition_5d(
 
     Window unpartition into original sequences and removing padding.
 
-    Args:
+    Parameters
+    ----------
         windows (tensor): input tokens with [B * num_windows, window_size, window_size, C].
         window_size (int): window size.
         pad_hw (Tuple): padded height and width (Hp, Wp).
         hw (Tuple): original height and width (H, W) before padding.
 
-    Returns:
+    Returns
+    -------
         x: unpartitioned sequences with [B, H, W, C].
     """
     Hp, Wp = pad_hw
@@ -86,7 +90,8 @@ def window_reverse_optimized(
     self, windows: torch.Tensor, H: int, W: int
 ) -> torch.Tensor:
     """
-    Args:
+    Parameters
+    ----------
         windows: (num_windows*B, window_size, window_size, C)
         H (int): Height of image
         W (int): Width of image
@@ -110,9 +115,12 @@ def window_reverse_optimized(
 
 def window_partition_optimized(self, x: torch.Tensor) -> torch.Tensor:
     """
-    Args:
+    Parameters
+    ----------
         x: (B, H, W, C)
-    Returns:
+
+    Returns
+    -------
         windows: (num_windows*B, window_size, window_size, C)
     """
     B, H, W, C = x.shape
@@ -135,13 +143,14 @@ def WindowMSA_forward_optimized(
     self, x: torch.Tensor, mask: torch.Tensor | None = None
 ) -> torch.Tensor:
     """
-    Args:
-
+    Parameters
+    ----------
         x (tensor): input features with shape of (num_windows*B, N, C)
         mask (tensor | None, Optional): mask with shape of (num_windows,
             Wh*Ww, Wh*Ww), value should be between (-inf, 0].
 
-    Returns:
+    Returns
+    -------
         x (tensor): output with shape of (num_windows*B, N, C)
     """
     B, N, C = x.shape

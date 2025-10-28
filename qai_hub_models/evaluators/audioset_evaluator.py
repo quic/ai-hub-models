@@ -20,7 +20,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Initialize evaluator for AudioSet.
 
-        Args:
+        Parameters
+        ----------
             num_classes: Number of AudioSet classes (default: 521).
         """
         self.num_classes = num_classes
@@ -34,7 +35,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Add a batch of predictions and ground truth for evaluation.
 
-        Args:
+        Parameters
+        ----------
             output: Model raw output scores (B, num_classes).
             gt: Ground truth multi-label binary tensor (B, num_classes).
         """
@@ -51,7 +53,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Compute mean Average Precision (mAP) across all accumulated samples.
 
-        Returns:
+        Returns
+        -------
             float: mAP score
         """
         aggregated_preds = []

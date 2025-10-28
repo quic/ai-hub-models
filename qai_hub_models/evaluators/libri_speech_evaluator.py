@@ -17,7 +17,8 @@ class LibriSpeechEvaluator(BaseEvaluator):
 
     def __init__(self, target_sample_rate: int = 16000):
         """
-        Args:
+        Parameters
+        ----------
             target_sample_rate: Sample rate to resample audio to (Hz)
         """
         self.target_sample_rate = target_sample_rate
@@ -30,7 +31,8 @@ class LibriSpeechEvaluator(BaseEvaluator):
         target: torch.Tensor,
     ):
         """
-        Args:
+        Parameters
+        ----------
             output: List of logits [(batch_size, seq_len, vocab_size)] from model
             target: Tensor of shape [max_text_length] containing ASCII character codes for the transcription, padded with zeros if needed.
         """

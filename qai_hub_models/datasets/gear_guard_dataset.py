@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -25,9 +26,7 @@ CLASS_STR2IDX = {"0": "0", "1": "1"}
 
 
 class GearGuardDataset(BaseDataset):
-    """
-    Wrapper class for gear_guard_net dataset
-    """
+    """Wrapper class for gear_guard_net dataset"""
 
     def __init__(
         self,
@@ -62,7 +61,9 @@ class GearGuardDataset(BaseDataset):
         )
         image_tensor = image_tensor.squeeze(0)
 
-        labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
         for key, value in CLASS_STR2IDX.items():
             labels_gt = np.char.replace(labels_gt, key, value)
         labels_gt = labels_gt.astype(np.float32)
@@ -135,14 +136,10 @@ class GearGuardDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 422
 
     @staticmethod
     def default_num_calibration_samples() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

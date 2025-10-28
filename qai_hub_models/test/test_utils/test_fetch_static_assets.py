@@ -20,26 +20,29 @@ MOBILENET_NAME = "MobileNet-v2"
 
 
 def fetch_static_assets_internal_unavailable_patch():
-    """
-    Patches fetch_static_assets_internal so that it is not available (like in the public version of QAIHM).
-    """
+    """Patches fetch_static_assets_internal so that it is not available (like in the public version of QAIHM)."""
     return mock.patch(
         "qai_hub_models.utils.fetch_static_assets.fetch_static_assets_internal", None
     )
 
 
-def hf_glob_patch(file_exists: bool = True, component_glob_result: list[str] = [""]):
+def hf_glob_patch(
+    file_exists: bool = True, component_glob_result: list[str] | None = None
+):
     """
     Patches Hugging Face glob search to either return the set of file names passed to it if the file exists,
     or return None if the file does not exist.
 
-    Parameters:
+    Parameters
+    ----------
         file_exists:
             Whether the model should exist on Hugging Face.
         component_glob_result:
             When getting all components, glob will search for all component names via .*.
             This is the list of component names. The glob will return 1 file path per component.
     """
+    if component_glob_result is None:
+        component_glob_result = [""]
 
     def hf_glob(self, path: str, revision: str | None = None):
         if revision is not None:
@@ -59,9 +62,7 @@ def hf_glob_patch(file_exists: bool = True, component_glob_result: list[str] = [
 
 
 def hf_hub_download_patch():
-    """
-    Patches hf_hub_download to return the path the given args would be downloaded to, without actually downloading anything.
-    """
+    """Patches hf_hub_download to return the path the given args would be downloaded to, without actually downloading anything."""
 
     def hf_hub_download(repo_id: str, filename: str, local_dir: str, revision: str):
         return os.path.join(local_dir, filename)
@@ -72,9 +73,7 @@ def hf_hub_download_patch():
 
 
 def ai_hub_no_access_patch():
-    """
-    Patches the AI Hub client to act like the user does not have AI Hub access.
-    """
+    """Patches the AI Hub client to act like the user does not have AI Hub access."""
 
     def get_frameworks():
         raise APIException("QAIHM API Access Failure Test")

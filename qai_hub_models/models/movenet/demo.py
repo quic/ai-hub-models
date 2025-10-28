@@ -45,7 +45,11 @@ def movenet_demo(model_cls: type[Movenet], is_test: bool = False):
     print("Model Loaded")
 
     h, w = model_cls.get_input_spec()["image"][0][2:4]
-    app = MovenetApp(model, h, w)
+    app = MovenetApp(
+        model,  # type: ignore[arg-type]
+        h,
+        w,
+    )
     keypoints = app.predict_pose_keypoints(image)[0]
     if isinstance(keypoints, np.ndarray):
         keypoints = Image.fromarray(keypoints.astype(np.uint8))

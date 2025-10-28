@@ -51,7 +51,7 @@ def mask2former_demo(
     orig_image = load_image(args.image)
     image = orig_image.resize((height, width))
 
-    app = Mask2FormerApp(model)
+    app = Mask2FormerApp(model)  # type: ignore[arg-type]
     print("Model Loaded")
 
     output = app.segment_image(image)[0]

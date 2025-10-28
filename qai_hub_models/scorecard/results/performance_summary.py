@@ -152,7 +152,8 @@ class ScorecardModelPrecisionSummary(
         """
         Create a Summary for a Scorecard Model with a specific Precision.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: str
                 Model ID.
 
@@ -225,7 +226,8 @@ class ScorecardModelPrecisionSummary(
         """
         Get a scorecard job matching these parameters.
 
-        Parameters:
+        Parameters
+        ----------
             device: ScorecardDevice
             path: ScorecardPathOrNoneTypeVar
             component: str | None
@@ -281,18 +283,22 @@ class ScorecardModelSummary(
     def __init__(
         self,
         model_id: str = "UNKNOWN",
-        summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar] = {},
+        summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
+        | None = None,
     ):
         """
         Create a Summary for a single Scorecard Model.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: str
                 Model ID.
 
             summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
                 Summary per precision.
         """
+        if summaries_per_precision is None:
+            summaries_per_precision = {}
         self.model_id = model_id
         self.summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar] = (
             summaries_per_precision
@@ -332,7 +338,8 @@ class ScorecardModelSummary(
         """
         Get a scorecard job matching these parameters.
 
-        Parameters:
+        Parameters
+        ----------
             device: ScorecardDevice
             path: ScorecardPathOrNoneTypeVar
             component: str | None
@@ -563,10 +570,14 @@ class ModelPerfSummary(
         self,
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
-        exclude_paths: dict[Precision, list[ScorecardProfilePath]] = {},
-        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
+        exclude_paths: dict[Precision, list[ScorecardProfilePath]] | None = None,
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] | None = None,
         model_name: str | None = None,
     ) -> QAIHMModelPerf:
+        if exclude_paths is None:
+            exclude_paths = {}
+        if exclude_form_factors is None:
+            exclude_form_factors = []
         precision_cards = {
             p: s.get_perf_card(
                 include_failed_jobs,
@@ -678,53 +689,6 @@ class DeviceCompileSummary(
             path = path.compile_path
         return super().get_run(path)
 
-    def extend_perf_card_with_aot_assets(
-        self,
-        aot_paths: list[ScorecardProfilePath],
-        ccard: QAIHMModelPerf.ComponentDetails,
-    ):
-        # If this device didn't profile successfully, then don't assume AOT paths work.
-        if self.device not in ccard.performance_metrics:
-            return
-
-        # Walk through the card and append any assets for the given aot paths.
-        device_assets = ccard.device_assets.get(self.device, dict())
-        for path in aot_paths:
-            assert path.runtime.is_aot_compiled
-
-            # Don't overwrite if an asset already exists.
-            if path in device_assets:
-                continue
-
-            if run := self.run_per_path.get(path.compile_path):
-                # Verify there is an asset to add to the card.
-                if not run.success:
-                    continue
-
-                # Skip this path if no comparable equivalent runtime succeeded.
-                equiv_paths = [
-                    x
-                    for x in (path.paths_with_same_toolchain or [])
-                    if x in ccard.performance_metrics[self.device]
-                ]
-                if all(
-                    ccard.performance_metrics[self.device][
-                        x
-                    ].inference_time_milliseconds
-                    is None
-                    for x in equiv_paths
-                ):
-                    continue
-
-                asset_details = QAIHMModelPerf.AssetDetails.from_hub_job(run.job)
-                if qairt := asset_details.tool_versions.qairt:
-                    qairt.framework.flavor = None
-                device_assets[path] = asset_details
-
-        # Set the device assets dict in case it didn't previously exist.
-        if device_assets:
-            ccard.device_assets[self.device] = device_assets
-
 
 class ModelPrecisionCompileSummary(
     ScorecardModelPrecisionSummary[
@@ -751,34 +715,6 @@ class ModelPrecisionCompileSummary(
         ):
             run = super().get_run(cs_universal, path, component)
         return run
-
-    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf.PrecisionDetails):
-        """
-        Walks through the card and appends any compiled AOT assets
-        if the equivalent JIT asset profiled succesfully.
-        """
-        for component, per_device_summary in self.runs_per_component_device.items():
-            if not self.has_components and len(card.components) == 1:
-                # If there are no components, then this summary
-                # has a single entry: { model_id: per_device_summary }
-                #
-                # A perf card may reference the model name rather than the model ID.
-                #
-                # To deal with this mismatch, we get the only element in the components
-                # list in the given perf card, and assume that matches with this summary.
-                component = next(card.components.keys().__iter__())
-
-            if ccard := card.components.get(component):
-                aot_paths: list[ScorecardProfilePath] = []
-                for path in ccard.universal_assets:
-                    aot_paths.extend(
-                        x
-                        for x in (path.paths_with_same_toolchain or [])
-                        if x.runtime.is_aot_compiled
-                    )
-
-                for dsummary in per_device_summary.values():
-                    dsummary.extend_perf_card_with_aot_assets(aot_paths, ccard)
 
 
 class ModelCompileSummary(
@@ -809,15 +745,6 @@ class ModelCompileSummary(
         return self.__class__.scorecard_job_type(
             self.model_id, precision, None, device, False, None, path
         )
-
-    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf):
-        """
-        Walks through the card and appends any compiled AOT assets
-        if the equivalent JIT asset profiled succesfully.
-        """
-        for precision, pcard in card.precisions.items():
-            if psummary := self.summaries_per_precision.get(precision):
-                psummary.extend_perf_card_with_aot_assets(pcard)
 
 
 # --------------------------------------

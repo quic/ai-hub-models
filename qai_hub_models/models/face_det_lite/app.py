@@ -48,7 +48,8 @@ class FaceDetLiteApp:
         """
         Return the corresponding output by running inference on input image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -59,7 +60,8 @@ class FaceDetLiteApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             objs_face: a list of BBox for face  list[BBox]
         """
         assert pixel_values_or_image is not None, "pixel_values_or_image is None"
@@ -88,10 +90,8 @@ class FaceDetLiteApp:
             H = int(h)
 
             if L < 0 or T < 0 or R >= 640 or B >= 480:
-                if L < 0:
-                    L = 0
-                if T < 0:
-                    T = 0
+                L = max(L, 0)
+                T = max(T, 0)
                 if R >= 640:
                     R = 640 - 1
                 if B >= 480:

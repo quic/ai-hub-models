@@ -24,7 +24,8 @@ class MPIIGazeEvaluator(BaseEvaluator):
         target: Collection[torch.Tensor],
     ):
         """
-        Args:
+        Parameters
+        ----------
             output: Predicted gaze angles [batch, 2] (pitch, yaw in radians)
             target: Ground truth gaze angles [batch, 2] (pitch, yaw in radians)
         """

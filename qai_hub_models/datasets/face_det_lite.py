@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -23,9 +24,7 @@ FACEDETLITE_DATASET_DIR_NAME = "facedetlite_trainvaltest"
 
 
 class FaceDetLiteDataset(BaseDataset):
-    """
-    Wrapper class for face_det_lite private dataset
-    """
+    """Wrapper class for face_det_lite private dataset"""
 
     def __init__(
         self,
@@ -48,25 +47,39 @@ class FaceDetLiteDataset(BaseDataset):
         self.scale_height = 1.0 / self.img_height
         BaseDataset.__init__(self, self.data_path, split=split)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[
+        torch.Tensor,
+        tuple[
+            int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
+        ],
+    ]:
         """
-        this function return the image tensor and gt list
-        image_tensor:
-            shape  - [1, 480, 640]
-            layout - [C, H, W]
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        input_image
+            shape  - [1, H, W]
+            channel layout - [RGB]
             range  - [0, 1]
-        gt_list:
-            0 - image_id_tensor:
+
+        ground_truth
+            image_id_tensor
                 integer value to represent image id, not used
-            1 - scale_tensor:
+            scale_tensor
                 floating value to represent image scale b/w original size and [480, 640]
-            2 - padding_tensor
+            padding_tensor
                 two integer values to represent padding pixels on x and y axises - [px, py]
-            3 - boundingboxes_tensor
+            boundingboxes_tensor
                 fixed number (self.max_boxes) bounding boxes on original image size - [self.max_boxes, 4]
-            4 - labels_tensor
+            labels_tensor
                 fixed number labels to represent the label of box - [self.max_boxes]
-            5 - box_numbers_tensor
+            box_numbers_tensor
                 fixed number valid box number to represent how many boxes are valid - [self.max_boxes]
         """
         image_path = self.image_list[index]
@@ -78,7 +91,9 @@ class FaceDetLiteDataset(BaseDataset):
         )
         image_tensor = image_tensor.squeeze(0)
 
-        labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
         labels_gt = labels_gt.astype(np.float32)
         labels_gt = np.reshape(labels_gt, (-1, 5))
 
@@ -151,7 +166,5 @@ class FaceDetLiteDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

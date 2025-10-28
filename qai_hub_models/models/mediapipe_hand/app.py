@@ -108,10 +108,12 @@ class MediaPipeHandApp(MediaPipeApp):
         """
         From the provided image or tensor, predict the bounding boxes & classes of the hand detected within.
 
-        Parameters:
+        Parameters
+        ----------
             See parent function documentation.
 
-        Returns:
+        Returns
+        -------
             See parent function documentation for generic return values.
 
             If raw_output is false, returns an additional output:
@@ -199,7 +201,6 @@ class MediaPipeHandApp(MediaPipeApp):
         Override of mediapipe::app.py::MediaPipeApp::run_landmark_detector
         Additionally returns whether the detection is a right or left hand.
         """
-
         # selected landmarks for the ROI (if any)
         # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
@@ -259,10 +260,9 @@ class MediaPipeHandApp(MediaPipeApp):
                 torch.stack(all_landmarks, dim=0) if all_landmarks else torch.Tensor()
             )
             batched_is_right_hand.append(all_lr)
-        else:
-            # Add None for these lists, since this batch has no predicted bounding boxes.
-            batched_selected_landmarks.append(torch.Tensor())
-            batched_is_right_hand.append([])
+        # Add None for these lists, since this batch has no predicted bounding boxes.
+        batched_selected_landmarks.append(torch.Tensor())
+        batched_is_right_hand.append([])
 
         return (batched_selected_landmarks, batched_is_right_hand)
 

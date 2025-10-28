@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 
 from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
@@ -32,7 +34,6 @@ class ESRGAN(SuperResolutionModel):
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> ESRGAN:
         """Load ESRGAN from a weightfile created by the source ESRGAN repository."""
-
         # Load PyTorch model from disk
         esrgan_model = _load_esrgan_source_model_from_weights(weights_path)
 
@@ -40,7 +41,7 @@ class ESRGAN(SuperResolutionModel):
 
 
 def _load_esrgan_source_model_from_weights(
-    weights_path: str | None = None,
+    weights_path: str | os.PathLike | None = None,
 ) -> torch.nn.Module:
     # Load ESRGAN model from the source repository using the given weights.
     with SourceAsRoot(
@@ -50,7 +51,7 @@ def _load_esrgan_source_model_from_weights(
         MODEL_ASSET_VERSION,
     ):
         # download the weights file
-        if not weights_path:
+        if weights_path is None:
             weights_path = DEFAULT_WEIGHTS.fetch()
             print(f"Weights file downloaded as {weights_path}")
 

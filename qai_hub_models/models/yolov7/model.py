@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from importlib import reload
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn.functional as F
@@ -61,9 +61,11 @@ class YoloV7(Yolo):
         yolov7_model.traced = True  # type: ignore[assignment]
 
         # Generate replacement detector that can be traced
-        detector_head_state_dict = yolov7_model.model[-1].state_dict()
+        detector_head_state_dict = yolov7_model.model[-1].state_dict()  # type: ignore[index, union-attr]
         yolov7_detect = _YoloV7Detector.from_yolov7_state_dict(
-            detector_head_state_dict, (height, width), yolov7_model.model[-1].stride
+            detector_head_state_dict,
+            (height, width),
+            yolov7_model.model[-1].stride,  # type: ignore[index, arg-type]
         )
 
         return cls(
@@ -82,12 +84,14 @@ class YoloV7(Yolo):
         """
         Run YoloV7 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
@@ -127,7 +131,7 @@ class YoloV7(Yolo):
                 return detector_output
             return torch.cat(detector_output, -1)
 
-        return detect_postprocess_split_input(*detector_output)  # type: ignore[misc]
+        return detect_postprocess_split_input(*detector_output)
 
     @staticmethod
     def get_output_names(
@@ -145,24 +149,16 @@ class YoloV7(Yolo):
         )
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        if (
-            precision == Precision.w8a8_mixed_int16
-            or precision == Precision.w8a16_mixed_int16
-        ):
+        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        elif (
-            precision == Precision.w8a8_mixed_fp16
-            or precision == Precision.w8a16_mixed_fp16
-        ):
+        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         else:
             return "--range_scheme min_max"
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10
 
 
@@ -254,7 +250,9 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         xy = xy.reshape(-1, self.na * nx * ny, 2)
 
         wh = y[..., 2:4].reshape(-1, self.na, nx * ny, 2)
-        wh = (wh * 2) ** 2 * self.__getattr__(f"anchor_grid_{i}").squeeze(2)
+        wh = (wh * 2) ** 2 * cast(
+            torch.Tensor, self.__getattr__(f"anchor_grid_{i}")
+        ).squeeze(2)
         wh = wh.reshape(-1, self.na * nx * ny, 2)
 
         # TODO(13933) Revert max operation once QNN issues with ReduceMax are fixed
@@ -266,11 +264,13 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         From the outputs of the feature extraction layers of YoloV7, predict bounding boxes,
         classes, and confidence.
 
-        Parameters:
+        Parameters
+        ----------
             all_x: tuple[torch.Tensor]
                 Outputs of the feature extraction layers of YoloV7. Typically 3 5D tensors.
 
-        Returns:
+        Returns
+        -------
             pred: [batch_size, # of predictions, 5 + # of classes]
                 Where the rightmost dim contains [center_x, center_y, w, h, confidence score, n per-class scores]
         """

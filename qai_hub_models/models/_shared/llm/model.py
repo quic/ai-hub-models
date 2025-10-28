@@ -20,6 +20,7 @@ except (ImportError, ModuleNotFoundError):
 import functools
 import gc
 import glob
+import json
 import logging
 import math
 import os
@@ -28,7 +29,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from enum import Enum, unique
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
 
 import numpy as np
 import onnx
@@ -66,8 +67,12 @@ from qai_hub_models.utils.checkpoint import (
 )
 from qai_hub_models.utils.huggingface import ensure_has_required_transformer
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.llm_helpers import (
+    create_genie_config,
+    save_htp_config_for_genie_bundle,
+)
 from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+    safe_torch_onnx_export,
 )
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
@@ -227,9 +232,7 @@ def sample_input(
 def get_tokenizer(
     model_ckpt: str | os.PathLike | Path | None,
 ) -> PreTrainedTokenizerBase:
-    """
-    Tokenizer to use for LLMs
-    """
+    """Tokenizer to use for LLMs"""
     assert model_ckpt is not None
     print()
     print(f"Loading tokenizer from {model_ckpt}")
@@ -243,10 +246,7 @@ def get_tokenizer(
 
 
 def get_llm_config(model_ckpt: str | os.PathLike | Path | None) -> LlamaConfig:
-    """
-    Construct and return a HuggingFace LLM config.
-    """
-
+    """Construct and return a HuggingFace LLM config."""
     assert model_ckpt is not None
     print()
     print(f"Loading model config from {model_ckpt}")
@@ -296,7 +296,7 @@ def get_onnx_model(
         for name in input_specs.keys()
     ]
     with torch.no_grad():
-        torch_onnx_export_with_large_model_size_check(
+        safe_torch_onnx_export(
             fp_model,
             tuple(example_input),
             path,
@@ -347,7 +347,7 @@ def _get_evaluator(
 
 
 class Embedding(ABC):
-    def __init__(
+    def __init__(  # noqa: B027
         self,
         head_dim: int = 128,
         max_length: int = 2048,
@@ -365,9 +365,7 @@ class Embedding(ABC):
 
 
 class PositionProcessorBase(torch.nn.Module):
-    """
-    Prepares positions (Embedding and attention mask preparation); used by ORT GenAI.
-    """
+    """Prepares positions (Embedding and attention mask preparation); used by ORT GenAI."""
 
     def __init__(self, context_length: int, config: PretrainedConfig) -> None:
         super().__init__()
@@ -448,6 +446,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
         load_pretrained: bool = True,
         host_device: torch.device | None = None,
         main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
+        attention_mask_min_clip: float | None = None,
         _skip_optimizations: list[str] | None = None,
     ):
         """
@@ -455,7 +454,6 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
 
         Parameters
         ----------
-
         checkpoint:
             Can be local folder or Hugging Face repo name.
         aimet_encodings:
@@ -466,10 +464,11 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
             Total context length (in tokens).
         load_pretrained:
             Load a pre-trained model as opposed to a randomly initialized.
+        attetion_mask_min_clip:
+            Min clip the attention mask by this value if not None.
         _skip_optimizations:
             Turn off one or more of {sha_attention, rank4_rms_norm}
         """
-
         super().__init__()
         self.skip_optimizations = _skip_optimizations
         self.checkpoint = checkpoint
@@ -516,6 +515,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
         self.is_token_generator = is_token_generator
         self.model = model
         self._main_input_type = main_input_type
+        self.attention_mask_min_clip = attention_mask_min_clip
 
     @staticmethod
     def get_input_spec(
@@ -707,9 +707,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """
-        Source model format preferred for conversion on AI Hub.
-        """
+        """Source model format preferred for conversion on AI Hub."""
         return SourceModelFormat.ONNX
 
     def get_calibration_data(
@@ -782,6 +780,9 @@ class LLMInstantiationType(Enum):
     TOKEN_GENERATOR = "token"
 
 
+LLM_AIMETOnnxT = TypeVar("LLM_AIMETOnnxT", bound="LLM_AIMETOnnx")
+
+
 class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
     # Embedding subclass
     EmbeddingClass: type[Embedding] | None = None
@@ -795,6 +796,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         tokenizer: PreTrainedTokenizer | None = None,
         llm_config: PretrainedConfig | None = None,
         host_device: torch.device | None = None,
+        attention_mask_min_clip: float | None = None,
     ):
         BaseModel.__init__(self)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
@@ -816,6 +818,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             max_length=context_length, config=llm_config
         )
         self.checkpoint = checkpoint
+        self.attention_mask_min_clip = attention_mask_min_clip
 
     @staticmethod
     def get_input_spec(
@@ -852,7 +855,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
 
     @classmethod
     def from_pretrained(
-        cls,
+        cls: type[LLM_AIMETOnnxT],
         host_device: torch.device,
         sequence_length: int,
         context_length: int,
@@ -860,13 +863,13 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         fp_model: torch.nn.Module | None = None,
         checkpoint: str | os.PathLike | Path | None = None,
         _skip_quantsim_creation: bool = False,
-    ) -> LLM_AIMETOnnx:
+    ) -> LLM_AIMETOnnxT:
         """
         Load weight from local checkpoint of Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
-        Args:
-
+        Parameters
+        ----------
         - host_device: Device to use: GPU/CPU
         - sequence_length: Sequence Length for the model
         - context_length: Context Length for the model
@@ -945,6 +948,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         else:
             quant_sim = None
 
+        if precision in {Precision.w4, Precision.float}:
+            # Align with Genie (Genie/src/qualla/src/src/engines/qnn-htp/nsp-model.cpp)
+            attention_mask_min_clip = -1000.0
+        else:
+            attention_mask_min_clip = -50.0
+
         return cls(
             sim_model=quant_sim,
             sequence_length=sequence_length,
@@ -953,6 +962,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             checkpoint=checkpoint,
             tokenizer=fp_model.tokenizer if fp_model is not None else None,
             llm_config=fp_model.llm_config if fp_model is not None else None,
+            attention_mask_min_clip=attention_mask_min_clip,
         )
 
     def _adapt_aimet_encodings(
@@ -1012,6 +1022,8 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                     qc_op.reset_encoding_stats()
                     qc_op.data_type = QuantizationDataType.float
                     qc_op.bitwidth = 16
+
+        quant_sim._rebuild_session()
 
         return quant_sim
 
@@ -1231,7 +1243,11 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         rope_embeddings = self.EmbeddingClass(
             max_length=self.context_length, config=self.llm_config
         )
-        generator = LLM_Generator([self], self.tokenizer, rope_embeddings)
+        generator = LLM_Generator(
+            [self],
+            self.tokenizer,
+            rope_embeddings,
+        )
 
         # for data in dataloader
         for sample in tqdm(
@@ -1268,7 +1284,22 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         output_dir: str | Path,
     ):
         """Prepare assets to run the model end to end on-device using ONNX Runtime Gen AI."""
-        raise NotImplementedError()
+        from qai_hub_models.models._shared.llm.onnxruntime_genai import (
+            create_onnxruntime_genai_assets,
+        )
+
+        return create_onnxruntime_genai_assets(
+            model_name,
+            llm_config,
+            position_processor_cls,
+            encodings_path,
+            context_length,
+            prompt_sequence_length,
+            onnx_model_path_from_sub_component_name,
+            num_splits,
+            qairt_version,
+            output_dir,
+        )
 
     @classmethod
     def prepare_genie_assets(
@@ -1281,7 +1312,18 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         output_path: Path,
     ) -> None:
         """Prepare assets to run the model end to end on-device using Genie SDK."""
-        raise NotImplementedError()
+        # Copy tokenizer.json
+        if (Path(checkpoint) / "tokenizer.json").exists():
+            shutil.copy(
+                Path(checkpoint) / "tokenizer.json",
+                output_path / "tokenizer.json",
+            )
+        # Save the HTP config
+        save_htp_config_for_genie_bundle(hub_device, output_path)
+        # Save the genie config
+        config = create_genie_config(context_length, llm_config, "rope", model_list)
+        with open(output_path / "genie_config.json", "w") as f:
+            json.dump(config, f, indent=4)
 
     @functools.cached_property
     def main_input_name(self) -> str:

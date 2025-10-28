@@ -49,8 +49,8 @@ def prepare_compile_zoo_model_to_hub(
     output_names: Optional[list[str]] = None,
 ) -> str | None:
     """
-    Args:
-
+    Parameters
+    ----------
     - (source_model_format, target_runtime):  One of the followings
 
         (1) (ONNX, QNN)
@@ -76,8 +76,8 @@ def prepare_compile_zoo_model_to_hub(
             (a) For fp32, torch -> qnn (via qnn-torch-converter, aka
                     --use_qnn_pytorch_converter flag in Hub)
 
-    Returns:
-
+    Returns
+    -------
     Path to source model that can be used directly with hub.upload_model or
     hub.submit_compile_job.
     """
@@ -126,15 +126,7 @@ def prepare_compile_zoo_model_to_hub(
                 return model_path
 
         else:  # Torchscript and QNN
-
-            def export_model_func():
-                print("Converting model to Torchscript and generating AIMET encodings")
-                exported_model = model.convert_to_torchscript_and_aimet_encodings(
-                    output_path,
-                    model_name=model_name,
-                    input_spec=input_spec,
-                )
-                return exported_model
+            raise NotImplementedError()
 
     else:  # fp32
 
@@ -157,8 +149,8 @@ def compile_model_from_args(
     component: str | None = None,
 ) -> hub.Model:
     """
-    Args:
-
+    Parameters
+    ----------
     - model_id: e.g., yolov7_quantized, stable_diffusion_v1_5_ao_quantized
 
     - cli_args: CLI arguments. We will use cli_args.chipset, .device,
@@ -289,7 +281,7 @@ class AsyncOnDeviceResult:
             msg = self.inference_job.get_status().message
             print(
                 f"Retrying ({retries}/{self.num_retries}) inference job "
-                + f"({self.inference_job.job_id}) ({msg})"
+                f"({self.inference_job.job_id}) ({msg})"
             )
             ijob = hub.submit_inference_job(
                 model=self.inference_job.model,
@@ -338,13 +330,15 @@ class AsyncOnDeviceModel:
         AsyncOnDeviceResult.wait() will return a torch result in the same format
         as the PyTorch model.
 
-    Parameters:
+    Parameters
+    ----------
         input_names: List of input names to the model.
         device: Device on which to execute inference.
         hub_model_id: ID of Model stored in hub that will be used to run inference.
         model: If hub_model_id is absent, this model is compiled and used for inference.
 
-    Returns:
+    Returns
+    -------
         AsyncOnDeviceResult that mimics the I/O of a torch model and evaluates inference on device.
     """
 
@@ -446,13 +440,15 @@ class OnDeviceModel(ExecutableModelProtocol):
 
     Intended to be passed as in input to app.py to run an app on-device.
 
-    Parameters:
+    Parameters
+    ----------
         input_names: List of input names to the model.
         device: Device on which to execute inference.
         hub_model_id: ID of Model stored in hub that will be used to run inference.
         model: If hub_model_id is absent, this model is compiled and used for inference.
 
-    Returns:
+    Returns
+    -------
         Callable that mimics the I/O of a torch model and evaluates inference on device.
     """
 
@@ -511,9 +507,7 @@ def get_uploaded_precompiled_model(
     model_component: str,
     ignore_cached_model: bool = False,
 ):
-    """
-    Caches pre-compiled model in default asset path to be used in sub-sequence demos.
-    """
+    """Caches pre-compiled model in default asset path to be used in sub-sequence demos."""
     asset_config = ModelZooAssetConfig.from_cfg()
     model_id_path = asset_config.get_local_store_model_path(
         model_name, model_version, f"{model_component}_model_id.cached"

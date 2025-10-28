@@ -10,6 +10,7 @@ This script searches Hugging Face for each requested model and downloads the GGU
 artifacts and downloads the file(s) into the output directory.
 
 Examples
+--------
   python scripts/llm-bench/download_hf_models.py --out models
 
 """

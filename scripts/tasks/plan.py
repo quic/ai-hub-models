@@ -43,7 +43,9 @@ def depends(deps: list[str]):
     return add_dep
 
 
-def depends_if(obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] = []):
+def depends_if(obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] = None):
+    if default is None:
+        default = []
     deps = default
     for obj_ep, deps_candidate in eq:
         if obj == obj_ep:
@@ -134,7 +136,6 @@ class Plan:
 
     def print_report(self) -> None:
         """Print a report on how long steps in the plan took."""
-
         if len(self._step_durations) < 1:
             return
 

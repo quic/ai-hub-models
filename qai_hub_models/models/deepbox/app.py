@@ -108,10 +108,12 @@ class DeepBoxApp:
         """
         From the provided image or tensor, predict the 3d bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             image: PIL image
 
-        Returns:
+        Returns
+        -------
             if raw_output is False, returns
                 image_with_3d_bounding_boxes: list[PIL.Image]
                     Input image with predicted 3D Bounding Boxes applied
@@ -125,7 +127,6 @@ class DeepBoxApp:
                 locations: list[list]
                     centers of 3d_bboxes
         """
-
         # Input Prep
         numpy_image = np.array(image)
         (H, W) = numpy_image.shape[:2]

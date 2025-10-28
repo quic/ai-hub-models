@@ -165,8 +165,9 @@ class UnetBase(BaseModel, FromPretrainedMixin):
         cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
-        the onnx model"""
-        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined, assignment]
+        the onnx model
+        """
+        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -179,9 +180,7 @@ class UnetBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, latent, timestep, text_emb):
-                return self.model(  # type: ignore
-                    latent, timestep, text_emb, return_dict=False
-                )[0]
+                return self.model(latent, timestep, text_emb, return_dict=False)[0]  # type: ignore[operator]
 
         return UNet2DConditionModelWrapper(model)
 
@@ -294,9 +293,9 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, z):
-                z = z / self.model.config.scaling_factor  # type: ignore
-                z = self.model.post_quant_conv(z)  # type: ignore
-                image = self.model.decoder(z)  # type: ignore
+                z = z / self.model.config.scaling_factor  # type: ignore[attr-defined]
+                z = self.model.post_quant_conv(z)  # type: ignore[attr-defined]
+                image = self.model.decoder(z)  # type: ignore[attr-defined]
                 # move output range from -1 ~ 1 to 0~1
                 image = (image / 2 + 0.5).clamp(0, 1)
                 # output in NHWC
@@ -395,12 +394,14 @@ def make_scheduler(
     """
     Load and instantiate the scheduler from a Hugging Face repo or a local path.
 
-    Args:
+    Parameters
+    ----------
       checkpoint: Hugging Face repo ID or local path.
       subfolder: Subdirectory where scheduler_config.json is located.
       revision: Git branch, tag, or commit (only used for HF repos).
 
-    Returns:
+    Returns
+    -------
       A scheduler instance (subclass of SchedulerMixin).
     """
     if hf_repo_exists(str(checkpoint)):
@@ -425,9 +426,7 @@ def make_scheduler(
 
 
 class StableDiffusionBase(PretrainedCollectionModel):
-    """
-    Put glue modules here to aid app/demo code.
-    """
+    """Put glue modules here to aid app/demo code."""
 
     guidance_scale: float = 7.5
     default_num_steps: int = 20
@@ -449,5 +448,5 @@ class StableDiffusionBase(PretrainedCollectionModel):
         if ckpt_type in [CheckpointType.DEFAULT, CheckpointType.DEFAULT_UNQUANTIZED]:
             if cls.hf_repo_id == "":
                 raise ValueError("hf_repo_id is not defined.")
-            return cls.hf_repo_id  # type: ignore
+            return cls.hf_repo_id
         return checkpoint

@@ -21,7 +21,8 @@ def draw_points(
     """
     Draw the given points on the frame.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -38,7 +39,8 @@ def draw_points(
         size: int
             Size of drawn points
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     if len(points.shape) == 1:
@@ -68,7 +70,8 @@ def draw_connections(
     """
     Draw connecting lines between the given points on the frame.
 
-    Parameters:
+    Parameters
+    ----------
         frame:
             np array (H W C x uint8, RGB)
 
@@ -105,7 +108,8 @@ def draw_connections(
         size: int
             Size of drawn connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     point_pairs: (
@@ -139,7 +143,8 @@ def draw_box_from_corners(
     """
     Draw a box using the 4 points provided as boundaries.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -156,7 +161,8 @@ def draw_box_from_corners(
         size: int
             Size of drawn points and connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     draw_points(frame, corners, color, size)
@@ -172,7 +178,8 @@ def draw_box_from_xywh(
     """
     Draw a box using the provided data (center / height / width) to compute the box.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -186,7 +193,8 @@ def draw_box_from_xywh(
         size: int
             Size of drawn points and connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     xc, yc, h, w = box
@@ -206,7 +214,8 @@ def draw_box_from_xyxy(
     """
     Draw a box using the provided top left / bottom right points to compute the box.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -223,7 +232,8 @@ def draw_box_from_xyxy(
         text: None | str
             Overlay text at the top of the box.
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     if not isinstance(top_left, tuple):
@@ -250,10 +260,17 @@ def create_color_map(num_classes):
     Inputs:
         num_classes: Number of colors to produce.
 
-    Returns:
+    Returns
+    -------
         A list of `num_classes` colors in RGB format.
     """
-    np.random.seed(42)  # For reproducible results
-    color_map = np.random.randint(0, 256, size=(num_classes, 3), dtype=np.uint8)
+    # Use seed for reproducible results
+    #
+    # We use RandomState instead of np.random.default_rng here because default_rng is a
+    # different randomization algorithm from np.random.rand(). RandomState matches the old behavior.
+    # Several model tests rely on the older RandomState rng.
+    color_map = np.random.RandomState(42).randint(
+        0, 256, size=(num_classes, 3), dtype=np.uint8
+    )
     color_map[0] = [0, 0, 0]  # Background class, usually black
     return color_map

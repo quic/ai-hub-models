@@ -38,9 +38,7 @@ VAL_PREP_ASSET = CachedWebDatasetAsset(
 
 
 class ImagenetDataset(BaseDataset, ImageNet):
-    """
-    Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/
-    """
+    """Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/"""
 
     def __init__(
         self, split: DatasetSplit = DatasetSplit.VAL, transform=IMAGENET_TRANSFORM
@@ -107,9 +105,7 @@ class ImagenetDataset(BaseDataset, ImageNet):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 2500
 
     @staticmethod

@@ -27,9 +27,7 @@ def get_past_keyval_with_shift(
     length: int,
     device: torch.device = torch.device("cpu"),
 ) -> list[torch.Tensor]:
-    """
-    Clip past key value to feed next iteration
-    """
+    """Clip past key value to feed next iteration"""
     ret = []
 
     if len(past_key_vals) == 0:
@@ -122,7 +120,6 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         self.tokenizer = tokenizer
         self.embedding = embedding
         self.accumulate_logits_on_cpu = accumulate_logits_on_cpu
-
         self.generation_config = None
 
     @staticmethod
@@ -161,7 +158,6 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         Overridden prepare_inputs_for_generation function to enable Huggingface generate() on models with static
         graph constraints
         """
-
         # We need a way to ensure that all the previous tokens that have already been consumed are stripped out of the
         # input ids
 
@@ -204,7 +200,10 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             -1
         ]  # start off by selecting model with largest sequence length
         for model in self.models:
-            if num_input_tokens <= model.sequence_length:
+            if (
+                num_input_tokens <= model.sequence_length
+                and model.sequence_length < new_selected_model.sequence_length
+            ):
                 new_selected_model = model  # if there is any model with a smaller sequence length that works, select it
 
         if self.selected_model.sequence_length == new_selected_model.sequence_length:
@@ -351,7 +350,11 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             key_value_length=context_length,
             dtype=torch.float32,
         )
-        cm_attention_mask = cm_attention_mask.clip(-50, 0)
+        attention_mask_min_clip = getattr(
+            self.selected_model, "attention_mask_min_clip", None
+        )
+        if attention_mask_min_clip is not None:
+            cm_attention_mask = cm_attention_mask.clip(min=attention_mask_min_clip)
 
         return (
             padded_input_tokens,

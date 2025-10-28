@@ -201,9 +201,7 @@ class SemanticKittiDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 50
 
     def do_range_projection(
@@ -215,17 +213,28 @@ class SemanticKittiDataset(BaseDataset):
         if the value of the constructor was not set (in case you change your
         mind about wanting the projection)
 
-        Args:
+        Parameters
+        ----------
+        points
+            Predicted point cloud points
+        remissions
+            Predicted remissinos
 
-        Returns:
-            img_proj_x (np.ndarray): projections in image coords in x axis in range[0,W-1]
-            img_proj_y (np.ndarray): projections in image coords in y axis in range[0,H-1]
-            proj_range (np.ndarray): projected range image - [H,W] range (-1 is no data)
-            proj_xyz (np.ndarray): projected point cloud xyz - [H,W,3] xyz coord (-1 is no data)
-            proj_remission (np.ndarray): projected remission - [H,W] intensity (-1 is no data)
-            proj_mask (np.ndarray): projected index (for each pixel, what I am in the pointcloud)
-                [H,W] index (-1 is no data)
-
+        Returns
+        -------
+        img_proj_x
+            projections in image coords in x axis in range[0,W-1]
+        img_proj_y
+            projections in image coords in y axis in range[0,H-1]
+        proj_range
+            projected range image - [H,W] range (-1 is no data)
+        proj_xyz
+            projected point cloud xyz - [H,W,3] xyz coord (-1 is no data)
+        proj_remission
+            projected remission - [H,W] intensity (-1 is no data)
+        proj_mask
+            projected index (for each pixel, what I am in the pointcloud)
+            [H,W] index (-1 is no data)
         """
         # laser parameters
         fov_up = self.proj_fov_up / 180.0 * np.pi  # field of view up in rad

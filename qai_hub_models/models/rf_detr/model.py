@@ -32,10 +32,12 @@ class RF_DETR(DETR):
         """
         Run RF-DETR on `image` and produce high quality detection results.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image tensor to run detection on.
 
-        Returns:
+        Returns
+        -------
             A tuple of three tensors:
                 - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
                 - scores: torch.Tensor of shape (1, 100) representing the confidence scores
@@ -62,8 +64,8 @@ class RF_DETR(DETR):
             from rfdetr import RFDETRBase
 
             torch_model = RFDETRBase(resolution=DEFAULT_RESOLUTION, device="cpu")
-            torch_model.optimize_for_inference(compile=False)  # type: ignore
-            return cls(torch_model.model.inference_model)  # type: ignore
+            torch_model.optimize_for_inference(compile=False)
+            return cls(torch_model.model.inference_model)
 
     @staticmethod
     def get_input_spec(

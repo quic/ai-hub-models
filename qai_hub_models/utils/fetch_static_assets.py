@@ -36,7 +36,8 @@ def fetch_static_assets(
     """
     Fetch previously released assets for a model to disk, and place them in the output folder.
 
-    Parameters:
+    Parameters
+    ----------
         model_id:
             Model ID to fetch
         runtime:
@@ -54,7 +55,8 @@ def fetch_static_assets(
         asset_config:
             QAIHM asset config.
 
-    Returns:
+    Returns
+    -------
         - A list of downloaded model file paths in order of the components list, if output_folder is set. Empty list if output_folder is None.
         - Model file URLs, in order of the model list
     """

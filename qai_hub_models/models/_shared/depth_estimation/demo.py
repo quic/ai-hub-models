@@ -42,7 +42,11 @@ def depth_estimation_demo(
     image = load_image(args.image)
     print("Model Loaded")
 
-    app = DepthEstimationApp(model, height, width)
+    app = DepthEstimationApp(
+        model,  # type: ignore[arg-type]
+        height,
+        width,
+    )
     heatmap_image = app.estimate_depth(image)
     assert isinstance(heatmap_image, Image.Image)
 

@@ -50,7 +50,7 @@ class DDRNet(CityscapesSegmentor):
             if bad_init_file.exists():
                 bad_init_file.unlink()
 
-            from lib.models.ddrnet_23_slim import (  # type: ignore[import-not-found]
+            from lib.models.ddrnet_23_slim import (
                 BasicBlock,
                 DualResNet,
             )

@@ -33,6 +33,7 @@ def main():
         Precision.w8a8: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

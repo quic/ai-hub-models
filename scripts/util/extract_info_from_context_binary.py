@@ -24,7 +24,8 @@ def run_utility(qnn_sdk, model_path):
             model_path,
             "--json_file",
             json_path,
-        ]
+        ],
+        check=False,
     )
     return json_path
 
@@ -35,10 +36,10 @@ def print_details_from_json(json_path):
     for graph in data["info"]["graphs"]:
         print(f"Graph Name: {graph['info']['graphName']}")
         input_spec = dict()
-        for input in graph["info"]["graphInputs"]:
-            input_spec[input["info"]["name"]] = (
-                tuple(input["info"]["dimensions"]),
-                QNN_TYPE_TO_STR[input["info"]["dataType"]],
+        for i in graph["info"]["graphInputs"]:
+            input_spec[i["info"]["name"]] = (
+                tuple(i["info"]["dimensions"]),
+                QNN_TYPE_TO_STR[i["info"]["dataType"]],
             )
         print(f"Graph Input: {input_spec}")
         out = []

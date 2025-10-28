@@ -26,11 +26,11 @@ def maybe_save_scheduler_config(checkpoint: CheckpointSpec, output_dir: str | Pa
     """
     Save the scheduler config from a HuggingFace repo to the output directory.
 
-    Args:
+    Parameters
+    ----------
         checkpoint: Hugging Face repo ID or local path.
         output_dir: Directory where the scheduler config should be saved.
     """
-
     scheduler_dir = Path(output_dir) / "scheduler"
     scheduler_dir.mkdir(parents=True, exist_ok=True)
     target_path = scheduler_dir / SCHEDULER_CONFIG_NAME

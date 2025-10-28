@@ -20,9 +20,7 @@ from qai_hub_models.utils.onnx_torch_wrapper import OnnxModelTorchWrapper
 
 
 class VariableIODummyModel(BaseModel):
-    """
-    Dummy AI Hub model that allows changing the number of inputs / outputs.
-    """
+    """Dummy AI Hub model that allows changing the number of inputs / outputs."""
 
     DEFAULT_IO_SHAPE = (1, 3, 2, 2)
 
@@ -71,9 +69,10 @@ class VariableIODummyModel(BaseModel):
                 f"{len(self.get_input_spec())} Provided additional inputs: {inputs.keys() - self.get_input_spec().keys()}"
             )
 
-        out = []
-        for outIdx in range(0, self.num_outputs):
-            out.append(inputs[f"in{min(self.num_inputs - 1, outIdx)}"] * 2)
+        out = [
+            inputs[f"in{min(self.num_inputs - 1, outIdx)}"] * 2
+            for outIdx in range(0, self.num_outputs)
+        ]
         if len(out) < self.num_inputs:
             for i in range(len(out), self.num_inputs):
                 out[min(self.num_outputs - 1, i - len(out))] *= inputs[f"in{i}"]
@@ -155,16 +154,16 @@ class DummyEvaluator(BaseEvaluator):
             )
 
         assert len(output) == len(gt)
-        for output, gt in zip(output, gt):
+        for single_output, single_gt in zip(output, gt):
             assert (
-                isinstance(output, torch.Tensor)
-                or isinstance(output, float)
-                or isinstance(output, int)
+                isinstance(single_output, torch.Tensor)
+                or isinstance(single_output, float)
+                or isinstance(single_output, int)
             )
             assert (
-                isinstance(gt, torch.Tensor)
-                or isinstance(gt, float)
-                or isinstance(gt, int)
+                isinstance(single_gt, torch.Tensor)
+                or isinstance(single_gt, float)
+                or isinstance(single_gt, int)
             )
 
         self.dummy_metric = self.dummy_metric + 1
@@ -277,7 +276,10 @@ def test_local_evaluate(
     with qaihm_temp_dir() as tmpdir:
         onnx_path = f"{tmpdir}/model.onnx"
         torch.onnx.export(
-            model, tuple(make_torch_inputs(model.get_input_spec())), onnx_path
+            model,
+            tuple(make_torch_inputs(model.get_input_spec())),
+            onnx_path,
+            dynamo=False,
         )
         onnx_model = OnnxModelTorchWrapper.OnCPU(onnx_path)
 

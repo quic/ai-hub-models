@@ -20,7 +20,7 @@ def test_task() -> None:
     imgsz = (640, 640)
     app = FastSAMApp(
         fastsam_model=FastSAM_X.from_pretrained(), model_image_input_shape=imgsz
-    )  # type: ignore[call-arg]
+    )
 
     # Get our app outputs
     boxes_list, scores_list, masks_list = app.segment_image(image, raw_output=True)

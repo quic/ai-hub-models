@@ -31,7 +31,8 @@ class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
     ) -> None:
         """Process a batch of Posenet Mobilenet model outputs and ground truth data.
 
-        Args:
+        Parameters
+        ----------
             output: Model predictions containing:
                 - heatmaps_result: Tensor[float], [batch, 17, 33, 17]
                 - offsets_result: Tensor[float], [batch, 34, 33, 17]
@@ -44,7 +45,6 @@ class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
                 - centers: Tensor[float], [batch, 2]
                 - scale: Tensor[float], [batch, 2]
         """
-
         heatmaps, offsets, disp_fwd, disp_bwd, max_vals = output
         img_ids, cat_ids, centers, scales = gt
 

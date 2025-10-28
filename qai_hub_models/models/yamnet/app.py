@@ -28,14 +28,15 @@ CHUNK_LENGTH = 0.98
 
 def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
     """
-    Args:
+    Parameters
+    ----------
         waveform (torch.Tensor): Tensor of audio of dimension (..., time)
 
-    Returns:
+    Returns
+    -------
         patches : batched torch tsr of shape [N, C, T]
         spectrogram :  Mel frequency spectrogram of size (..., ``n_mels``, time)
     """
-
     with SourceAsRoot(
         YAMNET_PROXY_REPOSITORY,
         YAMNET_PROXY_REPO_COMMIT,
@@ -64,7 +65,7 @@ def parse_category_meta():
     with open(YAMNET_CLASS_CSV.fetch()) as csv_file:
         reader = csv.reader(csv_file)
         next(reader)  # Skip header
-        for inx, category_id, category_name in reader:
+        for _inx, _category_id, category_name in reader:
             accu.append(category_name)
     return accu
 
@@ -120,10 +121,13 @@ def chunk_and_resample_audio(
 def load_audiofile(path: str | Path):
     """
     Decode the WAV file.
-        Parameters:
+
+    Parameters
+    ----------
             path: Path of the input audio.
 
-        Returns:
+    Returns
+    -------
             x: Reads audio sample from path and converts to torch tensor.
             sr : sampling rate of audio samples
 
@@ -169,7 +173,6 @@ class YamNetApp:
         -------
         List of class ids from AudioSet-YouTube corpus is returned.
         """
-
         audio, audio_sample_rate = load_audiofile(path)
 
         assert audio_sample_rate is not None
@@ -194,10 +197,12 @@ class YamNetApp:
         From the provided audio samples,calculate scores(matrix of
         time_frames, num_classes classifier scores).
 
-        Parameters:
+        Parameters
+        ----------
             segment: chunked audio samples
 
-        Returns:
+        Returns
+        -------
             raw_prediction: class_probs for each chunk of audio samples
         """
         patches, _ = preprocessing_yamnet_from_source(torch.tensor(segment))

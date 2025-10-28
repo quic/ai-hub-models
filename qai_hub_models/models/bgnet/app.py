@@ -48,7 +48,8 @@ class BGNetApp:
         """
         Return the input image with the segmentation mask overlayed on it.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -56,8 +57,8 @@ class BGNetApp:
                 or
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-        Returns:
-
+        Returns
+        -------
                 segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
@@ -92,11 +93,13 @@ def postprocess_masks(
     Process raw model outputs into segmentation masks by resizing,
     converting logits to probabilities
 
-    Args:
+    Parameters
+    ----------
         pred_masks: Raw outputs [N, C, H, W]
         input_size: Output resolution (height, width)
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: Masks [N, H, W], uint8
     """
     # Upsample pred mask to original image size

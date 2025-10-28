@@ -24,7 +24,7 @@ from qai_hub.client import APIException, DatasetEntries, Device, UserError
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+    safe_torch_onnx_export,
 )
 from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
 from qai_hub_models.utils.transpose_channel import (  # noqa: F401
@@ -33,16 +33,22 @@ from qai_hub_models.utils.transpose_channel import (  # noqa: F401
 
 _AIHUB_URL = "https://aihub.qualcomm.com"
 _AIHUB_NAME = "Qualcomm® AI Hub"
+_CAN_ACCESS_HUB: bool | None = None
 
 
 def can_access_qualcomm_ai_hub():
+    global _CAN_ACCESS_HUB  # noqa: PLW0603
+    if _CAN_ACCESS_HUB is not None:
+        return _CAN_ACCESS_HUB
     try:
         hub.get_frameworks()
     except APIException:
-        return False
+        _CAN_ACCESS_HUB = False
     except UserError:
-        return False
-    return True
+        _CAN_ACCESS_HUB = False
+    else:
+        _CAN_ACCESS_HUB = True
+    return _CAN_ACCESS_HUB
 
 
 def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -70,7 +76,8 @@ def export_torch_to_onnx_zip(
     to conform to the input spec of AI Hub. Export as regular ONNX file if
     <2GB.
 
-    Parameters:
+    Parameters
+    ----------
       torch_model: The torch.nn.Module to export.
       f: The base filename. For models <2GB, this must end in ".onnx".
          For models >=2GB with skip_zip True, this must NOT end in ".onnx" (treated as a directory name).
@@ -81,7 +88,8 @@ def export_torch_to_onnx_zip(
       onnx_transforms: If defined, run this on the exported ONNX before packaging.
       skip_zip: True to suppress zipping even for models >2GB.
 
-    Returns:
+    Returns
+    -------
       The path to the exported file (either a .onnx file, a .onnx.zip file,
       or a directory if skip_zip is True and model size is >2GB).
     """
@@ -106,7 +114,7 @@ def export_torch_to_onnx_zip(
     if total_bytes < threshold_bytes:
         # For models under 2GB, export as a single ONNX file.
         start_time = time.time()
-        torch_onnx_export_with_large_model_size_check(
+        safe_torch_onnx_export(
             torch_model,
             example_input,
             str(f),
@@ -138,7 +146,7 @@ def export_torch_to_onnx_zip(
             )  # use .onnx extension for export
 
             start_time = time.time()
-            torch_onnx_export_with_large_model_size_check(
+            safe_torch_onnx_export(
                 torch_model,
                 example_input,
                 str(export_path),
@@ -241,7 +249,8 @@ def make_hub_dataset_entries(
     Given input tensor(s) in either numpy or torch format,
         convert to hub DatasetEntries format.
 
-    Parameters:
+    Parameters
+    ----------
         tensors: Tensor data in numpy or torch.Tensor format.
         input_names: List of input names.
         channel_last_input: Comma-separated list of input names to transpose channel.
@@ -357,9 +366,8 @@ def download_model_in_memory(model: hub.Model) -> Any:
         model_file = model.download(os.path.join(tmp_dir, "tmp_model"))
         if model.model_type == hub.SourceModelType.TORCHSCRIPT:
             return torch.jit.load(model_file)
+        elif os.path.splitext(model_file)[1] == ".zip":
+            onnx_path, _ = extract_onnx_zip(model_file)
+            return onnx.load(onnx_path)
         else:
-            if os.path.splitext(model_file)[1] == ".zip":
-                onnx_path, _ = extract_onnx_zip(model_file)
-                return onnx.load(onnx_path)
-            else:
-                return onnx.load(model_file)
+            return onnx.load(model_file)

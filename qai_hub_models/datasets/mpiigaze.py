@@ -36,10 +36,7 @@ class MPIIGazeDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
     ):
-        """
-        Initialize the MPIIGaze dataset.
-
-        """
+        """Initialize the MPIIGaze dataset."""
         self.mpii_path = MPII_GAZE_ASSET.path(extracted=True).parent / "MPIIGaze"
         BaseDataset.__init__(self, self.mpii_path, split)
 
@@ -78,17 +75,21 @@ class MPIIGazeDataset(BaseDataset):
                             }
                         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Retrieve a preprocessed eye image and gaze angles by index.
 
-        Args:
-            index (int): Index of the dataset item.
+        Parameters
+        ----------
+        index
+            Index of the dataset item.
 
-        Returns:
-            tuple: (img_tensor, gaze_tensor) where img_tensor is a preprocessed grayscale
-                   eye image (1, 96, 160, float32) with histogram equalization and normalization,
-                   and gaze_tensor is the gaze angles [pitch, yaw] (2, float32).
+        Returns
+        -------
+        img_tensor
+            Preprocessed grayscale eye image (1, 96, 160, float32) with histogram equalization and normalization,
+        gaze_tensor
+            ground truth gaze angles [pitch, yaw] (2, float32).
         """
         # Get entry metadata
         entry = self.entries[index]

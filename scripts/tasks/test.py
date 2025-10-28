@@ -43,15 +43,13 @@ from .venv import (
 
 
 class PyTestQAIHMTask(PyTestTask):
-    """
-    Pytest utils.
-    """
+    """Pytest utils."""
 
     def __init__(self, venv: str):
         all_dirs_except_models = [
             f"{PY_PACKAGE_SRC_ROOT}/{x}"
             for x in os.listdir(PY_PACKAGE_SRC_ROOT)
-            if x != "models" and x != "__pycache__" and x != "scorecard"
+            if x not in {"models", "__pycache__", "scorecard"}
         ]
 
         # Internal scorecard tests are expensive (calls to Hub), so only run them if the internal scorecard changes.
@@ -79,9 +77,7 @@ class PyTestQAIHMTask(PyTestTask):
 
 
 class GPUPyTestModelsTask(CompositeTask):
-    """
-    Run all tests for LLM models.
-    """
+    """Run all tests for LLM models."""
 
     def __init__(
         self,
@@ -94,6 +90,7 @@ class GPUPyTestModelsTask(CompositeTask):
         raise_on_failure: bool = False,
     ):
         home_dir = "/local/mnt2/workspace2/qaihm_bot"
+        junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
         tmp_dir = os.path.join(home_dir, "tmp")
 
         models_to_test = []
@@ -110,43 +107,31 @@ class GPUPyTestModelsTask(CompositeTask):
         tasks = []
         common_command = f"export HOME={home_dir} && mkdir -p {tmp_dir} && export TMPDIR={tmp_dir} && rm -rf {home_dir}/.cache/huggingface/hub/models--* {home_dir}/.qaihm/models/* {tmp_dir}/*"
         for model_name in models_to_test:
+            base_dir = os.path.dirname(junit_xml_path)
+            filename_parts = os.path.splitext(os.path.basename(junit_xml_path))
+            test_suites = []
             if run_evaluate:
-                tasks.append(
-                    RunCommandsWithVenvTask(
-                        group_name=f"Run Evaluate Tests For Model {model_name}",
-                        venv=venv,
-                        commands=[
-                            f'{common_command} && pytest qai_hub_models/models/{model_name}/test.py -k "evaluate"',
-                        ],
-                    )
-                )
+                test_suites.append("evaluate")
             if run_demo:
-                tasks.append(
-                    RunCommandsWithVenvTask(
-                        group_name=f"Run Demo Tests For Model {model_name}",
-                        venv=venv,
-                        commands=[
-                            f'{common_command} && pytest qai_hub_models/models/{model_name}/test.py -k "demo"',
-                        ],
-                    )
-                )
+                test_suites.append("demo")
             if run_compile:
-                tasks.append(
-                    RunCommandsWithVenvTask(
-                        group_name=f"Run Compile Tests For Model {model_name}",
-                        venv=venv,
-                        commands=[
-                            f'{common_command} && pytest qai_hub_models/models/{model_name}/test.py -k "compile_ram_intensive"',
-                        ],
-                    )
-                )
+                test_suites.append("compile_ram_intensive")
             if run_qdc:
+                test_suites.append("qdc")
+
+            for test_suite in test_suites:
+                model_filename = (
+                    f"{filename_parts[0]}-{test_suite}-{model_name}{filename_parts[1]}"
+                )
+                model_junit_xml_path = os.path.join(base_dir, model_filename)
+                options = f"-k '{test_suite}' --junit-xml={model_junit_xml_path}"
+
                 tasks.append(
                     RunCommandsWithVenvTask(
-                        group_name=f"Run QDC Tests For Model {model_name}",
+                        group_name=f"Run {test_suite} Tests For Model {model_name}",
                         venv=venv,
                         commands=[
-                            f'{common_command} && pytest qai_hub_models/models/{model_name}/test.py -k "qdc"',
+                            f"{common_command} && pytest qai_hub_models/models/{model_name}/test.py {options}",
                         ],
                     )
                 )
@@ -163,9 +148,7 @@ class GPUPyTestModelsTask(CompositeTask):
 
 
 class PyTestModelTask(CompositeTask):
-    """
-    Run all tests for a single model.
-    """
+    """Run all tests for a single model."""
 
     def __init__(
         self,
@@ -300,7 +283,7 @@ class PyTestModelTask(CompositeTask):
                                     venv=model_venv,
                                     files_or_dirs=model_dir,
                                     parallel=False,
-                                    extra_args=" ".join(extras_args),
+                                    extra_args=" ".join(extras_args + ["--no-header"]),
                                     env=env,
                                     raise_on_failure=not needs_model_venv,  # Do not raise on failure if a model venv was created, to make sure the venv is removed when the test finishes
                                     ignore_no_tests_return_code=True,
@@ -314,6 +297,8 @@ class PyTestModelTask(CompositeTask):
                         RunCommandsWithVenvTask(
                             f"MyPy: {model_name}",
                             model_venv,
+                            # MyPy errors on "unused #type: ignore" from unrelated model code, if run in a non-global environment.
+                            # Therefore we run mypy only on the specific model folder for specific model environments.
                             [
                                 f'mypy --warn-unused-configs --config-file="{REPO_ROOT}/pyproject.toml" --package qai_hub_models.models.{model_name}'
                             ],
@@ -341,9 +326,7 @@ class PyTestModelTask(CompositeTask):
 
 
 class PyTestModelsTask(CompositeTask):
-    """
-    Run tests for the provided set of models.
-    """
+    """Run tests for the provided set of models."""
 
     def __init__(
         self,
@@ -374,12 +357,13 @@ class PyTestModelsTask(CompositeTask):
             base_junit_xml_path = os.environ.get("QAIHM_MODELS_JUNIT_XML_PATH")
 
         if len(models_for_testing) == 0 and len(models_to_test_export) == 0:
-            return super().__init__("All Per-Model Tests (Skipped)", [])
+            super().__init__("All Per-Model Tests (Skipped)", [])
+            return
         tasks = []
 
         # Whether or not export tests will be run asynchronously
         # (submit all jobs for all models at once, rather than one model at a time).
-        test_hub_async: bool = os.environ.get("QAIHM_TEST_HUB_ASYNC", 0)
+        test_hub_async: bool = bool(os.environ.get("QAIHM_TEST_HUB_ASYNC", "0"))
 
         if test_hub_async and not on_ci():
             for run_test, job_type in [
@@ -454,12 +438,7 @@ class PyTestModelsTask(CompositeTask):
 
                 filename_parts = os.path.splitext(base_filename)
                 model_filename = f"{filename_parts[0]}-{model_name}{filename_parts[1]}"
-
                 model_junit_xml_path = os.path.join(base_dir, model_filename)
-
-                print(
-                    f"Using model-specific JUnit XML path for {model_name}: {model_junit_xml_path}"
-                )
 
             tasks.append(
                 PyTestModelTask(
@@ -545,9 +524,7 @@ class PyTestModelsTask(CompositeTask):
 
 
 class GenerateTestSummaryTask(RunCommandsTask):
-    """
-    Generate a test failure summary from JUnit XML files.
-    """
+    """Generate a test failure summary from JUnit XML files."""
 
     def __init__(
         self,
@@ -557,7 +534,8 @@ class GenerateTestSummaryTask(RunCommandsTask):
         """
         Initialize the task.
 
-        Args:
+        Parameters
+        ----------
             results_dir: Directory containing JUnit XML files
             output_path: Path to output file (defaults to GitHub step summary)
         """

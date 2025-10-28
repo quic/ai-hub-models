@@ -16,4 +16,4 @@ class CityscapesLowResDataset(CityscapesDataset):
         input_images_zip: str | None = None,
         input_gt_zip: str | None = None,
     ):
-        return super().__init__(split, input_images_zip, input_gt_zip, make_lowres=True)
+        super().__init__(split, input_images_zip, input_gt_zip, make_lowres=True)

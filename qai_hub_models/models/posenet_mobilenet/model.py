@@ -8,8 +8,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.posenet_mobilenet_evaluator import (
@@ -71,9 +71,7 @@ class PosenetMobilenet(BaseModel):
     # bug in torch that leads to the following exception:
     # AttributeError: 'str' object has no attribute '__name__'. Did you mean: '__ne__'?
     def forward(self, image):
-        """
-        Image inputs are expected to be in RGB format in the range [0, 1].
-        """
+        """Image inputs are expected to be in RGB format in the range [0, 1]."""
         raw_output = self.model(image * 2.0 - 1.0)
         max_vals = F.max_pool2d(raw_output[0], 3, stride=1, padding=1)
         return (*raw_output, max_vals)

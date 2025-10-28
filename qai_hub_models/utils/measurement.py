@@ -42,7 +42,6 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
         units: A list of increasing unit sizes (e.g. ["B", "KB", ...])
         unit_step_size: The ratio in size between successive units.
     """
-
     unit_index = 0
 
     while size >= unit_step_size and unit_index < len(units) - 1:
@@ -55,7 +54,9 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
 def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> Union[str, int]:
     """
     Computes how much memory the model checkpoint consumes.
-    Parameters:
+
+    Parameters
+    ----------
         model_path: Path to the model checkpoint file.
         as_str: Whether to return the result as an int or a string formatted to 2 sig figs.
     """
@@ -106,7 +107,8 @@ def get_tflite_unique_parameters(
 
 def get_model_size_mb(hub_model: hub.Model) -> float:
     """Return target model size in MB. This is a special case for ease of
-    testing"""
+    testing
+    """
     assert hub_model is not None
     with qaihm_temp_dir() as tmp_dir:
         download_path = Path(tmp_dir) / "model"
@@ -120,13 +122,14 @@ def get_disk_size(path: str | Path, unit: str = "byte") -> float:
     """
     Returns file or directory size in `unit`
 
-    Args:
+    Parameters
+    ----------
     - unit: One of ["byte", "MB"]
     """
     if os.path.isdir(path):
         # Traverse the directory and add up the file sizes.
         total_size = 0
-        for dirpath, dirnames, filenames in os.walk(path):
+        for dirpath, _dirnames, filenames in os.walk(path):
             for f in filenames:
                 fp = os.path.join(dirpath, f)
                 # skip if it is symbolic link

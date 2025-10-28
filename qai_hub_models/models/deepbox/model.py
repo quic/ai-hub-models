@@ -76,7 +76,7 @@ class VGG3DDetection(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:  # type: ignore[override]
+    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:
         with SourceAsRoot(
             DEEPBOX_SOURCE_REPOSITORY,
             DEEPBOX_SOURCE_REPO_COMMIT,

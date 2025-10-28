@@ -24,7 +24,9 @@ def test_accuracy_yaml():
             if accuracy is None:
                 continue
         except Exception as err:
-            assert False, f"{model_id} numerics yaml validation failed: {str(err)}"
+            raise AssertionError(
+                f"{model_id} numerics yaml validation failed: {str(err)}"
+            ) from None
 
 
 def test_yaml_roundtrip():

@@ -37,7 +37,8 @@ def app_to_net_image_inputs(
     Convert the provided images to application inputs.
     ~~This does not change channel order. RGB stays RGB etc~~
 
-    Parameters:
+    Parameters
+    ----------
         pixel_values_or_image: torch.Tensor
             PIL image
             or
@@ -51,7 +52,8 @@ def app_to_net_image_inputs(
             Whether to denormalize images to [0,1] (fp32) or keep as uint8.
 
 
-    Returns:
+    Returns
+    -------
         NHWC_int_numpy_frames: list[numpy.ndarray]
             List of numpy arrays (one per input image with uint8 dtype, [H W C] shape, and RGB or grayscale layout.
             This output is typically used for use of drawing/displaying images with PIL and CV2
@@ -73,8 +75,10 @@ def app_to_net_image_inputs(
         NCHW_torch_frames = torch.cat(frames)
     elif isinstance(pixel_values_or_image, torch.Tensor):
         NCHW_torch_frames = pixel_values_or_image
-        for b_img in pixel_values_or_image:
-            NHWC_int_numpy_frames.append((b_img.permute(1, 2, 0) * 255).byte().numpy())
+        NHWC_int_numpy_frames.extend(
+            (b_img.permute(1, 2, 0) * 255).byte().numpy()
+            for b_img in pixel_values_or_image
+        )
     else:
         assert isinstance(pixel_values_or_image, np.ndarray)
         NHWC_int_numpy_frames = (
@@ -126,9 +130,7 @@ def torch_image_to_numpy(image: torch.Tensor, to_int: bool = True) -> np.ndarray
 
 
 def torch_tensor_to_PIL_image(data: torch.Tensor) -> Image:
-    """
-    Convert a Torch tensor (dtype float32) with range [0, 1] and shape CHW into PIL image CHW
-    """
+    """Convert a Torch tensor (dtype float32) with range [0, 1] and shape CHW into PIL image CHW"""
     out = torch.clip(data, min=0.0, max=1.0)
     np_out = (out.permute(1, 2, 0).detach().numpy() * 255).astype(np.uint8)
     if np_out.shape[2] == 1:
@@ -201,7 +203,8 @@ def resize_pad(
     The image is then padded so that it's in the center of the returned image "frame"
     of the desired size (dst_size).
 
-    Parameters:
+    Parameters
+    ----------
         image: (..., H, W)
             Image to reshape.
 
@@ -226,7 +229,8 @@ def resize_pad(
             in the left of the frame, and the remainder of the frame
             (to the right of the image) is padded.
 
-    Returns:
+    Returns
+    -------
         rescaled_padded_image:
             torch.Tensor (..., dst_size[0], dst_size[1])
 
@@ -331,7 +335,8 @@ def transform_resize_pad_coordinates(
 
         NOTE: x and y can be swapped (passed in order of y, x) if padding order is also swapped.
 
-    Returns:
+    Returns
+    -------
         Modified coordinates.
         The returned coordinate are in pixel space.
     """
@@ -362,7 +367,8 @@ def transform_resize_pad_normalized_coordinates(
 
         NOTE: x and y can be swapped (passed in order of y, x) if shape and padding order are also swapped.
 
-    Returns:
+    Returns
+    -------
         Modified coordinates.
         The returned coordinate are in normalized [0-1] float space.
     """
@@ -461,8 +467,9 @@ def apply_batched_affines_to_frame(
             Computed images. Shape is [B H W C]
     """
     assert (
-        frame.dtype == np.byte or frame.dtype == np.uint8
+        frame.dtype == np.byte or frame.dtype == np.uint8  # noqa: PLR1714 Using a set for comparison is not equivalent to using == on both of these individually.
     )  # cv2 does not work correctly otherwise. Don't remove this assertion.
+
     imgs = []
     for affine in affines:
         img = cv2.warpAffine(frame, affine, output_image_size)
@@ -524,7 +531,7 @@ def compute_affine_transform(
     scale: np.ndarray,
     rot: int,
     output_size: tuple[int, int],
-    shift: np.ndarray = np.array([0.0, 0.0]),
+    shift: np.ndarray | None = None,
     inv: bool = False,
 ) -> np.ndarray:
     """
@@ -556,6 +563,8 @@ def compute_affine_transform(
 
     src = np.zeros((3, 2), dtype=np.float32)
     dst = np.zeros((3, 2), dtype=np.float32)
+    if shift is None:
+        shift = np.array([0.0, 0.0])
     src[0, :] = center + scale * shift
     src[1, :] = center + src_dir + scale * shift
     dst[0, :] = [dst_w * 0.5, dst_h * 0.5]
@@ -624,14 +633,16 @@ def pre_process_with_affine(
     """
     Pre-processes an input image with affine transformations.
 
-    Args:
+    Parameters
+    ----------
         image (np.ndarray): The input image as a NumPy array (H, W, C) as int32 data type.
         center (np.ndarray): Center coordinates, with shape of [2,].
         scale (np.ndarray): Scale factors, with shape of [2,].
         rot (int): Rotation angle in degrees.
         in_shape (tuple[int, int]): The target input shape (height, width) for the model.
 
-    Returns:
+    Returns
+    -------
         image_tensor (torch.Tensor): The pre-processed image with shape (1, C, H, W).
     """
     inp_height, inp_width = in_shape
@@ -654,9 +665,10 @@ def denormalize_coordinates_affine(
     output_size: tuple[int, int],
 ) -> np.ndarray:
     """
-    denormalize coordinates to the original image space.
+    Denormalize coordinates to the original image space.
 
-    Args:
+    Parameters
+    ----------
         coords (np.ndarray): coordinates with shape (N, 2).
         center (np.ndarray): Original image center used during pre-processing. Shape (2,).
         scale (np.ndarray): Original image scale used during pre-processing. Shape (2,).
@@ -664,9 +676,52 @@ def denormalize_coordinates_affine(
         output_size (tuple[int, int]): The dimensions (width, height) of the model's
                                        output feature map.
 
-    Returns:
+    Returns
+    -------
         np.ndarray: Transformed coordinates in the original image space. Shape (N, 2).
     """
     trans = compute_affine_transform(center, scale, rot, output_size, inv=True)
     target_coords = apply_affine_to_coordinates(coords, trans)
     return target_coords
+
+
+def get_post_rot_and_tran(
+    resize: float, crop: tuple, rotate: int
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Get post rotation and post translation,
+    which is used to transform points based on
+    resize, crop and rotate in the image.
+
+    Parameters
+    ----------
+        resize: float
+            The scaling factor applied to the image.
+        crop: tuple[left, upper, right, lower]
+            The cropping boundaries in pixels.
+        rotate: int
+            The rotation angle in degrees
+
+    Return:
+        post_rot: torch.tensor with shape [3, 3]
+            post rotation matrix in camera coordinate system
+        post_tran: torch.tensor with shape [3,]
+            post translation tensor in camera coordinate system
+    """
+    post_rot = torch.eye(3)
+    post_tran = torch.zeros(3)
+
+    # post-homography transformation
+    post_rot[:2, :2] *= resize
+    post_tran[:2] -= torch.Tensor(crop[:2])
+
+    rotate_angle = torch.tensor(rotate / 180 * np.pi)
+    rot_sin = torch.sin(rotate_angle)
+    rot_cos = torch.cos(rotate_angle)
+    A = torch.Tensor([[rot_cos, rot_sin], [-rot_sin, rot_cos]])
+    b = torch.Tensor([crop[2] - crop[0], crop[3] - crop[1]]) / 2
+    b = A.matmul(-b) + b
+    post_rot[:2, :2] = A.matmul(post_rot[:2, :2])
+    post_tran[:2] = A.matmul(post_tran[:2]) + b
+
+    return post_rot, post_tran

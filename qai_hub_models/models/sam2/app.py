@@ -10,50 +10,28 @@ from typing import Callable
 
 import numpy as np
 import torch
-import torch.nn as nn
 from PIL.Image import Image
-from torchvision.transforms import Resize
+from qai_hub.client import DatasetEntries
+from torch.utils.data import DataLoader
+from torchvision.transforms.functional import resize
 
-from qai_hub_models.models.sam2.model_patches import SAM2ImagePredictor, SAM2Transforms
+from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.sam2.model_patches import (
     mask_postprocessing as upscale_masks,
 )
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.image_processing import (
     numpy_image_to_torch,
     preprocess_PIL_image,
 )
+from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 
 class SAM2InputImageLayout(Enum):
     RGB = 0
     BGR = 1
-
-
-class PrepPromptContext:
-    """
-    A context class to provide necessary attributes for _prep_prompts.
-
-    Attributes:
-        _transforms: Transformations applied to the input image.
-        _orig_hw: Original height and width of the input image.
-        device: Device on which processing will occur (default is 'cpu').
-    """
-
-    def __init__(
-        self,
-        image_size: int,
-        mask_threshold: float,
-        input_images_original_size: tuple[int, int],
-        device: str = "cpu",
-    ) -> None:
-        self._transforms = SAM2Transforms(image_size, mask_threshold)
-        self._orig_hw = [
-            [
-                input_images_original_size[0],
-                input_images_original_size[1],
-            ]
-        ]
-        self.device = device
 
 
 class SAM2App:
@@ -71,17 +49,19 @@ class SAM2App:
         mask_threshold: float,
         input_image_channel_layout: SAM2InputImageLayout,
         sam2_encoder: Callable[
-            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            [torch.Tensor, torch.Tensor, torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         sam2_decoder: Callable[
-            [torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+            [torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
             tuple[torch.Tensor, torch.Tensor],
         ],
     ) -> None:
         """
         Initializes the segmentation model with encoder and decoder components.
 
-        Args:
+        Parameters
+        ----------
             mask_threshold (float): Threshold value used to binarize the predicted masks.
 
             input_image_channel_layout: SAMInputImageLayout
@@ -95,7 +75,6 @@ class SAM2App:
                 SAM2 decoder. Must match input and output of qai_hub_models.models.sam2.model.SAM2Decoder.
                 Takes image embeddings and high-resolution features to produce segmentation masks and confidence scores.
         """
-
         self.sam2_encoder = sam2_encoder
         self.sam2_decoder = sam2_decoder
         self.mask_threshold = mask_threshold
@@ -122,20 +101,23 @@ class SAM2App:
         It first encodes the input image(s) to obtain image embeddings and high-resolution
         features, then uses the provided point coordinates and labels to predict segmentation masks.
 
-        Parameters:
+        Parameters
+        ----------
+            B-Batch_size, N-Num_Points, H-Height, W-Width, C-Channel
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
-                numpy array (N H W C x uint8) or (H W C x uint8)
+                numpy array (B H W C x uint8) or (H W C x uint8)
                     channel layout consistent with self.input_image_channel_layout
                 or
-                pyTorch tensor (N C H W x int8, value range is [0, 255])
+                pyTorch tensor (B C H W x int8, value range is [0, 255])
                     channel layout consistent with self.input_image_channel_layout
-            point_coords (torch.Tensor): Coordinates of points used as prompts (shape: [N, 2] or [B, N, 2]).
-            point_labels (torch.Tensor): Labels for the points (shape: [N] or [B, N]).
+            point_coords : Coordinates of points used as prompts (shape: [N, 2] or [B, N, 2]).
+            point_labels : Labels for the points (shape: [N] or [B, N]).
             return_logits (bool, optional): If True, return raw logits; otherwise, apply thresholding. Defaults to False.
 
-        Returns:
+        Returns
+        -------
             Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
                 - upscaled_masks: torch.Tensor of shape [b, 1, <input image spatial dims>]
                     The predicted segmentation masks, upscaled to original size.
@@ -149,21 +131,28 @@ class SAM2App:
             image_embeddings,
             high_res_features1,
             high_res_features2,
+            sparse_embedding,
             input_images_original_size,
-        ) = self.predict_embeddings(pixel_values_or_image)
+        ) = self.predict_embeddings(
+            pixel_values_or_image,
+            point_coords,
+            point_labels,
+        )
         return self.predict_mask_from_points_and_embeddings(
             image_embeddings,
             high_res_features1,
             high_res_features2,
-            point_coords,
-            point_labels,
+            sparse_embedding,
             input_images_original_size,
             return_logits,
         )
 
     def predict_embeddings(
-        self, pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, tuple[int, int]]:
+        self,
+        pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
+        point_coords: torch.Tensor,
+        point_labels: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, tuple[int, int]]:
         """
         Generates image embeddings and high-resolution features from input image(s).
 
@@ -171,21 +160,27 @@ class SAM2App:
         a series of encoder splits to produce image embeddings and high-resolution features
         required for downstream tasks such as segmentation.
 
-        Parameters:
+        Parameters
+        ----------
+            B-Batch_size, N-Num_Points, H-Height, W-Width, C-Channel
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
-                numpy array (N H W C x uint8) or (H W C x uint8)
+                numpy array (B H W C x uint8) or (H W C x uint8)
                     channel layout consistent with self.input_image_channel_layout
                 or
-                pyTorch tensor (N C H W x int8, value range is [0, 255])
+                pyTorch tensor (B C H W x int8, value range is [0, 255])
                     channel layout consistent with self.input_image_channel_layout
+            point_coords : Coordinates of points used as prompts (shape: [N, 2] or [B, N, 2]).
+            point_labels : Labels for the points (shape: [N] or [B, N]).
 
-        Returns:
+        Returns
+        -------
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor, list[int]]:
                 - image_embeddings (torch.Tensor) [1,256,64,64]: The image embeddings from the encoder.
                 - high_res_features1 (torch.Tensor) [1, 32, 256, 256]: First set of high-resolution features.
                 - high_res_features2 (torch.Tensor) [1, 64, 128, 128]: Second set of high-resolution features.
+                - sparse_embeddings (torch.Tensor) [1, N+1, 256]: The sparse embeddings from the prompt encoder.
                 - input_images_original_size: tuple[int, int]: Original size of input image (BEFORE reshape to fit encoder input size)
 
         Discussion:
@@ -215,15 +210,31 @@ class SAM2App:
             NCHW_int8_torch_frames.shape[3],
         )
         # Run encoder
-        image = self.resize_image(NCHW_int8_torch_frames, self.encoder_input_img_size)
-        image_embeddings, high_res_features1, high_res_features2 = self.sam2_encoder(
-            image
+        image = resize(
+            NCHW_int8_torch_frames,
+            [self.encoder_input_img_size, self.encoder_input_img_size],
+        )
+
+        # Expand point_coords and point_labels to include a batch dimension, if necessary
+        if len(point_coords.shape) == 2:
+            point_coords = torch.unsqueeze(point_coords, 0)
+        if len(point_labels.shape) == 1:
+            point_labels = torch.unsqueeze(point_labels, 0)
+
+        h, w = input_images_original_size
+        point_coords = point_coords.clone().float()
+        point_coords[..., 0] = point_coords[..., 0] / w
+        point_coords[..., 1] = point_coords[..., 1] / h
+
+        image_embeddings, high_res_features1, high_res_features2, sparse_embedding = (
+            self.sam2_encoder(image, point_coords, point_labels.float())
         )
 
         return (
             image_embeddings,
             high_res_features1,
             high_res_features2,
+            sparse_embedding,
             input_images_original_size,
         )
 
@@ -232,8 +243,7 @@ class SAM2App:
         image_embeddings: torch.Tensor,
         high_res_features1: torch.Tensor,
         high_res_features2: torch.Tensor,
-        point_coords: torch.Tensor,
-        point_labels: torch.Tensor,
+        sparse_embedding: torch.Tensor,
         input_images_original_size: tuple[int, int],
         return_logits: bool = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -244,17 +254,18 @@ class SAM2App:
         point coordinates and labels to generate segmentation masks using a decoder.
         The resulting masks are upscaled to the original image size and optionally thresholded.
 
-        Parameters:
+        Parameters
+        ----------
             image_embeddings (torch.Tensor) [1,256,64,64]: The image embeddings from the encoder.
             high_res_features1 (torch.Tensor) [1, 32, 256, 256]: First set of high-resolution features.
             high_res_features2 (torch.Tensor) [1, 64, 128, 128]: Second set of high-resolution features.
-            point_coords (torch.Tensor): Coordinates of points used as prompts (shape: [N, 2] or [B, N, 2]).
-            point_labels (torch.Tensor): Labels for the points (shape: [N] or [B, N]).
+            sparse_embeddings (torch.Tensor) [1, N+1, 256]: The sparse embeddings from the prompt encoder.
             input_images_original_size (tuple[int, int]): Original size of the input image (height, width).
             input_images_original_size: tuple[int, int]: Original size of input image (BEFORE reshape to fit encoder input size)
             return_logits (bool): If True, return raw logits; otherwise, apply thresholding.
 
-        Returns:
+        Returns
+        -------
             Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
                 - upscaled_masks: torch.Tensor of shape [b, 1, <input image spatial dims>]
                     The predicted segmentation masks, upscaled to original size.
@@ -264,33 +275,12 @@ class SAM2App:
         Where,
             b = number of input images
         """
-        # Expand point_coords and point_labels to include a batch dimension, if necessary
-        if len(point_coords.shape) == 2:
-            point_coords = torch.unsqueeze(point_coords, 0)
-        if len(point_labels.shape) == 1:
-            point_labels = torch.unsqueeze(point_labels, 0)
-
-        # Create a context object with required attributes to call _prep_prompts method
-        prep_prompt_context = PrepPromptContext(
-            self.encoder_input_img_size, self.mask_threshold, input_images_original_size
-        )
-        # Change point coordinates to map to the same pixel in the resized image.
-        _, unnorm_coords, labels, _ = SAM2ImagePredictor._prep_prompts(
-            prep_prompt_context,
-            point_coords,
-            point_labels,
-            self.box,
-            self.mask_input,
-            self.normalize_coords,
-        )
-
         # Run decoder
         masks, scores = self.sam2_decoder(
             image_embeddings,
             high_res_features1,
             high_res_features2,
-            unnorm_coords,
-            labels,
+            sparse_embedding,
         )
 
         # Upscale masks
@@ -302,19 +292,37 @@ class SAM2App:
 
         return upscaled_masks, scores
 
-    def resize_image(self, x: torch.Tensor, resolution: int) -> torch.Tensor:
-        """
-        Resize an image tensor or PIL image to the given resolution using torchvision and torchscript.
-
-        Args:
-            x: Input image (torch.Tensor).
-            resolution: Target resolution (int) for both height and width.
-
-        Returns:
-            torch.Tensor: Resized image tensor.
-        """
-        resize_transform = torch.jit.script(
-            nn.Sequential(Resize((resolution, resolution)))
+    @classmethod
+    def get_calibration_data(
+        cls,
+        model: BaseModel,
+        calibration_dataset_name: str,
+        num_samples: int | None,
+        input_spec: InputSpec,
+        collection_model: CollectionModel,
+    ) -> DatasetEntries:
+        batch_size = get_batch_size(input_spec) or 1
+        encoder = collection_model.components["SAM2Encoder"]
+        assert isinstance(encoder, BaseModel)
+        dataset = get_dataset_from_name(
+            calibration_dataset_name,
+            split=DatasetSplit.TRAIN,
+            input_spec=encoder.get_input_spec(),
         )
-
-        return resize_transform(x)
+        num_samples = num_samples or dataset.default_num_calibration_samples()
+        num_samples = (num_samples // batch_size) * batch_size
+        print(f"Loading {num_samples} calibration samples.")
+        torch_dataset = sample_dataset(dataset, num_samples)
+        dataloader = DataLoader(torch_dataset, batch_size=batch_size)
+        inputs: list[list[torch.Tensor | np.ndarray]] = [
+            [] for _ in range(len(input_spec))
+        ]
+        for sample_input, _ in dataloader:
+            if model._get_name() == "SAM2Decoder":
+                sample_input = encoder(*sample_input)
+            if isinstance(sample_input, (tuple, list)):
+                for i, tensor in enumerate(sample_input):
+                    inputs[i].append(tensor)
+            else:
+                inputs[0].append(sample_input)
+        return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))

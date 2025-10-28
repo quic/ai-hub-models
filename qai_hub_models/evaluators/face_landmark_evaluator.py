@@ -27,7 +27,8 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
 
     def __init__(self, height, width):
         """
-        Args:
+        Parameters
+        ----------
             coco_gt: COCO ground truth dataset.
         """
         self.reset()
@@ -43,7 +44,8 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
         """
         Collects model predictions in COCO format, handling both single and batched keypoints.
 
-        Args:
+        Parameters
+        ----------
             output: 3DMM model parameters for facial landmark reconstruction with shape of [batch, 265]
             gt_data: Ground truth data from dataset containing (image_id, category_id, bbox).
         """
@@ -56,7 +58,7 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
             face_landmark = project_landmark(output[idx])
             transform_landmark_coordinates(
                 face_landmark,
-                tuple(bbox[idx]),  # type: ignore[arg-type]
+                tuple(bbox[idx]),
                 self.width,
                 self.height,
             )
@@ -82,7 +84,8 @@ class FacemapFaceEstimationEvaluator(BaseEvaluator):
         """
         Computes COCO-style mAP using COCOeval.
 
-        Returns:
+        Returns
+        -------
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         pred_image_ids = [p["image_id"] for p in self.predictions]

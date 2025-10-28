@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -16,7 +16,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_app import CollectionAppProtocol
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
@@ -83,6 +84,8 @@ def get_calibration_data(
     input_spec: InputSpec | None = None,
     num_samples: int | None = None,
     dataset_options: dict | None = None,
+    app: Any = None,
+    collection_model: CollectionModel | None = None,
 ) -> DatasetEntries:
     """
     Produces a numpy dataset to be used for calibration data of a quantize job.
@@ -90,14 +93,19 @@ def get_calibration_data(
     If the model has a calibration dataset name set, it will use that dataset.
     Otherwise, it returns the model's sample inputs.
 
-    Parameters:
+    Parameters
+    ----------
         model: The model for which to get calibration data.
         input_spec: The input spec of the model. Used to ensure the returned dataset's names
             match the input names of the model.
         num_samples: Number of data samples to use. If not specified, uses
             default specified on dataset.
+        app: The model's app used with collection_model to fetch calibration data
+            via app.get_calibration_data() if it is instance of CollectionAppProtocol.
+        collection_model: It is required when using app-based calibration.
 
-    Returns:
+    Returns
+    -------
         Dataset compatible with the format expected by AI Hub.
     """
     calibration_dataset_name = model.calibration_dataset_name()
@@ -107,13 +115,17 @@ def get_calibration_data(
         )
         print(
             "WARNING: Model will be quantized using only a single sample for calibration. "
-            + "The quantized model should be only used for performance evaluation, and is unlikely to "
-            + "produce reasonable accuracy without additional calibration data."
+            "The quantized model should be only used for performance evaluation, and is unlikely to "
+            "produce reasonable accuracy without additional calibration data."
         )
         return model.sample_inputs(input_spec, use_channel_last_format=False)
     input_spec = input_spec or model.get_input_spec()
     batch_size = get_batch_size(input_spec) or 1
     dataset_options = dataset_options or {}
+    if isinstance(app, CollectionAppProtocol) and collection_model is not None:
+        return app.get_calibration_data(
+            model, calibration_dataset_name, num_samples, input_spec, collection_model
+        )
     dataset = get_dataset_from_name(
         calibration_dataset_name,
         split=DatasetSplit.TRAIN,
@@ -147,5 +159,6 @@ def quantized_folder_deprecation_warning(
 Quantized model package {deprecated_package} is deprecated. Use the equivalent unquantized model package ({replacement_package}) instead.
 You can use qai_hub_models.models.{replacement_package}.export and qai_hub_models.models.{replacement_package}.evaluate with the `--precision {str(precision)}` flag to replicate previous behavior of those scripts.
 
-"""
+""",
+        stacklevel=2,
     )

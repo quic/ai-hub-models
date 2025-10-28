@@ -70,12 +70,14 @@ def load_video_frames(
     """
     Loads video frames from a .mp4 file.
 
-    Parameters:
+    Parameters
+    ----------
         video_filepath: Filepath to the .mp4 file.
         sample_rate: Only return one every {sample_rate} frames.
             By default, returns all frames.
 
-    Returns:
+    Returns
+    -------
         List of frames a numpy arrays.
     """
     try:
@@ -85,7 +87,7 @@ def load_video_frames(
             raise ValueError(
                 "This demo requires the ffmpeg package to be installed on the system. "
                 "For example, on a mac, you can run `brew install ffmpeg`."
-            )
+            ) from None
         raise
 
     # Drop any misbehaving frames
@@ -133,13 +135,15 @@ class FOMMApp:
         Given a source image and a driving video, returns a new video of the
             source image mirroring the movements in the driving video.
 
-        Parameters:
+        Parameters
+        ----------
             source_image: numpy array (H W C x float[0 - 1], RGB)
 
             driving_video: List of numpy array frames of the target animation.
                 List[np.ndarray]. Each array is shape (C, H, W). float[0 - 1], RGB
 
-        Returns:
+        Returns
+        -------
             predictions: list[numpy array H W C x float32 [0, 1]]
                 A list of predicted images
         """

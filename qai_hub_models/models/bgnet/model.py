@@ -53,12 +53,14 @@ class BGNet(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
         """
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             segmented mask per class: Shape [batch, classes, height, width]
         """
         image = normalize_image_torchvision(image)
@@ -100,7 +102,9 @@ class BGNet(BaseModel):
 
 def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
     """Constructs a Res2Net-50_v1b_26w_4s lib.
-    Args:
+
+    Parameters
+    ----------
         pretrained (bool): If True, returns a lib pre-trained on ImageNet
     """
     weights_path_res2net50 = CachedWebModelAsset.from_asset_store(

@@ -7,29 +7,34 @@ from __future__ import annotations
 
 import functools
 import os
+from pathlib import Path
 from typing import Optional, cast
 
+import sam2
 import torch
 from hydra import initialize
 from hydra.core.global_hydra import GlobalHydra
 from qai_hub.client import Device
+from sam2.build_sam import build_sam2
+from sam2.modeling.backbones import hieradet
+from sam2.modeling.backbones.hieradet import MultiScaleBlock as SAM2_Encoder_Block
+from sam2.modeling.sam.transformer import TwoWayAttentionBlock, TwoWayTransformer
+from sam2.modeling.sam2_base import SAM2Base as Sam2
+from sam2.modeling.sam2_utils import MLP as SAM2MaskDecoderMLP
 
 from qai_hub_models.models._shared.sam.model_patches import (
     Conv2DInplaceLinearSAMMaskDecoderMLP,
     SplitHeadSAMDecoderAttention,
 )
 from qai_hub_models.models.sam2.model_patches import (
-    MODEL_ASSET_VERSION,
-    MODEL_ID,
-    SAM2_SOURCE_REPO,
-    SAM2_SOURCE_REPO_COMMIT,
     Conv2DInplaceLinearSAMTransformerMLPBlock,
     SAM2Normalize,
     SplitHeadSAMEncoderAttention,
     sam_decoder_predict_masks,
+    sam_prompt_encoder_embed_points,
 )
 from qai_hub_models.models.sam2.utils import copy_configs
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
@@ -38,12 +43,18 @@ from qai_hub_models.utils.base_model import (
 )
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
+from qai_hub_models.utils.window_partitioning import (
+    window_partition_5d,
+    window_unpartition_5d,
+)
 
 BASE_PLUS_MODEL_TYPE = "base_plus"
 LARGE_MODEL_TYPE = "large"
 SMALL_MODEL_TYPE = "small"
 TINY_MODEL_TYPE = "tiny"
 DEFAULT_MODEL_TYPE = TINY_MODEL_TYPE
+MODEL_ID = __name__.split(".")[-2]
+MODEL_ASSET_VERSION = 1
 
 MODEL_REGISTERY = {
     BASE_PLUS_MODEL_TYPE: "sam2.1_hiera_base_plus.pt",
@@ -65,17 +76,10 @@ BB_FEAT_SIZES = [
     (64, 64),
 ]
 
-with SourceAsRoot(
-    SAM2_SOURCE_REPO,
-    SAM2_SOURCE_REPO_COMMIT,
-    MODEL_ID,
-    MODEL_ASSET_VERSION,
-) as repo_path:
-    from sam2.build_sam import build_sam2
-    from sam2.modeling.backbones.hieradet import MultiScaleBlock as SAM2_Encoder_Block
-    from sam2.modeling.sam.transformer import TwoWayAttentionBlock, TwoWayTransformer
-    from sam2.modeling.sam2_base import SAM2Base as Sam2
-    from sam2.modeling.sam2_utils import MLP as SAM2MaskDecoderMLP
+
+# Patch Encoder to use 5D Window Partition (rather than 6D)
+hieradet.window_partition = window_partition_5d
+hieradet.window_unpartition = window_unpartition_5d
 
 
 class SAM2Encoder(BaseModel):
@@ -91,20 +95,35 @@ class SAM2Encoder(BaseModel):
         self._bb_feat_sizes = BB_FEAT_SIZES
 
     def forward(
-        self, Image: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self,
+        Image: torch.Tensor,
+        norm_coords: torch.Tensor,  # [num_labels,num_points,2]
+        labels: torch.Tensor,  # [num_labels,num_points]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Run SAM2 Image encoder and returns image_embeddings, high_res_features1, high_res_features2
+        Run SAM2 Image encoder and returns image_embeddings,
+        high_res_features1, high_res_features2, sparse_embeddings
 
-        Parameters:
+        Parameters
+        ----------
             Image:
                 Raw floating point pixel values for encoder consumption.
                 3-channel Color Space: RGB, range [0, 1]
+            norm_coords:
+                Point coordinates from input image for segmentation,
+                mapped to the resized image with shape [1, N, 2]
+            labels:
+                Point Labels to select/de-select given point for segmentation
+                with shape shape [1, N], e.g. Corresponding value is 1
+                if this point is to be included, otherwise 0
 
-        Returns:
+
+        Returns
+        -------
                 image_embeddings: Shape (1, 256, 64, 64)
                 high_res_features1: Shape (1, 32, 256, 256)
                 high_res_features2: Shape (1, 64, 128, 128)
+                sparse_embeddings: shape (1, N+1, 256)
         """
         x = self.normalize(Image)
         backbone_out = self.sam2.forward_image(x)
@@ -119,11 +138,21 @@ class SAM2Encoder(BaseModel):
         image_embeddings = feats[2]
         high_res_features1 = feats[0]
         high_res_features2 = feats[1]
-        return image_embeddings, high_res_features1, high_res_features2
+        sparse_embedding = self.sam2.sam_prompt_encoder._embed_points(
+            norm_coords, labels, pad=True
+        )
+
+        return (
+            image_embeddings,
+            high_res_features1,
+            high_res_features2,
+            sparse_embedding,
+        )
 
     @staticmethod
     def get_input_spec(
         batch_size: int = 1,
+        num_points: int = 2,
         encoder_img_height: int = 1024,  # self.sam2.image_size
         encoder_img_width: int = 1024,  # self.sam2.image_size
     ) -> InputSpec:
@@ -135,20 +164,22 @@ class SAM2Encoder(BaseModel):
             "image": (
                 (batch_size, 3, encoder_img_height, encoder_img_width),
                 "float32",
-            )
+            ),
+            "unnorm_coords": (tuple((1, num_points, 2)), "float32"),
+            "labels": (tuple((1, num_points)), "float32"),
         }
 
-    def _get_input_spec_for_instance(self, batch_size: int = 1) -> InputSpec:
-        """
-        Override for model.get_input_spec() when called on instances of this class.
-        """
+    def _get_input_spec_for_instance(
+        self, batch_size: int = 1, num_points: int = 2
+    ) -> InputSpec:
+        """Override for model.get_input_spec() when called on instances of this class."""
         return self.__class__.get_input_spec(
-            batch_size, self.sam2.image_size, self.sam2.image_size
+            batch_size, num_points, self.sam2.image_size, self.sam2.image_size
         )
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
-        return list(SAM2Encoder.get_input_spec().keys())
+        return ["image"]
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
@@ -156,11 +187,25 @@ class SAM2Encoder(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["image_embeddings", "high_res_features1", "high_res_features2"]
+        return [
+            "image_embeddings",
+            "high_res_features1",
+            "high_res_features2",
+            "sparse_embedding",
+        ]
 
     @classmethod
     def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAM2Encoder:
         return SAM2Loader.load(model_type)[1]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "sav"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
 
 
 class SAM2Decoder(BaseModel):
@@ -173,12 +218,12 @@ class SAM2Decoder(BaseModel):
     """
 
     def __init__(self, sam2: Sam2) -> None:
-        super().__init__()
-        self.model = sam2
+        super().__init__(sam2)
+        self.model: Sam2
         self.mask_decoder = self.model.sam_mask_decoder
         self.prompt_encoder = self.model.sam_prompt_encoder
-        self.prompt_encoder_embed_dim = self.model.sam_prompt_embed_dim
-        self.embed_size = self.model.sam_prompt_encoder.image_embedding_size
+        self.prompt_encoder_embed_dim: int = self.model.sam_prompt_embed_dim
+        self.embed_size = self.prompt_encoder.image_embedding_size
         self._bb_feat_sizes = BB_FEAT_SIZES
         self.high_res_features1_dim = 32
         self.high_res_features2_dim = 64
@@ -188,34 +233,28 @@ class SAM2Decoder(BaseModel):
         image_embeddings: torch.Tensor,  # [1,256,64,64]
         high_res_features1: torch.Tensor,  # [1, 32, 256, 256]
         high_res_features2: torch.Tensor,  # [1, 64, 128, 128]
-        unnorm_coords: torch.Tensor,  # [num_labels,num_points,2]
-        labels: torch.Tensor,  # [num_labels,num_points]
+        sparse_embedding: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Run SAM2 lightweight decoder and return generated mask for given points
 
-        Parameters:
+        Parameters
+        ----------
             image_embeddings: torch.Tensor of shape [1, emb_dim, emb_size, emb_size]
                 Image embeddings generated by Encoder
             high_res_features1: torch.Tensor of shape [1, high_res_1_dim, high_res_1_size, high_res_1_size]
                 First set of high-resolution features.
             high_res_features2: torch.Tensor of shape [1, high_res_2_dim, high_res_2_size, high_res_2_size]
                 Second set of high-resolution features.
-            unnorm_coords: torch.Tensor of shape [1, k, 2]
-                Point coordinates from input image for segmentation, mapped to the resized image
-            labels: torch.Tensor of shape [1, k]
-                Point Labels to select/de-select given point for segmentation
-                e.g. Corresponding value is 1 if this point is to be included, otherwise 0
+            sparse_embeddings (torch.Tensor) [1, N+1, 256]: The sparse embeddings from the prompt encoder.
 
-        Returns:
+        Returns
+        -------
             masks: torch.Tensor of shape [1, 1, 256, 256]
             scores: torch.Tensor of shape [1, 1]
         """
-        sparse_embedding, dense_embedding = self.prompt_encoder(
-            points=(unnorm_coords, labels),
-            boxes=None,
-            masks=None,
-        )
+        dense_embedding = self.prompt_encoder.no_mask_embed.weight.reshape(1, -1, 1, 1)
+        self.mask_decoder.dynamic_multimask_via_stability = False
         low_res_masks, iou_predictions, _, _ = self.mask_decoder(
             image_embeddings=image_embeddings,
             image_pe=self.prompt_encoder.get_dense_pe(),
@@ -229,7 +268,7 @@ class SAM2Decoder(BaseModel):
 
     def _get_input_spec_for_instance(
         self: SAM2Decoder,
-        num_of_points: int = 2,
+        num_points: int = 2,
     ) -> InputSpec:
         """
         Override for model.get_input_spec() when called on instances of this class.
@@ -238,7 +277,7 @@ class SAM2Decoder(BaseModel):
         with this function when the class is instantiated.
         """
         return self.__class__.get_input_spec(
-            num_of_points,
+            num_points,
             self.prompt_encoder_embed_dim,
             self._bb_feat_sizes[2],
             self._bb_feat_sizes[1],
@@ -249,7 +288,7 @@ class SAM2Decoder(BaseModel):
 
     @staticmethod
     def get_input_spec(
-        num_of_points: int = 2,
+        num_points: int = 2,
         embed_dim: int = 256,
         image_embedding: tuple = (64, 64),
         high_res_featutes2: tuple = (128, 128),
@@ -272,8 +311,7 @@ class SAM2Decoder(BaseModel):
                 tuple((1, high_res_features2_dim, *high_res_featutes2)),
                 "float32",
             ),
-            "unnorm_coords": (tuple((1, num_of_points, 2)), "float32"),
-            "labels": (tuple((1, num_of_points)), "int32"),
+            "sparse_embedding": (tuple((1, num_points + 1, embed_dim)), "float32"),
         }
         return input_spec
 
@@ -309,17 +347,24 @@ class SAM2Decoder(BaseModel):
     def from_pretrained(cls, model_type: str = DEFAULT_MODEL_TYPE) -> SAM2Decoder:
         return SAM2Loader.load(model_type)[2]
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "sav"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
+
 
 class SAM2Loader:
-    """
-    Helper class for loading and preparing a HTP-compatible SAM2 model.
-    """
+    """Helper class for loading and preparing a HTP-compatible SAM2 model."""
 
     @staticmethod
     def load(
         model_type: str = SMALL_MODEL_TYPE,
     ) -> tuple[Sam2, SAM2Encoder, SAM2Decoder]:
-        sam2 = SAM2Loader._load_sam2_from_repo(model_type)
+        sam2 = SAM2Loader._load_sam2(model_type)
         SAM2Loader._patch_sam2_for_qnn_comatibility(sam2)
         encoder = SAM2Encoder(sam2)
         decoder = SAM2Decoder(sam2)
@@ -327,7 +372,7 @@ class SAM2Loader:
         return sam2, encoder, decoder
 
     @staticmethod
-    def _load_sam2_from_repo(model_type: str = DEFAULT_MODEL_TYPE) -> Sam2:
+    def _load_sam2(model_type: str = DEFAULT_MODEL_TYPE) -> Sam2:
         """
         Get the SAM2 described by the given model type.
         SAM2 will be patched for QNN compatibility.
@@ -341,7 +386,7 @@ class SAM2Loader:
         )
         config_dir = QAIHM_MODELS_ROOT / MODEL_ID / "build"
         os.makedirs(config_dir, exist_ok=True)
-        copy_configs(os.path.join(repo_path, "sam2", "configs", "sam2.1"), config_dir)
+        copy_configs(Path(sam2.__file__).parent / "configs" / "sam2.1", config_dir)
         if model_type not in MODEL_REGISTERY.keys():
             raise RuntimeError(f"Weights not found for model type `{model_type}`.")
 
@@ -359,7 +404,6 @@ class SAM2Loader:
     @staticmethod
     def _patch_sam2_for_qnn_comatibility(sam2: Sam2) -> None:
         """Apply a patch to the SAM2 Encoder class for compatibility with QNN."""
-
         ###
         # Patch the graph for compatibility with QNN.
         #
@@ -402,6 +446,10 @@ class SAM2Loader:
                 block.cross_attn_image_to_token
             )
             block.mlp = Conv2DInplaceLinearSAMTransformerMLPBlock(block.mlp)
+
+        sam2.sam_prompt_encoder._embed_points = functools.partial(
+            sam_prompt_encoder_embed_points, sam2.sam_prompt_encoder
+        )
 
 
 @CollectionModel.add_component(SAM2Encoder)

@@ -61,7 +61,8 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
     ) -> None:
         """Process a batch of Centernet model outputs and ground truth data.
 
-        Args:
+        Parameters
+        ----------
             output: Model predictions which can be :
                 - hm (torch.Tensor): Heatmap with the shape of
                     [B, num_classes, H//4, W//4].
@@ -85,8 +86,8 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
         hm, wh, hps, reg, hm_hp, hm_offset = output
         image_ids, category_ids, center, scale = gt
 
-        dets = self.decode(hm, wh, hps, reg, hm_hp, hm_offset, self.max_dets)
-        dets = dets.detach().numpy()
+        dets_pt = self.decode(hm, wh, hps, reg, hm_hp, hm_offset, self.max_dets)
+        dets = dets_pt.detach().numpy()
 
         # Take top predicted heatmaps
         preds = dets[:, 0, 5:39].reshape(-1, 17, 2)
@@ -94,7 +95,11 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
 
         for i in range(preds.shape[0]):
             preds[i] = denormalize_coordinates_affine(
-                preds[i], center[i], scale[i], 0, (hm.shape[2], hm.shape[3])
+                preds[i],
+                center[i].numpy(),
+                scale[i].numpy(),
+                0,
+                (hm.shape[2], hm.shape[3]),
             )
 
         self._store_predictions(preds, maxvals, image_ids, category_ids)

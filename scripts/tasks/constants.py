@@ -2,9 +2,10 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-
 import os
+import shutil
 import subprocess
+from pathlib import Path
 
 
 def process_output(command):
@@ -13,9 +14,7 @@ def process_output(command):
 
 DEFAULT_PYTHON = "python3.10"
 
-BASH_EXECUTABLE = process_output(
-    subprocess.run("which bash", stdout=subprocess.PIPE, shell=True, check=True)
-)
+BASH_EXECUTABLE = shutil.which("bash")
 
 
 def run_and_get_output(command, check=True):
@@ -34,7 +33,7 @@ def run_and_get_output(command, check=True):
 STORE_ROOT_ENV_VAR = "QAIHM_STORE_ROOT"
 
 # Repository
-REPO_ROOT = run_and_get_output("git rev-parse --show-toplevel")
+REPO_ROOT = str(Path(__file__).parent.parent.parent)
 VENV_PATH = os.path.join(REPO_ROOT, "qaihm-dev")
 BUILD_ROOT = os.path.join(REPO_ROOT, "build")
 

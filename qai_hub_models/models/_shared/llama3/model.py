@@ -18,13 +18,11 @@ from qai_hub_models.models._shared.llm.model import (
 import copy
 import json
 import os
-import shutil
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import onnx
-import qai_hub as hub
 import torch
 
 if TYPE_CHECKING:
@@ -42,19 +40,12 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
     QCLlamaMLP,
     SHALlamaAttention,
 )
-from qai_hub_models.models._shared.llama3.onnxruntime_genai import (
-    create_onnxruntime_genai_assets,
-)
 from qai_hub_models.models._shared.llm.model import (
     Embedding,
     MainLLMInputType,
     PositionProcessorBase,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
-from qai_hub_models.utils.llm_helpers import (
-    create_genie_config,
-    save_htp_config_for_genie_bundle,
-)
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -91,8 +82,10 @@ class RopeEmbedding(Embedding):
         self,
         head_dim: int | None = None,
         max_length: int = 2048,
-        config: LlamaConfig = LlamaConfig(),
+        config: LlamaConfig | None = None,
     ) -> None:
+        if config is None:
+            config = LlamaConfig()
         head_dim = head_dim or (
             config.head_dim
             if hasattr(config, "head_dim")
@@ -110,7 +103,7 @@ class RopeEmbedding(Embedding):
         }
 
         if not hasattr(config, "rope_scaling"):
-            setattr(config, "rope_scaling", None)
+            config.rope_scaling = None
 
         rope = modeling_llama.LlamaRotaryEmbedding(dim=head_dim, **kwargs)
         dummy_x = torch.Tensor([1.0])
@@ -143,9 +136,7 @@ class RopeEmbedding(Embedding):
 
 
 class LlamaPositionProcessor(PositionProcessorBase):
-    """
-    Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI.
-    """
+    """Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI."""
 
     def __init__(
         self,
@@ -180,9 +171,7 @@ class Llama3Base(LLMBase):
         user_input_prompt: str = DEFAULT_USER_PROMPT,
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
-        """
-        Get prompt to set context and initialize prompt-processor
-        """
+        """Get prompt to set context and initialize prompt-processor"""
         prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
@@ -263,6 +252,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         llm_config: PretrainedConfig | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        attention_mask_min_clip: float | None = None,
     ):
         super().__init__(
             sim_model=sim_model,
@@ -272,6 +262,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             sequence_length=sequence_length,
             context_length=context_length,
             host_device=host_device,
+            attention_mask_min_clip=attention_mask_min_clip,
         )
 
     @staticmethod
@@ -279,9 +270,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         user_input_prompt: str = DEFAULT_USER_PROMPT,
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
-        """
-        Get prompt to set context and initialize prompt-processor
-        """
+        """Get prompt to set context and initialize prompt-processor"""
         prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
@@ -304,9 +293,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
-        """
-        Make sure AIMET encodings are ready for ONNX split.
-        """
+        """Make sure AIMET encodings are ready for ONNX split."""
         with open(src_encodings_path) as f:
             encodings = json.load(f)
 
@@ -407,53 +394,3 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
-
-    @classmethod
-    def prepare_onnxruntime_genai_assets(
-        cls,
-        model_name: str,
-        llm_config: PretrainedConfig,
-        position_processor_cls: type[PositionProcessorBase],
-        encodings_path: str | Path,
-        context_length: int,
-        prompt_sequence_length: int,
-        onnx_model_path_from_sub_component_name: dict[str, str],
-        num_splits: int,
-        qairt_version: str,
-        output_dir: str | Path,
-    ):
-        return create_onnxruntime_genai_assets(
-            model_name,
-            llm_config,
-            position_processor_cls,
-            encodings_path,
-            context_length,
-            prompt_sequence_length,
-            onnx_model_path_from_sub_component_name,
-            num_splits,
-            qairt_version,
-            output_dir,
-        )
-
-    @classmethod
-    def prepare_genie_assets(
-        cls,
-        hub_device: hub.Device,
-        checkpoint: str | os.PathLike | Path,
-        llm_config: PretrainedConfig,
-        context_length: int,
-        model_list: list[str],
-        output_path: Path,
-    ) -> None:
-        # Copy tokenizer.json
-        if (Path(checkpoint) / "tokenizer.json").exists():
-            shutil.copy(
-                Path(checkpoint) / "tokenizer.json",
-                output_path / "tokenizer.json",
-            )
-        # Save the HTP config
-        save_htp_config_for_genie_bundle(hub_device, output_path)
-        # Save the genie config
-        config = create_genie_config(context_length, llm_config, "rope", model_list)
-        with open(output_path / "genie_config.json", "w") as f:
-            json.dump(config, f, indent=4)

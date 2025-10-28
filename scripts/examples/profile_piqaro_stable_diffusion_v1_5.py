@@ -31,7 +31,7 @@ from qai_hub_models.models.stable_diffusion_v1_5.model import (
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+    safe_torch_onnx_export,
 )
 from qai_hub_models.utils.printing import print_profile_metrics_from_job
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
@@ -69,7 +69,7 @@ def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
     onnx_path = os.path.join(export_dir, "model.onnx")
     logger.info(f"Saving piqaro-onnx optimized ONNX model to {onnx_path}")
 
-    torch_onnx_export_with_large_model_size_check(torch_model, sample_input, onnx_path)
+    safe_torch_onnx_export(torch_model, sample_input, onnx_path)
 
     onnx_model = onnx.load(onnx_path)
     return onnx_model

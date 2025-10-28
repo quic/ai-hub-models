@@ -63,6 +63,12 @@ repos:
         args: [--fix]
     -   id: ruff-format
         name: Ruff format
+-   repo: https://github.com/jsh9/pydoclint
+    rev: 0.7.3
+    hooks:
+    -   id: pydoclint
+        args: [--quiet]
+        files: ^qai_hub_models/(configs|datasets)/.*
 -   repo: local
     hooks:
     -   id: mypy

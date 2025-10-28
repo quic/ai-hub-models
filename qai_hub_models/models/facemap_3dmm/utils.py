@@ -128,13 +128,13 @@ def transform_landmark_coordinates(
     """
     Transforms landmark coordinates from resized image space to original image space.
 
-    Args:
+    Parameters
+    ----------
         landmark: The landmark coordinates in the resized image space.
         bbox: The bounding box coordinates (x0, y0, x1, y1).
         resized_height: The height of the resized image.
         resized_width: The width of the resized image.
     """
-
     x0, y0, x1, y1 = bbox
     height = y1 - y0 + 1
     width = x1 - x0 + 1

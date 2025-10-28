@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.foot_track_evaluator import FootTrackNetEvaluator
@@ -154,7 +154,7 @@ class FootTrackNet(BaseModel):
         )  # simple one landmark
 
     def load_weights(self, base_file):
-        """load pretrined weights"""
+        """Load pretrined weights"""
         other, ext = os.path.splitext(base_file)
         if ext == ".pkl" or ".pth":
             print("Loading pretrained weights into state dict...")

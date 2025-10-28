@@ -32,7 +32,7 @@ class WebsiteWorld(Enum):
     @staticmethod
     def from_form_factor(form_factor: ScorecardDevice.FormFactor) -> WebsiteWorld:
         if (
-            form_factor == ScorecardDevice.FormFactor.PHONE
+            form_factor == ScorecardDevice.FormFactor.PHONE  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or form_factor == ScorecardDevice.FormFactor.TABLET
         ):
             return WebsiteWorld.Mobile
@@ -161,7 +161,7 @@ class ChipsetYaml(BaseQAIHMConfig):
         )
 
     @staticmethod
-    def chipset_marketing_name(chipset, world: WebsiteWorld | None = None) -> str:
+    def chipset_marketing_name(chipset: str, world: WebsiteWorld | None = None) -> str:
         """Sanitize chip name to match marketing."""
         chip = " ".join([word.capitalize() for word in chipset.split("-")])
         chip = chip.replace(
@@ -193,6 +193,8 @@ class ChipsetYaml(BaseQAIHMConfig):
 
 class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     """
+    Storage for device and chipset metadata.
+
     This class stores definitions / attributes of valid:
         * devices
         * chipsets
@@ -226,7 +228,7 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
             ff: FormFactorYaml.from_form_factor(ff) for ff in ScorecardDevice.FormFactor
         }
 
-        for profile_path in ScorecardProfilePath.all_paths():
+        for profile_path in ScorecardProfilePath:
             if profile_path.include_in_perf_yaml:
                 out.scorecard_path_to_website_runtime[profile_path] = (
                     profile_path.runtime.inference_engine

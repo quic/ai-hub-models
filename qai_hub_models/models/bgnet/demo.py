@@ -40,7 +40,7 @@ def segmentation_demo(
     orig_image = load_image(args.image)
     image, scale, padding = pil_resize_pad(orig_image, (height, width))
 
-    app = BGNetApp(model)
+    app = BGNetApp(model)  # type: ignore[arg-type]
     print("Model Loaded")
 
     output = app.segment_image(image)[0]

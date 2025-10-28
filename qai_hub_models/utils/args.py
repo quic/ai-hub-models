@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-"""
-Utility Functions for parsing input args for export and other customer facing scripts.
-"""
+"""Utility Functions for parsing input args for export and other customer facing scripts."""
 
 from __future__ import annotations
 
@@ -196,7 +194,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
                 f"Model does not support runtime {target_runtime.value} with precision {precision}. These combinations are supported:\n"
                 + str_supported_precision_runtimes
             )
-            exit(1)
+            sys.exit(1)
 
 
 def get_parser(
@@ -268,19 +266,19 @@ def _get_default_runtime(available_runtimes: list[TargetRuntime] | set[TargetRun
 
 def add_target_runtime_arg(
     parser: ParserT,
-    help: str,
-    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] = set(
-        TargetRuntime.__members__.values()
-    ),
+    helpmsg: str,
+    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] | None = None,
     default: TargetRuntime = TargetRuntime.TFLITE,
 ) -> ParserT:
+    if available_target_runtimes is None:
+        available_target_runtimes = set(TargetRuntime.__members__.values())
     parser.add_argument(
         "--target-runtime",
         type=str,
         action=partial(ParseEnumAction, enum_type=TargetRuntime),  # type: ignore[arg-type]
         default=default,
         metavar=f"{{{', '.join(rt.value for rt in available_target_runtimes)}}}",
-        help=help,
+        help=helpmsg,
     )
     return parser
 
@@ -319,15 +317,14 @@ def get_on_device_demo_parser(
     parser: QAIHMArgumentParser | None = None,
     supported_eval_modes: list[EvalMode] | None = None,
     supported_precisions: set[Precision] | None = None,
-    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] = set(
-        TargetRuntime.__members__.values()
-    ),
+    available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] | None = None,
     add_output_dir: bool = False,
     default_device: str | None = None,
     default_host_device: torch.device = torch.device("cpu"),
 ):
     """
-    Args:
+    Parameters
+    ----------
     - supported_eval_modes: subset of
     EvalMode.{FP,QUANTSIM,ON_DEVICE,LOCAL_DEVICE}. Default is
     [EvalMode.FP, EvalMode.ON_DEVICE]. The first value of supported_eval_modes
@@ -336,6 +333,8 @@ def get_on_device_demo_parser(
     - supported_precisions: subset of {Precision.float, Precision.w8a8,
     Precision.w8a16}
     """
+    if available_target_runtimes is None:
+        available_target_runtimes = set(TargetRuntime.__members__.values())
     if not parser:
         parser = get_parser()
 
@@ -346,8 +345,9 @@ def get_on_device_demo_parser(
     default_mode = supported_eval_modes[0]
 
     mode_help_lines = ["Run the model in one of the following modes:"]
-    for m in supported_eval_modes:
-        mode_help_lines.append(f"  - {m.value}: {m.description}")
+    mode_help_lines.extend(
+        f"  - {m.value}: {m.description}" for m in supported_eval_modes
+    )
     mode_help_msg = "\n".join(mode_help_lines)
 
     parser.add_argument(
@@ -380,7 +380,7 @@ def get_on_device_demo_parser(
     default_runtime = _get_default_runtime(available_runtimes=available_target_runtimes)
     add_target_runtime_arg(
         parser,
-        help="The runtime to demo (if `--eval-mode on-device` is specified).",
+        helpmsg="The runtime to demo (if `--eval-mode on-device` is specified).",
         default=default_runtime,
         available_target_runtimes=available_target_runtimes,
     )
@@ -518,14 +518,14 @@ def get_model_cli_parser(
         if suppress_help_arguments is not None:
             if arg_name in suppress_help_arguments:
                 return argparse.SUPPRESS
-        help = (
+        helpmsg = (
             f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
         )
         if default_value is True:
-            help = f"{help} Setting this flag will set parameter {name} to False."
+            helpmsg = f"{helpmsg} Setting this flag will set parameter {name} to False."
         elif default_value is False:
-            help = f"{help} Setting this flag will set parameter {name} to True."
-        return help
+            helpmsg = f"{helpmsg} Setting this flag will set parameter {name} to True."
+        return helpmsg
 
     signature = dict(from_pretrained_sig.parameters)
     if "cls" in signature:
@@ -587,9 +587,8 @@ def get_export_model_name(
                 )
             ):
                 continue
-        else:
-            if not isinstance(value.annotation, str) or "str" not in value.annotation:
-                continue
+        elif not isinstance(value.annotation, str) or "str" not in value.annotation:
+            continue
 
         if model_kwargs[key] != sig.parameters[key].default:
             # If the weights are a url or filepath, .stem will take the final name
@@ -633,7 +632,8 @@ def demo_model_components_from_cli_args(
     """
     Similar to demo_model_from_cli_args, but for component models.
 
-    Args:
+    Parameters
+    ----------
     - model_cls: Must have the same length as components
     """
     res = []
@@ -797,9 +797,7 @@ def _evaluate_export_common_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
 ) -> QAIHMArgumentParser:
-    """
-    Common arguments between export and evaluate scripts.
-    """
+    """Common arguments between export and evaluate scripts."""
     # Set handler to resolve, to allow from_pretrained and get_input_spec
     # to have the same argument names.
     parser = get_parser(supported_precision_runtimes, allow_dupe_args=True)
@@ -816,7 +814,7 @@ def _evaluate_export_common_parser(
         parser,
         available_target_runtimes=available_runtimes_list,
         default=default_runtime,
-        help="The runtime for which to export.",
+        helpmsg="The runtime for which to export.",
     )
     if issubclass(model_cls, FromPretrainedProtocol):
         # Skip adding CLI from model for compiled model
@@ -951,7 +949,7 @@ def export_parser(
     _add_device_args(parser, default_device=default_export_device)
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (
-            components if components is not None else model_cls.component_class_names  # type: ignore
+            components if components is not None else model_cls.component_class_names  # type: ignore[union-attr]
         )
         parser.add_argument(
             "--components",
@@ -967,9 +965,7 @@ def export_parser(
 def evaluate_parser(
     model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
     supported_datasets: list[str],
-    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
-        Precision.float: [TargetRuntime.TFLITE],
-    },
+    supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     uses_quantize_job: bool = True,
     num_calibration_samples: int | None = None,
 ) -> QAIHMArgumentParser:
@@ -994,6 +990,8 @@ def evaluate_parser(
     -------
     Arg parser object.
     """
+    if supported_precision_runtimes is None:
+        supported_precision_runtimes = {Precision.float: [TargetRuntime.TFLITE]}
     parser = _evaluate_export_common_parser(
         model_cls=model_cls,
         supported_precision_runtimes=supported_precision_runtimes,

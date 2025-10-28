@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-"""
-Items defined in this file require that AIMET-ONNX be installed.
-"""
+"""Items defined in this file require that AIMET-ONNX be installed."""
 
 from __future__ import annotations
 
@@ -121,9 +119,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     ):
         self.quant_sim = quant_sim
         if self.quant_sim is not None:
-            self.input_names = [
-                input.name for input in self.quant_sim.session.get_inputs()
-            ]
+            self.input_names = [i.name for i in self.quant_sim.session.get_inputs()]
             self.output_names = [
                 output.name for output in self.quant_sim.session.get_outputs()
             ]
@@ -142,8 +138,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         num_samples: int | None = None,
     ) -> DatasetEntries | None:
         """
-        Args:
-
+        Parameters
+        ----------
         num_samples: None to use all. Specify `num_samples` to use fewer. If
         `num_samples` are more than available, use all available (same
         behavior as None)
@@ -153,9 +149,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     @classmethod
     def get_calibrated_aimet_model(cls) -> tuple[str, str]:
-        """
-        Returns .onnx and .encodings paths
-        """
+        """Returns .onnx and .encodings paths"""
         if not cls.model_id or cls.model_asset_version == -1:
             raise ValueError("model_id and model_asset_version must be defined")
 
@@ -189,8 +183,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         input_names = [inp.name for inp in self.quant_sim.session.get_inputs()]
 
         onnx_data = []
-        for i, batch in tqdm(enumerate(data), total=num_batches):
-            onnx_data.append(
+        for batch in tqdm(data, total=num_batches):
+            onnx_data.append(  # noqa: PERF401
                 {
                     k: v.cpu().detach().numpy()
                     for k, v in kwargs_to_dict(input_names, *batch).items()
@@ -228,8 +222,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         use_seq_mse: bool = False,
     ) -> None:
         """
-        Args:
-
+        Parameters
+        ----------
         - data: If None, create data loader from get_calibration_data(), which
         must be implemented.
         """
@@ -255,7 +249,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         data = self.get_calibration_data()
         if data is None:
             # Fallback to BaseModel's impl
-            data = super()._sample_inputs_impl(input_spec)  # type: ignore
+            data = self._sample_inputs_impl(input_spec)
         assert isinstance(data, dict)
         return data
 
@@ -264,16 +258,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         *args: torch.Tensor,
         **kwargs: torch.Tensor,
     ) -> torch.Tensor | Collection[torch.Tensor]:
-        """
-        QuantSim forward pass with torch.Tensor
-        """
+        """QuantSim forward pass with torch.Tensor"""
         assert self.quant_sim is not None
         return mock_torch_onnx_inference(self.quant_sim.session, *args, **kwargs)
 
     def save_calibrated_checkpoint(self, output_checkpoint: str) -> None:
-        """
-        Save AIMET-ONNX checkpoint to output_checkpoint/subfolder, if
-        """
+        """Save AIMET-ONNX checkpoint to output_checkpoint/subfolder, if"""
         default_subfolder = getattr(self.__class__, "default_subfolder", "")
         export_dir = output_checkpoint
         if default_subfolder:
@@ -375,7 +365,5 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             return str(export_dir)
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        """
-        AI Hub quantize options recommended for the model.
-        """
+        """AI Hub quantize options recommended for the model."""
         return ""

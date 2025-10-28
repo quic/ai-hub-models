@@ -212,7 +212,7 @@ def test_cli_default_device_select_component(tmp_path) -> None:
         assert cc[1].kwargs["name"] == f"{BASE_NAME}_Llama2_Part4_Quantized"
 
         # Check cache
-        for i, c in enumerate(mock_get_cache.call_args_list):
+        for c in mock_get_cache.call_args_list:
             assert c.kwargs["model_name"] == BASE_NAME
             assert c.kwargs["cache_mode"] == CacheMode.OVERWRITE
             # Mock assumes seq len is always 1 (not correct for prompts)

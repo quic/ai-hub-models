@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-"""
-Utilities for evaluating model accuracy on device.
-"""
+"""Utilities for evaluating model accuracy on device."""
 
 from __future__ import annotations
 
@@ -45,6 +43,7 @@ from qai_hub_models.utils.asset_loaders import (
     qaihm_temp_dir,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
+from qai_hub_models.utils.envvars import IsOnCIEnvvar
 from qai_hub_models.utils.inference import (
     AsyncOnDeviceModel,
     AsyncOnDeviceResult,
@@ -86,9 +85,7 @@ def get_dataset_cache_filepath(folder_name: str) -> Path:
 
 
 def get_dataset_cache_samples_per_job(folder_name: str) -> Optional[int]:
-    """
-    Get the samples_per_job used for the current dataset cache.
-    """
+    """Get the samples_per_job used for the current dataset cache."""
     path = get_dataset_cache_filepath(folder_name) / CACHE_SAMPLES_PER_JOB_FILE
     if not path.exists():
         return None
@@ -112,9 +109,7 @@ def read_dataset_ids(
 def write_entries_to_file(
     filename: Union[str, Path], dataset_entries: DatasetEntries
 ) -> None:
-    """
-    Write dataset entries to a .h5 file.
-    """
+    """Write dataset entries to a .h5 file."""
     with h5py.File(filename, "w") as h5f:
         dataset_entries_to_h5(dataset_entries, h5f)
 
@@ -142,7 +137,8 @@ def get_deterministic_sample(
     The dataset is sampled by taking every N samples for the largest possible N
     that produces the number of requested samples.
 
-    Parameters:
+    Parameters
+    ----------
         dataset_name: Name of the dataset. Dataset must be registered in
             qai_hub_models.datasets.__init__.py
         num_samples: Number of samples to sample from the full dataset.
@@ -168,7 +164,8 @@ def get_torch_val_dataloader(
     The dataset is sampled by taking every N samples for the largest possible N
     that produces the number of requested samples.
 
-    Parameters:
+    Parameters
+    ----------
         dataset_name: Name of the dataset. Dataset must be registered in
             qai_hub_models.datasets.__init__.py
         num_samples: Number of samples to sample from the full dataset.
@@ -244,9 +241,7 @@ def _populate_data_cache_impl(
     cache_path: Path,
     dataset_ids_filepath: Path,
 ) -> None:
-    """
-    Does the heavy lifting of uploading data to hub and also saving it locally.
-    """
+    """Does the heavy lifting of uploading data to hub and also saving it locally."""
     if seed is not None:
         torch.manual_seed(seed)
     dataloader = DataLoader(dataset, batch_size=samples_per_job, shuffle=True)
@@ -299,7 +294,8 @@ def _populate_data_cache(
                 dataset-dxxxx.h5  # Raw data of what was uploaded to hub for input
                 dataset-dyyyy.h5  # Raw data of what was uploaded to hub for gt
 
-    Parameters:
+    Parameters
+    ----------
         dataset_from_name_args: Args to instantiate the pyTorch dataset (if it is not cached) by calling get_dataset_from_name.
         samples_per_job: The maximum size of each hub.Dataset.
         seed: The random seed used to create the splits.
@@ -355,12 +351,14 @@ def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Datase
     """
     Create a dataset that is a subsample of `dataset` with `num_samples`.
 
-    Parameters:
+    Parameters
+    ----------
         dataset: Original dataset with all data.
         num_samples: Number of samples in dataset subset.
         seed: Random seed to use when choosing the subsample.
 
-    Returns:
+    Returns
+    -------
         Sampled dataset.
     """
     assert isinstance(dataset, Sized), "Dataset must implement __len__."
@@ -532,7 +530,8 @@ def evaluate(
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
-    Parameters:
+    Parameters
+    ----------
         dataloader:
             batched data loader
 
@@ -558,7 +557,8 @@ def evaluate(
         verbose:
             If true, prints evaluation scores.
 
-    Returns:
+    Returns
+    -------
         dict[model identifier, eval result]
     """
     ai_hub_inference_models = {
@@ -590,9 +590,7 @@ def evaluate(
         def _torch_io_to_tuple(
             val: list | tuple | torch.Tensor,
         ) -> tuple[torch.Tensor, ...]:
-            """
-            Convert torch model I/O of any type to a tuple of inputs / outputs.
-            """
+            """Convert torch model I/O of any type to a tuple of inputs / outputs."""
             if isinstance(val, tuple):
                 return val
             elif isinstance(val, list):
@@ -633,7 +631,7 @@ def evaluate(
         # Run local inference on smaller batch size
         local_dataset = DatasetFromIOTuples(model_inputs, ground_truth_values)
         local_dataloader = DataLoader(local_dataset, model_batch_size)
-        for sample in tqdm(local_dataloader):
+        for sample in tqdm(local_dataloader, disable=IsOnCIEnvvar.get()):
             local_model_inputs, local_ground_truth_values, *_ = sample
 
             # Run inference on this smaller batch, add to evaluator.
@@ -643,7 +641,8 @@ def evaluate(
                 else:
                     batch_output = local_model(local_model_inputs)
                 evaluators[model_name].add_batch(
-                    batch_output, local_ground_truth_values
+                    batch_output,  # type: ignore[arg-type]
+                    local_ground_truth_values,
                 )
 
         if verbose:
@@ -697,10 +696,11 @@ def evaluate_on_dataset(
     skip_device_accuracy: bool = False,
     skip_torch_accuracy: bool = False,
 ) -> EvaluateResult:
-    f"""
+    """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
-    Parameters:
+    Parameters
+    ----------
         compiled_model: A hub.Model object pointing to compiled model on hub.
             This is what will be used to compute accuracy on device.
         torch_model: The torch model to evaluate locally to compare accuracy.
@@ -709,7 +709,7 @@ def evaluate_on_dataset(
         samples_per_job: Limit on the number of samples to submit in a single inference job.
             If not specified, uses the default value set on the dataset.
         num_samples: The number of samples to use for evaluation.
-            If not set, uses the minimum of the samples_per_job and {DEFAULT_NUM_EVAL_SAMPLES}
+            If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
         seed: The random seed to use when subsampling the dataset. If not set, creates
             a deterministic subset.
         profile_options: Options to set when running inference on device.
@@ -722,7 +722,8 @@ def evaluate_on_dataset(
         skip_device_accuracy: If set, skips on-device accuracy checks.
         skip_device_accuracy: If set, skips torch cpu accuracy checks.
 
-    Returns:
+    Returns
+    -------
         Tuple of (torch accuracy, quant cpu accuracy, on device accuracy) all as float.
         quant cpu accuracy is the accuracy from running the quantized ONNX on the CPU.
         If any accuracy was not computed, its value in the tuple will be None.
@@ -798,7 +799,7 @@ def evaluate_on_dataset(
 
     results = evaluate(
         dataloader,
-        torch_model.get_evaluator,
+        cast(EvalModelProtocol, torch_model).get_evaluator,
         models,
         model_batch_size=1,
         verbose=True,
@@ -843,17 +844,19 @@ def evaluate_session_on_dataset(
     dataset_name: str,
     num_samples: int | None = None,
 ) -> tuple[float, str]:
-    f"""
+    """
     Evaluate model accuracy on a dataset using ONNX runtime.
 
-    Parameters:
+    Parameters
+    ----------
         session: ONNX session to evaluate.
         torch_model: The torch model to evaluate locally to compare accuracy.
         dataset_name: The name of the dataset to use for evaluation.
         num_samples: The number of samples to use for evaluation.
-            If not set, uses the minimum of the samples_per_job and {DEFAULT_NUM_EVAL_SAMPLES}
+            If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
 
-    Returns:
+    Returns
+    -------
         Tuple of accuracy(in float), formatted accuracy (as a string)
     """
     assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
@@ -870,14 +873,16 @@ def evaluate_session_on_dataset(
     dataloader = get_deterministic_sample(source_torch_dataset, num_samples, None)
 
     print(f"Evaluating on {num_samples} samples.")
-    evaluator = torch_model.get_evaluator()
+    evaluator = cast(EvalModelProtocol, torch_model).get_evaluator()
     inputs, outputs = extract_io_types_from_onnx_model(session)
     session_wrapper = OnnxSessionTorchWrapper(session, inputs, outputs)
 
-    for i, sample in enumerate(dataloader):
+    for sample in dataloader:
         model_inputs, ground_truth_values, *_ = sample
 
-        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+        for j, model_input in tqdm(
+            enumerate(model_inputs), total=len(model_inputs), disable=IsOnCIEnvvar.get()
+        ):
             ground_truth: torch.Tensor | tuple[torch.Tensor, ...]
             if isinstance(ground_truth_values, torch.Tensor):
                 ground_truth = ground_truth_values[j : j + 1]

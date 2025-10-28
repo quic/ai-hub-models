@@ -57,13 +57,15 @@ class FOMMDetector(BaseModel):
         """
         Run FOMM keypoint detector on an image
 
-        Parameters:
+        Parameters
+        ----------
             image: torch.Tensor
                    BxCxHxW
                    RGB, range [0 - 1]
                    Image to detect keypoints in
 
-        Returns:
+        Returns
+        -------
             keypoints: torch.Tensor
                        B x Num keypoints x 2
                        Keypoints detected in the image
@@ -101,7 +103,8 @@ class FOMMDetector(BaseModel):
 
 class FOMMGenerator(BaseModel):
     """Given keypoints from a source image, a target image, and the norm of the keypoints from the target,
-    generates the new target image"""
+    generates the new target image
+    """
 
     def __init__(self, generator: torch.nn.Module):
         super().__init__()
@@ -118,7 +121,8 @@ class FOMMGenerator(BaseModel):
         """
         Generate the new target image based on the source keypoints and target keypoints
 
-        Parameters:
+        Parameters
+        ----------
             image:            torch.Tensor
                               BxCxHxW
                               RGB, range [0 - 1]
@@ -137,12 +141,12 @@ class FOMMGenerator(BaseModel):
                                        Jacobians around driving keypoints
 
 
-        Returns:
+        Returns
+        -------
             prediction: torch.Tensor
                         BxCxHxW
                         Predicted output image for the given driving frame keypoints
         """
-
         # run generator. The underlying model takes in dictionaries
         source_kp = dict(
             value=source_keypoint_values, jacobian=source_keypoint_jacobians

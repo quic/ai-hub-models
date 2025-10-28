@@ -25,14 +25,14 @@ OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 # no numerical tests are included for the model; only for the app.
 @skip_clone_repo_check
 def test_face_app() -> None:
-    input = load_image(
+    image = load_image(
         INPUT_IMAGE_ADDRESS,
     )
     expected_output = load_image(
         OUTPUT_IMAGE_ADDRESS,
     ).convert("RGB")
     app = MediaPipeFaceApp.from_pretrained(MediaPipeFace.from_pretrained())
-    actual_output = app.predict_landmarks_from_image(input)[0]
+    actual_output = app.predict_landmarks_from_image(image)[0]
     assert isinstance(actual_output, np.ndarray)
     assert np.allclose(actual_output, np.asarray(expected_output))
 

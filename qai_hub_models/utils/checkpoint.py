@@ -17,6 +17,9 @@ import torch
 
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import make_torch_inputs
+from qai_hub_models.utils.onnx_helpers import (
+    safe_torch_onnx_export,
+)
 
 if TYPE_CHECKING:
     # this import is only for the type‐checker, never executed at runtime
@@ -24,6 +27,7 @@ if TYPE_CHECKING:
 
 
 CheckpointSpec = Union[
+    str,
     os.PathLike,
     Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"],
 ]
@@ -76,6 +80,7 @@ def hf_repo_exists(repo_id: str) -> bool:
         warnings.warn(
             f"huggingface_hub is not installed; Unable to check if {repo_id} is a valid HF repo",
             ImportWarning,
+            stacklevel=2,
         )
         return False
 
@@ -262,7 +267,8 @@ class FromPretrainedMixin(Generic[T]):
         Load the checkpoint into ONNX, possibly with AIMET encodings
         if the checkpoint is already quantized.
 
-        Args:
+        Parameters
+        ----------
           checkpoint:
 
             - "DEFAULT": load pre-calibrated model + encodings
@@ -276,6 +282,7 @@ class FromPretrainedMixin(Generic[T]):
               load both model + encodings
 
         Returns
+        -------
         - onnx_model, aimet_encodings_path
         """
         subfolder_hf = subfolder or cls.default_subfolder_hf
@@ -311,20 +318,20 @@ class FromPretrainedMixin(Generic[T]):
                 host_device=host_device,
             )
 
-            input_spec = cls.get_input_spec()  # type: ignore
+            input_spec = cls.get_input_spec()  # type: ignore[attr-defined]
 
-            example_input = tuple(make_torch_inputs(input_spec))  # type: ignore
+            example_input = tuple(make_torch_inputs(input_spec))
             example_input = tuple([t.to(host_device) for t in example_input])
 
             torch_to_onnx_options = torch_to_onnx_options or {}
             with qaihm_temp_dir() as tmpdir:
                 out_onnx = os.path.join(tmpdir, "model.onnx")
-                torch.onnx.export(
+                safe_torch_onnx_export(
                     fp_model,
                     example_input,
                     out_onnx,
-                    input_names=list(input_spec.keys()),  # type: ignore
-                    output_names=cls.get_output_names(),  # type: ignore
+                    input_names=list(input_spec.keys()),
+                    output_names=cls.get_output_names(),  # type: ignore[attr-defined]
                     **torch_to_onnx_options,
                 )
                 onnx_model = onnx.load(out_onnx)

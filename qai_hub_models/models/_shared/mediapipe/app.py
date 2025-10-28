@@ -82,7 +82,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         Create a MediaPipe application.
 
-        Parameters:
+        Parameters
+        ----------
             detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
                 The bounding box and keypoint detector model.
                 Input is an image [N C H W], channel layout is RGB, output is [coordinates, scores].
@@ -173,7 +174,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
@@ -184,7 +186,8 @@ class MediaPipeApp(BaseCollectionApp):
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is false, returns:
                 images:
                     A list of predicted images (one for each batch), with NHWC shape and RGB channel layout.
@@ -301,11 +304,13 @@ class MediaPipeApp(BaseCollectionApp):
         """
         From the provided image or tensor, predict the bounding boxes and keypoints of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             NCHW_fp32_torch_frames: torch.Tensor
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-        Returns:
+        Returns
+        -------
             batched_selected_boxes:
                 Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 2, 2].
@@ -321,7 +326,6 @@ class MediaPipeApp(BaseCollectionApp):
                             ...,
                             [keypoint_max_x, keypoint_max_y]]
         """
-
         # Resize input frames such that they're the appropriate size for detector inference.
         box_detector_net_inputs, pd_net_input_scale, pd_net_input_pad = resize_pad(
             NCHW_fp32_torch_frames, self.detector_input_dims
@@ -421,7 +425,8 @@ class MediaPipeApp(BaseCollectionApp):
         From the provided bounding boxes and keypoints, compute the region of interest (ROI) that should be used
         as input to the landmark detection model.
 
-        Parameters:
+        Parameters
+        ----------
             batched_selected_boxes:
                 Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
                 Shape of each list element is [num_selected_boxes, 2, 2].
@@ -438,6 +443,7 @@ class MediaPipeApp(BaseCollectionApp):
                             [keypoint_max_x, keypoint_max_y]]
 
         Returns
+        -------
             batched_roi_4corners:
                 Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
                 Empty tensor if batch had no bounding boxes with a score above the threshold.
@@ -491,7 +497,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             NHWC_int_numpy_frames:
                 List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
                 Length of list is # of batches (the number of input images)
@@ -502,7 +509,8 @@ class MediaPipeApp(BaseCollectionApp):
                     Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
                     The order of points is (top left point, bottom left point, top right point, bottom right point)
 
-        Returns:
+        Returns
+        -------
                 batched_selected_landmarks: list[torch.tensor]
                     Selected landmarks. Organized like the following:
                     [
@@ -521,7 +529,6 @@ class MediaPipeApp(BaseCollectionApp):
 
                 ... (additional outputs when needed by implementation)
         """
-
         # selected landmarks for the ROI (if any)
         # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
@@ -573,9 +580,8 @@ class MediaPipeApp(BaseCollectionApp):
             batched_selected_landmarks.append(
                 torch.stack(all_landmarks, dim=0) if all_landmarks else torch.Tensor()
             )
-        else:
-            # Add empty tensor for these lists, since this batch has no predicted bounding boxes.
-            batched_selected_landmarks.append(torch.Tensor())
+        # Add empty tensor for these lists, since this batch has no predicted bounding boxes.
+        batched_selected_landmarks.append(torch.Tensor())
 
         return (batched_selected_landmarks,)
 
@@ -589,7 +595,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         Draw bounding box, keypoints, and corresponding region of interest (ROI) on the provided frame
 
-        Parameters:
+        Parameters
+        ----------
             NHWC_int_numpy_frame:
                 Numpy array of shape (H W C x uint8) -- RGB channel layout
 
@@ -611,6 +618,7 @@ class MediaPipeApp(BaseCollectionApp):
                 Shape is [num_selected_boxes, 4, 2], where 2 == (x, y)
 
         Returns
+        -------
             Nothing; drawing is done on input frame.
         """
         for roi, box, kp in zip(roi_4corners, selected_boxes, selected_keypoints):
@@ -637,7 +645,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         Draw landmarks on the provided frame
 
-        Parameters:
+        Parameters
+        ----------
             NHWC_int_numpy_frame:
                 Numpy array of shape (H W C x uint8) -- RGB channel layout
 
@@ -652,6 +661,7 @@ class MediaPipeApp(BaseCollectionApp):
                     where 3 == (X, Y, Conf)
 
         Returns
+        -------
             Nothing; drawing is done on input frame.
         """
         for ldm in selected_landmarks:
@@ -679,7 +689,8 @@ class MediaPipeApp(BaseCollectionApp):
         """
         Draw predictions on the provided frame
 
-        Parameters:
+        Parameters
+        ----------
             NHWC_int_numpy_frames:
                 List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
                 Length of list is # of batches (the number of input images)
@@ -722,6 +733,7 @@ class MediaPipeApp(BaseCollectionApp):
                 where 3 == (X, Y, Conf)
 
         Returns
+        -------
             Nothing; drawing is done on input frame
         """
         for batch_idx in range(len(NHWC_int_numpy_frames)):

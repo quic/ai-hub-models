@@ -25,7 +25,8 @@ class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
         """
         Processes MoveNet outputs and converts them to COCO-format keypoint predictions.
 
-        Args:
+        Parameters
+        ----------
             output: Model predictions, shape [batch, N_people, 17, 3] (x, y, confidence)
             gt: list with the following Tensors:
                 - image_ids: Tensor[int] of image IDs [batch]

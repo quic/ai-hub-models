@@ -98,12 +98,14 @@ class MovenetApp:
         """
         Predicts up to 17 pose keypoints for up to 10 people in the image.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image on which to predict pose keypoints.
             raw_output: bool
 
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 kpt_with_conf: np.ndarray with shape (B, 1, 17, 3)
                     keypoint coordinates with confidence.

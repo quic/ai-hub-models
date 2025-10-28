@@ -6,15 +6,15 @@
 
 import os
 
-import torch.nn as nn
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class ConvBlock(nn.Module):
     """
     Standard convolution block with Batch normalization and activation.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -102,7 +102,7 @@ def conv1x1_block(
     """
     1x1 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -152,7 +152,7 @@ def conv3x3_block(
     """
     3x3 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -202,7 +202,7 @@ def conv7x7_block(
     """
     7x7 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -235,7 +235,7 @@ class ResBlock(nn.Module):
     """
     Simple ResNet block for residual path in ResNet unit.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -276,7 +276,7 @@ class ResBottleneck(nn.Module):
     """
     ResNet bottleneck block for residual path in ResNet unit.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -334,7 +334,7 @@ class ResUnit(nn.Module):
     """
     ResNet unit with residual connection.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -414,7 +414,7 @@ class ResInitBlock(nn.Module):
     """
     ResNet specific initial block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -440,7 +440,7 @@ class ResNet(nn.Module):
     """
     ResNet model from 'Deep Residual Learning for Image Recognition,' https://arxiv.org/abs/1512.03385.
 
-    Parameters:
+    Parameters
     ----------
     channels : list of list of int
         Number of output channels for each unit.
@@ -513,7 +513,7 @@ class ResNet(nn.Module):
         self._init_params()
 
     def _init_params(self):
-        for name, module in self.named_modules():
+        for _name, module in self.named_modules():
             if isinstance(module, nn.Conv2d):
                 init.kaiming_uniform_(module.weight)
                 if module.bias is not None:
@@ -541,7 +541,7 @@ def get_resnet(
     """
     Create ResNet model with specific parameters.
 
-    Parameters:
+    Parameters
     ----------
     blocks : int
         Number of blocks.
@@ -645,7 +645,7 @@ def resnet18_wd2(**kwargs):
     ResNet-18 model with 0.5 width scale from 'Deep Residual Learning for Image Recognition,'
     https://arxiv.org/abs/1512.03385. It's an experimental model.
 
-    Parameters:
+    Parameters
     ----------
     pretrained : bool, default False
         Whether to load the pretrained weights for model.

@@ -36,13 +36,20 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
         """
         Returns a tuple of input data and label data
 
-        input data:
+        Parameters
+        ----------
+        index
+            Dataset element index to get.
+
+        Returns
+        -------
+        input_data
             input_ids: torch.Tensor
                 Tokenized inputs of shape (1, sequence_length), dtype of int32
             attention_mask: torch.Tensor
                 Attention mask of shape (1, sequence_length), dtype of int32
 
-        label data:
+        label_data
             label: int [0 or 1]
                 0: not-counterfactual
                 1: counterfactual
@@ -73,7 +80,5 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

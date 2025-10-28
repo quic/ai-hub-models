@@ -77,7 +77,6 @@ def get_python_import_expression(filepath: str) -> str:
     For example, qiasm_model_zoo/models/trocr/model.py ->
         qiasm_model_zoo.models.trocr.model
     """
-
     rel_path = os.path.relpath(filepath, REPO_ROOT)
     init_suffix = "/__init__.py"
     if rel_path.endswith(init_suffix):
@@ -88,9 +87,7 @@ def get_python_import_expression(filepath: str) -> str:
 
 
 def _get_file_edges(filename) -> set[str]:
-    """
-    Resolve which files directly import from `filename`.
-    """
+    """Resolve which files directly import from `filename`."""
     file_import = get_python_import_expression(filename)
     grep_out = run_and_get_output(
         f"grep -r --include='*.py' '{file_import}' {PY_PACKAGE_RELATIVE_SRC_ROOT}",
@@ -267,9 +264,7 @@ def get_models_with_export_file_changes() -> set[str]:
 
 
 def get_models_with_changed_definitions() -> set[str]:
-    """
-    The models for which to run non-generated (demo / model) tests.
-    """
+    """The models for which to run non-generated (demo / model) tests."""
     return get_changed_models(
         include_model=True,
         include_demo=False,
@@ -280,9 +275,7 @@ def get_models_with_changed_definitions() -> set[str]:
 
 
 def get_models_to_run_general_tests() -> set[str]:
-    """
-    The models for which to run non-generated (demo / model) tests.
-    """
+    """The models for which to run non-generated (demo / model) tests."""
     return get_changed_models(
         include_model=True,
         include_demo=True,
@@ -321,9 +314,7 @@ def get_changed_models(
 
 
 def get_all_models() -> set[str]:
-    """
-    Resolve model IDs (folder names) of all models in QAIHM.
-    """
+    """Resolve model IDs (folder names) of all models in QAIHM."""
     model_names: set[str] = set()
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
         if os.path.exists(
@@ -363,7 +354,8 @@ def get_models_to_test() -> tuple[set[str], set[str]]:
     This is the master function that is called directly in CI to determine
     which models to test.
 
-    Returns:
+    Returns
+    -------
         tuple[list of models to run unit tests, list of models to run compile tests]
     """
     # model.py changed

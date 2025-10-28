@@ -23,7 +23,8 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
         Processes LiteHRNet outputs (keypoints, scores, heatmaps) and converts them to
         COCO-format keypoint predictions with refinement using heatmaps.
 
-        Args:
+        Parameters
+        ----------
             output: Tuple containing:
                    - keypoints: Tensor[float] of predicted keypoints [batch, 17, 2]
                    - pred_scores:Tensor[float] of confidence scores [batch, 17, 1]

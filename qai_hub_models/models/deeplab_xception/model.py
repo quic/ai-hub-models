@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.models._shared.deeplab.model import DeepLabV3Model
 from qai_hub_models.utils.asset_loaders import (
@@ -63,7 +63,7 @@ class DeeplabXception(DeepLabV3Model):
                 and hasattr(cfg.MODEL, "BN_EPS_FOR_ENCODER")
                 and cfg.MODEL.BN_EPS_FOR_ENCODER
             ):
-                for name, module in instance.model.encoder.named_modules():
+                for _name, module in instance.model.encoder.named_modules():
                     if isinstance(module, (nn.BatchNorm2d, nn.SyncBatchNorm)):
                         module.eps = cfg.MODEL.BN_EPS_FOR_ENCODER
 
@@ -73,15 +73,16 @@ class DeeplabXception(DeepLabV3Model):
         """
         Run DeepLabV3_Plus_Mobilenet on `image`, and produce a tensor of classes for segmentation
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for model consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             tensor: Bx21xHxW tensor of class logits per pixel
         """
-
         mean = torch.tensor([0.5, 0.5, 0.5])
         std = torch.tensor([0.5, 0.5, 0.5])
         mean = mean.reshape(1, 3, 1, 1)

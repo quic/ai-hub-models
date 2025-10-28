@@ -49,7 +49,6 @@ class Real_ESRGAN_x4plus(SuperResolutionModel):
         cls, scale_factor: int = DEFAULT_SCALE_FACTOR
     ) -> Real_ESRGAN_x4plus:
         """Load RealESRGAN from a weightfile created by the source RealESRGAN repository."""
-
         # Load PyTorch model from disk
         if scale_factor == 4:
             weights_name = DEFAULT_WEIGHTS  # RealESRGAN_x4plus

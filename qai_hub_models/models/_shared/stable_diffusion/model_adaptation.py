@@ -7,14 +7,14 @@ import math
 import types
 from typing import Callable, Optional, cast
 
-import diffusers.models.attention_processor as attention_processor
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from diffusers import UNet2DConditionModel
+from diffusers.models import attention_processor
 from diffusers.models.activations import GEGLU, GELU, ApproximateGELU
 from diffusers.models.attention import BasicTransformerBlock, FeedForward
 from diffusers.models.transformers.transformer_2d import Transformer2DModel
+from torch import nn
 
 from qai_hub_models.utils.model_adapters import Conv2dLinear
 from qai_hub_models.utils.torch_typing_helpers import TypedModuleList
@@ -33,7 +33,8 @@ class SHAAttention(nn.Module):
         """
         Initialize SHAAttention by copying weights from an existing Attention module.
 
-        Args:
+        Parameters
+        ----------
             orig_attn (attention_processor.Attention): The original Attention module to be replaced.
         """
         super().__init__()
@@ -176,13 +177,15 @@ class SHAAttention(nn.Module):
         Forward pass for Split-Head Cross Attention.
         Processes each head separately using head-specific Conv2D projection layers.
 
-        Args:
+        Parameters
+        ----------
             hidden_states (torch.Tensor): The hidden states (batch_size, hidden_size, H, W).
             attention_mask (Optional[torch.Tensor]): The attention mask.
             encoder_hidden_states (Optional[torch.Tensor]): The encoder hidden states for cross-attention.
             **kwargs: Additional keyword arguments.
 
-        Returns:
+        Returns
+        -------
             Tuple containing the attention output, attention weights, and past key-value.
         """
         bsz, hidden_size, H, W = hidden_states.size()
@@ -284,7 +287,8 @@ def traverse_and_replace(
     """
     Recursively traverses the model to find and replace modules of a specified type.
 
-    Args:
+    Parameters
+    ----------
         model (nn.Module): The model to traverse.
         target_type (type): The type of modules to replace (e.g., Attention, GELU).
         replacement_fn (callable): A function that takes a module instance and returns the replacement module.
@@ -310,7 +314,8 @@ def replace_attention_modules(model: nn.Module):
     Recursively traverses the model to find and replace all instances of Attention with SHAAttention,
     including those nested within ModuleList containers.
 
-    Args:
+    Parameters
+    ----------
         model (nn.Module): The model in which to replace Attention modules.
     """
     traverse_and_replace(
@@ -324,10 +329,12 @@ def replace_gelu_and_approx_gelu_with_conv2d(activation_module: nn.Module) -> nn
     """
     Replaces the projection layer in GELU and ApproximateGELU activation modules from Linear to Conv2D.
 
-    Args:
+    Parameters
+    ----------
         activation_module (nn.Module): The activation module to replace.
 
-    Returns:
+    Returns
+    -------
         nn.Module: The activation module with Conv2D projection.
     """
     assert isinstance(activation_module, GELU) or isinstance(
@@ -357,7 +364,8 @@ class QcGEGLU(nn.Module):
     This class replaces the original GEGLU's Linear projections with Conv2D projections
     and eliminates the need for the chunk operation by directly computing the gate.
 
-    Parameters:
+    Parameters
+    ----------
         original_geglu (GEGLU): The original GEGLU module to be replaced.
     """
 
@@ -392,14 +400,14 @@ class QcGEGLU(nn.Module):
             self.hidden_proj.weight.copy_(
                 linear_weight[:dim_out, :].view(dim_out, dim_in, 1, 1)
             )
-            if bias:
-                self.hidden_proj.bias.copy_(linear_bias[:dim_out])  # type: ignore
+            if linear_bias and self.hidden_proj.bias:
+                self.hidden_proj.bias.copy_(linear_bias[:dim_out])
 
             self.gate_proj.weight.copy_(
                 linear_weight[dim_out:, :].view(dim_out, dim_in, 1, 1)
             )
-            if bias:
-                self.gate_proj.bias.copy_(linear_bias[dim_out:])  # type: ignore
+            if linear_bias and self.gate_proj.bias:
+                self.gate_proj.bias.copy_(linear_bias[dim_out:])
 
     def gelu(self, gate: torch.Tensor) -> torch.Tensor:
         return F.gelu(gate)
@@ -421,10 +429,12 @@ def replace_geglu_with_conv2d(activation_module: nn.Module) -> nn.Module:
     Replaces the original GEGLU activation module with the QcGEGLU module,
     which uses two Conv2D layers and eliminates the chunk operation.
 
-    Args:
+    Parameters
+    ----------
         activation_module (nn.Module): The GEGLU activation module to replace.
 
-    Returns:
+    Returns
+    -------
         nn.Module: The QcGEGLU activation module with two Conv2D projections.
     """
     if isinstance(activation_module, GEGLU):
@@ -443,7 +453,8 @@ def replace_activations_with_conv2d(model: nn.Module):
     from Linear layers to Conv2D layers, ensuring compatibility with NCHW input shapes.
     Also handles activations nested within ModuleList containers.
 
-    Args:
+    Parameters
+    ----------
         model (nn.Module): The model in which to perform the replacement.
     """
     # Replace GELU and ApproximateGELU
@@ -461,10 +472,12 @@ def replace_feedforward_with_conv2d(feedforward_module: nn.Module) -> nn.Module:
     Replaces the nn.Linear layer in the FeedForward module with a Conv2D layer
     to handle hidden_states of shape (N, C, H, W).
 
-    Args:
+    Parameters
+    ----------
         feedforward_module (nn.Module): The FeedForward module to replace.
 
-    Returns:
+    Returns
+    -------
         nn.Module: The FeedForward module with Conv2D layers instead of Linear layers.
     """
     if isinstance(feedforward_module, FeedForward):
@@ -513,7 +526,8 @@ def replace_layer_norm_modules(model: nn.Module):
     LayerNorm within BasicTransformerBlock with PermuteLayerNorm to be
     compatible with optimized_operate_on_continuous_inputs.
 
-    Args:
+    Parameters
+    ----------
         model (nn.Module): The model in which to replace LayerNorm modules.
     """
 
@@ -521,10 +535,12 @@ def replace_layer_norm_modules(model: nn.Module):
         """
         Replaces norm1, norm2, and norm3 within a BasicTransformerBlock.
 
-        Args:
+        Parameters
+        ----------
             block (BasicTransformerBlock): The transformer block to modify.
 
-        Returns:
+        Returns
+        -------
             BasicTransformerBlock: The modified transformer block.
         """
         block.norm1 = PermuteLayerNorm(block.norm1)  # type: ignore[assignment]
@@ -546,10 +562,10 @@ def replace_transformer2d_modules(model: nn.Module):
 
     def _patch_instance(m: Transformer2DModel):
         # bind the two optimized routines onto this instance only
-        m._operate_on_continuous_inputs = types.MethodType(  # type: ignore
+        m._operate_on_continuous_inputs = types.MethodType(
             optimized_operate_on_continuous_inputs, m
         )
-        m._get_output_for_continuous_inputs = types.MethodType(  # type: ignore
+        m._get_output_for_continuous_inputs = types.MethodType(
             optimized_get_output_for_continuous_inputs, m
         )
 
@@ -558,9 +574,9 @@ def replace_transformer2d_modules(model: nn.Module):
         _patch_instance(m)
         # 2) swap out the Linear‐based proj_in / proj_out for Conv2dLinear
         if isinstance(m.proj_in, nn.Linear):
-            m.proj_in = Conv2dLinear(m.proj_in)  # type: ignore[assignment]
+            m.proj_in = Conv2dLinear(m.proj_in)
         if isinstance(m.proj_out, nn.Linear):
-            m.proj_out = Conv2dLinear(m.proj_out)  # type: ignore[assignment]
+            m.proj_out = Conv2dLinear(m.proj_out)
         return m
 
     traverse_and_replace(model, Transformer2DModel, _replace_transformer2d)  # type: ignore[arg-type]

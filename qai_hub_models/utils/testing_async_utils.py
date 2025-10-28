@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Literal, cast, overload
@@ -44,7 +44,7 @@ from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
 MAX_PSNR_VALUES = 10
 
 
-def callable_side_effect(side_effects: Iterable) -> Callable:
+def callable_side_effect(side_effects: Iterator) -> Callable:
     """
     Return a function that:
         * Gets the next value in side_effects.
@@ -64,7 +64,7 @@ def callable_side_effect(side_effects: Iterable) -> Callable:
     """
 
     def f(*args, **kwargs):
-        result = next(side_effects)  # type: ignore
+        result = next(side_effects)
         if callable(result):
             return result(*args, **kwargs)
         else:
@@ -87,9 +87,9 @@ def get_artifacts_dir_opt() -> Path:
 
 
 def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
-    dir = Path(artifacts_dir or get_artifacts_dir_opt())
-    os.makedirs(dir, exist_ok=True)
-    path = dir / filename
+    artifacts_dir = Path(artifacts_dir or get_artifacts_dir_opt())
+    os.makedirs(artifacts_dir, exist_ok=True)
+    path = artifacts_dir / filename
     path.touch()
     return path
 
@@ -141,8 +141,7 @@ def get_accuracy_columns() -> list[str]:
         "Sim Accuracy",
         "Device Accuracy",
     ]
-    for i in range(MAX_PSNR_VALUES):
-        cols.append(f"PSNR_{i}")
+    cols.extend(f"PSNR_{i}" for i in range(MAX_PSNR_VALUES))
     cols.extend(["date", "branch", "chipset"])
     return cols
 
@@ -337,10 +336,12 @@ def fetch_async_test_job(
         raise_if_not_successful: bool = False
             Raise a ValueError if any job is not successful.
 
-    Returns:
+    Returns
+    -------
         A successful Hub job, or None if this job type was not found in the cache.
 
-    Raises:
+    Raises
+    ------
         ValueError if the job is cached but failed or is still running.
     """
     scorecard_job: ScorecardJob = get_scorecard_job_yaml(
@@ -482,7 +483,8 @@ def fetch_async_test_jobs(
         raise_if_not_successful: bool = False
             Raise a ValueError if any job is not successful.
 
-    Returns:
+    Returns
+    -------
         dict
             For models WITHOUT components, returns:
                 { None: Job }
@@ -497,12 +499,13 @@ def fetch_async_test_jobs(
 
         None if one or more components do not have a cached job of the given type.
 
-    Raises:
+    Raises
+    ------
         ValueError if:
             raise_if_not_successful is True and any cached job failed / is still running
     """
     component_jobs: dict[str | None, hub.Job | None] = {}
-    for component in component_names or [None]:  # type: ignore
+    for component in component_names or [None]:  # type: ignore[list-item]
         component_jobs[component] = fetch_async_test_job(
             job_type,
             model_id,
@@ -515,7 +518,7 @@ def fetch_async_test_jobs(
         )
 
     has_jobs = all(component_jobs.values())
-    return component_jobs if has_jobs else None  # type: ignore
+    return component_jobs if has_jobs else None  # type: ignore[return-value]
 
 
 def cache_dataset(model_id: str, dataset_name: str, dataset: hub.Dataset):
@@ -696,12 +699,14 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
         """
         Compare the MD5 hashes of the compiled models for two jobs.
 
-        Args:
+        Parameters
+        ----------
             current_compile_job (hub.CompileJob): The current compile job.
             previous_compile_job (hub.CompileJob): The previous compile job.
             yaml_base (str | None): The base path of the YAML file.
 
-        Returns:
+        Returns
+        -------
             bool: True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
         """
         if previous_compile_job.get_status().failure:

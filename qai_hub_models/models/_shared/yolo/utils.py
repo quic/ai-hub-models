@@ -12,10 +12,12 @@ def box_transform_xywh2xyxy_split_input(xy: torch.Tensor, wh: torch.Tensor):
     """
     Convert boxes with (xy, wh) layout to (xyxy)
 
-    Parameters:
+    Parameters
+    ----------
         boxes (torch.Tensor): Input boxes with layout (xywh)
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: Output box with layout (xyxy)
             i.e. [top_left_x | top_left_y | bot_right_x | bot_right_y]
     """
@@ -29,10 +31,12 @@ def transform_box_layout_xywh2xyxy(boxes: torch.Tensor) -> torch.Tensor:
     """
     Convert boxes with (xywh) layout to (xyxy)
 
-    Parameters:
+    Parameters
+    ----------
         boxes (torch.Tensor): Input boxes with layout (xywh)
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: Output box with layout (xyxy)
             i.e. [top_left_x | top_left_y | bot_right_x | bot_right_y]
     """
@@ -48,7 +52,8 @@ def detect_postprocess(detector_output: torch.Tensor):
     Post processing to break Yolo(v6,v7) detector output into multiple, consumable tensors (eg. for NMS).
         such as bounding boxes, classes, and confidence.
 
-    Parameters:
+    Parameters
+    ----------
         detector_output: torch.Tensor
             The output of Yolo Detection model
             Shape is [batch, num_preds, k]
@@ -56,7 +61,8 @@ def detect_postprocess(detector_output: torch.Tensor):
                 k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
                 and box_coordinates are [x_center, y_center, w, h]
 
-    Returns:
+    Returns
+    -------
         boxes: torch.Tensor
             Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
         scores: torch.Tensor
@@ -86,9 +92,7 @@ def detect_postprocess_split_input(
     wh: torch.Tensor,
     scores: torch.Tensor,
 ):
-    """
-    Same as `detect_postprocess` with inputs split into separate tensors.
-    """
+    """Same as `detect_postprocess` with inputs split into separate tensors."""
     boxes = box_transform_xywh2xyxy_split_input(xy, wh)
 
     # For TF Lite, this translates to slice + reshape rather than unpack.
@@ -113,10 +117,12 @@ def get_most_likely_score(scores: torch.Tensor):
     """
     Returns most likely score and class id
 
-    Args:
+    Parameters
+    ----------
         scores (torch.tensor): final score after post-processing predictions
 
-    Returns:
+    Returns
+    -------
         scores: torch.Tensor
             class scores reduced to keep max score per prediction
             Shape is [batch, num_preds]

@@ -50,7 +50,7 @@ def main(
 
     # Run app
     # OnDeviceModel is underspecified to meet the Callable type requirements of the following
-    app = SelfieSegmentationApp(model)  # type: ignore[reportArgumentType]
+    app = SelfieSegmentationApp(model)  # type: ignore[arg-type]
     (_, _, height, width) = SelfieSegmentation.get_input_spec()["image"][0]
 
     image, scale, padding = pil_resize_pad(orig_image, (height, width))

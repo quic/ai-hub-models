@@ -61,12 +61,14 @@ class YoloV10Detector(Yolo):
         """
         Run YoloV10 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
@@ -112,7 +114,5 @@ class YoloV10Detector(Yolo):
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:
-        """
-        Returns the Lite-MP percentage value for the specified mixed precision quantization.
-        """
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 10

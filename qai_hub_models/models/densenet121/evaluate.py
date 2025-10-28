@@ -44,7 +44,6 @@ def main():
         Precision.w8a8_mixed_int16: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

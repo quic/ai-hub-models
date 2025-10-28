@@ -98,7 +98,7 @@ class MMMLU(BaseDataset):
 
         self.dataset.map(group_fewshot_questions)
 
-        for _, questions in grouped_fewshot_questions.items():
+        for questions in grouped_fewshot_questions.values():
             if len(questions) < self.num_fewshot + 1:
                 raise ValueError(
                     f"Not enough samples available in subset '{self.SUBSET_NAME}' to satisfy {self.num_fewshot + 1} fewshot samples."
@@ -212,9 +212,7 @@ class MMMLU(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1
 
     @staticmethod

@@ -61,7 +61,8 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
     ) -> None:
         """Process model predictions and ground truth for panoptic segmentation evaluation.
 
-        Args:
+        Parameters
+        ----------
             output (tuple[torch.Tensor, torch.Tensor, torch.Tensor]): Model predictions with class logits, class labels, and mask logits.
             gt_data (tuple[torch.Tensor, torch.Tensor]): Ground truth panoptic masks and image IDs.
         """
@@ -123,16 +124,17 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
     ) -> PQStat:
         """Evaluate a single image's prediction against ground truth.
 
-        Args:
+        Parameters
+        ----------
             pred_mask (np.ndarray): Predicted panoptic mask of shape (H, W) with panoptic IDs (category_id * label_divisor + instance_id).
             gt_mask (np.ndarray): Ground truth panoptic mask of shape (H, W) with panoptic IDs or 0 for ignored regions.
             pred_segments_info (list[dict]): Predicted segment info with id, category_id, area, iscrowd (0), score.
             gt_segments_info (list[dict]): Ground truth segment info with id, category_id, area, iscrowd (0 or 1).
 
-        Returns:
+        Returns
+        -------
             PQStat: Updated panoptic quality statistics for the image.
         """
-
         pq_stat = self.pq_compute_single_image(
             gt_mask, pred_mask, gt_segments_info, pred_segments_info
         )
@@ -148,14 +150,16 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
     ) -> PQStat:
         """Compute panoptic quality statistics for a single image.
 
-        Args:
+        Parameters
+        ----------
             gt_mask (np.ndarray): Ground truth panoptic mask of shape (H, W) with panoptic IDs or 0 for ignored regions.
             pred_mask (np.ndarray): Predicted panoptic mask of shape (H, W) with panoptic IDs (category_id * label_divisor + instance_id).
             gt_segments_info (list[dict]): Ground truth segment info with id, category_id, area, iscrowd (0 or 1).
             pred_segments_info (list[dict]): Predicted segment info with id, category_id, area, iscrowd (0), score.
             ignore_label (int): Value for ignored regions (default: 0).
 
-        Returns:
+        Returns
+        -------
             PQStat: Statistics with true positives, false positives, false negatives, and IoU for matched segments.
         """
         pq_stat = PQStat()
@@ -237,7 +241,8 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
     def compute_pq(self) -> dict[str, dict]:
         """Compute panoptic quality metrics for all, things, and stuff categories.
 
-        Returns:
+        Returns
+        -------
             dict[str, dict]: Metrics for "All", "Things", "Stuff" with pq, sq, rq, and n (number of categories).
         """
         metrics = [("All", None), ("Things", True), ("Stuff", False)]

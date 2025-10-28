@@ -9,6 +9,9 @@ import os
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
+from qai_hub_models.utils.onnx_helpers import (
+    safe_torch_onnx_export,
+)
 from qai_hub_models.utils.quantization_aimet_onnx import (
     AIMETOnnxQuantizableMixin,
     set_aimet_log_level,
@@ -21,7 +24,6 @@ from typing import Optional
 
 import aimet_onnx
 import onnx
-import torch
 from aimet_common.defs import QuantScheme
 from aimet_onnx.cross_layer_equalization import equalize_model
 from aimet_onnx.quantsim import (
@@ -48,16 +50,16 @@ WHISPER_AIMET_CONFIG = os.path.abspath(
 )
 
 
-class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperEncoder
-    """
-    A class that represents a quantizable Whisper encoder.
-    """
+# Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperEncoder
+class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder):  # type: ignore[misc]
+    """A class that represents a quantizable Whisper encoder."""
 
     def __init__(self, config: WhisperConfig, sim_model: QuantizationSimModel) -> None:
         """
         Initializes the WhisperEncoderQuantizableBase class.
 
-        Args:
+        Parameters
+        ----------
             sim_model (QuantizationSimModel): The quantization simulation model.
         """
         HfWhisperEncoder.__init__(self, config)
@@ -75,10 +77,12 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         """
         Creates a WhisperEncoderQuantizableBase instance from a pre-trained model.
 
-        Args:
+        Parameters
+        ----------
             aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
 
-        Returns:
+        Returns
+        -------
             WhisperEncoderQuantizableBase: The created instance.
         """
         fp_encoder = cls.make_torch_model()
@@ -96,7 +100,7 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
             with qaihm_temp_dir() as tempdir:
                 temp_model_path = os.path.join(tempdir, "model.onnx")
                 # Export the decoder model to ONNX
-                torch.onnx.export(
+                safe_torch_onnx_export(
                     fp_encoder,
                     dummy_input,
                     temp_model_path,
@@ -138,9 +142,7 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        """
-        Override same func in AIMETOnnxQuantizableMixin.
-        """
+        """Override same func in AIMETOnnxQuantizableMixin."""
         return super(HfWhisperEncoder, self)._sample_inputs_impl(input_spec)
 
     def get_hub_compile_options(
@@ -150,21 +152,21 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        return super(HfWhisperEncoder, self).get_hub_compile_options(  # type: ignore
+        return super(HfWhisperEncoder, self).get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )
 
 
-class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder):  # type: ignore # Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperDecoder
-    """
-    A class that represents a quantizable Whisper decoder.
-    """
+# Using AIMETOnnxQuantizableMixin.forward, ignoring conflict with HfWhisperDecoder
+class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder):  # type: ignore[misc]
+    """A class that represents a quantizable Whisper decoder."""
 
     def __init__(self, config: WhisperConfig, sim_model: QuantizationSimModel) -> None:
         """
         Initializes the WhisperDecoderQuantizableBase class.
 
-        Args:
+        Parameters
+        ----------
             sim_model (QuantizationSimModel): The quantization simulation model.
         """
         HfWhisperDecoder.__init__(self, config)
@@ -181,10 +183,13 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
     ) -> WhisperDecoderQuantizableBase:
         """
         Creates a WhisperDecoderQuantizableBase instance from a pre-trained model.
-        Args:
+
+        Parameters
+        ----------
             aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
 
-        Returns:
+        Returns
+        -------
             WhisperDecoderQuantizableBase: The created instance.
         """
         fp_decoder = cls.make_torch_model()
@@ -202,7 +207,7 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
             with qaihm_temp_dir() as tempdir:
                 temp_model_path = os.path.join(tempdir, "model.onnx")
                 # Export the decoder model to ONNX
-                torch.onnx.export(
+                safe_torch_onnx_export(
                     fp_decoder,
                     dummy_input,
                     temp_model_path,
@@ -244,9 +249,7 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
-        """
-        Override same impl func in AIMETOnnxQuantizableMixin.
-        """
+        """Override same impl func in AIMETOnnxQuantizableMixin."""
         return super(HfWhisperDecoder, self)._sample_inputs_impl(input_spec)
 
     def get_hub_compile_options(
@@ -256,6 +259,6 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
         other_compile_options: str = "",
         device: Optional[Device] = None,
     ) -> str:
-        return super(HfWhisperDecoder, self).get_hub_compile_options(  # type: ignore
+        return super(HfWhisperDecoder, self).get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
         )

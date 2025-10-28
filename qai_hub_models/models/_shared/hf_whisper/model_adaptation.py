@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any, Optional, cast
 
 import torch
-import torch.nn as nn
+from torch import nn
 from transformers.models.whisper.modeling_whisper import (
     WhisperAttention,
     WhisperDecoder,
@@ -26,10 +26,12 @@ def expand_to_rank4(tensor: torch.Tensor) -> torch.Tensor:
     """
     Expands the tensor to rank 4 by adding two singleton dimensions at the end.
 
-    Args:
+    Parameters
+    ----------
         tensor (torch.Tensor): The input tensor.
 
-    Returns:
+    Returns
+    -------
         torch.Tensor: The tensor expanded to rank 4.
     """
     return tensor.unsqueeze(-1).unsqueeze(-1)
@@ -46,7 +48,9 @@ class SHAAttention(nn.Module):
     def __init__(self, origin_attn: WhisperAttention):
         """
         Initialize SHAAttention by copying weights from the original Attention module.
-        Args:
+
+        Parameters
+        ----------
             origin_attn (WhisperAttention): The original Whisper attention module.
         """
         super().__init__()
@@ -127,11 +131,15 @@ class SHAAttention(nn.Module):
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         """
         Forward-pass routine for SHAAttention.
-        Args:
+
+        Parameters
+        ----------
             hidden_states (torch.Tensor): The input hidden states.
             past_key_value (Optional[tuple[torch.Tensor]]): Past key and value states for attention.
             attention_mask (Optional[torch.Tensor]): Attention mask.
-        Returns:
+
+        Returns
+        -------
             tuple: The output of the attention mechanism and the past key-value states.
         """
         is_cross_attention = self.is_decoder and past_key_value is not None
@@ -223,7 +231,8 @@ class QcWhisperEncoderLayer(nn.Module):
     """
     Optimized Whisper Encoder Layer that replaces linear layers with Conv2D layers.
 
-    Args:
+    Parameters
+    ----------
         orig_layer (WhisperEncoderLayer): The original Whisper encoder layer.
     """
 
@@ -247,10 +256,12 @@ class QcWhisperEncoderLayer(nn.Module):
         """
         Forward-pass routine for the optimized Whisper encoder layer.
 
-        Args:
+        Parameters
+        ----------
             hidden_states (torch.Tensor): The input hidden states.
 
-        Returns:
+        Returns
+        -------
             tuple[torch.Tensor]: The output hidden states.
         """
         residual = hidden_states
@@ -273,7 +284,8 @@ class QcWhisperDecoderLayer(nn.Module):
     """
     Optimized Whisper Decoder Layer that replaces linear layers with Conv2D layers.
 
-    Args:
+    Parameters
+    ----------
         orig_layer (WhisperDecoderLayer): The original Whisper decoder layer.
     """
 
@@ -302,13 +314,15 @@ class QcWhisperDecoderLayer(nn.Module):
         """
         Forward-pass routine for the optimized Whisper decoder layer.
 
-        Args:
+        Parameters
+        ----------
             hidden_states (torch.Tensor): The input hidden states.
             attention_mask (Optional[torch.Tensor]): The attention mask.
             past_key_value (Optional[torch.Tensor]): The past key and value states.
             cross_attn_past_key_value (Optional[tuple[torch.Tensor]]): The past key and value states for cross-attention.
 
-        Returns:
+        Returns
+        -------
             tuple[torch.Tensor, ...]: The output hidden states and optionally the present key and value states.
         """
         # Self-attention block
@@ -361,7 +375,9 @@ class QcWhisperEncoder(nn.Module):
     def __init__(self, orig_encoder: WhisperEncoder, qc_decoder: QcWhisperDecoder):
         """
         Initialize the QcWhisperEncoder by copying weights from the original encoder and the optimized decoder.
-        Args:
+
+        Parameters
+        ----------
             orig_encoder (WhisperEncoder): The original Whisper encoder.
             qc_decoder (QcWhisperDecoder): The optimized Whisper decoder.
         """
@@ -443,7 +459,7 @@ class QcWhisperEncoder(nn.Module):
                 )
 
                 # Copy the value projection biases from the decoder to the encoder
-                self.encoder_v_proj_sha[i][num_head].bias.data.copy_(  # type: ignore[index]
+                self.encoder_v_proj_sha[i][num_head].bias.data.copy_(
                     layer.v_proj_sha[num_head].bias.data
                 )
 
@@ -453,9 +469,13 @@ class QcWhisperEncoder(nn.Module):
     ) -> tuple[tuple[tuple[torch.Tensor, ...], ...] | None]:
         """
         Forward-pass routine for the QcWhisperEncoder.
-        Args:
+
+        Parameters
+        ----------
             input_features (torch.Tensor): The input features for the encoder.
-        Returns:
+
+        Returns
+        -------
             tuple: The output of the encoder, including the next decoder cache.
         """
         input_features = input_features.unsqueeze(0).permute(1, 2, 0, 3)
@@ -464,7 +484,7 @@ class QcWhisperEncoder(nn.Module):
         input_embeds = input_embeds.permute(0, 2, 3, 1)
         embed_pos = self.embed_positions
         hidden_states = input_embeds + embed_pos
-        for idx, encoder_layer in enumerate(self.layers):
+        for encoder_layer in self.layers:
             layer_output = encoder_layer(hidden_states)
             hidden_states = layer_output[0]
         hidden_states = self.layer_norm(hidden_states)
@@ -498,7 +518,9 @@ class QcWhisperDecoder(nn.Module):
     def __init__(self, orig_decoder: WhisperDecoder):
         """
         Initialize the QcWhisperDecoder by copying weights from the original decoder.
-        Args:
+
+        Parameters
+        ----------
             orig_decoder (WhisperDecoder): The original Whisper decoder.
         """
         super().__init__()
@@ -532,13 +554,17 @@ class QcWhisperDecoder(nn.Module):
     ) -> tuple[Any, Any]:
         """
         Forward-pass routine for the QcWhisperDecoder.
-        Args:
+
+        Parameters
+        ----------
             input_ids (torch.Tensor): The input IDs for the decoder.
             attention_mask (torch.Tensor): The attention mask for the decoder.
             past_key_values (torch.Tensor): The past key values for the decoder.
             cross_attn_past_key_value (torch.Tensor): The past key values for cross-attention.
             position_ids (torch.Tensor): The position IDs for the decoder.
-        Returns:
+
+        Returns
+        -------
             tuple: The output of the decoder, including the next cache.
         """
         input_shape = input_ids.size()
@@ -574,10 +600,14 @@ def replace_component(model: WhisperModel, component_type: str) -> None:
     """
     Replaces components in the Whisper model with their optimized counterparts,
     including converting multi-head attention (MHA) to self-attention (SHA) and linear layers to Conv2D.
-    Args:
+
+    Parameters
+    ----------
         model (WhisperModel): The Whisper model to modify.
         component_type (str): The type of component to replace ('encoder' or 'decoder').
-    Raises:
+
+    Raises
+    ------
         ValueError: If an unknown component_type is provided.
     """
     if component_type == "encoder":
@@ -616,7 +646,9 @@ def monkey_patch_model(model: WhisperModel) -> None:
     """
     Applies a series of modifications to the Whisper model, including replacing components,
     attention modules, and moving cross-key/value pairs.
-    Args:
+
+    Parameters
+    ----------
         model (WhisperModel): The Whisper model to modify.
     """
     # Replace decoder components with their optimized counterparts

@@ -9,7 +9,7 @@ import os
 import pickle
 from abc import abstractmethod
 from pathlib import Path
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
 import torch
 from qai_hub.client import Device
@@ -149,9 +149,7 @@ def get_past_keyval_with_shift(
     new_key_suffix: str = "",
     bundled_kvcache: bool = True,
 ):
-    """
-    Clip past key value to feed next iteration
-    """
+    """Clip past key value to feed next iteration"""
     tg_inputs = {}
     if bundled_kvcache:
         # Key and Values are concatanated on batch dimension
@@ -190,9 +188,9 @@ def make_torch_compatible_past_key_values(
     decode_layers: int,
     past_key_val_per_layer: int,
     bundled_kvcache: bool = True,
-    *past_values_flattened,
+    *past_values_flattened: torch.Tensor,
 ):
-    past_key_values = []
+    past_key_values: list[Any] = []
     total_past_entries = len(past_values_flattened)
 
     if bundled_kvcache:
@@ -203,10 +201,10 @@ def make_torch_compatible_past_key_values(
                 f"Expecting {decode_layers * 2}, got {total_past_entries}."
             )
 
-        for i in range(0, total_past_entries, 2):
-            past_key_values.append(
-                (past_values_flattened[i], past_values_flattened[i + 1])
-            )
+        past_key_values.extend(
+            (past_values_flattened[i], past_values_flattened[i + 1])
+            for i in range(0, total_past_entries, 2)
+        )
         return tuple(past_key_values)
 
     # Key and Value are separate for each head
@@ -250,9 +248,7 @@ class RopeEmbedding:
         self.cos, self.sin = self.precompute_freqs_cis(head_dim, max_length * 2)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
-        """
-        Precompute embeeding matrix
-        """
+        """Precompute embeeding matrix"""
         freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         t = torch.arange(end)
         freqs = torch.outer(t, freqs).float()
@@ -297,10 +293,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         device: Optional[Device] = None,
         context_graph_name: str | None = None,
     ) -> str:
-        if not (
-            target_runtime.is_aot_compiled
-            and target_runtime.compilation_uses_qnn_converters
-        ):
+        if not target_runtime.is_aot_compiled:
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile QNN ONNX or QNN runtime is supported for LLMs for now."
@@ -375,7 +368,5 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """
-        Source model format preferred for conversion on AI Hub.
-        """
+        """Source model format preferred for conversion on AI Hub."""
         return SourceModelFormat.ONNX

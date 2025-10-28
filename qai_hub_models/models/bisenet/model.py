@@ -51,7 +51,8 @@ class BiseNet(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
         """
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB

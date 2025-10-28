@@ -42,8 +42,8 @@ def patch_ultralytics_segmentation_head(model: SegmentationModel):
 
     # Patch inference head to skip concat of boxes & scores
     # This is required for int8 quantization.
-    head.forward = functools.partial(patched_ultryaltics_seg_head_forward, head)  # type: ignore[method-assign]
-    head._inference = functools.partial(patched_ultryaltics_det_head_inference, head)  # type: ignore[method-assign]
+    head.forward = functools.partial(patched_ultryaltics_seg_head_forward, head)
+    head._inference = functools.partial(patched_ultryaltics_det_head_inference, head)  # type: ignore[assignment]
 
 
 def patched_ultryaltics_seg_head_forward(

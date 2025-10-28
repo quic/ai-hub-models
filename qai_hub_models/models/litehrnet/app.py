@@ -52,7 +52,8 @@ class LiteHRNetApp:
         """
         Predicts pose keypoints for a person in the image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -63,7 +64,8 @@ class LiteHRNetApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
@@ -79,8 +81,8 @@ class LiteHRNetApp:
         proc_inputs_ = proc_inputs["inputs"][0]
 
         # run inference
-        input = proc_inputs_.to(torch.float32).unsqueeze(0)
-        predictions, _, heatmaps = self.model(input)
+        model_input = proc_inputs_.to(torch.float32).unsqueeze(0)
+        predictions, _, heatmaps = self.model(model_input)
 
         # get the bounding box center from the preprocessing
         # In older versions of the MM modules the center is directly a member
@@ -113,9 +115,10 @@ def refine_and_transform_keypoints(
     input_size=(192, 256),
 ) -> np.ndarray:
     """
-    keypoint refinement and coordinate transformation
+    Keypoint refinement and coordinate transformation
 
-    Args:
+    Parameters
+    ----------
         keypoints: Raw keypoints [batch, 17, 2]
         heatmaps: Heatmaps [batch, 17, 64, 48]
         bboxes: Bounding boxes [batch, 4] in (x1,y1,x2,y2)
@@ -123,7 +126,8 @@ def refine_and_transform_keypoints(
         input_size: Model input size (width, height)
         scale_factor: Output stride scaling factor
 
-    Returns:
+    Returns
+    -------
         refined_keypoints [batch, 17, 2]
     """
     predictions_np = np.asarray(predictions)

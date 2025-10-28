@@ -9,7 +9,7 @@ import os
 from typing import Any
 
 import torch
-import yaml  # type: ignore
+from ruamel.yaml import YAML
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.semantic_kitti_evaluator import SemanticKittiEvaluator
@@ -48,7 +48,7 @@ with SourceAsRoot(
     MODEL_ASSET_VERSION,
     source_repo_patches=SALSANEXT_SOURCE_PATCHES,
 ):
-    from train.common.laserscan import SemLaserScan  # type: ignore
+    from train.common.laserscan import SemLaserScan
 
 
 class SalsaNext(BaseModel):
@@ -67,9 +67,9 @@ class SalsaNext(BaseModel):
 
     def load_lidar_bin(self, lidar_bin_path: str) -> tuple[torch.Tensor, Any]:
         with open(ARCH_ADDRESS) as f:
-            arch = yaml.safe_load(f)
+            arch = YAML(typ="safe", pure=True).load(f)
         with open(DATA_ADDRESS) as f:
-            data = yaml.safe_load(f)
+            data = YAML(typ="safe", pure=True).load(f)
         color_map = data["color_map"]
         sensor = arch["dataset"]["sensor"]
         img_H = sensor["img_prop"]["height"]
@@ -138,7 +138,7 @@ class SalsaNext(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator | None:
         with open(DATA_ADDRESS) as f:
-            data = yaml.safe_load(f)
+            data = YAML(typ="safe", pure=True).load(f)
         n_classes = len(data["learning_map_inv"])
         return SemanticKittiEvaluator(
             n_classes, data["learning_map"], data["learning_ignore"]
@@ -161,7 +161,7 @@ def _load_salsanext_source_model_from_weights(
         MODEL_ID,
         MODEL_ASSET_VERSION,
     ):
-        from train.tasks.semantic.modules.SalsaNext import SalsaNext  # type: ignore
+        from train.tasks.semantic.modules.SalsaNext import SalsaNext
 
         model = SalsaNext(20)
         model = torch.nn.DataParallel(model)
