@@ -64,8 +64,7 @@ class LamaDilated(RepaintModel):
             masked_img = torch.cat([masked_img, mask], dim=1)
 
         predicted_image = self.model.generator(masked_img)  # type: ignore[operator]
-        inpainted = mask * predicted_image + (1 - mask) * image
-        return inpainted
+        return mask * predicted_image + (1 - mask) * image
 
 
 def _get_weightsfile_from_name(weights_name: str):

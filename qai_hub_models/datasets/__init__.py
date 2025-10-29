@@ -35,14 +35,14 @@ def _try_import_dataset(module_name: str, cls: str, name: str | None = None):
             # stable diffusion dataset requires aimet-onnx
             _ALL_DATASETS_IMPORT_ERRORS[name] = e
             return
-        raise e
+        raise
     except Exception as e:
         if (
             isinstance(e, ModuleNotFoundError)
             and str(e) == f"No module named 'qai_hub_models.datasets{module_name}"
         ):
             # this module legitimately does not exist
-            raise e
+            raise
 
         # The module couldn't be loaded for some other reason.
         #
@@ -156,7 +156,7 @@ _try_import_dataset(".audioset", "AudioSetDataset")
 def get_dataset_from_name(
     name: str, split: DatasetSplit, input_spec: InputSpec | None = None, **kwargs
 ) -> BaseDataset:
-    dataset_cls = DATASET_NAME_MAP.get(name, None)
+    dataset_cls = DATASET_NAME_MAP.get(name)
     if not dataset_cls:
         if name in _ALL_DATASETS_IMPORT_ERRORS:
             raise _ALL_DATASETS_IMPORT_ERRORS[name]

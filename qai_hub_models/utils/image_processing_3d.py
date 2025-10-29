@@ -35,8 +35,7 @@ def project_to_image(pts_3d: np.ndarray, P: np.ndarray) -> np.ndarray:
     pts_2d = np.dot(P, pts_3d_homo.transpose(1, 0)).transpose(1, 0)
 
     # Normalize by the third coordinate (depth)
-    pts_2d = pts_2d[:, :2] / pts_2d[:, 2:]
-    return pts_2d
+    return pts_2d[:, :2] / pts_2d[:, 2:]
 
 
 def ddd2locrot(
@@ -92,8 +91,7 @@ def unproject_2d_to_3d(
     x = (pt_2d[:, 0] * depth[:, 0] - P[0, 3] - P[0, 2] * z) / P[0, 0]
     y = (pt_2d[:, 1] * depth[:, 0] - P[1, 3] - P[1, 2] * z) / P[1, 1]
 
-    pt_3d = np.array([x, y, z], dtype=np.float32).transpose(1, 0)
-    return pt_3d
+    return np.array([x, y, z], dtype=np.float32).transpose(1, 0)
 
 
 def alpha2rot_y(alpha: np.ndarray, x: np.ndarray, cx: float, fx: float) -> np.ndarray:

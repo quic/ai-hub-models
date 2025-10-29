@@ -276,8 +276,7 @@ class QcWhisperEncoderLayer(nn.Module):
         hidden_states = self.activation_fn(self.fc1(hidden_states.permute(0, 3, 1, 2)))
         hidden_states = self.fc2(hidden_states).permute(0, 2, 3, 1)
         hidden_states = residual + hidden_states
-        outputs = (hidden_states,)
-        return outputs
+        return (hidden_states,)
 
 
 class QcWhisperDecoderLayer(nn.Module):

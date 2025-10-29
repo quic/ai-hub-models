@@ -268,7 +268,7 @@ class YoloSegmentationApp:
 
     def check_image_size(self, pixel_values: torch.Tensor) -> bool:
         """Verify image size is valid model input."""
-        return all([s % 32 == 0 for s in pixel_values.shape[-2:]])
+        return all(s % 32 == 0 for s in pixel_values.shape[-2:])
 
     def preprocess_input(self, pixel_values: torch.Tensor) -> torch.Tensor:
         img_size = (self.input_height, self.input_width)

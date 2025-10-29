@@ -117,13 +117,10 @@ class Plan:
             func(s.step_id, s.task)
 
     def has_step(self, step_id: str) -> bool:
-        for s in self._steps:
-            if s.step_id == step_id:
-                return True
-        return False
+        return any(s.step_id == step_id for s in self._steps)
 
     def is_skipped(self, step_id: str) -> bool:
-        return any([r.match(step_id) for r in self._skips])
+        return any(r.match(step_id) for r in self._skips)
 
     def print(self) -> None:
         for step in self._steps:

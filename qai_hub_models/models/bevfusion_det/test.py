@@ -27,7 +27,7 @@ def test_task() -> None:
         model.encoder1, model.encoder2, model.encoder3, model.encoder4, model.decoder
     )
 
-    cam_paths = {k: v for k, v in CAMERAS.items()}
+    cam_paths = dict(CAMERAS.items())
     images = [load_image(str(img.fetch())) for img in cam_paths.values()]
     inputs_json = load_json(INPUTS.fetch())
     corners = app.predict_3d_boxes_from_images(

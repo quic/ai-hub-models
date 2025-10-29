@@ -155,8 +155,8 @@ class FootTrackNet(BaseModel):
 
     def load_weights(self, base_file):
         """Load pretrined weights"""
-        other, ext = os.path.splitext(base_file)
-        if ext == ".pkl" or ".pth":
+        _, ext = os.path.splitext(base_file)
+        if ext in {".pkl", ".pth"}:
             print("Loading pretrained weights into state dict...")
 
             pretrained_dict = torch.load(

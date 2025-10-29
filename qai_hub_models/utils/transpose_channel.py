@@ -15,7 +15,7 @@ def _transpose_channel(
     inputs: hub.client.DatasetEntries,
     first_to_last: bool,
 ) -> dict[str, list[np.ndarray]]:
-    target = dict()
+    target = {}
     for name, array in inputs.items():
         if name not in io_names:
             target[name] = array  # no op
@@ -61,7 +61,7 @@ def transpose_channel_last_to_first(
 def transpose_channel_last_to_first_input_specs(
     input_specs: InputSpec, channel_last_inputs: list[str]
 ) -> InputSpec:
-    out: InputSpec = dict()
+    out: InputSpec = {}
     for i, (shape, input_type) in input_specs.items():
         if i in channel_last_inputs:
             if len(shape) == 3:

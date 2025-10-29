@@ -190,12 +190,13 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             # All AOT paths will fail if QNN fails.
             runtime = TargetRuntime.QNN_DLC
 
-        if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
-            if reason.has_failure:
-                if include_scorecard_failures:
-                    return reason.failure_reason
-                elif reason.scorecard_failure is None:
-                    return reason.failure_reason
+        if (
+            reason := self.disabled_paths.get_disable_reasons(precision, runtime)
+        ) and reason.has_failure:
+            if include_scorecard_failures:
+                return reason.failure_reason
+            if reason.scorecard_failure is None:
+                return reason.failure_reason
 
         return None
 

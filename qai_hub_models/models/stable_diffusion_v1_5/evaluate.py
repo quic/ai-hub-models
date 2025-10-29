@@ -11,9 +11,9 @@ import warnings
 
 import qai_hub as hub
 
-from qai_hub_models.models.cavaface import MODEL_ID, Model
-from qai_hub_models.models.cavaface.export import export_model
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.stable_diffusion_v1_5 import MODEL_ID, Model
+from qai_hub_models.models.stable_diffusion_v1_5.export import export_model
 from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
@@ -23,11 +23,7 @@ def main():
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
-        Precision.float: [
-            TargetRuntime.TFLITE,
-            TargetRuntime.QNN_DLC,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
+        Precision.w8a16: [
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
@@ -36,6 +32,7 @@ def main():
         model_cls=Model,
         supported_datasets=eval_datasets,
         supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=False,
     )
     args = parser.parse_args()
 

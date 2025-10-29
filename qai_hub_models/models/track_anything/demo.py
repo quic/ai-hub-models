@@ -127,10 +127,7 @@ def main(is_test: bool = False):
         ResizeLongestSide,
     )
 
-    if args.video is None:
-        video_input = str(VIDEO_ADDRESS.fetch())
-    else:
-        video_input = str(args.video)
+    video_input = str(VIDEO_ADDRESS.fetch()) if args.video is None else str(args.video)
 
     # Get first frame
     frames = generate_frames_from_video(video_input)

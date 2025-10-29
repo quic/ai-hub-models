@@ -106,13 +106,12 @@ def get_input_prompt_with_tags(
     system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
 ):
     """Get prompt to set context and initialize prompt-processor"""
-    prompt = f"""<s>{INST_START} {SYS_START}
+    return f"""<s>{INST_START} {SYS_START}
 {system_context_prompt}
 {SYS_END}
 
 {user_input_prompt} {INST_END}
 """
-    return prompt
 
 
 def get_tokenizer():
@@ -138,10 +137,9 @@ def prepare_combined_attention_mask(
     if input_shape is None:
         input_shape = attention_mask.shape
     dummy_enbedding = torch.tensor((1.0,)).to(dtype)
-    new_mask = LlamaModel._prepare_decoder_attention_mask(
+    return LlamaModel._prepare_decoder_attention_mask(
         attention_mask, input_shape, dummy_enbedding, past_key_values_length
     )
-    return new_mask
 
 
 class Llama2Wrapper(torch.nn.Module):

@@ -110,8 +110,7 @@ class AOTGAN(RepaintModel):
 
         pred_rgb = torch.flip(pred_bgr, dims=[1])
         pred_rgb_clamped = torch.clamp(pred_rgb, -1, 1)
-        pred_rgb_unnormalized = (pred_rgb_clamped + 1) / 2
-        return pred_rgb_unnormalized
+        return (pred_rgb_clamped + 1) / 2
 
     def get_evaluator(self) -> BaseEvaluator:
         return InpaintEvaluator()

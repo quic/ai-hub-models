@@ -68,7 +68,7 @@ def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
     """Convert from names of weights files to the url for the weights file"""
     if weights_name == DEFAULT_WEIGHTS:
         return DEFAULT_WEIGHTS_URL
-    elif weights_name == x2PLUS_WEIGHTS:
+    if weights_name == x2PLUS_WEIGHTS:
         return x2PLUS_WEIGHTS_URL
     return ""
 
@@ -118,10 +118,7 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
         )
         pretrained_dict = load_torch(weights_url)
 
-        if "params_ema" in pretrained_dict:
-            keyname = "params_ema"
-        else:
-            keyname = "params"
+        keyname = "params_ema" if "params_ema" in pretrained_dict else "params"
         realesrgan_model.load_state_dict(pretrained_dict[keyname], strict=True)
 
         return realesrgan_model

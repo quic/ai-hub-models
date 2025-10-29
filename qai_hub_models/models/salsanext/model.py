@@ -62,8 +62,7 @@ class SalsaNext(BaseModel):
         return cls(salsanext_model)
 
     def forward(self, lidar: torch.Tensor) -> tuple[torch.Tensor]:
-        predict = self.model(lidar)
-        return predict
+        return self.model(lidar)
 
     def load_lidar_bin(self, lidar_bin_path: str) -> tuple[torch.Tensor, Any]:
         with open(ARCH_ADDRESS) as f:

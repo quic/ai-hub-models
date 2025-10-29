@@ -44,10 +44,7 @@ class ScorecardCompilePath(Enum):
         profile_paths = [
             x for x in ScorecardProfilePath if x.enabled and x.compile_path == self
         ]
-        if len(profile_paths) > 0:
-            return True
-
-        return False
+        return len(profile_paths) > 0
 
     @staticmethod
     def all_paths(

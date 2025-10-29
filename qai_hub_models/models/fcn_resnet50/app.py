@@ -76,6 +76,4 @@ class FCN_ResNet50App:
             return predictions
 
         color_map = create_color_map(NUM_CLASSES)
-        out = PIL.Image.blend(image, PIL.Image.fromarray(color_map[predictions]), 0.5)
-
-        return out
+        return PIL.Image.blend(image, PIL.Image.fromarray(color_map[predictions]), 0.5)

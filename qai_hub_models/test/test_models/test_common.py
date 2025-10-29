@@ -33,9 +33,10 @@ def reset_hub_frameworks_patches(
     api_url: str | None = None,
 ):
     def get_default_qairt_version(engine: InferenceEngine) -> QAIRTVersion:
-        if default_engine_versions is not None:
-            if version := default_engine_versions.get(engine):
-                return QAIRTVersion(version)
+        if default_engine_versions is not None and (
+            version := default_engine_versions.get(engine)
+        ):
+            return QAIRTVersion(version)
         return QAIRTVersion(default_qaihm_version or "0.0")
 
     version_patch = mock.patch(
@@ -52,9 +53,9 @@ def reset_hub_frameworks_patches(
             "qai_hub_models.models.common.get_framework_list",
             mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
         ),
-        mock.patch("qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", dict()),
+        mock.patch("qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", {}),
         mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", dict()
+            "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", {}
         ),
         mock.patch(
             "qai_hub.hub._global_client.config.api_url",
@@ -136,15 +137,19 @@ def test_precision_parse_serialize():
     assert str(Precision.parse("a16")) == "a16"
 
     # Invalid bit width
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Unsupported bit width a24 for quantization activations"
+    ):
         Precision.parse("w8a24")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Unsupported bit width a24 for quantization activations"
+    ):
         Precision.parse("w8a24_mixed_int16")
     # Invalid override precision dtype
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid override type INT8"):
         Precision.parse("w8a8_mixed_int8")
     # Invalid override type
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid override_type: QuantizeDtype.INT8"):
         Precision(QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT8)
 
 
@@ -228,7 +233,9 @@ def test_qairt_version():
         assert QAIRTVersion.all() == [QAIRTVersion(f.api_version) for f in frameworks]
 
         # Version that does not exist
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r".*QAIRT version 0.0 is not supported by AI Hub\..*"
+        ):
             QAIRTVersion("0.0")
 
         # Version that does not exist (no verification)
@@ -267,7 +274,9 @@ def test_qairt_version():
 
     # Verify "too old" QAIHM default behavior
     with reset_hub_frameworks_patches(frameworks, "2.30"):
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r".*QAIRT version 2.30 is not supported by AI Hub\..*"
+        ):
             global_default_runtime.default_qairt_version  # noqa: B018
 
         # fallback is to the Hub default since the QAIHM default is not available

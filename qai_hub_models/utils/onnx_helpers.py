@@ -117,7 +117,7 @@ def safe_torch_onnx_export(*args, **kwargs):
             raise ValueError(
                 "Large model export to ONNX is broken in torch 2.5. Install a different torch version and try again."
             ) from None
-        raise e
+        raise
 
 
 def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
@@ -143,7 +143,7 @@ def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
     ------
         ValueError if an input is passed twice or an argname is missing.
     """
-    input_dict: dict[str, Any] = dict()
+    input_dict: dict[str, Any] = {}
     for idx, input_name in enumerate(argnames):
         if len(args) > idx:
             input_val = args[idx]
@@ -329,15 +329,14 @@ def extract_io_types_from_onnx_model(
                             onnx_model.graph, initializer_indices, node
                         ),
                     )
-            elif node.op_type == "QuantizeLinear":
-                if node.output[0] in output_names:
-                    outputs[node.output[0]] = (
-                        outputs[node.output[0]][0],
-                        outputs[node.output[0]][1],
-                        _extract_qdq_scale_offset(
-                            onnx_model.graph, initializer_indices, node
-                        ),
-                    )
+            elif node.op_type == "QuantizeLinear" and node.output[0] in output_names:
+                outputs[node.output[0]] = (
+                    outputs[node.output[0]][0],
+                    outputs[node.output[0]][1],
+                    _extract_qdq_scale_offset(
+                        onnx_model.graph, initializer_indices, node
+                    ),
+                )
 
     return inputs, outputs
 
@@ -395,6 +394,5 @@ def verify_onnx_export_is_compatible_with_ai_hub(
             ONNX_ENV_ERROR = f"{ONNX_ENV_ERROR} Install {ONNX_MAX_COMPATIBLE_VERSION} or earlier:  pip install onnx=={ONNX_MAX_COMPATIBLE_VERSION}"
         ONNX_ENV_CHECKED = True
 
-    if ONNX_ENV_CHECKED:
-        if ONNX_ENV_ERROR:
-            raise ValueError(ONNX_ENV_ERROR)
+    if ONNX_ENV_CHECKED and ONNX_ENV_ERROR:
+        raise ValueError(ONNX_ENV_ERROR)

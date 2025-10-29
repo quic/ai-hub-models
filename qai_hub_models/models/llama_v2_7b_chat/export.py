@@ -370,8 +370,8 @@ def export_model(
     return {
         component_name: (
             link_jobs[component_name],
-            profile_jobs.get(sub_component_name, None),
-            inference_jobs.get(sub_component_name, None),
+            profile_jobs.get(sub_component_name),
+            inference_jobs.get(sub_component_name),
         )
         for component_name in components
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]

@@ -17,7 +17,8 @@ from .venv import CreateVenvTask, RunCommandsTask, RunCommandsWithVenvTask
 qaihm_path = pathlib.Path(__file__).parent.parent.parent / "qai_hub_models"
 version_path = qaihm_path / "_version.py"
 version_locals: dict[str, str] = {}
-exec(open(version_path).read(), version_locals)
+with open(version_path) as verf:
+    exec(verf.read(), version_locals)
 __version__ = version_locals["__version__"]
 
 REMOTE_REPOSITORY_URL_VARNAME = "QAIHM_REMOTE_URL"

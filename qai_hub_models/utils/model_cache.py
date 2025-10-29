@@ -90,10 +90,7 @@ def _get_model_cache_val(hub_model_id: str) -> dict[str, str]:
 
 def _load_cache_for_model(model_name: str, model_asset_version: int) -> Cache:
     file_path = _get_cache_file_path(model_name, model_asset_version)
-    model_cache = (
-        Cache.from_yaml(file_path) if os.path.exists(file_path) else Cache(cache=[])
-    )
-    return model_cache
+    return Cache.from_yaml(file_path) if os.path.exists(file_path) else Cache(cache=[])
 
 
 class KeyValue(BaseQAIHMConfig):

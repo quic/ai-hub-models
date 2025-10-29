@@ -72,7 +72,7 @@ class HeadBlock(nn.Module):
             self.activ = nn.ReLU()
         else:
             self.activ = None
-            assert 0, f"Unsupported activation function: {activ_type}"
+            raise ValueError(f"Unsupported activation function: {activ_type}")
 
     def forward(self, x):
         x = self.conv(x)

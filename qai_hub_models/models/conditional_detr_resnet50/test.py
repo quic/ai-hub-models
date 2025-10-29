@@ -27,7 +27,7 @@ def test_task() -> None:
     net = ConditionalDETRResNet50.from_pretrained()
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS)
-    assert set(list(label.numpy())) == EXPECTED_OUTPUT
+    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_cli_from_pretrained():
@@ -43,7 +43,7 @@ def test_trace() -> None:
 
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(trace).predict(img, DEFAULT_WEIGHTS)
-    assert set(list(label.numpy())) == EXPECTED_OUTPUT
+    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_demo() -> None:

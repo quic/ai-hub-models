@@ -41,7 +41,7 @@ HIGHER_PRECISION_FOR_MIXED_PRECISION = "float16"
 
 def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
     tensors = make_torch_inputs(input_spec)
-    dummy_inputs = dict()
+    dummy_inputs = {}
     for index, input_name in enumerate(input_spec):
         dummy_inputs[input_name] = tensors[index].numpy()
     return dummy_inputs
@@ -193,7 +193,8 @@ def run_quant_analyzer(onnx_model, sim, eval_callback, input_spec, results_dir):
         and Path(f"{results_dir}/per_layer_quant_enabled.json").is_file()
     ):
         print(f"Skipping QuantAnalyzer and using cached results from {results_dir}")
-        sqnr_dict = json.load(open(f"{results_dir}/per_layer_quant_enabled.json"))
+        with open(f"{results_dir}/per_layer_quant_enabled.json") as qf:
+            sqnr_dict = json.load(qf)
 
     else:
         analyzer = quant_analyzer.QuantAnalyzer(
@@ -224,7 +225,7 @@ def debug_quant_accuracy(
     percent_layers_to_flip: int = 0,
     num_samples: int = 200,
 ):
-    overall_results = dict()
+    overall_results = {}
 
     print("\n=======================================")
     print(f"Processing Model: {model_name}")
@@ -407,7 +408,7 @@ def debug_quant_accuracy(
         try:
             results_dict = json.load(f)
         except json.decoder.JSONDecodeError:
-            results_dict = dict()
+            results_dict = {}
 
         results_dict.update(overall_results)
         overall_results = results_dict
@@ -472,11 +473,12 @@ if __name__ == "__main__":
     models_to_analyze = args.models.split(",")
 
     try:
-        results = json.load(open(OVERALL_RESULTS_FILE))
+        with open(OVERALL_RESULTS_FILE) as resf:
+            results = json.load(resf)
         print(f"Found existing results file, appending: {OVERALL_RESULTS_FILE}")
     except json.decoder.JSONDecodeError:
         print(f"Creating new results file: {OVERALL_RESULTS_FILE}")
-        results = dict()
+        results = {}
 
     for model in models_to_analyze:
         try:

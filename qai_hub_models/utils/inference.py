@@ -380,7 +380,7 @@ class AsyncOnDeviceModel:
         assert len(args) > 0, "At least 1 input should be provided for inference."
 
         dataset: hub.Dataset | DatasetEntries
-        if isinstance(args[0], hub.Dataset) or isinstance(args[0], Mapping):
+        if isinstance(args[0], (hub.Dataset, Mapping)):
             # Use the existing provided dataset
             assert len(args) == 1, "Only 1 dataset can be provided for inference."
             dataset = args[0]
@@ -421,7 +421,7 @@ class AsyncOnDeviceModel:
             )
         if self.model.producer._job_type == hub.JobType.QUANTIZE:
             return cast(InputSpec, cast(hub.QuantizeJob, self.model.producer).shapes)
-        elif self.model.producer._job_type == hub.JobType.COMPILE:
+        if self.model.producer._job_type == hub.JobType.COMPILE:
             out = cast(
                 InputSpec, cast(hub.CompileJob, self.model.producer).target_shapes
             )

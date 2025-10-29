@@ -88,5 +88,4 @@ class DDColorApp:
         output_bgr = cv2.cvtColor(output_lab, cv2.COLOR_LAB2BGR)
 
         output_img = (output_bgr * 255.0).round().astype(np.uint8)
-        output = Image.fromarray(output_img)
-        return output
+        return Image.fromarray(output_img)

@@ -293,7 +293,7 @@ def get_onnx_model(
         torch.zeros(
             input_specs[name][0], dtype=getattr(torch, input_specs[name][1])
         ).to(device)
-        for name in input_specs.keys()
+        for name in input_specs
     ]
     with torch.no_grad():
         safe_torch_onnx_export(
@@ -728,7 +728,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
                 main_input_name=self.main_input_name,
                 llm_config=self.llm_config.to_dict(),
             )
-        input_dict = sample_input(
+        return sample_input(
             input_spec,
             self.get_input_prompt_with_tags(),
             self.context_length,
@@ -737,7 +737,6 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
             self.llm_config,
             self.embedding,
         )
-        return input_dict
 
     def get_evaluator(
         self, task: str = "wikitext", device: torch.device = torch.device("cpu")
@@ -838,7 +837,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 context_length=self.context_length,
                 llm_config=self.llm_config.to_dict(),
             )
-        input_dict = sample_input(
+        return sample_input(
             input_spec,
             self.get_input_prompt_with_tags(),
             self.context_length,
@@ -847,7 +846,6 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             self.llm_config,
             self.embedding,
         )
-        return input_dict
 
     def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
         # This must be defined by the HubModelProtocol protocol via BaseModel
@@ -904,16 +902,15 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                     raise ValueError(
                         "The quantized checkpoint (with custom weights) must have an ONNX model."
                     )
-                else:
-                    # Floating model is created if not passed when from_pretrained() is called and an ONNX model doesn't exist.
-                    onnx_model = get_onnx_model(
-                        fp_model=fp_model,
-                        context_length=context_length,
-                        sequence_length=sequence_length,
-                        path=onnx_tmpfile,
-                        return_model=True,
-                        main_input_type=fp_model.main_input_type,
-                    )
+                # Floating model is created if not passed when from_pretrained() is called and an ONNX model doesn't exist.
+                onnx_model = get_onnx_model(
+                    fp_model=fp_model,
+                    context_length=context_length,
+                    sequence_length=sequence_length,
+                    path=onnx_tmpfile,
+                    return_model=True,
+                    main_input_type=fp_model.main_input_type,
+                )
 
             else:
                 print()
@@ -1167,22 +1164,19 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             raise RuntimeError("Only w4a16 and w4 precisions are supported")
 
         other_compile_options += " --quantize_full_type w8a16 --quantize_io --qnn_bin_conversion_via_model_library"
-        compile_options = super().get_hub_compile_options(
+        return super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device, context_graph_name
         )
-
-        return compile_options
 
     def get_hub_link_options(
         self,
         target_runtime: TargetRuntime,
         other_link_options: str = "",
     ) -> str:
-        link_options = super().get_hub_link_options(
+        return super().get_hub_link_options(
             target_runtime,
             other_link_options,
         )
-        return link_options
 
     def get_qairt_context_graph_name(self, split_index: int, num_splits: int) -> str:
         """
@@ -1361,14 +1355,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         embedding_table = torch.from_numpy(
             onnx.numpy_helper.to_array(lm_head_weights[0]).copy()
         )
-        embedding_layer = torch.nn.Embedding(
+        return torch.nn.Embedding(
             self.llm_config.vocab_size,
             self.llm_config.hidden_size,
             self.llm_config.pad_token_id,
             _weight=embedding_table.T,
         )
-
-        return embedding_layer
 
     def convert_input_ids_to_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self._get_embedding_table()(input_ids)

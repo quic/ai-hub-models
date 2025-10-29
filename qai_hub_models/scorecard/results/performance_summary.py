@@ -202,7 +202,7 @@ class ScorecardModelPrecisionSummary(
             component_dict: dict[ScorecardDevice, list[ScorecardJobTypeVar]] = {}
             for run in path_runs:
                 if run.model_id == component_id:
-                    job_list = component_dict.get(run._device, list())
+                    job_list = component_dict.get(run._device, [])
                     component_dict[run._device] = job_list
                     job_list.append(run)
             summaries_per_device_component[component_id] = {
@@ -214,8 +214,7 @@ class ScorecardModelPrecisionSummary(
 
         if components is None:
             return cls(model_id, precision, summaries_per_device_component[model_id])
-        else:
-            return cls(model_id, precision, None, summaries_per_device_component)
+        return cls(model_id, precision, None, summaries_per_device_component)
 
     def get_run(
         self,
@@ -241,11 +240,12 @@ class ScorecardModelPrecisionSummary(
         elif self.has_components:
             raise ValueError("Must provide component name for models with components.")
 
-        if component_device_map := self.runs_per_component_device.get(
-            component or self.model_id
-        ):
-            if summary := component_device_map.get(device):
-                return summary.get_run(path)  # type: ignore[arg-type,return-value]
+        if (
+            component_device_map := self.runs_per_component_device.get(
+                component or self.model_id
+            )
+        ) and (summary := component_device_map.get(device)):
+            return summary.get_run(path)  # type: ignore[arg-type,return-value]
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
@@ -534,7 +534,7 @@ class ModelPrecisionPerfSummary(
             # Remove universal assets for runtimes that were entirely removed
             # because they aren't supported by all components.
             for component in components.values():
-                universal_runtimes = {r: False for r in component.universal_assets}
+                universal_runtimes = dict.fromkeys(component.universal_assets, False)
                 for runtime_dict in component.performance_metrics.values():
                     for runtime in runtime_dict:
                         if runtime in universal_runtimes:
@@ -594,7 +594,7 @@ class ModelPerfSummary(
         }
 
         # Remove precisions with no jobs.
-        for p in self.summaries_per_precision.keys():
+        for p in self.summaries_per_precision:
             if not precision_cards[p].components or all(
                 not component_card.performance_metrics
                 for component_card in precision_cards[p].components.values()

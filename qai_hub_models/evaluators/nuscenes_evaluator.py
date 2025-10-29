@@ -115,7 +115,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
         }
 
     def reset(self):
-        self.nusc_annos = dict()
+        self.nusc_annos = {}
 
     def add_batch(
         self,
@@ -340,16 +340,21 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 # - vel_err: Not applicable (static objects have zero velocity by definition)
                 # - orient_err: Not applicable for traffic_cone (symmetric shape makes orientation undefined)
                 # Per nuScenes evaluation protocol, these metrics are set to NaN for static classes
-                if class_name in ["traffic_cone"] and metric_name in [
-                    "attr_err",
-                    "vel_err",
-                    "orient_err",
-                ]:
-                    tp = np.nan
-                elif class_name in ["barrier"] and metric_name in [
-                    "attr_err",
-                    "vel_err",
-                ]:
+                if (
+                    class_name in ["traffic_cone"]
+                    and metric_name
+                    in [
+                        "attr_err",
+                        "vel_err",
+                        "orient_err",
+                    ]
+                    or class_name in ["barrier"]
+                    and metric_name
+                    in [
+                        "attr_err",
+                        "vel_err",
+                    ]
+                ):
                     tp = np.nan
                 else:
                     tp = calc_tp(metric_data, cfg.min_recall, metric_name)

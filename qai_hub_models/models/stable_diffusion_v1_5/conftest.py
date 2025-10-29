@@ -11,8 +11,7 @@ import warnings
 import pytest
 import torch.jit._trace
 
-from qai_hub_models.models.cavaface import Model
-from qai_hub_models.utils.testing import skip_clone_repo_check
+from qai_hub_models.models.stable_diffusion_v1_5 import Model
 
 
 def pytest_configure(config):
@@ -36,18 +35,16 @@ def cached_from_pretrained():
         from_pretrained = Model.from_pretrained
         sig = inspect.signature(from_pretrained)
 
-        @skip_clone_repo_check
         def _cached_from_pretrained(*args, **kwargs):
             cache_key = str(args) + str(kwargs)
-            model = pretrained_cache.get(cache_key, None)
+            model = pretrained_cache.get(cache_key)
             if model:
                 return model
-            else:
-                non_none_model = from_pretrained(*args, **kwargs)
-                pretrained_cache[cache_key] = non_none_model
-                return non_none_model
+            non_none_model = from_pretrained(*args, **kwargs)
+            pretrained_cache[cache_key] = non_none_model
+            return non_none_model
 
-        _cached_from_pretrained.__signature__ = sig
+        _cached_from_pretrained.__signature__ = sig  # type: ignore[attr-defined]
 
         mp.setattr(Model, "from_pretrained", _cached_from_pretrained)
         yield mp

@@ -118,8 +118,7 @@ class HRNetPose(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         if self.variant == "mpii":
             return MPIIPoseEvaluator()
-        else:
-            return HRNetPoseEvaluator()
+        return HRNetPoseEvaluator()
 
     @staticmethod
     def eval_datasets() -> list[str]:

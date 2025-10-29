@@ -26,9 +26,11 @@ LABELS_PATH = (
     / "labels"
     / "foot_track_net_labels.txt"
 )
-CLASSNAME_TO_ID_MAP = {
-    line.strip(): idx for idx, line in enumerate(open(LABELS_PATH).readlines())
-}
+
+with open(LABELS_PATH) as labels_f:
+    CLASSNAME_TO_ID_MAP = {
+        line.strip(): idx for idx, line in enumerate(labels_f.readlines())
+    }
 
 
 def id_to_classname(class_id: int) -> str:

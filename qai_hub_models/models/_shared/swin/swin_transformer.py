@@ -41,14 +41,13 @@ def split_linear(
     weight_chunks = weight.chunk(num_chunks, dim=0)
     bias_chunks = bias.chunk(num_chunks) if bias is not None else [None] * num_chunks
     # Apply F.linear separately and concatenate the outputs
-    output = torch.cat(
+    return torch.cat(
         [
             split_linear_input(x, weight_chunk, bias_chunk, max_channel)
             for weight_chunk, bias_chunk in zip(weight_chunks, bias_chunks)
         ],
         dim=-1,
     )
-    return output
 
 
 class ShiftedWindowAttentionInf(torch.nn.Module):
@@ -247,8 +246,7 @@ def shifted_window_attention_inf(
         x = torch.roll(x, shifts=(shift_size[0], shift_size[1]), dims=(1, 2))
 
     # unpad features
-    x = x[:, :H, :W, :].contiguous()
-    return x
+    return x[:, :H, :W, :].contiguous()
 
 
 class AutoSplitLinear(torch.nn.Module):

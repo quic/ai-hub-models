@@ -13,7 +13,11 @@ import torch
 from torch import nn
 from torchvision.transforms import Resize
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     load_image,
@@ -94,12 +98,12 @@ class SaVDataset(BaseDataset):
         return len(self.sample)
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Sa-V does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Download sav_val.tar from https://ai.meta.com/datasets/segment-anything-video-downloads/.\n"
-            "2. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset sav --files /path/to/sav_val.tar`"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download sav_val.tar from https://ai.meta.com/datasets/segment-anything-video-downloads/",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset sav --files /path/to/sav_val.tar`",
+            ],
         )
         if self.input_tar is None or not self.input_tar.endswith(SAV_DIR_NAME + ".tar"):
             raise no_zip_error

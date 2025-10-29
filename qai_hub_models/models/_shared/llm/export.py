@@ -516,10 +516,10 @@ def export_model(
         sub_component_name: ExportResult(
             compile_job=compile_jobs[sub_component_name],
             link_job=link_jobs[component_name],
-            profile_job=profile_jobs.get(sub_component_name, None),
-            inference_job=inference_jobs.get(sub_component_name, None),
+            profile_job=profile_jobs.get(sub_component_name),
+            inference_job=inference_jobs.get(sub_component_name),
         )
-        for component_name in link_jobs.keys()
+        for component_name in link_jobs
         for sub_component_name in [
             x
             for x, y in component_from_sub_component_names.items()

@@ -128,7 +128,8 @@ def get_model_python_version_requirements(
     info = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "code-gen.yaml")
     req_less_than, min_version = None, None
     if os.path.exists(info):
-        info_data = open(info).read()
+        with open(info) as f:
+            info_data = f.read()
         req_less_than = re.search(
             r'python_version_less_than:\s*["\']([\d.]+)["\']', info_data
         )
@@ -207,8 +208,7 @@ def run_with_venv_and_get_output(venv, command):
                 executable=BASH_EXECUTABLE,
             )
         )
-    else:
-        return run_and_get_output(command)
+    return run_and_get_output(command)
 
 
 def str_to_bool(word: str) -> bool:
@@ -250,5 +250,4 @@ def get_pip() -> str:
     # UV has trouble building many packages from source on Python 3.12
     if uv_installed() and sys.version_info < (3, 12):
         return "uv pip"
-    else:
-        return "pip"
+    return "pip"

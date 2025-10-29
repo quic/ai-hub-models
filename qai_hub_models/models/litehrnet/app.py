@@ -141,5 +141,4 @@ def refine_and_transform_keypoints(
     scale_factor = np.array(object=[4.0, 4.0])
     keypoints = keypoints * scale_factor
     center = [(bbox_np[0] + bbox_np[2]) / 2, (bbox_np[1] + bbox_np[3]) / 2]
-    keypoints = keypoints / input_size * scale_np + center - 0.5 * scale_np
-    return keypoints
+    return keypoints / input_size * scale_np + center - 0.5 * scale_np

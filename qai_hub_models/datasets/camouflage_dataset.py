@@ -87,10 +87,7 @@ class CamouflageDataset(BaseDataset):
                     self.categories.append(annot_path)
 
         # Verify collected data
-        if not self.images or len(self.images) != len(self.categories):
-            return False
-
-        return True
+        return not (not self.images or len(self.images) != len(self.categories))
 
     def _download_data(self) -> None:
         CAMO_ASSET.fetch(extract=True)

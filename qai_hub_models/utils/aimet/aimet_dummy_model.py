@@ -114,12 +114,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         use_zip = self._use_zip_file()
 
         with ExitStack() as stack:
-            if use_zip:
-                # Use temporary directory for preparation
-                tmpdir = stack.enter_context(qaihm_temp_dir())
-            else:
-                tmpdir = output_dir
-
+            tmpdir = stack.enter_context(qaihm_temp_dir()) if use_zip else output_dir
             base_path = Path(tmpdir) / zip_base_dir
             os.makedirs(base_path, exist_ok=True)
 
@@ -143,7 +138,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                 self,
                 torch_inputs,
                 onnx_file_path,
-                input_names=[name for name in input_spec],
+                input_names=list(input_spec),
                 output_names=output_names,
                 opset_version=17,
             )
@@ -177,9 +172,8 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                     external_weights_file_path,
                 )
                 return zip_path
-            else:
-                # This path is persistent
-                return base_path.as_posix()
+            # This path is persistent
+            return base_path.as_posix()
 
         return ""  # mypy requires this for some reason
 

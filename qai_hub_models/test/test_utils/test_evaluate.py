@@ -55,7 +55,7 @@ class VariableIODummyModel(BaseModel):
 
         for kwarg_name, kwarg in kwargs.items():
             assert kwarg_name not in inputs, f"Specified input arg {kwarg_name} twice."
-            assert kwarg_name in self.get_input_spec().keys(), (
+            assert kwarg_name in self.get_input_spec(), (
                 f"Unknown input arg {kwarg_name}"
             )
             inputs[kwarg_name] = kwarg
@@ -143,8 +143,8 @@ class DummyEvaluator(BaseEvaluator):
         gt,
     ) -> None:
         if self.num_outputs != 1:
-            assert isinstance(output, tuple) or isinstance(output, list)
-            assert isinstance(gt, tuple) or isinstance(gt, list)
+            assert isinstance(output, (tuple, list))
+            assert isinstance(gt, (tuple, list))
         else:
             output = tuple(
                 output,
@@ -155,16 +155,8 @@ class DummyEvaluator(BaseEvaluator):
 
         assert len(output) == len(gt)
         for single_output, single_gt in zip(output, gt):
-            assert (
-                isinstance(single_output, torch.Tensor)
-                or isinstance(single_output, float)
-                or isinstance(single_output, int)
-            )
-            assert (
-                isinstance(single_gt, torch.Tensor)
-                or isinstance(single_gt, float)
-                or isinstance(single_gt, int)
-            )
+            assert isinstance(single_output, (torch.Tensor, float, int))
+            assert isinstance(single_gt, (torch.Tensor, float, int))
 
         self.dummy_metric = self.dummy_metric + 1
 
@@ -237,27 +229,27 @@ class DummyDataset(BaseDataset):
         return data if len(data) != 1 else data[0], gt if len(gt) != 1 else gt[0]
 
 
-@pytest.mark.parametrize("shuffle", (True, False))
+@pytest.mark.parametrize("shuffle", [True, False])
 @pytest.mark.parametrize(
-    ["num_samples", "dataloader_batch_size", "model_batch_size"],
-    (
+    ("num_samples", "dataloader_batch_size", "model_batch_size"),
+    [
         (100, 10, 1),
         (100, 10, 5),
         (20, 1, 1),
         (20, 20, 20),
         (100, 18, 16),
         (100, 16, 32),
-    ),
+    ],
 )
 @pytest.mark.parametrize(
-    ["num_inputs", "num_outputs"],
-    (
+    ("num_inputs", "num_outputs"),
+    [
         (1, 1),
         (1, 3),
         (2, 1),
         (3, 7),
         (4, 2),
-    ),
+    ],
 )
 def test_local_evaluate(
     num_inputs: int,  # number of model inputs

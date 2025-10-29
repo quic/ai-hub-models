@@ -192,13 +192,14 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             # model is public.
 
         # If paper is arxiv, it should be an abs link
-        if self.research_paper is not None and self.research_paper.startswith(
-            "https://arxiv.org/"
+        if (
+            self.research_paper is not None
+            and self.research_paper.startswith("https://arxiv.org/")
+            and "/abs/" not in self.research_paper
         ):
-            if "/abs/" not in self.research_paper:
-                raise ValueError(
-                    "Arxiv links should be `abs` links, not link directly to pdfs."
-                )
+            raise ValueError(
+                "Arxiv links should be `abs` links, not link directly to pdfs."
+            )
 
         # Whether this model has a page on the website
         model_is_available = self.status == MODEL_STATUS.PUBLIC
@@ -250,9 +251,12 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             )
 
         # Labels file
-        if validate_urls_exist and self.labels_file is not None:
-            if not os.path.exists(ASSET_CONFIG.get_labels_file_path(self.labels_file)):
-                raise ValueError(f"Invalid labels file: {self.labels_file}")
+        if (
+            validate_urls_exist
+            and self.labels_file is not None
+            and not os.path.exists(ASSET_CONFIG.get_labels_file_path(self.labels_file))
+        ):
+            raise ValueError(f"Invalid labels file: {self.labels_file}")
 
         # Required assets exist
         if self.status == MODEL_STATUS.PUBLIC:
@@ -362,7 +366,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     def get_hugging_face_metadata(self, root: Path = QAIHM_PACKAGE_ROOT):
         # Get the metadata for huggingface model cards.
-        hf_metadata: dict[str, Union[str, list[str]]] = dict()
+        hf_metadata: dict[str, Union[str, list[str]]] = {}
         hf_metadata["library_name"] = "pytorch"
         # We only tag Hugging Face models with the specific license name if the source is copyleft.
         # Most models are tagged with the "other" license on HF because they use the AI Hub Models license.

@@ -153,5 +153,4 @@ class BodyDetectionApp:
         x, scale, pad = resize_pad(img, (height, width))
         output = self.model(x)
         output = [tensor.permute(0, 2, 3, 1).detach() for tensor in output]
-        result = postprocess(output, scale, pad, conf, 0.5)
-        return result
+        return postprocess(output, scale, pad, conf, 0.5)

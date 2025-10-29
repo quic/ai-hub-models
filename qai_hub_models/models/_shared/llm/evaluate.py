@@ -37,10 +37,9 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
         name=task,
         **kwargs,
     )
-    dataloader = DataLoader(
+    return DataLoader(
         dataset, shuffle=False, batch_size=1, collate_fn=dataset.collate_fn
     )
-    return dataloader
 
 
 def evaluate(

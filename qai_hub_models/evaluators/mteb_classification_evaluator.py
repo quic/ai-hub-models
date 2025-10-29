@@ -146,8 +146,7 @@ class ClassificationEvaluator(BaseEvaluator):
             acc = accuracy_score(self.y_test, y_pred)
             scores_list.append(acc)
 
-        acc = np.mean(scores_list)
-        return acc
+        return np.mean(scores_list)
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score() * 100:.3f}% (Top 1)"

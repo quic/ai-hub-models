@@ -18,7 +18,7 @@ import threading
 import time
 import zipfile
 from collections.abc import Callable, Iterable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from enum import Enum
 from functools import partial
 from pathlib import Path
@@ -125,10 +125,9 @@ def _query_yes_no(question, default="yes"):
         choice = input().lower()
         if default is not None and choice == "":
             return valid[default]
-        elif choice in valid:
+        if choice in valid:
             return valid[choice]
-        else:
-            print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
+        print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
 def maybe_clone_git_repo(
@@ -194,7 +193,7 @@ def wipe_sys_modules(module: ModuleType) -> None:
         but may still reference the old package for submodules.
     """
     module_name = module.__name__
-    dep_modules = [name for name in sys.modules.keys() if name.startswith(module_name)]
+    dep_modules = [name for name in sys.modules if name.startswith(module_name)]
     for submodule_name in dep_modules:
         sys.modules.pop(submodule_name)
 
@@ -216,12 +215,10 @@ def _load_file(
             dst_path = os.path.join(dst_folder_path_str, os.path.basename(file))
             download_file(file, dst_path)
             return loader_func(dst_path)
-        else:
-            return loader_func(file)
-    elif isinstance(file, CachedWebAsset):
+        return loader_func(file)
+    if isinstance(file, CachedWebAsset):
         return loader_func(str(file.fetch()))
-    else:
-        raise NotImplementedError()
+    raise NotImplementedError()
 
 
 def load_image(image: PathType, verbose=False, desc="image") -> Image.Image:
@@ -595,7 +592,7 @@ class ModelZooAssetConfig:
             # Validate high level-schema
             ModelZooAssetConfig.ASSET_CFG_SCHEMA.validate(data)
         except SchemaError as e:
-            assert 0, f"{e.code} in {path}"
+            raise ValueError(f"{e.code} in {path}") from None
 
         for key, value in data.items():
             # Environment variable replacement
@@ -1060,18 +1057,15 @@ def download_and_cache_google_drive(web_url: str, dst_path: str, num_retries: in
     """
     for i in range(num_retries):
         print(f"Downloading data at {web_url} to {dst_path}... ")
-        try:
+        with suppress(Exception):
             gdown.download(web_url, dst_path, quiet=False)
-        except Exception:
-            pass
         if os.path.exists(dst_path):
             print("Done")
             return dst_path
-        else:
-            print(f"Failed to download file at {web_url}")
-            if i < num_retries - 1:
-                print("Retrying in 3 seconds.")
-                time.sleep(3)
+        print(f"Failed to download file at {web_url}")
+        if i < num_retries - 1:
+            print("Retrying in 3 seconds.")
+            time.sleep(3)
     return dst_path
 
 
@@ -1144,16 +1138,15 @@ def callback_with_retry(
     """Allow retries when running provided function."""
     if num_retries == 0:
         raise RuntimeError(f"Unable to run function {callback.__name__}")
-    else:
-        try:
-            return callback(*args, **kwargs)
-        except Exception as error:
-            error_msg = f"Error: {getattr(error, 'message', str(error))}"
-            print(error_msg)
-            if hasattr(error, "status_code"):
-                print(f"Status code: {error.status_code}")
-            time.sleep(10)
-            return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
+    try:
+        return callback(*args, **kwargs)
+    except Exception as error:
+        error_msg = f"Error: {getattr(error, 'message', str(error))}"
+        print(error_msg)
+        if hasattr(error, "status_code"):
+            print(f"Status code: {error.status_code}")
+        time.sleep(10)
+        return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
 
 
 @contextmanager

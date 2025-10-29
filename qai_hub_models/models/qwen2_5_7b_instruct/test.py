@@ -115,12 +115,11 @@ def cli_device_with_skips_unsupported_device(
             tmp_path.name,
         ]
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(
+            ValueError,
+            match=r"The selected device does not support weight sharing\. This script relies on weight sharing and can only target devices that support it \(Snapdragon 8 Gen 2 and later\)\.",
+        ):
             export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
-        )
 
 
 def cli_device_with_skips(
@@ -440,7 +439,7 @@ def cli_default_device_select_component(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "skip_inferencing, skip_profiling, target_runtime",
+    ("skip_inferencing", "skip_profiling", "target_runtime"),
     [
         (True, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (True, False, TargetRuntime.QNN_CONTEXT_BINARY),
@@ -475,7 +474,7 @@ def test_cli_device_with_skips_unsupported_device(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "chipset, context_length, sequence_length, target_runtime",
+    ("chipset", "context_length", "sequence_length", "target_runtime"),
     [
         ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.QNN_CONTEXT_BINARY),
         ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.QNN_CONTEXT_BINARY),
@@ -503,7 +502,7 @@ def test_cli_chipset_with_options(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "cache_mode, skip_download, skip_summary, target_runtime",
+    ("cache_mode", "skip_download", "skip_summary", "target_runtime"),
     [
         (CacheMode.ENABLE, True, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (CacheMode.DISABLE, True, False, TargetRuntime.QNN_CONTEXT_BINARY),

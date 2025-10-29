@@ -16,7 +16,11 @@ from nuscenes.utils import splits
 from PIL import Image
 from pyquaternion import Quaternion
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
@@ -263,7 +267,7 @@ class NuscenesDataset(BaseDataset):
 
             info = NuScenesSampleInfo(
                 token=sample["token"],
-                cams=dict(),
+                cams={},
                 lidar2ego_translation=cs_record["translation"],
                 lidar2ego_rotation=cs_record["rotation"],
                 ego2global_translation=pose_record["translation"],
@@ -379,13 +383,13 @@ class NuscenesDataset(BaseDataset):
         return len(self.data_infos)
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Nuscenes-Mini does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Create an account and login in https://www.nuscenes.org/nuscenes#download"
-            "2. Download the v1.0-mini.tgz file from the website. \n"
-            "3. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset nuscenes --files /path/to/v1.0-mini.tgz"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Create an account and login in https://www.nuscenes.org/nuscenes#download",
+                "Download the v1.0-mini.tgz file from the website.",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset nuscenes --files /path/to/v1.0-mini.tgz`",
+            ],
         )
         if self.source_dataset_file is None or not self.source_dataset_file.endswith(
             NUSCENE_FILE + ".tgz"

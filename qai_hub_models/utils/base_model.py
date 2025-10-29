@@ -70,7 +70,7 @@ class CollectionModel:
         for i, (name, arg) in enumerate(zip(component_names, args)):
             expected_class = type(self).component_classes[i]
             if not isinstance(arg, (expected_class, ExecutableModelProtocol)):
-                raise ValueError(
+                raise TypeError(
                     f"Expected component '{name}' to be an instance "
                     f"of {name} or ExecutableModelProtocol, got {type(arg).__name__}"
                 )
@@ -463,7 +463,7 @@ class BaseModel(
         # Local import to prevent circular dependency
         from qai_hub_models.utils.inference import prepare_compile_zoo_model_to_hub
 
-        source_model = prepare_compile_zoo_model_to_hub(
+        return prepare_compile_zoo_model_to_hub(
             self,
             source_model_format=self.preferred_hub_source_model_format(target_runtime),
             target_runtime=target_runtime,
@@ -473,7 +473,6 @@ class BaseModel(
             external_onnx_weights=external_onnx_weights,
             output_names=output_names or self.get_output_names(),
         )
-        return source_model
 
     def get_hub_compile_options(
         self,
@@ -578,12 +577,11 @@ class BaseModel(
         """
         if precision == Precision.w8a16:
             return "--range_scheme min_max"
-        elif precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
+        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
+        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
-        else:
-            return ""  # default to range_scheme mse_minimizer
+        return ""  # default to range_scheme mse_minimizer
 
     @staticmethod
     def get_hub_litemp_percentage(precision: Precision) -> float:

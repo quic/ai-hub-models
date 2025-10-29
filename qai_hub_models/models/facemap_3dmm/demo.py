@@ -3,8 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-
-import argparse
 import os
 from pathlib import Path
 
@@ -29,15 +27,13 @@ from qai_hub_models.utils.display import display_or_save_image
 
 
 def _parse_face_box(face_box_str: str) -> list[float]:
-    try:
-        values = [float(x) for x in face_box_str.split(",")]
-        if len(values) != 4:
-            raise ValueError
-        return values
-    except ValueError:
-        raise argparse.ArgumentTypeError(
+    values = [float(x) for x in face_box_str.split(",")]
+    if len(values) != 4:
+        raise ValueError(
             "Face box must be 4 comma-separated float values: left,right,top,bottom (normalized to [0,1])"
-        ) from None
+        )
+
+    return values
 
 
 # Run FaceMap_3DMM end-to-end on a sample image.

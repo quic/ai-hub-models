@@ -184,7 +184,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
 
         if (
             precision not in supported_precision_runtimes
-            and target_runtime not in supported_precision_runtimes[precision]
+            or target_runtime not in supported_precision_runtimes[precision]
         ):
             str_supported_precision_runtimes = "\n".join(
                 f"    {p}: {', '.join([rt.value for rt in rts])}"
@@ -515,9 +515,8 @@ def get_model_cli_parser(
     def get_help(name: str, default_value: Any) -> str:
         # Suppress help for argument that need not be exposed for model.
         arg_name = f"--{name.replace('_', '-')}"
-        if suppress_help_arguments is not None:
-            if arg_name in suppress_help_arguments:
-                return argparse.SUPPRESS
+        if suppress_help_arguments is not None and arg_name in suppress_help_arguments:
+            return argparse.SUPPRESS
         helpmsg = (
             f"For documentation, see {cls.__name__}::from_pretrained::parameter {name}."
         )
@@ -638,11 +637,12 @@ def demo_model_components_from_cli_args(
     """
     res = []
     component_classes = model_cls.component_classes
-    if cli_args.hub_model_id:
-        if len(cli_args.hub_model_id.split(",")) != len(component_classes):
-            raise ValueError(
-                f"Expected {len(component_classes)} components in hub-model-id, but got {cli_args.hub_model_id}"
-            )
+    if cli_args.hub_model_id and len(cli_args.hub_model_id.split(",")) != len(
+        component_classes
+    ):
+        raise ValueError(
+            f"Expected {len(component_classes)} components in hub-model-id, but got {cli_args.hub_model_id}"
+        )
 
     cli_args_comp = copy.deepcopy(cli_args)
 
@@ -803,7 +803,7 @@ def _evaluate_export_common_parser(
     parser = get_parser(supported_precision_runtimes, allow_dupe_args=True)
     # Default runtime for compiled model is fixed for given model
     # Python doesn't have ordered sets, so use a dictionary to preserver order
-    available_runtimes: dict[TargetRuntime, None] = dict()
+    available_runtimes: dict[TargetRuntime, None] = {}
     for rts in supported_precision_runtimes.values():
         for rt in rts:
             available_runtimes[rt] = None

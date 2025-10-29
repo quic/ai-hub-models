@@ -11,7 +11,12 @@ import shutil
 import numpy as np
 import torch
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 
 SEMANTIC_KITTI_VERSION = 1
@@ -92,10 +97,7 @@ class SemanticKittiDataset(BaseDataset):
             os.path.join(self.sequences_path, VAL_SEQUENCE, "labels"),
         ]
 
-        for path in paths:
-            if not os.path.exists(path):
-                return False
-        return True
+        return all(os.path.exists(path) for path in paths)
 
     def __getitem__(
         self, index: int
@@ -166,17 +168,14 @@ class SemanticKittiDataset(BaseDataset):
         return len(self.scan_files)
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "SemanticKitti does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Click this link http://www.cvlibs.net/download.php?file=data_odometry_velodyne.zip "
-            "and provide Email address and click request download link button. \n"
-            "2. Download the data_odometry_velodyne.zip file by the link sent to your email. \n"
-            "3. Download the data_odometry_labels.zip file by this link "
-            "https://semantic-kitti.org/assets/data_odometry_labels.zip. \n"
-            "4. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset semantic_kitti --files /path/to/data_odometry_velodyne.zip "
-            "/path/to/data_odometry_labels.zip`"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Open http://www.cvlibs.net/download.php?file=data_odometry_velodyne.zip, provide your Email address, and click the request download link button",
+                "Download the data_odometry_velodyne.zip file by the link sent to your email.",
+                "Download the data_odometry_labels.zip file at https://semantic-kitti.org/assets/data_odometry_labels.zip",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset semantic_kitti --files /path/to/data_odometry_velodyne.zip /path/to/data_odometry_labels.zip`",
+            ],
         )
         if self.input_lidars_zip is None or not self.input_lidars_zip.endswith(
             SEMANTIC_KITTI_LIDARS_DIR_NAME + ".zip"

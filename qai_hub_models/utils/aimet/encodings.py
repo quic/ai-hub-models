@@ -25,20 +25,23 @@ def propagate_memory_encodings(
             if node.output[0] in encodings["activation_encodings"]:
                 continue
 
-            if node.op_type in {
-                "Concat",
-                "Split",
-                "Transpose",
-                "Cast",
-                "Reshape",
-                "Slice",
-            }:
-                if node.input[0] in encodings["activation_encodings"]:
-                    for output_name in node.output:
-                        dst_entry = deepcopy(
-                            encodings["activation_encodings"][node.input[0]]
-                        )
-                        if isinstance(dst_entry, dict):
-                            dst_entry["name"] = output_name
-                        encodings["activation_encodings"][output_name] = dst_entry
-                        changes = True
+            if (
+                node.op_type
+                in {
+                    "Concat",
+                    "Split",
+                    "Transpose",
+                    "Cast",
+                    "Reshape",
+                    "Slice",
+                }
+                and node.input[0] in encodings["activation_encodings"]
+            ):
+                for output_name in node.output:
+                    dst_entry = deepcopy(
+                        encodings["activation_encodings"][node.input[0]]
+                    )
+                    if isinstance(dst_entry, dict):
+                        dst_entry["name"] = output_name
+                    encodings["activation_encodings"][output_name] = dst_entry
+                    changes = True

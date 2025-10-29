@@ -283,7 +283,7 @@ class CompositeTask(Task):
         self.show_subtasks_in_failure_message = show_subtasks_in_failure_message
 
     def does_work(self) -> bool:
-        return any([t.does_work() for t in self.tasks])
+        return any(t.does_work() for t in self.tasks)
 
     def run_task(self) -> bool:
         self.prev_run_status = {}
@@ -302,22 +302,21 @@ class CompositeTask(Task):
         if self.last_result is not None:
             if self.last_result:
                 return f"{self.group_name} succeeded."
-            elif self.group_name is None:
+            if self.group_name is None:
                 all_res = []
                 for task in self.tasks:
                     if not task.last_result:
                         all_res.append(task.get_status_message())
                 return "\n".join(all_res)
-            else:
-                res = f"{self.group_name} failed."
-                if self.show_subtasks_in_failure_message:
-                    res += " Composite failure summary:"
-                    for task in self.tasks:
-                        if not task.last_result:
-                            res += "\n    " + task.get_status_message().replace(
-                                "\n", "\n    "
-                            )
-                return res
+            res = f"{self.group_name} failed."
+            if self.show_subtasks_in_failure_message:
+                res += " Composite failure summary:"
+                for task in self.tasks:
+                    if not task.last_result:
+                        res += "\n    " + task.get_status_message().replace(
+                            "\n", "\n    "
+                        )
+            return res
         return f"{self.group_name} has not run."
 
 
@@ -343,11 +342,9 @@ class ConditionalTask(Task):
     def does_work(self) -> bool:
         if self.condition():
             return self.true_task.does_work()
-        else:
-            return self.false_task.does_work()
+        return self.false_task.does_work()
 
     def run_task(self) -> bool:
         if self.condition():
             return self.true_task.run()
-        else:
-            return self.false_task.run()
+        return self.false_task.run()

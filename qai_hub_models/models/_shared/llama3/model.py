@@ -116,8 +116,7 @@ class RopeEmbedding(Embedding):
         # for adapted llama
         emb_size = embeddings[0].size(-1) // 2
         embeddings = [emb[:, :, :emb_size] for emb in embeddings]
-        embeddings = [emb.unsqueeze(0) for emb in embeddings]
-        return embeddings  # pyright: ignore [reportReturnType]
+        return [emb.unsqueeze(0) for emb in embeddings]
 
     def get_embedding(
         self,
@@ -172,7 +171,7 @@ class Llama3Base(LLMBase):
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
         """Get prompt to set context and initialize prompt-processor"""
-        prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
+        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
 {START_HEADER}{USER_ID}{END_HEADER}
@@ -181,7 +180,6 @@ class Llama3Base(LLMBase):
 
 
 """
-        return prompt
 
     @staticmethod
     def monkey_patch(
@@ -271,7 +269,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
         """Get prompt to set context and initialize prompt-processor"""
-        prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
+        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
 {START_HEADER}{USER_ID}{END_HEADER}
@@ -280,7 +278,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
 
 """
-        return prompt
 
     @staticmethod
     def _get_output_names(num_hidden_layers: int):
@@ -327,7 +324,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                 encodings["activation_encodings"][embed_w_name]
             )
 
-        for key in encodings["activation_encodings"].keys():
+        for key in encodings["activation_encodings"]:
             if "weight" in key:
                 encodings["param_encodings"][key] = copy.deepcopy(
                     encodings["activation_encodings"][key]

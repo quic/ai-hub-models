@@ -39,8 +39,7 @@ class BaseBertModel(BaseModel):
         batch_size = input_tokens.shape[0]
         batch_indices = torch.arange(batch_size)
         masked_logits = logits[batch_indices, mask_indices]
-        predicted_token_ids = torch.softmax(masked_logits, dim=-1).argmax(dim=-1)
-        return predicted_token_ids
+        return torch.softmax(masked_logits, dim=-1).argmax(dim=-1)
 
     @staticmethod
     def get_input_spec(

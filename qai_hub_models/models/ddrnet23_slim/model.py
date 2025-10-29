@@ -81,9 +81,7 @@ class DDRNet(CityscapesSegmentor):
                 pretrained_dict = pretrained_dict["state_dict"]
             model_dict = ddrnetslim_model.state_dict()
             pretrained_dict = {
-                k[6:]: v
-                for k, v in pretrained_dict.items()
-                if k[6:] in model_dict.keys()
+                k[6:]: v for k, v in pretrained_dict.items() if k[6:] in model_dict
             }
             model_dict.update(pretrained_dict)
             ddrnetslim_model.load_state_dict(model_dict)

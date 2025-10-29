@@ -258,11 +258,10 @@ def resize_longest_image_size(
     Modified to break this apart from the decoder class instance.
     """
     scale = longest_side / max(input_image_size)
-    transformed_size = cast(
+    return cast(
         tuple[int, int],
         tuple(int(floor(scale * each + 0.5)) for each in input_image_size),
     )
-    return transformed_size
 
 
 def mask_postprocessing(
@@ -284,5 +283,4 @@ def mask_postprocessing(
     masks = masks[..., : int(prepadded_size[0]), : int(prepadded_size[1])]
 
     h, w = orig_im_size[0], orig_im_size[1]
-    masks = F.interpolate(masks, size=(h, w), mode="bilinear", align_corners=False)
-    return masks
+    return F.interpolate(masks, size=(h, w), mode="bilinear", align_corners=False)

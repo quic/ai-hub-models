@@ -33,5 +33,4 @@ def optimized_cumsum(data: torch.Tensor) -> torch.Tensor:
     cumsum_h_shifted = torch.cat(
         [torch.zeros(b, 1, c, dtype=data.dtype), cumsum_h[:, :-1]], dim=1
     )
-    cumsum_data = cumsum_b_shifted + cumsum_h_shifted.reshape(b, h, 1, c) + cumsum_w
-    return cumsum_data
+    return cumsum_b_shifted + cumsum_h_shifted.reshape(b, h, 1, c) + cumsum_w

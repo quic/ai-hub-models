@@ -184,3 +184,33 @@ def setup_fiftyone_env():
     fo.config.model_zoo_dir = os.path.join(fiftyone_dir, "__models__")
     if IsOnCIEnvvar.get():
         fo.config.show_progress_bars = False
+
+
+class UnfetchableDatasetError(Exception):
+    def __init__(self, dataset_name: str, installation_steps: list[str] | None) -> None:
+        """
+        Create an error for datasets that cannot be automatically fetched in code.
+        These datasets often require a login, license agreement acceptance, etc., to download.
+
+        Parameters
+        ----------
+        dataset_name
+            The name of the dataset being fetched.
+
+        installation_steps
+            Steps required for a 3rd party user to install this dataset manually.
+            If None, the dataset is assumed to be not publicly available.
+        """
+        self.dataset_name = dataset_name
+        self.installation_steps = installation_steps
+        if installation_steps is None:
+            super().__init__(
+                f"Dataset {dataset_name} is for Qualcomm-internal usage only. If you have reached this error message when running an export or evaluate script, please file an issue at https://github.com/quic/ai-hub-models/issues."
+            )
+        else:
+            super().__init__(
+                f"To use dataset {dataset_name}, you must download it manually. Follow these steps:\n"
+                + "\n".join(
+                    [f"{i + 1}. {step}" for i, step in enumerate(installation_steps)]
+                )
+            )

@@ -140,7 +140,7 @@ class GPUPyTestModelsTask(CompositeTask):
             # If a group name is used here, you get two groups per model
             # printed to console when running these tasks, one of which is empty.
             None,
-            [task for task in tasks],
+            list(tasks),
             continue_after_single_task_failure=True,
             raise_on_failure=raise_on_failure,
             show_subtasks_in_failure_message=False,
@@ -318,7 +318,7 @@ class PyTestModelTask(CompositeTask):
             # If a group name is used here, you get two groups per model
             # printed to console when running these tasks, one of which is empty.
             None,
-            [task for task in tasks],
+            list(tasks),
             continue_after_single_task_failure=True,
             raise_on_failure=raise_on_failure,
             show_subtasks_in_failure_message=False,
@@ -498,7 +498,7 @@ class PyTestModelsTask(CompositeTask):
 
         super().__init__(
             "All Per-Model Tests",
-            [task for task in tasks],
+            list(tasks),
             continue_after_single_task_failure=True,
             raise_on_failure=raise_on_failure,
         )
@@ -517,7 +517,7 @@ class PyTestModelsTask(CompositeTask):
                 ):
                     self.tasks[-1].run()  # cleanup venv
                     break
-                elif not self.continue_after_single_task_failure:
+                if not self.continue_after_single_task_failure:
                     break
             result = result and task_result
         return result

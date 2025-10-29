@@ -89,7 +89,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         if not job.get_status().finished:
             if not self.wait_for_job:
                 return job
-            elif self.wait_for_max_job_duration:
+            if self.wait_for_max_job_duration:
                 time_left = int(
                     job.date.timestamp() + self.wait_for_max_job_duration - time.time()
                 )
@@ -133,7 +133,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         if not self.skipped:
             if self._job_status.success:
                 return "Passed"
-            elif self._job_status.failure:
+            if self._job_status.failure:
                 return "Failed"
         return "Skipped"
 
@@ -239,7 +239,7 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
 
     @cached_property
     def performance_metrics(self) -> QAIHMModelPerf.PerformanceDetails:
-        metrics = QAIHMModelPerf.PerformanceDetails(
+        return QAIHMModelPerf.PerformanceDetails(
             job_id=self.job_id,
             job_status=self.job_status,
             inference_time_milliseconds=(
@@ -254,7 +254,6 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
             layer_counts=self.layer_counts if self.success else None,
             tool_versions=self.tool_versions,
         )
-        return metrics
 
 
 class InferenceScorecardJob(ScorecardJob[hub.InferenceJob, ScorecardProfilePath]):

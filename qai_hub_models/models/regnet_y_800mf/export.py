@@ -102,8 +102,7 @@ def compile_model(
         name=model_name,
         options=model_compile_options,
     )
-    compile_job = cast(hub.client.CompileJob, submitted_compile_job)
-    return compile_job
+    return cast(hub.client.CompileJob, submitted_compile_job)
 
 
 def profile_model(
@@ -120,8 +119,7 @@ def profile_model(
         name=model_name,
         options=profile_options,
     )
-    profile_job = cast(hub.client.ProfileJob, submitted_profile_job)
-    return profile_job
+    return cast(hub.client.ProfileJob, submitted_profile_job)
 
 
 def inference_model(
@@ -145,8 +143,7 @@ def inference_model(
         name=model_name,
         options=profile_options_all,
     )
-    inference_job = cast(hub.client.InferenceJob, submitted_inference_job)
-    return inference_job
+    return cast(hub.client.InferenceJob, submitted_inference_job)
 
 
 def download_model(

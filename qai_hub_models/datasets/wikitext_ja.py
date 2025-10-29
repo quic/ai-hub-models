@@ -15,9 +15,8 @@ class WikiText_Japanese(WikiText):
         dataset = load_dataset("range3/wikipedia-ja-20230101")["train"]
         if self.split_str == "test":
             return dataset[20000:20080]
-        elif self.split_str == "train":
+        if self.split_str == "train":
             return dataset[0:20000]
-        else:
-            raise ValueError(
-                "Wikitext Japanese dataset currently only supports `test` and `train` split"
-            )
+        raise ValueError(
+            "Wikitext Japanese dataset currently only supports `test` and `train` split"
+        )

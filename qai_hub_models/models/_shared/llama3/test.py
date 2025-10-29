@@ -179,12 +179,11 @@ def test_cli_device_with_skips_unsupported_precision_device(
             "DEFAULT_W4A16",
         ]
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(
+            ValueError,
+            match=r"The selected precision \(w4a16\) is not supported on this target device",
+        ):
             export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The selected precision (w4a16) is not supported on this target device"
-        )
 
 
 def test_cli_device_with_skips_unsupported_context_length(
@@ -223,12 +222,11 @@ def test_cli_device_with_skips_unsupported_context_length(
             "DEFAULT_W4",
         ]
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(
+            ValueError,
+            match=r"The llama_v3_2_3b_instruct's context length is too large to deploy on SA8295P\. Please set the context length to 1024 or lower\.",
+        ):
             export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The llama_v3_2_3b_instruct's context length is too large to deploy on SA8295P. Please set the context length to 1024 or lower."
-        )
 
 
 def test_cli_device_with_skips(
@@ -327,7 +325,7 @@ def test_cli_chipset_with_options(
     context_length: int,
     sequence_length: int,
     target_runtime: TargetRuntime,
-    precision: Precision = Precision.w4a16,
+    precision: Precision = Precision.w4a16,  # noqa: PT028
 ):
     (
         mock_from_pretrained,

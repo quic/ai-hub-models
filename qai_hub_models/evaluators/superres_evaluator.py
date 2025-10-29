@@ -25,9 +25,7 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
         # Source:
         # https://github.com/quic/aimet-model-zoo/blob/main/aimet_zoo_torch/common/super_resolution/psnr.py#L18
         rgb_weights = np.array([65.481, 128.553, 24.966])
-        img = np.matmul(img, rgb_weights) + 16.0
-
-        return img
+        return np.matmul(img, rgb_weights) + 16.0
 
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         assert gt.shape == output.shape

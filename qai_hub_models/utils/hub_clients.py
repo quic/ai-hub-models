@@ -105,9 +105,8 @@ def get_hub_client(
     deployment_name = "prod" if deployment_name == "app" else deployment_name
 
     # Return Cached client if applicable
-    if user in _CACHED_CLIENTS:
-        if deployment_name in _CACHED_CLIENTS[user]:
-            return _CACHED_CLIENTS[user][deployment_name]
+    if user in _CACHED_CLIENTS and deployment_name in _CACHED_CLIENTS[user]:
+        return _CACHED_CLIENTS[user][deployment_name]
 
     # Create client if their tokens are in the global environment.
     # Bash env variables can't have {".", "-"} characters in the name, replace with "_" for valid naming
@@ -198,9 +197,9 @@ def set_default_hub_client(
         hhub_hub_attr_overrides: If set, uses these values to override `hub.hub.submit_...`, instead of setting the value to `client.submit_...`
     """
     if hub_hub_attr_overrides is None:
-        hub_hub_attr_overrides = dict()
+        hub_hub_attr_overrides = {}
     if hub_attr_overrides is None:
-        hub_attr_overrides = dict()
+        hub_attr_overrides = {}
     hub.hub._global_client = client
     for default_global_client_method in hub.hub.__all__:
         setattr(

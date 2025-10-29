@@ -177,7 +177,7 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
                 num_pad = slice_size - conv_out.shape[-1]
                 if num_pad > 1:
                     raise ValueError("Should only have 1 elem missing")
-                elif num_pad == 1:
+                if num_pad == 1:
                     conv_out = torch.nn.functional.pad(conv_out, (0, 1))
             # conv_out have shape [1, 512, 1, 16000]
             xs.append(conv_out)

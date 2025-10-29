@@ -31,7 +31,7 @@ UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
 def _get_cached_device(device_name: str) -> Optional[hub.Device]:
     # Gets a device with attributes & OS. This only comes from hub.get_devices()
-    device = _DEVICE_CACHE.get(device_name, None)
+    device = _DEVICE_CACHE.get(device_name)
     if not device:
         devices = hub.get_devices(device_name)
         device = devices[0] if devices else None
@@ -317,10 +317,7 @@ class ScorecardDevice:
             else self.reference_device
         )
 
-        aliases = [
-            attr[8:] for attr in device.attributes if attr.startswith("chipset:")
-        ]
-        return aliases
+        return [attr[8:] for attr in device.attributes if attr.startswith("chipset:")]
 
     @cached_property
     def npu_count(self) -> int:
@@ -461,7 +458,7 @@ class ScorecardDevice:
             or self.form_factor == ScorecardDevice.FormFactor.TABLET
             or self.form_factor == ScorecardDevice.FormFactor.IOT
         ):
-            inference_engines_to_test = [i for i in InferenceEngine]
+            inference_engines_to_test = list(InferenceEngine)
         elif (
             self.form_factor == ScorecardDevice.FormFactor.AUTO  # noqa: PLR1714 | Can't merge comparisons and use assert_never
             or self.form_factor == ScorecardDevice.FormFactor.XR
@@ -540,10 +537,11 @@ cs_8_elite = ScorecardDevice(
     execution_device_name="Samsung Galaxy S25 (Family)",
 )
 
-cs_7_gen_5 = ScorecardDevice(
-    name="cs_7_gen_5",
-    reference_device_name="Snapdragon 7 Gen 5 QRD",
-)
+# Dropped until the device name can be corrected.
+# cs_7_gen_5 = ScorecardDevice(
+#    name="cs_7_gen_5",
+#    reference_device_name="Snapdragon 7 Gen 5 QRD",
+# )
 
 cs_8_elite_gen_5 = ScorecardDevice(
     name="cs_8_elite_gen_5", reference_device_name="Snapdragon 8 Elite Gen 5 QRD"

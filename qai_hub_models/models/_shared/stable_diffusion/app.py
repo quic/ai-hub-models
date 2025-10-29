@@ -302,7 +302,7 @@ def run_diffusion_steps_on_latents(
             if channel_last_latent:
                 latent_input = _make_channel_last_torch(latent_input).to(host_device)
 
-            controlnet_out: tuple[torch.Tensor, ...] = tuple()
+            controlnet_out: tuple[torch.Tensor, ...] = ()
             if use_controlnet:
                 controlnet_inputs["latent"].append(latent_input)
                 controlnet_inputs["timestep"].append(time_input)

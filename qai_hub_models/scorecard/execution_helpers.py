@@ -336,6 +336,7 @@ def pytest_device_idfn(val):
         return val.name
     if isinstance(val, Precision):
         return str(val)
+    return None
 
 
 def get_quantize_parameterized_pytest_config(
@@ -442,7 +443,7 @@ def get_async_job_cache_name(
     """
     return (
         f"{model_id}"
-        + ("_" + str(precision) if not precision == Precision.float else "")
+        + ("_" + str(precision) if precision != Precision.float else "")
         + ("_" + path.name if path else "")
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")

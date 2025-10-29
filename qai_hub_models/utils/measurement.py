@@ -94,10 +94,9 @@ def get_tflite_unique_parameters(
 
             buffer = model.Buffers(buf_index)
             assert buffer is not None
-            if not buffer.DataIsNone():
-                if buf_index not in buffers_counted:
-                    parameter_cnt += int(np.prod(tensor.ShapeAsNumpy()))
-                    buffers_counted.add(buf_index)
+            if not buffer.DataIsNone() and buf_index not in buffers_counted:
+                parameter_cnt += int(np.prod(tensor.ShapeAsNumpy()))
+                buffers_counted.add(buf_index)
 
     if not as_str:
         return parameter_cnt
@@ -114,8 +113,7 @@ def get_model_size_mb(hub_model: hub.Model) -> float:
         download_path = Path(tmp_dir) / "model"
         # Download the model into the temporary directory
         hub_model.download(str(download_path))
-        size_mb = get_disk_size(download_path, unit="MB")
-        return size_mb
+        return get_disk_size(download_path, unit="MB")
 
 
 def get_disk_size(path: str | Path, unit: str = "byte") -> float:

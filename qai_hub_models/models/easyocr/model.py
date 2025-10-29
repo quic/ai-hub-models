@@ -59,12 +59,11 @@ class EasyOCRDetector(BaseModel):
         if isinstance(self.model, CRAFTDetector):
             image = normalize_image_torchvision(image)
             return self.model(image)[0]
-        elif isinstance(self.model, DBNetDetector):
+        if isinstance(self.model, DBNetDetector):
             image *= 255
             assert self.model.model is not None
             return self.model.model(image, training=False)[0]
-        else:
-            raise NotImplementedError("Unknown detector model")
+        raise NotImplementedError("Unknown detector model")
 
     @staticmethod
     def get_input_spec(

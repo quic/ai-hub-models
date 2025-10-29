@@ -181,16 +181,16 @@ def patch_hub_with_cached_jobs(
     )
 
     if not is_hub_testing_async():
-        return tuple([device_patch, *[nullcontext() for _ in range(5)]])
+        return (device_patch, *[nullcontext() for _ in range(5)])
     calibration_datas_to_patch: list[hub.Dataset] = []
     quantize_jobs_to_patch: list[hub.QuantizeJob] = []
     compile_jobs_to_patch: list[hub.CompileJob] = []
     profile_jobs_to_patch: list[hub.ProfileJob] = []
     inference_jobs_to_patch: list[hub.InferenceJob] = []
 
-    if patch_quantization:
-        # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
-        if quantize_jobs := fetch_async_test_jobs(
+    # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
+    if patch_quantization and (
+        quantize_jobs := fetch_async_test_jobs(
             hub.JobType.QUANTIZE,
             model_id,
             precision,
@@ -198,20 +198,21 @@ def patch_hub_with_cached_jobs(
             device,
             component_names,
             raise_if_not_successful=True,
-        ):
-            pre_quantize_compile_jobs = {
-                component_name: cast(
-                    hub.CompileJob,
-                    component_job.model.producer,
-                )
-                for component_name, component_job in quantize_jobs.items()
-            }
-            # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
-            compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
-            quantize_jobs_to_patch.extend(quantize_jobs.values())
-            calibration_datas_to_patch.extend(
-                [x.calibration_dataset for x in quantize_jobs.values()]
+        )
+    ):
+        pre_quantize_compile_jobs = {
+            component_name: cast(
+                hub.CompileJob,
+                component_job.model.producer,
             )
+            for component_name, component_job in quantize_jobs.items()
+        }
+        # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
+        compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
+        quantize_jobs_to_patch.extend(quantize_jobs.values())
+        calibration_datas_to_patch.extend(
+            [x.calibration_dataset for x in quantize_jobs.values()]
+        )
 
     if patch_compile:
         assert path
@@ -565,16 +566,15 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
         # No cached profile jobs for this model.
         return None
 
-    results: dict[str | None, ExportResult] = dict()
+    results: dict[str | None, ExportResult] = {}
     for component, job in cached_jobs.items():
-        if status_message := job.get_status().message:
+        if (status_message := job.get_status().message) and (
+            "unexpected device error" in status_message
+            or "Waiting for device timed out" in status_message
+            or "Job timed out" in status_message
+        ):
             # don't use this cached job if it is a random device or timeout failure
-            if (
-                "unexpected device error" in status_message
-                or "Waiting for device timed out" in status_message
-                or "Job timed out" in status_message
-            ):
-                return None
+            return None
 
         res = ExportResult()
         setattr(res, result_attrname, job)
@@ -1243,7 +1243,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
             raise_if_not_successful=True,
         )
         if not inference_jobs:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY301
                 str_with_async_test_metadata(
                     "Missing cached inference job",
                     model_id,

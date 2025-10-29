@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import contextlib
 import datetime
 import os
 from pprint import pformat
@@ -44,10 +45,8 @@ def test_compile_jobs_success():
                 timemax = datetime.timedelta(minutes=60)
                 timediff = datetime.datetime.now() - job.date
                 if timediff < timemax:
-                    try:
+                    with contextlib.suppress(TimeoutError):
                         status = job.wait(int((timemax - timediff).total_seconds()))
-                    except TimeoutError:
-                        pass
 
         if not status.success:
             if not status.finished or (

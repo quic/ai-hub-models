@@ -114,8 +114,7 @@ class Block3x3(nn.Module):
 
         if self.se is not None:
             out = self.se(out)
-        out = out + self.shortcut(x) if self.stride == 1 else out
-        return out
+        return out + self.shortcut(x) if self.stride == 1 else out
 
 
 class Mbv3SmallFast(nn.Module):
@@ -238,8 +237,7 @@ class CBAModule(nn.Module):
         """
         x = self.conv(x)
         x = self.bn(x)
-        x = self.act(x)
-        return x
+        return self.act(x)
 
 
 class UpModule(nn.Module):
@@ -283,10 +281,11 @@ class UpModule(nn.Module):
         """
         if self.mode == "UCBA":
             return self.conv(self.up(x))
-        elif self.mode == "DeconvBN":
+        if self.mode == "DeconvBN":
             return F.relu(self.bn(self.dconv(x)))
-        elif self.mode == "DeCBA":
+        if self.mode == "DeCBA":
             return self.conv(self.dconv(x))
+        return None
 
 
 class ContextModule(nn.Module):
@@ -350,17 +349,16 @@ class CropLayer(nn.Module):
         """
         if self.rows_to_crop == 0 and self.cols_to_crop == 0:
             return x
-        elif self.rows_to_crop > 0 and self.cols_to_crop == 0:
+        if self.rows_to_crop > 0 and self.cols_to_crop == 0:
             return x[:, :, self.rows_to_crop : -self.rows_to_crop, :]
-        elif self.rows_to_crop == 0 and self.cols_to_crop > 0:
+        if self.rows_to_crop == 0 and self.cols_to_crop > 0:
             return x[:, :, :, self.cols_to_crop : -self.cols_to_crop]
-        else:
-            return x[
-                :,
-                :,
-                self.rows_to_crop : -self.rows_to_crop,
-                self.cols_to_crop : -self.cols_to_crop,
-            ]
+        return x[
+            :,
+            :,
+            self.rows_to_crop : -self.rows_to_crop,
+            self.cols_to_crop : -self.cols_to_crop,
+        ]
 
 
 class HeadModule(nn.Module):

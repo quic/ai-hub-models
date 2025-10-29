@@ -35,8 +35,7 @@ def get_weights(model, graph, tensor_dict, tensor_name):
     assert tensor.Type() == 1
     W = model.Buffers(buffer).DataAsNumpy()
     W = W.view(dtype=np.float16)
-    W = W.reshape(shape)
-    return W
+    return W.reshape(shape)
 
 
 def get_probable_names(graph):
@@ -52,10 +51,8 @@ def get_probable_names(graph):
 def get_convert(net, probable_names):
     """Convert state dict using probable node names."""
     convert = {}
-    i = 0
-    for name in net.state_dict():
+    for i, name in enumerate(net.state_dict()):
         convert[name] = probable_names[i]
-        i += 1
     return convert
 
 

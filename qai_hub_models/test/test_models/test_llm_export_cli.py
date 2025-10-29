@@ -64,7 +64,7 @@ class DummyMockModel(LLM_AIMETOnnx):
         """
         model = mock.Mock(DummyMockModel)
         model.llm_config = mock.MagicMock()
-        model.llm_config.to_dict.side_effect = lambda: llm_config or dict()
+        model.llm_config.to_dict.side_effect = lambda: llm_config or {}
         model.sequence_length = sequence_length
         model.context_length = context_length
         model.get_input_spec = DummyMockModel.get_input_spec
@@ -91,11 +91,11 @@ class DummyMockModel(LLM_AIMETOnnx):
     def get_input_spec(
         input_spec_arg_a: int = 1, input_spec_arg_b: int = 2, *args, **kwargs
     ) -> InputSpec:
-        return dict()
+        return {}
 
 
 @pytest.mark.parametrize(
-    [
+    (
         "target_runtime",
         "host_device",
         "checkpoint",
@@ -111,9 +111,9 @@ class DummyMockModel(LLM_AIMETOnnx):
         "profile_options",
         "synchronous",
         "model_cache_mode",
-    ],
+    ),
     [
-        [
+        (
             TargetRuntime.ONNXRUNTIME_GENAI,
             torch.device("cpu"),
             "my/checkpoint/path",
@@ -129,8 +129,8 @@ class DummyMockModel(LLM_AIMETOnnx):
             "",
             False,
             CacheMode.DISABLE,
-        ],
-        [
+        ),
+        (
             None,
             None,
             "DEFAULT",
@@ -146,7 +146,7 @@ class DummyMockModel(LLM_AIMETOnnx):
             "--profile-option hello",
             True,
             CacheMode.ENABLE,
-        ],
+        ),
     ],
 )
 def test_export_cli(
@@ -182,8 +182,8 @@ def test_export_cli(
     default_export_device = "Snapdragon X Elite CRD"
     default_precision = Precision.w8a16
     supported_precision_runtimes = {
-        Precision.w4: [x for x in TEST_GENAI_RUNTIMES],
-        Precision.w8a16: [x for x in TEST_GENAI_RUNTIMES],
+        Precision.w4: list(TEST_GENAI_RUNTIMES),
+        Precision.w8a16: list(TEST_GENAI_RUNTIMES),
     }
 
     # Required args to LLM_AimetONNX.from_pretrained() that are optional args for the user
@@ -202,7 +202,7 @@ def test_export_cli(
         model_asset_version=model_asset_version,
         position_processor_cls=position_processor_cls,
         # Required args to LLM_AimetONNX.from_pretrained()
-        _skip_quantsim_creation=(False if (not skip_inferencing) else True),
+        _skip_quantsim_creation=(bool(skip_inferencing)),
         **user_provided_from_pretrained_kwargs,
     )
 

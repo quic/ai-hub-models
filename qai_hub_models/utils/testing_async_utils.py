@@ -67,8 +67,7 @@ def callable_side_effect(side_effects: Iterator) -> Callable:
         result = next(side_effects)
         if callable(result):
             return result(*args, **kwargs)
-        else:
-            return result
+        return result
 
     return f
 
@@ -163,16 +162,15 @@ def get_async_test_job_cache_path(job_type: hub.JobType) -> Path:
     """
     if job_type == hub.JobType.COMPILE:
         return get_compile_job_ids_file()
-    elif job_type == hub.JobType.PROFILE:
+    if job_type == hub.JobType.PROFILE:
         return get_profile_job_ids_file()
-    elif job_type == hub.JobType.INFERENCE:
+    if job_type == hub.JobType.INFERENCE:
         return get_inference_job_ids_file()
-    elif job_type == hub.JobType.QUANTIZE:
+    if job_type == hub.JobType.QUANTIZE:
         return get_quantize_job_ids_file()
-    else:
-        raise NotImplementedError(
-            f"No file for storing test jobs of type {job_type.display_name}"
-        )
+    raise NotImplementedError(
+        f"No file for storing test jobs of type {job_type.display_name}"
+    )
 
 
 def str_with_async_test_metadata(
@@ -358,7 +356,7 @@ def fetch_async_test_job(
     if not scorecard_job.job_id:
         # No job ID, this wasn't found in the cache.
         return None
-    elif raise_if_not_successful and not scorecard_job.success:
+    if raise_if_not_successful and not scorecard_job.success:
         # If the job has an ID but it's marked as "skipped", then it timed out.
         if scorecard_job.skipped:
             error_str = "still running"

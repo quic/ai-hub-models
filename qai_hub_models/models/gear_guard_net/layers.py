@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import contextlib
 import math
 from typing import Optional, Union
 
@@ -67,7 +68,7 @@ def autopad(
         return p
     if isinstance(kernel_size, int):
         return kernel_size // 2
-    assert 2 == len(kernel_size)
+    assert len(kernel_size) == 2
     # pyright and mypy complain that we're returning tuple[int, ...], but we've just asserted
     # that it's length two so we should be safe to ignore the error.
     return tuple([x // 2 for x in kernel_size])  # type: ignore[return-value]
@@ -355,11 +356,9 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
     c2 = ch[-1]
     for i, (f, n, m, args) in enumerate(cfg["backbone"] + cfg["head"]):
         m = eval(m) if isinstance(m, str) else m
-        for j, a in enumerate(args):
-            try:  # noqa: PERF203
+        with contextlib.suppress(NameError):
+            for j, a in enumerate(args):
                 args[j] = eval(a) if isinstance(a, str) else a
-            except NameError:  # noqa: PERF203
-                pass
 
         n = max(round(n * gd), 1) if n > 1 else n
         if m in [FusedConvBatchNorm, Bottleneck, SPPF, C3, DoubleBlazeBlock]:

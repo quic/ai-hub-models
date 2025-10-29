@@ -227,8 +227,7 @@ class BEVFusionEncoder3(BaseModel):
         x_reshaped = x.view(96, 118, 176, 80).float()
         x = optimized_cumsum(x_reshaped).view(x.shape)
         x = x.reshape(-1, 80)
-        x = x[lengths, :]
-        return x
+        return x[lengths, :]
 
     @staticmethod
     def get_input_spec(
@@ -296,8 +295,7 @@ class BEVFusionEncoder4(BaseModel):
             (ba.long(), x_pos_vals.long(), channel_vals.long()), segment_sums
         )
         x = out.permute(0, 3, 1, 2).contiguous()
-        x = self.vtransform.downsample(x)
-        return x
+        return self.vtransform.downsample(x)
 
     @staticmethod
     def get_input_spec(
@@ -369,8 +367,7 @@ class BEVFusionDecoder(BaseModel):
                 tensor = task_dict[key]
                 tensors.append(tensor)
 
-        output = torch.cat(tensors, dim=1)
-        return output
+        return torch.cat(tensors, dim=1)
 
     @staticmethod
     def get_input_spec(

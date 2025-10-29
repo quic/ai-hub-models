@@ -125,10 +125,9 @@ class YoloV8Detector(Yolo):
     def get_hub_quantize_options(self, precision: Precision) -> str:
         if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
+        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
             return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
-        else:
-            return "--range_scheme min_max"
+        return "--range_scheme min_max"
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:

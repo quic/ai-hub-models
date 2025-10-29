@@ -59,10 +59,7 @@ class BSD300Dataset(BaseDataset):
         # Ensure the correct number of images are there
         images = [f for f in self.images_path.iterdir() if ".png" in f.name]
         expected_num_images = len(self)
-        if len(images) != expected_num_images:
-            return False
-
-        return True
+        return len(images) == expected_num_images
 
     def _prepare_data(self):
         """Convert jpg to png."""

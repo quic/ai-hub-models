@@ -161,17 +161,12 @@ class MMMLU(BaseDataset):
             )
 
             tokenized_question = {
-                k: list(map(lambda field: [field[-self.context_length :]], v))
+                k: [[field[-self.context_length :]] for field in v]
                 for k, v in tokenized_question.items()
             }
 
             tokenized_answer = self.tokenizer(
-                list(
-                    map(
-                        lambda answer: f"Answer: {answer}",
-                        sample["Answer"],
-                    )
-                ),
+                [f"Answer: {answer}" for answer in sample["Answer"]],
                 return_token_type_ids=False,
                 add_special_tokens=False,
                 return_tensors="pt",
@@ -226,8 +221,7 @@ class MMMLU(BaseDataset):
     def dataset_name(cls) -> str:
         if cls.SUBSET_NAME == "default":
             return "mmmlu"
-        else:
-            return "mmmlu_" + cls.SUBSET_NAME.split("_")[0].lower()
+        return "mmmlu_" + cls.SUBSET_NAME.split("_")[0].lower()
 
 
 class MMMLU_AR(MMMLU):

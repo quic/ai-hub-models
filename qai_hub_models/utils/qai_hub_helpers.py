@@ -136,79 +136,75 @@ def export_torch_to_onnx_zip(
             print(f"ONNX transform finished in {transform_time:.1f} seconds")
 
         return str(f)
-    else:
-        # Export with external data using two temporary directories.
-        with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
-            tmpdir1 = Path(tmpdir1)
-            tmpdir2 = Path(tmpdir2)
-            export_path = (
-                tmpdir1 / f.with_suffix(".onnx").name
-            )  # use .onnx extension for export
+    # Export with external data using two temporary directories.
+    with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
+        tmpdir1 = Path(tmpdir1)
+        tmpdir2 = Path(tmpdir2)
+        export_path = (
+            tmpdir1 / f.with_suffix(".onnx").name
+        )  # use .onnx extension for export
 
-            start_time = time.time()
-            safe_torch_onnx_export(
-                torch_model,
-                example_input,
-                str(export_path),
-                input_names=input_names,
-                output_names=output_names,
-                **torch_export_kwargs,
-            )
-            export_time = time.time() - start_time
-            print(f"torch.onnx.export finished in {export_time:.1f} seconds")
+        start_time = time.time()
+        safe_torch_onnx_export(
+            torch_model,
+            example_input,
+            str(export_path),
+            input_names=input_names,
+            output_names=output_names,
+            **torch_export_kwargs,
+        )
+        export_time = time.time() - start_time
+        print(f"torch.onnx.export finished in {export_time:.1f} seconds")
 
-            onnx_model = onnx.load(str(export_path))
+        onnx_model = onnx.load(str(export_path))
 
-            if onnx_transforms is not None:
-                transform_start_time = time.time()
-                print("Running onnx to onnx transforms...")
-                onnx_model = onnx_transforms(onnx_model)
-                transform_time = time.time() - transform_start_time
-                print(f"ONNX transform finished in {transform_time:.1f} seconds")
+        if onnx_transforms is not None:
+            transform_start_time = time.time()
+            print("Running onnx to onnx transforms...")
+            onnx_model = onnx_transforms(onnx_model)
+            transform_time = time.time() - transform_start_time
+            print(f"ONNX transform finished in {transform_time:.1f} seconds")
 
-            save_start_time = time.time()
-            # .onnx and .data must have the same base name per hub requirement
-            export_path2 = tmpdir2 / "model.onnx"
-            onnx.save_model(
-                onnx_model,
-                str(export_path2),
-                save_as_external_data=True,
-                all_tensors_to_one_file=True,
-                # Weight file name must end with .data per Hub requirement
-                location="model.data",
-                convert_attribute=True,
-            )
-            save_time = time.time() - save_start_time
-            print(f"onnx.save_model finished in {save_time:.1f} seconds")
+        save_start_time = time.time()
+        # .onnx and .data must have the same base name per hub requirement
+        export_path2 = tmpdir2 / "model.onnx"
+        onnx.save_model(
+            onnx_model,
+            str(export_path2),
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            # Weight file name must end with .data per Hub requirement
+            location="model.data",
+            convert_attribute=True,
+        )
+        save_time = time.time() - save_start_time
+        print(f"onnx.save_model finished in {save_time:.1f} seconds")
 
-            if skip_zip:
-                # Instead of creating a zip, create a directory.
-                out_dir = (
-                    f  # f is expected to be a directory name already (without .onnx)
-                )
-                out_dir.mkdir(parents=True, exist_ok=True)
+        if skip_zip:
+            # Instead of creating a zip, create a directory.
+            out_dir = f  # f is expected to be a directory name already (without .onnx)
+            out_dir.mkdir(parents=True, exist_ok=True)
 
-                # Copy the ONNX file to the directory.
-                shutil.copy(export_path2, out_dir / "model.onnx")
-                # Copy the external data file to the directory.
-                external_data_path = export_path2.parent / "model.data"
-                shutil.copy(external_data_path, out_dir / "model.data")
+            # Copy the ONNX file to the directory.
+            shutil.copy(export_path2, out_dir / "model.onnx")
+            # Copy the external data file to the directory.
+            external_data_path = export_path2.parent / "model.data"
+            shutil.copy(external_data_path, out_dir / "model.data")
 
-                print(f"ONNX with external data saved to directory {out_dir}")
-                return str(out_dir)
-            else:
-                # Package the files into a zip.
-                zip_start_time = time.time()
-                zip_path = f.with_name(f.name + ".zip")
-                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for file_path in tmpdir2.iterdir():
-                        # In the zip, files are placed under a folder named after the base name.
-                        arcname = f.with_suffix("").name + "/" + file_path.name
-                        zip_file.write(file_path, arcname=arcname)
-                zip_time = time.time() - zip_start_time
-                print(f"zipping onnx finished in {zip_time:.1f} seconds")
-                print(f"ONNX with external data saved to {zip_path}")
-                return str(zip_path)
+            print(f"ONNX with external data saved to directory {out_dir}")
+            return str(out_dir)
+        # Package the files into a zip.
+        zip_start_time = time.time()
+        zip_path = f.with_name(f.name + ".zip")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for file_path in tmpdir2.iterdir():
+                # In the zip, files are placed under a folder named after the base name.
+                arcname = f.with_suffix("").name + "/" + file_path.name
+                zip_file.write(file_path, arcname=arcname)
+        zip_time = time.time() - zip_start_time
+        print(f"zipping onnx finished in {zip_time:.1f} seconds")
+        print(f"ONNX with external data saved to {zip_path}")
+        return str(zip_path)
 
 
 class CompileOptions(NamedTuple):
@@ -315,7 +311,7 @@ def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
             "dict_input": "w=x;y=z"
           }
     """
-    out = dict()
+    out = {}
 
     model_options = shlex.split(job.options.strip())
     for i in range(len(model_options)):
@@ -366,8 +362,7 @@ def download_model_in_memory(model: hub.Model) -> Any:
         model_file = model.download(os.path.join(tmp_dir, "tmp_model"))
         if model.model_type == hub.SourceModelType.TORCHSCRIPT:
             return torch.jit.load(model_file)
-        elif os.path.splitext(model_file)[1] == ".zip":
+        if os.path.splitext(model_file)[1] == ".zip":
             onnx_path, _ = extract_onnx_zip(model_file)
             return onnx.load(onnx_path)
-        else:
-            return onnx.load(model_file)
+        return onnx.load(model_file)

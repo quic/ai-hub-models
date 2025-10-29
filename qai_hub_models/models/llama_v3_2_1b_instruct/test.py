@@ -127,7 +127,7 @@ def test_create_genie_config():
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "skip_inferencing, skip_profiling, target_runtime",
+    ("skip_inferencing", "skip_profiling", "target_runtime"),
     [
         (True, True, TargetRuntime.GENIE),
         (True, False, TargetRuntime.GENIE),
@@ -156,7 +156,7 @@ def test_cli_device_with_skips(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "chipset, context_length, sequence_length, target_runtime",
+    ("chipset", "context_length", "sequence_length", "target_runtime"),
     [
         ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.GENIE),
         ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.GENIE),
@@ -185,7 +185,7 @@ def test_cli_chipset_with_options(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "cache_mode, skip_download, skip_summary, target_runtime",
+    ("cache_mode", "skip_download", "skip_summary", "target_runtime"),
     [
         (CacheMode.ENABLE, True, True, TargetRuntime.GENIE),
         (CacheMode.DISABLE, True, False, TargetRuntime.GENIE),
@@ -239,7 +239,7 @@ def setup_quantized_checkpoints(tmpdir_factory):
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "task,expected_metric,num_samples",
+    ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 16.78, 0),
         ("mmlu", 0.399, 1000),
@@ -271,7 +271,7 @@ def test_evaluate_default(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "task,expected_metric,num_samples",
+    ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 12.18, 0),
         ("mmlu", 0.482, 1000),
@@ -305,7 +305,7 @@ def test_evaluate_default_unquantized(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "task,expected_metric,num_samples",
+    ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 17.29, 0),
         ("mmlu", 0.397, 1000),
@@ -372,7 +372,7 @@ def test_demo_quantized_checkpoint(
     reason="This test can be run on GPU only.",
 )
 @pytest.mark.parametrize(
-    "precision,scorecard_path,device",
+    ("precision", "scorecard_path", "device"),
     get_compile_parameterized_pytest_config(
         MODEL_ID,
         SUPPORTED_PRECISION_RUNTIMES,
@@ -430,7 +430,7 @@ def test_compile(
     reason="This test can be run on GPU only. Also needs QDC package to run.",
 )
 @pytest.mark.parametrize(
-    "precision,scorecard_path,device",
+    ("precision", "scorecard_path", "device"),
     get_compile_parameterized_pytest_config(
         MODEL_ID,
         SUPPORTED_PRECISION_RUNTIMES,

@@ -94,8 +94,7 @@ def get_split_tensors(
             inp = producers[nodes[a].input[0]]
             assert inp is not None
             return inp
-        else:
-            return a
+        return a
 
     def can_visit(src, dst):
         if seq[src] < seq[dst]:
@@ -145,9 +144,7 @@ def get_split_tensors(
         assert b is not None
         return a if seq[a] < seq[b] else b
 
-    residual_add_names = [
-        name for name in nodes.keys() if is_residual_add(name, strict=True)
-    ]
+    residual_add_names = [name for name in nodes if is_residual_add(name, strict=True)]
     if len(residual_add_names) % 2 == 1 and has_embedding_table(model):
         # 'add0' is missing in residual_adds
         # 'add0' is not a valid split point if there is no embedding table provided

@@ -102,12 +102,12 @@ class FaceDetLiteEvaluator(mAPEvaluator):
                 W = int(w)
                 H = int(h)
 
-                if L < 0 or T < 0 or R >= self.image_width or B >= self.image_height:
+                if L < 0 or T < 0 or self.image_width <= R or self.image_height <= B:
                     L = max(L, 0)
                     T = max(T, 0)
-                    if R >= self.image_width:
+                    if self.image_width <= R:
                         R = self.image_width - 1
-                    if B >= self.image_height:
+                    if self.image_height <= B:
                         B = self.image_height - 1
 
                 # Enlarge bounding box to cover more face area

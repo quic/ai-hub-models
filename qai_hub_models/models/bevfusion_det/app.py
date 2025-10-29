@@ -209,7 +209,7 @@ class BEVFusionApp:
             split_tensors = torch.split(split_slice, channels, dim=1)
             start += total
 
-            pred_dict = {k: v for k, v in zip(head_order, split_tensors)}
+            pred_dict = dict(zip(head_order, split_tensors))
             pred_dicts.append([pred_dict])
 
         bboxes, scores, labels = self.decoder.heads.get_bboxes(pred_dicts)[0]

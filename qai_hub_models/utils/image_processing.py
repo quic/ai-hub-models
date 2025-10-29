@@ -84,7 +84,7 @@ def app_to_net_image_inputs(
         NHWC_int_numpy_frames = (
             [pixel_values_or_image]
             if len(pixel_values_or_image.shape) == 3
-            else [x for x in pixel_values_or_image]
+            else list(pixel_values_or_image)
         )
         NCHW_torch_frames = numpy_image_to_torch(pixel_values_or_image)
 
@@ -105,8 +105,7 @@ def preprocess_PIL_image_mask(image_mask: Image) -> torch.Tensor:
     transform = transforms.PILToTensor()
     mask = transform(image_mask.convert("L"))
     mask = mask.unsqueeze(0).float()
-    mask = (mask > 1.0) * 1.0
-    return mask
+    return (mask > 1.0) * 1.0
 
 
 def numpy_image_to_torch(image: np.ndarray, to_float: bool = True) -> torch.Tensor:
@@ -270,12 +269,11 @@ def resize_pad(
         """
         if float_img_in_frame == "center":
             return (int(pad_size // 2), int(pad_size // 2 + pad_size % 2))
-        elif float_img_in_frame in ["right", "bottom"]:
+        if float_img_in_frame in ["right", "bottom"]:
             return (pad_size, 0)
-        elif float_img_in_frame in ["left", "top"]:
+        if float_img_in_frame in ["left", "top"]:
             return (0, pad_size)
-        else:
-            raise ValueError(f"Invalid pad type: {float_img_in_frame}")
+        raise ValueError(f"Invalid pad type: {float_img_in_frame}")
 
     pad_top, pad_bottom = _split_padding(vertical_float, dst_frame_height - new_height)
     pad_left, pad_right = _split_padding(horizontal_float, dst_frame_width - new_width)
@@ -310,13 +308,11 @@ def undo_resize_pad(
 
     scaled_padding = [int(round(padding[0] / scale)), int(round(padding[1] / scale))]
 
-    cropped_image = rescaled_image[
+    return rescaled_image[
         ...,
         scaled_padding[1] : scaled_padding[1] + height,
         scaled_padding[0] : scaled_padding[0] + width,
     ]
-
-    return cropped_image
 
 
 def transform_resize_pad_coordinates(
@@ -398,8 +394,7 @@ def pil_undo_resize_pad(
 ) -> Image:
     torch_image = preprocess_PIL_image(image)
     torch_out_image = undo_resize_pad(torch_image, orig_size_wh, scale, padding)
-    pil_out_image = torch_tensor_to_PIL_image(torch_out_image[0])
-    return pil_out_image
+    return torch_tensor_to_PIL_image(torch_out_image[0])
 
 
 def denormalize_coordinates(
@@ -619,8 +614,7 @@ def get_3rd_point(point_x: np.ndarray, point_y: np.ndarray) -> np.ndarray:
             the point with shape is (2,)
     """
     direct = point_x - point_y
-    point_z = point_y + np.array([-direct[1], direct[0]], dtype=np.float32)
-    return point_z
+    return point_y + np.array([-direct[1], direct[0]], dtype=np.float32)
 
 
 def pre_process_with_affine(
@@ -653,8 +647,7 @@ def pre_process_with_affine(
         [trans_input],
         (inp_width, inp_height),
     )
-    image_tensor = numpy_image_to_torch(trans_image)
-    return image_tensor
+    return numpy_image_to_torch(trans_image)
 
 
 def denormalize_coordinates_affine(
@@ -681,8 +674,7 @@ def denormalize_coordinates_affine(
         np.ndarray: Transformed coordinates in the original image space. Shape (N, 2).
     """
     trans = compute_affine_transform(center, scale, rot, output_size, inv=True)
-    target_coords = apply_affine_to_coordinates(coords, trans)
-    return target_coords
+    return apply_affine_to_coordinates(coords, trans)
 
 
 def get_post_rot_and_tran(

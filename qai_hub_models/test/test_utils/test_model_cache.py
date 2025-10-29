@@ -26,7 +26,7 @@ dummy_model_id = "dummy_model_id"
 dummy_model_version = 1
 
 
-@pytest.fixture()
+@pytest.fixture
 def patch_hub_model(monkeypatch):
     class DummyModel:
         def __init__(self, model_id: str):

@@ -94,8 +94,8 @@ def get_supported_devices(chips: set[str]) -> list[ScorecardDevice]:
                 ScorecardDevice.get(device.name, return_unregistered=True)
                 for device in hub.get_devices(attributes=f"chipset:{chip}")
                 if "(Family)" not in device.name
-                and "Snapdragon 8 Gen 3 QRD"
-                != device.name  # this is not available to all users
+                and device.name
+                != "Snapdragon 8 Gen 3 QRD"  # this is not available to all users
             }
         supported_devices.update(__CHIP_SUPPORTED_DEVICES_CACHE[chip])
     return sorted_devices(supported_devices)

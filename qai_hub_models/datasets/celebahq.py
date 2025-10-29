@@ -13,7 +13,12 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.models._shared.repaint.utils import preprocess_inputs
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
@@ -150,8 +155,7 @@ class CelebAHQDataset(BaseDataset):
         if self.random_gen.normal() > 0:
             mask = mask.transpose(Image.FLIP_TOP_BOTTOM)
 
-        mask_array = np.asarray(mask, np.uint8)
-        return mask_array
+        return np.asarray(mask, np.uint8)
 
     def _validate_data(self) -> bool:
         if not self.image_dir.exists():
@@ -169,14 +173,12 @@ class CelebAHQDataset(BaseDataset):
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "CelebAHQ does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Download `image.zip` from the Google Drive:\n"
-            " ->https://www.kaggle.com/datasets/lamsimon/celebahq and \n"
-            "Once that file is in your local filesystem, run"
-            "2. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset celebahq --files /path/to/celeba_hq.zip "
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download `image.zip` from the Google Drive: https://www.kaggle.com/datasets/lamsimon/celebahq",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset celebahq --files /path/to/celeba_hq.zip",
+            ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             IMAGES_DIR_NAME + ".zip"

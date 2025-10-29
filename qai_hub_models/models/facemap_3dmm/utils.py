@@ -115,8 +115,7 @@ def project_landmark(output):
 
     # Project landmark vertices to 2D
     f = torch.tensor([f, f]).float()
-    landmark = vertices[:, 0:2] * f / tZ
-    return landmark
+    return vertices[:, 0:2] * f / tZ
 
 
 def transform_landmark_coordinates(

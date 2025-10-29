@@ -126,12 +126,11 @@ def _input_val_to_onnx_session_string_option(input_val: Any) -> str:
     """Convert input_value into a string option for an ONNX runtime session."""
     if isinstance(input_val, Enum):
         return str(input_val.value)
-    elif isinstance(input_val, bool):
+    if isinstance(input_val, bool):
         return "1" if input_val else "0"
-    elif isinstance(input_val, Path):
+    if isinstance(input_val, Path):
         return str(input_val.resolve().absolute())
-    else:
-        return str(input_val)
+    return str(input_val)
 
 
 def extract_onnx_zip(
@@ -168,10 +167,7 @@ def extract_onnx_zip(
 
     contents = os.listdir(path=path)
     # Sometimes an extraneous subfolder is created
-    if len(contents) == 1:
-        onnx_path = path / contents[0]
-    else:
-        onnx_path = path
+    onnx_path = path / contents[0] if len(contents) == 1 else path
 
     model_path = onnx_path / "model.onnx"
     weights_path = onnx_path / "model.data"
@@ -245,7 +241,7 @@ class OnnxSessionOptions:
         Convert these options to ONNX runtime session config entries.
         See ExecutionProviderOptions::apply_to_session_options for how to use the returned dict.
         """
-        out: dict[str, str] = dict()
+        out: dict[str, str] = {}
         session_config_fields = self.session_config_fields
         for field in fields(self):
             if field.name not in session_config_fields:
@@ -328,7 +324,7 @@ class ExecutionProviderOptions:
                 provider_options=[<this dict>]
             )
         """
-        out: dict[str, str] = dict()
+        out: dict[str, str] = {}
         for field in fields(self):
             input_val = getattr(self, field.name)
             if input_val is not None and input_val != field.default:
@@ -618,7 +614,7 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
                 - "inputs" contains input names that aren't defined by the model.
                 - An input's dtype is not compatible with the input dtype defined by the model.
         """
-        prepared_inputs: dict[str, np.ndarray] = dict()
+        prepared_inputs: dict[str, np.ndarray] = {}
         for input_name, input_val in inputs.items():
             if input_name not in self.inputs:
                 raise ValueError(

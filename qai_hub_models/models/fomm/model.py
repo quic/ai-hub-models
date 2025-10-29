@@ -153,10 +153,9 @@ class FOMMGenerator(BaseModel):
         )
         kp_norm = dict(value=kp_norm_values, jacobian=kp_norm_jacobians)
         out = self.model(image * 255, kp_source=source_kp, kp_driving=kp_norm)
-        prediction = out["prediction"]
+        return out["prediction"]
         # For the purposes of tracing we return only the prediction element of the dictionary
         # as this is the only part that the app uses
-        return prediction
 
     @classmethod
     def from_pretrained(cls) -> FOMMGenerator:

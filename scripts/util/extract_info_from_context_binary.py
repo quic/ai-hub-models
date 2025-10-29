@@ -31,11 +31,12 @@ def run_utility(qnn_sdk, model_path):
 
 
 def print_details_from_json(json_path):
-    data = json.load(open(json_path))
+    with open(json_path) as f:
+        data = json.load(f)
 
     for graph in data["info"]["graphs"]:
         print(f"Graph Name: {graph['info']['graphName']}")
-        input_spec = dict()
+        input_spec = {}
         for i in graph["info"]["graphInputs"]:
             input_spec[i["info"]["name"]] = (
                 tuple(i["info"]["dimensions"]),

@@ -27,7 +27,7 @@ class DynamicMockModule(types.ModuleType):
         return MagicMock()
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def mock_imports(monkeypatch):
     """Mock imports of custom packages needed for some models."""
     # monkeypatch.setattr("qai_hub_models.utils.quantization_aimet_onnx", "ensure_min_aimet_onnx_version", MagicMock(return_value=True))

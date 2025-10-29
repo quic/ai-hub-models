@@ -46,7 +46,7 @@ def test_perf_yaml():
                         model_name = QAIHMModelInfo.from_model(model_id).name
                     component_name = next(iter(precision_perf.components))
                     if component_name != model_name:
-                        raise ValueError(
+                        raise ValueError(  # noqa: TRY301
                             f"If model has 1 component, the component name (found: {component_name}) should match the model name (expected: {model_name})"
                         )
                 # For LLMs, check if the performance details are complete

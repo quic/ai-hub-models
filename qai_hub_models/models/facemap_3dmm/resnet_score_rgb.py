@@ -268,8 +268,7 @@ class ResBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.conv2(x)
-        return x
+        return self.conv2(x)
 
 
 class ResBottleneck(nn.Module):
@@ -326,8 +325,7 @@ class ResBottleneck(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.conv3(x)
-        return x
+        return self.conv3(x)
 
 
 class ResUnit(nn.Module):
@@ -400,14 +398,10 @@ class ResUnit(nn.Module):
         self.activ = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        if self.resize_identity:
-            identity = self.identity_conv(x)
-        else:
-            identity = x
+        identity = self.identity_conv(x) if self.resize_identity else x
         x = self.body(x)
         x = x + identity
-        x = self.activ(x)
-        return x
+        return self.activ(x)
 
 
 class ResInitBlock(nn.Module):
@@ -432,8 +426,7 @@ class ResInitBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.pool(x)
-        return x
+        return self.pool(x)
 
 
 class ResNet(nn.Module):
@@ -523,9 +516,7 @@ class ResNet(nn.Module):
         x = self.rgb2gray_block(x)
         x = self.features(x)
         feature = x.view(x.size(0), -1)
-        out = self.output(feature)
-
-        return out
+        return self.output(feature)
 
 
 def get_resnet(

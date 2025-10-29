@@ -62,8 +62,7 @@ class HuggingFaceWavLMBasePlusApp:
         # Run prediction
         features = self.model(audio_tensor)
         pred_ids = torch.argmax(features[0], dim=-1)
-        transcriptions = self.processor.batch_decode(pred_ids)[0]
-        return transcriptions
+        return self.processor.batch_decode(pred_ids)[0]
 
 
 def get_processor(

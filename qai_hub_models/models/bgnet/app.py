@@ -117,6 +117,4 @@ def postprocess_masks(
         pred_masks.max() - pred_masks.min() + 1e-8
     )
     # convert segmentation mask to RGB image
-    pred_mask_img = (pred_masks * 255).to(torch.uint8)
-
-    return pred_mask_img
+    return (pred_masks * 255).to(torch.uint8)

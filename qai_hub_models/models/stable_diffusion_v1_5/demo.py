@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import CavaFaceApp as App  # noqa: F401
-from .model import MODEL_ID  # noqa: F401
-from .model import CavaFace as Model  # noqa: F401
+from qai_hub_models.models._shared.stable_diffusion.demo import stable_diffusion_demo
+from qai_hub_models.models.stable_diffusion_v1_5 import MODEL_ID, Model
+
+if __name__ == "__main__":
+    stable_diffusion_demo(MODEL_ID, Model)

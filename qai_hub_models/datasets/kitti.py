@@ -10,7 +10,11 @@ import os
 import numpy as np
 import torch
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     CachedWebDatasetAsset,
@@ -63,9 +67,11 @@ class KittiDataset(BaseDataset):
         input_spec = input_spec or {"image": ((1, 3, 384, 1280), "")}
         self.input_width = input_spec["image"][0][3]
         self.input_height = input_spec["image"][0][2]
-        image_set = open(
+        with open(
             VAL_TXT.fetch() if split == DatasetSplit.VAL else TRAIN_TXT.fetch()
-        )
+        ) as image_set_f:
+            image_set = image_set_f.readlines()
+
         self.sample = []
 
         for line in image_set:
@@ -109,7 +115,8 @@ class KittiDataset(BaseDataset):
         img_id = self.sample[index]["img_id"]
 
         calib_path = self.sample[index]["calib_path"]
-        calib_str = open(calib_path).readlines()[2][:-1]
+        with open(calib_path) as calib_f:
+            calib_str = calib_f.readlines()[2][:-1]
         calib = np.array(calib_str.split(" ")[1:], dtype=np.float32)
         calib = calib.reshape(3, 4)
 
@@ -128,15 +135,14 @@ class KittiDataset(BaseDataset):
         return len(self.sample)
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Kitti does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Download images (https://www.cvlibs.net/download.php?file=data_object_image_2.zip), "
-            "annotations (https://www.cvlibs.net/download.php?file=data_object_label_2.zip), and "
-            "calibrations (https://www.cvlibs.net/download.php?file=data_object_calib.zip).\n"
-            "2. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset kitti --files /path/to/data_object_image_2.zip "
-            "/path/to/data_object_label_2.zip /path/to/data_object_calib.zip`"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download images from https://www.cvlibs.net/download.php?file=data_object_image_2.zip",
+                "Download annotations from https://www.cvlibs.net/download.php?file=data_object_label_2.zip",
+                "Download calibrations from https://www.cvlibs.net/download.php?file=data_object_calib.zip",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset kitti --files /path/to/data_object_image_2.zip /path/to/data_object_label_2.zip /path/to/data_object_calib.zip`",
+            ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             KITTI_IMAGES_DIR_NAME + ".zip"

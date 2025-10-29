@@ -341,18 +341,9 @@ class QAIRTVersion:
                 g = m.groupdict()
                 major = int(g["major"])
                 minor = int(g["minor"])
-                if r := g.get("patch"):
-                    patch = int(r[1:])
-                else:
-                    patch = None
-                if r := g.get("ident"):
-                    ident = r[1:]
-                else:
-                    ident = None
-                if r := g.get("flavor"):
-                    flavor = r[1:]
-                else:
-                    flavor = None
+                patch = int(r[1:]) if (r := g.get("patch")) else None
+                ident = r[1:] if (r := g.get("ident")) else None
+                flavor = r[1:] if (r := g.get("flavor")) else None
                 return QAIRTVersion.ParsedFramework(
                     major, minor, patch, ident, flavor, tags or []
                 )
@@ -394,10 +385,7 @@ class InferenceEngine(Enum):
     @property
     def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
         """Default QAIRT version used by this inference engine."""
-        if self == InferenceEngine.ONNX:
-            qairt_version = "2.37"
-        else:
-            qairt_version = "2.39"
+        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.39"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -419,8 +407,7 @@ class InferenceEngine(Enum):
                     f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
                     "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
                 ) from None
-            else:
-                raise e
+            raise
 
 
 @unique
@@ -691,7 +678,7 @@ class Precision:
         if isinstance(obj, Precision):
             return obj
         if not isinstance(obj, str):
-            raise ValueError(f"Unknown type {obj} for parsing to Precision")
+            raise TypeError(f"Unknown type {obj} for parsing to Precision")
         string = obj
         if string == "float":
             return Precision.float

@@ -105,8 +105,7 @@ def draw_3d_bbox(
                 thickness,
                 cv2.LINE_AA,
             )
-    canvas = canvas.astype(np.uint8)
-    return canvas
+    return canvas.astype(np.uint8)
 
 
 def transform_to_matrix(translation: list, rotation: list) -> np.ndarray:
@@ -161,7 +160,7 @@ def rotation_3d_in_axis(
     if batch_free:
         points = points[None]
 
-    if isinstance(angles, float) or isinstance(angles, int):
+    if isinstance(angles, (float, int)):
         angles = torch.full(points.shape[:1], angles)
     elif len(angles.shape) == 0:
         angles = torch.full(points.shape[:1], angles.item())
@@ -230,8 +229,7 @@ def rotation_3d_in_axis(
         if batch_free:
             rot_mat_T = rot_mat_T.squeeze(0)
         return points_new, rot_mat_T
-    else:
-        return points_new
+    return points_new
 
 
 def circle_nms(
@@ -299,7 +297,7 @@ def compute_iou_bev(box_a, box_b):
         cos_a = np.cos(angle)
         sin_a = np.sin(angle)
         w_half, h_half = w / 2, h / 2
-        corners = np.array(
+        return np.array(
             [
                 [
                     x - w_half * cos_a + h_half * sin_a,
@@ -319,7 +317,6 @@ def compute_iou_bev(box_a, box_b):
                 ],
             ]
         )
-        return corners
 
     corners_a = get_corners(x_a, y_a, w_a, h_a, angle_a)
     corners_b = get_corners(x_b, y_b, w_b, h_b, angle_b)
@@ -336,8 +333,7 @@ def compute_iou_bev(box_a, box_b):
     intersection_area = poly_a.intersection(poly_b).area
     union_area = poly_a.area + poly_b.area - intersection_area
 
-    iou = intersection_area / union_area if union_area > 0 else 0
-    return iou
+    return intersection_area / union_area if union_area > 0 else 0
 
 
 def nms_cpu(boxes, scores, thresh=0.4, pre_maxsize=None, post_max_size=None):
@@ -465,9 +461,7 @@ def onnx_atan2(y, x):
         y_negative & x_negative, pi, torch.zeros_like(ans)
     )  # Quadrants III and IV
     ans = torch.where(y_positive & x_zero, half_pi, ans)  # Positive y-axis
-    ans = torch.where(y_negative & x_zero, -half_pi, ans)  # Negative y-axis
-
-    return ans
+    return torch.where(y_negative & x_zero, -half_pi, ans)  # Negative y-axis
 
 
 def rotate_3d_along_axis(points, angles, axis=0):

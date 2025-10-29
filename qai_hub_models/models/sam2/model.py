@@ -165,8 +165,8 @@ class SAM2Encoder(BaseModel):
                 (batch_size, 3, encoder_img_height, encoder_img_width),
                 "float32",
             ),
-            "unnorm_coords": (tuple((1, num_points, 2)), "float32"),
-            "labels": (tuple((1, num_points)), "float32"),
+            "unnorm_coords": ((1, num_points, 2), "float32"),
+            "labels": ((1, num_points), "float32"),
         }
 
     def _get_input_spec_for_instance(
@@ -302,16 +302,16 @@ class SAM2Decoder(BaseModel):
         # the model input specification upon submitting a profile job.
 
         input_spec: InputSpec = {
-            "image_embeddings": (tuple((1, embed_dim, *image_embedding)), "float32"),
+            "image_embeddings": ((1, embed_dim, *image_embedding), "float32"),
             "high_res_features1": (
-                tuple((1, high_res_features1_dim, *high_res_featutes1)),
+                (1, high_res_features1_dim, *high_res_featutes1),
                 "float32",
             ),
             "high_res_features2": (
-                tuple((1, high_res_features2_dim, *high_res_featutes2)),
+                (1, high_res_features2_dim, *high_res_featutes2),
                 "float32",
             ),
-            "sparse_embedding": (tuple((1, num_points + 1, embed_dim)), "float32"),
+            "sparse_embedding": ((1, num_points + 1, embed_dim), "float32"),
         }
         return input_spec
 
@@ -332,8 +332,7 @@ class SAM2Decoder(BaseModel):
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
-        out = ["image_embeddings", "high_res_features1", "high_res_features2"]
-        return out
+        return ["image_embeddings", "high_res_features1", "high_res_features2"]
 
     @staticmethod
     def get_channel_last_outputs() -> list[str]:
@@ -387,7 +386,7 @@ class SAM2Loader:
         config_dir = QAIHM_MODELS_ROOT / MODEL_ID / "build"
         os.makedirs(config_dir, exist_ok=True)
         copy_configs(Path(sam2.__file__).parent / "configs" / "sam2.1", config_dir)
-        if model_type not in MODEL_REGISTERY.keys():
+        if model_type not in MODEL_REGISTERY:
             raise RuntimeError(f"Weights not found for model type `{model_type}`.")
 
         asset = CachedWebModelAsset(

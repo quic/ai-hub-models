@@ -72,8 +72,7 @@ class DDColor(BaseModel):
         Returns :
             torch.Tensor: Output tensor of shape (1, 2, 256, 256) represting the predicted AB color channels.
         """
-        out = self.model(image)
-        return out
+        return self.model(image)
 
     @staticmethod
     def get_input_spec(

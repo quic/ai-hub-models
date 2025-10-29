@@ -228,14 +228,13 @@ class MMLUEvaluator(BaseEvaluator):
                 rev KL Divergence [5-categories] (final answer, log-5): {self.get_avg_last_rev_kldiv_5cat():.3f}
             """
             ).lstrip()
-        else:
-            return textwrap.dedent(
-                f"""
+        return textwrap.dedent(
+            f"""
                 MMLU: {self.get_accuracy_score():.2%} (higher is better)
                 Top prediction is valid answer: {self.get_avg_valid_answers():.1%}
                 Avg NLL: {self.get_avg_neg_log_likelihood():.3f} (lower is better)
             """
-            ).lstrip()
+        ).lstrip()
 
     def for_each_batch(
         self,

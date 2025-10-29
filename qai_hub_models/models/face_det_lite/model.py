@@ -138,6 +138,7 @@ class FaceDetLite(BaseModel):
                 return center.sigmoid(), box, landmark
 
             return center, box, landmark
+        return None
 
     @classmethod
     def from_pretrained(cls, checkpoint_path: str | None = None):

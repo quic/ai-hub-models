@@ -82,9 +82,9 @@ def fetch_static_assets(
             asset_config,
         )
 
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         if fetch_static_assets_internal is None or not can_access_qualcomm_ai_hub():
-            raise e
+            raise
         print(
             "Model not found on Hugging Face. Using AI Hub to fetch the assets directly."
         )

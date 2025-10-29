@@ -129,8 +129,7 @@ class TrackAnythingApp:
         while i <= frame_tensor.shape[0] - NUM_FRAMES:
             # track the object
             batch_probs_list = []
-            j = 0
-            for tensor in frame_tensor[i : i + NUM_FRAMES]:
+            for j, tensor in enumerate(frame_tensor[i : i + NUM_FRAMES]):
                 if j % 5 == 0:
                     # First frame in NUM_FRAMES
                     key, shrinkage, selection, f16 = self.EncodeKeyWithShrinkage(
@@ -170,7 +169,6 @@ class TrackAnythingApp:
                     )
                     self.memory.set_hidden(hidden)
 
-                j += 1
                 batch_probs_list.append(batch_probs.unsqueeze(0))
             batch_probs = torch.concat(batch_probs_list, dim=0)
 

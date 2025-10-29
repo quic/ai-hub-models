@@ -14,6 +14,7 @@ from qai_hub.client import DatasetEntries
 from torch.utils.data import DataLoader, TensorDataset
 
 from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.datasets.common import UnfetchableDatasetError
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset, load_torch
 from qai_hub_models.utils.base_app import CollectionAppProtocol
@@ -126,12 +127,20 @@ def get_calibration_data(
         return app.get_calibration_data(
             model, calibration_dataset_name, num_samples, input_spec, collection_model
         )
-    dataset = get_dataset_from_name(
-        calibration_dataset_name,
-        split=DatasetSplit.TRAIN,
-        input_spec=input_spec,
-        **dataset_options,
-    )
+
+    try:
+        dataset = get_dataset_from_name(
+            calibration_dataset_name,
+            split=DatasetSplit.TRAIN,
+            input_spec=input_spec,
+            **dataset_options,
+        )
+    except UnfetchableDatasetError as e:
+        if e.installation_steps is None:
+            raise ValueError(
+                f"The calibration dataset ({e.dataset_name}) for this model is not publicly available. If you are running `export.py`, run export again and add `--fetch-static-assets`. This will fetch a pre-quantized model file, and skips the step that requires fetching this dataset."
+            ) from None
+        raise
     num_samples = num_samples or dataset.default_num_calibration_samples()
 
     # Round num samples to largest multiple of batch_size less than number requested

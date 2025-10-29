@@ -88,10 +88,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         Sequence length (ar...) and context length (cl...) in graph name
         are semantically important to Genie
         """
-        if self.sequence_length == 1:
-            instantiation_type = "token"
-        else:
-            instantiation_type = "prompt"
+        instantiation_type = "token" if self.sequence_length == 1 else "prompt"
         return f"{instantiation_type}_ar{self.sequence_length}_cl{self.context_length}_{split_index + 1}_of_{num_splits}"
 
     def convert_to_onnx_and_aimet_encodings(

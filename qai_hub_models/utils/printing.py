@@ -359,6 +359,5 @@ def print_file_tree_changes(
 @contextmanager
 def suppress_stdout():
     """A context manager that redirects stdout to devnull"""
-    with open(os.devnull, "w") as fnull:
-        with redirect_stdout(fnull) as out:
-            yield out
+    with open(os.devnull, "w") as fnull, redirect_stdout(fnull) as out:
+        yield out

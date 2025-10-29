@@ -39,13 +39,12 @@ def cached_from_pretrained():
         @skip_clone_repo_check
         def _cached_from_pretrained(*args, **kwargs):
             cache_key = str(args) + str(kwargs)
-            model = pretrained_cache.get(cache_key, None)
+            model = pretrained_cache.get(cache_key)
             if model:
                 return model
-            else:
-                non_none_model = from_pretrained(*args, **kwargs)
-                pretrained_cache[cache_key] = non_none_model
-                return non_none_model
+            non_none_model = from_pretrained(*args, **kwargs)
+            pretrained_cache[cache_key] = non_none_model
+            return non_none_model
 
         _cached_from_pretrained.__signature__ = sig
 

@@ -204,7 +204,7 @@ class SHAAttention(nn.Module):
         # query_states, key_states, value_states: List of (bsz, dim_head, H, W)
 
         # Handle past_key_value for caching
-        past_key_value = kwargs.get("past_key_value", None)
+        past_key_value = kwargs.get("past_key_value")
         if past_key_value is not None:
             raise NotImplementedError("SHAAttention does not support kv cache yet")
 
@@ -337,9 +337,7 @@ def replace_gelu_and_approx_gelu_with_conv2d(activation_module: nn.Module) -> nn
     -------
         nn.Module: The activation module with Conv2D projection.
     """
-    assert isinstance(activation_module, GELU) or isinstance(
-        activation_module, ApproximateGELU
-    )
+    assert isinstance(activation_module, (GELU, ApproximateGELU))
     dim_in = activation_module.proj.in_features
     dim_out = activation_module.proj.out_features
     bias = activation_module.proj.bias is not None
@@ -439,12 +437,10 @@ def replace_geglu_with_conv2d(activation_module: nn.Module) -> nn.Module:
     """
     if isinstance(activation_module, GEGLU):
         # Instantiate QcGEGLU with the original GEGLU module
-        qc_geglu = QcGEGLU(activation_module)
-        return qc_geglu
-    else:
-        raise TypeError(
-            f"Unsupported activation module type for GEGLU replacement: {type(activation_module)}"
-        )
+        return QcGEGLU(activation_module)
+    raise TypeError(
+        f"Unsupported activation module type for GEGLU replacement: {type(activation_module)}"
+    )
 
 
 def replace_activations_with_conv2d(model: nn.Module):
@@ -509,10 +505,9 @@ def replace_feedforward_with_conv2d(feedforward_module: nn.Module) -> nn.Module:
         # Replace the original ModuleList with the new one containing Conv2d layers
         feedforward_module.net = new_net
         return feedforward_module
-    else:
-        raise TypeError(
-            f"Unsupported module type for FeedForward replacement: {type(feedforward_module)}"
-        )
+    raise TypeError(
+        f"Unsupported module type for FeedForward replacement: {type(feedforward_module)}"
+    )
 
 
 def replace_feedforward_modules(model: nn.Module):

@@ -59,6 +59,11 @@ select = [
     "YTT", # Linting rules around for comparison of python versions
     "A",  # disallows variables that mirror builtins
     "B",  # catches common bugs
+    "PT",  # modern pytest syntax / catches bad tests
+    "TRY", # Prevents antipatterns when exceptions are thrown (eg. `raise Exception` is bad, use a more specific exception)
+    "C4", # Prevents container antipatterns (eg. use list(xlist) instead of [el for el in xlist]) to copy a list
+    "RET", # Optimal return syntax
+    "SIM", # Various rules to make sure the more simple syntax is used. For example, enforces `return x` over `return True if x else False`.
 ]
 ignore = [
     "E501", # line too long
@@ -94,6 +99,10 @@ ignore = [
     "PLR1702", # too many nested blocks
     "PLW2901", # for loop variable overwritten inside loop. This is often seen in model code, so it is disabled.
     "B019", # functools.cache can lead to memory leaks
+    "PT018", # test assertions should be broken into multiple parts. This is a buggy check that is applied by the linter outside of pytest code.
+    "PT015", # Assertion always fails, replace with pytest.fail(). This is a buggy check that is applied by the linter outside of pytest code.
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY300", # Consider moving return statement to an `else` block
 ]
 
 [tool.pydoclint]
@@ -109,6 +118,9 @@ check-style-mismatch = true
 "scripts/*" = ["INP", "PERF"]
 "qai_hub_models/models/_internal/*" = ["INP", "PL"]
 "qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py" = ["D"] # Transformers does some odd docstring validation that this breaks.
+
+[tool.ruff.lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["torch.device", "os.path.join"]

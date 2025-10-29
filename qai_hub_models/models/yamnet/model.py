@@ -51,8 +51,7 @@ class YamNet(BaseModel):
                 Scores is a matrix of (time_frames, num_classes) classifier scores
                 class_scores: Shape (1,521)
         """
-        output = self.model(audio)
-        return output
+        return self.model(audio)
 
     @staticmethod
     def get_input_spec() -> InputSpec:

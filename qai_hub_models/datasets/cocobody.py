@@ -96,7 +96,7 @@ class CocoBodyDataset(BaseDataset):
             ratio = self.target_w / self.target_h
 
             # keep only single person objects
-            person_anns = [ann for ann in annotations]
+            person_anns = list(annotations)
             if len(person_anns) != 1:
                 continue
             ann = person_anns[0]

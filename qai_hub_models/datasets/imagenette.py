@@ -92,10 +92,7 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             return False
 
         # Ensure >= 300 samples per classes
-        for subdir in subdirs:
-            if len(list(subdir.iterdir())) < 300:
-                return False
-        return True
+        return all(len(list(subdir.iterdir())) >= 300 for subdir in subdirs)
 
     def _download_data(self) -> None:
         IMAGENETTE_ASSET.fetch(extract=True)

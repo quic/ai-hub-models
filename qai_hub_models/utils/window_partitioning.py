@@ -109,8 +109,7 @@ def window_reverse_optimized(
     windows = windows.view(
         -1, W // window_size, window_size, window_size * num_channels
     )
-    windows = windows.permute(0, 2, 1, 3).contiguous().view(-1, H, W, num_channels)
-    return windows
+    return windows.permute(0, 2, 1, 3).contiguous().view(-1, H, W, num_channels)
 
 
 def window_partition_optimized(self, x: torch.Tensor) -> torch.Tensor:
@@ -135,8 +134,7 @@ def window_partition_optimized(self, x: torch.Tensor) -> torch.Tensor:
         window_size * C,
     )
     windows = input_feature.permute(0, 2, 1, 3).contiguous()
-    windows = windows.view(-1, window_size, window_size, C)
-    return windows
+    return windows.view(-1, window_size, window_size, C)
 
 
 def WindowMSA_forward_optimized(
@@ -206,5 +204,4 @@ def WindowMSA_forward_optimized(
 
     x = (attn @ v).transpose(1, 2).reshape(B, N, C)
     x = self.proj(x)
-    x = self.proj_drop(x)
-    return x
+    return self.proj_drop(x)

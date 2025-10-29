@@ -91,8 +91,7 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
     def get_accuracy_score(self) -> float:
         # Calculate mAP_mask[0.5-0.95]
         results = self.metric.compute()
-        mAP = results["map"]
-        return mAP
+        return results["map"]
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} mAP"

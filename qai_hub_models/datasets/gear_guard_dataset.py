@@ -14,7 +14,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
 
@@ -108,9 +112,7 @@ class GearGuardDataset(BaseDataset):
         self.gt_path = self.gt_path / "labels" / self.split_str
         self.image_list: list[Path] = []
         self.gt_list: list[Path] = []
-        img_count = 0
         for img_path in self.images_path.iterdir():
-            img_count += 1
             gt_filename = img_path.name.replace(".jpg", ".txt")
             gt_path = self.gt_path / gt_filename
             if not gt_path.exists():
@@ -121,10 +123,9 @@ class GearGuardDataset(BaseDataset):
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "GearGuardDataset is used for gear_guard_net quantization and evaluation. \n"
-            "Pass gearguard_trainvaltest.zip to the init function of class. \n"
-            "This should only be needed the first time you run this on the machine."
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=None,
         )
         if self.input_data_zip is None or not self.input_data_zip.endswith(
             GEARGUARD_DATASET_DIR_NAME + ".zip"

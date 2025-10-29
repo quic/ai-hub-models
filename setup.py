@@ -27,12 +27,8 @@ def load_requirements(path: str | os.PathLike) -> list[str]:
 
 def get_extras() -> dict[str, list[str]]:
     """Generate the valid extras for this version of AI Hub Models."""
-    extras_require = {
-        "dev": [
-            line.split("#")[0].strip()
-            for line in open(qaihm_path / "requirements-dev.txt").readlines()
-        ]
-    }
+    with open(qaihm_path / "requirements-dev.txt") as reqf:
+        extras_require = {"dev": [line.split("#")[0].strip() for line in reqf]}
 
     # Create extra for every model that requires one.
     for model_dir in qaihm_model_dir.iterdir():

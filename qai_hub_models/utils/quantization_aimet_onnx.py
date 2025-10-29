@@ -15,6 +15,7 @@ try:
     aimet_onnx_is_installed = True
 except (ImportError, ModuleNotFoundError):
     aimet_onnx_is_installed = False
+import contextlib
 import gc
 import os
 import shutil
@@ -161,14 +162,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             cls.model_asset_version,
             str(subfolder / "model.onnx"),
         ).fetch()
-        try:
+        with contextlib.suppress(Exception):
             _ = CachedWebModelAsset.from_asset_store(
                 cls.model_id,
                 cls.model_asset_version,
                 str(subfolder / "model.data"),
             ).fetch()
-        except Exception:
-            pass  # ignore. No external weight.
         aimet_encodings = CachedWebModelAsset.from_asset_store(
             cls.model_id,
             cls.model_asset_version,
@@ -213,7 +212,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         # TODO: Update AIMET-ONNX version for Stable Diffision.
         # Updae the calibration API to not use the forward calback
-        self.quant_sim.compute_encodings(_forward, tuple())
+        self.quant_sim.compute_encodings(_forward, ())
 
     def quantize(
         self,
@@ -351,18 +350,17 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
                     external_data_file_path,
                 )
             return str(zip_path)
-        else:
-            # Export directly to a directory at output_dir / f"{model_name}.aimet"
-            export_dir = output_dir / f"{model_name}.aimet"
-            shutil.rmtree(export_dir, ignore_errors=True)
-            os.makedirs(export_dir, exist_ok=True)
+        # Export directly to a directory at output_dir / f"{model_name}.aimet"
+        export_dir = output_dir / f"{model_name}.aimet"
+        shutil.rmtree(export_dir, ignore_errors=True)
+        os.makedirs(export_dir, exist_ok=True)
 
-            print(
-                f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
-            )
-            assert self.quant_sim is not None
-            self.quant_sim.export(str(export_dir), "model")
-            return str(export_dir)
+        print(
+            f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
+        )
+        assert self.quant_sim is not None
+        self.quant_sim.export(str(export_dir), "model")
+        return str(export_dir)
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
         """AI Hub quantize options recommended for the model."""

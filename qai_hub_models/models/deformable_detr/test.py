@@ -20,7 +20,7 @@ def test_task():
     net = DeformableDETR.from_pretrained(DEFAULT_WEIGHTS)
     img = load_image(IMAGE_ADDRESS)
     _, _, label, _ = DETRApp(net).predict(img, DEFAULT_WEIGHTS, threshold=0.75)
-    assert set(list(label.numpy())) == {75, 17}
+    assert set(label.numpy()) == {75, 17}
 
 
 @pytest.mark.trace
@@ -30,7 +30,7 @@ def test_trace():
     img = load_image(IMAGE_ADDRESS)
     (h, w) = model.get_input_spec()["image"][0][2:]
     _, _, label, _ = DETRApp(net, h, w).predict(img, DEFAULT_WEIGHTS, threshold=0.75)
-    assert set(list(label.numpy())) == {17}
+    assert set(label.numpy()) == {17}
 
 
 def test_demo():

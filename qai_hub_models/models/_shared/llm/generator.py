@@ -143,8 +143,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         if hasattr(self.selected_model, "host_device"):
             # Only works for models derived from LLM_AIMETOnnx
             return self.selected_model.host_device
-        else:
-            return self.selected_model.model.device
+        return self.selected_model.model.device
 
     def prepare_inputs_for_generation(
         self,

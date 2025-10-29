@@ -33,7 +33,7 @@ from qai_hub_models.datasets import (
     DatasetSplit,
     get_dataset_from_name,
 )
-from qai_hub_models.datasets.common import get_folder_name
+from qai_hub_models.datasets.common import UnfetchableDatasetError, get_folder_name
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
@@ -442,13 +442,15 @@ class HubDataset(Dataset):
             self.num_hub_datasets = min(self.num_hub_datasets, max_splits)
 
         # Only print the warning when doing a partial dataset
-        if self.num_hub_datasets < max_splits:
-            if num_samples != self.num_hub_datasets * self.samples_per_hub_dataset:
-                print(
-                    "Rounding up number of samples to the nearest multiple of "
-                    f" {self.samples_per_hub_dataset}: {num_samples} -> "
-                    f"{self.num_hub_datasets * self.samples_per_hub_dataset}."
-                )
+        if (
+            self.num_hub_datasets < max_splits
+            and num_samples != self.num_hub_datasets * self.samples_per_hub_dataset
+        ):
+            print(
+                "Rounding up number of samples to the nearest multiple of "
+                f" {self.samples_per_hub_dataset}: {num_samples} -> "
+                f"{self.num_hub_datasets * self.samples_per_hub_dataset}."
+            )
         self.channel_last_input = channel_last_input
         self.curr_dataset: DatasetFromIOTuples | None = None
         self.curr_h5_idx = -1
@@ -593,9 +595,9 @@ def evaluate(
             """Convert torch model I/O of any type to a tuple of inputs / outputs."""
             if isinstance(val, tuple):
                 return val
-            elif isinstance(val, list):
+            if isinstance(val, list):
                 return tuple(val)
-            return tuple([val])
+            return (val,)
 
         model_inputs = _torch_io_to_tuple(model_inputs)
         ground_truth_values = _torch_io_to_tuple(ground_truth_values)
@@ -772,7 +774,14 @@ def evaluate_on_dataset(
         )
         num_samples = len(torch_dataset)
     else:
-        source_torch_dataset = get_dataset_from_name(*dataset_from_name_args)
+        try:
+            source_torch_dataset = get_dataset_from_name(*dataset_from_name_args)
+        except UnfetchableDatasetError as e:
+            if e.installation_steps is None:
+                raise ValueError(
+                    f"The chosen dataset for model evaluation ({e.dataset_name}) is not publicly available. If you are running `evaluate.py`, please reach out at https://github.com/quic/ai-hub-models/issues to request accuracy information."
+                ) from None
+            raise
         if num_samples == -1:
             num_samples = len(source_torch_dataset)
         _validate_inputs(num_samples, source_torch_dataset)

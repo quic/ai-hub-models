@@ -10,7 +10,7 @@ from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 
 def _tie_quantizers_for_kv_cache(quantsim_model: QuantSimOnnx) -> None:
-    quantizer_mapping = dict()
+    quantizer_mapping = {}
 
     for input_name in quantsim_model.model.graph().input:
         if "past_key" in input_name.name or "past_value" in input_name.name:

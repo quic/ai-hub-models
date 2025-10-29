@@ -115,7 +115,7 @@ def test_create_genie_config():
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "task,expected_metric,num_samples",
+    ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 7.599, 0),
         ("mmlu", 0.703, 1000),
@@ -147,7 +147,7 @@ def test_evaluate_default(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    "task,expected_metric,num_samples",
+    ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 7.453, 0),
         ("mmlu", 0.728, 1000),
@@ -195,7 +195,7 @@ def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
     reason="This test can be run on GPU only.",
 )
 @pytest.mark.parametrize(
-    "precision,scorecard_path,device",
+    ("precision", "scorecard_path", "device"),
     get_compile_parameterized_pytest_config(
         MODEL_ID,
         SUPPORTED_PRECISION_RUNTIMES,
@@ -253,7 +253,7 @@ def test_compile(
     reason="This test can be run on GPU only. Also needs QDC package to run.",
 )
 @pytest.mark.parametrize(
-    "precision,scorecard_path,device",
+    ("precision", "scorecard_path", "device"),
     get_compile_parameterized_pytest_config(
         MODEL_ID,
         SUPPORTED_PRECISION_RUNTIMES,

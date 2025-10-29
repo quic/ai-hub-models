@@ -129,7 +129,7 @@ class EnumListWithParseableAll(list[EnumT], Generic[EnumT]):
     ) -> EnumListWithParseableAllTypeVar:
         if cls.ALL is not None:
             return cls(cls.ALL)
-        return cls([x for x in cls.EnumType])
+        return cls(list(cls.EnumType))
 
     @classmethod
     def parse(

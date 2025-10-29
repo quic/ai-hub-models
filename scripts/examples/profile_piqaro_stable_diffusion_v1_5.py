@@ -71,8 +71,7 @@ def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
 
     safe_torch_onnx_export(torch_model, sample_input, onnx_path)
 
-    onnx_model = onnx.load(onnx_path)
-    return onnx_model
+    return onnx.load(onnx_path)
 
 
 if __name__ == "__main__":

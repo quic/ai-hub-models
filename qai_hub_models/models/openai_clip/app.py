@@ -66,7 +66,7 @@ class ClipApp:
 
         # Process each image to be a tensor  of shape [NImages, 3, 224, 224] with layout RGB and range [0 - 1 ]
         for image_or_path in images_or_image_paths:
-            if isinstance(image_or_path, str) or isinstance(image_or_path, Path):
+            if isinstance(image_or_path, (str, Path)):
                 image_or_path = load_image(image_or_path)
             preprocessed_images.append(self.image_preprocessor(image_or_path))
         preprocessed_stacked_images = torch.stack(preprocessed_images)

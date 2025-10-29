@@ -132,8 +132,7 @@ def bilinear_sample(input_tensor: torch.Tensor, coords: torch.Tensor) -> torch.T
     Ic = input_tensor[y1, x0]  # bottom-left
     Id = input_tensor[y1, x1]  # bottom-right
 
-    sample = (wa * Ia + wb * Ib) + (wc * Ic + wd * Id)
-    return sample
+    return (wa * Ia + wb * Ib) + (wc * Ic + wd * Id)
 
 
 def custom_deformconv2d(

@@ -84,11 +84,13 @@ def ai_hub_no_access_patch():
 
 
 def test_model_with_no_hf_assets():
-    with hf_glob_patch(False), fetch_static_assets_internal_unavailable_patch():
-        with pytest.raises(FileNotFoundError), TemporaryDirectory() as tmpdir:
-            fetch_static_assets(
-                "mobilenet_v2", TargetRuntime.ONNX, output_folder=tmpdir
-            )
+    with (
+        hf_glob_patch(False),
+        fetch_static_assets_internal_unavailable_patch(),
+        pytest.raises(FileNotFoundError),
+        TemporaryDirectory() as tmpdir,
+    ):
+        fetch_static_assets("mobilenet_v2", TargetRuntime.ONNX, output_folder=tmpdir)
 
 
 def test_hf_model_with_single_component():

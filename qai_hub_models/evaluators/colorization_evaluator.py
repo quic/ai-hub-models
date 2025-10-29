@@ -55,8 +55,7 @@ class ColorizationEvaluator(BaseEvaluator):
         stdRoot = np.sqrt((rbStd**2) + (ybStd**2))
         meanRoot = np.sqrt((rbMean**2) + (ybMean**2))
         # derive the "colorfulness" metric
-        colorfulness = stdRoot + (0.3 * meanRoot)
-        return colorfulness
+        return stdRoot + (0.3 * meanRoot)
 
     def reset(self):
         self.colorfulness = []

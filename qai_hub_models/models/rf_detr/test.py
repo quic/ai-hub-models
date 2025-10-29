@@ -30,7 +30,7 @@ def test_task() -> None:
     _, _, label, _ = DETRApp(net, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(
         img, DEFAULT_WEIGHTS
     )
-    assert set(list(label.numpy())) == EXPECTED_OUTPUT
+    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_cli_from_pretrained() -> None:
@@ -48,7 +48,7 @@ def test_trace() -> None:
     _, _, label, _ = DETRApp(trace, DEFAULT_RESOLUTION, DEFAULT_RESOLUTION).predict(
         img, DEFAULT_WEIGHTS
     )
-    assert set(list(label.numpy())) == EXPECTED_OUTPUT
+    assert set(label.numpy()) == EXPECTED_OUTPUT
 
 
 def test_demo() -> None:

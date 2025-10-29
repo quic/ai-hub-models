@@ -266,7 +266,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
                     controlnet_cond=image_cond,
                     return_dict=False,
                 )
-                return tuple(down_block_res_samples + [mid_block_res_sample])
+                return (*down_block_res_samples, mid_block_res_sample)
 
         return ControlNetWrapper(model)
 

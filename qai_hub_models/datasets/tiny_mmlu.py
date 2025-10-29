@@ -63,17 +63,12 @@ class TinyMMLU(BaseDataset):
             )
 
             tokenized_question = {
-                k: list(map(lambda field: [field[-self.context_length :]], v))
+                k: [[field[-self.context_length :]] for field in v]
                 for k, v in tokenized_question.items()
             }
 
             tokenized_answer = self.tokenizer(
-                list(
-                    map(
-                        lambda answer: "Answer: " + chr(ord("A") + answer),
-                        sample["answer"],
-                    )
-                ),
+                ["Answer: " + chr(ord("A") + answer) for answer in sample["answer"]],
                 return_token_type_ids=False,
                 add_special_tokens=False,
                 return_tensors="pt",

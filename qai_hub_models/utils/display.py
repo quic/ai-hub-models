@@ -64,11 +64,10 @@ def display_image(image: Image, desc: str = "image") -> bool:
             print(f"Displaying {desc}")
             image.show()
             return True
-        else:
-            print(
-                "\nDemo image display is disabled by default for remote servers. "
-                f"To override, set `{ALWAYS_DISPLAY_VAR}=1` in your environment.\n"
-            )
+        print(
+            "\nDemo image display is disabled by default for remote servers. "
+            f"To override, set `{ALWAYS_DISPLAY_VAR}=1` in your environment.\n"
+        )
     except Exception:
         print("Failure to display demo images displayed on screen.")
         print(
@@ -124,5 +123,4 @@ def to_uint8(image: np.ndarray) -> np.ndarray:
     numpy array: The processed image in uint8 format.
     """
     clipped_image = np.clip(image, 0, 1)
-    uint8_image = np.round(clipped_image * 255).astype(np.uint8)
-    return uint8_image
+    return np.round(clipped_image * 255).astype(np.uint8)

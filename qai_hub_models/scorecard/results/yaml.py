@@ -99,7 +99,7 @@ class ScorecardJobYaml(
     scorecard_model_summary_type: type[ModelSummaryTypeVar]
 
     def __init__(self, job_id_mapping: dict[str, str] | None = None):
-        self.job_id_mapping = job_id_mapping or dict()
+        self.job_id_mapping = job_id_mapping or {}
 
     @classmethod
     def from_file(
@@ -459,28 +459,27 @@ def get_scorecard_job_yaml(
             if not path
             else CompileScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.PROFILE:
+    if job_type == hub.JobType.PROFILE:
         return (
             ProfileScorecardJobYaml()
             if not path
             else ProfileScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.INFERENCE:
+    if job_type == hub.JobType.INFERENCE:
         return (
             InferenceScorecardJobYaml()
             if not path
             else InferenceScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.QUANTIZE:
+    if job_type == hub.JobType.QUANTIZE:
         return (
             QuantizeScorecardJobYaml()
             if not path
             else QuantizeScorecardJobYaml.from_file(path)
         )
-    else:
-        raise NotImplementedError(
-            f"No file for storing test jobs of type {job_type.display_name}"
-        )
+    raise NotImplementedError(
+        f"No file for storing test jobs of type {job_type.display_name}"
+    )
 
 
 @overload

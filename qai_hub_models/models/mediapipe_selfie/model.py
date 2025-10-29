@@ -48,8 +48,7 @@ class DepthwiseConv2d(nn.Module):
         )
 
     def forward(self, x):
-        x = self.depthwise(x)
-        return x
+        return self.depthwise(x)
 
 
 class SelfieSegmentation(BaseModel):
@@ -192,7 +191,8 @@ class SelfieSegmentation(BaseModel):
         """
         front_net = cls(image_type)
         destination_path = MEDIAPIPE_SELFIE_CKPT_MAP[image_type].fetch()
-        front_data = open(destination_path, "rb").read()
+        with open(destination_path, "rb") as fdata:
+            front_data = fdata.read()
         front_model = Model.GetRootAsModel(front_data, 0)
         front_subgraph = front_model.Subgraphs(0)
         front_tensor_dict = {
@@ -355,9 +355,7 @@ class SelfieSegmentation(BaseModel):
         x11 = self.relu(self.conv43(x))
         x = x11 + self.relu(self.depthwise11(x11))
 
-        x = self.sigmoid(self.transpose_conv(x))
-
-        return x
+        return self.sigmoid(self.transpose_conv(x))
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

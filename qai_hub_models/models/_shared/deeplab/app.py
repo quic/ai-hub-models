@@ -80,6 +80,4 @@ class DeepLabV3App:
             return predictions
 
         color_map = create_color_map(self.num_classes)
-        out = PIL.Image.blend(image, PIL.Image.fromarray(color_map[predictions]), 0.5)
-
-        return out
+        return PIL.Image.blend(image, PIL.Image.fromarray(color_map[predictions]), 0.5)

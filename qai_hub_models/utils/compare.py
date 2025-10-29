@@ -19,10 +19,10 @@ from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_la
 def _flatten_tuple(out_tuple):
     if isinstance(out_tuple, torch.Tensor):
         return (out_tuple.detach(),)
-    elif isinstance(out_tuple, Iterable):
+    if isinstance(out_tuple, Iterable):
         out_tuple = tuple(out_tuple)
     else:
-        raise ValueError(
+        raise TypeError(
             f"Invalid type for out_tuple: {type(out_tuple)}. Expected torch.Tensor or Iterable."
         )
 
@@ -142,9 +142,7 @@ def compute_top_k_accuracy(expected, actual, k):
     top_k_expected = np.argpartition(expected.flatten(), -k)[-k:]
     top_k_actual = np.argpartition(actual.flatten(), -k)[-k:]
 
-    top_k_accuracy = np.mean(np.isin(top_k_expected, top_k_actual))
-
-    return top_k_accuracy
+    return np.mean(np.isin(top_k_expected, top_k_actual))
 
 
 TOP_K_EXPLAINER = "Match rate between the top {k} classification predictions. 1 indicates perfect match"
@@ -189,7 +187,7 @@ def generate_comparison_metrics(
     metrics_ls = metrics.split(",")
     for m in metrics_ls:
         supported_metrics = ", ".join(METRICS_FUNCTIONS.keys())
-        if m not in METRICS_FUNCTIONS.keys():
+        if m not in METRICS_FUNCTIONS:
             raise ValueError(
                 f"Metrics {m} not supported. Supported metrics: {supported_metrics}"
             )

@@ -140,8 +140,7 @@ def preprocess_video_kinetics_400(input_video: torch.Tensor):
     """
     input_video = normalize(input_video)
     input_video = resize(input_video, (128, 171))
-    input_video = crop(input_video, (112, 112))
-    return input_video
+    return crop(input_video, (112, 112))
 
 
 def preprocess_video_224(input_video: torch.Tensor):

@@ -181,7 +181,7 @@ def export_without_hub_access(
         )
     try:
         if target_runtime.is_aot_compiled and not chipset:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY301
                 "This asset is runtime-specific, and a chipset could not be identified to match the given device. Try a device listed above in the profiling results section."
             )
 

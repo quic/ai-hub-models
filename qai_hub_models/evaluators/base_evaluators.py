@@ -163,10 +163,7 @@ def _for_each_batch(
     total_samples = 0
     num_samples = num_samples or len(data)
 
-    if isinstance(data, DataLoader):
-        batch_size = data.batch_size or 1
-    else:
-        batch_size = 1
+    batch_size = data.batch_size or 1 if isinstance(data, DataLoader) else 1
     counting_obj = "batches" if batch_size != 1 else "samples"
 
     with tqdm(

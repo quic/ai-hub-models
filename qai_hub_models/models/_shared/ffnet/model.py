@@ -118,8 +118,7 @@ def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
 
         from models.model_registry import model_entrypoint
 
-        model = model_entrypoint(variant_name)()
-        return model
+        return model_entrypoint(variant_name)()
 
 
 class FFNetLowRes(FFNet):

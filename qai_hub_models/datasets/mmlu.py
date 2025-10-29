@@ -93,11 +93,10 @@ class MMLU(BaseDataset):
                 formatted_string += "\n\n"
             return formatted_string
 
-        formatted_fewshot_questions = {
+        return {
             subject: combine_questions(questions)
             for subject, questions in grouped_fewshot_questions.items()
         }
-        return formatted_fewshot_questions
 
     def preprocess_dataset(self):
         fewshot_subject_headers = self.load_fewshot()
@@ -136,17 +135,12 @@ class MMLU(BaseDataset):
             )
 
             tokenized_question = {
-                k: list(map(lambda field: [field[-self.context_length :]], v))
+                k: [[field[-self.context_length :]] for field in v]
                 for k, v in tokenized_question.items()
             }
 
             tokenized_answer = self.tokenizer(
-                list(
-                    map(
-                        lambda answer: "Answer: " + chr(ord("A") + answer),
-                        sample["answer"],
-                    )
-                ),
+                ["Answer: " + chr(ord("A") + answer) for answer in sample["answer"]],
                 return_token_type_ids=False,
                 add_special_tokens=False,
                 return_tensors="pt",

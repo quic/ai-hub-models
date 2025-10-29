@@ -117,10 +117,7 @@ class PerformanceDiff:
             # both failed, don't add this to the summary
             return
 
-        if is_progression:
-            append_to = self.progressions
-        else:
-            append_to = self.regressions
+        append_to = self.progressions if is_progression else self.regressions
         bucket = None
         for i in range(len(self.perf_buckets)):
             key = self.perf_buckets[i]
@@ -196,7 +193,7 @@ class PerformanceDiff:
             and component not in new_report.components
         ):
             return
-        elif (
+        if (
             component in previous_report.components
             and component not in new_report.components
         ):
@@ -264,7 +261,7 @@ class PerformanceDiff:
     ):
         if not new_report and not previous_report:
             return
-        elif new_report and not previous_report:
+        if new_report and not previous_report:
             self.new_models.append(model_id)
         elif previous_report and not new_report:
             self.missing_models.append(model_id)

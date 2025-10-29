@@ -156,8 +156,7 @@ class KLDivEvaluator(BaseEvaluator):
             if self.tokenizer is not None:
                 ret += f"\nFlips: {self.flips / self.batch_index:.1%}\n"
             return ret
-        else:
-            return "KL Divergence: Nothing collected."
+        return "KL Divergence: Nothing collected."
 
     def for_each_batch(
         self,

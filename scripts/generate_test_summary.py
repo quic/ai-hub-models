@@ -108,10 +108,9 @@ def extract_relevant_stack_trace(
             )  # Include 7 lines before instead of 2
             end_line = min(len(stack_lines), last_error_line + 3)
             return "\n".join(stack_lines[start_line:end_line])
-        else:
-            # If we can't find the error message, use the last several lines
-            return "\n".join(stack_lines[-10:])  # Show 10 lines instead of 5
-    elif len(stack_lines) > 5:
+        # If we can't find the error message, use the last several lines
+        return "\n".join(stack_lines[-10:])  # Show 10 lines instead of 5
+    if len(stack_lines) > 5:
         # For moderately long stack traces, use all lines
         return stack_trace
 
@@ -340,9 +339,7 @@ def generate_stats_summary(stats: dict[str, Union[int, float]]) -> str:
     )
 
     # Generate a markdown table
-    table = tabulate(stats_df, headers="keys", tablefmt="pipe", showindex=False)
-
-    return table
+    return tabulate(stats_df, headers="keys", tablefmt="pipe", showindex=False)
 
 
 def write_to_github_summary(content: str) -> None:
@@ -492,8 +489,7 @@ def get_test_results(
         print(f"Found {len(xml_files)} {file_pattern} files in {xml_path_or_dir}")
 
         return combine_junit_results(xml_files)
-    else:
-        return parse_junit_xml(xml_path_or_dir)
+    return parse_junit_xml(xml_path_or_dir)
 
 
 def write_summary(summary_text: str, output_path: Optional[str] = None) -> None:

@@ -75,6 +75,4 @@ class SINetApp:
         seg_img[:, :, 2] = (
             img_orig[:, :, 2] * idx_fg * 0.4 + img_orig[:, :, 0] * idx_bg * 0.6
         )
-        out_image = Image.fromarray(seg_img.astype(np.uint8))
-
-        return out_image
+        return Image.fromarray(seg_img.astype(np.uint8))

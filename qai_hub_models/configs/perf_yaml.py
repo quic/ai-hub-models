@@ -63,7 +63,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 compute_unit_for_most_layers = max(self.cpu, self.gpu, self.npu)
                 if compute_unit_for_most_layers == self.npu:
                     return "NPU"
-                elif compute_unit_for_most_layers == self.gpu:
+                if compute_unit_for_most_layers == self.gpu:
                     return "GPU"
                 return "CPU"
 

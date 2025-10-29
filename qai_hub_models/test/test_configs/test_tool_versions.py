@@ -47,7 +47,10 @@ def test_extract_tool_versions_from_compiled_model():
         metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25"},
         producer=None,
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        expected_exception=ValueError,
+        match=r"Model must be compiled with AI Hub to extract tool versions\.",
+    ):
         ToolVersions.from_compiled_model(m)
 
 

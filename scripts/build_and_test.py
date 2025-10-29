@@ -147,7 +147,7 @@ def get_test_venv_wheel_dir() -> Optional[str]:
     """
     if get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL"):
         return RELEASE_WHEEL_DIR
-    elif on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
+    if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
         return PRIVATE_WHEEL_DIR
     return None  # editable install
 

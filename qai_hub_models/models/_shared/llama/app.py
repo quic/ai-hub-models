@@ -79,7 +79,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
         # Return logits + past_key_values
         assert out is not None
-        return tuple((out[0], *past_key_values))
+        return (out[0], *past_key_values)
 
     def forward_tg(
         self,
@@ -123,10 +123,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
                 past_j = past_key_values[start_past_key_offset + j]
 
                 # Concatenation is not always along the same dimension
-                if new_cache_j.shape[3] == 1:
-                    dim = 3
-                else:
-                    dim = 2
+                dim = 3 if new_cache_j.shape[3] == 1 else 2
 
                 # Slice to remove oldest value
                 slices = [slice(None)] * dim + [slice(1, None)]
@@ -144,7 +141,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
         # Return logits + past_key_values
         assert out is not None
-        return tuple((out[0], *past_key_values_new))
+        return (out[0], *past_key_values_new)
 
     @abstractmethod
     def load_model_part(self, model_part: int) -> BaseModel:

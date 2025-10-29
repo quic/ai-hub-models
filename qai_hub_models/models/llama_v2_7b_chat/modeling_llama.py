@@ -194,8 +194,7 @@ def apply_rotary_pos_emb_single(x, cos, sin, position_ids):
     sin = sin[0, 0, :, :]  # [seq_len, dim]
     cos = cos[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
     sin = sin[position_ids].unsqueeze(1)  # [bs, 1, seq_len, dim]
-    x_embed = (x * cos) + (rotate_half(x) * sin)
-    return x_embed
+    return (x * cos) + (rotate_half(x) * sin)
 
 
 def apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
@@ -211,8 +210,7 @@ def apply_rope_single(x, rope_vals: tuple[torch.Tensor, torch.Tensor]):
     x_prod_im = x_real * rope_im + x_im * rope_real
 
     # TODO: HF need to uses different interleaving
-    x = torch.cat((x_prod_real, x_prod_im), dim=3).view(*x.shape)
-    return x
+    return torch.cat((x_prod_real, x_prod_im), dim=3).view(*x.shape)
 
 
 # Add Concat Module for AIMET encoding consumption
@@ -274,9 +272,7 @@ class LlamaMLP(nn.Module):
             self.act_fn(self.gate_proj_conv(x)) * self.up_proj_conv(x)
         )
         x = x.transpose(1, 3)
-        x = torch.reshape(x, (bsz, -1, self.hidden_size))
-
-        return x
+        return torch.reshape(x, (bsz, -1, self.hidden_size))
 
         ### ------- QCOM EDITS ENDS ------- ###
 
@@ -920,7 +916,7 @@ class LlamaModel(LlamaPreTrainedModel):
         # Combined attention mask expand attention mask to rank-4
         # [ bsz, 1, tgt_seq_len, src_seq_len ]
         # check attention mask shape and fetch sequence length correctly.
-        elif attention_mask is not None:
+        if attention_mask is not None:
             attention_shape = attention_mask.shape
             batch_size = attention_shape[0]
             seq_length = (
@@ -961,10 +957,10 @@ class LlamaModel(LlamaPreTrainedModel):
             position_ids = position_ids.view(-1, seq_length).long()
 
         ### ------- QCOM EDITS STARTS ------- ###
-        if self.config.split_model is None or self.config.split_model == 1:
-            if inputs_embeds is None:
-                inputs_embeds = self.embed_tokens(input_ids)
-            # embed positions
+        if (
+            self.config.split_model is None or self.config.split_model == 1
+        ) and inputs_embeds is None:
+            inputs_embeds = self.embed_tokens(input_ids)
         ### ------- QCOM EDITS ENDS ------- ###
 
         # if use_combined_mask_input, then attention mask is prepared outside the model
@@ -990,7 +986,7 @@ class LlamaModel(LlamaPreTrainedModel):
             hidden_states = input_ids
         ### ------- QCOM EDITS ENDS ------- ###
 
-        if self.gradient_checkpointing and self.training:
+        if self.gradient_checkpointing and self.training:  # noqa: SIM102
             if use_cache:
                 logger.warning_once(
                     "`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`..."
@@ -1123,8 +1119,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         x = x.transpose(1, 3)  # Transpose right before and after Conv
         x = self.lm_head_conv(x)
         x = x.transpose(1, 3)
-        x = torch.reshape(x, (bsz, -1, self.config.vocab_size))
-        return x
+        return torch.reshape(x, (bsz, -1, self.config.vocab_size))
 
     ### ------- QCOM EDITS ENDS ------- ###
 
@@ -1282,7 +1277,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         if past_key_values:
             input_ids = input_ids[:, -1:]
 
-        position_ids = kwargs.get("position_ids", None)
+        position_ids = kwargs.get("position_ids")
         if attention_mask is not None and position_ids is None:
             # create position_ids on the fly for batch generation
             position_ids = attention_mask.long().cumsum(-1) - 1

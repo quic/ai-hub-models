@@ -86,13 +86,12 @@ class Qwen2Base(LLMBase):
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
         """Get prompt to set context and initialize prompt-processor"""
-        prompt = f"""{START_HEADER}{SYSTEM_ID}
+        return f"""{START_HEADER}{SYSTEM_ID}
 {system_context_prompt}{END_HEADER}
 {START_HEADER}{USER_ID}
 {user_input_prompt}{END_HEADER}
 {START_HEADER}{ASSISTANT_ID}
 """
-        return prompt
 
     @staticmethod
     def monkey_patch(
@@ -267,7 +266,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
             encodings["activation_encodings"][embed_w_name]
         )
-        for key in encodings["activation_encodings"].keys():
+        for key in encodings["activation_encodings"]:
             if "weight" in key:
                 encodings["param_encodings"][key] = copy.deepcopy(
                     encodings["activation_encodings"][key]

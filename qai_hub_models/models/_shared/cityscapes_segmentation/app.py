@@ -61,8 +61,7 @@ def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
             return_dataloader,
         )
 
-        dataloader = return_dataloader(num_workers=1, batch_size=1)
-        return dataloader
+        return return_dataloader(num_workers=1, batch_size=1)
 
 
 def preprocess_cityscapes_image(image: Image) -> torch.Tensor:
@@ -133,6 +132,4 @@ class CityscapesSegmentationApp:
         out = ImageModule.blend(resized_image, color_mask.convert("RGB"), 0.5)
 
         # Resize / unpad annotated image
-        image_annotated = pil_undo_resize_pad(out, image.size, scale, padding)
-
-        return image_annotated
+        return pil_undo_resize_pad(out, image.size, scale, padding)

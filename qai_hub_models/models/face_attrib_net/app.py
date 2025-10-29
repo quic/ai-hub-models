@@ -67,7 +67,7 @@ class FaceAttribNetApp:
         elif isinstance(img, np.ndarray):
             img_array = img
         else:
-            raise RuntimeError("Invalid format")
+            raise TypeError("Invalid format")
 
         img_array = img_array.astype("float32") / 255  # image normalization
         img_array = img_array[np.newaxis, ...]

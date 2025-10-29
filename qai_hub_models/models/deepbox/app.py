@@ -163,8 +163,7 @@ class DeepBoxApp:
         if raw_output:
             return proj_matrixes, orients, dims, locations
 
-        img = Image.fromarray(numpy_image)
-        return img
+        return Image.fromarray(numpy_image)
 
     def detect_2d_bboxes(
         self, image_resized: Image.Image
@@ -202,7 +201,8 @@ class DeepBoxApp:
 
         # Gets the labels and camera calib
         labels_path = os.path.sep.join([repo_path + "/weights", "coco.names"])
-        labels = open(labels_path).read().split("\n")
+        with open(labels_path) as labels_f:
+            labels = labels_f.read().split("\n")
         calib_file = repo_path + "/camera_cal/calib_cam_to_cam.txt"
 
         x1, y1, x2, y2 = pred_boxes

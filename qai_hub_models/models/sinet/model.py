@@ -100,8 +100,7 @@ def _get_weightsfile_from_name(weights_name: str = DEFAULT_WEIGHTS):
             MODEL_ASSET_VERSION,
             "SINet.pth",
         )
-    else:
-        raise NotImplementedError(f"Cannot get weights file from name {weights_name}")
+    raise NotImplementedError(f"Cannot get weights file from name {weights_name}")
 
 
 def _load_sinet_source_model_from_weights(

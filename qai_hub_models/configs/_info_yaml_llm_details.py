@@ -56,9 +56,7 @@ class LLMDetails(BaseQAIHMConfig):
             #
             # We construct a valid input dict by stuffing all of the "devices" into the appropriate namespace.
             dict_to_parse = {
-                k: v
-                for k, v in val_dict.items()
-                if k in [x for x in LLMDetails.model_fields.keys()]
+                k: v for k, v in val_dict.items() if k in list(LLMDetails.model_fields)
             }
             dict_to_parse["devices"] = {
                 k: v for k, v in val_dict.items() if k not in dict_to_parse

@@ -71,8 +71,7 @@ class HfWhisperEncoder(BaseModel):
     def forward(self, input_features: torch.Tensor) -> tuple[torch.Tensor, ...]:
         # Return cross attention key and value cache tensors
         assert self.encoder is not None, "model is None"
-        kv_cache_cross = self.encoder(input_features)[0]
-        return kv_cache_cross
+        return self.encoder(input_features)[0]
 
     @staticmethod
     def get_input_spec(num_mel_bin: int = 80) -> InputSpec:
@@ -313,11 +312,9 @@ def get_feature_extractor(
     hf_whisper_version: str = "openai/whisper-small",
 ) -> WhisperFeatureExtractor:
     """feature_extractor to use for Whisper"""
-    feature_extractor = WhisperFeatureExtractor.from_pretrained(hf_whisper_version)
-    return feature_extractor
+    return WhisperFeatureExtractor.from_pretrained(hf_whisper_version)
 
 
 def get_tokenizer(hf_whisper_version: str = "openai/whisper-small") -> WhisperTokenizer:
     """Tokenizer to use for Whisper"""
-    tokenizer = WhisperTokenizer.from_pretrained(hf_whisper_version)
-    return tokenizer
+    return WhisperTokenizer.from_pretrained(hf_whisper_version)

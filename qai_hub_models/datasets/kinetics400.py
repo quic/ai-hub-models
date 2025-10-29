@@ -131,10 +131,7 @@ class Kinetics400Dataset(BaseDataset):
         if len(self.mp4_files) != len(self):
             return False
 
-        if len(self.label_indices) != len(self):
-            return False
-
-        return True
+        return len(self.label_indices) == len(self)
 
     def preprocess_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
         return (

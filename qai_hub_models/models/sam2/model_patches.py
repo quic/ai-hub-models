@@ -122,9 +122,7 @@ class SplitHeadSAMEncoderAttention(nn.Module):
         x = x.transpose(1, 2)
         x = x.reshape(B, H, W, -1)
 
-        x = self.proj(x)
-
-        return x
+        return self.proj(x)
 
 
 class SAM2Normalize(nn.Module):
@@ -278,13 +276,12 @@ def mask_postprocessing(
     -------
         torch.Tensor: A tensor of masks resized to the original image dimensions.
     """
-    masks = torch.nn.functional.interpolate(
+    return torch.nn.functional.interpolate(
         low_res_masks,
         size=(orig_im_size[0], orig_im_size[1]),
         mode="bilinear",
         align_corners=False,
     )
-    return masks
 
 
 def sam_prompt_encoder_embed_points(
@@ -314,5 +311,4 @@ def sam_prompt_encoder_embed_points(
         labels != -1
     ).float()
     not_a_point_embed = self.not_a_point_embed.weight * (labels == -1).float()
-    point_embedding = point_embed + not_a_point_embed
-    return point_embedding
+    return point_embed + not_a_point_embed

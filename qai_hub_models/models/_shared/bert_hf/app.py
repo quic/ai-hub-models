@@ -71,10 +71,8 @@ class BaseBertApp:
         predicted_input_ids[mask_idx] = predicted_token_id.to(torch.long)
 
         # Decode the entire sequence but skip special tokens and padding
-        sequence = self.tokenizer.decode(
+        return self.tokenizer.decode(
             predicted_input_ids,
             skip_special_tokens=True,
             clean_up_tokenization_spaces=True,
         )
-
-        return sequence

@@ -118,10 +118,7 @@ def _load_realesrgan_source_model_from_weights(
             weights_path, map_location=torch.device("cpu"), weights_only=False
         )
 
-        if "params_ema" in pretrained_dict:
-            keyname = "params_ema"
-        else:
-            keyname = "params"
+        keyname = "params_ema" if "params_ema" in pretrained_dict else "params"
         realesrgan_model.load_state_dict(pretrained_dict[keyname], strict=True)
 
         return realesrgan_model
