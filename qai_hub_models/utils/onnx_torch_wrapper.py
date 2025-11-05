@@ -692,7 +692,7 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
                 output = outputs[idx]
                 if output_qdq_params is not None:
                     scale, bias = output_qdq_params
-                    output = ((output + bias) * scale).astype(np.float32)
+                    output = (output.astype(np.float32) + bias) * scale
                 processed_outputs.append(output)
             return processed_outputs
 
