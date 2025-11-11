@@ -182,6 +182,13 @@ def _load_encoding(encodingfile: PathLike | None, no_merge: bool = False) -> Any
     if encodingfile is not None:
         with open(encodingfile) as json_file:
             quant_encoding_dict = json.load(json_file)
+        if isinstance(quant_encoding_dict, list):
+            quant_encoding_dict["activation_encodings"] = {
+                v["name"]: v for v in quant_encoding_dict["activation_encodings"]
+            }
+            quant_encoding_dict["param_encodings"] = {
+                v["name"]: v for v in quant_encoding_dict["param_encodings"]
+            }
         if no_merge:
             return quant_encoding_dict
         all_encodings.update(quant_encoding_dict["activation_encodings"])
