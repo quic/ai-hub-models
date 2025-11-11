@@ -124,7 +124,7 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         return tensors, label
 
     def __len__(self):
-        return len(list(self.ds.values())[0])  # type: ignore[attr-defined]
+        return len(next(iter(self.ds.values())))  # type: ignore[attr-defined]
 
     @abstractmethod
     def _validate_data(self) -> bool:

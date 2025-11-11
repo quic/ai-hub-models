@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime
 import time
 from functools import cached_property
-from typing import Any, Generic, Optional, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
@@ -48,12 +48,11 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         self,
         model_id: str,
         precision: Precision,
-        job_id: Optional[str],
+        job_id: str | None,
         device: ScorecardDevice,
         wait_for_job: bool,  # If false, running jobs are treated like they were "skipped".
-        wait_for_max_job_duration: Optional[
-            int
-        ],  # Allow the job this many seconds after creation to complete
+        wait_for_max_job_duration: int
+        | None,  # Allow the job this many seconds after creation to complete
         path: ScorecardPathOrNoneTypeVar,
     ):
         self.model_id = model_id
@@ -117,7 +116,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         return not self.skipped and self._job_status.success
 
     @cached_property
-    def status_message(self) -> Optional[str]:
+    def status_message(self) -> str | None:
         return None if self.skipped else self._job_status.message
 
     @cached_property
@@ -160,7 +159,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         raise ValueError("No chipset found.")
 
     @cached_property
-    def date(self) -> Optional[datetime.datetime]:
+    def date(self) -> datetime.datetime | None:
         if self.job is None:
             return None
         return self.job.date

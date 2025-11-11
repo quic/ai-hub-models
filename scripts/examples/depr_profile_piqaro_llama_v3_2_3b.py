@@ -16,7 +16,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import onnx
 import piqaro
@@ -33,7 +32,7 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
 )
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
 from qai_hub_models.utils.model_cache import CacheMode
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 from qai_hub_models.utils.qai_hub_helpers import export_torch_to_onnx_zip
@@ -160,7 +159,7 @@ if __name__ == "__main__":
             model_name: str | None = None,
             external_weights: bool = False,
             bundle_external_weights: bool = False,
-            output_names: Optional[list[str]] = None,
+            output_names: list[str] | None = None,
         ) -> str:
             model_name = model_name or self.__class__.__name__
             input_spec = input_spec or self.get_input_spec()

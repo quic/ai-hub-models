@@ -8,7 +8,7 @@ import qai_hub as hub
 from qai_hub.client import JobType
 from qai_hub.public_rest_api import get_job_results
 
-from qai_hub_models.models.common import Optional, QAIRTVersion, TargetRuntime
+from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.qai_hub_helpers import extract_job_options
 
@@ -24,10 +24,10 @@ class ToolVersions(BaseQAIHMConfig):
     (like AI Hub version) would break this without changing the equality check.
     """
 
-    qairt: Optional[QAIRTVersion] = None
-    onnx: Optional[str] = None
-    onnx_runtime: Optional[str] = None
-    tflite: Optional[str] = None
+    qairt: QAIRTVersion | None = None
+    onnx: str | None = None
+    onnx_runtime: str | None = None
+    tflite: str | None = None
 
     @staticmethod
     def from_compiled_model(
@@ -147,7 +147,7 @@ class ToolVersions(BaseQAIHMConfig):
 
             # If the job is not successful, the only way to get the QAIRT version is to look at the job flags.
             job_options = extract_job_options(job)
-            version: Optional[str] = None
+            version: str | None = None
             if "qairt_version" in job_options:
                 version = cast(str, job_options["qairt_version"])
             elif "qnn_version" in job_options:

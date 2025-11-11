@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -152,7 +152,7 @@ class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
     @classmethod
     def from_pretrained(
         cls,
-        weights: Optional[str] = None,
+        weights: str | None = None,
     ) -> Self:
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)

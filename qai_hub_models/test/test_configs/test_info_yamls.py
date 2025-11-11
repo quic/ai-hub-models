@@ -75,7 +75,7 @@ def test_info_yaml():
             )
         except Exception as err:
             raise AssertionError(
-                f"{model_id} config validation failed: {str(err)}"
+                f"{model_id} config validation failed: {err!s}"
             ) from None
 
         # Verify model ID is the same as folder name

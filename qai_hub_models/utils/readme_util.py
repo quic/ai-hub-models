@@ -80,9 +80,12 @@ def _get_licenses(
 
 def _get_package_instructions(
     model_id: str,
+    pip_pre_build_reqs: str | None,
     pip_install_flags: str | None,
     model_has_reqs: bool,
     pip_install_flags_gpu: str | None = None,
+    greater_than_or_equal_to_python_version: str | None = None,
+    less_than_python_version: str | None = None,
 ):
     # Use dashes in model name to avoid an issue where older pip versions may not install modules correctly.
     install_pkg = "qai-hub-models" + (
@@ -92,6 +95,12 @@ def _get_package_instructions(
         # Package extras include brackets in the package name, which confuses
         # shells like zsh unless contained within quotes.
         install_pkg = f'"{install_pkg}"'
+
+    pip_pre_build = ""
+    if pip_pre_build_reqs:
+        pip_pre_build = f"pip install {pip_pre_build_reqs}\n"
+
+    version_warning = f"# NOTE: {greater_than_or_equal_to_python_version or '3.10'} <= PYTHON_VERSION < {less_than_python_version or '3.14'} is supported."
 
     gpu_installation_instructions = ""
     if pip_install_flags_gpu:
@@ -112,13 +121,15 @@ significantly but it not strictly required.
 
 Install the GPU package via pip:
 ```bash
-pip install {install_pkg}{f" {pip_install_flags_gpu}"}
+{version_warning}
+{pip_pre_build}pip install {install_pkg}{f" {pip_install_flags_gpu}"}
 ```
 """
 
     return f"""
 Install the package via pip:
 ```bash
-pip install {install_pkg}{f" {pip_install_flags}" if pip_install_flags else ""}
+{version_warning}
+{pip_pre_build}pip install {install_pkg}{f" {pip_install_flags}" if pip_install_flags else ""}
 ```{gpu_installation_instructions}
 """

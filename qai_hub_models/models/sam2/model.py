@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import os
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import sam2
 import torch
@@ -133,7 +133,9 @@ class SAM2Encoder(BaseModel):
             vision_feats[-1] = vision_feats[-1] + self.sam2.no_mem_embed
         feats = [
             feat.permute(1, 2, 0).view(1, -1, *feat_size)
-            for feat, feat_size in zip(vision_feats[::-1], self._bb_feat_sizes[::-1])
+            for feat, feat_size in zip(
+                vision_feats[::-1], self._bb_feat_sizes[::-1], strict=False
+            )
         ][::-1]
         image_embeddings = feats[2]
         high_res_features1 = feats[0]
@@ -320,7 +322,7 @@ class SAM2Decoder(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -417,7 +419,7 @@ class SAM2Loader:
         sam2.sam_mask_decoder.predict_masks = functools.partial(
             sam_decoder_predict_masks, sam2.sam_mask_decoder
         )
-        for i in range(0, len(sam2.sam_mask_decoder.output_hypernetworks_mlps)):
+        for i in range(len(sam2.sam_mask_decoder.output_hypernetworks_mlps)):
             mlp = cast(
                 SAM2MaskDecoderMLP, sam2.sam_mask_decoder.output_hypernetworks_mlps[i]
             )

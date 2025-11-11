@@ -1,0 +1,34 @@
+name: BEVDet
+# id must match with the model dir name in qai_hub_models
+id: bevdet
+status: public
+headline: Construct a bird’s eye view from sensors mounted on a vehicle.
+domain: Computer Vision
+use_case: Driver Assistance
+tags: []
+description: BEVDet is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+research_paper: https://arxiv.org/abs/2112.11790
+research_paper_title: "BEVDet: High-Performance Multi-Camera 3D Object Detection in Bird-Eye-View"
+license: https://github.com/HuangJunJie2017/BEVDet/blob/dev3.0/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/HuangJunJie2017/BEVDet/
+technical_details:
+  Model checkpoint: bevdet-r50.pth
+  Input resolution: 1 x 6 x 3 x 256 x 704
+  Number of parameters: 44M
+  Model size: 171 MB
+applicable_scenarios:
+  - Object Detection
+related_models:
+  - simple_bev_cam
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: True
+has_animated_banner: True
+license_type: apache-2.0
+deploy_license_type: ai-hub-models-license
+dataset:
+  - nuscene

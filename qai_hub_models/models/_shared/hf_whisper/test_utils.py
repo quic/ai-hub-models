@@ -64,7 +64,7 @@ def run_test_wrapper_numerics(
 
         tokens = torch.tensor([[sot]])
         position_ids = torch.tensor([[0]], dtype=torch.int64)
-        hidden_states, next_cache = decoder(
+        hidden_states, _next_cache = decoder(
             input_ids=tokens,
             encoder_hidden_states=encoder_hidden_states[0],
             past_key_values=None,
@@ -116,10 +116,11 @@ def run_test_wrapper_numerics(
         item for sublist in kv_cache_cross for item in sublist
     )
     decoder_input = (
-        (tokens, attention_mask)
-        + flattened_kv_cache_self
-        + flattened_kv_cache_cross
-        + (index,)
+        tokens,
+        attention_mask,
+        *flattened_kv_cache_self,
+        *flattened_kv_cache_cross,
+        index,
     )
     with torch.no_grad():
         decoder_out = decoder(*decoder_input)

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from qai_hub.client import DatasetEntries, Device, SourceModel
 
@@ -139,7 +139,7 @@ T_co = TypeVar("T_co", covariant=True)
 
 
 @runtime_checkable
-class ExecutableModelProtocol(Generic[T_co], Protocol):
+class ExecutableModelProtocol(Protocol, Generic[T_co]):
     """Classes follow this protocol if they are executable."""
 
     @abstractmethod
@@ -198,7 +198,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
         external_onnx_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> SourceModel: ...
 
     def get_hub_compile_options(
@@ -206,7 +206,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         """AI Hub compile options recommended for the model."""
         ...

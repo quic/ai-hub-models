@@ -83,7 +83,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
 
     @classmethod
     def from_runs(
-        cls: type[_DeviceSummaryTypeVar],
+        cls,
         model_id: str,
         precision: Precision,
         device: ScorecardDevice,
@@ -113,7 +113,6 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
         )
 
 
-_DeviceSummaryTypeVar = TypeVar("_DeviceSummaryTypeVar", bound=ScorecardDeviceSummary)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 DeviceSummaryTypeVar = TypeVar(
     "DeviceSummaryTypeVar",
@@ -188,7 +187,7 @@ class ScorecardModelPrecisionSummary(
 
     @classmethod
     def from_runs(
-        cls: type[_ModelPrecisionSummaryTypeVar],
+        cls,
         model_id: str,
         precision: Precision,
         path_runs: list[ScorecardJobTypeVar],
@@ -207,7 +206,10 @@ class ScorecardModelPrecisionSummary(
                     job_list.append(run)
             summaries_per_device_component[component_id] = {
                 device: cls.device_summary_type.from_runs(
-                    model_id, precision, device, runs
+                    model_id,
+                    precision,
+                    device,
+                    runs,  # type: ignore[arg-type]
                 )
                 for device, runs in component_dict.items()
             }
@@ -259,9 +261,6 @@ class ScorecardModelPrecisionSummary(
         )
 
 
-_ModelPrecisionSummaryTypeVar = TypeVar(
-    "_ModelPrecisionSummaryTypeVar", bound=ScorecardModelPrecisionSummary
-)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 ModelPrecisionSummaryTypeVar = TypeVar(
     "ModelPrecisionSummaryTypeVar",
@@ -306,7 +305,7 @@ class ScorecardModelSummary(
 
     @classmethod
     def from_runs(
-        cls: type[_ModelSummaryTypeVar],
+        cls,
         model_id: str,
         runs: list[ScorecardJobTypeVar],
         components: list[str] | None = None,
@@ -322,7 +321,10 @@ class ScorecardModelSummary(
             model_id,
             {
                 precision: cls.model_summary_type.from_runs(
-                    model_id, precision, runs, components
+                    model_id,
+                    precision,
+                    runs,  # type: ignore[arg-type]
+                    components,
                 )
                 for precision, runs in summaries_per_precision.items()
             },
@@ -360,7 +362,6 @@ class ScorecardModelSummary(
         )
 
 
-_ModelSummaryTypeVar = TypeVar("_ModelSummaryTypeVar", bound=ScorecardModelSummary)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 ModelSummaryTypeVar = TypeVar(
     "ModelSummaryTypeVar",
@@ -467,9 +468,8 @@ class ModelPrecisionPerfSummary(
             for device, summary in sorted(
                 summary_per_device.items(), key=lambda dk: dk[0].reference_device_name
             ):
-                if (
-                    include_internal_devices
-                    or summary.device.public
+                if include_internal_devices or (
+                    summary.device.public
                     and summary.device.form_factor not in exclude_form_factors
                 ):
                     device_summary = summary.get_perf_card(

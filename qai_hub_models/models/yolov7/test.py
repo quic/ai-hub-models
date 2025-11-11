@@ -42,7 +42,7 @@ def test_numerical() -> None:
 
         # Qualcomm AI Hub Model output
         qaihm_out_postprocessed = qaihm_model(processed_sample_image)
-        for i in range(0, len(source_out_postprocessed)):
+        for i in range(len(source_out_postprocessed)):
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 

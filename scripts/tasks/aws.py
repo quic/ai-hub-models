@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from typing import Optional
 
 from .constants import REPO_ROOT
 from .task import ConditionalTask, NoOpTask, RunCommandsWithVenvTask
@@ -11,7 +10,7 @@ from .util import on_ci
 
 
 class ValidateAwsCredentialsTask(ConditionalTask):
-    def __init__(self, venv_path: Optional[str]):
+    def __init__(self, venv_path: str | None):
         aws_script_path = f"{REPO_ROOT}/scripts/aws"
         install_awslogin_path = f"{aws_script_path}/install_awslogin.sh"
         validate_creds_path = f"{aws_script_path}/validate_credentials.py"

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -126,8 +126,8 @@ class SHAAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        past_key_value: Optional[tuple[torch.Tensor]] = None,
-        attention_mask: Optional[torch.Tensor] = None,
+        past_key_value: tuple[torch.Tensor] | None = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         """
         Forward-pass routine for SHAAttention.
@@ -135,8 +135,8 @@ class SHAAttention(nn.Module):
         Parameters
         ----------
             hidden_states (torch.Tensor): The input hidden states.
-            past_key_value (Optional[tuple[torch.Tensor]]): Past key and value states for attention.
-            attention_mask (Optional[torch.Tensor]): Attention mask.
+            past_key_value (tuple[torch.Tensor] | None): Past key and value states for attention.
+            attention_mask (torch.Tensor | None): Attention mask.
 
         Returns
         -------
@@ -306,9 +306,9 @@ class QcWhisperDecoderLayer(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[torch.Tensor] = None,
-        cross_attn_past_key_value: Optional[tuple[torch.Tensor] | torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
+        past_key_value: torch.Tensor | None = None,
+        cross_attn_past_key_value: tuple[torch.Tensor] | torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, ...]:
         """
         Forward-pass routine for the optimized Whisper decoder layer.
@@ -316,9 +316,9 @@ class QcWhisperDecoderLayer(nn.Module):
         Parameters
         ----------
             hidden_states (torch.Tensor): The input hidden states.
-            attention_mask (Optional[torch.Tensor]): The attention mask.
-            past_key_value (Optional[torch.Tensor]): The past key and value states.
-            cross_attn_past_key_value (Optional[tuple[torch.Tensor]]): The past key and value states for cross-attention.
+            attention_mask (torch.Tensor | None): The attention mask.
+            past_key_value (torch.Tensor | None): The past key and value states.
+            cross_attn_past_key_value (tuple[torch.Tensor] | None]): The past key and value states for cross-attention.
 
         Returns
         -------

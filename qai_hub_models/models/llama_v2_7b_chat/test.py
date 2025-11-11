@@ -102,7 +102,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
     )
 
     chipset = "qualcomm-snapdragon-x-elite"
-    device = hub.get_devices(attributes=f"chipset:{chipset}")[0]
+    # device = hub.get_devices(attributes=f"chipset:{chipset}")[0]
     with patch_qai_hub() as mock_hub, patch_model, patch_get_cache:
         export_main(
             [
@@ -122,7 +122,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
         # Compile is called 8 times (4 token parts, 4 prompt parts)
         assert mock_hub.submit_compile_job.call_count == 8
         assert all(
-            c.kwargs["device"] == device
+            c.kwargs["device"].attributes == f"chipset:{chipset}"
             for c in mock_hub.submit_compile_job.call_args_list
         )
 
@@ -146,7 +146,10 @@ def test_cli_chipset_with_options(tmp_path) -> None:
         # Profile 8 times
         assert mock_hub.submit_profile_job.call_count == 8
         call_args_list = mock_hub.submit_profile_job.call_args_list
-        assert all(c.kwargs["device"] == device for c in call_args_list)
+        assert all(
+            c.kwargs["device"].attributes == f"chipset:{chipset}"
+            for c in call_args_list
+        )
         assert all(
             c.args[1] == "profile_extra"
             for c in mock_comp.get_hub_profile_options.call_args_list
@@ -155,7 +158,10 @@ def test_cli_chipset_with_options(tmp_path) -> None:
         # Inference 8 times
         assert mock_hub.submit_inference_job.call_count == 8
         call_args_list = mock_hub.submit_inference_job.call_args_list
-        assert all(c.kwargs["device"] == device for c in call_args_list)
+        assert all(
+            c.kwargs["device"].attributes == f"chipset:{chipset}"
+            for c in call_args_list
+        )
 
         assert tmp_path.exists()
         assert tmp_path.is_dir()

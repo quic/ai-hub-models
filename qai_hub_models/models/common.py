@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum, unique
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import qai_hub as hub
@@ -645,16 +645,16 @@ class Precision:
     w8a8_mixed_fp16: Precision
     w8a16_mixed_fp16: Precision
 
-    _allowed_override_dtypes: set[Union[QuantizeDtype, _FloatDtype]] = {
+    _allowed_override_dtypes: set[QuantizeDtype | _FloatDtype] = {
         QuantizeDtype.INT16,
         _FloatDtype.FP16,
     }
 
     def __init__(
         self,
-        weights_type: Optional[QuantizeDtype],
-        activations_type: Optional[QuantizeDtype],
-        override_type: Optional[QuantizeDtype | _FloatDtype] = None,
+        weights_type: QuantizeDtype | None,
+        activations_type: QuantizeDtype | None,
+        override_type: QuantizeDtype | _FloatDtype | None = None,
     ):
         """
         `override_type` is used to specify mixed-precision
@@ -843,8 +843,8 @@ SampleInputsType = dict[str, list[np.ndarray]]
 
 @dataclass
 class ExportResult:
-    compile_job: Optional[hub.CompileJob] = None
-    quantize_job: Optional[hub.QuantizeJob] = None
-    profile_job: Optional[hub.ProfileJob] = None
-    inference_job: Optional[hub.InferenceJob] = None
-    link_job: Optional[hub.LinkJob] = None
+    compile_job: hub.CompileJob | None = None
+    quantize_job: hub.QuantizeJob | None = None
+    profile_job: hub.ProfileJob | None = None
+    inference_job: hub.InferenceJob | None = None
+    link_job: hub.LinkJob | None = None

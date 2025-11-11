@@ -78,8 +78,8 @@ def crop(video: torch.Tensor, output_size: tuple[int, int]):
     """
     h, w = video.shape[-2:]
     th, tw = output_size
-    i = int(round((h - th) / 2.0))
-    j = int(round((w - tw) / 2.0))
+    i = round((h - th) / 2.0)
+    j = round((w - tw) / 2.0)
     return video[..., i : (i + th), j : (j + tw)]
 
 
@@ -176,4 +176,4 @@ def get_class_name_kinetics_400() -> list[str]:
     """
     labels_path = QAIHM_PACKAGE_ROOT / "labels" / "kinetics400_labels.txt"
     with open(labels_path) as f:
-        return [line.strip() for line in f.readlines()]
+        return [line.strip() for line in f]

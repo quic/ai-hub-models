@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import warnings
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 import torch
@@ -40,7 +40,7 @@ def quantize_model(
     precision: Precision,
     model: BaseModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     input_spec: InputSpec,
     num_calibration_samples: int | None,
 ) -> hub.client.QuantizeJob | None:
@@ -52,7 +52,7 @@ def quantize_model(
         onnx_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub_device,
+            device=device,
             name=model_name,
             options=f"--target_runtime onnx --output_names {','.join(output_names)}",
         )
@@ -79,7 +79,7 @@ def quantize_model(
 def compile_model(
     model: BaseModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     input_spec: InputSpec,
     compile_options: str,
     target_runtime: TargetRuntime,
@@ -93,13 +93,13 @@ def compile_model(
         source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, precision, compile_options, hub_device
+        target_runtime, precision, compile_options, device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
         model=source_model,
         input_specs=input_spec,
-        device=hub_device,
+        device=device,
         name=model_name,
         options=model_compile_options,
     )
@@ -108,7 +108,7 @@ def compile_model(
 
 def profile_model(
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     profile_options: str,
     target_runtime: TargetRuntime,
     compile_job: hub.client.CompileJob,
@@ -116,7 +116,7 @@ def profile_model(
     print(f"Profiling model {model_name} on a hosted device.")
     submitted_profile_job = hub.submit_profile_job(
         model=compile_job.get_target_model(),
-        device=hub_device,
+        device=device,
         name=model_name,
         options=profile_options,
     )
@@ -126,7 +126,7 @@ def profile_model(
 def inference_model(
     model: BaseModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     input_spec: InputSpec,
     profile_options: str,
     target_runtime: TargetRuntime,
@@ -140,7 +140,7 @@ def inference_model(
     submitted_inference_job = hub.submit_inference_job(
         model=compile_job.get_target_model(),
         inputs=sample_inputs,
-        device=hub_device,
+        device=device,
         name=model_name,
         options=profile_options_all,
     )
@@ -159,8 +159,7 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
+    device: hub.Device,
     precision: Precision = Precision.float,
     num_calibration_samples: int | None = None,
     skip_compiling: bool = False,
@@ -168,7 +167,7 @@ def export_model(
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     target_runtime: TargetRuntime = TargetRuntime.QNN_DLC,
     compile_options: str = "",
     profile_options: str = "",
@@ -191,12 +190,8 @@ def export_model(
     Parameters
     ----------
     device
-        Device for which to export the model.
+        Device for which to export the model (e.g., hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
-        Defaults to `Samsung Galaxy S25 (Family)` if not specified.
-    chipset
-        If set, will choose a random device with this chipset.
-        Overrides the `device` argument.
     precision
         The precision to which this model should be quantized.
         Quantization is skipped if the precision is float.
@@ -243,18 +238,11 @@ def export_model(
         Model, MODEL_ID, precision, additional_model_kwargs
     )
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if not device and not chipset:
-        hub_device = hub.Device("Samsung Galaxy S25 (Family)")
-    else:
-        hub_device = hub.Device(
-            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
-        )
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
             MODEL_ID,
             "DETR-ResNet50-DC5",
-            hub_device.name,
-            chipset,
+            device,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -280,7 +268,7 @@ def export_model(
         precision,
         model,
         model_name,
-        hub_device,
+        device,
         input_spec,
         num_calibration_samples,
     )
@@ -291,7 +279,7 @@ def export_model(
     compile_job = compile_model(
         model,
         model_name,
-        hub_device,
+        device,
         input_spec,
         compile_options,
         target_runtime,
@@ -300,23 +288,23 @@ def export_model(
     )
 
     # 4. Profiles the model performance on a real device
-    profile_job: Optional[hub.client.ProfileJob] = None
+    profile_job: hub.client.ProfileJob | None = None
     if not skip_profiling:
         profile_job = profile_model(
             model_name,
-            hub_device,
+            device,
             model.get_hub_profile_options(target_runtime, profile_options),
             target_runtime,
             compile_job,
         )
 
     # 5. Inferences the model on sample inputs
-    inference_job: Optional[hub.client.InferenceJob] = None
+    inference_job: hub.client.InferenceJob | None = None
     if not skip_inferencing:
         inference_job = inference_model(
             model,
             model_name,
-            hub_device,
+            device,
             input_spec,
             profile_options,
             target_runtime,
@@ -349,7 +337,7 @@ def export_model(
         )
 
     if not skip_summary:
-        print_on_target_demo_cmd(compile_job, Path(__file__).parent, hub_device)
+        print_on_target_demo_cmd(compile_job, Path(__file__).parent, device)
 
     return ExportResult(
         compile_job=compile_job,
@@ -374,6 +362,7 @@ def main():
         model_cls=Model,
         export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
+        default_export_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
     export_model(**vars(args))

@@ -177,11 +177,11 @@ class YamNetApp:
 
         assert audio_sample_rate is not None
         assert isinstance(audio, np.ndarray)
-        accu = []
+        acculist = []
         for x in chunk_and_resample_audio(audio, audio_sample_rate):
             pred = self.classify(x)
-            accu.append(pred)
-        accu = np.stack(accu)
+            acculist.append(pred)
+        accu = np.stack(acculist)
         # Average them along time to get an overall classifier output for the clip.
         mean_scores = np.mean(accu, axis=0)
         mean_scores = mean_scores[0]

@@ -37,6 +37,6 @@ def test_dataset_entries_length_mismatch():
     data_entries = {"a": [arr1, arr2], "b": [arr3]}  # Mismatched length
 
     with pytest.raises(
-        ValueError, match="All lists in DatasetEntries must have the same length."
+        ValueError, match=r"All lists in DatasetEntries must have the same length\."
     ):
         _ = dataset_entries_to_dataloader(data_entries)

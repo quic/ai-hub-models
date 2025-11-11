@@ -74,8 +74,7 @@ def evaluate(
         final_kwargs["host_device"] = host_device
         model_cls = quantized_model_cls
     else:
-        if "_skip_quantsim_creation" in final_kwargs:
-            del final_kwargs["_skip_quantsim_creation"]
+        final_kwargs.pop("_skip_quantsim_creation", None)
         model_cls = fp_model_cls
 
     if final_kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
@@ -149,7 +148,6 @@ def evaluate(
         data=eval_dataloader,
         eval_iterations=len(eval_dataloader),
     )
-
     model.to("cpu")
     del model
     return evaluator.get_accuracy_score(), evaluator.formatted_accuracy()

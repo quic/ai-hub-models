@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from enum import Enum, EnumMeta, unique
-from typing import Optional, cast
+from typing import cast
 
 from typing_extensions import assert_never
 
@@ -122,9 +122,9 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
 
     @staticmethod
     def all_paths(
-        enabled: Optional[bool] = None,
-        supports_precision: Optional[Precision] = None,
-        is_aot_compiled: Optional[bool] = None,
+        enabled: bool | None = None,
+        supports_precision: Precision | None = None,
+        is_aot_compiled: bool | None = None,
         include_genai_paths: bool = False,
     ) -> list[ScorecardProfilePath]:
         """

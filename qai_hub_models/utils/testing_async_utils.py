@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Literal, cast, overload
+from typing import Literal, cast, overload
 
 import qai_hub as hub
 from pydantic import Field
@@ -38,7 +38,7 @@ from qai_hub_models.scorecard.results.yaml import (
 from qai_hub_models.utils.asset_loaders import load_yaml, qaihm_temp_dir
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.file_hash import file_hashes_are_identical
-from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
+from qai_hub_models.utils.onnx.torch_wrapper import extract_onnx_zip
 
 # If a model has many outputs, how many of them to store PSNR for
 MAX_PSNR_VALUES = 10
@@ -560,7 +560,7 @@ def write_accuracy(
     device_accuracy: float | None = None,
     sim_accuracy: float | None = None,
 ) -> None:
-    line = f"{model_name},{str(precision)},{path.value},"
+    line = f"{model_name},{precision!s},{path.value},"
     line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
     line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
     line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","
@@ -757,7 +757,7 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
             return all(
                 file_hashes_are_identical(current_model, previous_model)
                 for current_model, previous_model in zip(
-                    current_model_files, previous_model_files
+                    current_model_files, previous_model_files, strict=False
                 )
             )
 

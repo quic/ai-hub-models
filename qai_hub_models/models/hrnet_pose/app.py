@@ -13,19 +13,17 @@ import torch
 from PIL.Image import Image, fromarray
 
 from qai_hub_models.evaluators.utils.pose import get_final_preds
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.models._shared.mmpose.silence import (
+    set_mmpose_inferencer_show_progress,
+)
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
-from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
 
-try:
+with patch_mmpose_no_build_deps():
     from mmpose.apis import MMPoseInferencer
     from mmpose.structures.pose_data_sample import PoseDataSample
 
-    from qai_hub_models.models._shared.mmpose.silence import (
-        set_mmpose_inferencer_show_progress,
-    )
-except ImportError as e:
-    print_mmcv_import_failure_and_exit(e, "hrnet_pose", "MMPose")
 
 # More inferencer architectures for litehrnet can be found at
 # https://github.com/open-mmlab/mmpose/tree/main/configs/body_2d_keypoint/topdown_heatmap/coco
@@ -119,7 +117,7 @@ class HRNetPoseApp:
         # We only get the first (highest probability) box and ignore the others.
         # Other implementations may choose to run pose estimation on all boxes
         # if they want to support multiple people in the same frame.
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
 
         # BGR -> RGB

@@ -39,7 +39,7 @@ def test_task() -> None:
         np.int32(fbox[3]),
     )
 
-    lmk, output_image = app.landmark_prediction(input_image, x0, x1, y0, y1)
+    lmk, _output_image = app.landmark_prediction(input_image, x0, x1, y0, y1)
     lmk_gt = np.loadtxt(GT_LMK_PATH.fetch())
 
     assert (

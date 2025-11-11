@@ -30,7 +30,7 @@ from qai_hub_models.utils.evaluate import (
     get_deterministic_sample,
 )
 from qai_hub_models.utils.input_spec import make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 from qai_hub_models.utils.qai_hub_helpers import download_model_in_memory
 
@@ -49,8 +49,8 @@ def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
 
 def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader):
     for sample in dataloader:
-        model_inputs, ground_truth_values, *_ = sample
-        for model_input in tqdm(model_inputs, total=len(model_inputs)):
+        model_inputs, _ground_truth_values, *_ = sample
+        for _j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
             torch_input = model_input.unsqueeze(0)
             mock_torch_onnx_inference(session, torch_input)
 
@@ -297,7 +297,7 @@ def debug_quant_accuracy(
     # w8a8
     # -----------
     if eval_w8a8:
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 8, quant_scheme, dataloader
         )
 
@@ -346,7 +346,7 @@ def debug_quant_accuracy(
     # -----------
     if eval_w816:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 16, quant_scheme, dataloader
         )
 
@@ -395,7 +395,7 @@ def debug_quant_accuracy(
     # -----------
     if eval_w16a16:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 16, 16, quant_scheme, dataloader
         )
 

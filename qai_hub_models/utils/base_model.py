@@ -9,7 +9,7 @@ import inspect
 from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 from qai_hub.client import Device
@@ -67,7 +67,7 @@ class CollectionModel:
                 f"CollectionModel has {len(component_names)} ordered arguments, "
                 "each of which should correspond with a single component."
             )
-        for i, (name, arg) in enumerate(zip(component_names, args)):
+        for i, (name, arg) in enumerate(zip(component_names, args, strict=False)):
             expected_class = type(self).component_classes[i]
             if not isinstance(arg, (expected_class, ExecutableModelProtocol)):
                 raise TypeError(
@@ -165,14 +165,14 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
     def from_pretrained(
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
-        host_device: Union[torch.device, str] = torch.device("cpu"),
+        host_device: torch.device | str = torch.device("cpu"),
         **kwargs,  # any extra you might want to forward
     ) -> Self:
         """
         Instantiate the collection by delegating to each component_cls.from_pretrained,
         but only passing it the arguments it actually declares.
         """
-        # common kwargs we’d like to pass
+        # common kwargs we'd like to pass
         base_kwargs = {
             "checkpoint": checkpoint,
             "host_device": host_device,
@@ -198,7 +198,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
 
         components = []
         for _name, component_cls in zip(
-            cls.component_class_names, cls.component_classes
+            cls.component_class_names, cls.component_classes, strict=False
         ):
             # call component_cls.from_pretrained but only with the args it accepts
             try:
@@ -457,8 +457,8 @@ class BaseModel(
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
         external_onnx_weights: bool = False,
-        output_names: Optional[list[str]] = None,
-    ) -> Optional[str]:
+        output_names: list[str] | None = None,
+    ) -> str | None:
         """Convert to a AI Hub source model appropriate for the export method."""
         # Local import to prevent circular dependency
         from qai_hub_models.utils.inference import prepare_compile_zoo_model_to_hub
@@ -479,7 +479,7 @@ class BaseModel(
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
         """AI Hub compile options recommended for the model."""

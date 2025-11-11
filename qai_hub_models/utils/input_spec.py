@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import torch
 
@@ -25,7 +23,7 @@ def str_to_torch_dtype(s):
     )[s]
 
 
-def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> list[torch.Tensor]:
+def make_torch_inputs(spec: InputSpec, seed: int | None = 42) -> list[torch.Tensor]:
     """Make sample torch inputs from input spec"""
     torch_input = []
     generator = None

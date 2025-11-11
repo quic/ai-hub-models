@@ -44,7 +44,11 @@ from qai_hub_models.scorecard.execution_helpers import (
     pytest_device_idfn,
 )
 from qai_hub_models.utils.checkpoint import CheckpointSpec
-from qai_hub_models.utils.llm_helpers import create_genie_config
+from qai_hub_models.utils.llm_helpers import (
+    create_genie_config,
+    log_evaluate_test_result,
+    log_perf_on_device_result,
+)
 from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
 from qai_hub_models.utils.testing_export_eval import compile_via_export
 
@@ -128,16 +132,23 @@ def test_evaluate_default(
     num_samples: int,
 ) -> None:
     cleanup()
+    checkpoint = "DEFAULT_W4A16"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
-            checkpoint="DEFAULT",
+            checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
             context_length=DEFAULT_CONTEXT_LENGTH,
         ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint=checkpoint,
+        metric=task,
+        value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
@@ -160,16 +171,23 @@ def test_evaluate_default_unquantized(
     num_samples: int,
 ) -> None:
     cleanup()
+    checkpoint = "DEFAULT_UNQUANTIZED"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
-            checkpoint="DEFAULT_UNQUANTIZED",
+            checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
             context_length=DEFAULT_CONTEXT_LENGTH,
         ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint=checkpoint,
+        metric=task,
+        value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
@@ -212,7 +230,7 @@ def test_compile(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{str(precision)}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     allow_few_test_devices_for_llms(scorecard_path.runtime, device)
     compile_via_export(
         export_model,
@@ -271,9 +289,20 @@ def test_qdc(
 ) -> None:
     cleanup()
     allow_few_test_devices_for_llms(scorecard_path.runtime, device)
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{str(precision)}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    test.complete_genie_bundle_and_run_on_device(device, genie_bundle_path)
+    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
+        device, genie_bundle_path
+    )
+    log_perf_on_device_result(
+        model_name=MODEL_ID,
+        precision=precision,
+        device=device.name,
+        tps=tps,
+        ttft=min_ttft,
+    )
+    assert tps > 9.0
+    assert min_ttft < 250000.0

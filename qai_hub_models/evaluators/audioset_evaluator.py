@@ -44,7 +44,7 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         label_tensor, sample_ids = gt
         label_tensor = label_tensor.cpu()
 
-        for out, target, sid in zip(output, label_tensor, sample_ids):
+        for out, target, sid in zip(output, label_tensor, sample_ids, strict=False):
             self.preds[sid].append(out)
             if not self.targets[sid]:
                 self.targets[sid].append(target)

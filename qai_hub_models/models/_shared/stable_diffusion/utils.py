@@ -13,9 +13,9 @@ import cv2
 import diffusers
 import numpy as np
 import onnx
-import PIL
 import torch
 from diffusers.utils import PIL_INTERPOLATION
+from PIL import Image
 from qai_hub.client import DatasetEntries
 from tqdm import tqdm
 from transformers import CLIPTokenizer
@@ -140,7 +140,7 @@ def make_calib_data(
             extra_inputs["controlnet"] = controlnet_hf
             extra_inputs["cond_image"] = image_conds[i]
 
-        latent, intermediates = run_diffusion_steps_on_latents(
+        _latent, intermediates = run_diffusion_steps_on_latents(
             unet_hf,
             scheduler=scheduler,
             cond_embeddings=cond_emb,
@@ -293,7 +293,7 @@ def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
 
 
 def make_canny(
-    image: PIL.Image.Image,
+    image: Image.Image,
     target_height: int,
     target_width: int,
     low_threshold: int = 100,
@@ -303,15 +303,14 @@ def make_canny(
     img = np.array(image)
     img = cv2.Canny(img, low_threshold, high_threshold)
     img = img[:, :, None]
-    canny_image = np.concatenate([img, img, img], axis=2)
-    canny_image = PIL.Image.fromarray(canny_image)
+    canny_image = Image.fromarray(np.concatenate([img, img, img], axis=2))
 
     # Normalize and make it NCHW
     canny_image = canny_image.convert("RGB")
     canny_image = canny_image.resize(
         (target_width, target_height), resample=PIL_INTERPOLATION["lanczos"]
     )
-    canny_image = np.array(canny_image)[None, :].astype(np.float32) / 255.0
+    canny_image_np = np.array(canny_image)[None, :].astype(np.float32) / 255.0
     # NHWC -> NCHW
-    canny_image = canny_image.transpose(0, 3, 1, 2)
-    return torch.from_numpy(canny_image)
+    canny_image_np = canny_image_np.transpose(0, 3, 1, 2)
+    return torch.from_numpy(canny_image_np)

@@ -102,7 +102,7 @@ class ClassificationEvaluator(BaseEvaluator):
         if idxs is None:
             idxs = np.arange(len(y))
         np.random.default_rng(self.seed).shuffle(idxs)
-        label_counter: defaultdict[str, int] = defaultdict(int)
+        label_counter: defaultdict[int, int] = defaultdict(int)
         for i in idxs:
             if label_counter[y[i]] < samples_per_label:
                 X_sampled.append(X[i])

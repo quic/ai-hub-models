@@ -9,7 +9,7 @@ import argparse
 import os
 import re
 import xml.etree.ElementTree as ET
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 from tabulate import tabulate
@@ -25,8 +25,8 @@ def clean_message(message: str) -> str:
 
 
 def extract_file_and_line(
-    stack_trace: Optional[str], message: str
-) -> tuple[Optional[str], Optional[str]]:
+    stack_trace: str | None, message: str
+) -> tuple[str | None, str | None]:
     """
     Extract file path and line number from stack trace or message.
 
@@ -71,9 +71,7 @@ def extract_file_and_line(
     return None, None
 
 
-def extract_relevant_stack_trace(
-    stack_trace: Optional[str], message: str
-) -> Optional[str]:
+def extract_relevant_stack_trace(stack_trace: str | None, message: str) -> str | None:
     """
     Extract the most relevant part of a stack trace, i.e. the end of the stack trace
     where file and line number along with error is captured.
@@ -118,7 +116,7 @@ def extract_relevant_stack_trace(
     return stack_trace
 
 
-def collect_test_statistics(root: ET.Element) -> dict[str, Union[int, float]]:
+def collect_test_statistics(root: ET.Element) -> dict[str, int | float]:
     """
     Collect test statistics from the JUnit XML root element.
 
@@ -130,7 +128,7 @@ def collect_test_statistics(root: ET.Element) -> dict[str, Union[int, float]]:
     -------
         Dictionary of test statistics
     """
-    stats: dict[str, Union[int, float]] = {
+    stats: dict[str, int | float] = {
         "total": 0,
         "failures": 0,
         "errors": 0,
@@ -158,7 +156,7 @@ def collect_test_statistics(root: ET.Element) -> dict[str, Union[int, float]]:
 
 def parse_junit_xml(
     xml_path: str,
-) -> tuple[list[dict[str, Any]], dict[str, Union[int, float]]]:
+) -> tuple[list[dict[str, Any]], dict[str, int | float]]:
     """
     Parse a JUnit XML file and extract test failures.
 
@@ -173,7 +171,7 @@ def parse_junit_xml(
     """
     if not os.path.exists(xml_path):
         print(f"No test results file found at {xml_path}")
-        empty_stats: dict[str, Union[int, float]] = {
+        empty_stats: dict[str, int | float] = {
             "total": 0,
             "failures": 0,
             "errors": 0,
@@ -305,7 +303,7 @@ def generate_markdown_table(failures: list[dict[str, Any]]) -> tuple[str, str]:
     return table, stack_traces_section
 
 
-def generate_stats_summary(stats: dict[str, Union[int, float]]) -> str:
+def generate_stats_summary(stats: dict[str, int | float]) -> str:
     """
     Generate a summary of test statistics.
 
@@ -388,7 +386,7 @@ def find_junit_xml_files(directory: str, pattern: str) -> list[str]:
 
 def combine_junit_results(
     file_paths: list[str],
-) -> tuple[list[dict[str, Any]], dict[str, Union[int, float]]]:
+) -> tuple[list[dict[str, Any]], dict[str, int | float]]:
     """
     Combine results from multiple JUnit XML files.
 
@@ -401,7 +399,7 @@ def combine_junit_results(
         Combined failures and stats
     """
     all_failures = []
-    combined_stats: dict[str, Union[int, float]] = {
+    combined_stats: dict[str, int | float] = {
         "total": 0,
         "failures": 0,
         "errors": 0,
@@ -428,7 +426,7 @@ def combine_junit_results(
 def process_test_results(
     test_type: str,
     failures: list[dict[str, Any]],
-    stats: dict[str, Union[int, float]],
+    stats: dict[str, int | float],
     summary_sections: list[str],
 ) -> None:
     """
@@ -469,8 +467,8 @@ def process_test_results(
 
 
 def get_test_results(
-    xml_path_or_dir: str, file_pattern: Optional[str] = None
-) -> tuple[list[dict[str, Any]], dict[str, Union[int, float]]]:
+    xml_path_or_dir: str, file_pattern: str | None = None
+) -> tuple[list[dict[str, Any]], dict[str, int | float]]:
     """
     Get test results from a file or directory.
 
@@ -492,7 +490,7 @@ def get_test_results(
     return parse_junit_xml(xml_path_or_dir)
 
 
-def write_summary(summary_text: str, output_path: Optional[str] = None) -> None:
+def write_summary(summary_text: str, output_path: str | None = None) -> None:
     """
     Write summary to output file and/or GitHub step summary.
 

@@ -186,6 +186,9 @@ class SpecialDeviceSetting(Enum):
     # Enable all devices.
     ALL = "all"
 
+    # "Canary" devices enabled in continuous integration.
+    CANARY = "canary"
+
     def __repr__(self):
         return self.value
 

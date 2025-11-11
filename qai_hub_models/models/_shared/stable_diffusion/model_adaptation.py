@@ -5,7 +5,8 @@
 
 import math
 import types
-from typing import Callable, Optional, cast
+from collections.abc import Callable
+from typing import cast
 
 import torch
 import torch.nn.functional as F
@@ -169,8 +170,8 @@ class SHAAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
+        encoder_hidden_states: torch.Tensor | None = None,
         **kwargs,
     ) -> torch.Tensor:
         """
@@ -180,15 +181,15 @@ class SHAAttention(nn.Module):
         Parameters
         ----------
             hidden_states (torch.Tensor): The hidden states (batch_size, hidden_size, H, W).
-            attention_mask (Optional[torch.Tensor]): The attention mask.
-            encoder_hidden_states (Optional[torch.Tensor]): The encoder hidden states for cross-attention.
+            attention_mask (torch.Tensor | None): The attention mask.
+            encoder_hidden_states (torch.Tensor | None): The encoder hidden states for cross-attention.
             **kwargs: Additional keyword arguments.
 
         Returns
         -------
             Tuple containing the attention output, attention weights, and past key-value.
         """
-        bsz, hidden_size, H, W = hidden_states.size()
+        bsz, _hidden_size, _H, _W = hidden_states.size()
         residual = hidden_states
 
         if encoder_hidden_states is not None:
@@ -210,7 +211,9 @@ class SHAAttention(nn.Module):
 
         # Prepare for attention computation
         attn_outputs = []
-        for _, (q, k, v) in enumerate(zip(query_states, key_states, value_states)):
+        for _, (q, k, v) in enumerate(
+            zip(query_states, key_states, value_states, strict=False)
+        ):
             q_flat = q.permute(0, 2, 3, 1)  # (bsz, H, W, dim_head)
             k_flat = k.view(
                 bsz, 1, self.dim_head, -1
@@ -272,7 +275,7 @@ class PermuteLayerNorm(nn.Module):
         # If the output is a tuple (as in some custom norms), permute relevant tensors
         if isinstance(norm_output, tuple):
             # Permute the first tensor in the output tuple
-            norm_output = (norm_output[0].permute(0, 3, 1, 2),) + norm_output[1:]
+            norm_output = (norm_output[0].permute(0, 3, 1, 2), *norm_output[1:])
         elif isinstance(norm_output, torch.Tensor):
             norm_output = norm_output.permute(0, 3, 1, 2)
 
@@ -551,7 +554,7 @@ def replace_transformer2d_modules(model: nn.Module):
     """
     Recursively traverses the model to find and replace all instances of
     Transformer2DModel that use linear projection, patching only those
-    instances with the optimized continuous‐input methods and swapping in
+    instances with the optimized continuous-input methods and swapping in
     Conv2dLinear for proj_in / proj_out.
     """
 
@@ -567,7 +570,7 @@ def replace_transformer2d_modules(model: nn.Module):
     def _replace_transformer2d(m: Transformer2DModel) -> Transformer2DModel:
         # 1) patch the instance methods
         _patch_instance(m)
-        # 2) swap out the Linear‐based proj_in / proj_out for Conv2dLinear
+        # 2) swap out the Linear-based proj_in / proj_out for Conv2dLinear
         if isinstance(m.proj_in, nn.Linear):
             m.proj_in = Conv2dLinear(m.proj_in)
         if isinstance(m.proj_out, nn.Linear):

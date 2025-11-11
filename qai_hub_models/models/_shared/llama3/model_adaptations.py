@@ -6,9 +6,12 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
+import transformers
+from packaging.version import Version
 from torch import nn
 from transformers.cache_utils import DynamicCache
 from transformers.models.llama.modeling_llama import (
@@ -29,7 +32,7 @@ def QcLlama_apply_rotary_pos_emb(
     k: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
-    position_ids: Optional[list[int]] = None,
+    position_ids: list[int] | None = None,
     unsqueeze_dim: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     query_states = _apply_rope_single(q, (cos, sin))
@@ -40,25 +43,49 @@ def QcLlama_apply_rotary_pos_emb(
 class SHALlamaAttention(LlamaAttention):
     """Split-Head Attention version of LlamaAttention (with Convs)"""
 
+    @property
+    def hidden_size_(self):
+        if hasattr(self, "hidden_size"):
+            return self.hidden_size
+        return self.config.hidden_size
+
+    @property
+    def num_attention_heads_(self):
+        if hasattr(self, "num_heads"):
+            return self.num_heads
+        return self.config.num_attention_heads
+
+    @property
+    def num_key_value_heads_(self):
+        if hasattr(self, "num_key_value_heads"):
+            return self.num_key_value_heads
+        return self.config.num_key_value_heads
+
     def prepare_conv(self):
         if not hasattr(self, "forward_no_conv"):
             self.q_proj_conv = nn.Conv2d(
-                self.hidden_size, self.num_heads * self.head_dim, 1, bias=False
+                self.hidden_size_,
+                self.num_attention_heads_ * self.head_dim,
+                1,
+                bias=False,
             )
             self.k_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                self.hidden_size_,
+                self.num_key_value_heads_ * self.head_dim,
                 1,
                 bias=False,
             )
             self.v_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                self.hidden_size_,
+                self.num_key_value_heads_ * self.head_dim,
                 1,
                 bias=False,
             )
             self.o_proj_conv = nn.Conv2d(
-                self.num_heads * self.head_dim, self.hidden_size, 1, bias=False
+                self.num_attention_heads_ * self.head_dim,
+                self.hidden_size_,
+                1,
+                bias=False,
             )
 
             self.q_proj_conv.weight.data.copy_(self.q_proj.weight[:, :, None, None])
@@ -86,20 +113,20 @@ class SHALlamaAttention(LlamaAttention):
         if not hasattr(self, "forward_mha"):
             self.q_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_attention_heads_)
                 ]
             )
             self.k_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_key_value_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_key_value_heads_)
                 ]
             )
             self.v_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_key_value_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_key_value_heads_)
                 ]
             )
 
@@ -123,12 +150,12 @@ class SHALlamaAttention(LlamaAttention):
             )
             self.forward = self.forward_sha  # type: ignore[assignment]
 
-        for i in range(self.num_heads):
+        for i in range(self.num_attention_heads_):
             self.q_proj_sha[i].weight.data.copy_(
                 self.q_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
 
-        for i in range(self.num_key_value_heads):
+        for i in range(self.num_key_value_heads_):
             self.k_proj_sha[i].weight.data.copy_(
                 self.k_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
@@ -143,19 +170,21 @@ class SHALlamaAttention(LlamaAttention):
     def forward_sha(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[DynamicCache] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: DynamicCache | None = None,  # transformers<4.55
+        past_key_values: DynamicCache | None = None,  # transformers>=4.55
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[DynamicCache]]:
+        cache_position: torch.LongTensor | None = None,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor]
+        | None = None,  # will become mandatory in v4.45
+    ) -> tuple[torch.Tensor, list[torch.Tensor] | None, DynamicCache | None]:
+        if past_key_values is not None and past_key_value is None:
+            past_key_value = past_key_values
         bsz, q_len, _ = hidden_states.size()
 
-        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
+        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size_))
         hidden_states = hidden_states.transpose(1, 3)
 
         query_states: list[torch.Tensor] = [
@@ -170,7 +199,12 @@ class SHALlamaAttention(LlamaAttention):
 
         kv_seq_len = value_states[0].shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
+            if hasattr(past_key_value, "value_cache"):
+                kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
+            elif hasattr(past_key_value.layers[self.layer_idx], "values"):
+                kv_seq_len += past_key_value.layers[self.layer_idx].values[0].shape[-2]
+            else:
+                kv_seq_len += past_key_value.layers[self.layer_idx][1][0].shape[-2]
 
         assert position_embeddings is not None
         query_states = [
@@ -185,8 +219,15 @@ class SHALlamaAttention(LlamaAttention):
 
         if past_key_value is not None:
             # reuse k, v, self_attention
-            past_key = past_key_value.key_cache[self.layer_idx]
-            past_value = past_key_value.value_cache[self.layer_idx]
+            if hasattr(past_key_value, "key_cache"):
+                past_key = past_key_value.key_cache[self.layer_idx]
+                past_value = past_key_value.value_cache[self.layer_idx]
+            elif hasattr(past_key_value.layers[self.layer_idx], "keys"):
+                past_key = past_key_value.layers[self.layer_idx].keys
+                past_value = past_key_value.layers[self.layer_idx].values
+            else:
+                past_key = past_key_value.layers[self.layer_idx][0]
+                past_value = past_key_value.layers[self.layer_idx][1]
 
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             transposed_key_states = [
@@ -204,10 +245,11 @@ class SHALlamaAttention(LlamaAttention):
             # Now concate the key/value states
             key_states = [
                 torch.cat([pk, k.transpose(2, 3)], dim=3)
-                for pk, k in zip(past_key, key_states)
+                for pk, k in zip(past_key, key_states, strict=False)
             ]
             value_states = [
-                torch.cat([pv, v], dim=2) for pv, v in zip(past_value, value_states)
+                torch.cat([pv, v], dim=2)
+                for pv, v in zip(past_value, value_states, strict=False)
             ]
 
         key_states = cast(
@@ -219,7 +261,7 @@ class SHALlamaAttention(LlamaAttention):
 
         attn_weights = [
             torch.matmul(q, k) / math.sqrt(self.head_dim)
-            for q, k in zip(query_states, key_states)
+            for q, k in zip(query_states, key_states, strict=False)
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
@@ -240,7 +282,10 @@ class SHALlamaAttention(LlamaAttention):
             )
             for aw in attn_weights
         ]
-        attn_output = [torch.matmul(aw, v) for aw, v in zip(attn_weights, value_states)]
+        attn_output = [
+            torch.matmul(aw, v)
+            for aw, v in zip(attn_weights, value_states, strict=False)
+        ]
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(
@@ -251,10 +296,12 @@ class SHALlamaAttention(LlamaAttention):
         attn_output_return = attn_output_return.permute(0, 3, 1, 2)
         attn_output_return = self.o_proj_conv(attn_output_return)
         attn_output_return = attn_output_return.transpose(1, 3)
-        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size)
+        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size_)
 
         attn_weights_return = attn_weights if output_attentions else None
 
+        if Version(transformers.__version__) >= Version("4.48.0"):
+            return attn_output_return, attn_weights_return
         return attn_output_return, attn_weights_return, past_key_value
 
 

@@ -226,7 +226,7 @@ def combine_kv_caches(
     kv_cache: list[Any] = [None] * len(kv_cache_cross_attn) * 2
 
     # Combine KV Cache.
-    for i in range(0, len(kv_cache_cross_attn) // 2):
+    for i in range(len(kv_cache_cross_attn) // 2):
         kv_cache[4 * i] = kv_cache_attn[2 * i]
         kv_cache[4 * i + 1] = kv_cache_attn[2 * i + 1]
         kv_cache[4 * i + 2] = kv_cache_cross_attn[2 * i]
@@ -260,7 +260,7 @@ def get_empty_attn_cache(
             len(tuple) == 2 * number of source model decoder layers.
     """
     kv_cache = []
-    for _i in range(0, num_decoder_layers):
+    for _i in range(num_decoder_layers):
         kv_cache.append(
             np.zeros(
                 (

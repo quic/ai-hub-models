@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 import cv2
 import numpy as np
@@ -182,7 +183,7 @@ class EasyOCRApp:
         free_boxes_per_img: list[list[box_4corners]] = []
 
         for out, img_scale_ratio, img_padding in zip(
-            results, img_scale_ratios, img_paddings
+            results, img_scale_ratios, img_paddings, strict=False
         ):
             # make score and link map
             score_text = out[:, :, 0].cpu().data.numpy()
@@ -214,7 +215,7 @@ class EasyOCRApp:
             # We combine both types of boxes into 1 list because some free boxes are
             # reinterpreted as horizontal boxes later -- see group_text_box()
             detections: list[np.ndarray] = []
-            for box_idx in range(0, len(horizontal_boxes)):
+            for box_idx in range(len(horizontal_boxes)):
                 if free_boxes[box_idx] is not None:
                     box = torch.Tensor(free_boxes[box_idx])
                 else:
@@ -412,7 +413,7 @@ class EasyOCRApp:
         result_box_xxyy: list[tuple[box_xx_yy, str, np.float64]] = []
         result_box_4corners: list[tuple[box_4corners, str, np.float64]] = []
         for i, ((_, cutout_box_corners, _), (pred_text, pred_confidence)) in enumerate(
-            zip(img_cutouts, pred_text_confidence)
+            zip(img_cutouts, pred_text_confidence, strict=False)
         ):
             res_text: str
             res_confidence: np.float64
@@ -521,14 +522,14 @@ class EasyOCRApp:
         values = preds_prob_np.max(axis=2)
         indices = preds_prob_np.argmax(axis=2)
         preds_max_prob = []
-        for v, i in zip(values, indices):
+        for v, i in zip(values, indices, strict=False):
             max_probs = v[i != 0]
             if len(max_probs) > 0:
                 preds_max_prob.append(max_probs)
             else:
                 preds_max_prob.append(np.array([0]))
 
-        for pred, pred_max_prob in zip(preds_str, preds_max_prob):
+        for pred, pred_max_prob in zip(preds_str, preds_max_prob, strict=False):
             confidence_score = custom_mean(pred_max_prob)
             result.append((pred, confidence_score))
 
@@ -587,6 +588,7 @@ class EasyOCRApp:
             NHWC_int_numpy_GRAY_frames,
             horizontal_boxes_per_img,
             free_boxes_per_img,
+            strict=False,
         ):
             img_results_horizonal, img_results_free = self.recognizer_get_text(
                 img_gray, horizontal_boxes, free_boxes

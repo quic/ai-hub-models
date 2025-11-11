@@ -11,7 +11,7 @@ import os
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 
@@ -35,7 +35,7 @@ from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 def compile_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     compile_options: str,
     target_runtime: TargetRuntime,
@@ -52,13 +52,13 @@ def compile_model(
         )
 
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, Precision.w8a16, compile_options, hub_device
+            target_runtime, Precision.w8a16, compile_options, device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=model_compile_options,
         )
@@ -70,7 +70,7 @@ def compile_model(
 
 def profile_model(
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: dict[str, str],
     target_runtime: TargetRuntime,
@@ -81,7 +81,7 @@ def profile_model(
         print(f"Profiling model {component_name} on a hosted device.")
         submitted_profile_job = hub.submit_profile_job(
             model=compile_jobs[component_name].get_target_model(),
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options.get(component_name, ""),
         )
@@ -94,7 +94,7 @@ def profile_model(
 def inference_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: str,
     target_runtime: TargetRuntime,
@@ -114,7 +114,7 @@ def inference_model(
         submitted_inference_job = hub.submit_inference_job(
             model=compile_jobs[component_name].get_target_model(),
             inputs=sample_inputs,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options_all,
         )
@@ -136,15 +136,14 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
-    components: Optional[list[str]] = None,
+    device: hub.Device,
+    components: list[str] | None = None,
     precision: Precision = Precision.w8a16,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
@@ -166,12 +165,8 @@ def export_model(
     Parameters
     ----------
     device
-        Device for which to export the model.
+        Device for which to export the model (e.g., hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
-        Defaults to `Samsung Galaxy S25 (Family)` if not specified.
-    chipset
-        If set, will choose a random device with this chipset.
-        Overrides the `device` argument.
     components
         List of sub-components of the model that will be exported.
         Each component is compiled and profiled separately.
@@ -214,15 +209,9 @@ def export_model(
         Model, MODEL_ID, precision, additional_model_kwargs
     )
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if not device and not chipset:
-        hub_device = hub.Device("Samsung Galaxy S25 (Family)")
-    else:
-        hub_device = hub.Device(
-            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
-        )
     assert precision in [
         Precision.w8a16,
-    ], f"Precision {str(precision)} is not supported by {model_name}"
+    ], f"Precision {precision!s} is not supported by {model_name}"
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
@@ -232,8 +221,7 @@ def export_model(
         return export_without_hub_access(
             MODEL_ID,
             "Stable-Diffusion-v2.1",
-            hub_device.name,
-            chipset,
+            device,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -256,7 +244,7 @@ def export_model(
     compile_jobs = compile_model(
         model,
         model_name,
-        hub_device,
+        device,
         components,
         compile_options,
         target_runtime,
@@ -268,7 +256,7 @@ def export_model(
     if not skip_profiling:
         profile_jobs = profile_model(
             model_name,
-            hub_device,
+            device,
             components,
             {
                 component_name: model.components[
@@ -286,7 +274,7 @@ def export_model(
         inference_jobs = inference_model(
             model,
             model_name,
-            hub_device,
+            device,
             components,
             profile_options,
             target_runtime,
@@ -347,6 +335,7 @@ def main():
         model_cls=Model,
         export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
+        default_export_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
     export_model(**vars(args))

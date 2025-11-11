@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Optional
 
 import torch
 
@@ -50,7 +49,7 @@ class GearGuardNet(BaseModel):
         Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """
-        y: list[Optional[int]] = []
+        y: list[int | None] = []
         for m in self.model:  # type: ignore[attr-defined]
             if m.f != -1:
                 x = (
@@ -63,7 +62,7 @@ class GearGuardNet(BaseModel):
         return x  # type: ignore[return-value]
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> GearGuardNet:
+    def from_pretrained(cls, checkpoint_path: str | None = None) -> GearGuardNet:
         """
         Load model from pretrained weights.
 

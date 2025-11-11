@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
-from typing import Optional
 
 from qai_hub_models.configs.devices_and_chipsets_yaml import (
     SCORECARD_DEVICE_YAML_PATH,
@@ -30,7 +29,7 @@ def test_perf_yaml():
     try:
         for model_id in MODEL_IDS:
             perf = QAIHMModelPerf.from_model(model_id, not_exists_ok=True)
-            model_name: Optional[str] = None
+            model_name: str | None = None
 
             # Verify all devices are valid AI Hub devices.
             for precision_perf in perf.precisions.values():
@@ -75,5 +74,5 @@ def test_perf_yaml():
                                 )
     except Exception as err:
         raise AssertionError(
-            f"{model_id} perf yaml validation failed: {str(err)}"
+            f"{model_id} perf yaml validation failed: {err!s}"
         ) from None

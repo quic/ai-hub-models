@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Optional
 
 import torch
 
@@ -15,7 +14,7 @@ def apply_module_function_recursively(
     module: torch.nn.Module,
     tgt_cls: type[torch.nn.Module],
     apply_fn: Callable[[torch.nn.Module, torch.nn.Module, str], None],
-    parent_module: Optional[type[torch.nn.Module]] = None,
+    parent_module: type[torch.nn.Module] | None = None,
 ) -> None:
     """
     Recursively calls a function on all modules of a given type.
@@ -35,7 +34,7 @@ def replace_module_recursively(
     module: torch.nn.Module,
     tgt_cls: type[torch.nn.Module],
     new_cls: type[torch.nn.Module],
-    parent_module: Optional[type[torch.nn.Module]] = None,
+    parent_module: type[torch.nn.Module] | None = None,
 ):
     """
     Replace all instances of `tgt_cls` with `new_cls`. If `parent_module` is

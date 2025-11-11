@@ -151,6 +151,6 @@ def ensure_has_required_transformer(least_expected_version):
 
     if version.parse(transformers.__version__) < version.parse(least_expected_version):
         raise RuntimeError(
-            f"Installed transformers version not supported. Expected >= {least_expected_version}, got {str(transformers.__version__)}\n"
+            f"Installed transformers version not supported. Expected >= {least_expected_version}, got {transformers.__version__!s}\n"
             f"Please run `pip install transformers=={least_expected_version}`"
         )

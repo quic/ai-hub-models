@@ -61,7 +61,7 @@ def main(is_test: bool = False):
     if not is_test:
         display_or_save_image(results[0], args.output_dir)
         print("Predicted texts & confidence:")
-        for i in range(0, len(results[1])):
+        for i in range(len(results[1])):
             print(f"{results[1][i]}   {results[2][i]}")
 
 

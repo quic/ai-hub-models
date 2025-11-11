@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
 import torch
 from PIL import Image
-from pyquaternion.quaternion import Quaternion
+from pyquaternion import Quaternion
 
 from qai_hub_models.models.bevfusion_det.model import (
     BEVFusionDecoder,
@@ -209,7 +209,7 @@ class BEVFusionApp:
             split_tensors = torch.split(split_slice, channels, dim=1)
             start += total
 
-            pred_dict = dict(zip(head_order, split_tensors))
+            pred_dict = dict(zip(head_order, split_tensors, strict=False))
             pred_dicts.append([pred_dict])
 
         bboxes, scores, labels = self.decoder.heads.get_bboxes(pred_dicts)[0]

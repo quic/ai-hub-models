@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import sys
 from functools import partial
+from typing import cast
 
 import torch
 from torch import nn
@@ -53,7 +54,7 @@ class CenterNet(BaseModel):
                 heads=heads,
                 head_conv=256,
             )
-            model = load_model(model, ckpt_path)
+            model = cast(CenterNet, load_model(model, ckpt_path))
             model.eval()
         return model
 

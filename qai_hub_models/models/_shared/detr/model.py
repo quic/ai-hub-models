@@ -52,7 +52,7 @@ class DETR(BaseModel):
         -------
             tuple: A tuple containing the processed boxes, scores, and labels.
         """
-        b, _, h, w = image_shape
+        _, _, h, w = image_shape
 
         # Apply softmax to get probabilities
         probabilities = torch.nn.functional.softmax(logits, -1)

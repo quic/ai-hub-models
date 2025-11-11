@@ -56,14 +56,14 @@ def main():
         supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()
+    device: hub.Device = args.device or hub.Device("Samsung Galaxy S25 (Family)")
 
     if len(eval_datasets) == 0:
         print(
             "Model does not have evaluation dataset specified. Evaluating PSNR on a single sample."
         )
         export_model(
-            device=getattr(args, "device", None),
-            chipset=args.chipset,
+            device=device,
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
@@ -79,12 +79,11 @@ def main():
         hub_model = compile_model_from_args(
             MODEL_ID, args, get_model_kwargs(Model, vars(args))
         )
-    hub_device: hub.Device = args.hub_device
     torch_model = Model.from_pretrained(**get_model_kwargs(Model, vars(args)))
     evaluate_on_dataset(
         hub_model,
         torch_model,
-        hub_device,
+        device,
         args.dataset_name,
         args.samples_per_job,
         args.num_samples,

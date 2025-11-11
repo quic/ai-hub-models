@@ -132,7 +132,7 @@ class MovenetApp:
         connected_point_idx = torch.tensor(
             CONNECTED_PART_INDICES, dtype=torch.int64
         ).flatten()
-        for img, img_kpt in zip(NHWC_int_numpy_frames, kpt_with_conf):
+        for img, img_kpt in zip(NHWC_int_numpy_frames, kpt_with_conf, strict=False):
             img_kpt = img_kpt[0]
             img_connected_kpt_pairs = img_kpt[connected_point_idx].view(
                 len(connected_point_idx) // 2, 2, 3

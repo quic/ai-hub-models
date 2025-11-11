@@ -10,8 +10,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from mmpose.codecs.utils import get_simcc_maximum
-from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocowholebody import CocoWholeBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
@@ -22,7 +20,12 @@ from qai_hub_models.evaluators.utils.pose import (
     LEFTHAND_SIGMAS,
     RIGHTHAND_SIGMAS,
 )
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.extern.xtcocotools.cocoeval import COCOeval
 from qai_hub_models.utils.printing import suppress_stdout
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import get_simcc_maximum
 
 
 class WholeBodyPoseEvaluator(BaseEvaluator):

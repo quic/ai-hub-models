@@ -259,7 +259,7 @@ class MobileSAMLoader:
         sam.mask_decoder.predict_masks = functools.partial(
             sam_decoder_predict_masks, sam.mask_decoder
         )
-        for i in range(0, len(sam.mask_decoder.output_hypernetworks_mlps)):
+        for i in range(len(sam.mask_decoder.output_hypernetworks_mlps)):
             mlp = cast(SAMMaskDecoderMLP, sam.mask_decoder.output_hypernetworks_mlps[i])
             sam.mask_decoder.output_hypernetworks_mlps[i] = (
                 Conv2DInplaceLinearSAMMaskDecoderMLP(mlp)

@@ -9,9 +9,14 @@ from typing import cast
 
 import torch
 import torch.nn.functional as F
-from mmdet.apis import init_detector
-from mmdet.models.detectors.rtmdet import RTMDet as mmdet_RTMDET
 
+from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
+
+with patch_mmdet_no_build_deps():
+    from mmdet.apis import init_detector
+    from mmdet.models.detectors.rtmdet import RTMDet as mmdet_RTMDET
+
+from qai_hub_models.extern.mmengine import patch_mmengine_torch_load_no_weights_only
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 
@@ -83,7 +88,7 @@ class RTMDet(Yolo):
 
         # decode
         boxes_list = []
-        for i, (cls, box) in enumerate(zip(*output)):
+        for i, (cls, box) in enumerate(zip(*output, strict=False)):
             cls = cls.permute(0, 2, 3, 1)
             box = box.permute(0, 2, 3, 1)
             cls = F.sigmoid(cls)
@@ -129,6 +134,9 @@ class RTMDet(Yolo):
 def _load_rtmdet_source_model_from_weights(
     model_config_path: str, model_weights_path: str
 ) -> mmdet_RTMDET:
-    model = init_detector(str(model_config_path), str(model_weights_path), device="cpu")
+    with patch_mmengine_torch_load_no_weights_only():
+        model = init_detector(
+            str(model_config_path), str(model_weights_path), device="cpu"
+        )
     assert isinstance(model, mmdet_RTMDET)
     return model

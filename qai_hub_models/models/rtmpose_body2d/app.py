@@ -11,11 +11,14 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from mmpose.codecs.utils import get_simcc_maximum
 from PIL.Image import Image, fromarray
 
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import get_simcc_maximum
 
 # Defined the keypoint paires (coco) that from the human pose skeleton
 skeleton = [
@@ -187,7 +190,7 @@ class RTMPosebody2dApp:
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
         inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
         x = proc_inputs_[[2, 1, 0]]
         # Convert to expected model input distrubtion
@@ -195,7 +198,7 @@ class RTMPosebody2dApp:
         x = torch.unsqueeze(x, 0)
         x = x.to(dtype=torch.float32)
         pred_x, pred_y = self.model(x)
-        keypoints, scores = self.decode_output(pred_x.numpy(), pred_y.numpy())
+        keypoints, _scores = self.decode_output(pred_x.numpy(), pred_y.numpy())
 
         # center and scale to transform the coordinates back to the original image
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]

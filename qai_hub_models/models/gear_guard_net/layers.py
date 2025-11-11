@@ -5,7 +5,6 @@
 
 import contextlib
 import math
-from typing import Optional, Union
 
 import torch
 from torch import nn
@@ -50,9 +49,9 @@ class Concat(nn.Module):
 
 
 def autopad(
-    kernel_size: Union[int, tuple[int, int]],
-    p: Optional[Union[int, tuple[int, int]]] = None,
-) -> Union[int, tuple[int, int]]:
+    kernel_size: int | tuple[int, int],
+    p: int | tuple[int, int] | None = None,
+) -> int | tuple[int, int]:
     """
     Compute padding size from kernel size.
 

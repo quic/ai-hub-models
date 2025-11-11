@@ -180,7 +180,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         self.nc = self.no - 5  # number of classes
         self.nl = num_layers
         self.h, self.w = input_shape
-        for i in range(0, self.nl):
+        for i in range(self.nl):
             self.register_buffer(
                 f"anchor_grid_{i}", torch.zeros(1, self.na, 1, 1, 2)
             )  # nl * [ tensor(shape(1,na,1,1,2)) ]
@@ -206,13 +206,13 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         anchor_grid = state_dict["anchor_grid"]
         nl = len(anchor_grid)
         na = anchor_grid.shape[2]
-        for i in range(0, nl):
+        for i in range(nl):
             new_state_dict[f"anchor_grid_{i}"] = anchor_grid[i]
 
         # Copy over `m` layers
         m_in_channels = []
         m_out_channel = 0
-        for i in range(0, nl):
+        for i in range(nl):
             weight = f"m.{i}.weight"
             for x in [weight, f"m.{i}.bias"]:
                 new_state_dict[x] = state_dict[x]

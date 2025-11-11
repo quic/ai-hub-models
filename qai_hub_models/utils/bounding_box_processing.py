@@ -8,9 +8,10 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import torch
-from numba import njit, prange
 from torchvision.ops import batched_nms as tv_batched_nms
 from torchvision.ops import nms
+
+from qai_hub_models.extern.numba import njit, prange
 
 
 def batched_nms(
@@ -71,7 +72,7 @@ def batched_nms(
         [[] for _ in gather_additional_args] if gather_additional_args else []
     )
 
-    for batch_idx in range(0, boxes.shape[0]):
+    for batch_idx in range(boxes.shape[0]):
         # Index to current batch.
         batch_scores = scores[batch_idx]
         batch_boxes = boxes[batch_idx]
@@ -331,7 +332,7 @@ def box_xywh_to_cs(
 
 
 def apply_directional_box_offset(
-    offset: float | int | torch.Tensor,
+    offset: float | torch.Tensor,
     vec_start: torch.Tensor,
     vec_end: torch.Tensor,
     xc: torch.Tensor,

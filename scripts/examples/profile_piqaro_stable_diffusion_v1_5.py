@@ -30,7 +30,7 @@ from qai_hub_models.models.stable_diffusion_v1_5.model import (
 )
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 from qai_hub_models.utils.printing import print_profile_metrics_from_job

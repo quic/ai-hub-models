@@ -256,7 +256,7 @@ class DeepBoxApp:
         orient = alpha + theta_ray
 
         # calculate best_loc, [left_constraints, right_constraints]
-        location, X = calc_location(dim, proj_matrix, box_2d, alpha, theta_ray)
+        location, _X = calc_location(dim, proj_matrix, box_2d, alpha, theta_ray)
 
         # plots 3d boxes
         plot_3d_box(numpy_image, proj_matrix, orient, dim, location)

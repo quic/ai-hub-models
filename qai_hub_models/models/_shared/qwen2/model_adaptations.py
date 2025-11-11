@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -28,7 +29,7 @@ def QcQwen2_apply_rotary_pos_emb(
     k: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
-    position_ids: Optional[list[int]] = None,
+    position_ids: list[int] | None = None,
     unsqueeze_dim: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     query_states = _apply_rope_single(q, (cos, sin))
@@ -193,16 +194,15 @@ class SHAQwen2Attention(Qwen2Attention):
     def forward_sha(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: Cache | None = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[Cache]]:
+        cache_position: torch.LongTensor | None = None,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor]
+        | None = None,  # will become mandatory in v4.45
+    ) -> tuple[torch.Tensor, list[torch.Tensor] | None, Cache | None]:
         bsz, q_len, _ = hidden_states.size()
 
         hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
@@ -251,10 +251,11 @@ class SHAQwen2Attention(Qwen2Attention):
             # Now concate the key/value states
             key_states = [
                 torch.cat([pk, k.transpose(2, 3)], dim=3)
-                for pk, k in zip(past_key, key_states)
+                for pk, k in zip(past_key, key_states, strict=False)
             ]
             value_states = [
-                torch.cat([pv, v], dim=2) for pv, v in zip(past_value, value_states)
+                torch.cat([pv, v], dim=2)
+                for pv, v in zip(past_value, value_states, strict=False)
             ]
 
         key_states = list(repeat_kv(key_states, self.num_key_value_groups))
@@ -265,7 +266,7 @@ class SHAQwen2Attention(Qwen2Attention):
             # the matmul overflows in fp16, so moving this division into one of
             # the operands is key modification.
             torch.matmul(q, k / math.sqrt(self.head_dim))
-            for q, k in zip(query_states, key_states)
+            for q, k in zip(query_states, key_states, strict=False)
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
@@ -291,7 +292,10 @@ class SHAQwen2Attention(Qwen2Attention):
             nn.functional.dropout(aw, p=self.attention_dropout, training=self.training)
             for aw in attn_weights
         ]
-        attn_output = [torch.matmul(aw, v) for aw, v in zip(attn_weights, value_states)]
+        attn_output = [
+            torch.matmul(aw, v)
+            for aw, v in zip(attn_weights, value_states, strict=False)
+        ]
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(

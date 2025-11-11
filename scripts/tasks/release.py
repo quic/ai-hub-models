@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import shutil
-from typing import Optional, cast
+from typing import cast
 
 from .task import CompositeTask
 from .util import get_pip, on_ci
@@ -34,7 +34,7 @@ class CreateReleaseVenv(CompositeTask):
     def __init__(
         self,
         venv_path: str | os.PathLike,
-        python_executable: Optional[str] = None,
+        python_executable: str | None = None,
     ):
         tasks = []
         self.venv_path = str(venv_path)

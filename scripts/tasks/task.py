@@ -9,7 +9,6 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from sys import platform
-from typing import Optional, Union
 
 from .constants import REPO_ROOT
 from .github import end_group, start_group
@@ -17,13 +16,11 @@ from .util import BASH_EXECUTABLE, debug_mode, default_parallelism, echo, have_r
 
 
 class Task(ABC):
-    def __init__(
-        self, group_name: Optional[str], raise_on_failure: bool = True
-    ) -> None:
+    def __init__(self, group_name: str | None, raise_on_failure: bool = True) -> None:
         self.group_name = group_name
         self.raise_on_failure = raise_on_failure
-        self.last_result: Optional[bool] = None
-        self.last_result_exception: Optional[Exception] = None
+        self.last_result: bool | None = None
+        self.last_result_exception: Exception | None = None
 
     @abstractmethod
     def does_work(self) -> bool:
@@ -86,7 +83,7 @@ class ListTasksTask(Task):
 class NoOpTask(Task):
     """A Task that does nothing."""
 
-    def __init__(self, group_name: Optional[str] = None) -> None:
+    def __init__(self, group_name: str | None = None) -> None:
         super().__init__(group_name=group_name)
 
     def does_work(self) -> bool:
@@ -101,13 +98,13 @@ class RunCommandsTask(Task):
 
     def __init__(
         self,
-        group_name: Optional[str],
-        commands: Union[list[str], str],
+        group_name: str | None,
+        commands: list[str] | str,
         as_root: bool = False,
-        env: Optional[dict[str, str]] = None,
-        cwd: Optional[str] = None,
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = None,
+        ignore_return_codes: list[int] | None = None,
     ) -> None:
         if ignore_return_codes is None:
             ignore_return_codes = []
@@ -163,12 +160,12 @@ class RunCommandsWithVenvTask(RunCommandsTask):
 
     def __init__(
         self,
-        group_name: Optional[str],
-        venv: Optional[str],
-        commands: Union[list[str], str],
-        env: Optional[dict[str, str]] = None,
+        group_name: str | None,
+        venv: str | None,
+        commands: list[str] | str,
+        env: dict[str, str] | None = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = None,
+        ignore_return_codes: list[int] | None = None,
     ) -> None:
         if ignore_return_codes is None:
             ignore_return_codes = []
@@ -197,19 +194,19 @@ class PyTestTask(RunCommandsWithVenvTask):
 
     def __init__(
         self,
-        group_name: Optional[str],
-        venv: Optional[str],
+        group_name: str | None,
+        venv: str | None,
         files_or_dirs: str,
-        ignore: Optional[Union[str, list[str]]] = None,
-        parallel: Optional[Union[bool, int]] = None,
-        extra_args: Optional[str] = None,
-        env: Optional[dict[str, str]] = None,
+        ignore: str | list[str] | None = None,
+        parallel: bool | int | None = None,
+        extra_args: str | None = None,
+        env: dict[str, str] | None = None,
         raise_on_failure: bool = True,
         # Pytest returns code 5 if no tests were run. Set this to true
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
         include_pytest_cmd_in_status_message: bool = True,
-        junit_xml_path: Optional[str] = None,  # Add this parameter
+        junit_xml_path: str | None = None,  # Add this parameter
         config_file: str | os.PathLike = os.path.join(REPO_ROOT, "pyproject.toml"),
     ) -> None:
         pytest_options = f"--config-file={config_file}"
@@ -271,7 +268,7 @@ class CompositeTask(Task):
 
     def __init__(
         self,
-        group_name: Optional[str],
+        group_name: str | None,
         tasks: list[Task],
         continue_after_single_task_failure: bool = False,
         raise_on_failure: bool = True,
@@ -328,7 +325,7 @@ class ConditionalTask(Task):
 
     def __init__(
         self,
-        group_name: Optional[str],
+        group_name: str | None,
         condition: Callable[[], bool],
         true_task: Task,
         false_task: Task,

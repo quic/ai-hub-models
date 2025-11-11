@@ -7,17 +7,15 @@ from __future__ import annotations
 import os
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import torch
-from mmdet.models.backbones.swin import ShiftWindowMSA, WindowMSA
-from mmdet.models.layers import PatchMerging
-from mmdet.registry import MODELS
 from mmengine.config import Config
 from mmengine.model import BaseModule
 from qai_hub.client import Device
 from torchpack.utils.config import configs
 
+from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
 from qai_hub_models.models.bevfusion_det.model_patch import (
     PatchMerging_forward_optimized,
     bev_pool,
@@ -51,6 +49,11 @@ from qai_hub_models.utils.window_partitioning import (
     window_partition_optimized,
     window_reverse_optimized,
 )
+
+with patch_mmdet_no_build_deps():
+    from mmdet.models.backbones.swin import ShiftWindowMSA, WindowMSA
+    from mmdet.models.layers import PatchMerging
+    from mmdet.registry import MODELS
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 8
@@ -188,7 +191,7 @@ class BEVFusionEncoder2(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -247,7 +250,7 @@ class BEVFusionEncoder3(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -315,7 +318,7 @@ class BEVFusionEncoder4(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -384,7 +387,7 @@ class BEVFusionDecoder(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

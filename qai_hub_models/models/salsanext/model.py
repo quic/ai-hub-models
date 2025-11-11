@@ -21,7 +21,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 SALSANEXT_PROXY_REPOSITORY = "https://github.com/TiagoCortinhal/SalsaNext.git"
 SALSANEXT_PROXY_REPO_COMMIT = "7548c124b48f0259cdc40e98dfc3aeeadca6070c"
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 DEFAULT_WEIGHTS = "pretrained/SalsaNext"
 INPUT_LIDAR_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "000000.bin"
@@ -159,6 +159,7 @@ def _load_salsanext_source_model_from_weights(
         SALSANEXT_PROXY_REPO_COMMIT,
         MODEL_ID,
         MODEL_ASSET_VERSION,
+        SALSANEXT_SOURCE_PATCHES,
     ):
         from train.tasks.semantic.modules.SalsaNext import SalsaNext
 

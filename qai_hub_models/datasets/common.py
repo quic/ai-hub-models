@@ -127,7 +127,6 @@ class BaseDataset(Dataset, Sized, ABC):
     @abstractmethod
     def _download_data(self) -> None:
         """Method to download necessary data to disk. To be implemented by subclass."""
-        pass
 
     def _validate_data(self) -> bool:
         """Validates data downloaded on disk. By default just checks that folder exists."""
@@ -145,7 +144,6 @@ class BaseDataset(Dataset, Sized, ABC):
     @abstractmethod
     def default_samples_per_job() -> int:
         """The default value for how many samples to run in each inference job."""
-        pass
 
     @staticmethod
     def default_num_calibration_samples() -> int:

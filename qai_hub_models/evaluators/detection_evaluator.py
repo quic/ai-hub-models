@@ -285,7 +285,7 @@ class DetectionEvaluator(mAPEvaluator):
                 BoundingBox.of_bbox(
                     image_id, cat, bbox[0], bbox[1], bbox[2], bbox[3], 1.0
                 )
-                for cat, bbox in zip(classes.tolist(), bboxes.tolist())
+                for cat, bbox in zip(classes.tolist(), bboxes.tolist(), strict=False)
             ]
 
             pd_bb_entry = [
@@ -302,6 +302,7 @@ class DetectionEvaluator(mAPEvaluator):
                     curr_pred_class[0].tolist(),
                     curr_pred_score[0].tolist(),
                     curr_pred_box[0].tolist(),
+                    strict=False,
                 )
             ]
 

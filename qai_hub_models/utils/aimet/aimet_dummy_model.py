@@ -9,7 +9,6 @@ import os
 import shutil
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import torch
@@ -24,7 +23,7 @@ from qai_hub_models.models.protocols import (
 )
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 
@@ -98,7 +97,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         model_name: str | None = None,
         external_weights: bool = False,
         bundle_external_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> str:
         """
         Converts the torch module to a zip file containing an

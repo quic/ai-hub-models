@@ -10,7 +10,7 @@ import configparser
 import os
 import threading
 from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Any
 
 import qai_hub as hub
 from qai_hub.api_utils import str2bool
@@ -36,7 +36,7 @@ def deployment_is_prod(deployment: str):
     return deployment.lower() in ["app", "prod"]
 
 
-def _get_global_client() -> Optional[tuple[str, HubClient]]:
+def _get_global_client() -> tuple[str, HubClient] | None:
     """Returns [global client Hub deployment name], [global client]"""
     try:
         global_client = hub.hub._global_client
@@ -69,7 +69,7 @@ def _get_global_client() -> Optional[tuple[str, HubClient]]:
 DEFAULT_GLOBAL_CLIENT = _get_global_client()
 
 
-def _read_hub_config(path: str) -> Optional[HubClient]:
+def _read_hub_config(path: str) -> HubClient | None:
     if not os.path.exists(path):
         return None
 
@@ -96,7 +96,7 @@ def _read_hub_config(path: str) -> Optional[HubClient]:
 
 def get_hub_client(
     deployment_name: str = "prod", user: str = DEFAULT_CLIENT_USER
-) -> Optional[HubClient]:
+) -> HubClient | None:
     user = user.upper()
     token_envvar_prefix = (
         f"HUB_{user}_USER_TOKEN_" if user != DEFAULT_CLIENT_USER else "HUB_USER_TOKEN_"
@@ -166,7 +166,7 @@ def get_hub_client_or_raise(
 
 def get_scorecard_client(
     deployment_name: str = "prod", restrict_access: bool = False
-) -> Optional[HubClient]:
+) -> HubClient | None:
     user = DEFAULT_CLIENT_USER
     if EXECUTING_IN_CI_ENVIRONMENT and restrict_access:
         user = PRIVATE_SCORECARD_CLIENT_USER

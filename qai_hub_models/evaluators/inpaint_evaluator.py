@@ -46,7 +46,7 @@ class InpaintEvaluator(BaseEvaluator):
         fake_np = self.postprocess(fake_images)
         real_np = self.postprocess(real_images)
 
-        for real, fake in zip(real_np, fake_np):
+        for real, fake in zip(real_np, fake_np, strict=False):
             self._update_metrics(real, fake)
 
         if "fid" in self.metrics:

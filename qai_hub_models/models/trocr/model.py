@@ -150,7 +150,7 @@ class TrOCRDecoder(BaseModel):
         # https://github.com/huggingface/transformers/blob/main/src/transformers/models/trocr/modeling_trocr.py#L799
         self.attn_mask = torch.nn.Embedding(max_decode_len, max_decode_len)
         attn_mask = torch.zeros([max_decode_len, max_decode_len], dtype=torch.float32)
-        for c_idx in range(0, max_decode_len):
+        for c_idx in range(max_decode_len):
             attn_mask[c_idx, -(c_idx + 1) :] = 1
         self.attn_mask.weight = torch.nn.Parameter(attn_mask)
 
@@ -268,7 +268,7 @@ class TrOCRDecoder(BaseModel):
             "input_ids": input_ids_spec,
             "index": ((1,), "int32"),
         }
-        for i in range(0, num_decoder_layers):
+        for i in range(num_decoder_layers):
             decoder_input_specs[f"kv_{i}_attn_key"] = attn_cache_spec
             decoder_input_specs[f"kv_{i}_attn_val"] = attn_cache_spec
             decoder_input_specs[f"kv_{i}_cross_attn_key"] = cross_attn_cache_spec

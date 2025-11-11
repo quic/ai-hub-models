@@ -31,7 +31,7 @@ class MPIIGazeEvaluator(BaseEvaluator):
         """
         if isinstance(output, tuple):
             output = output[-1]
-        for pred_pt, gt_pt in zip(output, target):
+        for pred_pt, gt_pt in zip(output, target, strict=False):
             pred = pred_pt.squeeze().cpu().numpy()
             gt = gt_pt.squeeze().cpu().numpy()
             self.predictions.append(pred)

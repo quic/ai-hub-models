@@ -15,7 +15,9 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/h
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[hrnet-pose]" torch==2.4.1 --trusted-host download.openmmlab.com -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.4/index.html -f https://qaihub-public-python-wheels.s3.us-west-2.amazonaws.com/index.html
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install mmpose==1.2.0 --no-deps
+pip install "qai-hub-models[hrnet-pose]"
 ```
 
 

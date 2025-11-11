@@ -286,7 +286,7 @@ class ChatApp:
         input_ids = input_tokens["input_ids"].type(torch.long)
         num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         padding_size = max_seq_len - num_tokens
-        position_ids_lst = [0] * (padding_size) + list(range(0, num_tokens))
+        position_ids_lst = [0] * (padding_size) + list(range(num_tokens))
         position_ids = (
             torch.Tensor(position_ids_lst).type(torch.long).reshape(1, max_seq_len)
         )

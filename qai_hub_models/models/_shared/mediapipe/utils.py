@@ -92,7 +92,7 @@ def decode_preds_from_anchors(
         anchors[..., 1, 0],
         anchors[..., 1, 1],
     )
-    expanded_anchors_shape = list(anchors_w.shape) + [1]
+    expanded_anchors_shape = [*list(anchors_w.shape), 1]
 
     # Determine real center X and Y, as well as real pixel W and H
     box_coords[..., 0, 0] = (

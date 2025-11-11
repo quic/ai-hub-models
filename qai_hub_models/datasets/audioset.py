@@ -131,7 +131,7 @@ class AudioSetDataset(BaseDataset):
                 engine="python",
             )
         except Exception as e:
-            raise ValueError(f"Failed to parse CSV {self.csv_path}: {str(e)}") from None
+            raise ValueError(f"Failed to parse CSV {self.csv_path}: {e!s}") from None
 
     def _load_class_map(self) -> None:
         """Load class ID to index mapping from AudioSet ontology."""

@@ -91,7 +91,7 @@ class FaceDetLiteEvaluator(mAPEvaluator):
             )
 
             res = []
-            for n in range(0, len(dets)):
+            for n in range(len(dets)):
                 xmin, ymin, w, h = dets[n].xywh
                 score = dets[n].score
 

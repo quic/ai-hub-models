@@ -85,7 +85,7 @@ def llm_chat_demo(
 
     args = parser.parse_args([] if test_checkpoint is not None else None)
     checkpoint = args.checkpoint if test_checkpoint is None else test_checkpoint
-    max_output_tokens = args.max_output_tokens if test_checkpoint is None else 10
+    max_output_tokens = args.max_output_tokens if test_checkpoint is None else 100
     if args.prompt is not None and args.prompt_file is not None:
         raise ValueError("Must specify one of --prompt or --prompt-file")
     if args.prompt_file is not None:

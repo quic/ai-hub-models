@@ -13,14 +13,12 @@ import numpy as np
 import pytest
 import qai_hub as hub
 import torch
-from transformers import AutoConfig, PretrainedConfig
+from transformers import AutoConfig
 
 from qai_hub_models.models._shared.llama3 import test
-from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import MainLLMInputType, cleanup
-from qai_hub_models.models._shared.llm.quantize import quantize
+from qai_hub_models.models._shared.llm.model import cleanup
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_3b_instruct import (
     MODEL_ID,
@@ -51,8 +49,11 @@ from qai_hub_models.scorecard.execution_helpers import (
     get_compile_parameterized_pytest_config,
     pytest_device_idfn,
 )
-from qai_hub_models.utils.checkpoint import CheckpointSpec
-from qai_hub_models.utils.llm_helpers import create_genie_config
+from qai_hub_models.utils.llm_helpers import (
+    create_genie_config,
+    log_evaluate_test_result,
+    log_perf_on_device_result,
+)
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
 from qai_hub_models.utils.testing_export_eval import compile_via_export
@@ -229,98 +230,6 @@ def test_cli_device_with_skips_unsupported_context_length(tmp_path: Path):
     )
 
 
-# Dummy Model
-class TestLlama3_2(FP_Model):
-    def edit_llm_config(self, llm_config: PretrainedConfig) -> PretrainedConfig:
-        llm_config.num_hidden_layers = 1
-        return llm_config
-
-    def _verify_ckpt(self):
-        pass
-
-    @staticmethod
-    def get_output_names():
-        return Llama3Base._get_output_names(1)
-
-    @classmethod
-    def from_pretrained(
-        cls,
-        sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
-        context_length: int = DEFAULT_CONTEXT_LENGTH,
-        main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
-    ) -> FP_Model:
-        return cls(
-            checkpoint=HF_REPO_NAME,
-            sequence_length=sequence_length,
-            context_length=context_length,
-            load_pretrained=False,
-            main_input_type=main_input_type,
-        )
-
-
-@pytest.fixture(scope="session")
-def setup_dummy_quantized_checkpoints(tmpdir_factory):
-    path = tmpdir_factory.mktemp(f"dummy_{MODEL_ID}_ckpt")
-    yield test.setup_test_quantization(
-        Model,
-        TestLlama3_2,
-        path,
-        precision=DEFAULT_PRECISION,
-        num_samples=1,
-    )
-    cleanup()
-
-
-@pytest.mark.skipif(
-    torch.cuda.is_available(), reason="This test can be run on CPU only."
-)
-def test_cpu() -> None:
-    with pytest.raises(ValueError, match=r"Please re-try with GPU machine."):
-        quantize(
-            quantized_model_cls=Model,
-            fp_model_cls=TestLlama3_2,
-            context_length=128,
-            seq_len=64,
-            precision=DEFAULT_PRECISION,
-            output_dir="fail_on_cpu",
-            checkpoint=None,
-        )
-
-
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-@pytest.mark.parametrize("task", ["wikitext", "mmlu"])
-def test_dummy_model_evaluate(
-    task: str, setup_dummy_quantized_checkpoints: CheckpointSpec
-) -> None:
-    cleanup()
-    actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=TestLlama3_2,
-        num_samples=2,
-        task=task,
-        kwargs=dict(
-            checkpoint=setup_dummy_quantized_checkpoints,
-            sequence_length=DEFAULT_EVAL_SEQLEN,
-            context_length=DEFAULT_CONTEXT_LENGTH,
-        ),
-    )
-    assert isinstance(actual_metric, float) and actual_metric >= 0.0
-
-
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-def test_dummy_model_demo(setup_dummy_quantized_checkpoints: CheckpointSpec) -> None:
-    cleanup()
-    llama_3_2_3b_chat_demo(
-        fp_model_cls=TestLlama3_2,
-        test_checkpoint=setup_dummy_quantized_checkpoints,
-    )
-
-
-# Full model tests
 @pytest.fixture(scope="session")
 def setup_quantized_checkpoints(tmpdir_factory):
     path = tmpdir_factory.mktemp(f"{MODEL_ID}_korean")
@@ -352,16 +261,23 @@ def test_evaluate_default(
     num_samples: int,
 ) -> None:
     cleanup()
+    checkpoint = "DEFAULT_W4A16"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
-            checkpoint="DEFAULT",
+            checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
             context_length=DEFAULT_CONTEXT_LENGTH,
         ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint=checkpoint,
+        metric=task,
+        value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
@@ -384,16 +300,23 @@ def test_evaluate_default_unquantized(
     num_samples: int,
 ) -> None:
     cleanup()
+    checkpoint = "DEFAULT_UNQUANTIZED"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
-            checkpoint="DEFAULT_UNQUANTIZED",
+            checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
             context_length=DEFAULT_CONTEXT_LENGTH,
         ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint=checkpoint,
+        metric=task,
+        value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
@@ -416,6 +339,12 @@ def test_evaluate_quantized_checkpoint(
             sequence_length=DEFAULT_SEQUENCE_LENGTH,
             context_length=DEFAULT_CONTEXT_LENGTH,
         ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint="Bllossom/llama-3.2-Korean-Bllossom-3B",
+        metric="mmmlu_ko",
+        value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, 0.25, rtol=1e-02, atol=1e-02)
 
@@ -458,7 +387,7 @@ def test_compile(
 ) -> None:
     cleanup()
     allow_few_test_devices_for_llms(scorecard_path.runtime, device)
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{str(precision)}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     compile_via_export(
         export_model,
         MODEL_ID,
@@ -516,9 +445,21 @@ def test_qdc(
 ) -> None:
     cleanup()
     allow_few_test_devices_for_llms(scorecard_path.runtime, device)
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{str(precision)}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    test.complete_genie_bundle_and_run_on_device(device, genie_bundle_path)
+    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
+        device, genie_bundle_path
+    )
+    log_perf_on_device_result(
+        model_name=MODEL_ID,
+        precision=precision,
+        device=device.name,
+        tps=tps,
+        ttft=min_ttft,
+    )
+    if precision == Precision.w4a16:
+        assert tps > 17.0
+        assert min_ttft < 150000.0

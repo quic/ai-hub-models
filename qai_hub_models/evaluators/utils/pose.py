@@ -178,8 +178,8 @@ def get_final_preds(
     for n in range(coords.shape[0]):
         for p in range(coords.shape[1]):
             hm = batch_heatmaps[n][p]
-            px = int(math.floor(coords[n][p][0] + 0.5))
-            py = int(math.floor(coords[n][p][1] + 0.5))
+            px = math.floor(coords[n][p][0] + 0.5)
+            py = math.floor(coords[n][p][1] + 0.5)
             if 1 < px < heatmap_width - 1 and 1 < py < heatmap_height - 1:
                 diff = np.array(
                     [

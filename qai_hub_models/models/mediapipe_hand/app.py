@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 import cv2
 import numpy as np
@@ -179,7 +180,7 @@ class MediaPipeHandApp(MediaPipeApp):
         Override of mediapipe::app.py::MediaPipeApp::draw_landmarks
         Also draws whether the detection is a right or left hand.
         """
-        for ldm, irh in zip(landmarks, is_right_hand):
+        for ldm, irh in zip(landmarks, is_right_hand, strict=False):
             # Draw landmark points
             draw_points(NHWC_int_numpy_frame, ldm[:, :2], (0, 255, 0))
             # Draw connections between landmark points

@@ -12,7 +12,7 @@ import shutil
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 
@@ -31,7 +31,7 @@ from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 def profile_model(
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: dict[str, str],
     target_runtime: TargetRuntime,
@@ -42,7 +42,7 @@ def profile_model(
         print(f"Profiling model {component_name} on a hosted device.")
         submitted_profile_job = hub.submit_profile_job(
             model=uploaded_models[component_name],
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options.get(component_name, ""),
         )
@@ -55,7 +55,7 @@ def profile_model(
 def inference_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: str,
     target_runtime: TargetRuntime,
@@ -75,7 +75,7 @@ def inference_model(
         submitted_inference_job = hub.submit_inference_job(
             model=uploaded_models[component_name],
             inputs=sample_inputs,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options_all,
         )
@@ -97,13 +97,12 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
-    components: Optional[list[str]] = None,
+    device: hub.Device,
+    components: list[str] | None = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     profile_options: str = "",
     fetch_static_assets: str | None = None,
     **additional_model_kwargs,
@@ -122,12 +121,8 @@ def export_model(
     Parameters
     ----------
     device
-        Device for which to export the model.
+        Device for which to export the model (e.g., hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
-        Defaults to `Samsung Galaxy S25 (Family)` if not specified.
-    chipset
-        If set, will choose a random device with this chipset.
-        Overrides the `device` argument.
     components
         List of sub-components of the model that will be exported.
         Each component is compiled and profiled separately.
@@ -161,12 +156,6 @@ def export_model(
         )
     model_name = MODEL_ID
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if not device and not chipset:
-        hub_device = hub.Device("Samsung Galaxy S25 (Family)")
-    else:
-        hub_device = hub.Device(
-            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
-        )
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
@@ -176,8 +165,7 @@ def export_model(
         return export_without_hub_access(
             MODEL_ID,
             "Mistral-7B-Instruct-v0.3",
-            hub_device.name,
-            chipset,
+            device,
             skip_profiling,
             skip_inferencing,
             False,
@@ -219,7 +207,7 @@ def export_model(
     if not skip_profiling:
         profile_jobs = profile_model(
             model_name,
-            hub_device,
+            device,
             components,
             {
                 component_name: model.components[
@@ -263,6 +251,7 @@ def main():
         model_cls=Model,
         export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
+        default_export_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
     export_model(**vars(args))

@@ -595,7 +595,9 @@ def get_resnet(
         bottleneck_factor = 4
         channels_per_layers = [ci * bottleneck_factor for ci in channels_per_layers]
 
-    channels = [[ci] * li for (ci, li) in zip(channels_per_layers, layers)]
+    channels = [
+        [ci] * li for (ci, li) in zip(channels_per_layers, layers, strict=False)
+    ]
 
     if width_scale != 1.0:
         channels = [

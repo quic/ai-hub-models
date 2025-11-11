@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 import torch
 from torch import Tensor
@@ -23,7 +22,7 @@ def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Ten
     output = sum(
         [
             F.linear(x_chunk, weight_chunk)
-            for x_chunk, weight_chunk in zip(x_chunks, weight_chunks)
+            for x_chunk, weight_chunk in zip(x_chunks, weight_chunks, strict=False)
         ]
     )
     if bias is not None:
@@ -44,7 +43,9 @@ def split_linear(
     return torch.cat(
         [
             split_linear_input(x, weight_chunk, bias_chunk, max_channel)
-            for weight_chunk, bias_chunk in zip(weight_chunks, bias_chunks)
+            for weight_chunk, bias_chunk in zip(
+                weight_chunks, bias_chunks, strict=False
+            )
         ],
         dim=-1,
     )
@@ -103,9 +104,9 @@ def shifted_window_attention_inf(
     shift_size: list[int],
     attention_dropout: float = 0.0,
     dropout: float = 0.0,
-    qkv_bias: Optional[Tensor] = None,
-    proj_bias: Optional[Tensor] = None,
-    logit_scale: Optional[Tensor] = None,
+    qkv_bias: Tensor | None = None,
+    proj_bias: Tensor | None = None,
+    logit_scale: Tensor | None = None,
     training: bool = True,
 ) -> Tensor:
     """

@@ -63,6 +63,7 @@ def test_parse_resnet18_export():
         "precision",
         "device",
         "chipset",
+        "device_str",
         "device_os",
         "skip_compiling",
         "skip_profiling",
@@ -90,6 +91,7 @@ def test_parse_resnet18_export():
     args = parser.parse_args([])
     gt_set.add("quantize")
     assert set(vars(args).keys()) == gt_set
+    assert args.device is None
 
 
 @pytest.fixture
@@ -121,6 +123,31 @@ def llama_parser():
     )
 
 
+def test_device_parsing(llama_parser):
+    device = llama_parser.parse_args(["--device", "Samsung Galaxy S25"]).device
+    assert device.name == "Samsung Galaxy S25"
+    assert device.attributes == []
+
+    device = llama_parser.parse_args(["--chipset", "qualcomm-snapdragon-8gen3"]).device
+    assert device.name == ""
+    assert device.attributes == "chipset:qualcomm-snapdragon-8gen3"
+
+    device = llama_parser.parse_args(
+        ["--chipset", "qualcomm-snapdragon-8gen3", "--device-os", "14"]
+    ).device
+    assert device.os == "14"
+
+    device = llama_parser.parse_args([]).device
+    assert device.name == "Snapdragon 8 Elite QRD"
+
+    for action in llama_parser._actions:
+        if action.dest == "device_str":
+            assert (
+                action.help
+                == "The name of the device used to run this script. Run `qai-hub list-devices` to see the list of options. If not set, defaults to `Snapdragon 8 Elite QRD`."
+            )
+
+
 def test_parse_llama_export(llama_parser):
     args = llama_parser.parse_args([])
     assert set(vars(args).keys()) == {
@@ -133,6 +160,7 @@ def test_parse_llama_export(llama_parser):
         "fp_model",
         "_skip_quantsim_creation",
         "llm_config",
+        "llm_io_type",
         "sequence_length",
         "context_length",
         "precision",
@@ -144,11 +172,11 @@ def test_parse_llama_export(llama_parser):
         "skip_downloading",
         "skip_summary",
         "output_dir",
-        "hub_device",
+        "device_str",
         "model_cache_mode",
         "synchronous",
-        "main_input_name",
         "quantize",
+        "onnx_export_dir",
     }
     assert args.target_runtime == TargetRuntime.GENIE
 
@@ -204,6 +232,7 @@ def test_parse_whisper_export():
         "profile_options",
         "precision",
         "device",
+        "device_str",
         "chipset",
         "device_os",
         "skip_compiling",
@@ -240,6 +269,7 @@ def test_parse_baichuan_export():
         "target_runtime",
         "profile_options",
         "device",
+        "device_str",
         "chipset",
         "device_os",
         "skip_profiling",
@@ -278,10 +308,10 @@ def test_parse_resnet18_evaluate():
         "compute_quant_cpu_accuracy",
         "skip_device_accuracy",
         "skip_torch_accuracy",
-        "hub_device",
+        "device_str",
     }
     assert set(vars(args).keys()) == gt_set
-    assert args.chipset == "qualcomm-snapdragon-8gen3"
+    assert args.device is None
     assert args.dataset_name == "imagenet"
 
 
@@ -301,10 +331,10 @@ def test_parse_whisper_evaluate():
         "device",
         "chipset",
         "device_os",
-        "hub_device",
+        "device_str",
     }
     assert set(vars(args).keys()) == gt_set
-    assert args.chipset == "qualcomm-snapdragon-8gen3"
+    assert args.device is None
 
 
 def test_get_export_name():

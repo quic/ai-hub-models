@@ -145,7 +145,7 @@ class FaceDetLiteDataset(BaseDataset):
             gt_filename = img_path.name.replace(".jpg", ".txt")
             gt_path = self.gt_path / gt_filename
             if not gt_path.exists():
-                print(f"Ground truth file not found: {str(gt_path)}")
+                print(f"Ground truth file not found: {gt_path!s}")
                 return False
             self.gt_list.append(gt_path)
         return True

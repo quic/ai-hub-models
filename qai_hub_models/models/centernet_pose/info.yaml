@@ -1,0 +1,38 @@
+name: CenterNet-Pose
+# id must match with the model dir name in qai_hub_models
+id: centernet_pose
+status: public
+headline: Human pose estimation.
+domain: Computer Vision
+use_case: Pose Estimation
+tags: []
+description: CenterNet-Pose is a machine learning model that detects human pose and returns
+  a location and confidence for each of 17 joints.
+research_paper: https://arxiv.org/abs/1904.07850
+research_paper_title: "Objects as Points"
+license: https://github.com/xingyizhou/CenterNet/blob/master/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/xingyizhou/CenterNet
+technical_details:
+  Model checkpoint: multi_pose_dla_3x.pth
+  Input resolution: 1 x 3 x 512 x 512
+  Number of parameters: 20.6M
+  Model size: 57.8 MB
+applicable_scenarios:
+- Injury prevention training
+- Sports performance analysis
+- Posture recognition
+related_models:
+  - hrnet_pose
+  - litehrnet
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+has_static_banner: True
+has_animated_banner: True
+license_type: mit
+deploy_license_type: ai-hub-models-license
+dataset:
+  - cocobody

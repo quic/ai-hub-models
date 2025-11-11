@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 import torch
 
@@ -128,7 +129,9 @@ class MediaPipePoseApp(MediaPipeApp):
         but from specific detected keypoints. This override implements that behavior.
         """
         batched_selected_roi: list[torch.Tensor] = []
-        for boxes, keypoints in zip(batched_selected_boxes, batched_selected_keypoints):
+        for boxes, keypoints in zip(
+            batched_selected_boxes, batched_selected_keypoints, strict=False
+        ):
             if boxes.nelement() == 0 or keypoints.nelement() == 0:
                 batched_selected_roi.append(torch.Tensor())
                 continue

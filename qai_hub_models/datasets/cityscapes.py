@@ -108,7 +108,7 @@ class CityscapesDataset(BaseDataset):
         for subdir in sorted(self.images_path.iterdir(), key=lambda item: item.name):
             for img_path in sorted(subdir.iterdir(), key=lambda item: item.name):
                 if not img_path.name.endswith("leftImg8bit.png"):
-                    print(f"Invalid file: {str(img_path)}")
+                    print(f"Invalid file: {img_path!s}")
                     return False
                 if Image.open(img_path).size != (WIDTH, HEIGHT):
                     raise ValueError(Image.open(img_path).size)
@@ -118,7 +118,7 @@ class CityscapesDataset(BaseDataset):
                 )
                 gt_path = self.gt_path / subdir.name / gt_filename
                 if not gt_path.exists():
-                    print(f"Ground truth file not found: {str(gt_path)}")
+                    print(f"Ground truth file not found: {gt_path!s}")
                     return False
                 self.image_list.append(img_path)
                 self.gt_list.append(gt_path)

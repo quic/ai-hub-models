@@ -10,11 +10,14 @@ from typing import Any
 
 import numpy as np
 import torch
-from mmpose.codecs.utils import refine_keypoints
 from PIL.Image import Image, fromarray
 
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import refine_keypoints
 
 
 class LiteHRNetApp:
@@ -77,7 +80,7 @@ class LiteHRNetApp:
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
         inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
 
         # run inference

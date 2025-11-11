@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from enum import Enum, unique
 from pathlib import Path
-from typing import Optional
 
 import qai_hub as hub
 from filelock import FileLock
@@ -109,7 +108,7 @@ class Cache(BaseQAIHMConfig):
     def contains(self, key: dict[str, str]) -> bool:
         return self.get_item(key) is not None
 
-    def get_item(self, key: dict[str, str]) -> Optional[dict[str, str]]:
+    def get_item(self, key: dict[str, str]) -> dict[str, str] | None:
         for k_v in self.cache:
             if k_v.key == key:
                 return k_v.val
@@ -180,7 +179,7 @@ def _get_hub_model_id(
     cache_name: str,
     cache_mode: CacheMode = CacheMode.ENABLE,
     additional_keys: dict[str, str] | None = None,
-) -> Optional[str]:
+) -> str | None:
     """
     Return cached `hub_model_id` if present, otherwise None.
 
@@ -196,7 +195,7 @@ def _get_hub_model_id(
 
     Returns
     -------
-        Optional[str]: Returns cached `hub_model_id` for uploaded AI Hub model if found, otherwise None.
+        str | None: Returns cached `hub_model_id` for uploaded AI Hub model if found, otherwise None.
     """
     if additional_keys is None:
         additional_keys = {}

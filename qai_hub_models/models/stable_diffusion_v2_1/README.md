@@ -21,6 +21,7 @@ Please follow the [Quantize Stable Diffusion]({REPOSITORY_URL}/tutorials/stable_
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[stable-diffusion-v2-1]"
 ```
 

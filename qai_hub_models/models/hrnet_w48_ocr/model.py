@@ -88,7 +88,6 @@ class HRNET_W48_OCR(CityscapesSegmentor):
             from lib.models.seg_hrnet_ocr import get_seg_model
 
             if not weights:
-                pass
                 weights = CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
                 ).fetch()

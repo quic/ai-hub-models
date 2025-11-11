@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,7 +41,7 @@ def make_image_sample_data_loader() -> DataLoader:
 
 
 def get_image_quantization_samples(
-    quantization_samples_path: Optional[str] = None,
+    quantization_samples_path: str | None = None,
 ) -> torch.Tensor:
     """
     Loads a tensor of sample input image data from the specified path.
@@ -166,7 +166,7 @@ def quantized_folder_deprecation_warning(
 
 !!! WARNING !!!
 Quantized model package {deprecated_package} is deprecated. Use the equivalent unquantized model package ({replacement_package}) instead.
-You can use qai_hub_models.models.{replacement_package}.export and qai_hub_models.models.{replacement_package}.evaluate with the `--precision {str(precision)}` flag to replicate previous behavior of those scripts.
+You can use qai_hub_models.models.{replacement_package}.export and qai_hub_models.models.{replacement_package}.evaluate with the `--precision {precision!s}` flag to replicate previous behavior of those scripts.
 
 """,
         stacklevel=2,

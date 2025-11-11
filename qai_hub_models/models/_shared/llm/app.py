@@ -31,7 +31,7 @@ class IndentedTextStreamer(TextStreamer):
 
         # If the incoming text would cause the printed output to wrap around, start a new line
         if self.printed_width + len(text) >= self.terminal_width:
-            print("", flush=True)
+            print(flush=True)
             self.printed_width = 0
 
         # If we are on a new line, print the line starter before the text
@@ -98,7 +98,7 @@ class ChatApp:
         context_length: int,
         max_output_tokens: int,
         checkpoint: CheckpointSpec | None = None,
-        model_from_pretrained_extra: dict = None,
+        model_from_pretrained_extra: dict | None = None,
     ):
         if model_from_pretrained_extra is None:
             model_from_pretrained_extra = {}
@@ -169,4 +169,4 @@ class ChatApp:
             generation_config=inferencer.generation_config,
             streamer=streamer,
         )
-        del inferencer
+        inferencer.cleanup()

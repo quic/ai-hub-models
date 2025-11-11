@@ -381,7 +381,9 @@ def decode_multiple_poses(
     pose_keypoint_scores = np.zeros((max_pose_detections, NUM_KEYPOINTS))
     pose_keypoint_coords = np.zeros((max_pose_detections, NUM_KEYPOINTS, 2))
 
-    for root_score, (root_id, root_coord_y, root_coord_x) in zip(part_scores, part_idx):
+    for root_score, (root_id, root_coord_y, root_coord_x) in zip(
+        part_scores, part_idx, strict=False
+    ):
         root_coord = np.array([root_coord_y, root_coord_x])
         root_image_coords = (
             root_coord * OUTPUT_STRIDE + offsets_np[root_id, root_coord_y, root_coord_x]
@@ -491,7 +493,9 @@ def draw_skel_and_kp(
         )
         adjacent_keypoints.extend(new_connections)
 
-        for ks, kc in zip(keypoint_scores[ii, :], keypoint_coords[ii, :, :]):
+        for ks, kc in zip(
+            keypoint_scores[ii, :], keypoint_coords[ii, :, :], strict=False
+        ):
             if ks < min_part_score:
                 continue
             points.append([kc[1], kc[0]])

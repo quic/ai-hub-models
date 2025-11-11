@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Protocol, TypeVar, Union, runtime_checkable
+from typing import Protocol, TypeVar, runtime_checkable
 
 import torch
 from qai_hub.client import DatasetEntries
@@ -14,7 +14,7 @@ from qai_hub.client import DatasetEntries
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-RUN_MODEL_RETURN_TYPE = Union[list[torch.Tensor], torch.Tensor]
+RUN_MODEL_RETURN_TYPE = list[torch.Tensor] | torch.Tensor
 CollectionAppTypeVar = TypeVar("CollectionAppTypeVar", bound="CollectionAppProtocol")
 
 
@@ -37,7 +37,7 @@ class CollectionAppProtocol(Protocol):
 
     @classmethod
     def get_calibration_data(
-        cls: type[CollectionAppTypeVar],
+        cls,
         model: BaseModel,
         calibration_dataset_name: str,
         num_samples: int | None,

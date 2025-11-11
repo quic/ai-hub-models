@@ -38,8 +38,8 @@ def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
         b, h, w, c = out.shape
         out = out.reshape(b, h, w, 3, -1)
         _, ny, nx, na = out.shape[:-1]
-        for y in np.arange(ny):
-            for x in np.arange(nx):
+        for y in torch.arange(ny):
+            for x in torch.arange(nx):
                 for a in np.arange(na):
                     pred = out[0, y, x, a]
                     obj_score = pred[4].sigmoid()

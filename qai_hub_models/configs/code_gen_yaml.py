@@ -7,14 +7,16 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field, model_validator
 
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
-from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
+from qai_hub_models.utils.default_export_device import (
+    CANARY_DEVICES,
+    DEFAULT_EXPORT_DEVICE,
+)
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 
@@ -33,7 +35,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
     # aimet model can additionally specify num calibration samples to speed up
     # compilation
-    num_calibration_samples: Optional[int] = None
+    num_calibration_samples: int | None = None
 
     # Whether the model's demo supports running on device with the `--eval-mode on-device` option.
     has_on_target_demo: bool = False
@@ -57,7 +59,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
-    outputs_to_skip_validation: Optional[dict[int, str]] = None
+    outputs_to_skip_validation: dict[int, str] | None = None
 
     # True for Collection model comprises of components, such as Whisper model's
     # encoder and decoder.
@@ -108,17 +110,17 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     #
     # This is required when a package needs to be built from source by pip but
     # doesn't have its requirements set up correctly.
-    pip_pre_build_reqs: Optional[str] = None
+    pip_pre_build_reqs: str | None = None
 
     # If extra flags are needed when pip installing for this model, provide them here
-    pip_install_flags: Optional[str] = None
+    pip_install_flags: str | None = None
 
     # If extra flags are needed when pip installing for this model on GPU, provide them here
-    pip_install_flags_gpu: Optional[str] = None
+    pip_install_flags_gpu: str | None = None
 
     # A list of optimizations from `torch.utils.mobile_optimizer` that will
     # speed up the conversion to torchscript.
-    torchscript_opt: Optional[list[str]] = None
+    torchscript_opt: list[str] | None = None
 
     # A comma separated list of metrics to print in the inference summary of `export.py`.
     inference_metrics: str = "psnr"
@@ -135,12 +137,12 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     inference_on_8gen3: bool = False
 
     # The model supports python versions that are at least this version. None == Any version
-    python_version_greater_than_or_equal_to: Optional[str] = None
-    python_version_greater_than_or_equal_to_reason: Optional[str] = None
+    python_version_greater_than_or_equal_to: str | None = None
+    python_version_greater_than_or_equal_to_reason: str | None = None
 
     # The model supports python versions that are less than this version. None == Any version
-    python_version_less_than: Optional[str] = None
-    python_version_less_than_reason: Optional[str] = None
+    python_version_less_than: str | None = None
+    python_version_less_than_reason: str | None = None
 
     def is_supported(
         self,
@@ -164,7 +166,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         precision: Precision,
         runtime: TargetRuntime,
         include_scorecard_failures: bool = True,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Return the reason a model failed or None if the model did not fail."""
         if self.supported_genai_runtimes:
             if runtime not in self.supported_genai_runtimes:
@@ -176,7 +178,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
             return "Precompiled models are only supported via the QNN path."
 
         if precision and not runtime.supports_precision(precision):
-            return f"{runtime} does not support precision {str(precision)}."
+            return f"{runtime} does not support precision {precision!s}."
 
         if self.requires_aot_prepare and not runtime.is_aot_compiled:
             return "Only runtimes that are compiled to context binary ahead of time are supported."
@@ -298,6 +300,10 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
                 raise ValueError(
                     f"{x.value} is not a GenAI runtime, and should not be listed in supported_genai_runtimes."
                 )
+        if self.default_device not in CANARY_DEVICES:
+            raise ValueError(
+                f"Default device must be any of these canary devices: {CANARY_DEVICES}"
+            )
 
         return self
 

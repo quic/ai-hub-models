@@ -26,7 +26,7 @@ def qwen2_5_1_5b_chat_demo(
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
     test_checkpoint: CheckpointSpec | None = None,
-    available_target_runtimes: list[TargetRuntime] = None,
+    available_target_runtimes: list[TargetRuntime] | None = None,
 ):
     if available_target_runtimes is None:
         available_target_runtimes = [TargetRuntime.QNN_CONTEXT_BINARY]

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-# flake8: noqa: E402
 # (module level import not at top of file)
 
 from __future__ import annotations

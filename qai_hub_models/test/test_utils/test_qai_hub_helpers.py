@@ -8,7 +8,9 @@ from unittest.mock import MagicMock
 
 import qai_hub as hub
 
-from qai_hub_models.utils.qai_hub_helpers import extract_job_options
+from qai_hub_models.utils.qai_hub_helpers import (
+    extract_job_options,
+)
 
 
 def assert_options_eq(options: str, options_dict: dict[str, str | bool]):

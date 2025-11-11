@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Generic, TypeVar, Union
+from typing import Generic, TypeVar
 
 ParsedT = TypeVar("ParsedT")
 
@@ -299,7 +299,7 @@ class QAIHMStringListEnvvar(QAIHMEnvvar[list[str]]):
 EnumT = TypeVar("EnumT", bound=Enum)
 
 
-class QAIHMStrSetWithEnumEnvvar(QAIHMEnvvar[set[Union[str, EnumT]]], Generic[EnumT]):
+class QAIHMStrSetWithEnumEnvvar(QAIHMEnvvar[set[str | EnumT]], Generic[EnumT]):
     """
     Comma separated string set environment variable.
 

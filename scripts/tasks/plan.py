@@ -8,7 +8,7 @@ import functools
 import re
 import time
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 from .task import Task
 from .util import echo
@@ -43,7 +43,9 @@ def depends(deps: list[str]):
     return add_dep
 
 
-def depends_if(obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] = None):
+def depends_if(
+    obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] | None = None
+):
     if default is None:
         default = []
     deps = default
@@ -88,7 +90,7 @@ class Plan:
 
     _steps: list[Step]
     _skips: list[re.Pattern]
-    _plan_duration = Optional[datetime.timedelta]
+    _plan_duration = datetime.timedelta | None
     _step_durations: list[tuple[str, datetime.timedelta]]
 
     def __init__(self) -> None:
@@ -137,14 +139,14 @@ class Plan:
             return
 
         step_id_lens = [len(s) for s, d in self._step_durations]
-        max_step_id_len = functools.reduce(lambda a, b: a if a > b else b, step_id_lens)
+        max_step_id_len = functools.reduce(lambda a, b: max(b, a), step_id_lens)
         print(f"{'Step':^{max_step_id_len}} {'Duration':^14}")
         print(f"{'-':-^{max_step_id_len}} {'-':-^14}")
         for step_id, duration in self._step_durations:
-            print(f"{step_id:<{max_step_id_len}} {str(duration):<14}")
+            print(f"{step_id:<{max_step_id_len}} {duration!s:<14}")
         if self._plan_duration:
             print(f"{'-':-^{max_step_id_len}} {'-':-^14}")
-            print(f"{'Total':<{max_step_id_len}} {str(self._plan_duration):<14}")
+            print(f"{'Total':<{max_step_id_len}} {self._plan_duration!s:<14}")
 
     def run(self) -> None:
         start_time = time.monotonic()
@@ -155,7 +157,7 @@ class Plan:
             else:
                 step_start_time = time.monotonic()
 
-                caught: Optional[Exception] = None
+                caught: Exception | None = None
                 try:
                     result = task.run()
                 except Exception as ex:

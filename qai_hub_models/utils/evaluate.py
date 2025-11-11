@@ -11,11 +11,11 @@ import gc
 import math
 import os
 import shutil
-from collections.abc import Iterator, Sized
+from collections.abc import Callable, Iterator, Sized
 from dataclasses import dataclass
 from enum import Enum, unique
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, cast
+from typing import Any, cast
 
 import h5py
 import numpy as np
@@ -50,8 +50,8 @@ from qai_hub_models.utils.inference import (
     dataset_entries_from_batch,
 )
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.onnx_helpers import extract_io_types_from_onnx_model
-from qai_hub_models.utils.onnx_torch_wrapper import (
+from qai_hub_models.utils.onnx.helpers import extract_io_types_from_onnx_model
+from qai_hub_models.utils.onnx.torch_wrapper import (
     OnnxModelTorchWrapper,
     OnnxSessionTorchWrapper,
 )
@@ -84,7 +84,7 @@ def get_dataset_cache_filepath(folder_name: str) -> Path:
     return get_hub_datasets_path() / folder_name / "cache"
 
 
-def get_dataset_cache_samples_per_job(folder_name: str) -> Optional[int]:
+def get_dataset_cache_samples_per_job(folder_name: str) -> int | None:
     """Get the samples_per_job used for the current dataset cache."""
     path = get_dataset_cache_filepath(folder_name) / CACHE_SAMPLES_PER_JOB_FILE
     if not path.exists():
@@ -94,12 +94,12 @@ def get_dataset_cache_samples_per_job(folder_name: str) -> Optional[int]:
 
 
 def read_dataset_ids(
-    dataset_ids_filepath: Union[str, Path],
+    dataset_ids_filepath: str | Path,
 ) -> tuple[list[str], list[str]]:
     input_ids = []
     gt_ids = []
     with open(dataset_ids_filepath) as f:
-        for line in f.readlines():
+        for line in f:
             input_id, gt_id = line.strip().split(" ")
             input_ids.append(input_id)
             gt_ids.append(gt_id)
@@ -107,7 +107,7 @@ def read_dataset_ids(
 
 
 def write_entries_to_file(
-    filename: Union[str, Path], dataset_entries: DatasetEntries
+    filename: str | Path, dataset_entries: DatasetEntries
 ) -> None:
     """Write dataset entries to a .h5 file."""
     with h5py.File(filename, "w") as h5f:
@@ -235,9 +235,9 @@ def _validate_inputs(num_samples: int, dataset: BaseDataset) -> None:
 def _populate_data_cache_impl(
     dataset: BaseDataset,
     samples_per_job: int,
-    seed: Optional[int],
+    seed: int | None,
     input_names: list[str],
-    channel_last_input: Optional[list[str]],
+    channel_last_input: list[str] | None,
     cache_path: Path,
     dataset_ids_filepath: Path,
 ) -> None:
@@ -262,9 +262,9 @@ def _populate_data_cache_impl(
 def _populate_data_cache(
     dataset_from_name_args: tuple[Any, ...],
     samples_per_job: int,
-    seed: Optional[int],
+    seed: int | None,
     input_names: list[str],
-    channel_last_input: Optional[list[str]],
+    channel_last_input: list[str] | None,
 ) -> None:
     """
     Creates hub datasets out of the input dataset and stores the same data locally.
@@ -335,7 +335,9 @@ def _populate_data_cache(
             )
             shutil.move(str(tmp_dataset_ids_path), str(dataset_ids_path))
         else:
-            for input_id, gt_id in zip(*read_dataset_ids(dataset_ids_path)):
+            for input_id, gt_id in zip(
+                *read_dataset_ids(dataset_ids_path), strict=False
+            ):
                 hub.get_dataset(input_id).download(
                     str(get_dataset_path(tmp_cache_path, input_id))
                 )
@@ -415,7 +417,7 @@ class HubDataset(Dataset):
         dataset_name: str,
         num_samples: int,
         input_names: list[str],
-        channel_last_input: Optional[list[str]],
+        channel_last_input: list[str] | None,
         input_spec: InputSpec,
     ):
         self.input_names = input_names
@@ -691,7 +693,7 @@ def evaluate_on_dataset(
     dataset_name: str,
     samples_per_job: int | None = None,
     num_samples: int | None = None,
-    seed: Optional[int] = None,
+    seed: int | None = None,
     profile_options: str = "",
     use_cache: bool = False,
     compute_quant_cpu_accuracy: bool = False,
@@ -828,14 +830,14 @@ class EvalMode(Enum):
 
     FP = ("fp", "run floating point model")
     QUANTSIM = ("quantsim", "simulated quantization")
-    ON_DEVICE = ("on-device", "physical device via AI Hub (slow)")
-    LOCAL_DEVICE = ("local-device", "running on local device like X Elite")
+    ON_DEVICE = ("on-device", "physical device via AI Hub (slow)")
+    LOCAL_DEVICE = ("local-device", "running on local device like X Elite")
 
     def __new__(cls, value: str, description: str):
         # object.__new__ so we bypass Enum.__init__ machinery
         obj = object.__new__(cls)
         obj._value_ = value  # this is the “real” .value
-        obj.description = description  # store your help‐text
+        obj.description = description  # store your help-text
         return obj
 
     @staticmethod

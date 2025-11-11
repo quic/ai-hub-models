@@ -13,7 +13,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from .constants import (
     BASH_EXECUTABLE,
@@ -84,7 +83,7 @@ def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
     if yaml_path.exists():
         with open(yaml_path) as f:
             field = f"{field_name}:"
-            for line in f.readlines():
+            for line in f:
                 if line.startswith(field):
                     field = line[len(field) : -1].strip()
                     if (field[0] == '"' and field[-1] == '"') or (
@@ -215,7 +214,7 @@ def str_to_bool(word: str) -> bool:
     return word.lower() in ["1", "true", "yes"]
 
 
-def get_env_bool(key: str, default: Optional[bool] = None) -> Optional[bool]:
+def get_env_bool(key: str, default: bool | None = None) -> bool | None:
     val = os.environ.get(key, None)
     if val is None:
         return None
@@ -247,7 +246,6 @@ def uv_installed() -> bool:
 
 @functools.cache
 def get_pip() -> str:
-    # UV has trouble building many packages from source on Python 3.12
-    if uv_installed() and sys.version_info < (3, 12):
+    if uv_installed():
         return "uv pip"
     return "pip"

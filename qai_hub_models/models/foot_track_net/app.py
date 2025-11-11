@@ -80,7 +80,7 @@ class BBox_landmarks:
         self,
         label: str,
         xyrb: list[int] | npt.NDArray[np.int32],
-        score: float | int = 0,
+        score: float = 0,
         landmark: list | np.ndarray | None = None,
         vis: list | np.ndarray | None = None,
     ):
@@ -295,7 +295,9 @@ def detect_images_multiclass_fb(
             if class_ == 1:  # face person, only person has landmark otherwise None
                 x5y5 = landmark[0, : n_lmk * 2, cy, cx]
                 x5y5 = (x5y5 + np.array([cx] * n_lmk + [cy] * n_lmk)) * stride
-                boxlandmark = np.array(list(zip(x5y5[:n_lmk], x5y5[n_lmk:])))
+                boxlandmark = np.array(
+                    list(zip(x5y5[:n_lmk], x5y5[n_lmk:], strict=False))
+                )
                 box_vis = vis_np[0, :, cy, cx].tolist()
             else:
                 boxlandmark = None

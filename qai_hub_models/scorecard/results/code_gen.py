@@ -66,13 +66,14 @@ def update_code_gen_failure_reasons(
         p: {} for p in supported_precisions
     }
 
-    default_device = ScorecardDevice.get(code_gen_config.default_device)
+    default_device = ScorecardDevice.get(device_name=code_gen_config.default_device)
+    canary_devices = ScorecardDevice.canary_devices()
 
     def process_model(
         precision: Precision, path: ScorecardProfilePath, device: ScorecardDevice
     ):
         for component_id in components or [model_id]:
-            # Skip model if it can't compile for any single device.
+            # Skip model if it can't compile for any canary device.
             compile_job = compile_summary.get_run(
                 precision, device, path.compile_path, component_id
             )
@@ -80,7 +81,8 @@ def update_code_gen_failure_reasons(
                 compile_failures[precision][path.compile_path][component_id] = (
                     compile_job
                 )
-            elif device == default_device:
+
+            if device == default_device:
                 # Skip model if it can't be profiled on its default device.
                 profile_job = profile_summary.get_run(
                     precision, device, path, component_id
@@ -105,6 +107,7 @@ def update_code_gen_failure_reasons(
         ScorecardProfilePath,
         process_model,
         supported_precisions,
+        include_devices=list({default_device, *canary_devices}),
         include_paths=export_paths,
     )
 
@@ -121,9 +124,7 @@ def update_code_gen_failure_reasons(
     for precision in supported_precisions:
         for path in export_paths:
             if not path.supports_precision(precision):
-                path_failure_reason = (
-                    f"{path.runtime} does not support {str(precision)}"
-                )
+                path_failure_reason = f"{path.runtime} does not support {precision!s}"
             elif failed_compile_jobs := compile_failures[precision][path.compile_path]:
                 failures = [
                     f"{key}:{val.job_id}" if key != model_id else str(val.job_id)

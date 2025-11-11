@@ -78,7 +78,7 @@ class FaceDetLiteApp:
         hm, box, landmark = self.model(img_tensor)
         dets = detect(hm, box, landmark, threshold=0.55, nms_iou=-1, stride=8)
         res = []
-        for n in range(0, len(dets)):
+        for n in range(len(dets)):
             xmin, ymin, w, h = dets[n].xywh
             score = dets[n].score
 

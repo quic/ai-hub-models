@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import torch
 
@@ -195,7 +194,7 @@ class FOMM(PretrainedCollectionModel):
         self.generator = generator
 
     @classmethod
-    def from_pretrained(cls, weights_url: Optional[str] = None):
+    def from_pretrained(cls, weights_url: str | None = None):
         with SourceAsRoot(
             FOMM_SOURCE_REPOSITORY,
             FOMM_SOURCE_REPO_COMMIT,

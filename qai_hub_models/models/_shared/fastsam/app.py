@@ -129,7 +129,7 @@ class FastSAMApp:
             pred_mask_coeffs,
         )
 
-        for batch_idx in range(0, len(pred_boxes)):
+        for batch_idx in range(len(pred_boxes)):
             batch_boxes = boxes[batch_idx]
             batch_mask_coeffs = mask_coeffs[batch_idx]
             batch_mask_protos = pred_mask_protos[batch_idx]
@@ -208,7 +208,7 @@ class FastSAMApp:
 
         # Overlay the segmentation masks on the image.
         out = []
-        for batch_idx in range(0, len(pred_boxes)):
+        for batch_idx in range(len(pred_boxes)):
             batch_boxes = boxes[batch_idx]
             batch_masks = masks[batch_idx]
             batch_scores = scores[batch_idx]

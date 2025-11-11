@@ -11,10 +11,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import torch
-from nuscenes.nuscenes import NuScenes
-from nuscenes.utils import splits
 from PIL import Image
-from pyquaternion import Quaternion
 
 from qai_hub_models.datasets.common import (
     BaseDataset,
@@ -79,6 +76,17 @@ class NuscenesDataset(BaseDataset):
         )
         self.source_dataset_file = source_dataset_file
         BaseDataset.__init__(self, str(self.data_path), split)
+
+        # WARNING: This must be included after the Base __init__ to allow UnfetchableDatasetError
+        # to be thrown before the ImportError, if the dataset is not downloaded to disk.
+        try:
+            from nuscenes.nuscenes import NuScenes
+            from nuscenes.utils import splits
+        except ImportError:
+            raise ImportError(
+                "nuscenes-devkit must be installed to create the nuscenes dataset."
+            ) from None
+
         self.nusc = NuScenes(
             version="v1.0-mini", dataroot=self.data_path, verbose=False
         )
@@ -136,6 +144,8 @@ class NuscenesDataset(BaseDataset):
             rots
                 ego2global Rotation with the shape of [4,].
         """
+        from pyquaternion import Quaternion
+
         info = self.data_infos[index]
 
         imgs_list = []
@@ -252,6 +262,8 @@ class NuscenesDataset(BaseDataset):
             Information of training set or validation set
             that will be saved to the info file.
         """
+        from pyquaternion import Quaternion
+
         nusc_infos = []
 
         all_scene = {s["token"]: s["name"] for s in self.nusc.scene}
@@ -339,6 +351,8 @@ class NuscenesDataset(BaseDataset):
         dict
             Transformed sweep information containing calibrated point data.
         """
+        from pyquaternion import Quaternion
+
         sd_rec = self.nusc.get("sample_data", sensor_token)
         cs_record = self.nusc.get(
             "calibrated_sensor", sd_rec["calibrated_sensor_token"]

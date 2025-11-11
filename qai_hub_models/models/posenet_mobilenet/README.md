@@ -15,7 +15,8 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/p
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[posenet-mobilenet]"
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install qai-hub-models
 ```
 
 

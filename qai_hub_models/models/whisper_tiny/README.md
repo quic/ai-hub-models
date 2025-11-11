@@ -15,6 +15,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/w
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[whisper-tiny]"
 ```
 

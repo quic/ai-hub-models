@@ -1,0 +1,40 @@
+diff --git a/saicinpainting/training/data/aug.py b/saicinpainting/training/data/aug.py
+index b124625..c816ef2 100644
+--- a/saicinpainting/training/data/aug.py
++++ b/saicinpainting/training/data/aug.py
+@@ -1,5 +1,12 @@
+-from albumentations import DualIAATransform, to_tuple
+-import imgaug.augmenters as iaa
++import contextlib
++
++# albumentations does not support numpy 2.x, and it not needed by AI Hub Models.
++try:
++    from albumentations import DualIAATransform, to_tuple
++    import imgaug.augmenters as iaa
++except ImportError:
++    DualIAATransform = object
++
+ 
+ class IAAAffine2(DualIAATransform):
+     """Place a regular grid of points on the input and randomly move the neighbourhood of these point around
+diff --git a/saicinpainting/training/data/datasets.py b/saicinpainting/training/data/datasets.py
+index c4f503d..3aafe30 100644
+--- a/saicinpainting/training/data/datasets.py
++++ b/saicinpainting/training/data/datasets.py
+@@ -1,9 +1,15 @@
++import contextlib
+ import glob
+ import logging
+ import os
+ import random
+ 
+-import albumentations as A
++# albumentations does not support numpy 2.x, and it not needed by AI Hub Models.
++with contextlib.suppress(ImportError):
++    from albumentations import DualIAATransform, to_tuple
++    import imgaug.augmenters as iaa
++
++
+ import cv2
+ import numpy as np
+ import torch

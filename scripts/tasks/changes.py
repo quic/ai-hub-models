@@ -7,7 +7,6 @@ import functools
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional
 
 from .constants import (
     PUBLIC_BENCH_MODELS,
@@ -51,7 +50,10 @@ MANUAL_EDGES = {
     "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/envvars.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/scorecard/device.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/scorecard/envvars.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/default_export_device.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
@@ -207,8 +209,8 @@ def get_code_gen_changed_models() -> set[str]:
 
 @functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
 def get_changed_files_in_package(
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
 ) -> Iterable[str]:
     """
     Returns the list of changed files in zoo based on git tracking.

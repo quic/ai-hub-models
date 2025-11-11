@@ -91,6 +91,7 @@ class YoloX(Yolo):
                 self.model.head.reg_convs,
                 self.model.head.strides,
                 xin,
+                strict=False,
             )
         ):
             x = self.model.head.stems[k](x)
@@ -131,7 +132,7 @@ class YoloX(Yolo):
         strides_list = []
 
         hw = [single_output[0].shape[-2:] for single_output in outputs]
-        for (hsize, wsize), stride in zip(hw, self.model.head.strides):
+        for (hsize, wsize), stride in zip(hw, self.model.head.strides, strict=False):
             yv, xv = self.yolox_meshgrid([torch.arange(hsize), torch.arange(wsize)])
             grid = torch.stack((xv, yv), 2).view(1, -1, 2)
             grids_list.append(grid)

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -39,7 +38,7 @@ def _torch_inference_impl(
 ) -> list[np.ndarray]:
     torch_outs: list[list[torch.Tensor]] = []
     input_names = sample_inputs.keys()
-    for i in range(len(list(sample_inputs.values())[0])):
+    for i in range(len(next(iter(sample_inputs.values())))):
         inputs = {}
         for input_name in input_names:
             inputs[input_name] = torch.from_numpy(sample_inputs[input_name][i]).to(
@@ -81,7 +80,7 @@ def torch_inference(
         return numpy_outputs
     new_outputs = []
     channel_last_outputs = model.get_channel_last_outputs()
-    for name, np_out in zip(model.get_output_names(), numpy_outputs):
+    for name, np_out in zip(model.get_output_names(), numpy_outputs, strict=False):
         if name in channel_last_outputs:
             new_out = transpose_channel_first_to_last([name], {name: [np_out]})
             new_outputs.append(new_out[name][0])
@@ -91,8 +90,8 @@ def torch_inference(
 
 
 def compute_psnr(
-    output_a: Union[torch.Tensor, np.ndarray],
-    output_b: Union[torch.Tensor, np.ndarray],
+    output_a: torch.Tensor | np.ndarray,
+    output_b: torch.Tensor | np.ndarray,
     data_range: float | None = None,
     eps: float = 1e-5,
     eps2: float = 1e-10,
@@ -126,8 +125,8 @@ def compute_relative_error(expected: np.ndarray, actual: np.ndarray) -> np.ndarr
 
 
 def compare_psnr(
-    output_a: Union[torch.Tensor, np.ndarray],
-    output_b: Union[torch.Tensor, np.ndarray],
+    output_a: torch.Tensor | np.ndarray,
+    output_b: torch.Tensor | np.ndarray,
     psnr_threshold: int,
     eps: float = 1e-5,
     eps2: float = 1e-10,
@@ -166,7 +165,7 @@ METRICS_FUNCTIONS = dict(
 def generate_comparison_metrics(
     expected: list[np.ndarray],
     actual: list[np.ndarray],
-    names: Optional[list[str]] = None,
+    names: list[str] | None = None,
     metrics: str = "psnr",
 ) -> pd.DataFrame:
     """
@@ -196,8 +195,8 @@ def generate_comparison_metrics(
         if names
         else pd.RangeIndex(stop=len(expected))
     )
-    df_res = pd.DataFrame(None, columns=["shape"] + metrics_ls, index=idx)
-    for i, (expected_arr, actual_arr) in enumerate(zip(expected, actual)):
+    df_res = pd.DataFrame(None, columns=["shape", *metrics_ls], index=idx)
+    for i, (expected_arr, actual_arr) in enumerate(zip(expected, actual, strict=False)):
         loc = i if not names else names[i]
         df_res.loc[loc, "shape"] = expected_arr.shape  # pyright: ignore[reportArgumentType,reportCallIssue]
         for m in metrics_ls:

@@ -1,6 +1,6 @@
 # [SalsaNext: Semantic segmentation model optimized for LiDAR point cloud data](https://aihub.qualcomm.com/models/salsanext)
 
-SalsaNext is a LiDAR-based semantic segmentation model designed for efficient and accurate
+SalsaNext is a LiDAR-based model designed for efficient and accurate semantic segmentation.
 
 This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
@@ -15,6 +15,7 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/s
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install qai-hub-models
 ```
 

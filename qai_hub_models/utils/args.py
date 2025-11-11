@@ -12,17 +12,15 @@ import copy
 import inspect
 import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from pydoc import locate
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 import qai_hub as hub
-import torch
 from numpydoc.docscrape import FunctionDoc
-from qai_hub.client import APIException, InternalError, UserError
 
 from qai_hub_models._version import __version__
 from qai_hub_models.models.common import Precision
@@ -39,7 +37,9 @@ from qai_hub_models.utils.base_model import (
 )
 from qai_hub_models.utils.evaluate import EvalMode
 from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
-from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
+from qai_hub_models.utils.qai_hub_helpers import (
+    can_access_qualcomm_ai_hub,
+)
 
 
 class ParseEnumAction(argparse.Action):
@@ -113,7 +113,11 @@ class QAIHMHelpFormatter(
         This overridden function will print just the help message for boolean args
         and print help message along with the default value for all other args.
         """
-        if isinstance(action, (argparse._StoreTrueAction, argparse._StoreFalseAction)):
+        # Don't print "(default: <value>)" in the CLI help if the value is a bool
+        # or something "non-truthy" (e.g. "", None, [])
+        if isinstance(
+            action, (argparse._StoreTrueAction, argparse._StoreFalseAction)
+        ) or (not action.default):
             return action.help
         return super()._get_help_string(action)
 
@@ -130,21 +134,43 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         supported_precision_runtimes: (
             dict[Precision, list[TargetRuntime]] | None
         ) = None,
+        default_device: str | None = None,
+        default_chipset: str | None = None,
         *args,
         **kwargs,
     ):
         self.supported_precision_runtimes = supported_precision_runtimes
+        self.default_device = default_device
+        self.default_chipset = default_chipset
         super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def get_hub_device(
+        device: str | None = None, chipset: str | None = None, device_os: str = ""
+    ) -> hub.Device | None:
+        """
+        Get a hub.Device given a device name and/or chipset name.
+        If neither is specified, the function returns None.
+        """
+        if chipset or device:
+            return hub.Device(
+                name=device or "",
+                attributes=f"chipset:{chipset}" if chipset else [],
+                os=device_os,
+            )
+        return None
 
     def parse_args(self, args=None, namespace=None):
         parsed = super().parse_args(args, namespace)
-        device_name = getattr(parsed, "device", None)
-        chipset_name = getattr(parsed, "chipset", None)
-        if device_name or chipset_name:
-            hub_device = _get_hub_device(
-                device_name, chipset_name, getattr(parsed, "device_os", "")
+        parsed.device = self.get_hub_device(
+            getattr(parsed, "device_str", None),
+            getattr(parsed, "chipset", None),
+            getattr(parsed, "device_os", ""),
+        )
+        if parsed.device is None:
+            parsed.device = self.get_hub_device(
+                self.default_device, self.default_chipset
             )
-            parsed.hub_device = hub_device
 
         if getattr(parsed, "quantize", None):
             parsed.precision = parsed.quantize
@@ -218,20 +244,22 @@ def _add_device_args(
         "Only one of default_device or default_chipset may be specified."
     )
 
+    parser.default_device = default_device
+    parser.default_chipset = default_chipset
     device_group = parser.add_argument_group("Device Selection")
     device_mutex_group = device_group.add_mutually_exclusive_group()
     device_mutex_group.add_argument(
         "--device",
+        dest="device_str",
         type=str,
-        default=default_device,
-        help="If running on-device, use this device.",
+        help="The name of the device used to run this script. Run `qai-hub list-devices` to see the list of options."
+        + (f" If not set, defaults to `{default_device}`." if default_device else ""),
     )
     device_mutex_group.add_argument(
         "--chipset",
         type=str,
-        default=default_chipset,
-        choices=sorted(_get_qcom_chipsets(), reverse=True),
-        help="If set, will choose a random device with this chipset.",
+        help="If set, will choose a random device with this chipset. Run `qai-hub list-devices` to see the list of options."
+        + (f" If not set, defaults to `{default_chipset}`." if default_chipset else ""),
     )
     device_group.add_argument(
         "--device-os",
@@ -320,7 +348,6 @@ def get_on_device_demo_parser(
     available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] | None = None,
     add_output_dir: bool = False,
     default_device: str | None = None,
-    default_host_device: torch.device = torch.device("cpu"),
 ):
     """
     Parameters
@@ -392,8 +419,8 @@ def get_on_device_demo_parser(
     add_precision_arg(
         parser,
         set(new_supported_precisions),
-        list(new_supported_precisions)[0],
-        list(new_supported_precisions)[0],
+        next(iter(new_supported_precisions)),
+        next(iter(new_supported_precisions)),
     )
 
     return parser
@@ -447,7 +474,7 @@ def add_function_parser_args(
     """
     for name, param in signature.items():
         # Determining type from param.annotation is non-trivial (it can be a
-        # strings like "Optional[str]" or "bool | None").
+        # strings like "bool | None").
         bool_action = None
         arg_name = f"--{name.replace('_', '-')}"
         if param.default is not None:
@@ -562,10 +589,7 @@ def get_export_model_name(
     for the model file saved to disk. Incorporate all customized string args
     into the name.
     """
-    if sys.version_info >= (3, 10):
-        sig = inspect.signature(model_cls.from_pretrained, eval_str=True)
-    else:
-        sig = inspect.signature(model_cls.from_pretrained)
+    sig = inspect.signature(model_cls.from_pretrained, eval_str=True)
 
     name = f"{model_id}_{precision}"
     for key, value in sig.parameters.items():
@@ -575,18 +599,14 @@ def get_export_model_name(
         if key not in model_kwargs:
             continue
 
-        if sys.version_info >= (3, 10):
-            from types import UnionType
+        from types import UnionType
 
-            if not (
-                anno is str
-                or (
-                    isinstance(anno, UnionType)
-                    and any(arg is str for arg in anno.__args__)
-                )
-            ):
-                continue
-        elif not isinstance(value.annotation, str) or "str" not in value.annotation:
+        if not (
+            anno is str
+            or (
+                isinstance(anno, UnionType) and any(arg is str for arg in anno.__args__)
+            )
+        ):
             continue
 
         if model_kwargs[key] != sig.parameters[key].default:
@@ -606,21 +626,6 @@ def model_from_cli_args(
     Default behavior is to assume the CLI args have the same names as from_pretrained method args.
     """
     return model_cls.from_pretrained(**get_model_kwargs(model_cls, vars(cli_args)))
-
-
-def _get_hub_device(
-    device: Optional[str] = None, chipset: Optional[str] = None, device_os: str = ""
-) -> hub.Device:
-    """
-    Get a hub.Device given a device name or chipset name.
-    If chipset is specified, that takes precedence over the device name.
-    If neither is specified, the function throws an error.
-    """
-    if chipset:
-        return hub.Device(attributes=f"chipset:{chipset}", os=device_os)
-    if device:
-        return hub.Device(name=device, os=device_os)
-    raise ValueError("Must specify one of device or chipset")
 
 
 def demo_model_components_from_cli_args(
@@ -647,7 +652,7 @@ def demo_model_components_from_cli_args(
     cli_args_comp = copy.deepcopy(cli_args)
 
     for i, (cls, comp) in enumerate(
-        zip(model_cls.component_classes, model_cls.component_class_names)
+        zip(model_cls.component_classes, model_cls.component_class_names, strict=False)
     ):
         if cli_args.hub_model_id:
             cli_args_comp.hub_model_id = cli_args.hub_model_id.split(",")[i]
@@ -756,6 +761,11 @@ def get_model_input_spec_parser(
             # locate() converts string type to cls type
             # Any type can be resolved as long as it's accessible in this scope
             type_ = locate(param.annotation)
+            if type_ is None:
+                # TODO(#16652): This is brittle since it requires the parameter
+                # to be imported into that scope exactly, which may not be its
+                # native location.
+                type_ = locate(f"{model_cls.__module__}.{param.annotation}")
             assert isinstance(type_, type)
         parser.add_argument(
             f"--{name.replace('_', '-')}",
@@ -781,20 +791,8 @@ def input_spec_from_cli_args(
     return model.get_input_spec(**get_input_spec_kwargs(model, vars(cli_args)))
 
 
-def _get_qcom_chipsets() -> set[str]:
-    try:
-        return {
-            attr[len("chipset:") :]
-            for dev in hub.get_devices()
-            for attr in dev.attributes
-            if attr.startswith("chipset:qualcomm")
-        }
-    except (APIException, UserError, InternalError):
-        return set()
-
-
 def _evaluate_export_common_parser(
-    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
+    model_cls: type[FromPretrainedTypeVar | FromPrecompiledTypeVar],
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
 ) -> QAIHMArgumentParser:
     """Common arguments between export and evaluate scripts."""
@@ -900,9 +898,9 @@ def add_export_function_args(export_fn: Callable, parser: QAIHMArgumentParser) -
 
 
 def export_parser(
-    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
+    model_cls: type[FromPretrainedTypeVar | FromPrecompiledTypeVar],
     export_fn: Callable,
-    components: Optional[list[str]] = None,
+    components: list[str] | None = None,
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     default_export_device: str | None = None,
 ) -> QAIHMArgumentParser:
@@ -949,7 +947,7 @@ def export_parser(
     _add_device_args(parser, default_device=default_export_device)
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (
-            components if components is not None else model_cls.component_class_names  # type: ignore[union-attr]
+            components if components is not None else model_cls.component_class_names
         )
         parser.add_argument(
             "--components",
@@ -963,7 +961,7 @@ def export_parser(
 
 
 def evaluate_parser(
-    model_cls: type[FromPretrainedTypeVar] | type[FromPrecompiledTypeVar],
+    model_cls: type[FromPretrainedTypeVar | FromPrecompiledTypeVar],
     supported_datasets: list[str],
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     uses_quantize_job: bool = True,
@@ -1009,7 +1007,7 @@ def evaluate_parser(
         help="Additional options to pass when submitting the profile job.",
     )
 
-    _add_device_args(parser, default_chipset="qualcomm-snapdragon-8gen3")
+    _add_device_args(parser)
     if len(supported_datasets) == 0:
         return parser
     if uses_quantize_job:

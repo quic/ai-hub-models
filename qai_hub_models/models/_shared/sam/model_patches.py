@@ -235,7 +235,7 @@ class SplitHeadSAMDecoderAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
     ) -> torch.Tensor:
         attns = []
-        for i in range(0, self.num_heads):
+        for i in range(self.num_heads):
             # Single head attention
             qOut: torch.Tensor = self.qproj[i](q)
             kOut: torch.Tensor = self.kproj[i](k)
@@ -260,7 +260,7 @@ def resize_longest_image_size(
     scale = longest_side / max(input_image_size)
     return cast(
         tuple[int, int],
-        tuple(int(floor(scale * each + 0.5)) for each in input_image_size),
+        tuple(floor(scale * each + 0.5) for each in input_image_size),
     )
 
 

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Union, cast
+from typing import cast
 
 import torch
 from torch import Tensor, nn
@@ -23,7 +23,7 @@ from qai_hub_models.utils.window_partitioning import (
 
 def multi_scale_deformable_attention(
     value: Tensor,
-    value_spatial_shapes: Union[Tensor, list[tuple]],
+    value_spatial_shapes: Tensor | list[tuple],
     sampling_locations: Tensor,
     attention_weights: Tensor,
 ) -> Tensor:
@@ -119,18 +119,16 @@ class PatchedMask2FormerPixelDecoderEncoderMultiscaleDeformableAttention(nn.Modu
         self.value_proj = other.value_proj
         self.output_proj = other.output_proj
 
-    def with_pos_embed(
-        self, tensor: torch.Tensor, position_embeddings: Optional[Tensor]
-    ):
+    def with_pos_embed(self, tensor: torch.Tensor, position_embeddings: Tensor | None):
         return tensor if position_embeddings is None else tensor + position_embeddings
 
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
         encoder_hidden_states: torch.Tensor | None = None,
         encoder_attention_mask: torch.Tensor | None = None,
-        position_embeddings: Optional[torch.Tensor] = None,
+        position_embeddings: torch.Tensor | None = None,
         reference_points: torch.Tensor | None = None,
         spatial_shapes_list: list[tuple[int, int]] | None = None,
         level_start_index=None,
@@ -239,7 +237,7 @@ class PatchedMask2FormerMaskPredictor(nn.Module):
         self,
         outputs: torch.Tensor,
         pixel_embeddings: torch.Tensor,
-        attention_mask_target_size: Optional[int] = None,
+        attention_mask_target_size: int | None = None,
     ):
         mask_embeddings = self.mask_embedder(outputs.transpose(0, 1))
 
@@ -299,11 +297,11 @@ class PatchedSwinSelfAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.FloatTensor] = None,
-        head_mask: Optional[torch.FloatTensor] = None,
-        output_attentions: Optional[bool] = False,
+        attention_mask: torch.FloatTensor | None = None,
+        head_mask: torch.FloatTensor | None = None,
+        output_attentions: bool | None = False,
     ) -> tuple[torch.Tensor]:
-        batch_size, dim, num_channels = hidden_states.shape
+        batch_size, dim, _num_channels = hidden_states.shape
         hidden_shape = (batch_size, dim, -1, self.attention_head_size)
 
         query_layer = self.query(hidden_states).view(hidden_shape).transpose(1, 2)
@@ -352,7 +350,7 @@ class PatchedSwinSelfAttention(nn.Module):
 
         context_layer = torch.matmul(attention_probs, value_layer)
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
-        new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
+        new_context_layer_shape = (*context_layer.size()[:-2], self.all_head_size)
         context_layer = context_layer.view(new_context_layer_shape)
 
         outputs = (
@@ -424,9 +422,9 @@ class PatchedSwinLayer(nn.Module):
         self,
         hidden_states: torch.Tensor,
         input_dimensions: tuple[int, int],
-        head_mask: Optional[torch.FloatTensor] = None,
-        output_attentions: Optional[bool] = False,
-        always_partition: Optional[bool] = False,
+        head_mask: torch.FloatTensor | None = None,
+        output_attentions: bool | None = False,
+        always_partition: bool | None = False,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         # -- Begin Qualcomm Change
         assert always_partition, "always_partition must be true to use this patch"

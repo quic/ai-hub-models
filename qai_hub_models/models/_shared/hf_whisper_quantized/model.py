@@ -9,7 +9,7 @@ import os
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 from qai_hub_models.utils.quantization_aimet_onnx import (
@@ -20,7 +20,6 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 # isort: on
 
 import logging
-from typing import Optional
 
 import aimet_onnx
 import onnx
@@ -150,7 +149,7 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         return super(HfWhisperEncoder, self).get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -257,7 +256,7 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         return super(HfWhisperDecoder, self).get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

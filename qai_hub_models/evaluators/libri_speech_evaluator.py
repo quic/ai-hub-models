@@ -46,7 +46,9 @@ class LibriSpeechEvaluator(BaseEvaluator):
         clean_targets = ["".join(chr(int(i)) for i in t if int(i) != 0) for t in target]
 
         # Store predictions and trimmed targets
-        for transcription, clean_target in zip(transcriptions, clean_targets):
+        for transcription, clean_target in zip(
+            transcriptions, clean_targets, strict=False
+        ):
             self.predictions.append(transcription)
             self.references.append(
                 clean_target[: len(transcription)]

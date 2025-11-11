@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
 
+import transformers
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
@@ -42,7 +43,7 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
 )
 from qai_hub_models.models._shared.llm.model import (
     Embedding,
-    MainLLMInputType,
+    LLMIOType,
     PositionProcessorBase,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
@@ -97,15 +98,19 @@ class RopeEmbedding(Embedding):
         self, head_dim: int, max_length: int, config: LlamaConfig
     ) -> list[torch.Tensor]:
         kwargs = {
-            "max_position_embeddings": config.max_position_embeddings,
-            "base": config.rope_theta,
             "config": config,
         }
+        if Version(transformers.__version__) < Version("4.48"):
+            kwargs |= {
+                "max_position_embeddings": config.max_position_embeddings,
+                "base": config.rope_theta,
+                "dim": head_dim,
+            }
 
         if not hasattr(config, "rope_scaling"):
             config.rope_scaling = None
 
-        rope = modeling_llama.LlamaRotaryEmbedding(dim=head_dim, **kwargs)
+        rope = modeling_llama.LlamaRotaryEmbedding(**kwargs)
         dummy_x = torch.Tensor([1.0])
         position_ids = torch.arange(max_length).view(1, -1)
         if hasattr(rope, "_original_forward"):
@@ -190,8 +195,10 @@ class Llama3Base(LLMBase):
             and Llama3_Optimizations.SHA_ATTENTION in skip_optimizations
         ):
             print("Skip sha_attention optimization")
-        else:
+        elif hasattr(modeling_llama, "LLAMA_ATTENTION_CLASSES"):
             modeling_llama.LLAMA_ATTENTION_CLASSES["eager"] = SHALlamaAttention
+        else:
+            modeling_llama.LlamaAttention = SHALlamaAttention
 
         def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
             return position_ids
@@ -240,10 +247,11 @@ class Llama3Base(LLMBase):
 
 class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     EmbeddingClass = RopeEmbedding
+    FPModel = Llama3Base
 
     def __init__(
         self,
-        sim_model: QuantizationSimModel,
+        quant_sim: QuantizationSimModel,
         host_device: torch.device,
         checkpoint: str | os.PathLike | Path | None = None,
         tokenizer: PreTrainedTokenizer | None = None,
@@ -253,7 +261,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         attention_mask_min_clip: float | None = None,
     ):
         super().__init__(
-            sim_model=sim_model,
+            quant_sim=quant_sim,
             checkpoint=checkpoint,
             tokenizer=tokenizer,
             llm_config=llm_config,
@@ -311,12 +319,10 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-        main_input_type = (
-            MainLLMInputType.input_ids
-            if any(node.op_type == "Gather" for node in model.graph.node)
-            else MainLLMInputType.inputs_embeds
-        )
-        if main_input_type == MainLLMInputType.input_ids:
+        if self.llm_io_type in {
+            LLMIOType.genie_input_ids,
+            LLMIOType.huggingface_input_ids,
+        }:
             # See _shared/llama3/model.py for why this is needed.
             embed_a_name = "/model/model/embed_tokens/Gather_output_0"
             embed_w_name = "model.model.embed_tokens.weight"
@@ -330,7 +336,10 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                     encodings["activation_encodings"][key]
                 )
 
-        if uses_lists and main_input_type == MainLLMInputType.input_ids:
+        if uses_lists and self.llm_io_type in {
+            LLMIOType.genie_input_ids,
+            LLMIOType.huggingface_input_ids,
+        }:
             encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
         zero_keys = []
 

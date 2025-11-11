@@ -125,7 +125,7 @@ class CocoDataset(BaseDataset):
         counter = 0
         self.label_map = {}
         with open(QAIHM_PACKAGE_ROOT / "labels" / label_file) as f:
-            for line in f.readlines():
+            for line in f:
                 self.label_map[line.strip()] = counter
                 counter += 1
 

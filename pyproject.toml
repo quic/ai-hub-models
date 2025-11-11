@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "qai_hub_models"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 description = "Popular Machine Learning models optimized for Qualcomm chipsets."
-requires-python = ">=3.9, <3.13"
+requires-python = ">=3.10, <3.14"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 readme = "README.md"
@@ -15,10 +15,10 @@ authors = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
 
@@ -39,7 +39,7 @@ include = ["qai_hub_models*"]
 version = {attr = "qai_hub_models._version.__version__"}
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -64,6 +64,11 @@ select = [
     "C4", # Prevents container antipatterns (eg. use list(xlist) instead of [el for el in xlist]) to copy a list
     "RET", # Optimal return syntax
     "SIM", # Various rules to make sure the more simple syntax is used. For example, enforces `return x` over `return True if x else False`.
+    "RUF",  # Various helpful rules not found in other linter sets
+    "FURB",  # Prevents outdated python syntax
+    "PIE",  # Prevents outdated python syntax
+    "PYI",  # Makes sure advanced typings (eg. generic classes) are implemented correctly
+    "TID251", # Banned imports
 ]
 ignore = [
     "E501", # line too long
@@ -103,6 +108,8 @@ ignore = [
     "PT015", # Assertion always fails, replace with pytest.fail(). This is a buggy check that is applied by the linter outside of pytest code.
     "TRY003", # Avoid specifying long messages outside the exception class
     "TRY300", # Consider moving return statement to an `else` block
+    "RUF009", # don't use function in dataclass defaults
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
 ]
 
 [tool.pydoclint]
@@ -118,9 +125,14 @@ check-style-mismatch = true
 "scripts/*" = ["INP", "PERF"]
 "qai_hub_models/models/_internal/*" = ["INP", "PL"]
 "qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py" = ["D"] # Transformers does some odd docstring validation that this breaks.
+"qai_hub_models/extern/*" = ["PGH004", "TID251"]
 
 [tool.ruff.lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"numba".msg = "Do not directly import from numba, as it is an optional dependency. Safely import from qai_hub_models.extern.numba instead."
+"xtcocotools".msg = "xtcocotools is no longer maintained, and should be avoided. A minimal version of it is provided at qai_hub_models.extern.xtcocotools."
 
 [tool.ruff.lint.flake8-bugbear]
 extend-immutable-calls = ["torch.device", "os.path.join"]
@@ -227,4 +239,8 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models/models/qwen2_5_7b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/gemma_3n_e2b_it.*"
 ignore_errors = true

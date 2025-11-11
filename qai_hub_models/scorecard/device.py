@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from functools import cached_property
-from typing import Any, Optional
+from functools import cache, cached_property
+from typing import Any
 
 import qai_hub as hub
 from pydantic import GetCoreSchemaHandler
@@ -21,15 +21,18 @@ from qai_hub_models.scorecard.envvars import (
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
-from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
+from qai_hub_models.utils.default_export_device import (
+    CANARY_DEVICES,
+    DEFAULT_EXPORT_DEVICE,
+)
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 _FRAMEWORK_ATTR_PREFIX = "framework"
-_DEVICE_CACHE: dict[str, Optional[hub.Device]] = {}
+_DEVICE_CACHE: dict[str, hub.Device | None] = {}
 UNIVERSAL_DEVICE_SCORECARD_NAME = "universal"
 
 
-def _get_cached_device(device_name: str) -> Optional[hub.Device]:
+def _get_cached_device(device_name: str) -> hub.Device | None:
     # Gets a device with attributes & OS. This only comes from hub.get_devices()
     device = _DEVICE_CACHE.get(device_name)
     if not device:
@@ -84,12 +87,12 @@ class ScorecardDevice:
     @classmethod
     def all_devices(
         cls,
-        enabled: Optional[bool] = None,
-        npu_supports_precision: Optional[Precision] = None,
-        supports_compile_path: Optional[ScorecardCompilePath] = None,
-        supports_profile_path: Optional[ScorecardProfilePath] = None,
-        form_factors: Optional[list[ScorecardDevice.FormFactor]] = None,
-        is_mirror: Optional[bool] = None,
+        enabled: bool | None = None,
+        npu_supports_precision: Precision | None = None,
+        supports_compile_path: ScorecardCompilePath | None = None,
+        supports_profile_path: ScorecardProfilePath | None = None,
+        form_factors: list[ScorecardDevice.FormFactor] | None = None,
+        is_mirror: bool | None = None,
         check_available_in_hub: bool = True,
     ):
         """
@@ -100,13 +103,13 @@ class ScorecardDevice:
             device
             for device in cls._registry.values()
             if (
-                (
+                (enabled is None or enabled == device.enabled)
+                and (
                     not check_available_in_hub
                     # Ignore availability check if AI Hub is not accessible
                     or not can_access_qualcomm_ai_hub()
                     or device.available_in_hub
                 )
-                and (enabled is None or enabled == device.enabled)
                 and (
                     npu_supports_precision is None
                     or device.npu_supports_precision(npu_supports_precision)
@@ -123,6 +126,12 @@ class ScorecardDevice:
                 and (is_mirror is None or bool(device.mirror_device) == is_mirror)
             )
         ]
+
+    @staticmethod
+    @cache
+    def canary_devices() -> set[ScorecardDevice]:
+        """Get 'canary' devices used in for continuous integration testing."""
+        return {ScorecardDevice.get(x) for x in CANARY_DEVICES}
 
     @unique
     class FormFactor(Enum):
@@ -151,12 +160,12 @@ class ScorecardDevice:
         self,
         name: str,
         reference_device_name: str,
-        execution_device_name: Optional[str] = None,
+        execution_device_name: str | None = None,
         disabled_models: list[str] | None = None,
-        compile_paths: Optional[list[ScorecardCompilePath]] = None,
-        profile_paths: Optional[list[ScorecardProfilePath]] = None,
-        mirror_device: Optional[ScorecardDevice] = None,
-        npu_count: Optional[int] = None,
+        compile_paths: list[ScorecardCompilePath] | None = None,
+        profile_paths: list[ScorecardProfilePath] | None = None,
+        mirror_device: ScorecardDevice | None = None,
+        npu_count: int | None = None,
         public: bool = True,
         register: bool = True,
     ):
@@ -209,7 +218,7 @@ class ScorecardDevice:
         self.execution_device_name = execution_device_name
         self._compile_paths = compile_paths
         self._profile_paths = profile_paths
-        self.mirror_device: Optional[ScorecardDevice] = mirror_device
+        self.mirror_device: ScorecardDevice | None = mirror_device
         self._npu_count = npu_count
         self.public = public
 
@@ -262,6 +271,10 @@ class ScorecardDevice:
             (self.public and SpecialDeviceSetting.ALL in valid_test_devices)
             or self.name == UNIVERSAL_DEVICE_SCORECARD_NAME
             or self.name in valid_test_devices
+            or (
+                SpecialDeviceSetting.CANARY in valid_test_devices
+                and self in ScorecardDevice.canary_devices()
+            )
         )
 
     @cached_property
@@ -537,11 +550,10 @@ cs_8_elite = ScorecardDevice(
     execution_device_name="Samsung Galaxy S25 (Family)",
 )
 
-# Dropped until the device name can be corrected.
-# cs_7_gen_5 = ScorecardDevice(
-#    name="cs_7_gen_5",
-#    reference_device_name="Snapdragon 7 Gen 5 QRD",
-# )
+cs_7_gen_4 = ScorecardDevice(
+    name="cs_7_gen_4",
+    reference_device_name="Snapdragon 7 Gen 4 QRD",
+)
 
 cs_8_elite_gen_5 = ScorecardDevice(
     name="cs_8_elite_gen_5", reference_device_name="Snapdragon 8 Elite Gen 5 QRD"

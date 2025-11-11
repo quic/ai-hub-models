@@ -124,7 +124,7 @@ def detect(
         ((hm == hm_pool).float() * hm).view(1, -1).cpu().topk(min(lens, 2000))
     )
 
-    hm_height, hm_width = hm.shape[2:]
+    _hm_height, hm_width = hm.shape[2:]
 
     scores_pt = scores_pt.squeeze()
     indices = indices.squeeze()
@@ -133,18 +133,18 @@ def detect(
     scores: list[float] = list(scores_pt.data.numpy())
 
     objs = []
-    for cx, cy, score in zip(xs, ys, scores):
+    for cx, cy, score in zip(xs, ys, scores, strict=False):
         if score < threshold:
             break
 
         x, y, r, b = box[0, :, cy, cx].cpu().data.numpy()
         xyrb: list[int] = (
-            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride
+            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride  # noqa: RUF005
         ).tolist()
         x5y5 = landmark[0, :, cy, cx].cpu().data.numpy()
         x5y5 = (x5y5 + ([cx] * 5 + [cy] * 5)) * stride
 
-        box_landmark = list(zip(x5y5[:5], x5y5[5:]))
+        box_landmark = list(zip(x5y5[:5], x5y5[5:], strict=False))
         objs.append(BBox("0", xyrb=xyrb, score=score, landmark=box_landmark))
 
     if nms_iou != -1:

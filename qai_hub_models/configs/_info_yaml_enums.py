@@ -116,6 +116,7 @@ class MODEL_LICENSE(Enum):
     LLAMA3 = "llama3"
     TAIDE = "taide"
     FALCON3 = "falcon3"
+    GEMMA = "gemma"
 
     @property
     def is_copyleft(self) -> bool:
@@ -129,6 +130,7 @@ class MODEL_LICENSE(Enum):
             MODEL_LICENSE.LLAMA3,
             MODEL_LICENSE.TAIDE,
             MODEL_LICENSE.FALCON3,
+            MODEL_LICENSE.GEMMA,
         ]
 
     @property
@@ -173,6 +175,8 @@ class MODEL_LICENSE(Enum):
             return "https://en.taide.tw/download.html"
         if self == MODEL_LICENSE.FALCON3:
             return "https://falconllm.tii.ae/falcon-terms-and-conditions.html"
+        if self == MODEL_LICENSE.GEMMA:
+            return "https://ai.google.dev/gemma/terms"
         return None
 
 
@@ -191,6 +195,9 @@ class MODEL_TAG(Enum):
     FOUNDATION = "foundation"
     LLM = "llm"
     GENERATIVE_AI = "generative-ai"
+    BU_IOT = "bu-iot"
+    BU_AUTO = "bu-auto"
+    BU_COMPUTE = "bu-compute"
 
 
 @unique

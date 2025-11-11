@@ -195,7 +195,7 @@ def get_and_sync_datasets_cache_dir(
     has_channel_transpose: bool,
     dataset_name: str,
     samples_per_job: int,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
 ) -> Path:
     """
     Write the validation input and gt hub dataset ids to a file to be
@@ -351,7 +351,7 @@ def get_val_dataset_id_keys(
 def get_hub_val_dataset(
     dataset_name: str,
     ids_file: Path,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
     apply_channel_transpose: bool,
     num_samples: int | None = None,
 ) -> hub.Dataset:
@@ -549,7 +549,7 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
 
 
 def _skip_if_unsupported_reason(
-    model_cls: type[BaseModel] | type[BasePrecompiledModel],
+    model_cls: type[BaseModel | BasePrecompiledModel],
     runtime: TargetRuntime,
     device: ScorecardDevice,
 ):
@@ -568,7 +568,7 @@ def _skip_if_unsupported_reason(
 
 
 def skip_invalid_runtime_device(
-    model_cls: type[BaseModel] | type[BasePrecompiledModel] | type[CollectionModel],
+    model_cls: type[BaseModel | BasePrecompiledModel | CollectionModel],
     runtime: TargetRuntime,
     device: ScorecardDevice,
 ) -> None:

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import torch
 
@@ -125,7 +124,7 @@ def get_tokenizer():
 
 def prepare_combined_attention_mask(
     attention_mask: torch.Tensor,
-    input_shape: Optional[tuple] = None,
+    input_shape: tuple | None = None,
     past_key_values_length: int = 0,
     dtype: torch.dtype = torch.float32,
 ):
@@ -426,7 +425,7 @@ class Llama2_PromptProcessor_1(LlamaMixin):
             prompt, return_tensors="pt", padding="max_length", max_length=input_seq_len
         )
         tokens = int(torch.sum(input_tokens["attention_mask"]).item())
-        position_ids = [0] * (input_seq_len - tokens) + list(range(0, tokens))
+        position_ids = [0] * (input_seq_len - tokens) + list(range(tokens))
 
         inputs: dict[str, torch.Tensor] = {}
         inputs["input_ids"] = input_tokens["input_ids"].type(torch.int32)

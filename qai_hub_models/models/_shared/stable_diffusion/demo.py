@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from typing import Union
 
 from PIL import Image
 
@@ -45,7 +44,7 @@ def stable_diffusion_demo(
     default_num_steps: int = 5,
     use_controlnet: bool = False,
     default_prompt: str = DEFAULT_PROMPT,
-    default_image: Union[str, None] = None,
+    default_image: str | None = None,
 ):
     """
     Parameters

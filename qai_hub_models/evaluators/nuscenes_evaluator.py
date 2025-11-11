@@ -9,9 +9,12 @@ from dataclasses import dataclass
 from enum import Enum
 
 import numpy as np
-import pyquaternion
 import torch
-from mmdet.models.task_modules import BaseBBoxCoder
+
+from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
+
+with patch_mmdet_no_build_deps():
+    from mmdet.models.task_modules import BaseBBoxCoder
 from nuscenes.eval.common.config import config_factory
 from nuscenes.eval.common.data_classes import EvalBoxes
 from nuscenes.eval.common.loaders import add_center_dist, filter_eval_boxes, load_gt
@@ -23,6 +26,7 @@ from nuscenes.eval.detection.data_classes import (
     DetectionMetrics,
 )
 from nuscenes.utils.data_classes import Box as NuScenesBox
+from pyquaternion import Quaternion
 
 from qai_hub_models.datasets.nuscenes import NuscenesDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -163,7 +167,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
             labels = labels_pt.int()
 
             translate = trans[i].tolist()
-            rotate = pyquaternion.Quaternion(rots[i].tolist())
+            rotate = Quaternion(rots[i].tolist())
             annos = []
             for j, box in enumerate(boxes):
                 name = list(self.MovingAttribute.keys())[labels[j]]
@@ -172,7 +176,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 box_yaw = box[6]
                 box_vel = box[7:].tolist()
                 box_vel.append(0)
-                quat = pyquaternion.Quaternion(axis=[0, 0, 1], radians=box_yaw)
+                quat = Quaternion(axis=[0, 0, 1], radians=box_yaw)
                 nusc_box = NuScenesBox(center, wlh, quat, velocity=box_vel)
                 nusc_box.rotate(rotate)
                 nusc_box.translate(translate)
@@ -214,7 +218,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            reg （torch.Tensor): 2D regression value with the
+            reg (torch.Tensor): 2D regression value with the
                 shape of [B, 2, H, W].
             height (torch.Tensor): Height value with the
                 shape of [B, 1, H, W].
@@ -348,7 +352,8 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                         "vel_err",
                         "orient_err",
                     ]
-                    or class_name in ["barrier"]
+                ) or (
+                    class_name in ["barrier"]
                     and metric_name
                     in [
                         "attr_err",
@@ -363,7 +368,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
         return metrics.mean_ap, metrics.nd_score
 
     def get_accuracy_score(self) -> float:
-        mAP, NDS = self.evaluate()
+        mAP, _NDS = self.evaluate()
         return mAP
 
     def formatted_accuracy(self) -> str:

@@ -34,8 +34,7 @@ if __name__ == "__main__":
 
     # Save prompts to a .txt file (one per line)
     with open(output_dir / "calib_prompts.txt", "w", encoding="utf-8") as f:
-        for prompt in prompts:
-            f.write(prompt.strip() + "\n")
+        f.writelines(prompt.strip() + "\n" for prompt in prompts)
 
     # Save images to a .pth file
     torch.save(canny_images, output_dir / "calib_images.pth")

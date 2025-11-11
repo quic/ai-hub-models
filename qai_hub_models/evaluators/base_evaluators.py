@@ -7,18 +7,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Collection
-from typing import NamedTuple, Union
+from typing import NamedTuple, TypeAlias
 
 import torch
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
-from typing_extensions import TypeAlias
 
-_ModelIO: TypeAlias = Union[Collection[torch.Tensor], torch.Tensor]
+_ModelIO: TypeAlias = Collection[torch.Tensor] | torch.Tensor
 # Typically is a torch DataLoader, but anything with the collection signature is acceptable.
-_DataLoader: TypeAlias = Union[
-    DataLoader, Collection[Union[_ModelIO, tuple[_ModelIO, _ModelIO]]]
-]
+_DataLoader: TypeAlias = DataLoader | Collection[_ModelIO | tuple[_ModelIO, _ModelIO]]
 
 
 class MetricMetadata(NamedTuple):
@@ -57,22 +54,18 @@ class BaseEvaluator(ABC):
             Some evaluators may accept only a Collection. Others may accept only a tensor.
             The meaning of the ground truth is dependent on this method's implementation.
         """
-        pass
 
     @abstractmethod
     def reset(self) -> None:
         """Reset the state of this evaluator."""
-        pass
 
     @abstractmethod
     def get_accuracy_score(self) -> float:
         """Single float value representing model accuracy. Higher is better."""
-        pass
 
     @abstractmethod
     def formatted_accuracy(self) -> str:
         """Formatted string containing the accuracy and any relevant units."""
-        pass
 
     @property
     def is_distance_metric(self) -> bool:

@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import math
 import textwrap
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import torch
 from torch.nn import functional as F

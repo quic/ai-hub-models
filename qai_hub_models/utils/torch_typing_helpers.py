@@ -11,13 +11,13 @@ from torch import nn
 T = TypeVar("T", bound=nn.Module)
 
 
-class TypedModuleList(Generic[T], nn.ModuleList):
+class TypedModuleList(nn.ModuleList, Generic[T]):
     """Identical to nn.ModuleList with valid typings for indexing."""
 
     def __iter__(self) -> Iterator[T]:
         return super().__iter__()  # type: ignore[return-value]
 
-    def append(self, module: T) -> "TypedModuleList[T]":  # type: ignore[override]
+    def append(self, module: T) -> "TypedModuleList[T]":
         return super().append(module)
 
     @overload
@@ -29,7 +29,7 @@ class TypedModuleList(Generic[T], nn.ModuleList):
     def __getitem__(self, idx):
         return super().__getitem__(idx)
 
-    def __setitem__(self, idx: int, module: T) -> None:  # type: ignore[override]
+    def __setitem__(self, idx: int, module: T) -> None:
         super().__setitem__(idx, module)
 
 

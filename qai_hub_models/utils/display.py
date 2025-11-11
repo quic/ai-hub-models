@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from PIL.Image import Image
@@ -78,7 +77,7 @@ def display_image(image: Image, desc: str = "image") -> bool:
 
 def display_or_save_image(
     image: Image,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     filename: str = "image.png",
     desc: str = "image",
 ) -> bool:

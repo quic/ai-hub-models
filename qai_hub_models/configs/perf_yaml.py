@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import cast
 
 import qai_hub as hub
 from pydantic import Field
@@ -68,23 +69,23 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 return "CPU"
 
         # Only set for LLMs.
-        time_to_first_token_range_milliseconds: Optional[
-            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds
-        ] = None
-        tokens_per_second: Optional[float] = None
-        context_length: Optional[int] = None
+        time_to_first_token_range_milliseconds: (
+            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds | None
+        ) = None
+        tokens_per_second: float | None = None
+        context_length: int | None = None
 
         # Only set for non-LLMs.
-        job_id: Optional[str] = None
-        job_status: Optional[str] = None
+        job_id: str | None = None
+        job_status: str | None = None
 
         # Only set for successful non-LLM jobs.
-        inference_time_milliseconds: Optional[float] = None
-        estimated_peak_memory_range_mb: Optional[
-            QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB
-        ] = None
-        primary_compute_unit: Optional[str] = None
-        layer_counts: Optional[QAIHMModelPerf.PerformanceDetails.LayerCounts] = None
+        inference_time_milliseconds: float | None = None
+        estimated_peak_memory_range_mb: (
+            QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB | None
+        ) = None
+        primary_compute_unit: str | None = None
+        layer_counts: QAIHMModelPerf.PerformanceDetails.LayerCounts | None = None
 
         # Can be set for LLMs or for successful jobs.
         # The tool versions used by the profile jobs to execute this model.
@@ -156,7 +157,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             ],
             bool | None,
         ],
-        include_paths: Optional[list[ScorecardProfilePath]] = None,
+        include_paths: list[ScorecardProfilePath] | None = None,
     ) -> None:
         """
         Walk over each valid perf.yaml job entry and call the callback.

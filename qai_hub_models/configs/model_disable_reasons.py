@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import Field, model_serializer, model_validator
 
@@ -22,13 +22,13 @@ class ModelDisableReasons(BaseQAIHMConfig):
     # This field is managed automatically by the scorecard, and should
     # not be manually edited after a model is first added. If the model
     # begins to work again, this will be removed automatically by scorecard.
-    scorecard_failure: Optional[str] = None
+    scorecard_failure: str | None = None
 
     # If set, testing and export are disabled for the given Precision + TargetRuntime combination.
     # This requires a filed issue link. You can also include additional info besides the link if you want.
     #
     # Scorecard can still run models disabled this way, depending on scorecard settings.
-    issue: Optional[str] = None
+    issue: str | None = None
 
     # If set, testing, export, and scorecard are disabled for the given Precision + TargetRuntime combination.
     # This requires that disable_issue is set above.
@@ -77,7 +77,7 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
             kwargs = {"data": {}}
         elif (
             len(kwargs) == 1
-            and isinstance(list(kwargs.values())[0], dict)
+            and isinstance(next(iter(kwargs.values())), dict)
             and "data" not in kwargs
         ):
             kwargs = {"data": kwargs}

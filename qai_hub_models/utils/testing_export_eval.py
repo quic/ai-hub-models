@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from typing import Any, Callable, Literal, Union, cast
+from typing import Any, Literal, cast
 from unittest import mock
 
 import numpy as np
@@ -65,10 +65,9 @@ from qai_hub_models.utils.testing_async_utils import (
     write_accuracy,
 )
 
-ExportFunc = Union[
-    Callable[..., Union[ExportResult, list[str]]],
-    Callable[..., Union[Mapping, list[str]]],
-]
+ExportFunc = (
+    Callable[..., ExportResult | list[str]] | Callable[..., Mapping | list[str]]
+)
 
 
 def _parse_export_result(
@@ -372,8 +371,7 @@ def quantize_via_export(
     with calibration_data_patch:
         export_result = _parse_export_result(
             export_model(
-                device=device.execution_device_name,
-                chipset=device.chipset,
+                device=device.execution_device,
                 precision=precision,
                 skip_downloading=True,
                 skip_compiling=True,
@@ -462,8 +460,7 @@ def compile_via_export(
     ):
         export_result = _parse_export_result(
             export_model(
-                device=device.execution_device_name,
-                chipset=device.chipset,
+                device=device.execution_device,
                 precision=precision,
                 skip_downloading=skip_downloading,
                 skip_profiling=True,
@@ -487,9 +484,7 @@ def compile_via_export(
 
 
 def fetch_cached_jobs_if_compile_jobs_are_identical(
-    job_type_to_fetch_from_cache: (
-        Literal[hub.JobType.PROFILE] | Literal[hub.JobType.INFERENCE]
-    ),
+    job_type_to_fetch_from_cache: (Literal[hub.JobType.PROFILE, hub.JobType.INFERENCE]),
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -672,8 +667,7 @@ def profile_via_export(
         ):
             export_result = _parse_export_result(
                 export_model(
-                    device=device.execution_device_name,
-                    chipset=device.chipset,
+                    device=device.execution_device,
                     precision=precision,
                     skip_downloading=True,
                     skip_profiling=False,
@@ -762,8 +756,7 @@ def inference_via_export(
     with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
         export_result = _parse_export_result(
             export_model(
-                device=device.execution_device_name,
-                chipset=device.chipset,
+                device=device.execution_device,
                 precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
@@ -855,8 +848,7 @@ def export_test_e2e(
         profile_job_patch,
     ):
         export_model(
-            device=device.execution_device_name,
-            chipset=device.chipset,
+            device=device.execution_device,
             precision=precision,
             skip_downloading=True,
             compile_options=scorecard_path.compile_path.get_compile_options(),
@@ -865,7 +857,7 @@ def export_test_e2e(
 
 
 def on_device_inference_for_accuracy_validation(
-    model: type[BaseModel] | type[CollectionModel],
+    model: type[BaseModel | CollectionModel],
     dataset_name: str,
     model_id: str,
     precision: Precision,
@@ -976,7 +968,7 @@ def torch_inference_for_accuracy_validation(
     num_batches = inputs[0].shape[0]
     output_names = model.get_output_names()
     outputs: list[list[np.ndarray]] = [[] for _ in output_names]
-    for b in range(0, math.ceil(num_batches / compiled_batch_size)):
+    for b in range(math.ceil(num_batches / compiled_batch_size)):
         # Complete N batches at a time to substantially reduces memory pressure
         # (not all inputs / outputs need to be in memory at once)
         # Without this, scorecard jobs can easily run OOM.
@@ -995,7 +987,7 @@ def torch_inference_for_accuracy_validation(
             model_outputs = [model_outputs]
         for i, output in enumerate(model_outputs):
             outputs[i].append(output.numpy())
-    hub_entries = dict(zip(output_names, outputs))
+    hub_entries = dict(zip(output_names, outputs, strict=False))
     cache_dataset(model_id, "torch_val", hub.upload_dataset(hub_entries))
 
 
@@ -1156,7 +1148,7 @@ def accuracy_on_sample_inputs_via_export(
 def _get_dataset_cache_patch(
     dataset_name: str,
     scorecard_path: ScorecardProfilePath,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
 ):
     # Patch input eval dataset to use a cached dataset if it exists
     dataset_dir = get_and_sync_datasets_cache_dir(
@@ -1471,7 +1463,7 @@ def sim_accuracy_on_dataset(
         )
 
     # Create a mock hub.Model that has a producer chain to the quantize job
-    qdq_model = list(quantize_jobs.values())[0].get_target_model()
+    qdq_model = next(iter(quantize_jobs.values())).get_target_model()
     assert qdq_model is not None
     fake_model = mock.MagicMock(spec=hub.Model)
     fake_compile_job = mock.MagicMock(

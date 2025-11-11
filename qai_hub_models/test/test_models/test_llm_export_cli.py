@@ -18,6 +18,7 @@ import torch
 from qai_hub_models.models._shared.llm import export
 from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
+from qai_hub_models.utils.args import QAIHMArgumentParser
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.model_cache import CacheMode
 
@@ -218,10 +219,8 @@ def test_export_cli(
         args["checkpoint"] = checkpoint
         cli_args.extend(["--checkpoint", checkpoint])
     if device:
-        args["device"] = device
         cli_args.extend(["--device", device])
     if chipset:
-        args["chipset"] = chipset
         cli_args.extend(["--chipset", chipset])
     if skip_profiling:
         cli_args.append("--skip-profiling")
@@ -253,6 +252,7 @@ def test_export_cli(
     if model_cache_mode:
         cli_args.extend(["--model-cache-mode", model_cache_mode.value])
         args["model_cache_mode"] = model_cache_mode
+    args["device"] = QAIHMArgumentParser.get_hub_device(device, chipset)
 
     original_export = import_module(EXPORT).export_model
     with (

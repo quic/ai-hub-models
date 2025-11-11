@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Optional
 
 import numpy as np
 import torch
@@ -28,7 +27,7 @@ from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, SourceAsRoot
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 
-def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
+def _load_cityscapes_loader(cityscapes_path: str | None = None) -> object:
     if cityscapes_path is None:
         # Allow a loader without data. There are useful auxiliary functions.
         cityscapes_path = str(

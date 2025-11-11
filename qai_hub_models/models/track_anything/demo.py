@@ -43,7 +43,7 @@ def generate_video_from_frames(
         output_path (str): The path to save the generated video.
         fps (int, optional): The frame rate of the output video. Defaults to 30.
     """
-    height, width, layers = frames[0].shape
+    height, width, _layers = frames[0].shape
     fourcc = 0x39307076  # hex code for "vp09" format
     output_path = os.path.join(Path.cwd(), "build", output_path)
     print("Saving image to ", output_path)

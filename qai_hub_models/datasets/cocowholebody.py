@@ -9,15 +9,18 @@ from typing import Any
 
 import cv2
 import torch
-from mmpose.apis import MMPoseInferencer
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.models._shared.mmpose.silence import (
     set_mmpose_inferencer_show_progress,
 )
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 from qai_hub_models.utils.input_spec import InputSpec
+
+with patch_mmpose_no_build_deps():
+    from mmpose.apis import MMPoseInferencer
 
 DEFAULT_INFERENCER_ARCH = "rtmpose-m_8xb64-270e_coco-wholebody-256x192"
 
@@ -71,17 +74,17 @@ class CocoWholeBodyDataset(CocoBodyDataset):
             file_name,
             image_id,
             category_id,
-            center,
+            _center,
             scale,
         ) = self.kpt_db[index]
         img_path = self.image_dir / file_name
         data_numpy = cv2.imread(
             str(img_path), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
         )
-        data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
+        data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)  # type: ignore[arg-type,unused-ignore] # This ignore is applicable only for a single model's environment
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(data_numpy)
         inputs = self.inference.preprocess(NHWC_int_numpy_frames, batch_size=1)
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
         image = proc_inputs_.to(dtype=torch.float32)
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]

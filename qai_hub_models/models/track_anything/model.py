@@ -123,7 +123,7 @@ class TrackAnythingEncodeKeyWithShrinkage(TrackAnything):
         """
         image = normalize_image_torchvision(image)
 
-        key, shrinkage, selection, f16, f8, f4 = self.model.encode_key(
+        key, shrinkage, selection, f16, _f8, _f4 = self.model.encode_key(
             image,
             need_ek=True,  # encode_key
             need_sk=True,  # shrinkage_key
@@ -330,7 +330,7 @@ class TrackAnythingSegment(TrackAnything):
         multi_scale_features = (f16, f8, f4)
 
         # segment the current frame
-        hidden, pred_logits_with_bg, pred_prob_with_bg = self.model.segment(
+        hidden, _pred_logits_with_bg, pred_prob_with_bg = self.model.segment(
             multi_scale_features,
             memory_readout,
             hidden_state,

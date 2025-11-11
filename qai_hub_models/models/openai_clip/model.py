@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Callable
-from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -132,7 +131,7 @@ def patched_in_projection_packed():
         k: Tensor,
         v: Tensor,
         w: Tensor,
-        b: Optional[Tensor] = None,
+        b: Tensor | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         E = q.size(-1)
         if k is v and q is k:

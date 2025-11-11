@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 import cv2
 import numpy as np
 import torch
@@ -16,7 +14,7 @@ def draw_points(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
     color: tuple[int, int, int] = (0, 0, 0),
-    size: Union[int, list[int]] = 10,
+    size: int | list[int] = 10,
 ):
     """
     Draw the given points on the frame.
@@ -209,7 +207,7 @@ def draw_box_from_xyxy(
     bottom_right: np.ndarray | torch.Tensor | tuple[int, int],
     color: tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
-    text: Optional[str] = None,
+    text: str | None = None,
 ):
     """
     Draw a box using the provided top left / bottom right points to compute the box.

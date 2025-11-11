@@ -10,7 +10,7 @@ import os
 from collections.abc import Mapping, ValuesView
 from importlib import import_module
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import numpy as np
 import qai_hub as hub
@@ -46,7 +46,7 @@ def prepare_compile_zoo_model_to_hub(
     input_spec: InputSpec | None = None,
     check_trace: bool = True,
     external_onnx_weights: bool = False,
-    output_names: Optional[list[str]] = None,
+    output_names: list[str] | None = None,
 ) -> str | None:
     """
     Parameters
@@ -174,12 +174,11 @@ def compile_model_from_args(
     if hasattr(cli_args, "num_calibration_samples"):
         model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
         cli_str += f"--num-calibration-samples {cli_args.num_calibration_samples} "
-    device = getattr(cli_args, "device", None)
-    if cli_args.chipset:
-        cli_str += f"--chipset {cli_args.chipset} "
-    else:
-        assert device is not None
-        cli_str += f"--device {device} "
+    if cli_args.device is not None:
+        if cli_args.chipset:
+            cli_str += f"--chipset {cli_args.chipset} "
+        if cli_args.device.name:
+            cli_str += f"--device {cli_args.device.name} "
     model_name = model_id + (f".{component}" if component else "")
     print(f"Compiling on-device model asset for {model_name}.")
     print(
@@ -189,8 +188,7 @@ def compile_model_from_args(
     if component is not None:
         component_kwargs = {"components": [component]}
     export_output = export_module.export_model(
-        device=device,
-        chipset=cli_args.chipset,
+        device=cli_args.device,
         skip_profiling=True,
         skip_inferencing=True,
         skip_downloading=True,
@@ -217,7 +215,7 @@ def compile_model_from_args(
 def dataset_entries_from_batch(
     batch,
     input_names: list[str],
-    channel_last_input: Optional[list[str]],
+    channel_last_input: list[str] | None,
 ) -> tuple[DatasetEntries, DatasetEntries]:
     """
     Given a batch from a torch dataloader with the standard (inputs, gt) format,
@@ -238,7 +236,7 @@ def dataset_entries_from_batch(
         model_inputs = [model_inputs]
     model_inputs_split_by_batch = tuple(
         cast(
-            Union[np.ndarray, tuple[np.ndarray]],
+            np.ndarray | tuple[np.ndarray],
             np.array_split(x.numpy(), x.shape[0], axis=0),
         )
         for x in model_inputs
@@ -348,7 +346,7 @@ class AsyncOnDeviceModel:
         input_names: list[str],
         device: hub.Device,
         inference_options: str = "",
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ):
         self.model = model
         self.input_names = input_names
@@ -458,7 +456,7 @@ class OnDeviceModel(ExecutableModelProtocol):
         input_names: list[str],
         device: hub.Device,
         inference_options: str = "",
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ):
         self.async_model = AsyncOnDeviceModel(
             model,

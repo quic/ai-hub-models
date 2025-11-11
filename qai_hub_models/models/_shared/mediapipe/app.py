@@ -347,9 +347,9 @@ class MediaPipeApp(BaseCollectionApp):
             box_scores = box_scores.squeeze(dim=-1)
 
         # Reshape outputs so that they have shape [..., # of coordinates, 2], where 2 == (x, y)
-        box_coords = box_coords.view(list(box_coords.shape)[:-1] + [-1, 2])
+        box_coords = box_coords.view([*list(box_coords.shape)[:-1], -1, 2])
         anchors = self.detector_anchors.view(
-            list(self.detector_anchors.shape)[:-1] + [-1, 2]
+            [*list(self.detector_anchors.shape)[:-1], -1, 2]
         )
 
         # Decode to output coordinates using the model's trained anchors.
@@ -359,7 +359,7 @@ class MediaPipeApp(BaseCollectionApp):
         box_coords[:2] = box_xywh_to_xyxy(box_coords[:2])
 
         # flatten coords (remove final [2] dim) for NMS
-        flattened_box_coords = box_coords.view(list(box_coords.shape)[:-2] + [-1])
+        flattened_box_coords = box_coords.view([*list(box_coords.shape)[:-2], -1])
 
         # Run non maximum suppression on the output
         # batched_selected_coords = list[torch.Tensor(shape=[Num Boxes, 4])],
@@ -373,14 +373,14 @@ class MediaPipeApp(BaseCollectionApp):
 
         selected_boxes = []
         selected_keypoints = []
-        for i in range(0, len(batched_selected_coords)):
+        for i in range(len(batched_selected_coords)):
             selected_coords = batched_selected_coords[i]
             if len(selected_coords) != 0:
                 boxes_list = []
                 kps_list = []
-                for j in range(0, len(selected_coords)):
+                for j in range(len(selected_coords)):
                     selected_coords_ = selected_coords[j : j + 1].view(
-                        list(selected_coords[j : j + 1].shape)[:-1] + [-1, 2]
+                        [*list(selected_coords[j : j + 1].shape)[:-1], -1, 2]
                     )
 
                     denormalize_coordinates(
@@ -451,7 +451,9 @@ class MediaPipeApp(BaseCollectionApp):
                 The order of points is  (top left point, bottom left point, top right point, bottom right point)
         """
         batched_selected_roi: list[torch.Tensor] = []
-        for boxes, keypoints in zip(batched_selected_boxes, batched_selected_keypoints):
+        for boxes, keypoints in zip(
+            batched_selected_boxes, batched_selected_keypoints, strict=False
+        ):
             if boxes.nelement() == 0 or keypoints.nelement() == 0:
                 batched_selected_roi.append(torch.Tensor())
                 continue
@@ -621,7 +623,9 @@ class MediaPipeApp(BaseCollectionApp):
         -------
             Nothing; drawing is done on input frame.
         """
-        for roi, box, kp in zip(roi_4corners, selected_boxes, selected_keypoints):
+        for roi, box, kp in zip(
+            roi_4corners, selected_boxes, selected_keypoints, strict=False
+        ):
             # Draw detector bounding box
             draw_box_from_xyxy(NHWC_int_numpy_frame, box[0], box[1], (255, 0, 0), 1)
             # Draw detector keypoints

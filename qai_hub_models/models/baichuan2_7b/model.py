@@ -31,7 +31,7 @@ def get_cached_asset(part: int) -> str:
 def _get_output_names(start: int, end: int) -> list[str]:
     out_names = get_kv_cache_names(start, end)
     return (
-        out_names + [f"_model_layers_{end - 1}_Add_1_Add_output_0"]
+        [*out_names, f"_model_layers_{end - 1}_Add_1_Add_output_0"]
         if end != 28
         else ["logits"]
     )
@@ -518,5 +518,3 @@ class Baichuan2_7B_Quantized(PrecompiledCollectionModel):
     All models are pre-trained, quantized (int4/int8 weight, float32 activations)
     and compiled into serialized binary for Qualcomm Snapdragon 8 Elite.
     """
-
-    pass

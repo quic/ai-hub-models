@@ -11,23 +11,21 @@ import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.wholebody_pose_evaluator import WholeBodyPoseEvaluator
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.models._shared.mmpose.silence import (
+    set_mmpose_inferencer_show_progress,
+)
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
 
-try:
+with patch_mmpose_no_build_deps():
     from mmpose.apis import MMPoseInferencer
     from mmpose.apis.inferencers.pose2d_inferencer import Pose2DInferencer
     from mmpose.models.data_preprocessors.data_preprocessor import PoseDataPreprocessor
     from mmpose.models.pose_estimators.topdown import TopdownPoseEstimator
 
-    from qai_hub_models.models._shared.mmpose.silence import (
-        set_mmpose_inferencer_show_progress,
-    )
-except ImportError as e:
-    print_mmcv_import_failure_and_exit(e, "rtmpose_body2d", "MMPose")
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1

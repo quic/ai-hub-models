@@ -109,7 +109,7 @@ def patched_centerhead_get_task_detections(
         )
 
     for box_preds, cls_preds, cls_labels in zip(
-        batch_reg_preds, batch_cls_preds, batch_cls_labels
+        batch_reg_preds, batch_cls_preds, batch_cls_labels, strict=False
     ):
         # Apply NMS in birdeye view
 
@@ -368,7 +368,7 @@ def patched_get_cam_feats(self, x: torch.Tensor) -> list[torch.Tensor]:
     -------
         list[torch.Tensor]: list of feature tensors of shape (1, D, fH*fW, C) for each camera.
     """
-    N, C, fH, fW = x.shape
+    N, _C, fH, fW = x.shape
 
     # Begin Qualcomm modification
     # Process each camera input separately to optimize memory usage and avoid reshaping entire batch

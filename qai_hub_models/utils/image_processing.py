@@ -190,7 +190,7 @@ def resize_pad(
     image: torch.Tensor,
     dst_size: tuple[int, int],
     pad_mode: str = "constant",
-    pad_value: int | float = 0.0,
+    pad_value: float = 0.0,
     vertical_float: Literal["center", "top", "bottom"] = "center",
     horizontal_float: Literal["center", "left", "right"] = "center",
 ) -> tuple[torch.Tensor, float, tuple[int, int]]:
@@ -306,7 +306,7 @@ def undo_resize_pad(
 
     rescaled_image = interpolate(image, scale_factor=1 / scale, mode="bilinear")
 
-    scaled_padding = [int(round(padding[0] / scale)), int(round(padding[1] / scale))]
+    scaled_padding = [round(padding[0] / scale), round(padding[1] / scale)]
 
     return rescaled_image[
         ...,

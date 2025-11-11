@@ -84,9 +84,9 @@ class GPUPyTestModelsTask(CompositeTask):
         venv: str,
         model_names: str = "all",  # Comma-separated list of model names, or "all" for all models.
         run_evaluate: bool = True,
-        run_demo: bool = True,
         run_compile: bool = True,
         run_qdc: bool = True,
+        run_demo: bool = True,
         raise_on_failure: bool = False,
     ):
         home_dir = "/local/mnt2/workspace2/qaihm_bot"
@@ -112,12 +112,12 @@ class GPUPyTestModelsTask(CompositeTask):
             test_suites = []
             if run_evaluate:
                 test_suites.append("evaluate")
-            if run_demo:
-                test_suites.append("demo")
             if run_compile:
                 test_suites.append("compile_ram_intensive")
             if run_qdc:
                 test_suites.append("qdc")
+            if run_demo:
+                test_suites.append("demo")
 
             for test_suite in test_suites:
                 model_filename = (
@@ -283,7 +283,7 @@ class PyTestModelTask(CompositeTask):
                                     venv=model_venv,
                                     files_or_dirs=model_dir,
                                     parallel=False,
-                                    extra_args=" ".join(extras_args + ["--no-header"]),
+                                    extra_args=" ".join([*extras_args, "--no-header"]),
                                     env=env,
                                     raise_on_failure=not needs_model_venv,  # Do not raise on failure if a model venv was created, to make sure the venv is removed when the test finishes
                                     ignore_no_tests_return_code=True,

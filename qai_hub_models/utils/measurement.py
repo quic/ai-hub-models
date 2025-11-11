@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import qai_hub as hub
@@ -51,7 +50,7 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
     return f"{display_with_sig_figs(size)}{units[unit_index]}"
 
 
-def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> Union[str, int]:
+def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> str | int:
     """
     Computes how much memory the model checkpoint consumes.
 
@@ -68,9 +67,7 @@ def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> Union[str,
     return get_formatted_size(num_bytes, [" B", " KB", " MB", " GB", " TB"], 1024.0)
 
 
-def get_tflite_unique_parameters(
-    model_path: str, as_str: bool = True
-) -> Union[str, int]:
+def get_tflite_unique_parameters(model_path: str, as_str: bool = True) -> str | int:
     """
     TFLite parameters are defined at two levels: Tensors and Buffers
 

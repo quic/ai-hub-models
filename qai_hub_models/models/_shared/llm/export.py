@@ -14,7 +14,7 @@ import textwrap
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import onnx
@@ -32,7 +32,7 @@ from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
 from qai_hub_models.utils.compare import torch_inference
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
-from qai_hub_models.utils.onnx_helpers import ONNXBundle
+from qai_hub_models.utils.onnx.helpers import ONNXBundle
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
@@ -61,20 +61,20 @@ def export_model(
     num_splits: int,
     num_layers_per_split: int,
     precision: Precision,
+    device: hub.Device,
     position_processor_cls: type[PositionProcessorBase] | None = None,
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = True,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     target_runtime: VALID_TARGET_RUNTIMES = TargetRuntime.GENIE,
     compile_options: str = "",
     link_options: str = "",
     profile_options: str = "",
     synchronous: bool = False,
     model_cache_mode: CacheMode = CacheMode.DISABLE,
+    onnx_export_dir: str = "",
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult]:
     """
@@ -101,9 +101,8 @@ def export_model(
         where each sub-component will be grouped using weight sharing with
         other sub-components to form a component.
     device
-        Device for which to export the model.
+        Device for which to export the model (e.g. hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
-        Defaults to DEFAULT_DEVICE if not specified.
     chipset
         Specify the device in terms of chipset instead.
     skip_profiling
@@ -132,6 +131,8 @@ def export_model(
         If enable, caches uploaded model (i.e. re-uses uploaded AI Hub model from cache).
         If disable, disables caching i.e. no reading from and write to cache.
         If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.
+    onnx_export_dir
+        If set, save intermediate ONNX file under this directory.
     additional_model_kwargs
         Additional optional kwargs used to customize
         `model_cls.from_pretrained`
@@ -144,27 +145,26 @@ def export_model(
         * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    hub_devices = hub.get_devices(
-        name=device if device and not chipset else "",
-        attributes=f"chipset:{chipset}" if chipset else [],
-    )
 
-    # Pick a device
-    hub_device = hub_devices[-1]
+    # Resolves all of the device attributes from a partiall specified hub.Device
+    hub_devices = hub.get_devices(
+        name=device.name,
+        attributes=device.attributes,
+        os=device.os,
+    )
+    device = hub_devices[-1]
+
     # Throw a warning if weight sharing is not supported.
-    if "htp-supports-weight-sharing:true" not in hub_device.attributes:
+    if "htp-supports-weight-sharing:true" not in device.attributes:
         warnings.warn(
             "The selected device may not support weight sharing.", stacklevel=2
         )
 
-    if (
-        "chipset:qualcomm-sa8295p" in hub_device.attributes
-        and precision == Precision.w4a16
-    ):
+    if "chipset:qualcomm-sa8295p" in device.attributes and precision == Precision.w4a16:
         raise ValueError(
             "The selected precision (w4a16) is not supported on this target device"
         )
-    if ("htp-supports-fp16:true" not in hub_device.attributes) and (
+    if ("htp-supports-fp16:true" not in device.attributes) and (
         precision == Precision.w4
     ):
         raise ValueError(
@@ -182,7 +182,7 @@ def export_model(
     # Check for context length constraint for SA8295P ADP
     if (
         "constrained_device_max_context_length" in additional_model_kwargs
-        and "chipset:qualcomm-sa8295p" in hub_device.attributes
+        and "chipset:qualcomm-sa8295p" in device.attributes
         and model_params["context_length"]
         > additional_model_kwargs["constrained_device_max_context_length"]
     ):
@@ -214,12 +214,14 @@ def export_model(
     component_from_sub_component_names = {}
     input_encodings_path: str | None = None
 
-    # TODO(#12640): This scope is not ideal and only a temporary fix until
-    # this issue has landed and we can pull this IO information from the
-    # AI Hub model directly.
-    tmpdir_handler = tempfile.TemporaryDirectory()
-    atexit.register(tmpdir_handler.cleanup)
-    tmpdir = tmpdir_handler.name
+    if not onnx_export_dir:
+        # TODO(#12640): This scope is not ideal and only a temporary fix until
+        # this issue has landed and we can pull this IO information from the
+        # AI Hub model directly.
+        tmpdir_handler = tempfile.TemporaryDirectory()
+        atexit.register(tmpdir_handler.cleanup)
+        onnx_export_dir = tmpdir_handler.name
+    Path(onnx_export_dir).mkdir(parents=True, exist_ok=True)
 
     for instantiation_name, seq_len in instantiations:
         full_name = f"{model_name}_{instantiation_name}"
@@ -236,11 +238,11 @@ def export_model(
                 "sequence_length": seq_len,
                 "context_length": model.context_length,
                 "llm_config": llm_config.to_dict(),
-                "main_input_name": model.main_input_name,
+                "llm_io_type": model.llm_io_type,
             },
         )
 
-        sub_output_path = Path(tmpdir) / instantiation_name
+        sub_output_path = Path(onnx_export_dir) / instantiation_name
         source_model_dir = model.convert_to_hub_source_model(
             target_runtime,
             sub_output_path,
@@ -253,7 +255,7 @@ def export_model(
         input_encodings_path = str(source_model_bundle.aimet_encodings_path)
 
         # Split encodings
-        model_artifact = Path(tmpdir) / instantiation_name
+        model_artifact = Path(onnx_export_dir) / instantiation_name
         os.makedirs(model_artifact, exist_ok=True)
 
         onnx.checker.check_model(source_model_bundle.onnx_graph_path, full_check=True)
@@ -305,7 +307,7 @@ def export_model(
 
             submitted_compile_job = hub.submit_compile_job(
                 model=current_model,
-                device=hub_device,
+                device=device,
                 name=full_name,
                 options=model_compile_options,
             )
@@ -363,7 +365,7 @@ def export_model(
                 full_name = f"{model_name}_{sub_component_name}"
                 submitted_profile_job = hub.submit_profile_job(
                     model=link_job.get_target_model(),
-                    device=hub_device,
+                    device=device,
                     name=full_name,
                     options=profile_options_per_subcomponent[sub_component_name],
                 )
@@ -404,7 +406,7 @@ def export_model(
                 submitted_inference_job = hub.submit_inference_job(
                     model=link_jobs[component_name].get_target_model(),
                     inputs=sample_inputs,
-                    device=hub_device,
+                    device=device,
                     name=full_name,
                     options=profile_options_per_subcomponent[sub_component_name],
                 )
@@ -490,7 +492,7 @@ def export_model(
         if target_runtime == TargetRuntime.GENIE:
             if hasattr(model, "checkpoint") and model.checkpoint is not None:
                 model.prepare_genie_assets(
-                    hub_device=hub_device,
+                    hub_device=device,
                     checkpoint=model.checkpoint,
                     llm_config=llm_config,
                     context_length=model_params["context_length"],
@@ -574,7 +576,6 @@ def get_llm_parser(
         "fp_model",
         "_skip_quantsim_creation",
         "llm_config",
-        "main_input_name",
     ]
     for option in parser._actions:  # pylint: disable=protected-access
         if option.dest and option.dest in suppress_help_arguments:

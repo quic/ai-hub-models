@@ -13,12 +13,12 @@ import shutil
 from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 import onnx
 
 from qai_hub_models.utils.asset_loaders import PathLike
-from qai_hub_models.utils.onnx_helpers import ONNXBundle
+from qai_hub_models.utils.onnx.helpers import ONNXBundle
 
 from .split_onnx import OnnxSplitter, save_model
 
@@ -39,7 +39,7 @@ def has_embedding_table(model: onnx.ModelProto):
 
 def get_onnx_input_output_names(
     onnxfile: PathLike,
-    onnxmodel: Optional[onnx.ModelProto] = None,
+    onnxmodel: onnx.ModelProto | None = None,
     deco_digit: bool = True,
     using_qairt_workflow: bool = False,
 ) -> tuple[list[str], list[str]]:
@@ -61,7 +61,7 @@ def get_onnx_input_output_names(
 
 def get_split_tensors(
     onnxfile: PathLike,
-    onnxmodel: Optional[onnx.ModelProto] = None,
+    onnxmodel: onnx.ModelProto | None = None,
     include_first_input: bool = True,
 ) -> list[str]:
     """
@@ -77,12 +77,12 @@ def get_split_tensors(
     model = _load_model(onnxfile) if onnxmodel is None else onnxmodel
 
     def get_nodes() -> tuple[
-        dict[str, onnx.NodeProto], dict[str, int], Mapping[str, Optional[str]]
+        dict[str, onnx.NodeProto], dict[str, int], Mapping[str, str | None]
     ]:
         nodes = {i.name: i for i in model.graph.node}
         seq = {i.name: idx for idx, i in enumerate(model.graph.node)}
-        producers: collections.defaultdict[str, Optional[str]] = (
-            collections.defaultdict(lambda: None)
+        producers: collections.defaultdict[str, str | None] = collections.defaultdict(
+            lambda: None
         )
         producers.update({i.output[0]: i.name for i in model.graph.node})
         return nodes, seq, producers
@@ -165,7 +165,7 @@ def get_split_tensors(
 def _load_model(
     onnxfile: PathLike,
     load_external_data=False,
-    model_cache: dict[str, onnx.ModelProto] = None,
+    model_cache: dict[str, onnx.ModelProto] | None = None,
 ) -> onnx.ModelProto:
     if model_cache is None:
         model_cache = {}
@@ -177,7 +177,7 @@ def _load_model(
     return model_cache[cache_key]
 
 
-def _load_encoding(encodingfile: Optional[PathLike], no_merge: bool = False) -> Any:
+def _load_encoding(encodingfile: PathLike | None, no_merge: bool = False) -> Any:
     all_encodings = {}
     if encodingfile is not None:
         with open(encodingfile) as json_file:
@@ -202,7 +202,7 @@ def split_onnx_by_names(
     modelname: str,
     *list_of_output_tensors,
     output_dir: PathLike = ".",
-    onnxmodel: Optional[onnx.ModelProto] = None,
+    onnxmodel: onnx.ModelProto | None = None,
 ) -> list[onnx_ret_t]:
     """
     Split ONNX by the given output tensor names.
@@ -351,7 +351,7 @@ def _get_lm_head_sizes(onnxmodel: onnx.ModelProto) -> tuple[int, int]:
 
 def fill_input_encodings_of_split(
     onnxmodel: onnx.ModelProto,
-    encodingfile: Optional[PathLike],
+    encodingfile: PathLike | None,
     output_tensor_list: list[str],
 ) -> None:
     changed = False
@@ -384,7 +384,7 @@ def split_onnx(
     onnxfile: onnx_ret_t,
     modelname: str,
     num_splits: int,
-    num_layers_per_split: Optional[int] = None,
+    num_layers_per_split: int | None = None,
     output_dir: PathLike = ".",
     split_embedding: bool = False,
     using_qairt_workflow: bool = False,
@@ -408,7 +408,7 @@ def split_onnx(
         onnx_graph_file = str(onnxfile)
 
     onnxmodel = _load_model(onnx_graph_file, load_external_data=False)
-    input_names, output_names = get_onnx_input_output_names(
+    _input_names, output_names = get_onnx_input_output_names(
         onnx_graph_file,
         onnxmodel=onnxmodel,
         deco_digit=False,
@@ -428,7 +428,7 @@ def split_onnx(
     batch_size = input_tokens_shape[0]
     seq_length = input_tokens_shape[1]
 
-    embedding_size, vocab_size = _get_lm_head_sizes(onnxmodel)
+    embedding_size, _vocab_size = _get_lm_head_sizes(onnxmodel)
 
     per_layer_output_value_info = [
         onnx.helper.make_tensor_value_info(

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -35,8 +34,8 @@ class DETRApp:
     def __init__(
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
-        model_image_height: Optional[int] = None,
-        model_image_width: Optional[int] = None,
+        model_image_height: int | None = None,
+        model_image_width: int | None = None,
     ):
         self.model = model
         self.model_image_height = model_image_height
@@ -88,7 +87,9 @@ class DETRApp:
             pred_boxes_batch = pred_boxes
             pred_class_idx_batch = pred_class_idx
             if len(pred_boxes_batch.shape) > 0 and len(pred_class_idx_batch.shape) > 0:
-                for box, label in zip(pred_boxes_batch, pred_class_idx_batch):
+                for box, label in zip(
+                    pred_boxes_batch, pred_class_idx_batch, strict=False
+                ):
                     draw_box_from_xyxy(
                         NHWC_int_numpy_frames[batch_idx],
                         box[0:2].int(),

@@ -173,10 +173,11 @@ class HfWhisperApp:
 
             # decode and update kv_cache_self
             decoder_input = (
-                (input_ids, attention_mask)
-                + flattened_kv_cache_self
-                + flattened_kv_cache_cross
-                + (position_ids,)
+                input_ids,
+                attention_mask,
+                *flattened_kv_cache_self,
+                *flattened_kv_cache_cross,
+                position_ids,
             )
             decoder_output = self.decoder(*decoder_input)
             if isinstance(decoder_output, tuple) and len(decoder_output) == 2:

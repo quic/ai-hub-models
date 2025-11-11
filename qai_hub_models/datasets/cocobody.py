@@ -8,9 +8,9 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import torch
-from xtcocotools.coco import COCO
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.extern.xtcocotools.coco import COCO
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_cs
 from qai_hub_models.utils.image_processing import pre_process_with_affine

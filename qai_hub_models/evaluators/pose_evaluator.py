@@ -10,11 +10,11 @@ from typing import Any
 
 import numpy as np
 import torch
-from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.pose import get_final_preds
+from qai_hub_models.extern.xtcocotools.cocoeval import COCOeval
 from qai_hub_models.utils.printing import suppress_stdout
 
 

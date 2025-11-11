@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from typing import Optional
 
 import qai_hub as hub
 from typing_extensions import assert_never
@@ -48,9 +47,9 @@ class ScorecardCompilePath(Enum):
 
     @staticmethod
     def all_paths(
-        enabled: Optional[bool] = None,
-        supports_precision: Optional[Precision] = None,
-        is_aot_compiled: Optional[bool] = None,
+        enabled: bool | None = None,
+        supports_precision: Precision | None = None,
+        is_aot_compiled: bool | None = None,
         include_genai_paths: bool = False,
     ) -> list[ScorecardCompilePath]:
         """

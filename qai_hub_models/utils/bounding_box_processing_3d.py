@@ -10,8 +10,8 @@ import math
 import cv2
 import numpy as np
 import torch
-from numba import njit, prange
-from pyquaternion.quaternion import Quaternion
+
+from qai_hub_models.extern.numba import njit, prange
 
 
 def compute_box_3d(
@@ -108,28 +108,50 @@ def draw_3d_bbox(
     return canvas.astype(np.uint8)
 
 
-def transform_to_matrix(translation: list, rotation: list) -> np.ndarray:
+def transform_to_matrix(
+    translation: list[float],
+    rotation: list[float],
+    inv: bool = False,
+    flat: bool = False,
+) -> np.ndarray:
     """
-    Converts translation and rotation to matrix
+    Converts translation and rotation to a 4x4 transformation matrix.
 
-    Parameters
-    ----------
-        translation: [x, y, z]
-        rotation: [w, x, y, z]
+    Args:
+        translation: list[float]
+            Translation vector [x, y, z].
+        rotation: list[float]
+            Quaternion rotation [w, x, y, z].
+        inv: bool
+            compute the inverse transformation.
+        flat: bool,
+            use only yaw from rotation for a 2D transformation.
 
     Returns
     -------
-        matrix: np.ndarray with shape [4, 4]
+        np.ndarray
+            4x4 transformation matrix with shape [4, 4].
     """
+    from pyquaternion import Quaternion
+
+    if flat:
+        yaw = Quaternion(rotation).yaw_pitch_roll[0]
+        R = Quaternion(
+            scalar=np.cos(yaw / 2), vector=[0, 0, np.sin(yaw / 2)]
+        ).rotation_matrix
+    else:
+        R = Quaternion(rotation).rotation_matrix
+
+    t = np.array(translation, dtype=np.float32)
     mat = np.eye(4, dtype=np.float32)
-    mat[:3, :3] = Quaternion(rotation).rotation_matrix
-    mat[:3, -1] = translation
+    mat[:3, :3] = R if not inv else R.T
+    mat[:3, -1] = t if not inv else R.T @ -t
     return mat
 
 
 def rotation_3d_in_axis(
     points: torch.Tensor,
-    angles: torch.Tensor | float | int,
+    angles: torch.Tensor | float,
     axis: int = 0,
     return_mat: bool = False,
     clockwise: bool = False,

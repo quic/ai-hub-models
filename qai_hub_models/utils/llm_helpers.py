@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+import csv
 import glob
 import json
 import os
@@ -12,9 +13,77 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import qai_hub
+from filelock import FileLock
 
 if TYPE_CHECKING:
     from transformers import PretrainedConfig
+
+
+def log_evaluate_test_result(
+    model_name: str, checkpoint: str, metric: str, value: float
+):
+    """
+    Logs the result of a model evaluation to a CSV file.
+
+    Parameters
+    ----------
+        model_name (str): Name of the model being evaluated.
+        checkpoint (str): Checkpoint identifier for the model.
+        metric (str): Name of the evaluation metric.
+        value (float): Value of the evaluation metric.
+    The function appends a row to 'test_evaluate.csv' with the following columns:
+        - Model Name
+        - Checkpoint
+        - Metric
+        - Value
+    If the file does not exist, a header row is written first.
+    The file is locked during writing to prevent concurrent access.
+    """
+    log_file = Path("test_evaluate.csv")
+    lock_file = log_file.with_suffix(".lock")
+
+    with FileLock(str(lock_file)):
+        file_exists = log_file.exists()
+        with open(log_file, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["Model Name", "Checkpoint", "Metric", "Value"])
+            writer.writerow([model_name, checkpoint, metric, value])
+
+
+def log_perf_on_device_result(
+    model_name: str, precision: str, device: str, tps: float, ttft: float
+):
+    """
+    Logs the performance results of a model running on a specific device to a CSV file.
+
+    Parameters
+    ----------
+        model_name (str): Name of the model being evaluated.
+        precision (str): Precision mode used for inference (e.g., 'fp32', 'int8').
+        device (str): Device on which the model was run (e.g., 'Snapdragon X Elite', 'Snapdragon 8 Elite').
+        tps (float): Tokens per second, measuring throughput (unit: tokens/sec).
+        ttft (float): Time to first token, measuring latency (unit: microseconds).
+    The results are appended to 'test_perf_on_device.csv' in the current directory.
+    """
+    log_file = Path("test_perf_on_device.csv")
+    lock_file = log_file.with_suffix(".lock")
+
+    with FileLock(str(lock_file)):
+        file_exists = log_file.exists()
+        with open(log_file, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(
+                    [
+                        "Model Name",
+                        "Precision",
+                        "Device",
+                        "Tokens per Second",
+                        "TTFT (microseconds)",
+                    ]
+                )
+            writer.writerow([model_name, precision, device, tps, ttft])
 
 
 def create_genie_config(

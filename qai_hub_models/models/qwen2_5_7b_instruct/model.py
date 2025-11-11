@@ -9,7 +9,6 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from packaging.version import Version
 from qai_hub.client import Device
@@ -21,7 +20,7 @@ from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
-    MainLLMInputType,
+    LLMIOType,
     get_tokenizer,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
@@ -56,11 +55,6 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         self.sequence_length = sequence_length
         self.context_length = context_length
         self.tokenizer = get_tokenizer(self.huggingface_model_name)
-        self.main_input_type = MainLLMInputType.input_ids
-
-    @property
-    def main_input_name(self) -> str:
-        return self.main_input_type.name
 
     def _llm_config(self) -> PretrainedConfig:
         return AutoConfig.from_pretrained(
@@ -98,7 +92,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         model_name: str | None = None,
         external_weights: bool = False,
         bundle_external_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> str:
         # Download onnx+encodings from s3
         if not (self.sequence_length in [1, 128] and self.context_length == 4096):
@@ -148,7 +142,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         llm_config: dict | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        main_input_name: str = MainLLMInputType.input_ids.name,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
         if llm_config is None:
             llm_config = dict(
@@ -164,7 +158,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
-            main_input_name=main_input_name,
+            llm_io_type=llm_io_type,
         )
 
     def get_hub_compile_options(
@@ -172,7 +166,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         target_runtime: TargetRuntime,
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
         options = super().get_hub_compile_options(
@@ -226,5 +220,5 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
 
-    def get_qnn_graph_name(self) -> Optional[str]:
+    def get_qnn_graph_name(self) -> str | None:
         return None

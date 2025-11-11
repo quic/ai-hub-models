@@ -8,11 +8,12 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Literal, Optional, TypeVar, overload
+from typing import Generic, Literal, TypeVar, overload
 
 import qai_hub as hub
 import ruamel.yaml
 from pydantic import Field
+from typing_extensions import Self
 
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
@@ -102,9 +103,7 @@ class ScorecardJobYaml(
         self.job_id_mapping = job_id_mapping or {}
 
     @classmethod
-    def from_file(
-        cls: type[ScorecardJobYamlTypeVar], config_path: str | Path
-    ) -> ScorecardJobYamlTypeVar:
+    def from_file(cls, config_path: str | Path) -> Self:
         """Read yaml files."""
         if not os.path.exists(config_path):
             raise FileNotFoundError(f"File not found with job ids at {config_path}")
@@ -146,7 +145,7 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         """
         Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
@@ -176,7 +175,7 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> None:
         """
         Set the key for this job in the YAML that stores asyncronously-ran scorecard jobs.
@@ -207,9 +206,9 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
         wait_for_job: bool = True,
-        wait_for_max_job_duration: Optional[int] = None,
+        wait_for_max_job_duration: int | None = None,
     ) -> ScorecardJobTypeVar:
         """
         Get the scorecard job from the YAML associated with these parameters.
@@ -260,7 +259,7 @@ class ScorecardJobYaml(
                 path: ScorecardPathOrNoneTypeVar,
                 device: ScorecardDevice,
             ):
-                model_runs.append(  # noqa: PERF401
+                model_runs.append(
                     self.get_job(path, model_id, device, precision, component or None)  # noqa: B023
                 )
 
@@ -301,7 +300,7 @@ class QuantizeScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         return self.job_id_mapping.get(
             get_async_job_cache_name(None, model_id, cs_universal, precision, component)
@@ -314,7 +313,7 @@ class QuantizeScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> None:
         self.job_id_mapping[
             get_async_job_cache_name(None, model_id, cs_universal, precision, component)
@@ -368,7 +367,7 @@ class CompileScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         """
         Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.

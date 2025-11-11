@@ -11,23 +11,25 @@ import importlib.metadata
 import os
 import platform
 from abc import abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, fields
 from enum import Enum
 from os import PathLike
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
-import numpy as np
 import onnx
 import onnxruntime
-import torch
+from numpy.typing import ArrayLike, NDArray
 
-from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import extract_zip_file
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     extract_io_types_from_onnx_model,
-    kwargs_to_dict,
     onnx_model_is_precompiled_qairt,
+)
+from qai_hub_models.utils.runtime_torch_wrapper import (
+    ModelIODetails,
+    RuntimeTorchWrapper,
 )
 
 ONNXRUNTIME_ENV_CHECKED: bool = False
@@ -44,7 +46,7 @@ def _hash_dataclass(
         if field.name in (ignore_fields or []):
             continue
         hasher.update(
-            bytes(f"{field.name}: {str(getattr(cls, field.name))}", encoding="utf-8")
+            bytes(f"{field.name}: {getattr(cls, field.name)!s}", encoding="utf-8")
         )
     return hasher
 
@@ -75,9 +77,7 @@ def _verify_onnxruntime_qnn_installed() -> None:
         return
 
     pkgs = importlib.metadata.distributions()
-    # We use dist.metadata['Name'] here instead of dist.name because
-    # dist.name is not available with python 3.9.
-    pkg_names = {cast(str, p.metadata["Name"]) for p in pkgs}
+    pkg_names = {p.name for p in pkgs}
 
     ORT_QNN_PACKAGE_NAME = "onnxruntime-qnn"
     ORT_PACKAGE_NAME = "onnxruntime"
@@ -142,25 +142,25 @@ def extract_onnx_zip(
 
     Parameters
     ----------
-        path:
-            a folder to validate or zip file to unzip.
-            The zip should have been created by AI Hub, or the
-            folder should be an unzipped version of a zip
-            created by AI Hub.
+    path
+        a folder to validate or zip file to unzip.
+        The zip should have been created by AI Hub, or the
+        folder should be an unzipped version of a zip
+        created by AI Hub.
 
-        out_path:
-            Folder to which the zip file should be unzipped.
-            If None, defaults to the same folder the zip file is in.
+    out_path
+        Folder to which the zip file should be unzipped.
+        If None, defaults to the same folder the zip file is in.
 
-        validate:
-            If True, raises an error if the .onnx file can't be found.
+    validate
+        If True, raises an error if the .onnx file can't be found.
 
     Returns
     -------
-        tuple(
-            model path (always exists if validate_exists is true)
-            model weights path (may not exist, even if validate_exists is true)
-        )
+    model_path
+        model path (always exists if validate_exists is true)
+    model_weights
+        model weights path (may not exist, even if validate_exists is true)
     """
     assert os.path.splitext(path)[1].endswith(".zip")
     path = extract_zip_file(path, out_path)
@@ -311,18 +311,20 @@ class ExecutionProviderOptions:
     @abstractmethod
     def ep_name(self) -> str:
         """The name of the execution provider these options apply to."""
-        pass
 
     @property
     def provider_options_dict(self) -> dict[str, str]:
         """
         Convert these options to an ONNX runtime ep provider options dictionary.
 
-        This dictionary should be passed to
-            onnxruntime.InferenceSession(
-                ...,
-                provider_options=[<this dict>]
-            )
+        Returns
+        -------
+        dict[str, str]
+            This dictionary should be passed to
+                onnxruntime.InferenceSession(
+                    ...,
+                    provider_options=[<this dict>]
+                )
         """
         out: dict[str, str] = {}
         for field in fields(self):
@@ -477,7 +479,7 @@ class QNNExecutionProviderOptions(ExecutionProviderOptions):
         ]
 
 
-class OnnxSessionTorchWrapper(ExecutableModelProtocol):
+class OnnxSessionTorchWrapper(RuntimeTorchWrapper[ModelIODetails]):
     """
     A wrapper for ONNX session that provides a Torch-like inference interface.
 
@@ -491,212 +493,65 @@ class OnnxSessionTorchWrapper(ExecutableModelProtocol):
     def __init__(
         self,
         session: onnxruntime.InferenceSession,
-        inputs: (
-            dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]] | None
-        ) = None,
-        outputs: (
-            dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]] | None
-        ) = None,
-        quantize_io: bool = True,
+        inputs: dict[str, ModelIODetails] | None = None,
+        outputs: dict[str, ModelIODetails] | None = None,
+        quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
+        dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
     ):
         """
         Create a wrapper for an ONNX session that uses torch-like I/O for the forward call.
 
-        session:
+        Parameters
+        ----------
+        session
             ONNX session.
 
-        inputs / outputs
-            Model inputs / output names & types.
-            If not provided, they will be extracted from the session.
-            dict[name, tuple[type, (scale, bias)]]
+        inputs
+            Ordered model input names & types.
+            **dict entry order match the input declaration order in the model.**
 
-        quantize_io
-            If an input is float and the corresponding type in the ONNX model is quantized,
-            the input will be automatically quantized for you (when calling __call__ or forward())
-            using the QDQ params in the model.
+            If not provided, inputs will be extracted from the session.
+            Note that quantization parameters cannot be extracted from an ONNX session.
 
-            The same applies to outputs; if an output is quantized, it will be dequantized for you
-            (when calling __call__ or forward()) using the QDQ params in the model.
+        outputs
+            Ordered model output names & types.
+            **dict entry order match the output declaration order in the model.**
 
-            Set this to false to disable that behavior; instead:
-                * if an input type does not match, an error will be raised
-                * quantized output will be returned in quantized format
+            If not provided, outputs will be extracted from the session.
+            Note that quantization parameters cannot be extracted from an ONNX session.
+
+        quantize_user_input
+            If a model input is float and the corresponding model input type is
+            quantized, the input will be quantized before it is fed to the model.
+            The QDQ params specified in `inputs` will be used for quantization.
+
+            - If Sequence[str]: pre-quantization applies only to the input names defined in the sequence
+            - If "ALL": pre-quantization applies to all inputs
+            - If None: pre-quantization is SKIPPED for all inputs
+
+        dequantize_model_output
+            If an output is quantized, the input will be automatically dequantized for you (when calling __call__ or forward())
+            The QDQ params specified in `outputs` will be used for quantization.
+
+            - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
+            - If "ALL": de-quantization applies to all outputs
+            - If None: de-quantization is SKIPPED for all outputs
         """
         self.session = session
-        self.quantize_io = quantize_io
-
         if not inputs or not outputs:
             gen_inputs, gen_outputs = extract_io_types_from_onnx_model(session)
             inputs = inputs or gen_inputs
             outputs = outputs or gen_outputs
-        self.inputs = inputs
-        self.outputs = outputs
+        super().__init__(inputs, outputs, quantize_user_input, dequantize_model_output)
 
-    def __call__(self, *args, **kwargs) -> torch.Tensor | tuple[torch.Tensor, ...]:
-        """
-        Calls the model with the given args and kwargs.
-        Identical behavior (I/O) to calling forward() on a pyTorch Module.
-
-        Paramaters:
-            *args
-                Ordered inputs of any type that can be converted to a numpy array.
-
-            **kwargs
-                Keyword inputs of any type that can be converted to a numpy array.
-
-        Returns
-        -------
-            Model output in default order defined by the ONNX model.
-            If the model has 1 output, it will be returned as a Tensor. Otherwise this returns a tuple of Tensors.
-        """
-        return self.forward(*args, **kwargs)
-
-    def forward(self, *args, **kwargs) -> torch.Tensor | tuple[torch.Tensor, ...]:
-        """
-        Calls the model with the given args and kwargs.
-        Identical behavior (I/O) to calling forward() on a pyTorch Module.
-
-        Paramaters:
-            *args
-                Ordered inputs of any type that can be converted to a numpy array.
-
-            **kwargs
-                Keyword inputs of any type that can be converted to a numpy array.
-
-        Returns
-        -------
-            Model output in default order defined by the ONNX model.
-            If the model has 1 output, it will be returned as a Tensor. Otherwise this returns a tuple of Tensors.
-        """
-        session_inputs = kwargs_to_dict(self.inputs.keys(), *args, **kwargs)
-        session_outputs = self.run(session_inputs)
-        model_output = [torch.tensor(x) for x in session_outputs]
-        return model_output[0] if len(model_output) == 1 else tuple(model_output)
-
-    def run(self, inputs: dict[str, Any]) -> list[np.ndarray]:
-        """
-        Run the model (equivalent to onnx.InferenceSession.run) with the given inputs.
-
-        Parameters
-        ----------
-            inputs
-                Network inputs. Values can be any type that can be converted to a numpy array.
-
-        Returns
-        -------
-            Network outputs in default order defined by the ONNX model.
-        """
+    def run(
+        self, inputs: Sequence[ArrayLike] | Mapping[str, ArrayLike]
+    ) -> list[NDArray]:
         session_inputs = self._prepare_inputs(inputs)
-        session_outputs = self.session.run(None, session_inputs)
+        session_outputs = cast(
+            Sequence[NDArray], self.session.run(None, session_inputs)
+        )
         return self._process_outputs(session_outputs)
-
-    def _prepare_inputs(self, inputs: dict[str, Any]) -> dict[str, np.ndarray]:
-        """
-        Prepare the input dictionary by:
-            * converting each value to a numpy array
-            * casting each value to the associated input type (if applicable)
-            * quantizing float values to integers if:
-                - qdq parameters are defined in self.inputs
-                - self.quantize_io is true
-
-        Parameters
-        ----------
-            inputs
-                Network inputs.
-
-        Returns
-        -------
-            Network inputs compatible with the input dtypes defined by the model.
-
-        Raises
-        ------
-            ValueError if:
-                - "inputs" contains input names that aren't defined by the model.
-                - An input's dtype is not compatible with the input dtype defined by the model.
-        """
-        prepared_inputs: dict[str, np.ndarray] = {}
-        for input_name, input_val in inputs.items():
-            if input_name not in self.inputs:
-                raise ValueError(
-                    f"Unknown input with name {input_name}. Expected inputs: {self.inputs.keys()}"
-                )
-            _, onnx_input_dtype, qdq_params = self.inputs[input_name]
-
-            if not isinstance(input_val, np.ndarray):
-                input_val = np.asarray(input_val)
-
-            if input_val.dtype != onnx_input_dtype:
-                input_val_is_float = np.issubdtype(input_val.dtype, np.floating)
-                input_val_is_int = not input_val_is_float and np.issubdtype(
-                    input_val.dtype, np.integer
-                )
-                onnx_dtype_is_float = np.issubdtype(onnx_input_dtype, np.floating)
-                onnx_dtype_is_int = np.issubdtype(onnx_input_dtype, np.integer)
-
-                if (input_val_is_int and onnx_dtype_is_int) or (
-                    input_val_is_float and onnx_dtype_is_float
-                ):
-                    # Cast the input to the appropriate type if it's the same fundamental type (int / float).
-                    input_val = input_val.astype(onnx_input_dtype)
-                elif self.quantize_io and input_val_is_float and qdq_params is not None:
-                    # Quantize input if it's a float and the target dtype is quantized with known QDQ params.
-                    qdq_scale, qdq_bias = qdq_params
-                    input_val = ((input_val / qdq_scale) - qdq_bias).astype(
-                        onnx_input_dtype
-                    )
-                else:
-                    raise ValueError(
-                        f"Input {input_name} has incorrect type {input_val.dtype}. Expected type {onnx_input_dtype}."
-                        + (
-                            f" If you expected this input to be quantized for you, {self.__class__.__name__} was unable to extract the quantization parameters."
-                            if input_val_is_float
-                            and onnx_dtype_is_int
-                            and self.quantize_io
-                            and qdq_params is None
-                            else ""
-                        )
-                    )
-
-            prepared_inputs[input_name] = input_val
-
-        return prepared_inputs
-
-    def _process_outputs(self, outputs: list[np.ndarray]) -> list[np.ndarray]:
-        """
-        Process the output dictionary by:
-            * dequantizing integer values to float if:
-                - qdq parameters are defined in self.outputs
-                - self.quantize_io is true
-
-        Parameters
-        ----------
-            outputs
-                Network outputs.
-
-        Returns
-        -------
-            Processed network outputs.
-
-        Raises
-        ------
-            ValueError if "outputs" contains a different number of outputs than defined by the ONNX model.
-        """
-        if len(outputs) != len(self.outputs):
-            raise ValueError(
-                f"Expected {len(self.outputs)} outputs, but got {len(outputs)} outputs."
-            )
-
-        if self.quantize_io:
-            processed_outputs: list[np.ndarray] = []
-            for idx, (_, _, output_qdq_params) in enumerate(self.outputs.values()):
-                output = outputs[idx]
-                if output_qdq_params is not None:
-                    scale, bias = output_qdq_params
-                    output = ((output + bias) * scale).astype(np.float32)
-                processed_outputs.append(output)
-            return processed_outputs
-
-        return outputs
 
 
 class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
@@ -715,11 +570,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         model_path: str | PathLike,
         session_options: OnnxSessionOptions,
         execution_providers: list[ExecutionProviderOptions],
-        quantize_io: bool = True,
+        quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
+        dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
     ):
         """
         Create a wrapper for an ONNX model that uses torch-like I/O for the forward call.
 
+        Parameters
+        ----------
         model_path
             ONNX model to load.
 
@@ -727,19 +585,24 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             ONNX session options. This object will be modified in-place and should not be reused.
 
         execution_providers
-            Execution providers to enable when running this model (& associated settings).
+            Execution providers to enable when running this model (and associated settings).
 
-        quantize_io
-            If an input is float and the corresponding type in the ONNX model is quantized,
-            the input will be automatically quantized for you (when calling __call__ or forward())
-            using the QDQ params in the model.
+        quantize_user_input
+            If a model input is float and the corresponding model input type is
+            quantized, the input will be quantized before it is fed to the model.
+            Input QDQ params will be extracted from the model file.
 
-            The same applies to outputs; if an output is quantized, it will be dequantized for you
-            (when calling __call__ or forward()) using the QDQ params in the model.
+            - If Sequence[str]: pre-quantization applies only to the input names defined in the sequence
+            - If "ALL": pre-quantization applies to all inputs
+            - If None: pre-quantization is SKIPPED for all inputs
 
-            Set this to false to disable that behavior; instead:
-                * if an input type does not match, an error will be raised
-                * quantized output will be returned in quantized format
+        dequantize_model_output
+            If an output is quantized, the input will be automatically dequantized for you (when calling __call__ or forward())
+            Output QDQ params will be extracted from the model file.
+
+            - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
+            - If "ALL": de-quantization applies to all outputs
+            - If None: de-quantization is SKIPPED for all outputs
         """
         for ep in execution_providers:
             # Verify the environment is set up correctly for QNN.
@@ -808,7 +671,9 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         ):
             print(f"Saved session context at {session_options.context_file_path}")
 
-        super().__init__(session, inputs, outputs, quantize_io)
+        super().__init__(
+            session, inputs, outputs, quantize_user_input, dequantize_model_output
+        )
 
     @classmethod
     def OnNPU(
@@ -816,11 +681,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         model_path: str | PathLike,
         session_options: OnnxSessionOptions | None = None,
         npu_options: QNNExecutionProviderOptions | None = None,
-        quantize_io: bool = True,
+        quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
+        dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
     ) -> OnnxModelTorchWrapper:
         """
         Create an executable ONNX model that runs on the Qualcomm NPU via the QNN Execution Provider.
 
+        Parameters
+        ----------
         model_path
             ONNX model to load.
 
@@ -831,17 +699,27 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         npu_options
             QNN execution provider options. If undefined, uses AI Hub defaults.
 
-        quantize_io
-            If an input is float and the corresponding type in the ONNX model is quantized,
-            the input will be automatically quantized for you (when calling __call__ or forward())
-            using the QDQ params in the model.
+        quantize_user_input
+            If a model input is float and the corresponding model input type is
+            quantized, the input will be quantized before it is fed to the model.
+            Input QDQ params will be extracted from the model file.
 
-            The same applies to outputs; if an output is quantized, it will be dequantized for you
-            (when calling __call__ or forward()) using the QDQ params in the model.
+            - If Sequence[str]: pre-quantization applies only to the input names defined in the sequence
+            - If "ALL": pre-quantization applies to all inputs
+            - If None: pre-quantization is SKIPPED for all inputs
 
-            Set this to false to disable that behavior; instead:
-                * if an input type does not match, an error will be raised
-                * quantized output will be returned in quantized format
+        dequantize_model_output
+            If an output is quantized, the input will be automatically dequantized for you (when calling __call__ or forward())
+            Output QDQ params will be extracted from the model file.
+
+            - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
+            - If "ALL": de-quantization applies to all outputs
+            - If None: de-quantization is SKIPPED for all outputs
+
+        Returns
+        -------
+        OnnxModelTorchWrapper
+            Wrapped torch model that runs on the Qualcomm NPU via the QNN Execution Provider.
         """
         session_options = session_options or OnnxSessionOptions.aihub_defaults()
         npu_options = npu_options or QNNExecutionProviderOptions.aihub_defaults()
@@ -849,7 +727,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             model_path,
             session_options,
             [npu_options],
-            quantize_io,
+            quantize_user_input,
+            dequantize_model_output,
         )
 
     @classmethod
@@ -857,11 +736,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         cls,
         model_path: str | PathLike,
         session_options: OnnxSessionOptions | None = None,
-        quantize_io: bool = True,
+        quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
+        dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
     ):
         """
         Create an executable ONNX model that runs on the CPU.
 
+        Parameters
+        ----------
         model_path
             ONNX model to load.
 
@@ -869,24 +751,35 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             ONNX session options. If undefined, uses AI Hub defaults.
             This object will be modified in-place and should not be reused.
 
-        quantize_io
-            If an input is float and the corresponding type in the ONNX model is quantized,
-            the input will be automatically quantized for you (when calling __call__ or forward())
-            using the QDQ params in the model.
+        quantize_user_input
+            If a model input is float and the corresponding model input type is
+            quantized, the input will be quantized before it is fed to the model.
+            Input QDQ params will be extracted from the model file.
 
-            The same applies to outputs; if an output is quantized, it will be dequantized for you
-            (when calling __call__ or forward()) using the QDQ params in the model.
+            - If Sequence[str]: pre-quantization applies only to the input names defined in the sequence
+            - If "ALL": pre-quantization applies to all inputs
+            - If None: pre-quantization is SKIPPED for all inputs
 
-            Set this to false to disable that behavior; instead:
-                * if an input type does not match, an error will be raised
-                * quantized output will be returned in quantized format
+        dequantize_model_output
+            If an output is quantized, the input will be automatically dequantized for you (when calling __call__ or forward())
+            Output QDQ params will be extracted from the model file.
+
+            - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
+            - If "ALL": de-quantization applies to all outputs
+            - If None: de-quantization is SKIPPED for all outputs
+
+        Returns
+        -------
+        OnnxModelTorchWrapper
+            Wrapped torch model that runs on the CPU.
         """
         session_options = session_options or OnnxSessionOptions.aihub_defaults()
         return cls(
             model_path,
             session_options,
             [],
-            quantize_io,
+            quantize_user_input,
+            dequantize_model_output,
         )
 
     @classmethod
@@ -896,6 +789,7 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         session_options: OnnxSessionOptions,
         execution_providers: list[ExecutionProviderOptions],
     ) -> Path:
+        """When models are compiled on-device, ONNXModelTorchWrapper can cache the compiled model to speed up subsequent loads. This gets the location on disk where the cached asset should live."""
         # Determine context folder and file name
         if session_options.context_file_path:
             ctx_folder = os.path.dirname(session_options.context_file_path)

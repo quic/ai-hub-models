@@ -7,10 +7,10 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from collections.abc import Callable
 from inspect import signature
 from pathlib import Path
-from typing import Callable
-from unittest.mock import MagicMock, Mock, PropertyMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
@@ -20,7 +20,6 @@ from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
     LLMBase,
-    MainLLMInputType,
     cleanup,
 )
 from qai_hub_models.models._shared.llm.quantize import quantize
@@ -50,12 +49,13 @@ def complete_genie_bundle_and_run_on_device(
     # Run QDC APIs to validate the bundle on-device.
     from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
 
-    submit_genie_bundle_to_qdc_device(
+    _, avg_tps, min_ttft = submit_genie_bundle_to_qdc_device(
         os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
 
     # Cleanup the generated genie bundle after test
     shutil.rmtree(genie_bundle_path)
+    return avg_tps, min_ttft
 
 
 def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
@@ -76,7 +76,7 @@ def from_bundle_path_patch(bundle_path: str | os.PathLike) -> ONNXBundle:
 
 
 def split_onnx_patch(*args, num_splits, **kwargs):
-    return [from_bundle_path_patch(f"{i}") for i in range(0, num_splits)]
+    return [from_bundle_path_patch(f"{i}") for i in range(num_splits)]
 
 
 # reusable patching function
@@ -119,10 +119,6 @@ def _create_patches(
         "qai_hub_models.models._shared.llm.export.get_or_create_cached_model",
         return_value=Mock(),
     )
-    patch_main_input_type = patch(
-        f"qai_hub_models.models.{base_name}.Model.main_input_type",
-        new_callable=PropertyMock(return_value=MainLLMInputType.input_ids),
-    )
     patch_tool_versions = patch(
         "qai_hub_models.configs.tool_versions.ToolVersions.from_job",
         return_value=ToolVersions(
@@ -138,7 +134,6 @@ def _create_patches(
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     )
 
@@ -157,10 +152,10 @@ def test_cli_device_with_skips_unsupported_precision_device(
         _,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        _,
         patch_tool_versions,
     ) = _create_patches(model_cls, base_name, 4096, 128, tmp_path)
 
+    os.makedirs("build", exist_ok=True)
     with (
         patch_model,
         patch_fp_model,
@@ -168,13 +163,14 @@ def test_cli_device_with_skips_unsupported_precision_device(
         patch_get_or_create_cached_model,
         patch_tool_versions,
     ):
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--device",
             "SA8295P ADP",
             "--skip-profiling",
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--checkpoint",
             "DEFAULT_W4A16",
         ]
@@ -200,10 +196,10 @@ def test_cli_device_with_skips_unsupported_context_length(
         _,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        _,
         patch_tool_versions,
     ) = _create_patches(model_cls, base_name, 4096, 128, tmp_path)
 
+    os.makedirs("build", exist_ok=True)
     with (
         patch_model,
         patch_fp_model,
@@ -211,13 +207,14 @@ def test_cli_device_with_skips_unsupported_context_length(
         patch_get_or_create_cached_model,
         patch_tool_versions,
     ):
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--device",
             "SA8295P ADP",
             "--skip-profiling",
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--checkpoint",
             "DEFAULT_W4",
         ]
@@ -250,7 +247,6 @@ def test_cli_device_with_skips(
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
@@ -262,19 +258,19 @@ def test_cli_device_with_skips(
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     ):
         mock_hub.submit_compile_job.return_value.target_shapes = {
             "input_ids": (1, context_length)
         }
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--device",
             device.name,
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--target-runtime",
             target_runtime.value,
         ]
@@ -335,7 +331,6 @@ def test_cli_chipset_with_options(
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
@@ -347,7 +342,6 @@ def test_cli_chipset_with_options(
         patch_split_onnx as mock_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     ):
         mock_onnx_checker.return_value = None
@@ -356,12 +350,13 @@ def test_cli_chipset_with_options(
         profile_options = "profile_extra"
         link_options = "link_extra"
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",  # script name
             "--chipset",
             chipset,
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--compile-options",
             compile_options,
             "--profile-options",
@@ -485,7 +480,6 @@ def test_cli_default_device_select_component(
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
-        patch_main_input_type,
         patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
@@ -500,7 +494,6 @@ def test_cli_default_device_select_component(
         patch_onnx_files,
         patch_get_or_create_cached_model as mock_get_or_create_cached_model,
         patch_torch_inference as mock_torch_inference,
-        patch_main_input_type,
         patch_tool_versions,
     ):
         mock_onnx_checker.return_value = None
@@ -509,10 +502,11 @@ def test_cli_default_device_select_component(
             np.array([1.0, 2.0])
         ]  # return mock value for torch inference.
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--model-cache-mode",
             str(cache_mode.name.lower()),
             "--device",

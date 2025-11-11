@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -34,7 +32,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 class UNet(BaseModel):
     @classmethod
-    def from_pretrained(cls, weights: Optional[str] = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights: str | None = DEFAULT_WEIGHTS):
         net = torch.hub.load(
             MODEL_REPO, MODEL_TYPE, pretrained=False, scale=1.0, trust_repo=True
         )

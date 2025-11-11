@@ -117,7 +117,7 @@ def test_overwrite_fails():
 
     with pytest.raises(
         RuntimeError,
-        match="Cache with key already present. Please set overwrite=True to overwrite.",
+        match=r"Cache with key already present\. Please set overwrite=True to overwrite\.",
     ):
         cache.insert(key2, val2)
 

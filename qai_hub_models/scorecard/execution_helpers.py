@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional, TypeVar
+from typing import TypeVar
 
 import qai_hub as hub
 
@@ -54,7 +55,7 @@ def for_each_scorecard_path_and_device(
         if path_type is not type(None) and path_type is not None:
             all_paths = path_type.all_paths(enabled=True, supports_precision=precision)  # type: ignore[attr-defined]
         else:
-            all_paths = [None]  # type: ignore[list-item]
+            all_paths = [None]
 
         for path in all_paths:
             if include_paths is not None and path not in include_paths:
@@ -428,7 +429,7 @@ def get_async_job_cache_name(
     model_id: str,
     device: ScorecardDevice,
     precision: Precision = Precision.float,
-    component: Optional[str] = None,
+    component: str | None = None,
 ) -> str:
     """
     Get the key for this job in the YAML that stores asyncronously-ran scorecard jobs.
@@ -468,7 +469,7 @@ class ClientState:
 
 
 class ClientStateSingleton:
-    _instance: Optional[ClientState] = None
+    _instance: ClientState | None = None
 
     def __init__(self):
         if self._instance is None:

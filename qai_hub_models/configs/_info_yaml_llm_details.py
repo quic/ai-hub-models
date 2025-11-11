@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from typing import Optional
 
 from pydantic import model_validator
 
@@ -37,15 +36,9 @@ class LLMDetails(BaseQAIHMConfig):
     genie_compatible: bool = False
 
     # Dict<Device Name, Dict<Long Runtime Name, LLMDeviceRuntimeDetails>
-    devices: Optional[
-        dict[
-            str,
-            dict[
-                ScorecardProfilePath,
-                LLMDeviceRuntimeDetails,
-            ],
-        ]
-    ] = None
+    devices: dict[str, dict[ScorecardProfilePath, LLMDeviceRuntimeDetails]] | None = (
+        None
+    )
 
     def __init__(self, **kwargs):
         val_dict = kwargs

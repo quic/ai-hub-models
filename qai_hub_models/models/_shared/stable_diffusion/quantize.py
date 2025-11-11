@@ -123,7 +123,7 @@ def stable_diffusion_quantize(
 
     host_device = torch.device(args.host_device)
     component_cls = dict(
-        zip(model_cls.component_class_names, model_cls.component_classes)
+        zip(model_cls.component_class_names, model_cls.component_classes, strict=False)
     )[args.component]
     component = component_cls.from_pretrained(
         checkpoint=args.checkpoint, host_device=host_device

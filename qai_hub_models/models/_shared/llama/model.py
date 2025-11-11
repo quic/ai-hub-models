@@ -9,7 +9,7 @@ import os
 import pickle
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import torch
 from qai_hub.client import Device
@@ -111,7 +111,7 @@ def load_input_cached_data(
     data_path = (
         f"{data_dir}/{input_seq_len}/{model_name}_{split_part}_{model_type}_inputs.pkl"
     )
-    inputs_pkl_path: Optional[Path] = None
+    inputs_pkl_path: Path | None = None
     try:
         # Load local data path if already generated
         inputs_pkl_path = ASSET_CONFIG.get_local_store_model_path(
@@ -281,7 +281,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         self.split_part = 1
         self.is_token_generator = is_token_generator
 
-    def get_qnn_graph_name(self) -> Optional[str]:
+    def get_qnn_graph_name(self) -> str | None:
         model_name = "token" if self.is_token_generator else "prompt"
         return f"{model_name}_part{self.split_part}"
 
@@ -290,7 +290,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
         if not target_runtime.is_aot_compiled:
@@ -350,7 +350,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         return output_list
 
     def _sample_inputs_impl(
-        self, input_spec: Optional[InputSpec] = None
+        self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         # According to QuantizableModelProtocol, self.get_calibration_data is supposed to
         # return a DatasetEntries, i.e., something like dict[str, list[torch.Tensor]].

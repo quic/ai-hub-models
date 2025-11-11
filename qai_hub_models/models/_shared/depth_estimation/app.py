@@ -74,5 +74,5 @@ class DepthEstimationApp:
         numpy_output = cast(npt.NDArray[np.float32], prediction.squeeze().cpu().numpy())
         if raw_output:
             return numpy_output
-        heatmap = plt.cm.plasma(numpy_output / numpy_output.max())[..., :3]
+        heatmap = plt.cm.get_cmap("plasma")(numpy_output / numpy_output.max())[..., :3]
         return Image.fromarray((heatmap * 255).astype(np.uint8))

@@ -10,27 +10,28 @@ import os
 import warnings
 from enum import Enum, unique
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 import onnx
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 
 if TYPE_CHECKING:
-    # this import is only for the type‐checker, never executed at runtime
+    # this import is only for the type-checker, never executed at runtime
     from transformers import PreTrainedModel
 
 
-CheckpointSpec = Union[
-    str,
-    os.PathLike,
-    Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"],
-]
+CheckpointSpec = (
+    str
+    | os.PathLike
+    | Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"]  # noqa: PYI051
+)
 
 
 @unique
@@ -129,7 +130,7 @@ def determine_checkpoint_type(
     if not cp_path.is_dir():
         return CheckpointType.INVALID
 
-    # 4) Local HF‐style (config + safetensor)
+    # 4) Local HF-style (config + safetensor)
     if (cp_path / "config.yaml").is_file() and (cp_path / "model.safetensor").is_file():
         return CheckpointType.HF_LOCAL
 
@@ -137,7 +138,7 @@ def determine_checkpoint_type(
     if cp_path.glob("model*.onnx") and (cp_path / "model.encodings").is_file():
         return CheckpointType.AIMET_ONNX_EXPORT
 
-    # 6) Single PyTorch state‐dict
+    # 6) Single PyTorch state-dict
     torch_files = list(cp_path.glob("*.pth")) + list(cp_path.glob("*.pt"))
     if len(torch_files) == 1:
         return CheckpointType.TORCH_STATE_DICT
@@ -193,7 +194,7 @@ class FromPretrainedMixin(Generic[T]):
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
-        host_device: Union[torch.device, str] = torch.device("cpu"),
+        host_device: torch.device | str = torch.device("cpu"),
         adapt_torch_model_options: dict | None = None,
     ) -> torch.nn.Module:
         subfolder_hf = subfolder or cls.default_subfolder_hf
@@ -260,9 +261,9 @@ class FromPretrainedMixin(Generic[T]):
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
-        host_device: Union[torch.device, str] = torch.device("cpu"),
+        host_device: torch.device | str = torch.device("cpu"),
         torch_to_onnx_options: dict | None = None,
-    ) -> tuple[onnx.ModelProto, Optional[str]]:
+    ) -> tuple[onnx.ModelProto, str | None]:
         """
         Load the checkpoint into ONNX, possibly with AIMET encodings
         if the checkpoint is already quantized.
@@ -340,13 +341,13 @@ class FromPretrainedMixin(Generic[T]):
 
     @classmethod
     def from_pretrained(
-        cls: type[T],
+        cls,
         *args: Any,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
         **kwargs: Any,
-    ) -> T:
+    ) -> Self:
         """
         This assumes that the class takes a single torch.nn.Module in
         __init__. Override if not.

@@ -41,7 +41,7 @@ def get_weights(model, graph, tensor_dict, tensor_name):
 def get_probable_names(graph):
     """Get the probable names for nodes in a graph."""
     probable_names = []
-    for i in range(0, graph.TensorsLength()):
+    for i in range(graph.TensorsLength()):
         tensor = graph.Tensors(i)
         if tensor.Buffer() > 0 and (tensor.Type() == 0 or tensor.Type() == 1):
             probable_names.append(tensor.Name().decode("utf-8"))

@@ -112,13 +112,13 @@ class SliceConv1d(torch.nn.Module):
         self.stride = orig_module.stride[0]
 
     def forward(self, x: torch.Tensor):
-        num_slices = int(math.ceil(x.shape[-1] / self.slice_size))
+        num_slices = math.ceil(x.shape[-1] / self.slice_size)
 
         xs = []
         for i in range(num_slices):
             # align begin to stride boundary
             begin = i * self.slice_size
-            begin = int(math.ceil(begin / self.stride)) * self.stride
+            begin = math.ceil(begin / self.stride) * self.stride
             end = min(begin + self.slice_size + self.half_kernel_size, x.shape[-1])
             conv_out = self.orig_module(x[:, :, begin:end])
             xs.append(conv_out)

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TypeVar
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     FFNET_SOURCE_PATCHES,
@@ -66,7 +67,7 @@ class FFNet(CityscapesSegmentor):
     """Exportable FFNet fuss-free Cityscapes segmentation model."""
 
     @classmethod
-    def from_pretrained(cls: type[FFNetType], variant_name: str) -> FFNetType:
+    def from_pretrained(cls, variant_name: str) -> Self:
         model = _load_ffnet_source_model(variant_name)
 
         return cls(model)

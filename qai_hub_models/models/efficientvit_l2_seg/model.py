@@ -41,7 +41,6 @@ class EfficientViT(CityscapesSegmentor):
             from efficientvit.seg_model_zoo import create_seg_model
 
             if not weights:
-                pass
                 weights = CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
                 ).fetch()

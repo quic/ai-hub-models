@@ -41,7 +41,7 @@ class ValentiniEvaluator(BaseEvaluator):
             output: Enhanced audio waveforms [batch, samples]
             target: Clean reference waveforms [batch, samples]
         """
-        for enhanced, clean in zip(output, target):
+        for enhanced, clean in zip(output, target, strict=False):
             enhanced = enhanced.squeeze()
             clean = clean.squeeze()
 
@@ -58,7 +58,7 @@ class ValentiniEvaluator(BaseEvaluator):
         pesq_scores = []
         stoi_scores = []
 
-        for enhanced, clean in zip(self.enhanced, self.clean):
+        for enhanced, clean in zip(self.enhanced, self.clean, strict=False):
             pesq_i, stoi_i = self._compute_single_metrics(
                 clean, enhanced, self.target_sample_rate
             )

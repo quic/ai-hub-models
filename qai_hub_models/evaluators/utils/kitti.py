@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import numpy as np
-from numba import njit
 
+from qai_hub_models.extern.numba import njit
 from qai_hub_models.utils.bounding_box_processing import get_bbox_iou_matrix
 from qai_hub_models.utils.bounding_box_processing_3d import get_bev_iou_matrix
 
@@ -203,7 +203,7 @@ def _prepare_data(
     ignored_gts, ignored_dets, dontcares = [], [], []
     total_dc_num, total_num_valid_gt = [], 0
 
-    for gt_anno, dt_anno in zip(gt_annos, dt_annos):
+    for gt_anno, dt_anno in zip(gt_annos, dt_annos, strict=False):
         current_cls_name = "car"
         ignored_gt, ignored_dt, dc_bboxes_list = [], [], []
         num_valid_gt = 0
@@ -417,7 +417,7 @@ def eval_class(
                 ignored_gts,
                 ignored_dets,
                 dontcares,
-                total_dc_num,
+                _total_dc_num,
                 total_num_valid_gt,
             ) = _prepare_data(gt_annos, dt_annos, difficulty)
 

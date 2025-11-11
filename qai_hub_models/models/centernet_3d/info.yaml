@@ -1,0 +1,35 @@
+name: CenterNet-3D
+# id must match with the model dir name in qai_hub_models
+id: centernet_3d
+status: public
+headline: Construct a bird’s eye view from sensors mounted on a vehicle.
+domain: Computer Vision
+use_case: Driver Assistance
+tags: []
+description: CenterNet is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+research_paper: https://arxiv.org/abs/1904.07850
+research_paper_title: "Objects as Points"
+license: https://github.com/xingyizhou/CenterNet/blob/master/LICENSE
+deploy_license:
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+source_repo: https://github.com/xingyizhou/CenterNet
+technical_details:
+  Model checkpoint: ddd_3dop.pth
+  Input resolution: 1 x 3 x 384 x 1280
+  Number of parameters: 20.6M
+  Model size: 79 MB
+applicable_scenarios:
+  - Object Detection
+related_models:
+  - bevdet
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+  - Auto
+has_static_banner: True
+has_animated_banner: True
+license_type: mit
+deploy_license_type: ai-hub-models-license
+dataset:
+  - kitti

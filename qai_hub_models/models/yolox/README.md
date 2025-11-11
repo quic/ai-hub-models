@@ -15,6 +15,8 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.11 is supported.
+pip install wheel==0.45.1 "torch>=2.1,<2.9.0" "setuptools>=77.0.3"
 pip install "qai-hub-models[yolox]" git+https://github.com/Megvii-BaseDetection/YOLOX.git@6ddff48 --no-build-isolation --use-pep517
 ```
 

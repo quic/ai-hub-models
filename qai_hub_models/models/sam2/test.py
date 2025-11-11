@@ -12,7 +12,7 @@ from qai_hub_models.models.sam2.demo import IMAGE_ADDRESS
 from qai_hub_models.models.sam2.demo import main as demo_main
 from qai_hub_models.models.sam2.model import DEFAULT_MODEL_TYPE, SAM2, SAM2Loader
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
+from qai_hub_models.utils.testing import assert_most_close
 
 
 def test_e2e_numerical() -> None:

@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -154,7 +152,7 @@ def sam_decoder_predict_masks(
     sparse_prompt_embeddings: torch.Tensor,
     dense_prompt_embeddings: torch.Tensor,
     repeat_image: bool,
-    high_res_features: Optional[list[torch.Tensor]],
+    high_res_features: list[torch.Tensor] | None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Predicts segmentation masks using the SAM decoder architecture with optional high-resolution features.
@@ -170,7 +168,7 @@ def sam_decoder_predict_masks(
         sparse_prompt_embeddings (torch.Tensor): Sparse prompt tokens (e.g., points, boxes).
         dense_prompt_embeddings (torch.Tensor): Dense prompt features (e.g., masks).
         repeat_image (bool): Whether to repeat image embeddings for each prompt.
-        high_res_features (Optional[list[torch.Tensor]]): Optional high-resolution features for refinement.
+        high_res_features (list[torch.Tensor] | None): Optional high-resolution features for refinement.
 
     Returns
     -------
@@ -230,7 +228,7 @@ def sam_decoder_predict_masks(
     if not self.use_high_res_features or high_res_features is None:
         upscaled_embedding = self.output_upscaling(src)
     else:
-        dc1, ln1, act1, dc2, act2 = self.output_upscaling
+        dc1, _ln1, act1, dc2, act2 = self.output_upscaling
         feat_s0, feat_s1 = high_res_features
         # This normalization doesn't affect the output
         # upscaled_embedding = act1(ln1(dc1(src) + feat_s1))

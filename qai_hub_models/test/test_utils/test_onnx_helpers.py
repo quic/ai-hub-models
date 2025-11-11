@@ -8,8 +8,8 @@ from unittest import mock
 
 import pytest
 
-from qai_hub_models.utils import onnx_helpers
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx import helpers as onnx_helpers
+from qai_hub_models.utils.onnx.helpers import (
     ONNX_MAX_COMPATIBLE_VERSION,
     ONNX_PACKAGE_NAME,
     ONNXBundle,
@@ -65,8 +65,8 @@ def test_onnx_bundle_from_path():
 
 
 def test_verify_onnx_export_is_compatible_with_ai_hub():
-    ec_patch = mock.patch("qai_hub_models.utils.onnx_helpers.ONNX_ENV_CHECKED", False)
-    err_patch = mock.patch("qai_hub_models.utils.onnx_helpers.ONNX_ENV_ERROR", None)
+    ec_patch = mock.patch("qai_hub_models.utils.onnx.helpers.ONNX_ENV_CHECKED", False)
+    err_patch = mock.patch("qai_hub_models.utils.onnx.helpers.ONNX_ENV_ERROR", None)
 
     with (
         ec_patch,

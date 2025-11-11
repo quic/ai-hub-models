@@ -23,7 +23,7 @@ from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock
 from zipfile import ZipFile
 
@@ -50,8 +50,8 @@ LOCAL_STORE_DEFAULT_PATH = os.path.join(QAIHM_STORE_ROOT, ".qaihm")
 EXECUTING_IN_CI_ENVIRONMENT = os.getenv("QAIHM_CI", "0") == "1"
 SOURCE_AS_ROOT_LOCK = threading.Lock()
 
-PathLike = Union[os.PathLike, str]
-VersionType = Union[str, int]
+PathLike = os.PathLike | str
+VersionType = str | int
 
 # If non-None, always enter this for yes (True)/no (False) prompts
 _always_answer = None
@@ -358,7 +358,7 @@ def SourceAsRoot(
 
 
 def find_replace_in_repo(
-    repo_path: str, filepaths: Union[str, list[str]], find_str: str, replace_str: str
+    repo_path: str, filepaths: str | list[str], find_str: str, replace_str: str
 ):
     """
     When loading models from external repos, sometimes small modifications
@@ -465,7 +465,7 @@ class ModelZooAssetConfig:
         )
 
     def get_relative_model_asset_path(
-        self, model_id: str, version: Union[int, str], file_name: Path | str
+        self, model_id: str, version: int | str, file_name: Path | str
     ) -> Path:
         return Path(
             self.model_asset_folder.lstrip("/").format(
@@ -474,7 +474,7 @@ class ModelZooAssetConfig:
         ) / Path(file_name)
 
     def get_relative_dataset_asset_path(
-        self, dataset_id: str, version: Union[int, str], file_name: Path | str
+        self, dataset_id: str, version: int | str, file_name: Path | str
     ) -> Path:
         return Path(
             self.dataset_asset_folder.lstrip("/").format(
@@ -486,14 +486,14 @@ class ModelZooAssetConfig:
         return f"{self.asset_url.rstrip('/')}/{(file.as_posix() if isinstance(file, Path) else file).lstrip('/')}"
 
     def get_model_asset_url(
-        self, model_id: str, version: Union[int, str], file_name: Path | str
+        self, model_id: str, version: int | str, file_name: Path | str
     ) -> str:
         return self.get_asset_url(
             self.get_relative_model_asset_path(model_id, version, file_name)
         )
 
     def get_dataset_asset_url(
-        self, dataset_id: str, version: Union[int, str], file_name: Path | str
+        self, dataset_id: str, version: int | str, file_name: Path | str
     ) -> str:
         return self.get_asset_url(
             self.get_relative_dataset_asset_path(dataset_id, version, file_name)
@@ -1132,8 +1132,8 @@ def zip_model(output_dir_path: PathLike, model_path: PathLike) -> str:
 def callback_with_retry(
     num_retries: int,
     callback: Callable,
-    *args: Optional[Any],
-    **kwargs: Optional[Any],
+    *args: Any | None,
+    **kwargs: Any | None,
 ) -> Any:
     """Allow retries when running provided function."""
     if num_retries == 0:
@@ -1172,4 +1172,4 @@ def qaihm_temp_dir(debug_base_dir: str | None = None):
             yield tempdir
 
 
-PathType = Union[str, Path, CachedWebAsset]
+PathType = str | Path | CachedWebAsset

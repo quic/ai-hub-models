@@ -9,11 +9,10 @@ import importlib
 import importlib.metadata
 import os
 import struct
-from collections.abc import Collection, Iterable
+from collections.abc import Collection
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
-from typing import Any, cast
 
 import numpy as np
 import onnx
@@ -25,6 +24,11 @@ from onnx.helper import (
     tensor_dtype_to_string,
 )
 from packaging.version import parse as parse_version
+
+from qai_hub_models.utils.runtime_torch_wrapper import (
+    ModelIODetails,
+    kwargs_to_dict,
+)
 
 
 @dataclass
@@ -120,45 +124,6 @@ def safe_torch_onnx_export(*args, **kwargs):
         raise
 
 
-def kwargs_to_dict(argnames: Iterable[str], *args, **kwargs) -> dict[str, Any]:
-    """
-    Convert args + kwargs to a key / value dictionary.
-
-    Parameters
-    ----------
-        argnames
-            Argument names, in order. Orderd arguments will be mapped to these names.
-
-        args
-            Ordered arguments.
-
-        kwargs
-            Keyword arguments.
-
-    Returns
-    -------
-        Ordered key / value dictionary, in order of "argnames".
-
-    Raises
-    ------
-        ValueError if an input is passed twice or an argname is missing.
-    """
-    input_dict: dict[str, Any] = {}
-    for idx, input_name in enumerate(argnames):
-        if len(args) > idx:
-            input_val = args[idx]
-            if input_name in kwargs:
-                raise ValueError(
-                    f"Cannot pass input {input_name} twice (as a positional arg and a keyword arg)."
-                )
-        elif input_name in kwargs:
-            input_val = kwargs[input_name]
-        else:
-            raise ValueError(f"Missing input {input_name}")
-        input_dict[input_name] = input_val
-    return input_dict
-
-
 def mock_torch_onnx_inference(
     session: onnxruntime.InferenceSession,
     *args: torch.Tensor,
@@ -176,15 +141,6 @@ def mock_torch_onnx_inference(
     if len(output_tensors) == 1:
         return output_tensors[0]
     return output_tensors
-
-
-def _to_scale_offset(scale: float, zero_point: int) -> tuple[float, int]:
-    """
-    Convert from ONNX-style scale/zero-point to QNN-style scale/offset.
-    ONNX: q = (d / s) + zp
-    QNN:  q = (d / s) - o
-    """
-    return (scale, -1 * zero_point)
 
 
 # Initializer proto definition: https://github.com/onnx/onnx/blob/main/onnx/onnx.proto#L499
@@ -217,11 +173,11 @@ def _extract_zero_point(initializer: onnx.TensorProto) -> int:
     )
 
 
-def _extract_qdq_scale_offset(
+def _extract_qdq_scale_zp(
     onnx_model: onnx.GraphProto,
     initializer_indices: dict[str, int],
     qdq_node: onnx.NodeProto,
-) -> tuple[float, int]:
+) -> ModelIODetails.QDQParams:
     scale = _extract_scale(
         onnx_model.initializer[initializer_indices[qdq_node.input[1]]]
     )
@@ -235,45 +191,49 @@ def _extract_qdq_scale_offset(
         if optional_zero_point_index < len(qdq_node.input)
         else 0
     )
-    return _to_scale_offset(scale, zero_point)
+    return ModelIODetails.QDQParams(scale, zero_point)
 
 
 def extract_io_types_from_onnx_model(
     onnx_model: onnx.ModelProto | onnxruntime.InferenceSession,
 ) -> tuple[
-    dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]],
-    dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]],
+    dict[str, ModelIODetails],
+    dict[str, ModelIODetails],
 ]:
     """
-    For a model with quantized IO, return the quantization parameters (scale, offset) for every
-    quantized input and output.
+    Extract I/O details from an ONNX model.
+
+    Parameters
+    ----------
+    onnx.ModelProto | onnxruntime.InferenceSession
+        ONNX model protobuf, or ONNX inference session.
 
     Returns
     -------
-        dict[name, tuple[shape, dtype, qdq params or None]]
+    dict[str, ModelIODetails]
+        Model Input Details
+
+    dict[str, ModelIODetails]
+        Model Output Details
     """
-    inputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
-    outputs: dict[str, tuple[tuple[int, ...], np.dtype, tuple[float, int] | None]]
+    inputs: dict[str, ModelIODetails]
+    outputs: dict[str, ModelIODetails]
     if isinstance(onnx_model, onnxruntime.InferenceSession):
         # extract from inference session
         input_names = {i.name for i in onnx_model.get_inputs()}
         output_names = {output.name for output in onnx_model.get_outputs()}
 
         inputs = {
-            i.name: (
-                tuple(i.shape),
-                ORT_TENSOR_STR_TO_NP_TYPE[i.type],
-                None,
+            i.name: ModelIODetails(
+                tuple(i.shape), ORT_TENSOR_STR_TO_NP_TYPE[i.type], None
             )
             for i in onnx_model.get_inputs()
         }
         outputs = {
-            output.name: (
-                tuple(output.shape),
-                ORT_TENSOR_STR_TO_NP_TYPE[output.type],
-                None,
+            o.name: ModelIODetails(
+                tuple(o.shape), ORT_TENSOR_STR_TO_NP_TYPE[o.type], None
             )
-            for output in onnx_model.get_outputs()
+            for o in onnx_model.get_outputs()
         }
     else:
         # extract from onnx GraphProto
@@ -282,8 +242,9 @@ def extract_io_types_from_onnx_model(
         initializer_indices = {
             init.name: idx for idx, init in enumerate(onnx_model.graph.initializer)
         }
+
         inputs = {
-            i.name: (
+            i.name: ModelIODetails(
                 tuple(x.dim_value for x in i.type.tensor_type.shape.dim),
                 tensor_dtype_to_np_dtype(i.type.tensor_type.elem_type),
                 None,
@@ -291,12 +252,12 @@ def extract_io_types_from_onnx_model(
             for i in onnx_model.graph.input
         }
         outputs = {
-            output.name: (
-                tuple(x.dim_value for x in output.type.tensor_type.shape.dim),
-                tensor_dtype_to_np_dtype(output.type.tensor_type.elem_type),
+            o.name: ModelIODetails(
+                tuple(x.dim_value for x in o.type.tensor_type.shape.dim),
+                tensor_dtype_to_np_dtype(o.type.tensor_type.elem_type),
                 None,
             )
-            for output in onnx_model.graph.output
+            for o in onnx_model.graph.output
         }
 
         # Extract I/O QDQ Params
@@ -304,7 +265,7 @@ def extract_io_types_from_onnx_model(
             if node.op_type == "EPContext":
                 for input_name in node.input:
                     if input_name in input_names:
-                        dtype = inputs[input_name][0]
+                        dtype = inputs[input_name].dtype
                         if dtype in QUANTIZED_IO_TYPES:
                             print(
                                 f"Warning: Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
@@ -313,7 +274,7 @@ def extract_io_types_from_onnx_model(
 
                 for output_name in node.output:
                     if output_name in output_names:
-                        dtype = outputs[output_name][0]
+                        dtype = outputs[output_name].dtype
                         if dtype in QUANTIZED_IO_TYPES:
                             print(
                                 f"Warning: Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
@@ -322,31 +283,38 @@ def extract_io_types_from_onnx_model(
 
             if node.op_type == "DequantizeLinear":
                 if node.input[0] in input_names:
-                    inputs[node.input[0]] = (
-                        inputs[node.input[0]][0],
-                        inputs[node.input[0]][1],
-                        _extract_qdq_scale_offset(
-                            onnx_model.graph, initializer_indices, node
-                        ),
+                    inputs[node.input[0]].qdq_params = _extract_qdq_scale_zp(
+                        onnx_model.graph, initializer_indices, node
                     )
             elif node.op_type == "QuantizeLinear" and node.output[0] in output_names:
-                outputs[node.output[0]] = (
-                    outputs[node.output[0]][0],
-                    outputs[node.output[0]][1],
-                    _extract_qdq_scale_offset(
-                        onnx_model.graph, initializer_indices, node
-                    ),
+                outputs[node.output[0]].qdq_params = _extract_qdq_scale_zp(
+                    onnx_model.graph, initializer_indices, node
                 )
 
     return inputs, outputs
 
 
-def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto):
-    # Limit the number of nodes to check, so we don't do a string eval on models with a large number of layers.
-    #
-    # A model is pre-compiled if it looks like this:
-    # Input -> Optional QDQ nodes -> EP Context Node -> Optional QDQ nodes -> Output
-    # Therefore it can have a maximum of 2 nodes (Q + DQ) per input and output, and 1 EP node.
+def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto) -> bool:
+    """
+    Determines if a model is pre-compiled to run on HTP via QAIRT.
+
+    Parameters
+    ----------
+    onnx_model
+        ONNX Model proto
+
+    Returns
+    -------
+    bool
+        True if a model is pre-compiled.
+
+    Notes
+    -----
+    A model is pre-compiled if it looks like this:
+    Input -> Optional QDQ nodes -> EP Context Node -> Optional QDQ nodes -> Output
+    Therefore it can have a maximum of 2 nodes (Q + DQ) per input and output, and 1 EP node.
+    """
+    # Only check the max number number of nodes allowed in a precompiled QDQ model.
     max_num_nodes = (len(onnx_model.graph.input) + len(onnx_model.graph.output)) * 2 + 1
     return len(onnx_model.graph.node) <= max_num_nodes and any(
         x.op_type == "EPContext" for x in onnx_model.graph.node
@@ -364,22 +332,29 @@ def verify_onnx_export_is_compatible_with_ai_hub(
     pkg_versions: dict[str, str] | None = None,
 ):
     """
-    Throws an exception if onnx:
-        * is not installed
-        * is too new (produces an IR version that AI Hub cannot handle)
+    Verifies the ONNX version installed on this machine can be used to export
+    model files that are compatible with AI Hub.
 
     Runs only once then caches the result for this python session.
+
+    Parameters
+    ----------
+    pkg_versions
+        Installed pip package versions. If none, extracts packages from current environment.
+
+    Raises
+    ------
+    ValueError
+        If onnx:
+        * is not installed
+        * is too new (produces an IR version that AI Hub cannot handle)
     """
     global ONNX_ENV_CHECKED  # noqa: PLW0603
     global ONNX_ENV_ERROR  # noqa: PLW0603
     if not ONNX_ENV_CHECKED:
         if pkg_versions is None:
             pkgs = importlib.metadata.distributions()
-            # We use dist.metadata['Name'] here instead of dist.name because
-            # dist.name is not available with python 3.9.
-            pkg_versions = {
-                cast(str, p.metadata["Name"]): p.metadata["Version"] for p in pkgs
-            }
+            pkg_versions = {p.name: p.version for p in pkgs}
 
         if ONNX_PACKAGE_NAME not in pkg_versions:
             ONNX_ENV_ERROR = (

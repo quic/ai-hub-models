@@ -38,8 +38,9 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_d
 from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.dataset_util import DataLoader, dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.onnx_helpers import kwargs_to_dict, mock_torch_onnx_inference
-from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
+from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx.torch_wrapper import OnnxSessionTorchWrapper
+from qai_hub_models.utils.runtime_torch_wrapper import kwargs_to_dict
 
 
 def ensure_aimet_onnx_installed(
@@ -76,7 +77,7 @@ def ensure_min_aimet_onnx_version(expected_version: str, model_id: str | None = 
     ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
-            f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {str(aimet_onnx.__version__)}\n"
+            f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {aimet_onnx.__version__!s}\n"
             f"Please run `pip install aimet-onnx=={expected_version}`"
         )
 
@@ -85,7 +86,7 @@ def ensure_max_aimet_onnx_version(expected_version: str, model_id: str | None = 
     ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
-            f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {str(aimet_onnx.__version__)}\n"
+            f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {aimet_onnx.__version__!s}\n"
             f"Please run `pip install transformers=={expected_version}`"
         )
 
@@ -196,7 +197,9 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         assert self.quant_sim is not None
 
         def _forward(session, _):
-            wrapper = OnnxSessionTorchWrapper(session, quantize_io=False)
+            wrapper = OnnxSessionTorchWrapper(
+                session, quantize_user_input=None, dequantize_model_output=None
+            )
             assert data.batch_size is not None
             for i, batch in tqdm(enumerate(data), total=num_batches):
                 if num_batches and i * data.batch_size >= num_batches:

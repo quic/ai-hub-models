@@ -1,0 +1,92 @@
+diff --git a/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py b/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
+index 6d43a63..7c0b3cb 100644
+--- a/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
++++ b/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
+@@ -1,11 +1,9 @@
+ # Copyright (c) OpenMMLab. All rights reserved.
+ import torch
+ 
+-from mmdet.core.bbox import BaseBBoxCoder
+-from mmdet.core.bbox.builder import BBOX_CODERS
++from mmdet.models.task_modules import BaseBBoxCoder
+ 
+ 
+-@BBOX_CODERS.register_module()
+ class CenterPointBBoxCoder(BaseBBoxCoder):
+     """Bbox coder for CenterPoint.
+ 
+diff --git a/mmdet3d/models/backbones/resnet.py b/mmdet3d/models/backbones/resnet.py
+index 1b55219..0060cd5 100644
+--- a/mmdet3d/models/backbones/resnet.py
++++ b/mmdet3d/models/backbones/resnet.py
+@@ -4,11 +4,8 @@ import torch.utils.checkpoint as checkpoint
+ from torch import nn
+ 
+ from mmcv.cnn.bricks.conv_module import ConvModule
+-from mmdet.models import BACKBONES
+ from mmdet.models.backbones.resnet import BasicBlock, Bottleneck
+ 
+-
+-@BACKBONES.register_module()
+ class CustomResNet(nn.Module):
+ 
+     def __init__(
+@@ -123,7 +120,6 @@ class BasicBlock3D(nn.Module):
+         return self.relu(x)
+ 
+ 
+-@BACKBONES.register_module()
+ class CustomResNet3D(nn.Module):
+ 
+     def __init__(
+diff --git a/mmdet3d/models/necks/fpn.py b/mmdet3d/models/necks/fpn.py
+index 33e8108..53cf282 100644
+--- a/mmdet3d/models/necks/fpn.py
++++ b/mmdet3d/models/necks/fpn.py
+@@ -2,12 +2,9 @@
+ import torch.nn as nn
+ import torch.nn.functional as F
+ from mmcv.cnn import ConvModule
+-from mmcv.runner import BaseModule, auto_fp16
++from mmengine.model import BaseModule
+ 
+-from ..builder import NECKS
+ 
+-
+-@NECKS.register_module()
+ class CustomFPN(BaseModule):
+     r"""Feature Pyramid Network.
+ 
+@@ -150,7 +147,6 @@ class CustomFPN(BaseModule):
+                     inplace=False)
+                 self.fpn_convs.append(extra_fpn_conv)
+ 
+-    @auto_fp16()
+     def forward(self, inputs):
+         """Forward function."""
+         assert len(inputs) == len(self.in_channels)
+diff --git a/mmdet3d/models/necks/lss_fpn.py b/mmdet3d/models/necks/lss_fpn.py
+index c38cab9..f15468c 100644
+--- a/mmdet3d/models/necks/lss_fpn.py
++++ b/mmdet3d/models/necks/lss_fpn.py
+@@ -5,11 +5,9 @@ import torch.nn as nn
+ from mmcv.cnn import build_norm_layer
+ 
+ from torch.utils.checkpoint import checkpoint
+-from mmdet3d.models.backbones.resnet import ConvModule
+-from mmdet.models import NECKS
++from mmcv.cnn.bricks.conv_module import ConvModule
+ 
+ 
+-@NECKS.register_module()
+ class FPN_LSS(nn.Module):
+ 
+     def __init__(self,
+@@ -101,7 +99,6 @@ class FPN_LSS(nn.Module):
+             x = self.up2(x)
+         return x
+ 
+-@NECKS.register_module()
+ class LSSFPN3D(nn.Module):
+     def __init__(self,
+                  in_channels,

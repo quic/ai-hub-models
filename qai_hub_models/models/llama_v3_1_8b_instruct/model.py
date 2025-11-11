@@ -17,7 +17,7 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base_AIMETOnnx,
 )
 from qai_hub_models.models._shared.llm.model import (
-    MainLLMInputType,
+    LLMIOType,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
@@ -39,7 +39,7 @@ HF_REPO_NAME = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
-MIN_MEMORY_RECOMMENDED = 80
+MIN_MEMORY_RECOMMENDED = 150
 
 DEFAULT_CHECKPOINT = {Precision.w4a16: "llama31_ckpt_w4a16"}
 DEFAULT_PRECISION = Precision.w4a16
@@ -56,7 +56,7 @@ class Llama3_1_8B(Llama3Base):
         **kwargs,
     ):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            checkpoint=checkpoint,  # type: ignore[misc]
             *args,  # noqa: B026
             **kwargs,
         )
@@ -79,7 +79,6 @@ class Llama3_1_8B(Llama3Base):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
-        main_input_type: MainLLMInputType = MainLLMInputType.input_ids,
         _skip_optimizations: list[str] | None = None,
     ) -> Llama3_1_8B:
         """
@@ -110,7 +109,6 @@ class Llama3_1_8B(Llama3Base):
             context_length=context_length,
             host_device=host_device,
             load_pretrained=load_pretrained,
-            main_input_type=main_input_type,
             _skip_optimizations=_skip_optimizations,
         )
 
@@ -123,7 +121,7 @@ class Llama3_1_8B(Llama3Base):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        main_input_name: str = MainLLMInputType.input_ids.name,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -132,14 +130,14 @@ class Llama3_1_8B(Llama3Base):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
-            main_input_name=main_input_name,
+            llm_io_type=llm_io_type,
         )
 
 
 class Llama3_1_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc] # noqa: B026
+            checkpoint=checkpoint,  # type: ignore[misc]
             *args,  # noqa: B026
             **kwargs,
         )
@@ -170,13 +168,13 @@ class Llama3_1_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
             if precision not in SUPPORTED_PRECISIONS:
                 available_precisions = [str(p) for p in SUPPORTED_PRECISIONS]
                 raise ValueError(
-                    f"This model is not supported for {str(precision)} precision. "
+                    f"This model is not supported for {precision!s} precision. "
                     f"Models are available in following precisions: {','.join(available_precisions)}."
                 )
             if precision not in DEFAULT_CHECKPOINT:
                 available_checkpoints = [str(p) for p in DEFAULT_CHECKPOINT]
                 raise ValueError(
-                    f"No checkpoint is available for this model in {str(precision)} precision. If you would "
+                    f"No checkpoint is available for this model in {precision!s} precision. If you would "
                     f"like to continue with this precision, please generate a local quantized checkpoint. "
                     f"Checkpoints are available in the following precisions: {','.join(available_checkpoints)}."
                 )
@@ -195,7 +193,7 @@ class Llama3_1_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
                     context_length=context_length,
                     export_sequence_lengths=[sequence_length],
                     host_device=host_device,
-                    main_input_type=fp_model.main_input_type,
+                    llm_io_type=fp_model.llm_io_type,
                 )
 
                 cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
@@ -218,7 +216,7 @@ class Llama3_1_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
-        main_input_name: str = MainLLMInputType.input_ids.name,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -227,5 +225,5 @@ class Llama3_1_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
-            main_input_name=main_input_name,
+            llm_io_type=llm_io_type,
         )

@@ -64,7 +64,7 @@ class BGNet(BaseModel):
             segmented mask per class: Shape [batch, classes, height, width]
         """
         image = normalize_image_torchvision(image)
-        _, _, res, e = self.model(image)
+        _, _, res, _e = self.model(image)
         return res
 
     def _sample_inputs_impl(

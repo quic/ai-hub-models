@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from inspect import signature
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np

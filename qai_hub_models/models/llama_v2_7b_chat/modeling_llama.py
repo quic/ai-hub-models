@@ -29,7 +29,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional, Union
 
 import torch
 import torch.utils.checkpoint
@@ -92,7 +91,7 @@ def _expand_mask(
     mask: torch.Tensor,
     dtype: torch.dtype,
     mask_neg: float = -100.0,
-    tgt_len: Optional[int] = None,
+    tgt_len: int | None = None,
 ):
     """Expands attention_mask from `[bsz, seq_len]` to `[bsz, 1, tgt_seq_len, src_seq_len]`."""
     bsz, src_len = mask.size()
@@ -384,12 +383,12 @@ class LlamaAttention(nn.Module):
     def forward_sha(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[tuple[torch.Tensor]] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: tuple[torch.Tensor] | None = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None]:
         bsz, q_len, _ = hidden_states.size()
 
         hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
@@ -434,7 +433,9 @@ class LlamaAttention(nn.Module):
                 present_key_value = (
                     tuple(
                         cat(*present)
-                        for cat, present in zip(self.cache_cat, present_key_value)
+                        for cat, present in zip(
+                            self.cache_cat, present_key_value, strict=False
+                        )
                     )
                     if use_cache
                     else None
@@ -450,10 +451,12 @@ class LlamaAttention(nn.Module):
             else:
                 past_key, past_value = past_key_value
             key_states = [
-                torch.cat([pk, k], dim=3) for pk, k in zip(past_key, key_states)
+                torch.cat([pk, k], dim=3)
+                for pk, k in zip(past_key, key_states, strict=False)
             ]
             value_states = [
-                torch.cat([pv, v], dim=2) for pv, v in zip(past_value, value_states)
+                torch.cat([pv, v], dim=2)
+                for pv, v in zip(past_value, value_states, strict=False)
             ]
 
         if not self.return_new_key_value_only:
@@ -463,7 +466,7 @@ class LlamaAttention(nn.Module):
 
         attn_weights = [
             torch.matmul(q, k) / math.sqrt(self.head_dim)
-            for q, k in zip(query_states, key_states)
+            for q, k in zip(query_states, key_states, strict=False)
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
@@ -484,7 +487,10 @@ class LlamaAttention(nn.Module):
             )
             for aw in attn_weights
         ]
-        attn_output = [torch.matmul(aw, v) for aw, v in zip(attn_weights, value_states)]
+        attn_output = [
+            torch.matmul(aw, v)
+            for aw, v in zip(attn_weights, value_states, strict=False)
+        ]
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(
@@ -511,12 +517,12 @@ class LlamaAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[tuple[torch.Tensor]] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: tuple[torch.Tensor] | None = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-    ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None]:
         bsz, q_len, _ = hidden_states.size()
 
         query_states = (
@@ -632,14 +638,12 @@ class LlamaDecoderLayer(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[tuple[torch.Tensor]] = None,
-        output_attentions: Optional[bool] = False,
-        use_cache: Optional[bool] = False,
-    ) -> tuple[
-        torch.FloatTensor, Optional[tuple[torch.FloatTensor, torch.FloatTensor]]
-    ]:
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: tuple[torch.Tensor] | None = None,
+        output_attentions: bool | None = False,
+        use_cache: bool | None = False,
+    ) -> tuple[torch.FloatTensor, tuple[torch.FloatTensor, torch.FloatTensor] | None]:
         """
         Args:
             hidden_states (`torch.FloatTensor`): input to the layer of shape `(batch, seq_len, embed_dim)`
@@ -880,15 +884,15 @@ class LlamaModel(LlamaPreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[list[torch.FloatTensor]] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-    ) -> Union[tuple, BaseModelOutputWithPast]:
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_values: list[torch.FloatTensor] | None = None,
+        inputs_embeds: torch.FloatTensor | None = None,
+        use_cache: bool | None = None,
+        output_attentions: bool | None = None,
+        output_hidden_states: bool | None = None,
+        return_dict: bool | None = None,
+    ) -> tuple | BaseModelOutputWithPast:
         output_attentions = (
             output_attentions
             if output_attentions is not None
@@ -1148,16 +1152,16 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor = None,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[list[torch.FloatTensor]] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-    ) -> Union[tuple, CausalLMOutputWithPast]:
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_values: list[torch.FloatTensor] | None = None,
+        inputs_embeds: torch.FloatTensor | None = None,
+        labels: torch.LongTensor | None = None,
+        use_cache: bool | None = None,
+        output_attentions: bool | None = None,
+        output_hidden_states: bool | None = None,
+        return_dict: bool | None = None,
+    ) -> tuple | CausalLMOutputWithPast:
         r"""
         Args:
             labels: (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -1248,15 +1252,15 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
             if self.return_top_k > 0:
                 probs, indices = self.logit_warper(logits)
-                output = (probs, indices) + outputs[1:]
-                return ((loss,) + output) if loss is not None else output
+                output = (probs, indices, *outputs[1:])
+                return ((loss, *output)) if loss is not None else output
         else:
             logits = hidden_states
         ### ------- QCOM EDITS ENDS ------- ###
 
         if not return_dict:
-            output = (logits,) + outputs[1:]
-            return (loss,) + output if loss is not None else output
+            output = (logits, *outputs[1:])
+            return (loss, *output) if loss is not None else output
 
         return CausalLMOutputWithPast(
             loss=loss,

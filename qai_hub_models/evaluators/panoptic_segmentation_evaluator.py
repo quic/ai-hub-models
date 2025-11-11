@@ -171,10 +171,12 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
         pred_segms = {el["id"]: el for el in pred_segments_info}
 
         # Update areas from masks
-        for seg_id, count in zip(*np.unique(pred_mask, return_counts=True)):
+        for seg_id, count in zip(
+            *np.unique(pred_mask, return_counts=True), strict=False
+        ):
             if seg_id in pred_segms and seg_id != VOID:
                 pred_segms[seg_id]["area"] = int(count)
-        for seg_id, count in zip(*np.unique(gt_mask, return_counts=True)):
+        for seg_id, count in zip(*np.unique(gt_mask, return_counts=True), strict=False):
             if seg_id in gt_segms and seg_id != VOID:
                 gt_segms[seg_id]["area"] = int(count)
 
@@ -182,7 +184,7 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
         pan_gt_pred = gt_mask.astype(np.uint64) * OFFSET + pred_mask.astype(np.uint64)
         gt_pred_map = {}
         labels, labels_cnt = np.unique(pan_gt_pred, return_counts=True)
-        for label, intersection in zip(labels, labels_cnt):
+        for label, intersection in zip(labels, labels_cnt, strict=False):
             gt_id = label // OFFSET
             pred_id = label % OFFSET
             if gt_id in gt_segms and pred_id in pred_segms:

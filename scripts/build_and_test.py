@@ -11,7 +11,6 @@ import os
 import sys
 import textwrap
 from collections.abc import Callable
-from typing import Optional
 
 from tasks.aws import REPO_ROOT, ValidateAwsCredentialsTask
 from tasks.changes import (
@@ -138,7 +137,7 @@ RELEASE_REPO_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "repository")
 PRIVATE_WHEEL_DIR = os.path.join(BUILD_ROOT, "wheel")
 
 
-def get_test_venv_wheel_dir() -> Optional[str]:
+def get_test_venv_wheel_dir() -> str | None:
     """
     Get the directory with built wheels that should be used for testing.
     The wheel will exists so long as install_deps is a dependency of the current task.
@@ -156,13 +155,13 @@ class TaskLibrary:
     def __init__(
         self,
         python_executable: str,
-        venv_path: Optional[str],
+        venv_path: str | None,
     ) -> None:
         self.python_executable = python_executable
         self.venv_path = venv_path
 
     @staticmethod
-    def to_dot(highlight: Optional[list[str]] = None) -> str:
+    def to_dot(highlight: list[str] | None = None) -> str:
         elements: list[str] = []
         for tsk in ALL_TASKS:
             task_attrs: list[str] = []
@@ -347,7 +346,7 @@ class TaskLibrary:
     @task
     def clean_pip(self, plan: Plan) -> str:
         class CleanPipTask(Task):
-            def __init__(self, venv_path: Optional[str]) -> None:
+            def __init__(self, venv_path: str | None) -> None:
                 super().__init__("Deleting python packages")
                 self.venv_path = venv_path
 
@@ -461,7 +460,7 @@ class TaskLibrary:
                 print(f"Models to run tests ({len(models_to_run_tests)})")
                 for model in models_to_run_tests:
                     print(f"   {model}")
-                print("")
+                print()
                 print(f"Models to test export ({len(models_to_test_export)})")
                 for model in models_to_test_export:
                     print(f"   {model}")

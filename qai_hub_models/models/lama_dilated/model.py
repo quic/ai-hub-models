@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from importlib import reload
 
 import torch
@@ -23,9 +24,13 @@ from qai_hub_models.utils.asset_loaders import (
 LAMA_SOURCE_REPOSITORY = "https://github.com/advimman/lama"
 LAMA_SOURCE_REPO_COMMIT = "7dee0e4a3cf5f73f86a820674bf471454f52b74f"
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
 DEFAULT_WEIGHTS = "lama-dilated_celeba-hq"
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
+LAMA_DILATED_SOURCE_PATCHES = [
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "patches/remove_albumentations.diff")
+    )
+]
 
 
 class LamaDilated(RepaintModel):
@@ -87,7 +92,11 @@ def _load_lama_dilated_source_model_from_weights(weights_name: str) -> torch.nn.
     config_url = _get_config_url()
 
     with SourceAsRoot(
-        LAMA_SOURCE_REPOSITORY, LAMA_SOURCE_REPO_COMMIT, MODEL_ID, MODEL_ASSET_VERSION
+        LAMA_SOURCE_REPOSITORY,
+        LAMA_SOURCE_REPO_COMMIT,
+        MODEL_ID,
+        MODEL_ASSET_VERSION,
+        source_repo_patches=LAMA_DILATED_SOURCE_PATCHES,
     ):
         # This repository has a top-level "models", which is common. We
         # explicitly reload it in case it has been loaded and cached by another

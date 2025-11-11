@@ -10,7 +10,7 @@ import os
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 
@@ -68,25 +68,22 @@ BASE_NAME = "llama_v2_7b_chat"
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
+    device: hub.Device,
     model_name: str = MODEL_ID,
     model_asset_version: int = MODEL_ASSET_VERSION,
-    components: Optional[list[str]] = None,
+    components: list[str] | None = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     target_runtime: TargetRuntime = TargetRuntime.GENIE,
     compile_options: str = "",
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
 ) -> (
-    Mapping[
-        str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-    ]
+    Mapping[str, tuple[hub.LinkJob, hub.ProfileJob | None, hub.InferenceJob | None]]
     | list[str]
 ):
     """
@@ -103,16 +100,13 @@ def export_model(
 
     Parameters
     ----------
+    device
+        Device for which to export the model (e.g. hub.Device("Samsung Galaxy S25")).
+        Full list of available devices can be found by running `hub.get_devices()`.
     model_name
         Model name.
     model_asset_version
         Identifier used as a cache key to store the model asset.
-    device
-        Device for which to export the model.
-        Full list of available devices can be found by running `hub.get_devices()`.
-        Defaults to DEFAULT_DEVICE if not specified.
-    chipset
-        Specify the device in terms of chipset instead.
     model_name
         Unique name for the model
     model_id
@@ -167,7 +161,6 @@ def export_model(
             "llama_v2_7b_chat",
             "Llama-v2-7B-Chat",
             device,
-            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -182,14 +175,6 @@ def export_model(
 
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
-
-    hub_devices = hub.get_devices(
-        name=device if device and not chipset else "",
-        attributes=f"chipset:{chipset}" if chipset else [],
-    )
-
-    # Pick a device
-    hub_device = hub_devices[-1]
 
     compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
     profile_options_per_sub_component: dict[str, str] = {}
@@ -242,7 +227,7 @@ def export_model(
             submitted_compile_job = hub.submit_compile_job(
                 model=current_model,
                 input_specs=input_spec,
-                device=hub_device,
+                device=device,
                 name=f"{model_name}_{sub_component_name}",
                 calibration_data=quant_calibration_data,
                 options=model_compile_options,
@@ -287,7 +272,7 @@ def export_model(
                 print(f"Profiling model {component_name} on a hosted device.")
                 submitted_profile_job = hub.submit_profile_job(
                     model=hub_model,
-                    device=hub_device,
+                    device=device,
                     name=f"{model_name}_{sub_component_name}",
                     options=profile_options_all,
                 )
@@ -313,7 +298,7 @@ def export_model(
                 submitted_inference_job = hub.submit_inference_job(
                     model=link_jobs[component_name].get_target_model(),
                     inputs=sample_inputs,
-                    device=hub_device,
+                    device=device,
                     name=f"{model_name}_{sub_component_name}",
                     options=profile_options_all,
                 )
@@ -360,7 +345,7 @@ def export_model(
 
     if not skip_summary:
         print_on_target_demo_cmd(
-            link_jobs.values(), Path(__file__).parent.resolve(), hub_device
+            link_jobs.values(), Path(__file__).parent.resolve(), device
         )
 
     print(
@@ -378,7 +363,7 @@ def export_model(
     }
 
 
-def main(argv: Optional[list[str]] = None):
+def main(argv: list[str] | None = None):
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,

@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-import sys
-
 import torch
 
+from qai_hub_models.extern.basicsr.archs.rrdbnet_arch import RRDBNet
 from qai_hub_models.models._shared.super_resolution.model import (
     DEFAULT_SCALE_FACTOR,
     SuperResolutionModel,
@@ -84,20 +83,6 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
         MODEL_ID,
         MODEL_ASSET_VERSION,
     ):
-        # -----
-        # Patch torchvision for out of date basicsr package that requires torchvision 1.16
-        # but does not have its requirements set correctly
-        try:
-            # This is not available after torchvision 1.16, it was renamed to "functional"
-            import torchvision.transforms.functional_tensor
-        except ImportError:
-            import torchvision.transforms.functional
-
-            sys.modules["torchvision.transforms.functional_tensor"] = (
-                torchvision.transforms.functional
-            )
-        # ----
-
         # necessary import. `archs` comes from the realesrgan repo.
         if weights_name == DEFAULT_WEIGHTS:  # "RealESRGAN_x4plus"
             scale_factor = 4
@@ -105,8 +90,6 @@ def _load_realesrgan_source_model_from_weights(weights_name: str) -> torch.nn.Mo
             scale_factor = 2
         else:
             raise ValueError(f"Unknown weights name for model creation: {weights_name}")
-
-        from basicsr.archs.rrdbnet_arch import RRDBNet
 
         realesrgan_model = RRDBNet(
             num_in_ch=3,

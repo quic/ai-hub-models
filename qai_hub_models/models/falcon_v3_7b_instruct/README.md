@@ -18,6 +18,7 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[falcon-v3-7b-instruct]"
 ```
 
@@ -36,6 +37,7 @@ significantly but it not strictly required.
 
 Install the GPU package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[falcon-v3-7b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.14.0/aimet_onnx-2.14.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
 ```
 

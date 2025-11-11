@@ -45,7 +45,7 @@ class CamouflageEvaluator(BaseEvaluator):
         pred_np = postprocess_masks(pred_images, gt_images.shape[-2:])
         gt_np = gt_images.cpu().numpy().astype(np.uint8)
 
-        for pred, gt in zip(pred_np, gt_np):
+        for pred, gt in zip(pred_np, gt_np, strict=False):
             self.sm.step(pred=pred, gt=gt, normalize=True)
             self.wfm.step(pred=pred, gt=gt, normalize=True)
             self.em.step(pred=pred, gt=gt, normalize=True)

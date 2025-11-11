@@ -15,7 +15,6 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import piqaro
 import torch
@@ -23,7 +22,12 @@ from transformers import PretrainedConfig
 
 from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
+    LLMInstantiationType,
+    MainLLMInputType,
+)
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_3b_instruct import MODEL_ID
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -46,7 +50,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-OPT_METHODS = ["no_opt", "manual", "piqaro_torch", "piqaro_onnx"]
+OPT_METHODS = ["no_opt", "manual", "piqaro"]
 
 MODEL_NAME = "llama_v3_2_3b"
 
@@ -60,7 +64,7 @@ if __name__ == "__main__":
         "--opt",
         type=str,
         default="manual",
-        help="Optimization method. One of {OPT_METHODS}. Default is no_opt",
+        help=f"Optimization method. One of {OPT_METHODS}. Default is no_opt",
     )
     parser.add_argument(
         "--output-dir",
@@ -88,8 +92,16 @@ if __name__ == "__main__":
 
     assert args.opt in OPT_METHODS, f"Unsupported {args.opt}"
     skip_optimizations = None
-    if "piqaro" in args.opt or "no_opt" in args.opt:
+    if args.opt == "piqaro" or "no_opt" in args.opt:
         skip_optimizations = ["sha_attention", "rank4_rms_norm"]
+
+    compile_options = "--qnn_bin_conversion_via_model_library"
+    compile_options += " --qairt_version 2.38"
+    if args.opt == "piqaro":
+        compile_options += " --enable_piqaro"
+
+    link_options = " --qairt_version 2.38"
+    profile_options = " --qairt_version 2.38"
 
     trunc_name = "_trunc" if truncate_model else ""
     output_dir = args.output_dir or str(
@@ -113,8 +125,9 @@ if __name__ == "__main__":
             cls,
             sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
             context_length: int = DEFAULT_CONTEXT_LENGTH,
+            **kwargs,  # ignore precision and other args
         ) -> Llama3_2_3B:
-            hub_model_fp = cls(
+            return cls(
                 checkpoint=HF_REPO_NAME,
                 sequence_length=sequence_length,
                 context_length=context_length,
@@ -122,25 +135,23 @@ if __name__ == "__main__":
                 _skip_optimizations=skip_optimizations,
                 load_pretrained=False,
             )
-            if opt == "piqaro_torch":
-                dummy_input = tuple(make_torch_inputs(hub_model_fp.get_input_spec()))
-                optimized_fx_graph = piqaro.optimize(hub_model_fp, dummy_input)
-                hub_model_fp.model = optimized_fx_graph
-            return hub_model_fp
 
         @staticmethod
         def get_input_spec(
+            llm_config: dict,
             sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
             context_length: int = DEFAULT_CONTEXT_LENGTH,
+            main_input_name: str = MainLLMInputType.input_ids.name,
         ) -> InputSpec:
             num_layers = NUM_LAYERS_TRUNC if truncate_model else NUM_LAYERS
-            return Llama3Base._get_input_spec(
+            return LLMBase._get_input_spec(
                 num_hidden_layers=num_layers,
                 sequence_length=sequence_length,
                 context_length=context_length,
                 hidden_size=HIDDEN_SIZE,
                 num_key_value_heads=NUM_KEY_VALUE_HEADS,
                 num_attention_heads=NUM_ATTN_HEADS,
+                main_input_name=main_input_name,
             )
 
         def convert_to_hub_source_model(
@@ -150,8 +161,8 @@ if __name__ == "__main__":
             input_spec: InputSpec | None = None,
             check_trace: bool = True,
             external_onnx_weights: bool = False,
-            output_names: Optional[list[str]] = None,
-        ) -> Optional[str]:
+            output_names: list[str] | None = None,
+        ) -> str | None:
             """Convert to a AI Hub source model appropriate for the export method."""
 
             def apply_piqaro_onnx(onnx_model):
@@ -160,21 +171,22 @@ if __name__ == "__main__":
                 onnx_model, _ = onnxsim.simplify(onnx_model)
                 return piqaro.onnx.optimize(onnx_model)
 
-            onnx_transforms = apply_piqaro_onnx if args.opt == "piqaro_onnx" else None
+            onnx_transforms = apply_piqaro_onnx if args.opt == "piqaro" else None
             dummy_input = tuple(make_torch_inputs(input_spec))
             # Need to export to {output_path}/model.onnx
-            output_dir = Path(output_path)
+            output_dir = Path(output_path) / "llama_two_layer.onnx"
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_dir = export_torch_to_onnx_zip(
+            _ = export_torch_to_onnx_zip(
                 self,
-                output_dir / "model.onnx",
+                output_dir,
                 dummy_input,
                 input_names=list(input_spec.keys()),
                 output_names=output_names,
                 onnx_transforms=onnx_transforms,
                 skip_zip=True,
             )
-            return str(output_path)
+
+            return str(output_dir)
 
         @staticmethod
         def get_output_names() -> list[str]:
@@ -184,6 +196,21 @@ if __name__ == "__main__":
                 output_names.append(f"past_key_{layer}_out")
                 output_names.append(f"past_value_{layer}_out")
             return output_names
+
+        def get_qairt_context_graph_name(
+            self, split_index: int, num_splits: int
+        ) -> str:
+            """
+            Get the name of the QAIRT Context Graph applicable for the given sub-component.
+
+            Sequence length (ar...) and context length (cl...) in graph name
+            are semantically important to Genie
+            """
+            if self.sequence_length == 1:
+                instantiation_type = LLMInstantiationType.TOKEN_GENERATOR
+            else:
+                instantiation_type = LLMInstantiationType.PROMPT_PROCESSOR
+            return f"{instantiation_type.value}_ar{self.sequence_length}_cl{self.context_length}_{split_index + 1}_of_{num_splits}"
 
     model_cls = Llama3_2_PiQaro_FP
     model_name = MODEL_ID + f"_{args.opt}"
@@ -197,10 +224,14 @@ if __name__ == "__main__":
     logger.info(f"Split parameters: {num_splits=}, {num_layers_per_split=}")
 
     devices = [
-        "Snapdragon X Elite CRD",
-        "Samsung Galaxy S23 (Family)",
+        # "Snapdragon X Elite CRD",
+        # "Samsung Galaxy S23 (Family)",
         "Samsung Galaxy S24 (Family)",
     ]
+
+    onnx_export_dir = (
+        Path(__file__).resolve().parent / "build" / "llama_3_2_3b_2layer" / args.opt
+    )
 
     for i, device in enumerate(devices):
         # Disable for the first device, reuse for all other devices.
@@ -211,10 +242,15 @@ if __name__ == "__main__":
             model_asset_version=MODEL_ASSET_VERSION,
             num_splits=num_splits,
             num_layers_per_split=num_layers_per_split,
+            precision=Precision.float,
             device=device,
             output_dir=output_dir,
             _skip_optimizations=skip_optimizations,
             skip_inferencing=True,
             skip_downloading=True,
             model_cache_mode=cache,
+            compile_options=compile_options,
+            link_options=link_options,
+            profile_options=profile_options,
+            onnx_export_dir=output_dir,
         )

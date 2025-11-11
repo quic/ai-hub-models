@@ -102,7 +102,7 @@ def patched_ultryaltics_det_head_inference(
         self.anchors, self.strides = (
             bb.transpose(0, 1) for bb in make_anchors(boxes, self.stride, 0.5)
         )
-        self.shape = shape
+        self.shape = shape  # type: ignore[assignment]
 
     dbox = self.decode_bboxes(self.dfl(box), self.anchors.unsqueeze(0)) * self.strides
     return dbox, cls.sigmoid()

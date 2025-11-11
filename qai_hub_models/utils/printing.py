@@ -6,12 +6,11 @@
 from __future__ import annotations
 
 import os
-import sys
 from collections import Counter
 from collections.abc import Iterable
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import numpy as np
 import qai_hub as hub
@@ -49,11 +48,11 @@ def print_with_box(data: list[str]) -> None:
 
 
 def print_inference_metrics(
-    inference_job: Optional[hub.InferenceJob],
+    inference_job: hub.InferenceJob | None,
     inference_result: DatasetEntries,
     torch_out: list[np.ndarray],
-    output_names: Optional[list[str]] = None,
-    outputs_to_skip: Optional[list[int]] = None,
+    output_names: list[str] | None = None,
+    outputs_to_skip: list[int] | None = None,
     metrics: str = "psnr",
 ) -> None:
     if output_names is None:
@@ -213,7 +212,7 @@ DemoJobT = TypeVar("DemoJobT", hub.CompileJob, hub.LinkJob)
 
 
 def print_on_target_demo_cmd(
-    compile_job: Union[DemoJobT, Iterable[DemoJobT]],
+    compile_job: DemoJobT | Iterable[DemoJobT],
     model_folder: Path,
     device: hub.Device,
 ) -> None:
@@ -241,26 +240,6 @@ def print_on_target_demo_cmd(
         print(f"--chipset {device.attributes[len('chipset:') :]}\n")
     else:
         print(f'--device "{device.name}"\n')
-
-
-def print_mmcv_import_failure_and_exit(e: ImportError, model_id: str, mm_variant: str):
-    print(
-        f"""
-------
-
-ImportError: {str(e)}
-
-{mm_variant} failed to import. You probably have the wrong variant of MMCV installed.
-This can happen if you `pip install qai-hub-models[{model_id}]` without providing an index for pip to use to find MMCV.
-
-To fix this, install the variant of MMCV compatible with your torch version:
-    1. pip uninstall mmcv # You need to manually uninstall first. This is important.
-    2. Follow instructions at https://mmcv.readthedocs.io/en/latest/get_started/installation.html#install-with-pip
-
-------
-"""
-    )
-    sys.exit(1)
 
 
 def print_file_tree_changes(
@@ -310,8 +289,7 @@ def print_file_tree_changes(
     all_files = sorted(all_files_set)
 
     # Collect starting level
-    if base_dir.endswith("/"):
-        base_dir = base_dir[:-1]
+    base_dir = base_dir.removesuffix("/")
     base_level = base_dir.count(os.sep)
     last_level = base_level
     last_folder = None

@@ -14,7 +14,7 @@ import torch
 from packaging.version import Version
 from transformers import PretrainedConfig
 
-from qai_hub_models.utils.onnx_helpers import (
+from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 
@@ -156,9 +156,6 @@ def create_onnxruntime_genai_assets(
     position_ids = torch.randint(0, 128, (1, prompt_sequence_length), dtype=torch.int32)
 
     model = position_processor_cls(context_length=context_length, config=llm_config)
-    attention_mask, position_ids_cos, position_ids_sin = model(
-        attention_mask_before_processor, position_ids
-    )
 
     position_processor_base_name = "position-processor.onnx"
     position_processor_inputs = ["attention_mask_before_processor", "position_ids"]
