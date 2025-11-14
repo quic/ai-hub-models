@@ -16,14 +16,14 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 Install the package via pip:
 ```bash
 # NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
-pip install "qai-hub-models[yamnet]"
+pip install "qai-hub-models[yamnet]" git+https://github.com/w-hc/torch_audioset.git
 ```
 
 
 Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
-python -m qai_hub_models.models.yamnet.demo
+python -m qai_hub_models.models.yamnet.demo { --quantize w8a8 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -36,7 +36,7 @@ This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.yamnet.export
+python -m qai_hub_models.models.yamnet.export { --quantize w8a8 }
 ```
 Additional options are documented with the `--help` option.
 

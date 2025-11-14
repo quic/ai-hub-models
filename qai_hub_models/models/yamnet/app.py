@@ -16,10 +16,8 @@ import torch
 from qai_hub_models.models.yamnet.model import (
     MODEL_ASSET_VERSION,
     MODEL_ID,
-    YAMNET_PROXY_REPO_COMMIT,
-    YAMNET_PROXY_REPOSITORY,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.evaluate import ExecutableModelProtocol
 
 SAMPLE_RATE = 16000
@@ -37,21 +35,15 @@ def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
         patches : batched torch tsr of shape [N, C, T]
         spectrogram :  Mel frequency spectrogram of size (..., ``n_mels``, time)
     """
-    with SourceAsRoot(
-        YAMNET_PROXY_REPOSITORY,
-        YAMNET_PROXY_REPO_COMMIT,
-        MODEL_ID,
-        MODEL_ASSET_VERSION,
-    ):
-        from torch_audioset.data.torch_input_processing import (
-            WaveformToInput as TorchTransform,
-        )
+    from torch_audioset.data.torch_input_processing import (
+        WaveformToInput as TorchTransform,
+    )
 
-        #  This is a _log_ mel-spectrogram transform that adheres to the transform
-        #  used by Google's vggish model input processing pipeline
-        patches, spectrogram = TorchTransform().wavform_to_log_mel(
-            waveform_for_torch, SAMPLE_RATE
-        )
+    #  This is a _log_ mel-spectrogram transform that adheres to the transform
+    #  used by Google's vggish model input processing pipeline
+    patches, spectrogram = TorchTransform().wavform_to_log_mel(
+        waveform_for_torch, SAMPLE_RATE
+    )
 
     return patches, spectrogram
 

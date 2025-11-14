@@ -191,10 +191,11 @@ class QwenPositionProcessor(PositionProcessorBase):
 
 class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
     EmbeddingClass = RopeEmbedding
+    FPModel = Qwen2Base
 
     def __init__(
         self,
-        sim_model: QuantizationSimModel,
+        quant_sim: QuantizationSimModel,
         host_device: torch.device,
         checkpoint: str | os.PathLike | Path | None = None,
         tokenizer: PreTrainedTokenizer | None = None,
@@ -204,7 +205,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         attention_mask_min_clip: float | None = None,
     ):
         super().__init__(
-            sim_model=sim_model,
+            quant_sim=quant_sim,
             checkpoint=checkpoint,
             tokenizer=tokenizer,
             llm_config=llm_config,

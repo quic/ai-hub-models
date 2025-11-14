@@ -32,10 +32,9 @@ ALL_MODELS: list[tuple[str, str]] = [
     ("Meta-Llama-3-8B-Instruct-GGUF", "bartowski", "Q4_K_M"),
     ("Meta-Llama-3.1-8B-Instruct-GGUF", "bartowski", "Q4_K_M"),
     ("Llama-3.2-1B-Instruct-GGUF", "bartowski", "Q4_0"),
-    ("granite-3.1-8b-instruct-GGUF", "bartowski", "Q4_0"),
     ("Phi-3.5-mini-instruct-GGUF", "bartowski", "Q4_0"),
-    ("Qwen2-7B-Instruct-GGUF", "bartowski", "Q4_K_M"),
     ("Qwen2.5-7B-Instruct-GGUF", "bartowski", "Q4_0"),
+    ("Qwen2.5-1.5B-Instruct-GGUF", "bartowski", "Q4_0"),
 ]
 
 # TODO: Need to find appropriate locations for this model

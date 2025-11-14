@@ -33,7 +33,6 @@ import numpy as np
 import requests
 import ruamel.yaml
 import torch
-from git import Repo
 from PIL import Image
 from qai_hub.util.dataset_entries_converters import h5_to_dataset_entries
 from schema import And, Schema, SchemaError
@@ -161,6 +160,19 @@ def maybe_clone_git_repo(
         )
         if should_clone:
             print(f"Cloning {git_file_path} to {local_path}...")
+
+            try:
+                from git import (  # noqa:  TID251 Import is wrapped in try / catch as requested by precommit rules.
+                    Repo,
+                )
+            except ImportError as e:
+                if e.msg.startswith("Failed to initialize: Bad git executable."):
+                    raise ImportError(
+                        f"Git is not installed or can't be found on your system. Git is required to load {model_name}.\n"
+                        "Follow these instructions to install git: https://github.com/git-guides/install-git\n"
+                        "After Git is installed on your system, please try again."
+                    ) from None
+
             repo = Repo.clone_from(git_file_path, local_path)
             repo.git.checkout(commit_hash)
             for patch_path in patches or []:

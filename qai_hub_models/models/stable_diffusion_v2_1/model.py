@@ -27,7 +27,8 @@ def make_tokenizer() -> CLIPTokenizer:
     return CLIPTokenizer.from_pretrained(HF_REPO, subfolder="tokenizer")
 
 
-SEQ_LEN = make_tokenizer().model_max_length
+# SEQ_LEN = make_tokenizer().model_max_length
+SEQ_LEN = 77  # Tokenizer is no longer on Hugging Face.
 
 
 class TextEncoderQuantizable(TextEncoderQuantizableBase):

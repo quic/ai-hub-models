@@ -18,7 +18,7 @@ from qai_hub_models.datasets.common import (
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
-FACEATTRIB_DATASET_VERSION = 1
+FACEATTRIB_DATASET_VERSION = 2
 FACEATTRIB_DATASET_ID = "faceattrib_dataset"
 FACEATTRIB_DATASET_DIR_NAME = "faceattrib_trainvaltest"
 

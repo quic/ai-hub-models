@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import torch
+from torch_audioset.yamnet.model import YAMNet
 
 from qai_hub_models.evaluators.audioset_evaluator import AudioSetOutputEvaluator
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.common import SampleInputsType
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, SourceAsRoot
+from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -98,20 +99,13 @@ def _load_yamnet_source_model_from_weights(
         ).fetch()
 
     # download the weights file
-    with SourceAsRoot(
-        YAMNET_PROXY_REPOSITORY,
-        YAMNET_PROXY_REPO_COMMIT,
-        MODEL_ID,
-        MODEL_ASSET_VERSION,
-    ):
-        from torch_audioset.yamnet.model import YAMNet
 
-        model = YAMNet()
-        pretrained_dict = torch.load(
-            str(weights_path_yamnet),
-            map_location=torch.device("cpu"),
-            weights_only=False,
-        )
-        model.load_state_dict(pretrained_dict)
-        model.to("cpu").eval()
+    model = YAMNet()
+    pretrained_dict = torch.load(
+        str(weights_path_yamnet),
+        map_location=torch.device("cpu"),
+        weights_only=False,
+    )
+    model.load_state_dict(pretrained_dict)
+    model.to("cpu").eval()
     return model

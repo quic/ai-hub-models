@@ -8,15 +8,22 @@ import types
 from unittest.mock import MagicMock, patch
 
 import pytest
+import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models.resnet18 import MODEL_ID as RESNET_MODEL_ID
 from qai_hub_models.models.resnet18 import Model as ResnetModel
 from qai_hub_models.models.resnet18.export import export_model as resnet_export
 from qai_hub_models.utils.args import (
+    demo_model_from_cli_args,
     evaluate_parser,
     export_parser,
     get_export_model_name,
+    get_model_cli_parser,
+    get_on_device_demo_parser,
+    validate_on_device_demo_args,
 )
+from qai_hub_models.utils.inference import OnDeviceModel
 from qai_hub_models.utils.model_cache import CacheMode
 
 
@@ -375,3 +382,25 @@ def test_get_export_name():
         )
         == f"{swin_model_id}_float_IMAGENET1K_V2"
     )
+
+
+def test_demo_model_from_cli_args():
+    parser = get_model_cli_parser(ResnetModel)
+    parser = get_on_device_demo_parser(parser, add_output_dir=False)
+    args = parser.parse_args(
+        ["--eval-mode", "on-device", "--device", "Samsung Galaxy S25"]
+    )
+    validate_on_device_demo_args(args, RESNET_MODEL_ID)
+
+    compile_mock = MagicMock(spec=hub.Model)
+    compile_mock.producer = MagicMock(spec=hub.CompileJob)
+    compile_mock.producer.options = ""
+    with patch(
+        "qai_hub_models.utils.args.compile_model_from_args", return_value=compile_mock
+    ):
+        model = demo_model_from_cli_args(ResnetModel, "dummy_model", args)
+        assert isinstance(model, OnDeviceModel)
+
+    args = parser.parse_args(["--eval-mode", "on-device"])
+    with pytest.raises(ValueError, match="--device or --chipset must be specified"):
+        validate_on_device_demo_args(args, RESNET_MODEL_ID)

@@ -49,7 +49,7 @@ class BaseBertModel(BaseModel):
         return {
             "input_tokens": ((batch_size, sample_length), "int32"),
             "attention_masks": ((batch_size, sample_length), "float32"),
-            "mask_indices": ((batch_size,), "int32"),
+            "mask_indices": ((batch_size,), "int64"),
         }
 
     @staticmethod

@@ -71,7 +71,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         for i in range(self.num_classes):
             if targets[:, i].sum() > 0:  # Skip classes with no positive targets
                 ap = average_precision_score(targets[:, i], preds[:, i])
-                aps.append(ap)
+                if not np.isnan(ap):
+                    aps.append(ap)
         return np.mean(aps)
 
     def get_accuracy_score(self) -> float:

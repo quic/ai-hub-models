@@ -24,7 +24,7 @@ The package is available via pip:
 
 ```shell
 # NOTE for Snapdragon X Elite users:
-# Only AMDx64 (64-bit) Python in supported on Windows.
+# Only AMDx64 (64-bit) Python is supported on Windows.
 # Installation will fail when using Windows ARM64 Python.
 
 pip install qai_hub_models

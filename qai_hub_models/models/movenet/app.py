@@ -121,6 +121,10 @@ class MovenetApp:
 
         # Run model, decode coordinates from [0-1] in network input space to original app image input pixel space.
         kpt_with_conf = self.model(NCHW_torch_images)
+
+        # Swap x, y in keypoints (model outputs [y, x, conf], code expects [x, y, conf])
+        kpt_with_conf[..., :2] = kpt_with_conf[..., [1, 0]]
+
         denormalize_coordinates(
             kpt_with_conf[..., :2], (self.input_height, self.input_width), scale, pad
         )

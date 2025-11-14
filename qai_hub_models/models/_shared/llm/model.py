@@ -47,8 +47,6 @@ try:
     from transformers.cache_utils import DynamicCache
     from transformers.modeling_attn_mask_utils import AttentionMaskConverter
     from transformers.models.llama import LlamaConfig
-
-    from qai_hub_models.utils.system_info import has_recommended_memory
 except ImportError:
 
     class DynamicCache:  # type: ignore[no-redef]
@@ -77,6 +75,7 @@ from qai_hub_models.utils.onnx.helpers import (
     safe_torch_onnx_export,
 )
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
+from qai_hub_models.utils.system_info import has_recommended_memory
 
 AIMET_ONNX_INSTALLED = False
 try:

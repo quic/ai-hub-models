@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import copy
 import inspect
-import os
 import sys
 from collections.abc import Callable, Mapping
 from enum import Enum
@@ -124,7 +123,7 @@ class QAIHMHelpFormatter(
 
 class QAIHMArgumentParser(argparse.ArgumentParser):
     """
-    An ArgumentParser that sets hub_device from the appropriate options.
+    An ArgumentParser that sets device from the appropriate options.
     This isn't implemented as a `type` argument to `add_argument` because the
     device/chipset can be modified by device_os.
     """
@@ -435,22 +434,20 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
     """
     is_on_device = args.eval_mode == EvalMode.ON_DEVICE
     if is_on_device and not can_access_qualcomm_ai_hub():
-        print(
-            "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub access.",
+        raise ValueError(
+            "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub access.\n",
             "Please sign up for Qualcomm® AI Hub at https://myaccount.qualcomm.com/signup .",
-            sep=os.linesep,
         )
-        sys.exit(1)
 
-    if is_on_device and not getattr(args, "hub_device", None):
-        print("--device or --chipset must be specified with --eval-mode on-device.")
-        sys.exit(1)
+    if is_on_device and (args.device is None):
+        raise ValueError(
+            "--device or --chipset must be specified with --eval-mode on-device."
+        )
 
     if (args.inference_options or args.hub_model_id) and not is_on_device:
-        print(
+        raise ValueError(
             "A Hub model ID and inference options can be provided only with --eval-mode on-device."
         )
-        sys.exit(1)
 
 
 def add_function_parser_args(
@@ -677,7 +674,7 @@ def demo_model_from_cli_args(
     is_on_device = "eval_mode" in cli_args and cli_args.eval_mode == EvalMode.ON_DEVICE
     inference_model: FromPretrainedTypeVar | OnDeviceModel
     if is_on_device and issubclass(model_cls, BaseModel):
-        device: hub.Device = cli_args.hub_device
+        device: hub.Device = cli_args.device
         if cli_args.hub_model_id:
             model_from_hub = hub.get_model(cli_args.hub_model_id)
             inference_model = OnDeviceModel(
@@ -843,7 +840,11 @@ def _evaluate_export_common_parser(
     return parser
 
 
-def add_export_function_args(export_fn: Callable, parser: QAIHMArgumentParser) -> None:
+def add_export_function_args(
+    export_fn: Callable,
+    parser: QAIHMArgumentParser,
+    force_fetch_static_assets: bool = False,
+) -> None:
     """
     Extracts the relevant inputs to the export function and
     adds them to the parser.
@@ -872,7 +873,7 @@ def add_export_function_args(export_fn: Callable, parser: QAIHMArgumentParser) -
             "--fetch-static-assets",
             nargs="?",
             const=f"v{__version__}",
-            default=None,
+            default=f"v{__version__}" if force_fetch_static_assets else None,
             help="If set, known assets are fetched rather than re-computing them. Can be passed as:\n"
             "    `--fetch-static-assets`            (get current release assets)\n"
             "    `--fetch-static-assets latest`     (get latest release assets)\n"
@@ -903,6 +904,7 @@ def export_parser(
     components: list[str] | None = None,
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     default_export_device: str | None = None,
+    force_fetch_static_assets: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -930,6 +932,8 @@ def export_parser(
     num_calibration_samples
         How many samples to calibrate on when quantizing by default.
         If not set, defers to the dataset to decide the number.
+    force_fetch_static_assets
+        If set, fetch_static_assets is always enabled and cannot be turned off.
 
     Returns
     -------
@@ -943,7 +947,7 @@ def export_parser(
         model_cls=model_cls,
         supported_precision_runtimes=supported_precision_runtimes,
     )
-    add_export_function_args(export_fn, parser)
+    add_export_function_args(export_fn, parser, force_fetch_static_assets)
     _add_device_args(parser, default_device=default_export_device)
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (

@@ -18,7 +18,7 @@ from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 SOURCE_REPOSITORY = "https://github.com/lee-man/movenet-pytorch/"
 COMMIT_HASH = "d7262410af2776afe66d3f7a2282b64becb82601"
 SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
@@ -99,3 +99,12 @@ class Movenet(BaseModel):
     @staticmethod
     def eval_datasets() -> list[str]:
         return ["cocobody"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "cocobody"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization"""
+        return 2

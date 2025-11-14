@@ -9,9 +9,11 @@ from typing import cast
 import pandas as pd
 import torch
 import torchaudio
+from torch_audioset.data.torch_input_processing import (
+    WaveformToInput as TorchTransform,
+)
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
-from qai_hub_models.models.yamnet.app import preprocessing_yamnet_from_source
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 AUDIOSET_FOLDER_NAME = "audioset"
@@ -111,7 +113,7 @@ class AudioSetDataset(BaseDataset):
             audio = torchaudio.functional.resample(
                 audio, orig_freq=sr, new_freq=self.target_sample_rate
             )
-        patches, _ = preprocessing_yamnet_from_source(audio)
+        patches, _ = TorchTransform().wavform_to_log_mel(audio, self.target_sample_rate)
         frame_idx = index % self.audio_frames[audio_file.stem]
         input_tensor = torch.zeros(1, 96, 64)
         if patches.shape[0] > 0 and frame_idx < patches.shape[0]:

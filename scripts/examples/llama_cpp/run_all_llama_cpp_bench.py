@@ -24,7 +24,7 @@ def main():
         "--model-path", required=True, help="Path to the model file (.gguf)", type=Path
     )
     parser.add_argument(
-        "--devices", default="gpu,cpu", help="Device(s) to run on", type=str
+        "--devices", default="gpu,cpu,htp", help="Device(s) to run on", type=str
     )
     parser.add_argument(
         "--context-lengths",
@@ -32,11 +32,19 @@ def main():
         help="Context lengths to test (comma-separated)",
         type=str,
     )
+    parser.add_argument(
+        "--use-adb",
+        action="store_true",
+        help="Use ADB to run on connected Android device. Make sure llama_cpp is already present at /data/local/tmp/llama_cpp",
+    )
+
     args = parser.parse_args()
 
     context_lengths = [int(x.strip()) for x in args.context_lengths.split(",")]
     devices = args.devices.split(",")
     model_path = args.model_path
+    if not args.use_adb:
+        devices = [d for d in devices if d != "htp"]
 
     print(f"Running benchmarks for model: {model_path}")
     for device in devices:
@@ -53,14 +61,17 @@ def main():
                 "--model-path",
                 f"{model_path}",
                 "--short-prompt-file",
-                "sample_prompt_128.txt",
+                "sample_prompts/sample_prompt_128.txt",
                 "--long-prompt-file",
-                f"sample_prompt_{context_length}.txt",
+                f"sample_prompts/sample_prompt_{context_length}.txt",
                 "--context-length",
                 f"{context_length}",
                 "--device",
                 device,
             ]
+
+            if args.use_adb:
+                cmd.append("--use-adb")
 
             print(shlex.join(cmd))
             try:

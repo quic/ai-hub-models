@@ -1136,6 +1136,7 @@ def accuracy_on_sample_inputs_via_export(
         tabulate_patch,
     ):
         export_model(
+            device=device.execution_device,
             target_runtime=scorecard_path.runtime,
             precision=precision,
             skip_downloading=True,
@@ -1343,6 +1344,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
         tabulate_patch,
     ):
         export_model(
+            device=device.execution_device,
             target_runtime=scorecard_path.runtime,
             precision=precision,
             skip_downloading=True,

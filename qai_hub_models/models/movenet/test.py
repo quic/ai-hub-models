@@ -17,7 +17,7 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 KEYPOINT_SCORES_GT = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "kpt_gt2.npy"
+    MODEL_ID, MODEL_ASSET_VERSION, "kpt_gt.npy"
 )
 
 

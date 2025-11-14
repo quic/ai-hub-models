@@ -64,8 +64,7 @@ def io_details_from_tflite_interpreter(
     shape = io_details["shape_signature"]
     assert isinstance(shape, np.ndarray) and shape.dtype == np.int32
 
-    dtype: np.dtype = io_details["dtype"]
-
+    dtype: np.dtype = np.dtype(io_details["dtype"])
     sparsity_parameters = io_details["sparsity_parameters"]
     assert isinstance(sparsity_parameters, dict)
     if sparsity_parameters:
@@ -102,7 +101,7 @@ def io_details_from_tflite_interpreter(
             tuple(shape),
             dtype,
             ModelIODetails.QDQParams(qscale, qzero_point)
-            if (qscale and qzero_point)
+            if (qscale is not None and qzero_point is not None)
             else None,
             graph_tensor_index,
         ),

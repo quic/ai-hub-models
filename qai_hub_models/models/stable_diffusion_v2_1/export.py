@@ -336,6 +336,7 @@ def main():
         export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
         default_export_device="Samsung Galaxy S25 (Family)",
+        force_fetch_static_assets=True,
     )
     args = parser.parse_args()
     export_model(**vars(args))

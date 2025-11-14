@@ -42,7 +42,7 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
         maxvals = pred_scores.detach().cpu().numpy()
         for idx in range(batch_size):
             preds_batch = refine_and_transform_keypoints(
-                keypoints.unsqueeze(dim=0),
+                keypoints[idx].unsqueeze(dim=0),
                 heatmaps[idx].unsqueeze(0),
                 bboxes[idx],
                 scale[idx],

@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
@@ -100,7 +100,7 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         self.host_device = host_device
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
-        return super(AIMETOnnxQuantizableMixin, self).forward(tokens)
+        return cast(torch.Tensor, AIMETOnnxQuantizableMixin.forward(self, tokens))
 
     @classmethod
     def from_pretrained(
@@ -230,8 +230,9 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
     def forward(
         self, latent: torch.Tensor, time_emb: torch.Tensor, text_emb: torch.Tensor
     ) -> torch.Tensor:
-        return super(AIMETOnnxQuantizableMixin, self).forward(
-            latent, time_emb, text_emb
+        return cast(
+            torch.Tensor,
+            AIMETOnnxQuantizableMixin.forward(self, latent, time_emb, text_emb),
         )
 
     @classmethod
@@ -374,7 +375,7 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         return cls(quant_sim, host_device=host_device)
 
     def forward(self, latent: torch.Tensor) -> torch.Tensor:
-        return super(AIMETOnnxQuantizableMixin, self).forward(latent)
+        return cast(torch.Tensor, AIMETOnnxQuantizableMixin.forward(self, latent))
 
     def get_unsupported_reason(
         self, target_runtime: TargetRuntime, device: Device

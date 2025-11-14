@@ -32,7 +32,7 @@ from prettytable import PrettyTable
 DEFAULT_MAX_CONTEXT_LENGTH = 4096
 SHORT_PROMPT_TOKENS = 128
 DEFAULT_NUM_TOKENS_PREDICT = -1  # Until end of token is generated
-SYSTEM_PROMPT = "You are a helpful assistant. Be helpful but brief."
+SYSTEM_PROMPT = '"You are a helpful assistant. Be helpful but brief."'
 SEED = 1
 
 
@@ -68,6 +68,7 @@ def run_llama_and_measure(
     ctx_size: int = DEFAULT_MAX_CONTEXT_LENGTH,
     n_predict: int = DEFAULT_NUM_TOKENS_PREDICT,
     device: str = "gpu",
+    use_adb: bool = False,
 ) -> dict[str, float | None]:
     """
     Launch llama-cli, stream stdout to detect first-token time, and parse stderr for decode stats.
@@ -82,8 +83,10 @@ def run_llama_and_measure(
         Context window size. Defaults to DEFAULT_MAX_CONTEXT_LENGTH.
     n_predict : int, optional
         Number of tokens to generate. Defaults to DEFAULT_NUM_TOKENS_PREDICT.
-    device : {"cpu", "gpu"}, optional
-        Device to run on. 'cpu' forces CPU-only; 'gpu' uses GPU acceleration.
+    device : {"cpu", "gpu", "htp"}, optional
+        Device to run on. 'cpu' forces CPU-only; 'gpu' uses GPU acceleration. Currently, "htp" option is only available on Android devices.
+    use_adb : bool, optional
+        Whether to use ADB to run on a connected Android device. Make sure llama_cpp is already present at /data/local/tmp/llama_cpp, by default False.
 
     Returns
     -------
@@ -100,29 +103,87 @@ def run_llama_and_measure(
     RuntimeError
         If the underlying process exits with a non-zero status.
     """
+    if device == "htp" and not use_adb:
+        raise ValueError("HTP device option requires an Android device with ADB.")
+    if use_adb:
+        dst_model_path = "/data/local/tmp/" + pathlib.Path(model_path).name
+        dst_prompt_file = "/data/local/tmp/" + pathlib.Path(prompt_file).name
+        executable = "./bin/llama-cli"
+    else:
+        executable = "llama-cli"
+        dst_model_path = model_path
+        dst_prompt_file = prompt_file
+
     cmd = [
-        "llama-cli",
+        executable,
         "--model",
-        model_path,
+        dst_model_path,
         "--n-predict",
-        f"{n_predict}",
+        str(n_predict),
         "--ctx-size",
-        f"{ctx_size}",
+        str(ctx_size),
         "--system-prompt",
-        SYSTEM_PROMPT,
+        f"{SYSTEM_PROMPT}",
         "--file",
-        prompt_file,
+        dst_prompt_file,
         "--seed",
-        f"{SEED}",
+        str(SEED),
         "--single-turn",
         "--no-display-prompt",
     ]
-
+    command = f"{executable} --model {dst_model_path} --n-predict {n_predict} --ctx-size {ctx_size} --system-prompt '{SYSTEM_PROMPT}' --file {dst_prompt_file} --seed {SEED} --single-turn --no-display-prompt"
     if device == "cpu":
         cmd.extend(["--n-gpu-layers", "0"])
+    elif device == "htp":
+        cmd.extend(
+            [
+                "--device",
+                "HTP0",
+                "--no-mmap",
+                "-t",  # num threads
+                "6",
+                "--cpu-mask",
+                "0xfc",
+                "--cpu-strict",
+                "1",
+                "-ctk",  # key value type
+                "q8_0",  # int8
+                "-ctv",
+                "q8_0",
+                "-fa",  # flash attention
+                "on",
+                "--batch-size",  # batch size is needed to be set for HTP (HVX, HMX)
+                "128",
+            ]
+        )
+    else:
+        cmd.extend(["--batch-size", "128"])
 
-    print("Running command")
-    print(shlex.join(cmd))
+    if use_adb:
+        import adbutils
+
+        adb = adbutils.AdbClient(host="localhost", port=5037)
+        device = adb.device()
+        if not device:
+            raise RuntimeError("No connected Android devices found for ADB.")
+        print(f"Using ADB device: {device.serial}")
+
+        # Push model and prompts to device
+        device.sync.push(model_path, "/data/local/tmp/")
+        device.sync.push(prompt_file, "/data/local/tmp/")
+        command = " ".join(cmd)
+        print(command)
+        device_commands = [
+            "cd /data/local/tmp/llama.cpp",
+            "ulimit -c unlimited",
+            f"LD_LIBRARY_PATH=/data/local/tmp/llama.cpp/./lib ADSP_LIBRARY_PATH=/data/local/tmp/llama.cpp/./lib {command}",
+        ]
+        # Run the command via adb shell
+        cmd = ["adb", "shell", ";".join(device_commands)]
+        print(device_commands)
+    else:
+        print("Running command")
+        print(shlex.join(cmd))
 
     # Start the process
     proc = subprocess.Popen(
@@ -136,7 +197,7 @@ def run_llama_and_measure(
 
     # Read stdout and stderr
     stdout, stderr = proc.communicate()
-
+    print(stderr)
     if proc.returncode != 0:
         error_msg = stderr.strip() if stderr else ""
         raise RuntimeError(
@@ -220,7 +281,7 @@ def main():
     )
     parser.add_argument(
         "--device",
-        choices=["cpu", "gpu"],
+        choices=["cpu", "gpu", "htp"],
         default="gpu",
         help="Device to run inference on. 'cpu' forces CPU-only execution, 'gpu' uses GPU acceleration.",
     )
@@ -230,6 +291,11 @@ def main():
         default=SYSTEM_PROMPT,
         help="System prompt.",
     )
+    parser.add_argument(
+        "--use-adb",
+        action="store_true",
+        help="Use ADB to run on connected Android device. Make sure llama_cpp is already present at /data/local/tmp/llama_cpp",
+    )
     args = parser.parse_args()
     # Measure TTFT using this
     ttft_metrics = run_llama_and_measure(
@@ -238,6 +304,7 @@ def main():
         ctx_size=args.context_length,
         n_predict=DEFAULT_NUM_TOKENS_PREDICT,
         device=args.device,
+        use_adb=args.use_adb,
     )
     print(ttft_metrics)
     response_rate_metrics = run_llama_and_measure(
@@ -246,6 +313,7 @@ def main():
         ctx_size=args.context_length,
         n_predict=DEFAULT_NUM_TOKENS_PREDICT,
         device=args.device,
+        use_adb=args.use_adb,
     )
     print(response_rate_metrics)
 
