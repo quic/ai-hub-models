@@ -41,9 +41,9 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
     QCLlamaMLP,
     SHALlamaAttention,
 )
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
     Embedding,
-    LLMIOType,
     PositionProcessorBase,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings

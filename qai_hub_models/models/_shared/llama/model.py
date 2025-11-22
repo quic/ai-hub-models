@@ -14,6 +14,7 @@ from typing import Any, cast
 import torch
 from qai_hub.client import Device
 
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models.common import (
     SampleInputsType,
     SourceModelFormat,
@@ -274,6 +275,8 @@ class RopeEmbedding:
 
 
 class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
+    llm_io_type: LLMIOType = LLMIOType.genie_input_ids
+
     def __init__(self, model: torch.nn.Module, encoding_path, is_token_generator=False):
         AimetEncodingLoaderMixin.__init__(self, model, encoding_path)
         BaseModel.__init__(self)

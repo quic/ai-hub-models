@@ -57,6 +57,7 @@ from typing_extensions import Self
 
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
@@ -134,31 +135,6 @@ def determine_precision_from_checkpoint(checkpoint: str) -> Precision | None:
     if checkpoint.startswith("DEFAULT_"):
         return Precision.parse(checkpoint[len("DEFAULT_") :].lower())
     return None
-
-
-class LLMIOType(Enum):
-    # Genie-compatible input (with input token ids)
-    # Inputs:
-    # - input_ids (integer token ids)
-    # - attention_mask
-    # - position_ids_cos (half size)
-    # - position_ids_sin (half size)
-    genie_input_ids = "genie_input_ids"
-
-    # Genie-compatible input (with input token embeddings)
-    # Inputs:
-    # - input_embeds (post-Gather token embeddings)
-    # - attention_mask
-    # - position_ids_cos (half size)
-    # - position_ids_sin (half size)
-    genie_input_embeds = "genie_inputs_embeds"
-
-    # Hugging Face original input
-    # Inputs:
-    # - input_ids (integer token ids)
-    # - attention_mask
-    # - position_ids (integer position ids)
-    huggingface_input_ids = "huggingface_input_ids"
 
 
 def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:

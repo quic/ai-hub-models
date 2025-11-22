@@ -18,11 +18,11 @@ from transformers.generation import GenerationMixin
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
     Embedding,
     LLM_AIMETOnnx,
     LLMBase,
-    LLMIOType,
 )
 
 

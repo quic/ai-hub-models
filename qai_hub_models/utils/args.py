@@ -757,7 +757,7 @@ def get_model_input_spec_parser(
         else:
             # locate() converts string type to cls type
             # Any type can be resolved as long as it's accessible in this scope
-            type_ = locate(param.annotation)
+            type_ = locate(param.annotation.split(" | ", 1)[0])
             if type_ is None:
                 # TODO(#16652): This is brittle since it requires the parameter
                 # to be imported into that scope exactly, which may not be its

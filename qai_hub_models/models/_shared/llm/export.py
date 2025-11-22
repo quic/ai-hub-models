@@ -489,29 +489,31 @@ def export_model(
             print(
                 "These models can be deployed on-device using ONNX Runtime with the GenAI extension."
             )
-        if target_runtime == TargetRuntime.GENIE:
-            if hasattr(model, "checkpoint") and model.checkpoint is not None:
-                model.prepare_genie_assets(
-                    hub_device=device,
-                    checkpoint=model.checkpoint,
-                    llm_config=llm_config,
-                    context_length=model_params["context_length"],
-                    model_list=target_model_list,
-                    output_path=output_path,
-                )
+        if (
+            target_runtime == TargetRuntime.GENIE
+            and hasattr(model, "checkpoint")
+            and model.checkpoint is not None
+        ):
+            model.prepare_genie_assets(
+                hub_device=device,
+                checkpoint=model.checkpoint,
+                llm_config=llm_config,
+                context_length=model_params["context_length"],
+                model_list=target_model_list,
+                output_path=output_path,
+            )
 
-                raw_message = f"""
-                    These models can be deployed on-device using the Genie SDK.
-                    The assets were compiled with QAIRT SDK {version} and we
-                    recommend matching this version for on-device deployment.
+            raw_message = f"""
+                These models can be deployed on-device using the Genie SDK.
+                The assets were compiled with QAIRT SDK {version} and we
+                recommend matching this version for on-device deployment.
 
-                    [Note] Avoid QAIRT SDK 2.38 since it has a known Genie issue.
+                [Note] Avoid QAIRT SDK 2.38 since it has a known Genie issue.
 
-                    For a full tutorial, please follow the instructions here:
+                For a full tutorial, please follow the instructions here:
 
-                        https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie.
-                """
-
+                    https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie.
+            """
             print(textwrap.dedent(raw_message))
 
     return {

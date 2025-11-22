@@ -16,8 +16,8 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
-    LLMIOType,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision

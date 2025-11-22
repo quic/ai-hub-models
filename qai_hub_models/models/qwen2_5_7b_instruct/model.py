@@ -17,10 +17,10 @@ from transformers import AutoConfig, PretrainedConfig
 
 from qai_hub_models.models._shared.llama.model import LlamaMixin
 from qai_hub_models.models._shared.llama3.model import Llama3Base
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
-    LLMIOType,
     get_tokenizer,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings

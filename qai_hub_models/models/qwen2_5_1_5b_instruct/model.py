@@ -9,8 +9,8 @@ from pathlib import Path
 
 import torch
 
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
-    LLMIOType,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models._shared.qwen2.model import (
