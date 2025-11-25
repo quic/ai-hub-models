@@ -5,21 +5,57 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
+from collections.abc import Callable
 from inspect import signature
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
 import pytest
 import qai_hub as hub
 
-from qai_hub_models.models._shared.llm.model import LLM_AIMETOnnx, LLMBase
+from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.models._shared.llm.model import (
+    LLM_AIMETOnnx,
+    LLMBase,
+    cleanup,
+)
 from qai_hub_models.models._shared.llm.quantize import quantize
-from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.models._shared.llm.split_onnx_utils.utils import ONNXBundle
+from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
+from qai_hub_models.scorecard import ScorecardDevice
+from qai_hub_models.utils.llm_helpers import copy_qairt_files_for_genie_bundle
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
+
+
+def complete_genie_bundle_and_run_on_device(
+    device: ScorecardDevice, genie_bundle_path: str
+) -> None:
+    copy_qairt_files_for_genie_bundle(
+        device.reference_device,
+        Path(genie_bundle_path),
+        os.environ["QAIRT_SDK_PATH"],
+    )
+
+    # Add prompt.txt to genie_bundle
+    with open(os.path.join(genie_bundle_path, "prompt.txt"), "w") as f:
+        f.write(
+            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant. Be concise.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\nWhat is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        )
+
+    # Run QDC APIs to validate the bundle on-device.
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    _, avg_tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
+    )
+
+    # Cleanup the generated genie bundle after test
+    shutil.rmtree(genie_bundle_path)
+    return avg_tps, min_ttft
 
 
 def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
@@ -31,8 +67,16 @@ def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
     return mock_from_pretrained
 
 
-def _mock_glob(path):
-    return ["path/to/name" + os.path.splitext(path)[1]]
+def from_bundle_path_patch(bundle_path: str | os.PathLike) -> ONNXBundle:
+    return ONNXBundle(
+        bundle_path=Path(bundle_path),
+        onnx_graph_name="model.onnx",
+        aimet_encodings_name="model.encodings",
+    )
+
+
+def split_onnx_patch(*args, num_splits, **kwargs):
+    return [from_bundle_path_patch(f"{i}") for i in range(num_splits)]
 
 
 # reusable patching function
@@ -53,39 +97,48 @@ def _create_patches(
     patch_model = patch(
         f"qai_hub_models.models.{base_name}.Model.from_pretrained",
         mock_from_pretrained,
-    )  # type: ignore
+    )
 
     patch_fp_model = patch(
         f"qai_hub_models.models.{base_name}.FP_Model.from_pretrained",
         return_value=Mock(),
-    )  # type: ignore
+    )
 
-    patch_glob = patch("glob.glob", side_effect=_mock_glob)
     patch_onnx_checker = patch("onnx.checker.check_model")
+
     patch_split_onnx = patch(
-        "qai_hub_models.models._shared.llm.split_onnx_utils.utils.split_onnx"
+        "qai_hub_models.models._shared.llm.split_onnx_utils.utils.split_onnx",
+        side_effect=split_onnx_patch,
     )
+
     patch_onnx_files = patch.object(
-        Path, "glob", return_value=[tmp_path / "onnx_file.onnx"]
+        ONNXBundle, "from_bundle_path", side_effect=from_bundle_path_patch
     )
+
     patch_get_or_create_cached_model = patch(
         "qai_hub_models.models._shared.llm.export.get_or_create_cached_model",
         return_value=Mock(),
+    )
+    patch_tool_versions = patch(
+        "qai_hub_models.configs.tool_versions.ToolVersions.from_job",
+        return_value=ToolVersions(
+            qairt=QAIRTVersion("2.34", validate_exists_on_ai_hub=False)
+        ),
     )
 
     return (
         mock_from_pretrained,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker,
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     )
 
 
-def test_cli_device_with_skips_unsupported_device(
+def test_cli_device_with_skips_unsupported_precision_device(
     export_main: Callable,
     model_cls: type[LLM_AIMETOnnx],
     tmp_path: Path,
@@ -95,37 +148,82 @@ def test_cli_device_with_skips_unsupported_device(
         _,
         patch_model,
         patch_fp_model,
-        patch_glob,
         _,
         _,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ) = _create_patches(model_cls, base_name, 4096, 128, tmp_path)
 
+    os.makedirs("build", exist_ok=True)
     with (
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ):
-
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--device",
-            "Google Pixel 4",
-            "--skip-inferencing",
+            "SA8295P ADP",
             "--skip-profiling",
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
+            "--checkpoint",
+            "DEFAULT_W4A16",
         ]
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(
+            ValueError,
+            match=r"The selected precision \(w4a16\) is not supported on this target device",
+        ):
             export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
-        )
+
+
+def test_cli_device_with_skips_unsupported_context_length(
+    export_main: Callable,
+    model_cls: type[LLM_AIMETOnnx],
+    tmp_path: Path,
+    base_name: str,
+):
+    (
+        _,
+        patch_model,
+        patch_fp_model,
+        _,
+        _,
+        patch_onnx_files,
+        patch_get_or_create_cached_model,
+        patch_tool_versions,
+    ) = _create_patches(model_cls, base_name, 4096, 128, tmp_path)
+
+    os.makedirs("build", exist_ok=True)
+    with (
+        patch_model,
+        patch_fp_model,
+        patch_onnx_files,
+        patch_get_or_create_cached_model,
+        patch_tool_versions,
+    ):
+        os.makedirs("build", exist_ok=True)
+        sys.argv = [
+            "export.py",
+            "--device",
+            "SA8295P ADP",
+            "--skip-profiling",
+            "--output-dir",
+            os.path.join("build", tmp_path.name),
+            "--checkpoint",
+            "DEFAULT_W4",
+        ]
+
+        with pytest.raises(
+            ValueError,
+            match=r"The llama_v3_2_3b_instruct's context length is too large to deploy on SA8295P\. Please set the context length to 1024 or lower\.",
+        ):
+            export_main()  # Call the main function to submit the compile jobs
 
 
 def test_cli_device_with_skips(
@@ -145,38 +243,39 @@ def test_cli_device_with_skips(
         _,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker,
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
     with (
         patch_qai_hub() as mock_hub,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker,
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ):
         mock_hub.submit_compile_job.return_value.target_shapes = {
             "input_ids": (1, context_length)
         }
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--device",
             device.name,
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--target-runtime",
             target_runtime.value,
         ]
-        if skip_inferencing:
-            sys.argv.append("--skip-inferencing")
+        if not skip_inferencing:
+            sys.argv.append("--do-inferencing")
         if skip_profiling:
             sys.argv.append("--skip-profiling")
 
@@ -208,7 +307,6 @@ def test_cli_device_with_skips(
             mock_hub.submit_profile_job.assert_not_called()
         else:
             mock_hub.submit_profile_job.assert_called()
-
         assert tmp_path.exists()
         assert tmp_path.is_dir()
 
@@ -223,28 +321,28 @@ def test_cli_chipset_with_options(
     context_length: int,
     sequence_length: int,
     target_runtime: TargetRuntime,
-    precision: Precision = Precision.w4a16,
+    precision: Precision = Precision.w4a16,  # noqa: PT028
 ):
     (
         mock_from_pretrained,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker,
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
     with (
         patch_qai_hub() as mock_hub,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker as mock_onnx_checker,
         patch_split_onnx as mock_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ):
         mock_onnx_checker.return_value = None
         mock_split_onnx.return_value = None
@@ -252,12 +350,13 @@ def test_cli_chipset_with_options(
         profile_options = "profile_extra"
         link_options = "link_extra"
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",  # script name
             "--chipset",
             chipset,
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--compile-options",
             compile_options,
             "--profile-options",
@@ -270,8 +369,7 @@ def test_cli_chipset_with_options(
             str(context_length),
             "--target-runtime",
             target_runtime.value,
-            "--precision",
-            str(precision),
+            "--do-inferencing",
         ]
 
         mock_hub.submit_compile_job.return_value.target_shapes = {
@@ -304,10 +402,8 @@ def test_cli_chipset_with_options(
             mock_from_pretrained.return_value.get_hub_link_options
         )
         assert mock_get_hub_link_options.call_count == parts
-        if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            link_options += " --qairt_version 2.33"
         assert all(
-            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, link_options)
+            call.args == (target_runtime, link_options)
             for call in mock_get_hub_link_options.call_args_list
         )
 
@@ -316,26 +412,28 @@ def test_cli_chipset_with_options(
         )
 
         assert mock_get_hub_compile_options.call_count == parts * 2
-        compile_options += " --qnn_bin_conversion_via_model_library"
-        if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            compile_options += " --qairt_version 2.33"
-        assert all(
-            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
-            for call in mock_get_hub_compile_options.call_args_list
-        )
+        for call in mock_get_hub_compile_options.call_args_list:
+            assert call.args == (target_runtime, precision, compile_options)
+            assert "context_graph_name" in call.kwargs
+            assert (
+                call.kwargs["context_graph_name"]._mock_new_parent._mock_name
+                == mock_from_pretrained.return_value.get_qairt_context_graph_name._mock_name
+            )
 
         # Profile parts * 2 times
         assert mock_hub.submit_profile_job.call_count == parts * 2
-
         mock_get_hub_profile_options = (
             mock_from_pretrained.return_value.get_hub_profile_options
         )
-        assert mock_get_hub_profile_options.call_count == 2
+        assert mock_get_hub_profile_options.call_count == parts * 2
+        for call in mock_get_hub_profile_options.call_args_list:
+            assert len(call.args) == 3
+            assert call.args[:2] == (target_runtime, profile_options)
+            assert (
+                call.args[2]._mock_new_parent._mock_name
+                == mock_from_pretrained.return_value.get_qairt_context_graph_name._mock_name
+            )
 
-        assert all(
-            call.args == (TargetRuntime.QNN_CONTEXT_BINARY, profile_options)
-            for call in mock_get_hub_profile_options.call_args_list
-        )
         assert mock_hub.submit_inference_job.call_count == parts * 2
 
         assert tmp_path.exists()
@@ -378,11 +476,11 @@ def test_cli_default_device_select_component(
         _,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker,
         patch_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model,
+        patch_tool_versions,
     ) = _create_patches(model_cls, base_name, context_length, sequence_length, tmp_path)
 
     patch_torch_inference = patch("qai_hub_models.utils.compare.torch_inference")
@@ -391,12 +489,12 @@ def test_cli_default_device_select_component(
         patch_qai_hub() as mock_hub,
         patch_model,
         patch_fp_model,
-        patch_glob,
         patch_onnx_checker as mock_onnx_checker,
         patch_split_onnx as mock_split_onnx,
         patch_onnx_files,
         patch_get_or_create_cached_model as mock_get_or_create_cached_model,
         patch_torch_inference as mock_torch_inference,
+        patch_tool_versions,
     ):
         mock_onnx_checker.return_value = None
         mock_split_onnx.return_value = None
@@ -404,10 +502,11 @@ def test_cli_default_device_select_component(
             np.array([1.0, 2.0])
         ]  # return mock value for torch inference.
 
+        os.makedirs("build", exist_ok=True)
         sys.argv = [
             "export.py",
             "--output-dir",
-            tmp_path.name,
+            os.path.join("build", tmp_path.name),
             "--model-cache-mode",
             str(cache_mode.name.lower()),
             "--device",
@@ -429,13 +528,11 @@ def test_cli_default_device_select_component(
         assert mock_hub.submit_compile_job.call_count == parts * 2
         assert mock_hub.submit_link_job.call_count == parts
         assert mock_hub.submit_profile_job.call_count == parts * 2
-        assert mock_hub.submit_inference_job.call_count == parts * 2
 
         # Check names
         for mock in [
             mock_hub.submit_compile_job,
             mock_hub.submit_profile_job,
-            mock_hub.submit_inference_job,
         ]:
             for i, call in enumerate(mock.call_args_list):
                 model_type = "prompt" if i < parts else "token"
@@ -485,5 +582,5 @@ def setup_test_quantization(
             checkpoint=checkpoint,
             num_samples=num_samples,
         )
-
+        cleanup()
     return output_path

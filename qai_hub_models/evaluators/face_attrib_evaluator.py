@@ -24,7 +24,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        gt should be a tuple of tensors with the following tensors:
+        Gt should be a tuple of tensors with the following tensors:
             - image_ids of shape (batch_size,)
             - image heights of shape (batch_size,)
             - image widths of shape (batch_size,)
@@ -68,8 +68,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         mask_sign = np.full((self.feature_total - self.id_total, self.id_total), -1)
         mask_offset = np.full((self.feature_total - self.id_total, self.id_total), 1)
         query_pos = 0
-        enroll_pos = 0
-        for key_0, value_0 in self.id_features.items():
+        for enroll_pos, value_0 in enumerate(self.id_features.values()):
             for key_1, value_1 in value_0.items():
                 if key_1 == "0":
                     enroll_feas.append(value_1)
@@ -78,7 +77,6 @@ class FaceAttribNetEvaluator(BaseEvaluator):
                     mask_sign[query_pos][enroll_pos] = 1
                     mask_offset[query_pos][enroll_pos] = 0
                     query_pos += 1
-            enroll_pos += 1
         query_feas_total = np.array(query_feas)
         enroll_feas_total = np.array(enroll_feas)
         cos_sim = (

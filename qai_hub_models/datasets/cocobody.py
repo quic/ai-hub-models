@@ -8,9 +8,9 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import torch
-from xtcocotools.coco import COCO
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.extern.xtcocotools.coco import COCO
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 from qai_hub_models.utils.bounding_box_processing import box_xywh_to_cs
 from qai_hub_models.utils.image_processing import pre_process_with_affine
@@ -83,7 +83,7 @@ class CocoBodyDataset(BaseDataset):
             )
         with suppress_stdout():
             self.cocoGt = COCO(self.annotation_path)
-        self.img_ids = sorted(self.cocoGt.getImgIds())
+        self.img_ids: list[int] = sorted(self.cocoGt.getImgIds())
         self.kpt_db = self._load_kpt_db()
 
     def _load_kpt_db(self):
@@ -96,7 +96,7 @@ class CocoBodyDataset(BaseDataset):
             ratio = self.target_w / self.target_h
 
             # keep only single person objects
-            person_anns = [ann for ann in annotations]
+            person_anns = list(annotations)
             if len(person_anns) != 1:
                 continue
             ann = person_anns[0]
@@ -125,32 +125,46 @@ class CocoBodyDataset(BaseDataset):
         return kpt_db
 
     def __getitem__(
-        self, idx: int
+        self, index: int
     ) -> tuple[torch.Tensor, tuple[int, int, np.ndarray, np.ndarray]]:
         """
-        Returns a tuple of input image tensor and label data.
+        Get item in this dataset.
 
-        label data is a List with the following entries:
-            - imageId (int): The ID of the image.
-            - category_id (int) : The category ID.
-            - center (np.ndarray):
-                The center coordinates of the bounding box, with shape(2,).
-            - scale (np.ndarray) : Scaling factor, with shape(2,).
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image
+            Input image resized for the network. RGB, floating point range [0-1].
+
+        ground_truth
+            image_id
+                Image ID within the original dataset
+            category_id
+                Ground truth prediction category ID.
+            center
+                The center coordinates of the bounding box, with shape(2,) -- (x. y).
+            scale
+                Bounding box scaling factor, with shape(2,) -- (x, y).
         """
-
         (
             file_name,
             image_id,
             category_id,
             center,
             scale,
-        ) = self.kpt_db[idx]
+        ) = self.kpt_db[index]
         rotate = 0
         img_path = self.image_dir / file_name
 
         data_numpy = cv2.imread(
             str(img_path), cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
         )
+
+        assert data_numpy is not None, f"Image not found at {img_path}"
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
         image = pre_process_with_affine(
@@ -169,18 +183,14 @@ class CocoBodyDataset(BaseDataset):
         )
 
     def _download_data(self) -> None:
-        """
-        Download and extract COCO-WholeBody dataset assets.
-        """
+        """Download and extract COCO-WholeBody dataset assets."""
         # Download and extract images
         COCO_VAL_IMAGES_ASSET.fetch(extract=True)
         COCO_VAL_ANNOTATIONS_ASSET.fetch()
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000
 
     @staticmethod

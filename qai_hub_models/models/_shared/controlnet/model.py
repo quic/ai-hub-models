@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 # isort: off
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet_onnx import (
@@ -13,13 +15,12 @@ from qai_hub_models.utils.quantization_aimet_onnx import (
 
 # isort: on
 
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+
 import torch
-from aimet_common.defs import QuantScheme
-from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-from aimet_onnx.quantsim import load_encodings_to_sim
 from diffusers import ControlNetModel, UNet2DConditionModel
 
-from qai_hub_models.models._shared.stable_diffusion.model import UnetQuantizableBase
 from qai_hub_models.models._shared.stable_diffusion.model_adaptation import (
     get_timestep_embedding,
     monkey_patch_model,
@@ -42,13 +43,16 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
     residuals from controlnet. Output is the same as UnetBase.
     """
 
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
-        the onnx model"""
-        model.get_time_embed = get_timestep_embedding
+        the onnx model
+        """
+        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -94,7 +98,7 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
                     controlnet_downblock11,
                 )
 
-                return self.model(  # type: ignore
+                return self.model(  # type: ignore[operator]
                     latent,
                     timestep,
                     text_emb,
@@ -202,11 +206,16 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetQuantizableBase:
+    ) -> ControlUnetQuantizableBase:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        import aimet_onnx
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -218,16 +227,14 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
-            # Important: cannot use post_training_tf_enhanced which causes
-            # attention masks to not have exactly 0 (unmask)
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=8,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
             providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings is not None:
-            load_encodings_to_sim(quant_sim, aimet_encodings)
+            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
 
     @staticmethod
@@ -236,12 +243,14 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
 
 
 class ControlNetBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: ControlNetModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         class ControlNetWrapper(torch.nn.Module):
-            """Just to unpack the output dict with key "sample" """
+            """Just to unpack the output dict with key "sample"."""
 
             def __init__(self, model: ControlNetModel):
                 super().__init__()
@@ -249,7 +258,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, latent, timestep, text_emb, image_cond):
-                down_block_res_samples, mid_block_res_sample = self.model(  # type: ignore
+                down_block_res_samples, mid_block_res_sample = self.model(  # type: ignore[operator]
                     latent,
                     # model expects timestep without batch dim
                     timestep.squeeze(0),
@@ -257,7 +266,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
                     controlnet_cond=image_cond,
                     return_dict=False,
                 )
-                return tuple(down_block_res_samples + [mid_block_res_sample])
+                return (*down_block_res_samples, mid_block_res_sample)
 
         return ControlNetWrapper(model)
 
@@ -325,6 +334,11 @@ class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        import aimet_onnx
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         if checkpoint == CheckpointType.DEFAULT_UNQUANTIZED:
             # controlnet HF subfolder is "" but locally we use "controlnet" as
@@ -341,16 +355,14 @@ class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
-            # Important: cannot use post_training_tf_enhanced which causes
-            # attention masks to not have exactly 0 (unmask)
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=8,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
             providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings is not None:
-            load_encodings_to_sim(quant_sim, aimet_encodings)
+            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
 
     @staticmethod

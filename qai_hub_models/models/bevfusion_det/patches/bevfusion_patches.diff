@@ -1,0 +1,329 @@
+diff --git a/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py b/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
+index 0c858fc..a2740e5 100644
+--- a/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
++++ b/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py
+@@ -1,10 +1,10 @@
+ import torch
+ 
+-from mmdet.core.bbox import BaseBBoxCoder
+-from mmdet.core.bbox.builder import BBOX_CODERS
++from mmdet.models.task_modules import BaseBBoxCoder
++# from mmdet.core.bbox.builder import BBOX_CODERS
+ 
+ 
+-@BBOX_CODERS.register_module()
++# @BBOX_CODERS.register_module()
+ class CenterPointBBoxCoder(BaseBBoxCoder):
+     """Bbox coder for CenterPoint.
+ 
+@@ -159,7 +159,7 @@ class CenterPointBBoxCoder(BaseBBoxCoder):
+         rot_cosine = self._transpose_and_gather_feat(rot_cosine, inds)
+         rot_cosine = rot_cosine.view(batch, self.max_num, 1)
+         rot = torch.atan2(rot_sine, rot_cosine)
+-
++        
+         # height in the bev
+         hei = self._transpose_and_gather_feat(hei, inds)
+         hei = hei.view(batch, self.max_num, 1)
+diff --git a/mmdet3d/models/backbones/resnet.py b/mmdet3d/models/backbones/resnet.py
+index 958f39b..78c6ab0 100644
+--- a/mmdet3d/models/backbones/resnet.py
++++ b/mmdet3d/models/backbones/resnet.py
+@@ -4,12 +4,12 @@ import torch
+ from mmcv.cnn.resnet import BasicBlock, make_res_layer
+ from torch import nn
+ 
+-from mmdet.models import BACKBONES
++# from mmdet.models import BACKBONES
+ 
+ __all__ = ["GeneralizedResNet"]
+ 
+ 
+-@BACKBONES.register_module()
++# @BACKBONES.register_module()
+ class GeneralizedResNet(nn.ModuleList):
+     def __init__(
+         self,
+diff --git a/mmdet3d/models/heads/bbox/centerpoint.py b/mmdet3d/models/heads/bbox/centerpoint.py
+index 9ae3e18..d979114 100644
+--- a/mmdet3d/models/heads/bbox/centerpoint.py
++++ b/mmdet3d/models/heads/bbox/centerpoint.py
+@@ -2,21 +2,21 @@ import copy
+ 
+ import torch
+ from mmcv.cnn import ConvModule, build_conv_layer
+-from mmcv.runner import BaseModule, force_fp32
++from mmengine.model import BaseModule
+ from torch import nn
+ 
+-from mmdet3d.core import circle_nms, draw_heatmap_gaussian, gaussian_radius, xywhr2xyxyr
+-from mmdet3d.models import builder
+-from mmdet3d.models.builder import HEADS, build_loss
+-from mmdet3d.ops.iou3d.iou3d_utils import nms_gpu
+-from mmdet.core import build_bbox_coder, multi_apply
++# from mmdet3d.core import circle_nms, draw_heatmap_gaussian, gaussian_radius, xywhr2xyxyr
++# from mmdet3d.models import builder
++# from mmdet3d.models.builder import HEADS, build_loss
++# from mmdet3d.ops.iou3d.iou3d_utils import nms_gpu
++from mmdet.models.utils import multi_apply
+ 
+ 
+ def clip_sigmoid(x: torch.Tensor, eps: float = 1e-4) -> torch.Tensor:
+     return torch.clamp(x.sigmoid_(), min=eps, max=1 - eps)
+ 
+ 
+-@HEADS.register_module()
++# @HEADS.register_module()
+ class SeparateHead(BaseModule):
+     """SeparateHead for CenterHead.
+     Args:
+@@ -125,7 +125,7 @@ class SeparateHead(BaseModule):
+         return ret_dict
+ 
+ 
+-@HEADS.register_module()
++# @HEADS.register_module()
+ class DCNSeparateHead(BaseModule):
+     r"""DCNSeparateHead for CenterHead.
+     .. code-block:: none
+@@ -245,7 +245,7 @@ class DCNSeparateHead(BaseModule):
+         return ret
+ 
+ 
+-@HEADS.register_module()
++# @HEADS.register_module()
+ class CenterHead(BaseModule):
+     """CenterHead for CenterPoint.
+     Args:
+@@ -294,6 +294,7 @@ class CenterHead(BaseModule):
+         bias="auto",
+         norm_bbox=True,
+         init_cfg=None,
++        separate_head_cls=None,
+     ):
+         assert init_cfg is None, (
+             "To prevent abnormal initialization "
+@@ -309,9 +310,9 @@ class CenterHead(BaseModule):
+         self.num_classes = num_classes
+         self.norm_bbox = norm_bbox
+ 
+-        self.loss_cls = build_loss(loss_cls)
+-        self.loss_bbox = build_loss(loss_bbox)
+-        self.bbox_coder = build_bbox_coder(bbox_coder)
++        # self.loss_cls = build_loss(loss_cls)
++        # self.loss_bbox = build_loss(loss_bbox)
++        self.bbox_coder = bbox_coder
+         self.num_anchor_per_locs = [n for n in num_classes]
+         self.fp16_enabled = False
+ 
+@@ -334,7 +335,7 @@ class CenterHead(BaseModule):
+             separate_head.update(
+                 in_channels=share_conv_channel, heads=heads, num_cls=num_cls
+             )
+-            self.task_heads.append(builder.build_head(separate_head))
++            self.task_heads.append(separate_head_cls(**separate_head))
+ 
+     def forward_single(self, x):
+         """Forward function for CenterPoint.
+@@ -353,7 +354,7 @@ class CenterHead(BaseModule):
+ 
+         return ret_dicts
+ 
+-    def forward(self, feats, metas):
++    def forward(self, feats, metas=None):
+         """Forward pass.
+         Args:
+             feats (list[torch.Tensor]): Multi-level features, e.g.,
+@@ -581,7 +582,7 @@ class CenterHead(BaseModule):
+             inds.append(ind)
+         return heatmaps, anno_boxes, inds, masks
+ 
+-    @force_fp32(apply_to=("preds_dicts"))
++    # @force_fp32(apply_to=("preds_dicts"))
+     def loss(self, gt_bboxes_3d, gt_labels_3d, preds_dicts, **kwargs):
+         """Loss function for CenterHead.
+         Args:
+@@ -633,8 +634,8 @@ class CenterHead(BaseModule):
+             loss_dict[f"bbox/task{task_id}"] = loss_bbox
+         return loss_dict
+ 
+-    @force_fp32(apply_to=("preds_dicts"))
+-    def get_bboxes(self, preds_dicts, metas, img=None, rescale=False):
++    # @force_fp32(apply_to=("preds_dicts"))
++    def get_bboxes(self, preds_dicts, metas=None, img=None, rescale=False):
+         """Generate bboxes from bbox head predictions.
+         Args:
+             preds_dicts (tuple[list[dict]]): Prediction results.
+@@ -708,7 +709,7 @@ class CenterHead(BaseModule):
+                     centers = boxes3d[:, [0, 1]]
+                     boxes = torch.cat([centers, scores.view(-1, 1)], dim=1)
+                     keep = torch.tensor(
+-                        circle_nms(
++                        self.circle_nms(
+                             boxes.detach().cpu().numpy(),
+                             self.test_cfg["min_radius"][task_id],
+                             post_max_size=self.test_cfg["post_max_size"],
+@@ -737,14 +738,13 @@ class CenterHead(BaseModule):
+ 
+         # Merge branches results
+         num_samples = len(rets[0])
+-
+         ret_list = []
+         for i in range(num_samples):
+             for k in rets[0][i].keys():
+                 if k == "bboxes":
+                     bboxes = torch.cat([ret[i][k] for ret in rets])
+                     bboxes[:, 2] = bboxes[:, 2] - bboxes[:, 5] * 0.5
+-                    bboxes = metas[i]["box_type_3d"](bboxes, self.bbox_coder.code_size)
++                    # bboxes = metas[i]["box_type_3d"](bboxes, self.bbox_coder.code_size)
+                 elif k == "scores":
+                     scores = torch.cat([ret[i][k] for ret in rets])
+                 elif k == "labels":
+diff --git a/mmdet3d/models/necks/generalized_lss.py b/mmdet3d/models/necks/generalized_lss.py
+index d56c85c..acdb175 100644
+--- a/mmdet3d/models/necks/generalized_lss.py
++++ b/mmdet3d/models/necks/generalized_lss.py
+@@ -2,14 +2,14 @@ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ from mmcv.cnn import ConvModule
+-from mmcv.runner import BaseModule, auto_fp16
++from mmengine.model import BaseModule
+ 
+-from mmdet.models.builder import NECKS
++# from mmdet.models.builder import NECKS
+ 
+ __all__ = ["GeneralizedLSSFPN"]
+ 
+ 
+-@NECKS.register_module()
++# @NECKS.register_module()
+ class GeneralizedLSSFPN(BaseModule):
+     def __init__(
+         self,
+@@ -77,7 +77,7 @@ class GeneralizedLSSFPN(BaseModule):
+             self.lateral_convs.append(l_conv)
+             self.fpn_convs.append(fpn_conv)
+ 
+-    @auto_fp16()
++    # @force_fp32()
+     def forward(self, inputs):
+         """Forward function."""
+         # upsample -> cat -> conv1x1 -> conv3x3
+diff --git a/mmdet3d/models/necks/lss.py b/mmdet3d/models/necks/lss.py
+index 7eeab69..0b99554 100644
+--- a/mmdet3d/models/necks/lss.py
++++ b/mmdet3d/models/necks/lss.py
+@@ -4,12 +4,12 @@ import torch
+ from torch import nn
+ from torch.nn import functional as F
+ 
+-from mmdet.models import NECKS
++# from mmdet3d.models.builder import MODELS
+ 
+ __all__ = ["LSSFPN"]
+ 
+ 
+-@NECKS.register_module()
++# @MODELS.register_module()
+ class LSSFPN(nn.Module):
+     def __init__(
+         self,
+diff --git a/mmdet3d/models/vtransforms/base.py b/mmdet3d/models/vtransforms/base.py
+index fd031c4..c1de6b0 100644
+--- a/mmdet3d/models/vtransforms/base.py
++++ b/mmdet3d/models/vtransforms/base.py
+@@ -1,10 +1,10 @@
+ from typing import Tuple
+ 
+ import torch
+-from mmcv.runner import force_fp32
++# from mmcv.runner import force_fp32
+ from torch import nn
+ 
+-from mmdet3d.ops import bev_pool
++# from mmdet3d.ops import bev_pool
+ 
+ __all__ = ["BaseTransform", "BaseDepthTransform"]
+ 
+@@ -62,7 +62,7 @@ class BaseTransform(nn.Module):
+         self.D = self.frustum.shape[0]
+         self.fp16_enabled = False
+ 
+-    @force_fp32()
++    # @force_fp32()
+     def create_frustum(self):
+         iH, iW = self.image_size
+         fH, fW = self.feature_size
+@@ -88,7 +88,7 @@ class BaseTransform(nn.Module):
+         frustum = torch.stack((xs, ys, ds), -1)
+         return nn.Parameter(frustum, requires_grad=False)
+ 
+-    @force_fp32()
++    # @force_fp32()
+     def get_geometry(
+         self,
+         camera2lidar_rots,
+@@ -137,7 +137,7 @@ class BaseTransform(nn.Module):
+     def get_cam_feats(self, x):
+         raise NotImplementedError
+ 
+-    @force_fp32()
++    # @force_fp32()
+     def bev_pool(self, geom_feats, x):
+         B, N, D, H, W, C = x.shape
+         Nprime = B * N * D * H * W
+@@ -175,7 +175,7 @@ class BaseTransform(nn.Module):
+ 
+         return final
+ 
+-    @force_fp32()
++    # @force_fp32()
+     def forward(
+         self,
+         img,
+@@ -236,7 +236,7 @@ class BaseTransform(nn.Module):
+ 
+ 
+ class BaseDepthTransform(BaseTransform):
+-    @force_fp32()
++    # @force_fp32()
+     def forward(
+         self,
+         img,
+diff --git a/mmdet3d/models/vtransforms/lss.py b/mmdet3d/models/vtransforms/lss.py
+index 1ed4f00..be004ae 100644
+--- a/mmdet3d/models/vtransforms/lss.py
++++ b/mmdet3d/models/vtransforms/lss.py
+@@ -1,17 +1,17 @@
+ from typing import Tuple
+ 
+-from mmcv.runner import force_fp32
++# from mmcv.runner import force_fp32
+ from torch import nn
+ 
+-from mmdet3d.models.builder import VTRANSFORMS
++# from mmdet3d.models.builder import VTRANSFORMS
+ 
+-from .base import BaseTransform
++# from .base import BaseTransform
+ 
+ __all__ = ["LSSTransform"]
+ 
+ 
+-@VTRANSFORMS.register_module()
+-class LSSTransform(BaseTransform):
++# @VTRANSFORMS.register_module()
++class LSSTransform():
+     def __init__(
+         self,
+         in_channels: int,
+@@ -58,7 +58,7 @@ class LSSTransform(BaseTransform):
+         else:
+             self.downsample = nn.Identity()
+ 
+-    @force_fp32()
++    # @force_fp32()
+     def get_cam_feats(self, x):
+         B, N, C, fH, fW = x.shape
+ 

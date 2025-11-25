@@ -4,12 +4,16 @@ scorecard_path_to_website_runtime:
   qnn_context_binary: qnn
   onnx: onnx
   precompiled_qnn_onnx: onnx
+  genie: qnn
+  onnxruntime_genai: onnx
 scorecard_path_extensions:
   tflite: .tflite
   qnn_dlc: .dlc
   qnn_context_binary: .bin
-  onnx: .onnx
-  precompiled_qnn_onnx: .onnx
+  onnx: .onnx.zip
+  precompiled_qnn_onnx: .onnx.zip
+  genie: .genie.zip
+  onnxruntime_genai: .onnxruntime_genai.zip
 form_factors:
   Phone:
     display_name: Phone
@@ -390,6 +394,22 @@ devices:
     form_factor: Phone
     vendor: qualcomm
     icon: Phone_S21
+  Snapdragon 8 Elite Gen 5 QRD:
+    chipset: qualcomm-snapdragon-8-elite-gen5
+    os:
+      ostype: Android
+      version: '16'
+    form_factor: Phone
+    vendor: qualcomm
+    icon: Phone_S21
+  Snapdragon 7 Gen 5 QRD:
+    chipset: qualcomm-snapdragon-7gen5
+    os:
+      ostype: Android
+      version: '16'
+    form_factor: Phone
+    vendor: qualcomm
+    icon: Phone_S21
   SA8295P ADP:
     chipset: qualcomm-sa8295p
     os:
@@ -599,6 +619,18 @@ chipsets:
     - qualcomm-snapdragon-8-elite
     - sm8750
     marketing_name: Snapdragon® 8 Elite Mobile
+    world: Mobile
+  qualcomm-snapdragon-8-elite-gen5:
+    aliases:
+    - qualcomm-snapdragon-8-elite-gen5
+    - sm8850
+    marketing_name: Snapdragon® 8 Elite Gen5 Mobile
+    world: Mobile
+  qualcomm-snapdragon-7gen5:
+    aliases:
+    - qualcomm-snapdragon-7gen5
+    - sm7750
+    marketing_name: Snapdragon® 7 Gen 5 Mobile
     world: Mobile
   qualcomm-sa8295p:
     aliases:

@@ -52,7 +52,8 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
         Processes OpenPose outputs (PAFs and heatmaps) and converts them to
         COCO-format keypoint predictions
 
-        Args:
+        Parameters
+        ----------
             output: Tuple containing :
                - paf: Tensor[float] of part affinity fields [batch, 2, H, W]
                - heatmaps: Tensor[float] of keypoint heatmaps [batch, 19, H, W]
@@ -108,8 +109,8 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
                     if keypoints_to_transform:
                         transformed_kpts = denormalize_coordinates_affine(
                             np.array(keypoints_to_transform),
-                            center,
-                            scale,
+                            center.numpy(),
+                            scale.numpy(),
                             rotate,
                             input_size,
                         )
@@ -120,13 +121,13 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
                     img_preds.append(person_preds)
                     img_scores.append(person_scores)
                     all_image_ids.append(img_id)
-                    all_category_ids.append(category_ids[idx])
+                    all_category_ids.append(int(category_ids[idx].item()))
 
             if not img_preds:
                 img_preds.append(np.zeros((17, 2)))
                 img_scores.append(np.zeros(17))
                 all_image_ids.append(img_id)
-                all_category_ids.append(category_ids[idx])
+                all_category_ids.append(int(category_ids[idx].item()))
 
             all_preds.extend(img_preds)
             all_maxvals.extend(img_scores)

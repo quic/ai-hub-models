@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+import onnx
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 
 def _tie_quantizers_for_kv_cache(quantsim_model: QuantSimOnnx) -> None:
-    quantizer_mapping = dict()
+    quantizer_mapping = {}
 
     for input_name in quantsim_model.model.graph().input:
         if "past_key" in input_name.name or "past_value" in input_name.name:
@@ -56,11 +57,11 @@ def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx):
         quantizer.enable_per_channel_quantization()
 
 
-def _get_lm_head_weights(quantsim_model: QuantSimOnnx):
-    vocab_size = quantsim_model.graph.output[0].type.tensor_type.shape.dim[-1].dim_value
-    for weight in quantsim_model.graph.initializer:
+def _get_lm_head_weights(model: onnx.ModelProto):
+    vocab_size = model.graph.output[0].type.tensor_type.shape.dim[-1].dim_value
+    for weight in model.graph.initializer:
         if any(dim == vocab_size for dim in weight.dims):
-            for node in quantsim_model.graph.node:
+            for node in model.graph.node:
                 if node.op_type in ("Gemm", "MatMul", "Conv") and node.input[1] in {
                     weight.name,
                     weight.name + "_updated",

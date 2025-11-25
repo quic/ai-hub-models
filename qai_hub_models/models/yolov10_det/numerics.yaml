@@ -6,25 +6,24 @@ metrics:
   metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
   metric_unit: mAP@0.5:0.95
   num_partial_samples: 300
-  partial_torch_metric: 0.348
+  partial_torch_metric: 0.396
   device_metric:
-    Samsung Galaxy S24:
-      float:
-        tflite:
-          partial_metric: 0.349
-        qnn_dlc:
-          partial_metric: 0.349
-        onnx:
-          partial_metric: 0.349
+    Samsung Galaxy S25:
       w8a8:
         tflite:
-          partial_metric: 0.277
+          partial_metric: 0.302
         qnn_dlc:
-          partial_metric: 0.000454
+          partial_metric: 0.0
+      w8a8_mixed_int16:
+        qnn_dlc:
+          partial_metric: 0.407
+      float:
+        tflite:
+          partial_metric: 0.395
+        qnn_dlc:
+          partial_metric: 0.395
         onnx:
-          partial_metric: 0.000181
+          partial_metric: 0.395
       w8a16:
         qnn_dlc:
-          partial_metric: 0.343
-        onnx:
-          partial_metric: 0.347
+          partial_metric: 0.396

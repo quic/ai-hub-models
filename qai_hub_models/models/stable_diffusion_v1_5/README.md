@@ -21,11 +21,12 @@ Please follow the [Quantize Stable Diffusion]({REPOSITORY_URL}/tutorials/stable_
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[stable-diffusion-v1-5]"
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.stable_diffusion_v1_5.demo
@@ -37,7 +38,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

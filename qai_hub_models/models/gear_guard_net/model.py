@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Optional
 
 import torch
-import torch.nn as nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.gear_guard_evaluator import GearGuardNetEvaluator
@@ -51,20 +49,20 @@ class GearGuardNet(BaseModel):
         Outputs: list[torch.Tensor]
             Multi-scale object detection output.
         """
-        y: list[Optional[int]] = []
-        for m in self.model:
+        y: list[int | None] = []
+        for m in self.model:  # type: ignore[attr-defined]
             if m.f != -1:
                 x = (
-                    y[m.f]
+                    y[m.f]  # type: ignore[assignment]
                     if isinstance(m.f, int)
                     else [x if j == -1 else y[j] for j in m.f]
                 )
             x = m(x)
-            y.append(x if m.i in self.save else None)
-        return x
+            y.append(x if m.i in self.save else None)  # type: ignore[arg-type]
+        return x  # type: ignore[return-value]
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: Optional[str] = None) -> nn.Module:
+    def from_pretrained(cls, checkpoint_path: str | None = None) -> GearGuardNet:
         """
         Load model from pretrained weights.
 

@@ -10,13 +10,17 @@ from collections.abc import Callable
 import torch
 
 from qai_hub_models.models._shared.mediapipe.utils import MediaPipePyTorchAsRoot
-from qai_hub_models.models.common import SampleInputsType
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
+from qai_hub_models.models.common import Precision, SampleInputsType
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    find_replace_in_repo,
+    load_numpy,
+)
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 POSE_LANDMARK_CONNECTIONS = [
     (0, 1),
@@ -50,6 +54,7 @@ POSE_LANDMARK_CONNECTIONS = [
 # pose detector model parameters.
 BATCH_SIZE = 1
 DETECT_SCORE_SLIPPING_THRESHOLD = 100  # Clip output scores to this maximum value.
+FILTER_OOB_BOX = False  # Filter out of bound bbox
 DETECT_DXY, DETECT_DSCALE = (
     0,
     1.5,
@@ -63,6 +68,28 @@ DRAW_POSE_KEYPOINT_INDICES = [
 ROTATION_VECTOR_OFFSET_RADS = (
     torch.pi / 2
 )  # Offset required when computing rotation of the detected pose.
+FILTER_OOB_BOX = False  # filter out of bound box
+
+
+def _apply_blazepose_fixes(repo_path: str) -> None:
+    """
+    Apply necessary fixes to the blazepose repository code.
+    These fixes include:
+    1. Changing return statement to return separate tensors as concat reduces the w8a8 accuracy
+    2. Apply padding for better quantization accuracy
+    """
+    find_replace_in_repo(
+        repo_path,
+        "blazepose.py",
+        "return [r, c]",
+        "return [r1, r2, c1, c2]",
+    )
+    find_replace_in_repo(
+        repo_path,
+        "blazepose.py",
+        '# x = F.pad(x, (1, 2, 1, 2), "constant", 0)',
+        'x = F.pad(x, (1, 2, 2, 2), "constant", 0)',
+    )
 
 
 class PoseDetector(BaseModel):
@@ -73,29 +100,41 @@ class PoseDetector(BaseModel):
 
     def __init__(
         self,
-        detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
+        detector: Callable[
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ],
         anchors: torch.Tensor,
     ):
         super().__init__()
         self.detector = detector
         self.anchors = anchors
 
-    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute bounding boxes that contain 1 person.
 
-        Parameters:
+        Parameters
+        ----------
             image:
                 RGB, range [0 - 1] image.
 
-        Returns:
-            box_coords: <B, N, C>, where N == # of anchors & C == # of of coordinates
-               Layout of C is (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y)
-               Output coordinates are in normalized floating point [0-1] space (fraction of the input image height / width)
-            box_scores: <B, N>, where N == # of anchors.
+        Returns
+        -------
+            tuple containing:
+                - box_coords_1: torch.Tensor, shape (batch_size, num_anchors, num_coordinates)
+                    Layout: (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y).
+                    Coordinates are in normalized [0-1] space (fraction of input image height/width).
+                - box_coords_2: torch.Tensor, shape (batch_size, num_anchors, num_coordinates)
+                    Same layout as box_coords_1.
+                - box_scores_1: torch.Tensor, shape (batch_size, num_anchors)
+                    Scores for box_coords_1 bounding boxes.
+                - box_scores_2: torch.Tensor, shape (batch_size, num_anchors)
+                    Scores for box_coords_2 bounding boxes.
         """
-        coords, scores = self.detector(image)
-        return coords, scores
+        return self.detector(image)
 
     @classmethod
     def from_pretrained(
@@ -103,7 +142,9 @@ class PoseDetector(BaseModel):
         detector_weights: str = "blazepose.pth",
         detector_anchors: str = "anchors_pose.npy",
     ):
-        with MediaPipePyTorchAsRoot():
+        with MediaPipePyTorchAsRoot() as repo_path:
+            _apply_blazepose_fixes(repo_path)
+
             from blazepose import BlazePose
 
             pose_detector = BlazePose(back_model=True)
@@ -121,7 +162,14 @@ class PoseDetector(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["box_coords", "box_scores"]
+        return ["box_coords_1", "box_coords_2", "box_scores_1", "box_scores_2"]
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "human_poses"
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
@@ -159,11 +207,13 @@ class PoseLandmarkDetector(BaseModel):
         """
         Compute image landmarks.
 
-        Parameters:
+        Parameters
+        ----------
             image:
                 RGB, range [0 - 1] image. This should be the cropped output of the PoseDetector model.
 
-        Returns:
+        Returns
+        -------
             ld_scores: torch.Tensor
                 Landmark score. Shape [B]
             landmarks:
@@ -211,6 +261,13 @@ class PoseLandmarkDetector(BaseModel):
         )
         return {"image": [load_numpy(numpy_inputs)]}
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "human_poses"
+
+    def get_hub_quantize_options(self, precision: Precision) -> str:
+        return "--range_scheme min_max"
+
 
 @CollectionModel.add_component(PoseDetector)
 @CollectionModel.add_component(PoseLandmarkDetector)
@@ -235,7 +292,8 @@ class MediaPipePose(CollectionModel):
         Load mediapipe models from the source repository.
         Returns tuple[<source repository>.blazepose.BlazePose, BlazePose Anchors, <source repository>.blazepose_landmark.BlazePoseLandmark]
         """
-        with MediaPipePyTorchAsRoot():
+        with MediaPipePyTorchAsRoot() as repo_path:
+            _apply_blazepose_fixes(repo_path)
             from blazepose import BlazePose
             from blazepose_landmark import BlazePoseLandmark
 

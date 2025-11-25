@@ -10,7 +10,7 @@ from collections import Counter
 from collections.abc import Iterable
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import numpy as np
 import qai_hub as hub
@@ -48,11 +48,11 @@ def print_with_box(data: list[str]) -> None:
 
 
 def print_inference_metrics(
-    inference_job: Optional[hub.InferenceJob],
+    inference_job: hub.InferenceJob | None,
     inference_result: DatasetEntries,
     torch_out: list[np.ndarray],
-    output_names: Optional[list[str]] = None,
-    outputs_to_skip: Optional[list[int]] = None,
+    output_names: list[str] | None = None,
+    outputs_to_skip: list[int] | None = None,
     metrics: str = "psnr",
 ) -> None:
     if output_names is None:
@@ -72,9 +72,7 @@ def print_inference_metrics(
             return f"{x:.4g}"
         return x
 
-    formatted_df = df_eval.applymap(
-        custom_float_format
-    )  # pyright: ignore[reportCallIssue]
+    formatted_df = df_eval.applymap(custom_float_format)  # pyright: ignore[reportCallIssue]
 
     print(
         "\nComparing on-device vs. local-cpu inference"
@@ -214,13 +212,11 @@ DemoJobT = TypeVar("DemoJobT", hub.CompileJob, hub.LinkJob)
 
 
 def print_on_target_demo_cmd(
-    compile_job: Union[DemoJobT, Iterable[DemoJobT]],
+    compile_job: DemoJobT | Iterable[DemoJobT],
     model_folder: Path,
     device: hub.Device,
 ) -> None:
-    """
-    Outputs a command that will run a model's demo script via inference job.
-    """
+    """Outputs a command that will run a model's demo script via inference job."""
     model_folder = model_folder.resolve()
     if not isinstance(compile_job, Iterable):
         compile_job = [compile_job]
@@ -237,47 +233,26 @@ def print_on_target_demo_cmd(
         f"\nRun compiled model{'s' if len(target_model_id) > 1 else ''} on a hosted device on sample data using:"
     )
     print(
-        f"python {model_folder / 'demo.py'} "
-        "--eval-mode on-device "
-        f"--hub-model-id {target_model_id_str} ",
+        f"python {model_folder / 'demo.py'} --eval-mode on-device --hub-model-id {target_model_id_str} ",
         end="",
     )
     if device.attributes:
-        print(f"--chipset {device.attributes[len('chipset:'):]}\n")
+        print(f"--chipset {device.attributes[len('chipset:') :]}\n")
     else:
         print(f'--device "{device.name}"\n')
-
-
-def print_mmcv_import_failure_and_exit(e: ImportError, model_id: str, mm_variant: str):
-    print(
-        f"""
-------
-
-ImportError: {str(e)}
-
-{mm_variant} failed to import. You probably have the wrong variant of MMCV installed.
-This can happen if you `pip install qai-hub-models[{model_id}]` without providing an index for pip to use to find MMCV.
-
-To fix this, install the variant of MMCV compatible with your torch version:
-    1. pip uninstall mmcv # You need to manually uninstall first. This is important.
-    2. Follow instructions at https://mmcv.readthedocs.io/en/latest/get_started/installation.html#install-with-pip
-
-------
-"""
-    )
-    exit(1)
 
 
 def print_file_tree_changes(
     base_dir: str,
     files_unmodified: list[str],
-    files_added: list[str] = [],
-    files_removed: list[str] = [],
+    files_added: list[str] | None = None,
+    files_removed: list[str] | None = None,
 ) -> list[str]:
     """
     Given a set of absolute paths, prints the file tree with modifications highlighted.
 
-    Parameters:
+    Parameters
+    ----------
         base_dir: str
             The "top level" directory in which all files live.
 
@@ -290,14 +265,20 @@ def print_file_tree_changes(
         files_unmodified: list[str]
             ABSOLUTE paths to files in base_dir that will be removed.
 
-    Returns:
+    Returns
+    -------
         list[str]
             Output lines (return value mainly used for unit testing)
 
-    Raises:
+    Raises
+    ------
         AssertionError
             If any file path is not contained within base_dir.
     """
+    if files_removed is None:
+        files_removed = []
+    if files_added is None:
+        files_added = []
     changed = len(files_added) > 0 or len(files_removed) > 0
     outlines = [f"--- File Tree {'Changes' if changed else ' (Unchanged)'} ---"]
 
@@ -308,8 +289,7 @@ def print_file_tree_changes(
     all_files = sorted(all_files_set)
 
     # Collect starting level
-    if base_dir.endswith("/"):
-        base_dir = base_dir[:-1]
+    base_dir = base_dir.removesuffix("/")
     base_level = base_dir.count(os.sep)
     last_level = base_level
     last_folder = None
@@ -357,6 +337,5 @@ def print_file_tree_changes(
 @contextmanager
 def suppress_stdout():
     """A context manager that redirects stdout to devnull"""
-    with open(os.devnull, "w") as fnull:
-        with redirect_stdout(fnull) as out:
-            yield out
+    with open(os.devnull, "w") as fnull, redirect_stdout(fnull) as out:
+        yield out

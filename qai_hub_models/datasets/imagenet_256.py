@@ -21,16 +21,12 @@ IMAGENET_256TRANSFORM = transforms.Compose(
 
 
 class Imagenet_256Dataset(ImagenetDataset):
-    """
-    Wrapper class for using the Imagenet validation dataset with 256x256 transform:
-    """
+    """Wrapper class for using the Imagenet validation dataset with 256x256 transform:"""
 
     def __init__(self, split: DatasetSplit = DatasetSplit.VAL):
         super().__init__(split=split, transform=IMAGENET_256TRANSFORM)
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

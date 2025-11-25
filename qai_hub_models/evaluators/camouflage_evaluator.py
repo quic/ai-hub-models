@@ -31,7 +31,9 @@ class CamouflageEvaluator(BaseEvaluator):
     def add_batch(self, pred_images: torch.Tensor, gt_images: torch.Tensor):
         """
         Process a batch of segmentation predictions and ground truth masks.
-        Args:
+
+        Parameters
+        ----------
             pred_images (torch.Tensor):  output predictions with shape
                 [batch_size, 1, height, width]
             gt_images (torch.Tensor): Ground truth masks with shape
@@ -43,7 +45,7 @@ class CamouflageEvaluator(BaseEvaluator):
         pred_np = postprocess_masks(pred_images, gt_images.shape[-2:])
         gt_np = gt_images.cpu().numpy().astype(np.uint8)
 
-        for pred, gt in zip(pred_np, gt_np):
+        for pred, gt in zip(pred_np, gt_np, strict=False):
             self.sm.step(pred=pred, gt=gt, normalize=True)
             self.wfm.step(pred=pred, gt=gt, normalize=True)
             self.em.step(pred=pred, gt=gt, normalize=True)

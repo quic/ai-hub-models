@@ -13,7 +13,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -25,9 +29,7 @@ CLASS_STR2IDX = {"face": "0", "person": "1", "hand": "2"}
 
 
 class FootTrackDataset(BaseDataset):
-    """
-    Wrapper class for foot_track_net private dataset
-    """
+    """Wrapper class for foot_track_net private dataset"""
 
     def __init__(
         self,
@@ -62,20 +64,8 @@ class FootTrackDataset(BaseDataset):
         labels_gt = labels_gt.astype(np.float32)
         labels_gt = np.reshape(labels_gt, (-1, 5))
 
-        boxes = []
-        labels = []
-        for label in labels_gt:
-            boxes.append(
-                [
-                    label[1],
-                    label[2],
-                    label[3],
-                    label[4],
-                ]
-            )
-            labels.append(label[0])
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
+        boxes = torch.tensor(labels_gt[:, 1:5])
+        labels = torch.tensor(labels_gt[:, 0])
 
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)
@@ -113,25 +103,22 @@ class FootTrackDataset(BaseDataset):
         self.gt_path = self.gt_path / "labels" / self.split_str
         self.image_list: list[Path] = []
         self.gt_list: list[Path] = []
-        img_count = 0
         for img_path in self.images_path.iterdir():
             if Image.open(img_path).size != (self.img_width, self.img_height):
                 raise ValueError(Image.open(img_path).size)
-            img_count += 1
             gt_filename = img_path.name.replace(".jpg", ".txt")
             gt_path = self.gt_path / gt_filename
             if not gt_path.exists():
-                print(f"Ground truth file not found: {str(gt_path)}")
+                print(f"Ground truth file not found: {gt_path!s}")
                 return False
             self.image_list.append(img_path)
             self.gt_list.append(gt_path)
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "FootTrack Dataset is used for foot_track_net quantization and evaluation. \n"
-            "Pass foottrack_trainvaltest.zip to the init function of class. \n"
-            "This should only be needed the first time you run this on the machine."
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=None,
         )
         if self.input_data_zip is None or not self.input_data_zip.endswith(
             FOOTTRACK_DATASET_DIR_NAME + ".zip"
@@ -143,7 +130,5 @@ class FootTrackDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

@@ -28,9 +28,7 @@ eg1880_ASSET = CachedWebDatasetAsset.from_asset_store(
 
 
 class eg1800SegmentationDataset(BaseDataset):
-    """
-    Wrapper class around eg1800 dataset
-    """
+    """Wrapper class around eg1800 dataset"""
 
     def __init__(
         self,
@@ -46,7 +44,6 @@ class eg1800SegmentationDataset(BaseDataset):
         self.input_width = input_spec["image"][0][3]
 
     def _validate_data(self) -> bool:
-
         self.image_dir = self.eg1800_path / "images_data_crop"
         self.category_dir = self.eg1800_path / "GT_png"
 
@@ -74,7 +71,6 @@ class eg1800SegmentationDataset(BaseDataset):
         return True
 
     def __getitem__(self, index):
-
         orig_image = Image.open(self.images[index]).convert("RGB")
         orig_gt = Image.open(self.categories[index]).convert("L")
 

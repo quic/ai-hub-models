@@ -11,11 +11,14 @@ from typing import Any
 import cv2
 import numpy as np
 import torch
-from mmpose.codecs.utils import get_simcc_maximum
 from PIL.Image import Image, fromarray
 
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import get_simcc_maximum
 
 # Defined the keypoint paires (coco) that from the human pose skeleton
 skeleton = [
@@ -94,9 +97,7 @@ def add_skeleton_edges(
     color: tuple[int, int, int] = (255, 0, 0),
     thickness: int = 2,
 ) -> None:
-    """
-    Draws Lines connecting specified keypoiny pairs to from a skeleton.
-    """
+    """Draws Lines connecting specified keypoiny pairs to from a skeleton."""
     for p1, p2 in skeleton:
         x1, y1 = points[p1]
         x2, y2 = points[p2]
@@ -121,7 +122,6 @@ class RTMPosebody2dApp:
         model: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]],
         inferencer: Any,
     ):
-
         self.model = model
         self.inferencer = inferencer
 
@@ -135,13 +135,15 @@ class RTMPosebody2dApp:
         """Decode keypoint coordinates from SimCC representations. The decoded
         coordinates are in the input image space.
 
-        Args:
+        Parameters
+        ----------
             encoded (Tuple[np.ndarray, np.ndarray]): SimCC labels for x-axis
                 and y-axis
             simcc_x (np.ndarray): SimCC label for x-axis
             simcc_y (np.ndarray): SimCC label for y-axis
 
-        Returns:
+        Returns
+        -------
             tuple:
             - keypoints (np.ndarray): Decoded coordinates in shape (N, K, D)
             - socres (np.ndarray): The keypoint scores in shape (N, K).
@@ -163,7 +165,8 @@ class RTMPosebody2dApp:
         """
         Predicts pose keypoints for a person in the image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -174,7 +177,8 @@ class RTMPosebody2dApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
@@ -186,7 +190,7 @@ class RTMPosebody2dApp:
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
         inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
         x = proc_inputs_[[2, 1, 0]]
         # Convert to expected model input distrubtion
@@ -194,7 +198,7 @@ class RTMPosebody2dApp:
         x = torch.unsqueeze(x, 0)
         x = x.to(dtype=torch.float32)
         pred_x, pred_y = self.model(x)
-        keypoints, scores = self.decode_output(pred_x.numpy(), pred_y.numpy())
+        keypoints, _scores = self.decode_output(pred_x.numpy(), pred_y.numpy())
 
         # center and scale to transform the coordinates back to the original image
         bbox = proc_inputs["data_samples"][0].gt_instances.bboxes[0]
@@ -212,7 +216,6 @@ class RTMPosebody2dApp:
 
         # draw keypoints and skeleton
         for i, img in enumerate(NHWC_int_numpy_frames):
-
             add_skeleton_edges(
                 img, keypoints[i], skeleton, color=(255, 0, 255), thickness=2
             )

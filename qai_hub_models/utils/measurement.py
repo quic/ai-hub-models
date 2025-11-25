@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import qai_hub as hub
@@ -42,7 +41,6 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
         units: A list of increasing unit sizes (e.g. ["B", "KB", ...])
         unit_step_size: The ratio in size between successive units.
     """
-
     unit_index = 0
 
     while size >= unit_step_size and unit_index < len(units) - 1:
@@ -52,10 +50,12 @@ def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> 
     return f"{display_with_sig_figs(size)}{units[unit_index]}"
 
 
-def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> Union[str, int]:
+def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> str | int:
     """
     Computes how much memory the model checkpoint consumes.
-    Parameters:
+
+    Parameters
+    ----------
         model_path: Path to the model checkpoint file.
         as_str: Whether to return the result as an int or a string formatted to 2 sig figs.
     """
@@ -67,9 +67,7 @@ def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> Union[str,
     return get_formatted_size(num_bytes, [" B", " KB", " MB", " GB", " TB"], 1024.0)
 
 
-def get_tflite_unique_parameters(
-    model_path: str, as_str: bool = True
-) -> Union[str, int]:
+def get_tflite_unique_parameters(model_path: str, as_str: bool = True) -> str | int:
     """
     TFLite parameters are defined at two levels: Tensors and Buffers
 
@@ -93,10 +91,9 @@ def get_tflite_unique_parameters(
 
             buffer = model.Buffers(buf_index)
             assert buffer is not None
-            if not buffer.DataIsNone():
-                if buf_index not in buffers_counted:
-                    parameter_cnt += int(np.prod(tensor.ShapeAsNumpy()))
-                    buffers_counted.add(buf_index)
+            if not buffer.DataIsNone() and buf_index not in buffers_counted:
+                parameter_cnt += int(np.prod(tensor.ShapeAsNumpy()))
+                buffers_counted.add(buf_index)
 
     if not as_str:
         return parameter_cnt
@@ -106,27 +103,28 @@ def get_tflite_unique_parameters(
 
 def get_model_size_mb(hub_model: hub.Model) -> float:
     """Return target model size in MB. This is a special case for ease of
-    testing"""
+    testing
+    """
     assert hub_model is not None
     with qaihm_temp_dir() as tmp_dir:
         download_path = Path(tmp_dir) / "model"
         # Download the model into the temporary directory
         hub_model.download(str(download_path))
-        size_mb = get_disk_size(download_path, unit="MB")
-        return size_mb
+        return get_disk_size(download_path, unit="MB")
 
 
 def get_disk_size(path: str | Path, unit: str = "byte") -> float:
     """
     Returns file or directory size in `unit`
 
-    Args:
+    Parameters
+    ----------
     - unit: One of ["byte", "MB"]
     """
     if os.path.isdir(path):
         # Traverse the directory and add up the file sizes.
         total_size = 0
-        for dirpath, dirnames, filenames in os.walk(path):
+        for dirpath, _dirnames, filenames in os.walk(path):
             for f in filenames:
                 fp = os.path.join(dirpath, f)
                 # skip if it is symbolic link

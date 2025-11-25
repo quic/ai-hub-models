@@ -1,0 +1,66 @@
+diff --git a/tracker/model/aggregate.py b/tracker/model/aggregate.py
+index 7622391..89eaa08 100644
+--- a/tracker/model/aggregate.py
++++ b/tracker/model/aggregate.py
+@@ -5,7 +5,7 @@ import torch.nn.functional as F
+ # Soft aggregation from STM
+ def aggregate(prob, dim, return_logits=False):
+     new_prob = torch.cat([
+-        torch.prod(1-prob, dim=dim, keepdim=True),
++        1-prob,
+         prob
+     ], dim).clamp(1e-7, 1-1e-7)
+     logits = torch.log((new_prob /(1-new_prob)))
+diff --git a/tracker/model/group_modules.py b/tracker/model/group_modules.py
+index 749ef23..07bb096 100644
+--- a/tracker/model/group_modules.py
++++ b/tracker/model/group_modules.py
+@@ -22,7 +22,7 @@ def interpolate_groups(g, ratio, mode, align_corners):
+ def upsample_groups(g, ratio=2, mode='bilinear', align_corners=False):
+     return interpolate_groups(g, ratio, mode, align_corners)
+ 
+-def downsample_groups(g, ratio=1/2, mode='area', align_corners=None):
++def downsample_groups(g, ratio=1/2, mode='bilinear', align_corners=None):
+     return interpolate_groups(g, ratio, mode, align_corners)
+ 
+ 
+diff --git a/tracker/model/modules.py b/tracker/model/modules.py
+index 9920799..81f168f 100644
+--- a/tracker/model/modules.py
++++ b/tracker/model/modules.py
+@@ -66,10 +66,14 @@ class HiddenUpdater(nn.Module):
+         # might provide better gradient but frankly it was initially just an 
+         # implementation error that I never bothered fixing
+         values = self.transform(g)
+-        forget_gate = torch.sigmoid(values[:,:,:self.hidden_dim])
+-        update_gate = torch.sigmoid(values[:,:,self.hidden_dim:self.hidden_dim*2])
+-        new_value = torch.tanh(values[:,:,self.hidden_dim*2:])
++        batch,obj,_,_,_ = values.shape
++        h= h.view(batch*obj,*h.shape[2:])
++        values = values.view(batch*obj,*values.shape[2:])
++        forget_gate = torch.sigmoid(values[:,:self.hidden_dim])
++        update_gate = torch.sigmoid(values[:,self.hidden_dim:self.hidden_dim*2])
++        new_value = torch.tanh(values[:,self.hidden_dim*2:])
+         new_h = forget_gate*h*(1-update_gate) + update_gate*new_value
++        new_h = new_h.view(batch,obj,*new_h.shape[1:])
+ 
+         return new_h
+ 
+@@ -91,10 +95,14 @@ class HiddenReinforcer(nn.Module):
+         # might provide better gradient but frankly it was initially just an 
+         # implementation error that I never bothered fixing
+         values = self.transform(g)
+-        forget_gate = torch.sigmoid(values[:,:,:self.hidden_dim])
+-        update_gate = torch.sigmoid(values[:,:,self.hidden_dim:self.hidden_dim*2])
+-        new_value = torch.tanh(values[:,:,self.hidden_dim*2:])
++        batch,obj,_,_,_ = values.shape
++        h= h.view(batch*obj,*h.shape[2:])
++        values = values.view(batch*obj,*values.shape[2:])
++        forget_gate = torch.sigmoid(values[:,:self.hidden_dim])
++        update_gate = torch.sigmoid(values[:,self.hidden_dim:self.hidden_dim*2])
++        new_value = torch.tanh(values[:,self.hidden_dim*2:])
+         new_h = forget_gate*h*(1-update_gate) + update_gate*new_value
++        new_h = new_h.view(batch,obj,*new_h.shape[1:])
+ 
+         return new_h
+ 

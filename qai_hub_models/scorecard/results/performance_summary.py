@@ -83,7 +83,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
 
     @classmethod
     def from_runs(
-        cls: type[_DeviceSummaryTypeVar],
+        cls,
         model_id: str,
         precision: Precision,
         device: ScorecardDevice,
@@ -103,11 +103,16 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, self.precision, None, self.device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            self.precision,
+            None,
+            self.device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
-_DeviceSummaryTypeVar = TypeVar("_DeviceSummaryTypeVar", bound=ScorecardDeviceSummary)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 DeviceSummaryTypeVar = TypeVar(
     "DeviceSummaryTypeVar",
@@ -146,7 +151,8 @@ class ScorecardModelPrecisionSummary(
         """
         Create a Summary for a Scorecard Model with a specific Precision.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: str
                 Model ID.
 
@@ -181,7 +187,7 @@ class ScorecardModelPrecisionSummary(
 
     @classmethod
     def from_runs(
-        cls: type[_ModelPrecisionSummaryTypeVar],
+        cls,
         model_id: str,
         precision: Precision,
         path_runs: list[ScorecardJobTypeVar],
@@ -195,20 +201,22 @@ class ScorecardModelPrecisionSummary(
             component_dict: dict[ScorecardDevice, list[ScorecardJobTypeVar]] = {}
             for run in path_runs:
                 if run.model_id == component_id:
-                    job_list = component_dict.get(run._device, list())
+                    job_list = component_dict.get(run._device, [])
                     component_dict[run._device] = job_list
                     job_list.append(run)
             summaries_per_device_component[component_id] = {
                 device: cls.device_summary_type.from_runs(
-                    model_id, precision, device, runs
+                    model_id,
+                    precision,
+                    device,
+                    runs,  # type: ignore[arg-type]
                 )
                 for device, runs in component_dict.items()
             }
 
         if components is None:
             return cls(model_id, precision, summaries_per_device_component[model_id])
-        else:
-            return cls(model_id, precision, None, summaries_per_device_component)
+        return cls(model_id, precision, None, summaries_per_device_component)
 
     def get_run(
         self,
@@ -219,7 +227,8 @@ class ScorecardModelPrecisionSummary(
         """
         Get a scorecard job matching these parameters.
 
-        Parameters:
+        Parameters
+        ----------
             device: ScorecardDevice
             path: ScorecardPathOrNoneTypeVar
             component: str | None
@@ -233,21 +242,25 @@ class ScorecardModelPrecisionSummary(
         elif self.has_components:
             raise ValueError("Must provide component name for models with components.")
 
-        if component_device_map := self.runs_per_component_device.get(
-            component or self.model_id
-        ):
-            if summary := component_device_map.get(device):
-                return summary.get_run(path)  # type: ignore[arg-type,return-value]
+        if (
+            component_device_map := self.runs_per_component_device.get(
+                component or self.model_id
+            )
+        ) and (summary := component_device_map.get(device)):
+            return summary.get_run(path)  # type: ignore[arg-type,return-value]
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, self.precision, None, device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            self.precision,
+            None,
+            device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
-_ModelPrecisionSummaryTypeVar = TypeVar(
-    "_ModelPrecisionSummaryTypeVar", bound=ScorecardModelPrecisionSummary
-)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 ModelPrecisionSummaryTypeVar = TypeVar(
     "ModelPrecisionSummaryTypeVar",
@@ -269,18 +282,22 @@ class ScorecardModelSummary(
     def __init__(
         self,
         model_id: str = "UNKNOWN",
-        summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar] = {},
+        summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
+        | None = None,
     ):
         """
         Create a Summary for a single Scorecard Model.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: str
                 Model ID.
 
             summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
                 Summary per precision.
         """
+        if summaries_per_precision is None:
+            summaries_per_precision = {}
         self.model_id = model_id
         self.summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar] = (
             summaries_per_precision
@@ -288,7 +305,7 @@ class ScorecardModelSummary(
 
     @classmethod
     def from_runs(
-        cls: type[_ModelSummaryTypeVar],
+        cls,
         model_id: str,
         runs: list[ScorecardJobTypeVar],
         components: list[str] | None = None,
@@ -304,7 +321,10 @@ class ScorecardModelSummary(
             model_id,
             {
                 precision: cls.model_summary_type.from_runs(
-                    model_id, precision, runs, components
+                    model_id,
+                    precision,
+                    runs,  # type: ignore[arg-type]
+                    components,
                 )
                 for precision, runs in summaries_per_precision.items()
             },
@@ -320,7 +340,8 @@ class ScorecardModelSummary(
         """
         Get a scorecard job matching these parameters.
 
-        Parameters:
+        Parameters
+        ----------
             device: ScorecardDevice
             path: ScorecardPathOrNoneTypeVar
             component: str | None
@@ -331,11 +352,16 @@ class ScorecardModelSummary(
 
         # Create a "Skipped" run to return
         return self.__class__.scorecard_job_type(
-            self.model_id, precision, None, device, False, None, path  # type: ignore[arg-type]
+            self.model_id,
+            precision,
+            None,
+            device,
+            False,
+            None,
+            path,  # type: ignore[arg-type]
         )
 
 
-_ModelSummaryTypeVar = TypeVar("_ModelSummaryTypeVar", bound=ScorecardModelSummary)
 # Specific typevar. Autofill has trouble resolving types for nested generics without specifically listing ineritors of the generic base.
 ModelSummaryTypeVar = TypeVar(
     "ModelSummaryTypeVar",
@@ -442,9 +468,8 @@ class ModelPrecisionPerfSummary(
             for device, summary in sorted(
                 summary_per_device.items(), key=lambda dk: dk[0].reference_device_name
             ):
-                if (
-                    include_internal_devices
-                    or summary.device.public
+                if include_internal_devices or (
+                    summary.device.public
                     and summary.device.form_factor not in exclude_form_factors
                 ):
                     device_summary = summary.get_perf_card(
@@ -509,7 +534,7 @@ class ModelPrecisionPerfSummary(
             # Remove universal assets for runtimes that were entirely removed
             # because they aren't supported by all components.
             for component in components.values():
-                universal_runtimes = {r: False for r in component.universal_assets}
+                universal_runtimes = dict.fromkeys(component.universal_assets, False)
                 for runtime_dict in component.performance_metrics.values():
                     for runtime in runtime_dict:
                         if runtime in universal_runtimes:
@@ -545,11 +570,14 @@ class ModelPerfSummary(
         self,
         include_failed_jobs: bool = True,
         include_internal_devices: bool = True,
-        exclude_paths: dict[Precision, list[ScorecardProfilePath]] = {},
-        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] = [],
+        exclude_paths: dict[Precision, list[ScorecardProfilePath]] | None = None,
+        exclude_form_factors: Iterable[ScorecardDevice.FormFactor] | None = None,
         model_name: str | None = None,
     ) -> QAIHMModelPerf:
-
+        if exclude_paths is None:
+            exclude_paths = {}
+        if exclude_form_factors is None:
+            exclude_form_factors = []
         precision_cards = {
             p: s.get_perf_card(
                 include_failed_jobs,
@@ -566,7 +594,7 @@ class ModelPerfSummary(
         }
 
         # Remove precisions with no jobs.
-        for p in self.summaries_per_precision.keys():
+        for p in self.summaries_per_precision:
             if not precision_cards[p].components or all(
                 not component_card.performance_metrics
                 for component_card in precision_cards[p].components.values()
@@ -661,53 +689,6 @@ class DeviceCompileSummary(
             path = path.compile_path
         return super().get_run(path)
 
-    def extend_perf_card_with_aot_assets(
-        self,
-        aot_paths: list[ScorecardProfilePath],
-        ccard: QAIHMModelPerf.ComponentDetails,
-    ):
-        # If this device didn't profile successfully, then don't assume AOT paths work.
-        if self.device not in ccard.performance_metrics:
-            return
-
-        # Walk through the card and append any assets for the given aot paths.
-        device_assets = ccard.device_assets.get(self.device, dict())
-        for path in aot_paths:
-            assert path.runtime.is_aot_compiled
-
-            # Don't overwrite if an asset already exists.
-            if path in device_assets:
-                continue
-
-            if run := self.run_per_path.get(path.compile_path):
-                # Verify there is an asset to add to the card.
-                if not run.success:
-                    continue
-
-                # Skip this path if no comparable equivalent runtime succeeded.
-                equiv_paths = [
-                    x
-                    for x in (path.paths_with_same_toolchain or [])
-                    if x in ccard.performance_metrics[self.device]
-                ]
-                if all(
-                    ccard.performance_metrics[self.device][
-                        x
-                    ].inference_time_milliseconds
-                    is None
-                    for x in equiv_paths
-                ):
-                    continue
-
-                asset_details = QAIHMModelPerf.AssetDetails.from_hub_job(run.job)
-                if qairt := asset_details.tool_versions.qairt:
-                    qairt.framework.flavor = None
-                device_assets[path] = asset_details
-
-        # Set the device assets dict in case it didn't previously exist.
-        if device_assets:
-            ccard.device_assets[self.device] = device_assets
-
 
 class ModelPrecisionCompileSummary(
     ScorecardModelPrecisionSummary[
@@ -734,34 +715,6 @@ class ModelPrecisionCompileSummary(
         ):
             run = super().get_run(cs_universal, path, component)
         return run
-
-    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf.PrecisionDetails):
-        """
-        Walks through the card and appends any compiled AOT assets
-        if the equivalent JIT asset profiled succesfully.
-        """
-        for component, per_device_summary in self.runs_per_component_device.items():
-            if not self.has_components and len(card.components) == 1:
-                # If there are no components, then this summary
-                # has a single entry: { model_id: per_device_summary }
-                #
-                # A perf card may reference the model name rather than the model ID.
-                #
-                # To deal with this mismatch, we get the only element in the components
-                # list in the given perf card, and assume that matches with this summary.
-                component = next(card.components.keys().__iter__())
-
-            if ccard := card.components.get(component):
-                aot_paths: list[ScorecardProfilePath] = []
-                for path in ccard.universal_assets:
-                    aot_paths.extend(
-                        x
-                        for x in (path.paths_with_same_toolchain or [])
-                        if x.runtime.is_aot_compiled
-                    )
-
-                for dsummary in per_device_summary.values():
-                    dsummary.extend_perf_card_with_aot_assets(aot_paths, ccard)
 
 
 class ModelCompileSummary(
@@ -792,15 +745,6 @@ class ModelCompileSummary(
         return self.__class__.scorecard_job_type(
             self.model_id, precision, None, device, False, None, path
         )
-
-    def extend_perf_card_with_aot_assets(self, card: QAIHMModelPerf):
-        """
-        Walks through the card and appends any compiled AOT assets
-        if the equivalent JIT asset profiled succesfully.
-        """
-        for precision, pcard in card.precisions.items():
-            if psummary := self.summaries_per_precision.get(precision):
-                psummary.extend_perf_card_with_aot_assets(pcard)
 
 
 # --------------------------------------

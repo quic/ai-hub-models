@@ -53,7 +53,8 @@ class RepaintMaskApp:
         """
         Erases and repaints the source image[s] in the pixel values given by the mask.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -70,7 +71,8 @@ class RepaintMaskApp:
 
                 If one mask is provided, it will be used for every input image.
 
-        Returns:
+        Returns
+        -------
             images: list[PIL.Image]
                 A list of predicted images (one list element per batch).
         """

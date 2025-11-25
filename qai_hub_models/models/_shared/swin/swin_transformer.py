@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import math
-from typing import Optional
 
 import torch
 from torch import Tensor
@@ -23,7 +22,7 @@ def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Ten
     output = sum(
         [
             F.linear(x_chunk, weight_chunk)
-            for x_chunk, weight_chunk in zip(x_chunks, weight_chunks)
+            for x_chunk, weight_chunk in zip(x_chunks, weight_chunks, strict=False)
         ]
     )
     if bias is not None:
@@ -34,23 +33,22 @@ def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Ten
 def split_linear(
     x: Tensor, weight: Tensor, bias: Tensor, max_channel: int = 512
 ) -> Tensor:
-    """
-    Split linear input and output channels to have no more than `max_channel`
-    """
+    """Split linear input and output channels to have no more than `max_channel`"""
     num_chunks = int(-(-weight.size(0) // max_channel))  # Ceiling division
     if num_chunks == 1:
         return split_linear_input(x, weight, bias, max_channel)
     weight_chunks = weight.chunk(num_chunks, dim=0)
     bias_chunks = bias.chunk(num_chunks) if bias is not None else [None] * num_chunks
     # Apply F.linear separately and concatenate the outputs
-    output = torch.cat(
+    return torch.cat(
         [
             split_linear_input(x, weight_chunk, bias_chunk, max_channel)
-            for weight_chunk, bias_chunk in zip(weight_chunks, bias_chunks)
+            for weight_chunk, bias_chunk in zip(
+                weight_chunks, bias_chunks, strict=False
+            )
         ],
         dim=-1,
     )
-    return output
 
 
 class ShiftedWindowAttentionInf(torch.nn.Module):
@@ -68,9 +66,12 @@ class ShiftedWindowAttentionInf(torch.nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """
-        Args:
+        Parameters
+        ----------
             x (Tensor): Tensor with layout of [B, H, W, C]
-        Returns:
+
+        Returns
+        -------
             Tensor with same layout as input, i.e. [B, H, W, C]
         """
         relative_position_bias = self.model.get_relative_position_bias()
@@ -94,7 +95,7 @@ class ShiftedWindowAttentionInf(torch.nn.Module):
 # Alternative to https://github.com/pytorch/vision/blob/0d75d9e5516f446c9c0ef93bd4ed9fea13992d06/torchvision/models/swin_transformer.py#L116
 # fixes view from rank-6 to rank-5 for SwinTransformer
 def shifted_window_attention_inf(
-    input: Tensor,
+    x: Tensor,
     qkv_weight: Tensor,
     proj_weight: Tensor,
     relative_position_bias: Tensor,
@@ -103,20 +104,19 @@ def shifted_window_attention_inf(
     shift_size: list[int],
     attention_dropout: float = 0.0,
     dropout: float = 0.0,
-    qkv_bias: Optional[Tensor] = None,
-    proj_bias: Optional[Tensor] = None,
-    logit_scale: Optional[Tensor] = None,
+    qkv_bias: Tensor | None = None,
+    proj_bias: Tensor | None = None,
+    logit_scale: Tensor | None = None,
     training: bool = True,
 ) -> Tensor:
     """
     Updated from
     https://github.com/pytorch/vision/blob/0d75d9e5516f446c9c0ef93bd4ed9fea13992d06/torchvision/models/swin_transformer.py#L116
     """
-    B, H, W, C = input.shape
+    B, H, W, C = x.shape
     # pad feature maps to multiples of window size
     pad_r = (window_size[1] - W % window_size[1]) % window_size[1]
     pad_b = (window_size[0] - H % window_size[0]) % window_size[0]
-    x = input
     if pad_r != 0 or pad_b != 0:
         x = F.pad(x, (0, 0, 0, pad_r, 0, pad_b))
     _, pad_H, pad_W, _ = x.shape
@@ -213,8 +213,8 @@ def shifted_window_attention_inf(
             num_windows, window_size[0] * window_size[1]
         )
         attn_mask = attn_mask.unsqueeze(1) - attn_mask.unsqueeze(2)
-        attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
-            attn_mask == 0, float(0.0)
+        attn_mask = attn_mask.masked_fill(attn_mask != 0, (-100.0)).masked_fill(
+            attn_mask == 0, 0.0
         )
         # ==== Local change begin ===
         attn = attn.view(
@@ -247,8 +247,7 @@ def shifted_window_attention_inf(
         x = torch.roll(x, shifts=(shift_size[0], shift_size[1]), dims=(1, 2))
 
     # unpad features
-    x = x[:, :H, :W, :].contiguous()
-    return x
+    return x[:, :H, :W, :].contiguous()
 
 
 class AutoSplitLinear(torch.nn.Module):

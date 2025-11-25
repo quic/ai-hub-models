@@ -51,7 +51,7 @@ def llama_chat_demo(
     hf_repo_url: str,
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
-    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
+    available_target_runtimes: list[TargetRuntime] | None = None,
     bundled_kvcache: bool = True,
 ):
     """
@@ -73,6 +73,8 @@ def llama_chat_demo(
         available_target_runtimes: Default availble runtime in options,
     """
     # Demo parameters
+    if available_target_runtimes is None:
+        available_target_runtimes = [TargetRuntime.QNN_CONTEXT_BINARY]
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(
         parser,

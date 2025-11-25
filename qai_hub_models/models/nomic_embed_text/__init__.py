@@ -3,5 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from .app import NomicEmbedTextApp as App  # noqa: F401
 from .model import MODEL_ID  # noqa: F401
 from .model import NomicEmbedText as Model  # noqa: F401

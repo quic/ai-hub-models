@@ -20,12 +20,16 @@ def preprocess_image(image: Image, normalize: bool = False) -> torch.Tensor:
     Preprocesses images to be run through torch imagenet classifiers
     as prescribed here:
     https://pytorch.org/hub/pytorch_vision_resnet/
-    Parameters:
+
+    Parameters
+    ----------
         image: Input image to be run through the classifier model.
 
         normalize: bool
             Perform normalization to the standard imagenet mean and standard deviation.
-    Returns:
+
+    Returns
+    -------
         torch tensor to be directly passed to the model.
     """
     out_tensor = IMAGENET_TRANSFORM(image)
@@ -53,7 +57,8 @@ class ImagenetClassifierApp:
         normalization_in_network: bool = True,
     ):
         """
-        Parameters:
+        Parameters
+        ----------
             model: ExecutableModelProtocol
                 The imagenet classifier.
 
@@ -69,10 +74,12 @@ class ImagenetClassifierApp:
         From the provided image or tensor, predict probability distribution
         over the 1k Imagenet classes.
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format.
 
-        Returns:
+        Returns
+        -------
             A (1000,) size torch tensor of probabilities, each one corresponding
             to a different Imagenet1K class.
         """

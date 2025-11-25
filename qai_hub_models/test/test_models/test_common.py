@@ -11,55 +11,81 @@ import pytest
 from qai_hub import QuantizeDtype
 from qai_hub.public_api_pb2 import Framework
 
-from qai_hub_models.models.common import Precision, QAIRTVersion
+from qai_hub_models.models.common import (
+    InferenceEngine,
+    Precision,
+    QAIRTVersion,
+    TargetRuntime,
+)
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
+
+
+class ConfigurationPropertyMock(mock.Mock):
+    def __get__(self, obj, obj_type=None, *args, **kwargs):
+        return self(obj, *args, **kwargs)
 
 
 @contextmanager
 def reset_hub_frameworks_patches(
-    frameworks, default_qaihm_version: str | None = None, api_url: str | None = None
+    frameworks,
+    default_qaihm_version: str | None = None,
+    default_engine_versions: dict[InferenceEngine, str] | None = None,
+    api_url: str | None = None,
 ):
-    version_patch = (
-        mock.patch(
-            "qai_hub_models.models.common.QAIRTVersion.DEFAULT_AI_HUB_MODELS_API_VERSION",
-            default_qaihm_version,
-        )
-        if default_qaihm_version is not None
-        else nullcontext()
+    def get_default_qairt_version(engine: InferenceEngine) -> QAIRTVersion:
+        if default_engine_versions is not None and (
+            version := default_engine_versions.get(engine)
+        ):
+            return QAIRTVersion(version)
+        return QAIRTVersion(default_qaihm_version or "0.0")
+
+    version_patch = mock.patch(
+        "qai_hub_models.models.common.InferenceEngine.default_qairt_version",
+        new=ConfigurationPropertyMock(side_effect=get_default_qairt_version),
     )
     api_url_patch = (
         mock.patch("qai_hub.hub._global_client.config.api_url", api_url)
         if api_url is not None
         else nullcontext()
     )
-    with mock.patch(
-        "qai_hub_models.models.common.get_framework_list",
-        mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
-    ), mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", dict()
-    ), mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", dict()
-    ), mock.patch(
-        "qai_hub_models.models.common.QAIRTVersion._QAIHM_DEFAULT_FRAMEWORK", dict()
-    ), mock.patch(
-        "qai_hub.hub._global_client.config.api_url", "https://app.aihub.qualcomm.com"
-    ), version_patch, api_url_patch:
+    with (
+        mock.patch(
+            "qai_hub_models.models.common.get_framework_list",
+            mock.MagicMock(return_value=mock.MagicMock(frameworks=frameworks)),
+        ),
+        mock.patch("qai_hub_models.models.common.QAIRTVersion._FRAMEWORKS", {}),
+        mock.patch(
+            "qai_hub_models.models.common.QAIRTVersion._HUB_DEFAULT_FRAMEWORK", {}
+        ),
+        mock.patch(
+            "qai_hub.hub._global_client.config.api_url",
+            "https://app.aihub.qualcomm.com",
+        ),
+        version_patch,
+        api_url_patch,
+    ):
         yield
 
 
 def test_precision_has_float():
+    assert not Precision.float.has_quantized_activations
     assert Precision.float.has_float_activations
     assert Precision.float.has_float_weights
+    assert Precision.w8a8.has_quantized_activations
     assert not Precision.w8a8.has_float_activations
     assert not Precision.w8a8.has_float_weights
+    assert Precision.w8a8_mixed_int16.has_quantized_activations
     assert not Precision.w8a8_mixed_int16.has_float_activations
     assert not Precision.w8a8_mixed_int16.has_float_weights
+    assert Precision.w8a16_mixed_int16.has_quantized_activations
     assert not Precision.w8a16_mixed_int16.has_float_activations
     assert not Precision.w8a16_mixed_int16.has_float_weights
     assert Precision.w8a8_mixed_fp16.has_float_weights
     assert Precision.w8a8_mixed_fp16.has_float_activations
+    assert Precision.w8a8_mixed_fp16.has_quantized_activations
     assert Precision.w8a16_mixed_fp16.has_float_weights
     assert Precision.w8a16_mixed_fp16.has_float_activations
+    assert Precision.w8a16_mixed_fp16.has_quantized_activations
 
 
 def test_precision_eq():
@@ -111,15 +137,19 @@ def test_precision_parse_serialize():
     assert str(Precision.parse("a16")) == "a16"
 
     # Invalid bit width
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Unsupported bit width a24 for quantization activations"
+    ):
         Precision.parse("w8a24")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"Unsupported bit width a24 for quantization activations"
+    ):
         Precision.parse("w8a24_mixed_int16")
     # Invalid override precision dtype
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid override type INT8"):
         Precision.parse("w8a8_mixed_int8")
     # Invalid override type
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid override_type: QuantizeDtype.INT8"):
         Precision(QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT8)
 
 
@@ -203,7 +233,9 @@ def test_qairt_version():
         assert QAIRTVersion.all() == [QAIRTVersion(f.api_version) for f in frameworks]
 
         # Version that does not exist
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match=r".*QAIRT version 0.0 is not supported by AI Hub\..*"
+        ):
             QAIRTVersion("0.0")
 
         # Version that does not exist (no verification)
@@ -211,47 +243,41 @@ def test_qairt_version():
             QAIRTVersion("1.1", validate_exists_on_ai_hub=False).full_version == "1.1"
         )
 
+    # This runtime does not have a runtime-specific QAIRT version override.
+    global_default_runtime = TargetRuntime.TFLITE
+
     # Verify QAIHM default behavior
     with reset_hub_frameworks_patches(frameworks, "2.33"):
         # Test default
-        qaihm_default = QAIRTVersion.qaihm_default()
+        qaihm_default = global_default_runtime.default_qairt_version
+
         assert qaihm_default.hub_option == "--qairt_version latest"
         assert qaihm_default.explicit_hub_option == "--qairt_version 2.33"
         assert qaihm_default != QAIRTVersion.default()
         assert not qaihm_default.is_default
-        assert qaihm_default.is_qaihm_default
-        assert not ai_hub_default.is_qaihm_default
-        assert QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG) == qaihm_default
-        assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
-
-        # fallback is to the QAIHM default over the Hub default
-        default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
-        assert qaihm_default == default_backup
-        assert default_backup.is_qaihm_default
 
     # Verify QAIHM default behavior with same version as the AI Hub default
     with reset_hub_frameworks_patches(
         frameworks, default_qaihm_version=ai_hub_default.api_version
     ):
-        qaihm_default = QAIRTVersion.qaihm_default()
+        qaihm_default = global_default_runtime.default_qairt_version
         assert qaihm_default.hub_option == ""  # empty because it's the hub default
         assert qaihm_default.explicit_hub_option == "--qairt_version 2.32"
         assert qaihm_default == QAIRTVersion.default()
         assert QAIRTVersion.DEFAULT_AIHUB_TAG in qaihm_default.tags
-        assert QAIRTVersion.DEFAULT_QAIHM_TAG in qaihm_default.tags
 
     # Verify QAIHM default behavior when the QAIHM default has no tags on Hub
     with reset_hub_frameworks_patches(frameworks, "2.31"):
-        qaihm_default = QAIRTVersion.qaihm_default()
+        qaihm_default = global_default_runtime.default_qairt_version
         assert qaihm_default.hub_option == "--qairt_version 2.31"
         assert qaihm_default.explicit_hub_option == "--qairt_version 2.31"
 
     # Verify "too old" QAIHM default behavior
     with reset_hub_frameworks_patches(frameworks, "2.30"):
-        with pytest.raises(ValueError):
-            QAIRTVersion.qaihm_default()
-        with pytest.raises(ValueError):
-            QAIRTVersion(QAIRTVersion.DEFAULT_QAIHM_TAG)
+        with pytest.raises(
+            ValueError, match=r".*QAIRT version 2.30 is not supported by AI Hub\..*"
+        ):
+            global_default_runtime.default_qairt_version  # noqa: B018
 
         # fallback is to the Hub default since the QAIHM default is not available
         default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)

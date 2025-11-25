@@ -1,0 +1,178 @@
+diff --git a/QEfficient/__init__.py b/QEfficient/__init__.py
+index 33c6f55..8224d4e 100644
+--- a/QEfficient/__init__.py
++++ b/QEfficient/__init__.py
+@@ -40,6 +40,15 @@ def check_qaic_sdk():
+ # Conditionally import QAIC-related modules if the SDK is installed
+ __version__ = "0.0.1.dev0"
+ 
++from QEfficient.base import (
++    QEFFAutoModel,
++    QEFFAutoModelForCausalLM,
++    QEFFAutoModelForCTC,
++    QEFFAutoModelForImageTextToText,
++    QEFFAutoModelForSpeechSeq2Seq,
++    QEFFCommonLoader,
++)
++
+ if check_qaic_sdk():
+     from QEfficient.base import (
+         QEFFAutoModel,
+diff --git a/QEfficient/generation/cloud_infer.py b/QEfficient/generation/cloud_infer.py
+index 8519d82..b513a7d 100644
+--- a/QEfficient/generation/cloud_infer.py
++++ b/QEfficient/generation/cloud_infer.py
+@@ -18,7 +18,7 @@ except ImportError:
+     import sys
+ 
+     sys.path.append(f"/opt/qti-aic/dev/lib/{platform.machine()}")
+-    import qaicrt
++    #import qaicrt
+ 
+ try:
+     import QAicApi_pb2 as aicapi
+@@ -26,8 +26,9 @@ except ImportError:
+     import sys
+ 
+     sys.path.append("/opt/qti-aic/dev/python")
+-    import QAicApi_pb2 as aicapi
++    #import QAicApi_pb2 as aicapi
+ 
++"""
+ aic_to_np_dtype_mapping = {
+     aicapi.FLOAT_TYPE: np.dtype(np.float32),
+     aicapi.FLOAT_16_TYPE: np.dtype(np.float16),
+@@ -39,6 +40,7 @@ aic_to_np_dtype_mapping = {
+     aicapi.INT64_I_TYPE: np.dtype(np.int64),
+     aicapi.INT8_TYPE: np.dtype(np.int8),
+ }
++"""
+ 
+ 
+ class QAICInferenceSession:
+diff --git a/QEfficient/transformers/models/llama/modeling_llama.py b/QEfficient/transformers/models/llama/modeling_llama.py
+index f2a68f8..d6d2b46 100644
+--- a/QEfficient/transformers/models/llama/modeling_llama.py
++++ b/QEfficient/transformers/models/llama/modeling_llama.py
+@@ -26,9 +26,52 @@ from transformers.models.llama.modeling_llama import (
+ )
+ 
+ from QEfficient.transformers.cache_utils import QEffDynamicCache
+-from QEfficient.transformers.modeling_attn_mask_utils import _create_causal_mask
++# David: don't import the wrong _create_causal_mask
++#from QEfficient.transformers.modeling_attn_mask_utils import _create_causal_mask
+ from QEfficient.utils.constants import MIN_MASKED_ATTENTION_VALUE
+ 
++def _create_causal_mask(
++    position_ids: torch.LongTensor,
++    target_length: int,
++    sliding_window: Optional[int] = None,
++) -> torch.BoolTensor:
++    """
++    Create a causal attention mask.
++
++    Args:
++        position_ids: [batch, query_len] absolute positions for the current step.
++        target_length: number of *past* tokens already in cache (past_seen_tokens).
++        sliding_window: if not None, only allow attending to the last `sliding_window` positions.
++
++    Returns:
++        attention_mask: [batch, 1, query_len, kv_len] boolean mask where True = MASKED (disallowed).
++                        kv_len = target_length + query_len
++    """
++    if position_ids.dim() != 2:
++        raise ValueError(f"position_ids must be [batch, query_len], got {tuple(position_ids.shape)}")
++
++    bsz, q_len = position_ids.shape
++    kv_len = int(target_length) + q_len
++    device = position_ids.device
++
++    # [1, 1, kv_len]: absolute key/value indices 0..kv_len-1
++    kv_indices = torch.arange(kv_len, device=device).view(1, 1, kv_len)
++    # [batch, query_len, 1]: absolute query indices from position_ids
++    query_indices = position_ids.unsqueeze(-1)  # broadcast vs kv_indices -> [batch, query_len, kv_len]
++
++    # Standard causal: block future positions
++    causal_mask = kv_indices > query_indices  # True = MASK
++
++    if sliding_window is not None:
++        # Block keys that are too far in the past (keep only the last `sliding_window` KVs)
++        window_start = query_indices - sliding_window + 1  # inclusive
++        window_mask = kv_indices < window_start            # True = MASK
++        causal_mask = causal_mask | window_mask
++
++    # Add the singleton heads dimension -> [batch, 1, query_len, kv_len]
++    attention_mask = causal_mask.unsqueeze(1)
++    return attention_mask
++
+ 
+ class QEffLlamaRotaryEmbedding(LlamaRotaryEmbedding):
+     """
+@@ -149,7 +192,18 @@ class QEffLlamaAttention(LlamaAttention):
+         key_states = self.k_proj(hidden_states, **kwargs).view(hidden_shape).transpose(1, 2)
+         value_states = self.v_proj(hidden_states, **kwargs).view(hidden_shape).transpose(1, 2)
+ 
+-        kv_seq_len = past_key_value.get_seq_length(self.layer_idx, cache_position)
++        # ---- FIX: robust kv_seq_len computation ----
++        if cache_position is not None:
++            # cache_position already encodes absolute positions (incl. any past tokens)
++            kv_seq_len = int(cache_position.max().item()) + 1
++        elif past_key_value is not None:
++            # fallback: ask the cache
++            kv_seq_len = past_key_value.get_seq_length(self.layer_idx)
++        else:
++            # no cache, no cache_position — use the tokens in the current step
++            kv_seq_len = key_states.shape[-2]
++        # --------------------------------------------
++
+         cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+         query_states, key_states = qeff_apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+ 
+@@ -159,6 +213,9 @@ class QEffLlamaAttention(LlamaAttention):
+ 
+         attention_interface = eager_attention_forward
+ 
++        # Detect empty attention mask
++        if any(dim == 0 for dim in attention_mask.shape):
++            attention_mask = None
+         attn_output, attn_weights = attention_interface(
+             self,
+             query_states,
+@@ -260,6 +317,10 @@ class QEffLlamaModel(LlamaModel):
+         if position_ids is None:
+             position_ids = cache_position.unsqueeze(0)
+ 
++        # David: input attention_mask is completely ignored?
++        # David: _create_causal_mask is wrong. position_ids of shape [1, 128]
++# with past_seen_tokens = 3968 should generate causal_mask of shape [1, 1,
++# 128, 4096], not [1, 1, 128, 3968]
+         causal_mask = _create_causal_mask(position_ids=position_ids, target_length=past_seen_tokens)
+ 
+         # embed positions
+@@ -334,9 +395,24 @@ class QEffLlamaForCausalLM(LlamaForCausalLM):
+             **kwargs,
+         )
+ 
++        # --- BEGIN FIX: robust to position_ids=None ---
++        if position_ids is None:
++            if input_ids is not None:
++                bsz, seq_len = input_ids.shape[:2]
++                device = input_ids.device
++            else:
++                # inputs_embeds must be provided in this branch
++                bsz, seq_len = inputs_embeds.shape[:2]
++                device = inputs_embeds.device
++            pos_ids_for_logits = torch.arange(seq_len, device=device).unsqueeze(0).expand(bsz, -1)
++        else:
++            pos_ids_for_logits = position_ids
+         # Cast to INT32 to avoid issue while running in ONNXRT
+-        logit_index = position_ids.to(torch.int32).argmax(1, keepdim=True)
+-        hidden_states = outputs.last_hidden_state[torch.arange(position_ids.shape[0]).view(-1, 1), logit_index]
++        logit_index = pos_ids_for_logits.to(torch.int32).argmax(1, keepdim=True)
++        batch_arange = torch.arange(pos_ids_for_logits.shape[0], device=pos_ids_for_logits.device).view(-1, 1)
++        # --- END FIX ---
++
++        hidden_states = outputs.last_hidden_state[batch_arange, logit_index]
+         logits = self.lm_head(hidden_states).float()
+ 
+         return CausalLMOutputWithPast(

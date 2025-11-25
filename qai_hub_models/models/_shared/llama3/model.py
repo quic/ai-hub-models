@@ -28,8 +28,11 @@ import torch
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
+
+import transformers
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
+from transformers.modeling_attn_mask_utils import AttentionMaskConverter
 from transformers.models.llama import LlamaConfig, modeling_llama
 
 from qai_hub_models.models._shared.llama3.model_adaptations import (
@@ -38,8 +41,11 @@ from qai_hub_models.models._shared.llama3.model_adaptations import (
     QCLlamaMLP,
     SHALlamaAttention,
 )
-from qai_hub_models.models._shared.llama3.ort_genai import create_ort_genai_assets
-from qai_hub_models.models._shared.llm.model import Embedding, PositionProcessorBase
+from qai_hub_models.models._shared.llm.common import LLMIOType
+from qai_hub_models.models._shared.llm.model import (
+    Embedding,
+    PositionProcessorBase,
+)
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 
 MODEL_ID = __name__.split(".")[-2]
@@ -61,7 +67,7 @@ SYSTEM_ID = "system"
 ASSISTANT_ID = "assistant"
 USER_ID = "user"
 EOT_ID = "<|eot_id|>"
-END_TOKENS = {"<|eot_id|>", "<|eot_id|>", "<|end_of_text|>"}
+END_TOKENS = {"<|eot_id|>", "<|end_of_text|>"}
 
 DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
@@ -75,30 +81,36 @@ class Llama3_Optimizations(str, Enum):  # Inherit from str and Enum
 class RopeEmbedding(Embedding):
     def __init__(
         self,
-        head_dim: int = 128,
+        head_dim: int | None = None,
         max_length: int = 2048,
-        config: LlamaConfig = LlamaConfig(),
+        config: LlamaConfig | None = None,
     ) -> None:
+        if config is None:
+            config = LlamaConfig()
+        head_dim = head_dim or (
+            config.head_dim
+            if hasattr(config, "head_dim")
+            else config.hidden_size // config.num_attention_heads
+        )
         self.cos, self.sin = self.precompute(head_dim, max_length, config)
 
     def precompute(
         self, head_dim: int, max_length: int, config: LlamaConfig
     ) -> list[torch.Tensor]:
-        head_dim = (
-            config.head_dim
-            if hasattr(config, "head_dim")
-            else config.hidden_size // config.num_attention_heads
-        )
         kwargs = {
-            "max_position_embeddings": config.max_position_embeddings,
-            "base": config.rope_theta,
             "config": config,
         }
+        if Version(transformers.__version__) < Version("4.48"):
+            kwargs |= {
+                "max_position_embeddings": config.max_position_embeddings,
+                "base": config.rope_theta,
+                "dim": head_dim,
+            }
 
         if not hasattr(config, "rope_scaling"):
-            setattr(config, "rope_scaling", None)
+            config.rope_scaling = None
 
-        rope = modeling_llama.LlamaRotaryEmbedding(dim=head_dim, **kwargs)
+        rope = modeling_llama.LlamaRotaryEmbedding(**kwargs)
         dummy_x = torch.Tensor([1.0])
         position_ids = torch.arange(max_length).view(1, -1)
         if hasattr(rope, "_original_forward"):
@@ -109,8 +121,7 @@ class RopeEmbedding(Embedding):
         # for adapted llama
         emb_size = embeddings[0].size(-1) // 2
         embeddings = [emb[:, :, :emb_size] for emb in embeddings]
-        embeddings = [emb.unsqueeze(0) for emb in embeddings]
-        return embeddings  # pyright: ignore [reportReturnType]
+        return [emb.unsqueeze(0) for emb in embeddings]
 
     def get_embedding(
         self,
@@ -129,28 +140,29 @@ class RopeEmbedding(Embedding):
 
 
 class LlamaPositionProcessor(PositionProcessorBase):
-    """
-    Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI.
-    """
+    """Prepares positions (RopeEmbedding and attention mask preparation); used by ORT GenAI."""
 
-    def __init__(self, context_length: int):
-        super().__init__(context_length)
+    def __init__(
+        self,
+        context_length: int,
+        config: PretrainedConfig,
+    ) -> None:
+        super().__init__(context_length, config=config)
         self.context_len = context_length
-        self.rope_embedding = RopeEmbedding(max_length=self.context_len)
+        self.rope_embedding = RopeEmbedding(max_length=self.context_len, config=config)
 
     def forward(self, attention_mask_before_processor, position_ids):
-        from qai_hub_models.models._shared.llm.model import (
-            prepare_combined_attention_mask,
-        )
-
         position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
             position_ids
         )
-        attention_mask = prepare_combined_attention_mask(
+        attention_mask_converter = AttentionMaskConverter(True)
+        attention_mask = attention_mask_converter.to_4d(
             attention_mask_before_processor,
-            position_ids.shape,
-            attention_mask_before_processor.shape[1] - position_ids.shape[1],
+            query_length=position_ids.shape[1],
+            key_value_length=attention_mask_before_processor.shape[1],
+            dtype=torch.float32,
         )
+        attention_mask = attention_mask.clip(-50, 0)
         return attention_mask, position_ids_cos, position_ids_sin
 
 
@@ -163,10 +175,8 @@ class Llama3Base(LLMBase):
         user_input_prompt: str = DEFAULT_USER_PROMPT,
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
-        """
-        Get prompt to set context and initialize prompt-processor
-        """
-        prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
+        """Get prompt to set context and initialize prompt-processor"""
+        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
 {START_HEADER}{USER_ID}{END_HEADER}
@@ -175,7 +185,6 @@ class Llama3Base(LLMBase):
 
 
 """
-        return prompt
 
     @staticmethod
     def monkey_patch(
@@ -186,8 +195,10 @@ class Llama3Base(LLMBase):
             and Llama3_Optimizations.SHA_ATTENTION in skip_optimizations
         ):
             print("Skip sha_attention optimization")
-        else:
+        elif hasattr(modeling_llama, "LLAMA_ATTENTION_CLASSES"):
             modeling_llama.LLAMA_ATTENTION_CLASSES["eager"] = SHALlamaAttention
+        else:
+            modeling_llama.LlamaAttention = SHALlamaAttention
 
         def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
             return position_ids
@@ -236,25 +247,28 @@ class Llama3Base(LLMBase):
 
 class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     EmbeddingClass = RopeEmbedding
+    FPModel = Llama3Base
 
     def __init__(
         self,
-        sim_model: QuantizationSimModel,
+        quant_sim: QuantizationSimModel,
         host_device: torch.device,
         checkpoint: str | os.PathLike | Path | None = None,
         tokenizer: PreTrainedTokenizer | None = None,
         llm_config: PretrainedConfig | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        attention_mask_min_clip: float | None = None,
     ):
         super().__init__(
-            sim_model=sim_model,
+            quant_sim=quant_sim,
             checkpoint=checkpoint,
             tokenizer=tokenizer,
             llm_config=llm_config,
             sequence_length=sequence_length,
             context_length=context_length,
             host_device=host_device,
+            attention_mask_min_clip=attention_mask_min_clip,
         )
 
     @staticmethod
@@ -262,10 +276,8 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         user_input_prompt: str = DEFAULT_USER_PROMPT,
         system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
     ) -> str:
-        """
-        Get prompt to set context and initialize prompt-processor
-        """
-        prompt = f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
+        """Get prompt to set context and initialize prompt-processor"""
+        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
 
 {system_context_prompt}
 {START_HEADER}{USER_ID}{END_HEADER}
@@ -274,7 +286,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
 
 """
-        return prompt
 
     @staticmethod
     def _get_output_names(num_hidden_layers: int):
@@ -287,9 +298,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
-        """
-        Make sure AIMET encodings are ready for ONNX split.
-        """
+        """Make sure AIMET encodings are ready for ONNX split."""
         with open(src_encodings_path) as f:
             encodings = json.load(f)
 
@@ -310,19 +319,27 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-        # See _shard/llama3/model.py for why this is needed.
-        embed_a_name = "/model/model/embed_tokens/Gather_output_0"
-        embed_w_name = "model.model.embed_tokens.weight"
-        encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
-            encodings["activation_encodings"][embed_w_name]
-        )
-        for key in encodings["activation_encodings"].keys():
+        if self.llm_io_type in {
+            LLMIOType.genie_input_ids,
+            LLMIOType.huggingface_input_ids,
+        }:
+            # See _shared/llama3/model.py for why this is needed.
+            embed_a_name = "/model/model/embed_tokens/Gather_output_0"
+            embed_w_name = "model.model.embed_tokens.weight"
+            encodings["activation_encodings"][embed_a_name] = copy.deepcopy(
+                encodings["activation_encodings"][embed_w_name]
+            )
+
+        for key in encodings["activation_encodings"]:
             if "weight" in key:
                 encodings["param_encodings"][key] = copy.deepcopy(
                     encodings["activation_encodings"][key]
                 )
 
-        if uses_lists:
+        if uses_lists and self.llm_io_type in {
+            LLMIOType.genie_input_ids,
+            LLMIOType.huggingface_input_ids,
+        }:
             encodings["activation_encodings"][embed_a_name]["name"] = embed_a_name
         zero_keys = []
 
@@ -383,30 +400,3 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
-
-    @classmethod
-    def prepare_ort_genai_assets(
-        cls,
-        model_name: str,
-        llm_config: PretrainedConfig,
-        position_processor_cls: type[PositionProcessorBase],
-        encodings_path: str | Path,
-        context_length: int,
-        prompt_sequence_length: int,
-        onnx_model_path_from_sub_component_name: dict[str, str],
-        num_splits: int,
-        qairt_version: str,
-        output_dir: str | Path,
-    ):
-        return create_ort_genai_assets(
-            model_name,
-            llm_config,
-            position_processor_cls,
-            encodings_path,
-            context_length,
-            prompt_sequence_length,
-            onnx_model_path_from_sub_component_name,
-            num_splits,
-            qairt_version,
-            output_dir,
-        )

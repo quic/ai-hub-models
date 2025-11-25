@@ -6,25 +6,28 @@ metrics:
   metric_description: Percentage of inputs that were correctly classified.
   metric_unit: '%'
   num_partial_samples: 1000
-  partial_torch_metric: 0.811
+  partial_torch_metric: 80.6
   device_metric:
-    Samsung Galaxy S24:
-      w8a8:
-        tflite:
-          partial_metric: 0.795
-        qnn_dlc:
-          partial_metric: 0.0952
-        onnx:
-          partial_metric: 0.789
-      w8a16:
-        qnn_dlc:
-          partial_metric: 0.572
-        onnx:
-          partial_metric: 0.81
+    Samsung Galaxy S25:
       float:
         tflite:
-          partial_metric: 0.809
+          partial_metric: 80.6
         qnn_dlc:
-          partial_metric: 0.81
+          partial_metric: 80.6
         onnx:
-          partial_metric: 0.81
+          partial_metric: 80.6
+      w8a8:
+        tflite:
+          partial_metric: 78.3
+        qnn_dlc:
+          partial_metric: 21.0
+        onnx:
+          partial_metric: 78.1
+      w8a8_mixed_int16:
+        onnx:
+          partial_metric: 80.6
+      w8a16:
+        qnn_dlc:
+          partial_metric: 58.3
+        onnx:
+          partial_metric: 80.5

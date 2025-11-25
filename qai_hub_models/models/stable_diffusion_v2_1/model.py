@@ -3,18 +3,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-# flake8: noqa: E402
 # (module level import not at top of file)
 
 from __future__ import annotations
-
-# isort: off
-# This verifies aimet is installed, and this must be included first.
-MODEL_ID = __name__.split(".")[-2]
-from qai_hub_models.utils.quantization_aimet_onnx import ensure_aimet_onnx_installed
-
-ensure_aimet_onnx_installed(model_id=MODEL_ID)
-# isort: on
 
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
@@ -28,7 +19,7 @@ from qai_hub_models.models._shared.stable_diffusion.model import (
 from qai_hub_models.utils.base_model import CollectionModel
 
 MODEL_ASSET_VERSION = 3
-
+MODEL_ID = __name__.split(".")[-2]
 HF_REPO = "stabilityai/stable-diffusion-2-1-base"
 
 
@@ -36,12 +27,13 @@ def make_tokenizer() -> CLIPTokenizer:
     return CLIPTokenizer.from_pretrained(HF_REPO, subfolder="tokenizer")
 
 
-SEQ_LEN = make_tokenizer().model_max_length
+# SEQ_LEN = make_tokenizer().model_max_length
+SEQ_LEN = 77  # Tokenizer is no longer on Hugging Face.
 
 
 class TextEncoderQuantizable(TextEncoderQuantizableBase):
     hf_repo_id = HF_REPO
-    hf_model_cls = CLIPTextModel  # type: ignore
+    hf_model_cls = CLIPTextModel
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
     seq_len = SEQ_LEN
@@ -49,7 +41,7 @@ class TextEncoderQuantizable(TextEncoderQuantizableBase):
 
 class UnetQuantizable(UnetQuantizableBase):
     hf_repo_id = HF_REPO
-    hf_model_cls = UNet2DConditionModel  # type: ignore
+    hf_model_cls = UNet2DConditionModel  # type: ignore[assignment]
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
     seq_len = SEQ_LEN
@@ -57,7 +49,7 @@ class UnetQuantizable(UnetQuantizableBase):
 
 class VaeDecoderQuantizable(VaeDecoderQuantizableBase):
     hf_repo_id = HF_REPO
-    hf_model_cls = AutoencoderKL  # type: ignore
+    hf_model_cls = AutoencoderKL  # type: ignore[assignment]
     model_id = MODEL_ID
     model_asset_version = MODEL_ASSET_VERSION
 

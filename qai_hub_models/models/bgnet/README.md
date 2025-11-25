@@ -15,11 +15,13 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/b
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install pysodmetrics==1.5.1 --no-deps
 pip install "qai-hub-models[bgnet]"
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.bgnet.demo
@@ -31,7 +33,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

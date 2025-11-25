@@ -30,12 +30,14 @@ class DepthAnythingV2(DepthEstimationModel):
         """
         Run DepthAnythingV2 on `image`, and produce a predicted depth.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             depth : Shape [batch, 1, 518, 518]
         """
         image = normalize_image_torchvision(image)

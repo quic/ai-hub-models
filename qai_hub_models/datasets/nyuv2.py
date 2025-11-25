@@ -17,7 +17,12 @@ import numpy.typing as npt
 import torch
 from scipy.io import loadmat
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
 
 NYUV2_FOLDER_NAME = "nyuv2"
@@ -31,9 +36,7 @@ SPLIT_ASSET = CachedWebDatasetAsset.from_asset_store(
 
 
 class NyUv2Dataset(BaseDataset):
-    """
-    Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html
-    """
+    """Wrapper class around NYU_depth_v2 dataset https://cs.nyu.edu/~fergus/datasets/nyu_depth_v2.html"""
 
     def __init__(
         self,
@@ -73,9 +76,7 @@ class NyUv2Dataset(BaseDataset):
         self.input_width = input_width
 
     def _validate_data(self) -> bool:
-        """
-        Validates data downloaded on disk. By default just checks that folder exists.
-        """
+        """Validates data downloaded on disk. By default just checks that folder exists."""
         try:
             with h5py.File(str(self.dataset_path)) as f:
                 images = cast(list[npt.NDArray[np.int8]], f["images"])
@@ -113,12 +114,12 @@ class NyUv2Dataset(BaseDataset):
         if self.dataset_path.exists():
             return
         if self.source_dataset_file is None:
-            raise ValueError(
-                "The NYUv2 dataset must be externally downloaded from this link "
-                "https://www.kaggle.com/datasets/rmzhang0526/nyu-depth-v2-labeled\n"
-                "Once that file is in your local filesystem, run\n"
-                "python -m qai_hub_models.datasets.configure_dataset "
-                f"--dataset nyuv2 --files /path/to/{FILE_NAME}"
+            raise UnfetchableDatasetError(
+                dataset_name=self.dataset_name(),
+                installation_steps=[
+                    "Download the dataset from https://www.kaggle.com/datasets/rmzhang0526/nyu-depth-v2-labeled",
+                    f"Run `python -m qai_hub_models.datasets.configure_dataset --dataset nyuv2 --files /path/to/{FILE_NAME}`",
+                ],
             )
         if not Path(self.source_dataset_file).exists():
             raise ValueError(f"Path {self.source_dataset_file} does not exist.")
@@ -131,9 +132,7 @@ class NyUv2Dataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

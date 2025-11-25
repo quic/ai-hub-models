@@ -5,16 +5,19 @@
 
 from __future__ import annotations
 
-import torch
+from typing import cast
 
-from qai_hub_models.models._shared.yolo.model import YoloSeg, yolo_segment_postprocess
-from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
+from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import SegmentationModel
+
+from qai_hub_models.models._shared.ultralytics.segmentation_model import (
+    UltralyticsMulticlassSegmentor,
+)
+from qai_hub_models.models._shared.yolo.model import YoloSegEvalMixin
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
 
-SOURCE_REPO = "https://github.com/ultralytics/ultralytics"
-SOURCE_REPO_COMMIT = "7a6c76d16c01f3e4ce9ed20eedc6ed27421b3268"
 
 SUPPORTED_WEIGHTS = [
     "yolo11n-seg.pt",
@@ -24,12 +27,9 @@ SUPPORTED_WEIGHTS = [
     "yolo11x-seg.pt",
 ]
 DEFAULT_WEIGHTS = "yolo11n-seg.pt"
-NUM_ClASSES = 80
 
 
-class YoloV11Segmentor(YoloSeg):
-    """Exportable YoloV11 segmentor, end-to-end."""
-
+class YoloV11Segmentor(UltralyticsMulticlassSegmentor, YoloSegEvalMixin):
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
         if ckpt_name not in SUPPORTED_WEIGHTS:
@@ -37,47 +37,5 @@ class YoloV11Segmentor(YoloSeg):
                 f"Unsupported checkpoint name provided {ckpt_name}.\n"
                 f"Supported checkpoints are {list(SUPPORTED_WEIGHTS)}."
             )
-        with SourceAsRoot(
-            SOURCE_REPO,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ):
-
-            import ultralytics
-
-            wipe_sys_modules(ultralytics)
-            from ultralytics import YOLO as ultralytics_YOLO
-
-            model = ultralytics_YOLO(ckpt_name).model
-            assert isinstance(model, torch.nn.Module)
-
-            return cls(model)
-
-    def forward(self, image: torch.Tensor):
-        """
-        Run YoloV11 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
-
-        Parameters:
-            image: Pixel values pre-processed for encoder consumption.
-                    Range: float[0, 1]
-                    3-channel Color Space: RGB
-
-        Returns:
-        boxes: torch.Tensor
-            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-        scores: torch.Tensor
-            Class scores multiplied by confidence: Shape is [batch, num_preds]
-        masks: torch.Tensor
-            Predicted masks: Shape is [batch, num_preds, 32]
-        classes: torch.Tensor
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
-        protos: torch.Tensor
-            Tensor of shape[batch, 32, mask_h, mask_w]
-            Multiply masks and protos to generate output masks.
-        """
-        predictions = self.model(image)
-        boxes, scores, masks, classes = yolo_segment_postprocess(
-            predictions[0], NUM_ClASSES
-        )
-        return boxes, scores, masks, classes.to(torch.uint8), predictions[1][-1]
+        model = cast(SegmentationModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(model)

@@ -114,9 +114,7 @@ class CocoPanopticSegmentationDataset(BaseDataset):
         )
 
     def _download_data(self) -> None:
-        """
-        Download and extract COCO dataset assets.
-        """
+        """Download and extract COCO dataset assets."""
         # Download and extract images
         COCO_VAL_IMAGES_ASSET.fetch(extract=True)
         COCO_ANNOTATIONS_ASSET.fetch(extract=True)
@@ -130,9 +128,7 @@ class CocoPanopticSegmentationDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

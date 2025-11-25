@@ -34,7 +34,8 @@ class SemanticKittiEvaluator(BaseEvaluator):
         self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ):
         """
-        Args:
+        Parameters
+        ----------
             output (torch.Tensor): Model predictions.
             gt_data (tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
                 p_x (torch.tensor): x coordinates of lidar points with shape [max_points,]
@@ -89,7 +90,7 @@ class SemanticKittiEvaluator(BaseEvaluator):
         intersection = tp
         union = tp + fp + fn + 1e-15
         iou_mean = (intersection[self.include] / union[self.include]).mean()
-        return iou_mean
+        return iou_mean.item()
 
     def get_accuracy_score(self) -> float:
         return self.getIoU()

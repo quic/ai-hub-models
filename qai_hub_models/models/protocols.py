@@ -17,11 +17,12 @@ checker that the class that inherits the mixin must implement HubModelProtocol.
 
 These are type checked at compile time.
 """
+
 from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
-from typing import Any, Generic, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from qai_hub.client import DatasetEntries, Device, SourceModel
 
@@ -41,9 +42,7 @@ FromPrecompiledTypeVar = TypeVar(
 
 
 class HubModelProtocol(Protocol):
-    """
-    All AI Hub Models must, at minimum, implement this interface.
-    """
+    """All AI Hub Models must, at minimum, implement this interface."""
 
     @staticmethod
     @abstractmethod
@@ -81,9 +80,7 @@ class HubModelProtocol(Protocol):
 
 
 class QuantizableModelProtocol(Protocol):
-    """
-    Methods required for a model to be quantizable.
-    """
+    """Methods required for a model to be quantizable."""
 
     @abstractmethod
     def quantize(
@@ -100,7 +97,8 @@ class QuantizableModelProtocol(Protocol):
         This model will be updated with a new set of quantization parameters. Future calls to
         forward() and export_...() will take these quantization parameters into account.
 
-        Parameters:
+        Parameters
+        ----------
             data: torch DataLoader | Collection
                 Data loader for the dataset to use for evaluation.
                     If an evaluator is __NOT__ provided (see "evaluator" parameter), the iterator must return
@@ -133,48 +131,36 @@ class QuantizableModelProtocol(Protocol):
         self,
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
-        """
-        Calibration dataset for this model and input spec.
-        """
+        """Calibration dataset for this model and input spec."""
         ...
 
 
-T = TypeVar("T", covariant=True)
+T_co = TypeVar("T_co", covariant=True)
 
 
 @runtime_checkable
-class ExecutableModelProtocol(Generic[T], Protocol):
-    """
-    Classes follow this protocol if they are executable.
-    """
+class ExecutableModelProtocol(Protocol, Generic[T_co]):
+    """Classes follow this protocol if they are executable."""
 
     @abstractmethod
-    def __call__(self, *args, **kwargs) -> T:
-        """
-        Execute the model and return its output.
-        """
+    def __call__(self, *args, **kwargs) -> T_co:
+        """Execute the model and return its output."""
         ...
 
 
 @runtime_checkable
 class EvalModelProtocol(Protocol):
-    """
-    Models follow this protocol if they can be numerically evaluated.
-    """
+    """Models follow this protocol if they can be numerically evaluated."""
 
     @abstractmethod
     def get_evaluator(self) -> BaseEvaluator:
-        """
-        Gets a class for evaluating output of this model.
-        """
+        """Gets a class for evaluating output of this model."""
         ...
 
 
 @runtime_checkable
 class FromPretrainedProtocol(Protocol):
-    """
-    Models follow this protocol if they can be initiated from a pretrained torch model.
-    """
+    """Models follow this protocol if they can be initiated from a pretrained torch model."""
 
     @classmethod
     @abstractmethod
@@ -191,9 +177,7 @@ class FromPretrainedProtocol(Protocol):
 
 
 class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Protocol):
-    """
-    All pretrained AI Hub Models must, at minimum, implement this interface.
-    """
+    """All pretrained AI Hub Models must, at minimum, implement this interface."""
 
     @abstractmethod
     def convert_to_torchscript(
@@ -214,7 +198,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         input_spec: InputSpec | None = None,
         check_trace: bool = True,
         external_onnx_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> SourceModel: ...
 
     def get_hub_compile_options(
@@ -222,32 +206,24 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
-        """
-        AI Hub compile options recommended for the model.
-        """
+        """AI Hub compile options recommended for the model."""
         ...
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """
-        Source model format preferred for conversion on AI Hub.
-        """
+        """Source model format preferred for conversion on AI Hub."""
         ...
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        """
-        AI Hub quantize options recommended for the model.
-        """
+        """AI Hub quantize options recommended for the model."""
         ...
 
 
 class FromPrecompiledProtocol(Protocol):
-    """
-    Models follow this protocol if they can be initiated from a precompiled torch model.
-    """
+    """Models follow this protocol if they can be initiated from a precompiled torch model."""
 
     @classmethod
     @abstractmethod

@@ -10,28 +10,32 @@ import os
 import warnings
 from enum import Enum, unique
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 import onnx
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import make_torch_inputs
+from qai_hub_models.utils.onnx.helpers import (
+    safe_torch_onnx_export,
+)
 
 if TYPE_CHECKING:
-    # this import is only for the type‐checker, never executed at runtime
+    # this import is only for the type-checker, never executed at runtime
     from transformers import PreTrainedModel
 
 
-CheckpointSpec = Union[
-    os.PathLike,
-    Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"],
-]
+CheckpointSpec = (
+    str
+    | os.PathLike
+    | Literal["DEFAULT", "DEFAULT_UNQUANTIZED", "DEFAULT_W4", "DEFAULT_W4A16"]  # noqa: PYI051
+)
 
 
 @unique
 class CheckpointType(Enum):
-
     # For most models, the default is the pretrained fp checkpoint, which can be
     # optionally quantized via submit_quantize_job.
     #
@@ -75,9 +79,9 @@ def hf_repo_exists(repo_id: str) -> bool:
         from huggingface_hub import HfApi
     except ImportError:
         warnings.warn(
-            "huggingface_hub is not installed; "
-            f"Unable to check if {repo_id} is a valid HF repo",
+            f"huggingface_hub is not installed; Unable to check if {repo_id} is a valid HF repo",
             ImportWarning,
+            stacklevel=2,
         )
         return False
 
@@ -126,7 +130,7 @@ def determine_checkpoint_type(
     if not cp_path.is_dir():
         return CheckpointType.INVALID
 
-    # 4) Local HF‐style (config + safetensor)
+    # 4) Local HF-style (config + safetensor)
     if (cp_path / "config.yaml").is_file() and (cp_path / "model.safetensor").is_file():
         return CheckpointType.HF_LOCAL
 
@@ -134,7 +138,7 @@ def determine_checkpoint_type(
     if cp_path.glob("model*.onnx") and (cp_path / "model.encodings").is_file():
         return CheckpointType.AIMET_ONNX_EXPORT
 
-    # 6) Single PyTorch state‐dict
+    # 6) Single PyTorch state-dict
     torch_files = list(cp_path.glob("*.pth")) + list(cp_path.glob("*.pt"))
     if len(torch_files) == 1:
         return CheckpointType.TORCH_STATE_DICT
@@ -190,7 +194,7 @@ class FromPretrainedMixin(Generic[T]):
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
-        host_device: Union[torch.device, str] = torch.device("cpu"),
+        host_device: torch.device | str = torch.device("cpu"),
         adapt_torch_model_options: dict | None = None,
     ) -> torch.nn.Module:
         subfolder_hf = subfolder or cls.default_subfolder_hf
@@ -212,8 +216,7 @@ class FromPretrainedMixin(Generic[T]):
         ]
         if ckpt_type not in required_ckpt_types:
             raise ValueError(
-                f"{checkpoint} ({subfolder=}) is an unsupported "
-                f"checkpoint type {ckpt_type}. for torch_from_pretrained"
+                f"{checkpoint} ({subfolder=}) is an unsupported checkpoint type {ckpt_type}. for torch_from_pretrained"
             )
 
         # 2) load from HF Hub or local
@@ -223,7 +226,7 @@ class FromPretrainedMixin(Generic[T]):
         ]:
             if cls.hf_repo_id == "":
                 raise NotImplementedError(
-                    "Default Huggingface repo " "not defined in cls.hf_repo_id"
+                    "Default Huggingface repo not defined in cls.hf_repo_id"
                 )
             model = cls.hf_model_cls.from_pretrained(
                 cls.hf_repo_id,
@@ -258,14 +261,15 @@ class FromPretrainedMixin(Generic[T]):
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
-        host_device: Union[torch.device, str] = torch.device("cpu"),
+        host_device: torch.device | str = torch.device("cpu"),
         torch_to_onnx_options: dict | None = None,
-    ) -> tuple[onnx.ModelProto, Optional[str]]:
+    ) -> tuple[onnx.ModelProto, str | None]:
         """
         Load the checkpoint into ONNX, possibly with AIMET encodings
         if the checkpoint is already quantized.
 
-        Args:
+        Parameters
+        ----------
           checkpoint:
 
             - "DEFAULT": load pre-calibrated model + encodings
@@ -279,6 +283,7 @@ class FromPretrainedMixin(Generic[T]):
               load both model + encodings
 
         Returns
+        -------
         - onnx_model, aimet_encodings_path
         """
         subfolder_hf = subfolder or cls.default_subfolder_hf
@@ -314,20 +319,20 @@ class FromPretrainedMixin(Generic[T]):
                 host_device=host_device,
             )
 
-            input_spec = cls.get_input_spec()  # type: ignore
+            input_spec = cls.get_input_spec()  # type: ignore[attr-defined]
 
-            example_input = tuple(make_torch_inputs(input_spec))  # type: ignore
+            example_input = tuple(make_torch_inputs(input_spec))
             example_input = tuple([t.to(host_device) for t in example_input])
 
             torch_to_onnx_options = torch_to_onnx_options or {}
             with qaihm_temp_dir() as tmpdir:
                 out_onnx = os.path.join(tmpdir, "model.onnx")
-                torch.onnx.export(
+                safe_torch_onnx_export(
                     fp_model,
                     example_input,
                     out_onnx,
-                    input_names=list(input_spec.keys()),  # type: ignore
-                    output_names=cls.get_output_names(),  # type: ignore
+                    input_names=list(input_spec.keys()),
+                    output_names=cls.get_output_names(),  # type: ignore[attr-defined]
                     **torch_to_onnx_options,
                 )
                 onnx_model = onnx.load(out_onnx)
@@ -336,13 +341,13 @@ class FromPretrainedMixin(Generic[T]):
 
     @classmethod
     def from_pretrained(
-        cls: type[T],
+        cls,
         *args: Any,
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
         **kwargs: Any,
-    ) -> T:
+    ) -> Self:
         """
         This assumes that the class takes a single torch.nn.Module in
         __init__. Override if not.

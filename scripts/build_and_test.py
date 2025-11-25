@@ -11,7 +11,6 @@ import os
 import sys
 import textwrap
 from collections.abc import Callable
-from typing import Optional
 
 from tasks.aws import REPO_ROOT, ValidateAwsCredentialsTask
 from tasks.changes import (
@@ -46,12 +45,19 @@ from tasks.task import (
     RunCommandsWithVenvTask,
     Task,
 )
-from tasks.test import PyTestModelsTask, PyTestQAIHMTask
+from tasks.test import (
+    GenerateTestSummaryTask,
+    GPUPyTestModelsTask,
+    InstallGlobalRequirementsTask,
+    PyTestModelsTask,
+    PyTestQAIHMTask,
+)
 from tasks.util import echo, get_env_bool, on_ci, run
 from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
     DownloadPrivateDatasetsTask,
+    DownloadQAIRTAndQDCWheelTask,
     GenerateGlobalRequirementsTask,
     SyncLocalQAIHMVenvTask,
 )
@@ -131,7 +137,7 @@ RELEASE_REPO_DIR = os.path.join(DEFAULT_RELEASE_DIRECTORY, "repository")
 PRIVATE_WHEEL_DIR = os.path.join(BUILD_ROOT, "wheel")
 
 
-def get_test_venv_wheel_dir() -> Optional[str]:
+def get_test_venv_wheel_dir() -> str | None:
     """
     Get the directory with built wheels that should be used for testing.
     The wheel will exists so long as install_deps is a dependency of the current task.
@@ -140,7 +146,7 @@ def get_test_venv_wheel_dir() -> Optional[str]:
     """
     if get_env_bool("QAIHM_TEST_USE_PUBLIC_WHEEL"):
         return RELEASE_WHEEL_DIR
-    elif on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
+    if on_ci() and not get_env_bool("QAIHM_CI_USE_EDITABLE_INSTALL"):
         return PRIVATE_WHEEL_DIR
     return None  # editable install
 
@@ -149,19 +155,19 @@ class TaskLibrary:
     def __init__(
         self,
         python_executable: str,
-        venv_path: Optional[str],
+        venv_path: str | None,
     ) -> None:
         self.python_executable = python_executable
         self.venv_path = venv_path
 
     @staticmethod
-    def to_dot(highlight: list[str] = []) -> str:
+    def to_dot(highlight: list[str] | None = None) -> str:
         elements: list[str] = []
         for tsk in ALL_TASKS:
             task_attrs: list[str] = []
             if tsk in PUBLIC_TASKS:
                 task_attrs.append("style=filled")
-            if tsk in highlight:
+            if tsk in (highlight or []):
                 task_attrs.append("penwidth=4.0")
             if len(task_attrs) > 0:
                 elements.append(f"{tsk} [{' '.join(task_attrs)}]")
@@ -270,6 +276,16 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Install Global Requirements")
+    @depends(["install_deps", "generate_global_requirements"])
+    def install_global_requirements(
+        self, plan: Plan, step_id: str = "install_deps"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            InstallGlobalRequirementsTask(self.venv_path),
+        )
+
     @public_task("Generate Global Requirements")
     @depends(["install_deps"])
     def generate_global_requirements(
@@ -306,6 +322,18 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Download QDC wheel")
+    @depends(["install_deps", "validate_aws_credentials"])
+    def download_qairt_and_qdc_wheel(
+        self, plan: Plan, step_id: str = "download_qairt_and_qdc_wheel"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            DownloadQAIRTAndQDCWheelTask(
+                venv=self.venv_path,
+            ),
+        )
+
     @public_task("Model Test Setup")
     @depends(
         ["install_deps", "generate_global_requirements", "download_private_datasets"]
@@ -318,7 +346,7 @@ class TaskLibrary:
     @task
     def clean_pip(self, plan: Plan) -> str:
         class CleanPipTask(Task):
-            def __init__(self, venv_path: Optional[str]) -> None:
+            def __init__(self, venv_path: str | None) -> None:
                 super().__init__("Deleting python packages")
                 self.venv_path = venv_path
 
@@ -344,6 +372,36 @@ class TaskLibrary:
             PyTestQAIHMTask(self.venv_path),
         )
 
+    def _get_mypy_models_task(self, models) -> PyTestModelsTask:
+        return PyTestModelsTask(
+            self.python_executable,
+            models,
+            models,
+            self.venv_path,
+            venv_for_each_model=False,
+            use_shared_cache=True,
+            test_trace=False,
+            run_mypy=True,
+            run_general=False,
+            run_export_compile=False,
+            qaihm_wheel_dir=get_test_venv_wheel_dir(),
+        )
+
+    @public_task("Run mypy on changed models.")
+    @depends(["model_test_setup"])
+    def run_mypy_changed_models(
+        self, plan: Plan, step_id: str = "quantize_changed_models"
+    ) -> str:
+        _, models_to_test_export = get_models_to_test()
+        return plan.add_step(step_id, self._get_mypy_models_task(models_to_test_export))
+
+    @public_task("Run MyPy all models in Model Zoo.")
+    @depends(["model_test_setup"])
+    def run_mypy_all_models(
+        self, plan: Plan, step_id: str = "test_compile_all_models"
+    ) -> str:
+        return plan.add_step(step_id, self._get_mypy_models_task(get_all_models()))
+
     def _get_quantize_models_task(self, models) -> PyTestModelsTask:
         return PyTestModelsTask(
             self.python_executable,
@@ -353,9 +411,9 @@ class TaskLibrary:
             venv_for_each_model=False,
             use_shared_cache=True,
             test_trace=False,
+            run_general=False,
             run_export_quantize=True,
             run_export_compile=False,
-            skip_standard_unit_test=True,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
 
@@ -402,7 +460,7 @@ class TaskLibrary:
                 print(f"Models to run tests ({len(models_to_run_tests)})")
                 for model in models_to_run_tests:
                     print(f"   {model}")
-                print("")
+                print()
                 print(f"Models to test export ({len(models_to_test_export)})")
                 for model in models_to_test_export:
                     print(f"   {model}")
@@ -428,8 +486,16 @@ class TaskLibrary:
                 venv_for_each_model=False,
                 use_shared_cache=True,
                 test_trace=False,
+                run_mypy=True,
                 qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
+        )
+
+    @public_task("Run GPU tests.")
+    def test_gpu_models(self, plan: Plan, step_id: str = "test_gpu_models") -> str:
+        return plan.add_step(
+            step_id,
+            GPUPyTestModelsTask(venv=self.venv_path),
         )
 
     @public_task(
@@ -449,6 +515,7 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=True,
                 use_shared_cache=False,
+                run_mypy=True,
                 qaihm_wheel_dir=get_test_venv_wheel_dir(),
             ),
         )
@@ -492,10 +559,11 @@ class TaskLibrary:
 
     def _make_hub_scorecard_task(
         self,
+        mypy: bool = False,
         quantize: bool = False,
-        compile: bool = False,
-        profile: bool = False,
-        inference: bool = False,
+        enable_compile: bool = False,
+        enable_profile: bool = False,
+        enable_inference: bool = False,
     ) -> PyTestModelsTask:
         all_models = get_all_models()
         return PyTestModelsTask(
@@ -505,13 +573,13 @@ class TaskLibrary:
             self.venv_path,
             venv_for_each_model=False,
             use_shared_cache=True,
+            run_general=False,
             run_export_quantize=quantize,
-            run_export_compile=compile,
-            run_export_profile=profile,
-            run_export_inference=inference,
+            run_export_compile=enable_compile,
+            run_export_profile=enable_profile,
+            run_export_inference=enable_inference,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
-            skip_standard_unit_test=True,
             test_trace=False,
             qaihm_wheel_dir=get_test_venv_wheel_dir(),
         )
@@ -521,21 +589,27 @@ class TaskLibrary:
     def test_compile_all_models(
         self, plan: Plan, step_id: str = "test_compile_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(compile=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_compile=True)
+        )
 
     @public_task("Run profile jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
     def test_profile_all_models(
         self, plan: Plan, step_id: str = "test_profile_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(profile=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_profile=True)
+        )
 
     @public_task("Run inference jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
     def test_inference_all_models(
         self, plan: Plan, step_id: str = "test_inference_all_models"
     ) -> str:
-        return plan.add_step(step_id, self._make_hub_scorecard_task(inference=True))
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_inference=True)
+        )
 
     @public_task("Run profile and inference jobs for all models in Model Zoo.")
     @depends(["model_test_setup"])
@@ -543,7 +617,8 @@ class TaskLibrary:
         self, plan: Plan, step_id: str = "test_profile_inference_all_models"
     ) -> str:
         return plan.add_step(
-            step_id, self._make_hub_scorecard_task(profile=True, inference=True)
+            step_id,
+            self._make_hub_scorecard_task(enable_profile=True, enable_inference=True),
         )
 
     @public_task("Run quantize jobs for all models in Model Zoo.")
@@ -568,10 +643,10 @@ class TaskLibrary:
                 self.venv_path,
                 venv_for_each_model=False,
                 use_shared_cache=True,
+                run_general=False,
                 run_export_compile=False,
                 run_export_profile=False,
                 run_full_export=True,
-                skip_standard_unit_test=True,
                 # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
                 exit_after_single_model_failure=False,
                 test_trace=False,
@@ -676,6 +751,17 @@ class TaskLibrary:
         return plan.add_step(
             step_id,
             NoOpTask("Release AI Hub Models"),
+        )
+
+    @public_task("Generate Test Failure Summary")
+    def generate_test_summary(
+        self, plan: Plan, step_id: str = "generate_test_summary"
+    ) -> str:
+        # Use the workspace directory for test results
+        results_dir = os.path.join(os.getcwd(), "test-results")
+        return plan.add_step(
+            step_id,
+            GenerateTestSummaryTask(results_dir),
         )
 
     # This task has no depedencies and does nothing.

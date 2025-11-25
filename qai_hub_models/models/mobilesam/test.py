@@ -8,6 +8,8 @@ from typing import cast
 
 import numpy as np
 import torch
+from mobile_sam import SamPredictor
+from mobile_sam.utils.transforms import ResizeLongestSide
 
 from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models.mobilesam.demo import IMAGE_ADDRESS
@@ -16,12 +18,10 @@ from qai_hub_models.models.mobilesam.model import (
     SMALL_MODEL_TYPE,
     MobileSAM,
     MobileSAMLoader,
-    ResizeLongestSide,
     SamOnnxModel,
-    SamPredictor,
 )
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.testing import assert_most_close  # noqa: F401
+from qai_hub_models.utils.testing import assert_most_close
 
 
 def test_e2e_numerical() -> None:

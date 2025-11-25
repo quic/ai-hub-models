@@ -14,10 +14,10 @@ from qai_hub_models.utils.base_model import (
 
 class SimpleBaseModel(BaseModel):
     def get_input_spec(*args, **kwargs):
-        return None  # type: ignore
+        return None
 
     def get_output_names(*args, **kwargs):
-        return None  # type: ignore
+        return None
 
     @classmethod
     def from_pretrained(cls):
@@ -84,7 +84,7 @@ def test_missing_from_pretrained():
 
     class BrokenComponent(SimpleBaseModel):
         # Override from_pretrained with a non-callable value.
-        from_pretrained = None  # type: ignore
+        from_pretrained = None  # type: ignore[assignment]
 
     @CollectionModel.add_component(BrokenComponent)
     class BrokenCollection(PretrainedCollectionModel):

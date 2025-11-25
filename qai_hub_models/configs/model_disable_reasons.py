@@ -5,10 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import Field, model_serializer, model_validator
-from typing_extensions import TypeAlias
 
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
@@ -23,13 +22,13 @@ class ModelDisableReasons(BaseQAIHMConfig):
     # This field is managed automatically by the scorecard, and should
     # not be manually edited after a model is first added. If the model
     # begins to work again, this will be removed automatically by scorecard.
-    scorecard_failure: Optional[str] = None
+    scorecard_failure: str | None = None
 
     # If set, testing and export are disabled for the given Precision + TargetRuntime combination.
     # This requires a filed issue link. You can also include additional info besides the link if you want.
     #
     # Scorecard can still run models disabled this way, depending on scorecard settings.
-    issue: Optional[str] = None
+    issue: str | None = None
 
     # If set, testing, export, and scorecard are disabled for the given Precision + TargetRuntime combination.
     # This requires that disable_issue is set above.
@@ -59,13 +58,10 @@ class ModelDisableReasons(BaseQAIHMConfig):
         return self.scorecard_failure or self.issue  # type: ignore[return-value]
 
 
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_data_type: TypeAlias = "Dict[Precision, Dict[TargetRuntime, ModelDisableReasons]]"
-
-
 class ModelDisableReasonsMapping(BaseQAIHMConfig):
-    data: _data_type = Field(default_factory=dict)
+    data: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = Field(
+        default_factory=dict
+    )
 
     def __getitem__(self, key: Precision) -> dict[TargetRuntime, ModelDisableReasons]:
         return self.data[key]
@@ -81,7 +77,7 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
             kwargs = {"data": {}}
         elif (
             len(kwargs) == 1
-            and isinstance(list(kwargs.values())[0], dict)
+            and isinstance(next(iter(kwargs.values())), dict)
             and "data" not in kwargs
         ):
             kwargs = {"data": kwargs}
@@ -90,9 +86,7 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
     def get_disable_reasons(
         self, precision: Precision, runtime: TargetRuntime
     ) -> ModelDisableReasons:
-        """
-        Get disable reasons for the given precision + runtime pair. Create if it doesn't exist.
-        """
+        """Get disable reasons for the given precision + runtime pair. Create if it doesn't exist."""
         if precision not in self.data:
             self.data[precision] = {}
         precision_mapping: dict[TargetRuntime, ModelDisableReasons] = self.data[
@@ -105,13 +99,13 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         # Skip serialization of dict items that don't have failure reasons set
-        out: _data_type = {}
+        out: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = {}
         for precision, runtimes in self.data.items():
-            serialized_runtimes = {}
-            for runtime, reasons in runtimes.items():
-                if reasons.has_failure:
-                    serialized_runtimes[runtime] = reasons
-
+            serialized_runtimes = {
+                runtime: reasons
+                for runtime, reasons in runtimes.items()
+                if reasons.has_failure
+            }
             if serialized_runtimes:
                 out[precision] = serialized_runtimes
 

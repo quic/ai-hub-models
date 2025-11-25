@@ -108,10 +108,12 @@ class DeepBoxApp:
         """
         From the provided image or tensor, predict the 3d bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             image: PIL image
 
-        Returns:
+        Returns
+        -------
             if raw_output is False, returns
                 image_with_3d_bounding_boxes: list[PIL.Image]
                     Input image with predicted 3D Bounding Boxes applied
@@ -125,7 +127,6 @@ class DeepBoxApp:
                 locations: list[list]
                     centers of 3d_bboxes
         """
-
         # Input Prep
         numpy_image = np.array(image)
         (H, W) = numpy_image.shape[:2]
@@ -162,8 +163,7 @@ class DeepBoxApp:
         if raw_output:
             return proj_matrixes, orients, dims, locations
 
-        img = Image.fromarray(numpy_image)
-        return img
+        return Image.fromarray(numpy_image)
 
     def detect_2d_bboxes(
         self, image_resized: Image.Image
@@ -201,7 +201,8 @@ class DeepBoxApp:
 
         # Gets the labels and camera calib
         labels_path = os.path.sep.join([repo_path + "/weights", "coco.names"])
-        labels = open(labels_path).read().split("\n")
+        with open(labels_path) as labels_f:
+            labels = labels_f.read().split("\n")
         calib_file = repo_path + "/camera_cal/calib_cam_to_cam.txt"
 
         x1, y1, x2, y2 = pred_boxes
@@ -255,7 +256,7 @@ class DeepBoxApp:
         orient = alpha + theta_ray
 
         # calculate best_loc, [left_constraints, right_constraints]
-        location, X = calc_location(dim, proj_matrix, box_2d, alpha, theta_ray)
+        location, _X = calc_location(dim, proj_matrix, box_2d, alpha, theta_ray)
 
         # plots 3d boxes
         plot_3d_box(numpy_image, proj_matrix, orient, dim, location)

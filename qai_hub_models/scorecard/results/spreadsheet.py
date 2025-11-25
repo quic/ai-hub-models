@@ -12,7 +12,7 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import cast
 
-from qai_hub_models.configs.info_yaml import MODEL_DOMAIN, MODEL_TAG, MODEL_USE_CASE
+from qai_hub_models.configs.info_yaml import MODEL_DOMAIN, MODEL_USE_CASE
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
@@ -48,10 +48,9 @@ class ResultsSpreadsheet(list):
     class ModelMetadata:
         domain: MODEL_DOMAIN
         use_case: MODEL_USE_CASE
-        tags: list[MODEL_TAG]
+        tags: list[str]
         known_failure_reasons: ModelDisableReasonsMapping
-        public_status: str
-        is_pytorch: bool
+        default_quantized_precision: Precision | None
 
     @dataclass
     class Entry:
@@ -159,19 +158,27 @@ class ResultsSpreadsheet(list):
                     if model_id not in self._model_metadata:
                         return ""
                     metadata = self._model_metadata[model_id]
-                    tags = [x.name for x in metadata.tags]
-                    tags.append(metadata.public_status)
-                    tags.append("pytorch" if metadata.is_pytorch else "static")
+                    tags = list(metadata.tags)
+                    if (
+                        metadata.default_quantized_precision is not None
+                        and metadata.default_quantized_precision == entry.precision
+                    ):
+                        tags.append("default_quantized")
                     return ", ".join(tags)
                 if field_name == "branch":
                     return branch
                 if field_name == "known_issue":
-                    if meta := self._model_metadata.get(model_id):
-                        if failure_reasons := meta.known_failure_reasons.get_disable_reasons(
-                            entry.precision, entry.runtime.runtime
-                        ):
-                            if failure_reasons.has_failure:
-                                return failure_reasons.failure_reason
+                    if (
+                        (meta := self._model_metadata.get(model_id))
+                        and (
+                            failure_reasons
+                            := meta.known_failure_reasons.get_disable_reasons(
+                                entry.precision, entry.runtime.runtime
+                            )
+                        )
+                        and failure_reasons.has_failure
+                    ):
+                        return failure_reasons.failure_reason
                     return ""
 
                 val = getattr(entry, field_name)
@@ -222,13 +229,16 @@ class ResultsSpreadsheet(list):
         model_id: str,
         domain: MODEL_DOMAIN,
         use_case: MODEL_USE_CASE,
-        tags: list[MODEL_TAG],
-        public_status: str,
-        is_pytorch: bool,
-        known_failure_reasons: ModelDisableReasonsMapping = ModelDisableReasonsMapping(),
+        tags: list[str],
+        default_quantized_precision: Precision | None,
+        known_failure_reasons: ModelDisableReasonsMapping | None = None,
     ):
         self._model_metadata[model_id] = ResultsSpreadsheet.ModelMetadata(
-            domain, use_case, tags, known_failure_reasons, public_status, is_pytorch
+            domain,
+            use_case,
+            tags,
+            known_failure_reasons or ModelDisableReasonsMapping(),
+            default_quantized_precision,
         )
 
     def set_date(self, date: datetime | None):

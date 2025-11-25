@@ -8,7 +8,7 @@ from __future__ import annotations
 from importlib import reload
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.models._shared.yolo.model import Yolo
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
@@ -18,6 +18,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_path,
     qaihm_temp_dir,
 )
+from qai_hub_models.utils.set_env import set_temp_env
 
 YOLOV6_SOURCE_REPOSITORY = "https://github.com/meituan/YOLOv6"
 YOLOV6_SOURCE_REPO_COMMIT = "55d80c317edd0fb5847e599a1802d394f34a3141"
@@ -49,12 +50,14 @@ class YoloV6(Yolo):
         """
         Run YoloV6 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
                 scores: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
@@ -83,6 +86,11 @@ class YoloV6(Yolo):
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.include_postprocessing)
 
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
+
 
 def _load_yolov6_source_model_from_weights(
     ckpt_path: str | CachedWebModelAsset,
@@ -106,9 +114,12 @@ def _load_yolov6_source_model_from_weights(
             from yolov6.layers.common import RepVGGBlock
             from yolov6.utils.checkpoint import load_checkpoint
 
-            model = load_checkpoint(
-                model_path, map_location="cpu", inplace=True, fuse=True
-            )
+            # Set the environment variable to force torch.load to use weights_only=False
+            # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+            with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+                model = load_checkpoint(
+                    model_path, map_location="cpu", inplace=True, fuse=True
+                )
             model.export = True
 
             for layer in model.modules():

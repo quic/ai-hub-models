@@ -39,7 +39,6 @@ class EfficientViT(ImagenetClassifier):
             from efficientvit.cls_model_zoo import create_cls_model
 
             if not weights:
-                pass
                 weights = CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
                 ).fetch()

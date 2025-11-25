@@ -11,18 +11,18 @@ import os
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 import torch
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.mediapipe_face import Model
+from qai_hub_models.models.mediapipe_face import MODEL_ID, App, Model
 from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
     export_parser,
+    get_export_model_name,
     get_model_kwargs,
-    validate_precision_runtime,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
@@ -39,7 +39,7 @@ def quantize_model(
     precision: Precision,
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     num_calibration_samples: int | None,
 ) -> dict[str, hub.client.QuantizeJob]:
@@ -57,7 +57,7 @@ def quantize_model(
             onnx_compile_job = hub.submit_compile_job(
                 model=source_model,
                 input_specs=input_spec,
-                device=hub_device,
+                device=device,
                 name=f"{model_name}_{component_name}",
                 options=f"--target_runtime onnx --output_names {','.join(output_names)}",
             )
@@ -68,7 +68,11 @@ def quantize_model(
                 )
 
             calibration_data = quantization_utils.get_calibration_data(
-                component, input_spec, num_calibration_samples
+                component,
+                input_spec,
+                num_calibration_samples,
+                app=App,
+                collection_model=model,
             )
             quantize_jobs[component_name] = hub.submit_quantize_job(
                 model=onnx_compile_job.get_target_model(),
@@ -84,7 +88,7 @@ def quantize_model(
 def compile_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     compile_options: str,
     target_runtime: TargetRuntime,
@@ -105,13 +109,13 @@ def compile_model(
             )
 
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, precision, compile_options, hub_device
+            target_runtime, precision, compile_options, device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
             model=source_model,
             input_specs=input_spec,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=model_compile_options,
         )
@@ -123,7 +127,7 @@ def compile_model(
 
 def profile_model(
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: dict[str, str],
     target_runtime: TargetRuntime,
@@ -134,7 +138,7 @@ def profile_model(
         print(f"Profiling model {component_name} on a hosted device.")
         submitted_profile_job = hub.submit_profile_job(
             model=compile_jobs[component_name].get_target_model(),
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options.get(component_name, ""),
         )
@@ -147,7 +151,7 @@ def profile_model(
 def inference_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: str,
     target_runtime: TargetRuntime,
@@ -167,7 +171,7 @@ def inference_model(
         submitted_inference_job = hub.submit_inference_job(
             model=compile_jobs[component_name].get_target_model(),
             inputs=sample_inputs,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options_all,
         )
@@ -189,9 +193,8 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
-    components: Optional[list[str]] = None,
+    device: hub.Device,
+    components: list[str] | None = None,
     precision: Precision = Precision.w8a8,
     num_calibration_samples: int | None = None,
     skip_compiling: bool = False,
@@ -199,11 +202,11 @@ def export_model(
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     target_runtime: TargetRuntime = TargetRuntime.TFLITE,
     compile_options: str = "",
     profile_options: str = "",
-    fetch_static_assets: bool = False,
+    fetch_static_assets: str | None = None,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -219,51 +222,61 @@ def export_model(
 
     Each of the last 5 steps can be optionally skipped using the input options.
 
-    Parameters:
-        device: Device for which to export the model.
-            Full list of available devices can be found by running `hub.get_devices()`.
-            Defaults to DEFAULT_DEVICE if not specified.
-        chipset: If set, will choose a random device with this chipset.
-            Overrides the `device` argument.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to all components of the CollectionModel if not specified.
-        precision: The precision to which this model should be quantized.
-            Quantization is skipped if the precision is float.
-        num_calibration_samples: The number of calibration data samples
-            to use for quantization. If not set, uses the default number
-            specified by the dataset. If model doesn't have a calibration dataset
-            specified, this must be None.
-        skip_compiling: If set, skips compiling model to format that can run on device.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_downloading: If set, skips downloading of compiled model.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling and inference.
-        output_dir: Directory to store generated assets (e.g. compiled model).
-            Defaults to `<cwd>/build/<model_name>`.
-        target_runtime: Which on-device runtime to target. Default is TFLite.
-        compile_options: Additional options to pass when submitting the compile job.
-        profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_pretrained`
+    Parameters
+    ----------
+    device
+        Device for which to export the model (e.g., hub.Device("Samsung Galaxy S25")).
+        Full list of available devices can be found by running `hub.get_devices()`.
+    components
+        List of sub-components of the model that will be exported.
+        Each component is compiled and profiled separately.
+        Defaults to all components of the CollectionModel if not specified.
+    precision
+        The precision to which this model should be quantized.
+        Quantization is skipped if the precision is float.
+    num_calibration_samples
+        The number of calibration data samples
+        to use for quantization. If not set, uses the default number
+        specified by the dataset. If model doesn't have a calibration dataset
+        specified, this must be None.
+    skip_compiling
+        If set, skips compiling of model to format that can run on device.
+    skip_profiling
+        If set, skips profiling of compiled model on real devices.
+    skip_inferencing
+        If set, skips computing on-device outputs from sample data.
+    skip_downloading
+        If set, skips downloading of compiled model.
+    skip_summary
+        If set, skips waiting for and summarizing results
+        from profiling and inference.
+    output_dir
+        Directory to store generated assets (e.g. compiled model).
+        Defaults to `<cwd>/build/<model_name>`.
+    target_runtime
+        Which on-device runtime to target. Default is TFLite.
+    compile_options
+        Additional options to pass when submitting the compile job.
+    profile_options
+        Additional options to pass when submitting the profile job.
+    fetch_static_assets
+        If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
+    additional_model_kwargs
+        Additional optional kwargs used to customize
+        `model_cls.from_pretrained`
 
-    Returns:
-        A Mapping from component_name to a struct of:
-            * A CompileJob object containing metadata about the compile job submitted to hub (None if compiling skipped).
-            * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
-            * A QuantizeJob object containing metadata about the quantize job submitted to hub
+    Returns
+    -------
+    A Mapping from component_name to a struct of:
+        * A CompileJob object containing metadata about the compile job submitted to hub (None if compiling skipped).
+        * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * A QuantizeJob object containing metadata about the quantize job submitted to hub
     """
-    model_name = "mediapipe_face"
+    model_name = get_export_model_name(
+        Model, MODEL_ID, precision, additional_model_kwargs
+    )
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if not device and not chipset:
-        hub_device = hub.Device("Samsung Galaxy S24 (Family)")
-    else:
-        hub_device = hub.Device(
-            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
-        )
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
@@ -271,10 +284,9 @@ def export_model(
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
-            "mediapipe_face",
+            MODEL_ID,
             "MediaPipe-Face-Detection",
-            hub_device.name,
-            chipset,
+            device,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -285,7 +297,7 @@ def export_model(
             compile_options,
             profile_options,
             component_arg,
-            is_forced_static_asset_fetch=fetch_static_assets,
+            qaihm_version_tag=fetch_static_assets,
         )
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
@@ -298,7 +310,7 @@ def export_model(
         precision,
         model,
         model_name,
-        hub_device,
+        device,
         components,
         num_calibration_samples,
     )
@@ -312,7 +324,7 @@ def export_model(
     compile_jobs = compile_model(
         model,
         model_name,
-        hub_device,
+        device,
         components,
         compile_options,
         target_runtime,
@@ -325,7 +337,7 @@ def export_model(
     if not skip_profiling:
         profile_jobs = profile_model(
             model_name,
-            hub_device,
+            device,
             components,
             {
                 component_name: model.components[
@@ -343,7 +355,7 @@ def export_model(
         inference_jobs = inference_model(
             model,
             model_name,
-            hub_device,
+            device,
             components,
             profile_options,
             target_runtime,
@@ -392,7 +404,7 @@ def export_model(
     }
 
 
-def main(restrict_to_precision: Precision | None = None):
+def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a8: [
@@ -411,19 +423,13 @@ def main(restrict_to_precision: Precision | None = None):
         ],
     }
 
-    if restrict_to_precision:
-        supported_precision_runtimes = {
-            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
-        }
-
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
+        default_export_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
     export_model(**vars(args))
 
 

@@ -24,7 +24,9 @@ class BBox:
     ):
         """
         A bounding box plus landmarks structure to hold the hierarchical result.
-        parameters:
+
+        Parameters
+        ----------
             label:str the class label
             xyrb: 4 list for bbox left, top,  right bottom coordinates
             score:the score of the deteciton
@@ -50,7 +52,7 @@ class BBox:
         )
         return (
             f"(BBox[{self.label}]: x={self.x:.2f}, y={self.y:.2f}, r={self.r:.2f}, "
-            + f"b={self.b:.2f}, width={self.width:.2f}, height={self.height:.2f}, landmark={landmark_formated})"
+            f"b={self.b:.2f}, width={self.width:.2f}, height={self.height:.2f}, landmark={landmark_formated})"
         )
 
     @property
@@ -80,7 +82,7 @@ class BBox:
 
 def nms(objs: list[BBox], iou: float = 0.5) -> list[BBox]:
     """
-    nms function customized to work on the BBox objects list.
+    Nms function customized to work on the BBox objects list.
     parameter:
         objs: the list of the BBox objects.
     return:
@@ -118,31 +120,31 @@ def detect(
     hm = hm.sigmoid()
     hm_pool = F.max_pool2d(hm, 3, 1, 1)
     lens = ((hm == hm_pool).float() * hm).view(1, -1).cpu().shape[1]
-    scores, indices = (
+    scores_pt, indices = (
         ((hm == hm_pool).float() * hm).view(1, -1).cpu().topk(min(lens, 2000))
     )
 
-    hm_height, hm_width = hm.shape[2:]
+    _hm_height, hm_width = hm.shape[2:]
 
-    scores = scores.squeeze()
+    scores_pt = scores_pt.squeeze()
     indices = indices.squeeze()
     ys = list(torch.div(indices, hm_width).int().data.numpy())
     xs = list((indices % hm_width).int().data.numpy())
-    scores = list(scores.data.numpy())
+    scores: list[float] = list(scores_pt.data.numpy())
 
     objs = []
-    for cx, cy, score in zip(xs, ys, scores):
+    for cx, cy, score in zip(xs, ys, scores, strict=False):
         if score < threshold:
             break
 
         x, y, r, b = box[0, :, cy, cx].cpu().data.numpy()
         xyrb: list[int] = (
-            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride
+            (np.array([cx, cy, cx, cy]) + [-x, -y, r, b]) * stride  # noqa: RUF005
         ).tolist()
         x5y5 = landmark[0, :, cy, cx].cpu().data.numpy()
         x5y5 = (x5y5 + ([cx] * 5 + [cy] * 5)) * stride
 
-        box_landmark = list(zip(x5y5[:5], x5y5[5:]))
+        box_landmark = list(zip(x5y5[:5], x5y5[5:], strict=False))
         objs.append(BBox("0", xyrb=xyrb, score=score, landmark=box_landmark))
 
     if nms_iou != -1:

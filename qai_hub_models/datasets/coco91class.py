@@ -11,9 +11,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 
 
 class Coco91ClassDataset(CocoDataset):
-    """
-    Wrapper class around the COCO dataset to extent to 91 categories.
-    """
+    """Wrapper class around the COCO dataset to extent to 91 categories."""
 
     def __init__(
         self,

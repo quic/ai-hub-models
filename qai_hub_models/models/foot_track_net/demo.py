@@ -39,7 +39,10 @@ def main(is_test: bool = False):
     # Load image
     print("Model Loaded")
     (_, _, height, width) = model.get_input_spec()["image"][0]
-    app = FootTrackNet_App(model, (height, width))
+    app = FootTrackNet_App(
+        model,  # type: ignore[arg-type]
+        (height, width),
+    )
     image_out = app.predict_and_draw_bbox_landmarks(load_image(args.image))
     if not is_test:
         display_or_save_image(

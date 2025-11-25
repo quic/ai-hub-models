@@ -6,57 +6,25 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
+import transformers
+from packaging.version import Version
 from torch import nn
-from transformers.cache_utils import Cache
+from transformers.cache_utils import DynamicCache
 from transformers.models.llama.modeling_llama import (
     LlamaAttention,
     LlamaForCausalLM,
     LlamaMLP,
 )
 
-
-# Copied from transformers.models.llama.modeling_llama.repeat_kv
-def repeat_kv(
-    hidden_states: torch.Tensor | list[torch.Tensor], n_rep: int
-) -> torch.Tensor | list[torch.Tensor]:
-    """
-    This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep). The hidden states go from (batch,
-    num_key_value_heads, seqlen, head_dim) to (batch, num_attention_heads, seqlen, head_dim)
-    """
-    if isinstance(hidden_states, list):
-        return [head for head in hidden_states for _ in range(n_rep)]
-
-    batch, num_key_value_heads, slen, head_dim = hidden_states.shape
-    if n_rep == 1:
-        return hidden_states
-    hidden_states = hidden_states[:, :, None, :, :].expand(
-        batch, num_key_value_heads, n_rep, slen, head_dim
-    )
-    return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
-
-
-def _apply_rope_single(
-    x: torch.Tensor, rope_vals: tuple[torch.Tensor, torch.Tensor]
-) -> torch.Tensor:
-    """
-    Based on FacebookResearch's llama, provided by Carl
-    """
-    rope_real = rope_vals[0]  # shape should be 1, 1, seqlen, head_dim/2
-    rope_im = rope_vals[1]  # shape should be 1, 1, seqlen, head_dim/2
-
-    # TODO: Why HF uses different coordinates from the paper
-    x_real = x[:, :, :, : x.shape[-1] // 2]  # extract first half elements
-    x_im = x[:, :, :, x.shape[-1] // 2 :]  # extract second half elements
-
-    x_prod_real = x_real * rope_real - x_im * rope_im
-    x_prod_im = x_real * rope_im + x_im * rope_real
-
-    # TODO: HF need to uses different interleaving
-    x = torch.cat((x_prod_real, x_prod_im), dim=3).view(*x.shape)
-    return x
+from qai_hub_models.models._shared.llm.model_adaptations import (
+    ConvInplaceLinear,
+    _apply_rope_single,
+    repeat_kv,
+)
 
 
 def QcLlama_apply_rotary_pos_emb(
@@ -64,7 +32,7 @@ def QcLlama_apply_rotary_pos_emb(
     k: torch.Tensor,
     cos: torch.Tensor,
     sin: torch.Tensor,
-    position_ids: Optional[list[int]] = None,
+    position_ids: list[int] | None = None,
     unsqueeze_dim: int = 1,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     query_states = _apply_rope_single(q, (cos, sin))
@@ -73,29 +41,51 @@ def QcLlama_apply_rotary_pos_emb(
 
 
 class SHALlamaAttention(LlamaAttention):
-    """
-    Split-Head Attention version of LlamaAttention (with Convs)
-    """
+    """Split-Head Attention version of LlamaAttention (with Convs)"""
+
+    @property
+    def hidden_size_(self):
+        if hasattr(self, "hidden_size"):
+            return self.hidden_size
+        return self.config.hidden_size
+
+    @property
+    def num_attention_heads_(self):
+        if hasattr(self, "num_heads"):
+            return self.num_heads
+        return self.config.num_attention_heads
+
+    @property
+    def num_key_value_heads_(self):
+        if hasattr(self, "num_key_value_heads"):
+            return self.num_key_value_heads
+        return self.config.num_key_value_heads
 
     def prepare_conv(self):
         if not hasattr(self, "forward_no_conv"):
             self.q_proj_conv = nn.Conv2d(
-                self.hidden_size, self.num_heads * self.head_dim, 1, bias=False
+                self.hidden_size_,
+                self.num_attention_heads_ * self.head_dim,
+                1,
+                bias=False,
             )
             self.k_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                self.hidden_size_,
+                self.num_key_value_heads_ * self.head_dim,
                 1,
                 bias=False,
             )
             self.v_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                self.hidden_size_,
+                self.num_key_value_heads_ * self.head_dim,
                 1,
                 bias=False,
             )
             self.o_proj_conv = nn.Conv2d(
-                self.num_heads * self.head_dim, self.hidden_size, 1, bias=False
+                self.num_attention_heads_ * self.head_dim,
+                self.hidden_size_,
+                1,
+                bias=False,
             )
 
             self.q_proj_conv.weight.data.copy_(self.q_proj.weight[:, :, None, None])
@@ -109,7 +99,6 @@ class SHALlamaAttention(LlamaAttention):
             del self.o_proj
 
     def prepare_sha(self):
-
         # Ensure conv preparation is done first
         if not (
             hasattr(self, "q_proj_conv")
@@ -124,20 +113,20 @@ class SHALlamaAttention(LlamaAttention):
         if not hasattr(self, "forward_mha"):
             self.q_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_attention_heads_)
                 ]
             )
             self.k_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_key_value_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_key_value_heads_)
                 ]
             )
             self.v_proj_sha = nn.ModuleList(
                 [
-                    nn.Conv2d(self.hidden_size, self.head_dim, 1, bias=False)
-                    for _ in range(self.num_key_value_heads)
+                    nn.Conv2d(self.hidden_size_, self.head_dim, 1, bias=False)
+                    for _ in range(self.num_key_value_heads_)
                 ]
             )
 
@@ -147,7 +136,7 @@ class SHALlamaAttention(LlamaAttention):
                         torch.Tensor,
                         torch.Tensor | None,
                         torch.LongTensor | None,
-                        Cache | None,
+                        DynamicCache | None,
                         bool,
                         bool,
                         torch.LongTensor | None,
@@ -159,17 +148,14 @@ class SHALlamaAttention(LlamaAttention):
                 ],
                 self.forward,  # type: ignore[has-type]
             )
-            # pyright doesn't like that self.forward_sha doesn't take kwargs
-            self.forward = (
-                self.forward_sha
-            )  # pyright: ignore[reportAttributeAccessIssue]
+            self.forward = self.forward_sha  # type: ignore[assignment]
 
-        for i in range(self.num_heads):
+        for i in range(self.num_attention_heads_):
             self.q_proj_sha[i].weight.data.copy_(
                 self.q_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
 
-        for i in range(self.num_key_value_heads):
+        for i in range(self.num_key_value_heads_):
             self.k_proj_sha[i].weight.data.copy_(
                 self.k_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
@@ -184,35 +170,41 @@ class SHALlamaAttention(LlamaAttention):
     def forward_sha(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        past_key_value: Optional[Cache] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_value: DynamicCache | None = None,  # transformers<4.55
+        past_key_values: DynamicCache | None = None,  # transformers>=4.55
         output_attentions: bool = False,
         use_cache: bool = False,
-        cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[
-            tuple[torch.Tensor, torch.Tensor]
-        ] = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, Optional[list[torch.Tensor]], Optional[Cache]]:
-
+        cache_position: torch.LongTensor | None = None,
+        position_embeddings: tuple[torch.Tensor, torch.Tensor]
+        | None = None,  # will become mandatory in v4.45
+    ) -> tuple[torch.Tensor, list[torch.Tensor] | None, DynamicCache | None]:
+        if past_key_values is not None and past_key_value is None:
+            past_key_value = past_key_values
         bsz, q_len, _ = hidden_states.size()
 
-        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
+        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size_))
         hidden_states = hidden_states.transpose(1, 3)
 
-        query_states = [
+        query_states: list[torch.Tensor] = [
             q_proj(hidden_states).permute(0, 2, 3, 1) for q_proj in self.q_proj_sha
         ]
-        key_states = [
+        key_states: list[torch.Tensor] = [
             k_proj(hidden_states).permute(0, 2, 3, 1) for k_proj in self.k_proj_sha
         ]
-        value_states = [
+        value_states: list[torch.Tensor] = [
             v_proj(hidden_states).permute(0, 2, 3, 1) for v_proj in self.v_proj_sha
         ]
 
         kv_seq_len = value_states[0].shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
+            if hasattr(past_key_value, "value_cache"):
+                kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
+            elif hasattr(past_key_value.layers[self.layer_idx], "values"):
+                kv_seq_len += past_key_value.layers[self.layer_idx].values[0].shape[-2]
+            else:
+                kv_seq_len += past_key_value.layers[self.layer_idx][1][0].shape[-2]
 
         assert position_embeddings is not None
         query_states = [
@@ -227,8 +219,15 @@ class SHALlamaAttention(LlamaAttention):
 
         if past_key_value is not None:
             # reuse k, v, self_attention
-            past_key = past_key_value.key_cache[self.layer_idx]
-            past_value = past_key_value.value_cache[self.layer_idx]
+            if hasattr(past_key_value, "key_cache"):
+                past_key = past_key_value.key_cache[self.layer_idx]
+                past_value = past_key_value.value_cache[self.layer_idx]
+            elif hasattr(past_key_value.layers[self.layer_idx], "keys"):
+                past_key = past_key_value.layers[self.layer_idx].keys
+                past_value = past_key_value.layers[self.layer_idx].values
+            else:
+                past_key = past_key_value.layers[self.layer_idx][0]
+                past_value = past_key_value.layers[self.layer_idx][1]
 
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             transposed_key_states = [
@@ -246,23 +245,27 @@ class SHALlamaAttention(LlamaAttention):
             # Now concate the key/value states
             key_states = [
                 torch.cat([pk, k.transpose(2, 3)], dim=3)
-                for pk, k in zip(past_key, key_states)
+                for pk, k in zip(past_key, key_states, strict=False)
             ]
             value_states = [
-                torch.cat([pv, v], dim=2) for pv, v in zip(past_value, value_states)
+                torch.cat([pv, v], dim=2)
+                for pv, v in zip(past_value, value_states, strict=False)
             ]
 
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        key_states = cast(
+            list[torch.Tensor], repeat_kv(key_states, self.num_key_value_groups)
+        )
+        value_states = cast(
+            list[torch.Tensor], repeat_kv(value_states, self.num_key_value_groups)
+        )
 
         attn_weights = [
             torch.matmul(q, k) / math.sqrt(self.head_dim)
-            for q, k in zip(query_states, key_states)
+            for q, k in zip(query_states, key_states, strict=False)
         ]
         if attn_weights[0].size() != (bsz, 1, q_len, kv_seq_len):
             raise ValueError(
-                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is"
-                f" {attn_weights[0].size()}"
+                f"Attention weights should be of size {(bsz, 1, q_len, kv_seq_len)}, but is {attn_weights[0].size()}"
             )
 
         if attention_mask is not None:
@@ -279,74 +282,27 @@ class SHALlamaAttention(LlamaAttention):
             )
             for aw in attn_weights
         ]
-        attn_output = [torch.matmul(aw, v) for aw, v in zip(attn_weights, value_states)]
+        attn_output = [
+            torch.matmul(aw, v)
+            for aw, v in zip(attn_weights, value_states, strict=False)
+        ]
 
         if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is"
-                f" {attn_output[0].size()}"
+                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is {attn_output[0].size()}"
             )
 
         attn_output_return: torch.Tensor = torch.cat(attn_output, dim=3)
         attn_output_return = attn_output_return.permute(0, 3, 1, 2)
         attn_output_return = self.o_proj_conv(attn_output_return)
         attn_output_return = attn_output_return.transpose(1, 3)
-        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size)
+        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size_)
 
         attn_weights_return = attn_weights if output_attentions else None
 
+        if Version(transformers.__version__) >= Version("4.48.0"):
+            return attn_output_return, attn_weights_return
         return attn_output_return, attn_weights_return, past_key_value
-
-
-class ConvInplaceLinear(torch.nn.Conv2d):
-    def __init__(self, module):
-        assert isinstance(module, torch.nn.Linear)
-        weight, bias = module.weight, module.bias
-        self.out_features, self.in_features = weight.shape
-
-        super().__init__(
-            self.in_features,
-            self.out_features,
-            1,
-            dtype=module.weight.dtype,
-            bias=True if bias is not None else False,
-        )
-
-        self.weight.data.copy_(weight.data[:, :, None, None])
-        if bias is not None:
-            self.bias.data.copy_(bias.data)
-        self.to(module.weight.data.device)
-
-    def forward(self, x: torch.Tensor, scale: float = 1.0):
-        ndim = x.ndim
-        if ndim == 2:
-            x = (
-                x.unsqueeze(0).unsqueeze(-1).permute(0, 2, 3, 1)
-            )  # (emb_dim, C) -> (1, C, 1, emb_dim)
-        elif ndim == 3:
-            x = x.unsqueeze(-1).permute(
-                0, 2, 3, 1
-            )  # (B, emb_dim, C) -> (B, C, 1, emb_dim)
-        elif ndim == 4:
-            x = x.permute(0, 3, 1, 2)  # (B, H, W, C) -> (B, C, H, W)
-        else:
-            raise NotImplementedError(
-                f"{self.__class__.__name__} could not handle input with shape {x.shape}"
-            )
-
-        x = super().forward(x)
-
-        if ndim == 2:
-            return (
-                x.permute(0, 3, 1, 2).squeeze(-1).squeeze(0)
-            )  # (1, C, 1, emb_dim) -> # (emb_dim, C)
-        elif ndim == 3:
-            return x.permute(0, 3, 1, 2).squeeze(
-                -1
-            )  # (1, C, 1, emb_dim) -> # (B, emb_dim, C)
-        elif ndim == 4:
-            x = x.permute(0, 2, 3, 1)  # (B, C, H, W) -> (B, H, W, C)
-        return x
 
 
 class QCLlamaMLP(LlamaMLP):

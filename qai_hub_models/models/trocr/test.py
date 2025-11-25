@@ -59,12 +59,13 @@ def test_task(
     """Verify that raw (numeric) outputs of both networks are the same."""
     source_out = source_huggingface_model.generate(
         torch.from_numpy(processed_sample_image) * 2 - 1
-    ).numpy()
+    )
+    assert isinstance(source_out, torch.LongTensor)
     qaihm_out = trocr_app.predict_text_from_image(
         processed_sample_image, raw_output=True
     )
     assert isinstance(qaihm_out, np.ndarray)
-    np.testing.assert_allclose(source_out, qaihm_out)
+    np.testing.assert_allclose(source_out.numpy(), qaihm_out)
 
 
 def test_demo() -> None:

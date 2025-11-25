@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +14,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
 
@@ -23,9 +28,7 @@ FACEDETLITE_DATASET_DIR_NAME = "facedetlite_trainvaltest"
 
 
 class FaceDetLiteDataset(BaseDataset):
-    """
-    Wrapper class for face_det_lite private dataset
-    """
+    """Wrapper class for face_det_lite private dataset"""
 
     def __init__(
         self,
@@ -48,25 +51,39 @@ class FaceDetLiteDataset(BaseDataset):
         self.scale_height = 1.0 / self.img_height
         BaseDataset.__init__(self, self.data_path, split=split)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[
+        torch.Tensor,
+        tuple[
+            int, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
+        ],
+    ]:
         """
-        this function return the image tensor and gt list
-        image_tensor:
-            shape  - [1, 480, 640]
-            layout - [C, H, W]
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        input_image
+            shape  - [1, H, W]
+            channel layout - [RGB]
             range  - [0, 1]
-        gt_list:
-            0 - image_id_tensor:
+
+        ground_truth
+            image_id_tensor
                 integer value to represent image id, not used
-            1 - scale_tensor:
+            scale_tensor
                 floating value to represent image scale b/w original size and [480, 640]
-            2 - padding_tensor
+            padding_tensor
                 two integer values to represent padding pixels on x and y axises - [px, py]
-            3 - boundingboxes_tensor
+            boundingboxes_tensor
                 fixed number (self.max_boxes) bounding boxes on original image size - [self.max_boxes, 4]
-            4 - labels_tensor
+            labels_tensor
                 fixed number labels to represent the label of box - [self.max_boxes]
-            5 - box_numbers_tensor
+            box_numbers_tensor
                 fixed number valid box number to represent how many boxes are valid - [self.max_boxes]
         """
         image_path = self.image_list[index]
@@ -78,17 +95,14 @@ class FaceDetLiteDataset(BaseDataset):
         )
         image_tensor = image_tensor.squeeze(0)
 
-        labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
         labels_gt = labels_gt.astype(np.float32)
         labels_gt = np.reshape(labels_gt, (-1, 5))
 
-        boxes = []
-        labels = []
-        for label in labels_gt:
-            boxes.append(label[1:5])
-            labels.append(label[0])
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
+        boxes = torch.tensor(labels_gt[:, 1:5])
+        labels = torch.tensor(labels_gt[:, 0])
 
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)
@@ -126,24 +140,20 @@ class FaceDetLiteDataset(BaseDataset):
         self.gt_path = self.gt_path / "labels" / self.split_str
         self.image_list: list[Path] = []
         self.gt_list: list[Path] = []
-        img_count = 0
         for img_path in self.images_path.iterdir():
-            img_count += 1
             self.image_list.append(img_path)
             gt_filename = img_path.name.replace(".jpg", ".txt")
             gt_path = self.gt_path / gt_filename
             if not gt_path.exists():
-                print(f"Ground truth file not found: {str(gt_path)}")
+                print(f"Ground truth file not found: {gt_path!s}")
                 return False
             self.gt_list.append(gt_path)
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Facedetlite Dataset is used for face_det_lite quantization and evaluation. \n"
-            "Pass facedetlite_trainvaltest.zip to the init function of class. \n"
-            "This should only be needed the first time you run this on the machine. \n"
-            "Quantization images are from Getty Images and evaluation images are from fddb dataset."
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=None,
         )
 
         if self.input_data_zip is None or not self.input_data_zip.endswith(
@@ -156,7 +166,5 @@ class FaceDetLiteDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

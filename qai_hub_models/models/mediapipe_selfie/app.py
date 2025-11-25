@@ -33,14 +33,14 @@ class SelfieSegmentationApp:
         """
         From the provided image or tensor, generate the segmented mask.
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format.
 
-        Returns:
+        Returns
+        -------
             mask: Segmented mask as np.array.
         """
         image_tensor = preprocess_PIL_image(image.resize(RESIZE_SHAPE))
         output = self.model(image_tensor)
-        output = np.clip(np.reshape(output[0].detach().numpy(), (256, 256)), 0, 1)
-
-        return output
+        return np.clip(np.reshape(output[0].detach().numpy(), (256, 256)), 0, 1)

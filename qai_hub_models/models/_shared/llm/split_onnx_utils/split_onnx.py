@@ -48,10 +48,8 @@ class OnnxSplitter:
         # Check prerequisite
         value_info = {i.name: i for i in self.model.graph.value_info}
         assert all(
-            [
-                (name in value_info) or (name in self.graph_outputs)
-                for name in output_tensors
-            ]
+            (name in value_info) or (name in self.graph_outputs)
+            for name in output_tensors
         ), "ValueInfoProto of output_tensors should be given"
 
         # prepare the 'leaf' tensors, which can be model input or parameter tensors
@@ -124,7 +122,7 @@ class OnnxSplitter:
             print("new_inputs", [i.name for i in new_inputs])
         if self.verbose:
             print("new_outputs", [i.name for i in new_outputs])
-        new_graph = onnx.helper.make_graph(
+        return onnx.helper.make_graph(
             nodes=new_node,
             name=name,
             inputs=new_inputs,
@@ -133,7 +131,6 @@ class OnnxSplitter:
             value_info=new_value_info,
             sparse_initializer=new_sparse_initializer,
         )
-        return new_graph
 
     def split(
         self, list_of_intermediate_output_tensors: Iterable[str]
@@ -174,8 +171,8 @@ class OnnxSplitter:
                 if attribute.type == onnx.AttributeProto.GRAPH:
                     yield from cls.get_all_tensors(attribute.g)
                 if attribute.type == onnx.AttributeProto.GRAPHS:
-                    for graph in attribute.graphs:
-                        yield from cls.get_all_tensors(graph)
+                    for subgraph in attribute.graphs:
+                        yield from cls.get_all_tensors(subgraph)
                 if attribute.HasField("t"):
                     yield attribute.t
                 yield from attribute.tensors

@@ -1,0 +1,58 @@
+# [Whisper-Small-Quantized: Transformer-based automatic speech recognition (ASR) model for multilingual transcription and translation available on HuggingFace](https://aihub.qualcomm.com/models/whisper_small_quantized)
+
+We have applied w8a16 quantization to significantly enhance performance and efficiency. HuggingFace Whisper-Small ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text. This model is based on the transformer architecture and has been optimized for edge inference by replacing Multi-Head Attention (MHA) with Single-Head Attention (SHA) and linear layers with convolutional (conv) layers. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audio clips up to 30 seconds long. Time to the first token is the encoder's latency, while time to each additional token is decoder's latency, where we assume a max decoded length specified below.
+
+This is based on the implementation of Whisper-Small-Quantized found [here](https://github.com/huggingface/transformers/tree/v4.42.3/src/transformers/models/whisper). This repository contains scripts for optimized on-device
+export suitable to run on Qualcomm® devices. More details on model performance
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/whisper_small_quantized).
+
+[Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
+
+
+
+
+## Example & Usage
+
+Install the package via pip:
+```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install "qai-hub-models[whisper-small-quantized]"
+```
+
+
+Once installed, run the following simple CLI demo on the host machine:
+
+```bash
+python -m qai_hub_models.models.whisper_small_quantized.demo
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../../#getting-started) for more usage instructions.
+
+## Export for on-device deployment
+
+This package contains export scripts that produce a model optimized for
+on-device deployment. This can be run as follows:
+
+```bash
+python -m qai_hub_models.models.whisper_small_quantized.export
+```
+Additional options are documented with the `--help` option.
+
+
+## License
+* The license for the original implementation of Whisper-Small-Quantized can be found
+  [here](https://github.com/huggingface/transformers/blob/v4.42.3/LICENSE).
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
+
+## References
+* [Robust Speech Recognition via Large-Scale Weak Supervision](https://cdn.openai.com/papers/whisper.pdf)
+* [Source Model Implementation](https://github.com/huggingface/transformers/tree/v4.42.3/src/transformers/models/whisper)
+
+
+
+## Community
+* Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
+* For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).

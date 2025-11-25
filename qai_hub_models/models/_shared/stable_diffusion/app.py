@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
+from typing import Any, cast
 
 import diffusers
 import torch
@@ -42,7 +42,7 @@ class StableDiffusionApp:
         self,
         text_encoder: ExecutableModelProtocol,
         vae_decoder: ExecutableModelProtocol,
-        unet: ExecutableModelProtocol,
+        unet: ExecutableModelProtocol[torch.Tensor],
         tokenizer: CLIPTokenizer | Any,
         scheduler: diffusers.DPMSolverMultistepScheduler,
         channel_last_latent: bool,
@@ -71,7 +71,6 @@ class StableDiffusionApp:
             True if unet outputs latent of shape like (1, 64, 64, 4). False
             for (1, 4, 64, 64)
         """
-
         self.text_encoder = text_encoder
         self.unet = unet
         self.vae_decoder = vae_decoder
@@ -190,7 +189,6 @@ class StableDiffusionApp:
             (OUT_H, OUT_W, 3). The height and the width may depend on the
             underlying Stable Diffusion version, but is typically 512x512.
         """
-
         # Encode text prompt
         cond_embeddings, uncond_embeddings = self._encode_text_prompt(prompt)
 
@@ -215,7 +213,7 @@ class StableDiffusionApp:
 
 
 def run_diffusion_steps_on_latents(
-    unet: ExecutableModelProtocol,
+    unet: ExecutableModelProtocol[torch.Tensor],
     scheduler: diffusers.DPMSolverMultistepScheduler,
     cond_embeddings: torch.Tensor,
     uncond_embeddings: torch.Tensor | None = None,
@@ -225,7 +223,7 @@ def run_diffusion_steps_on_latents(
     channel_last_latent: bool = False,
     return_all_steps: bool = False,
     host_device: torch.device = torch.device("cpu"),
-    controlnet: ExecutableModelProtocol | None = None,
+    controlnet: ExecutableModelProtocol[tuple[torch.Tensor, ...]] | None = None,
     cond_image: torch.Tensor | None = None,
 ) -> torch.Tensor | tuple[torch.Tensor, dict[str, Any]]:
     """
@@ -304,7 +302,7 @@ def run_diffusion_steps_on_latents(
             if channel_last_latent:
                 latent_input = _make_channel_last_torch(latent_input).to(host_device)
 
-            controlnet_out: tuple[torch.Tensor, ...] = tuple()
+            controlnet_out: tuple[torch.Tensor, ...] = ()
             if use_controlnet:
                 controlnet_inputs["latent"].append(latent_input)
                 controlnet_inputs["timestep"].append(time_input)
@@ -330,20 +328,21 @@ def run_diffusion_steps_on_latents(
             if guidance_scale != 0:
                 if uncond_embeddings is None:
                     raise ValueError(
-                        "uncond_embeddings must be provided when guidance_scale"
-                        " is nonzero"
+                        "uncond_embeddings must be provided when guidance_scale is nonzero"
                     )
 
                 unet_inputs["uncond_emb"].append(uncond_embeddings)
 
                 if isinstance(unet, OnDeviceModel):
                     # Batch data into one inference job
-                    unet_extra_inputs = tuple([t, t] for t in controlnet_out)
-                    noise = unet(
-                        [latent_input, latent_input],
-                        [time_input, time_input],
-                        [cond_embeddings, uncond_embeddings],
-                        *unet_extra_inputs,
+                    noise = cast(
+                        torch.Tensor,
+                        unet(
+                            [latent_input, latent_input],
+                            [time_input, time_input],
+                            [cond_embeddings, uncond_embeddings],
+                            *tuple([t, t] for t in controlnet_out),  # type: ignore[arg-type]
+                        ),
                     )
                     noise_cond, noise_uncond = torch.split(noise, 1, 0)
                 else:
@@ -354,20 +353,21 @@ def run_diffusion_steps_on_latents(
                         latent_input, time_input, uncond_embeddings, *controlnet_out
                     )
                 noise_pred = noise_uncond + guidance_scale * (noise_cond - noise_uncond)
-            else:
-                if isinstance(unet, OnDeviceModel):
-                    # Batch data into one inference job
-                    unet_extra_inputs = tuple([t] for t in controlnet_out)
-                    noise_pred = unet(
+            elif isinstance(unet, OnDeviceModel):
+                # Batch data into one inference job
+                noise_pred = cast(
+                    torch.Tensor,
+                    unet(
                         [latent_input],
                         [time_input],
                         [cond_embeddings],
-                        *unet_extra_inputs,
-                    )
-                else:
-                    noise_pred = unet(
-                        latent_input, time_input, cond_embeddings, *controlnet_out
-                    )
+                        *tuple([t] for t in controlnet_out),  # type: ignore[arg-type]
+                    ),
+                )
+            else:
+                noise_pred = unet(
+                    latent_input, time_input, cond_embeddings, *controlnet_out
+                )
 
             if channel_last_latent:
                 noise_pred = _make_channel_first_torch(noise_pred).to(host_device)
@@ -381,11 +381,9 @@ def run_diffusion_steps_on_latents(
             if use_controlnet:
                 intermediates["controlnet"] = controlnet_inputs
             # Detach grad and move to cpu
-            for model, inputs in intermediates.items():
-                for input_name, input_list in intermediates[model].items():
-                    intermediates[model][input_name] = [
-                        v.detach().cpu() for v in input_list
-                    ]
+            for intermediate in intermediates.values():
+                for input_name, input_list in intermediate.items():
+                    intermediate[input_name] = [v.detach().cpu() for v in input_list]
             return latents, intermediates
 
         return latents

@@ -10,14 +10,16 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from collections.abc import Sized
+from copy import copy
 from enum import Enum, unique
 from functools import cached_property
 from pathlib import Path
-from typing import NamedTuple, final
+from typing import Any, NamedTuple, final
 
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, default_collate
 
 from qai_hub_models.utils.asset_loaders import LOCAL_STORE_DEFAULT_PATH
+from qai_hub_models.utils.envvars import IsOnCIEnvvar
 from qai_hub_models.utils.input_spec import InputSpec
 
 
@@ -34,6 +36,30 @@ class DatasetSplit(Enum):
     TEST = 2
 
 
+class AugmentedLabelDataset(Dataset):
+    """
+    Augment labels to a dataset (making the label a tuple, if labels are
+    already present).
+    """
+
+    def __init__(self, base_dataset, extra_data):
+        self.base_dataset = base_dataset
+        self.extra_data = extra_data
+        self.extra_len = len(extra_data)
+
+    def __len__(self):
+        return len(self.base_dataset)
+
+    def __getitem__(self, idx):
+        item = copy(self.base_dataset[idx])
+        extra_item = self.extra_data[idx % self.extra_len]
+        if "label" in item:
+            item["label"] = (item["label"], extra_item)
+        else:
+            item["label"] = extra_item
+        return item
+
+
 class DatasetMetadata(NamedTuple):
     """Metadata about the dataset to publish on the website."""
 
@@ -46,9 +72,7 @@ class DatasetMetadata(NamedTuple):
 
 
 def get_folder_name(dataset_name: str, input_spec: InputSpec | None = None) -> str:
-    """
-    The name of the folder under which to store this dataset.
-    """
+    """The name of the folder under which to store this dataset."""
     if input_spec is None:
         return dataset_name
     sha256_hasher = hashlib.sha256()
@@ -64,9 +88,7 @@ def get_folder_name(dataset_name: str, input_spec: InputSpec | None = None) -> s
 
 
 class BaseDataset(Dataset, Sized, ABC):
-    """
-    Base class to be extended by Datasets used in this repo for quantizing models.
-    """
+    """Base class to be extended by Datasets used in this repo for quantizing models."""
 
     def __init__(
         self,
@@ -79,6 +101,11 @@ class BaseDataset(Dataset, Sized, ABC):
         self.split_str = split.name.lower()
         self.input_spec = input_spec
         self.download_data()
+
+    @staticmethod
+    def collate_fn(batch: Any) -> Any:
+        """To be passed into DataLoader(..., collate_fn=...)."""
+        return default_collate(batch)
 
     @final
     def download_data(self) -> None:
@@ -99,15 +126,10 @@ class BaseDataset(Dataset, Sized, ABC):
 
     @abstractmethod
     def _download_data(self) -> None:
-        """
-        Method to download necessary data to disk. To be implemented by subclass.
-        """
-        pass
+        """Method to download necessary data to disk. To be implemented by subclass."""
 
     def _validate_data(self) -> bool:
-        """
-        Validates data downloaded on disk. By default just checks that folder exists.
-        """
+        """Validates data downloaded on disk. By default just checks that folder exists."""
         return self.dataset_path.exists()
 
     @classmethod
@@ -121,16 +143,11 @@ class BaseDataset(Dataset, Sized, ABC):
     @staticmethod
     @abstractmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
-        pass
+        """The default value for how many samples to run in each inference job."""
 
     @staticmethod
     def default_num_calibration_samples() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @cached_property
@@ -155,12 +172,43 @@ def setup_fiftyone_env():
         import fiftyone as fo
     except (ImportError, ModuleNotFoundError):
         raise ImportError(
-            "This dataset requires the `fiftyone` module. "
-            "Run `pip install fiftyone==1.0.1` to use this dataset."
-        )
+            "This dataset requires the `fiftyone` module. Run `pip install fiftyone>=1.0.1,<1.9` to use this dataset."
+        ) from None
 
     fiftyone_dir = os.path.join(LOCAL_STORE_DEFAULT_PATH, "fiftyone")
     fo.config.database_dir = os.path.join(fiftyone_dir, "mongo")
     fo.config.dataset_zoo_dir = fiftyone_dir
     fo.config.default_dataset_dir = fiftyone_dir
     fo.config.model_zoo_dir = os.path.join(fiftyone_dir, "__models__")
+    if IsOnCIEnvvar.get():
+        fo.config.show_progress_bars = False
+
+
+class UnfetchableDatasetError(Exception):
+    def __init__(self, dataset_name: str, installation_steps: list[str] | None) -> None:
+        """
+        Create an error for datasets that cannot be automatically fetched in code.
+        These datasets often require a login, license agreement acceptance, etc., to download.
+
+        Parameters
+        ----------
+        dataset_name
+            The name of the dataset being fetched.
+
+        installation_steps
+            Steps required for a 3rd party user to install this dataset manually.
+            If None, the dataset is assumed to be not publicly available.
+        """
+        self.dataset_name = dataset_name
+        self.installation_steps = installation_steps
+        if installation_steps is None:
+            super().__init__(
+                f"Dataset {dataset_name} is for Qualcomm-internal usage only. If you have reached this error message when running an export or evaluate script, please file an issue at https://github.com/quic/ai-hub-models/issues."
+            )
+        else:
+            super().__init__(
+                f"To use dataset {dataset_name}, you must download it manually. Follow these steps:\n"
+                + "\n".join(
+                    [f"{i + 1}. {step}" for i, step in enumerate(installation_steps)]
+                )
+            )

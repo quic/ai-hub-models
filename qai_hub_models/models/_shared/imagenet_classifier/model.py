@@ -5,10 +5,11 @@
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.classification_evaluator import ClassificationEvaluator
@@ -30,9 +31,7 @@ TEST_IMAGENET_IMAGE = CachedWebModelAsset.from_asset_store(
 
 
 class ImagenetClassifier(BaseModel):
-    """
-    Base class for all Imagenet Classifier models within QAI Hub Models.
-    """
+    """Base class for all Imagenet Classifier models within QAI Hub Models."""
 
     def __init__(
         self,
@@ -44,7 +43,8 @@ class ImagenetClassifier(BaseModel):
         Basic initializer which takes in a pretrained classifier network.
         Subclasses can choose to implement their own __init__ and forward methods.
 
-        Parameters:
+        Parameters
+        ----------
             net: torch.nn.Module
                 Imagenet classifier network.
 
@@ -67,13 +67,15 @@ class ImagenetClassifier(BaseModel):
         """
         Predict class probabilities for an input `image`.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, 224, 224] image.
                    Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
@@ -150,7 +152,7 @@ class ImagenetClassifierWithModelBuilder(ImagenetClassifier):
     @classmethod
     def from_pretrained(
         cls,
-        weights: Optional[str] = None,
-    ) -> ImagenetClassifier:
+        weights: str | None = None,
+    ) -> Self:
         net = cls.model_builder(weights=weights or cls.DEFAULT_WEIGHTS)
         return cls(net)

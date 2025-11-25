@@ -29,7 +29,9 @@ class MobileNetV2(ImagenetClassifier):
         checkpoint_path = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, weights
         ).fetch()
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+        checkpoint = torch.load(
+            checkpoint_path, map_location=torch.device("cpu"), weights_only=False
+        )
         # rename classifier.1.weight -> classifier.weight, and bias similarly
         state_dict = {
             k.replace("classifier.1", "classifier"): v for k, v in checkpoint.items()
@@ -37,6 +39,11 @@ class MobileNetV2(ImagenetClassifier):
         model.load_state_dict(state_dict)
 
         return cls(model)
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
 
 
 def _load_mobilenet_v2_source_model() -> torch.nn.Module:

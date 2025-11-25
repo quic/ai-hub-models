@@ -8,9 +8,9 @@ from __future__ import annotations
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class SeModule(nn.Module):
@@ -114,8 +114,7 @@ class Block3x3(nn.Module):
 
         if self.se is not None:
             out = self.se(out)
-        out = out + self.shortcut(x) if self.stride == 1 else out
-        return out
+        return out + self.shortcut(x) if self.stride == 1 else out
 
 
 class Mbv3SmallFast(nn.Module):
@@ -139,6 +138,7 @@ class Mbv3SmallFast(nn.Module):
             )
 
         self.bn1 = nn.BatchNorm2d(16)
+        self.hs1: nn.Module
         if act == "relu":
             self.hs1 = nn.ReLU(inplace=True)
         elif act == "prelu":
@@ -168,7 +168,6 @@ class Mbv3SmallFast(nn.Module):
         print("random init...")
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
@@ -219,6 +218,7 @@ class CBAModule(nn.Module):
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
         )
         self.bn = nn.BatchNorm2d(out_channels)
+        self.act: nn.Module
         if act == "relu":
             self.act = nn.ReLU(inplace=True)
         elif act == "identity":
@@ -237,8 +237,7 @@ class CBAModule(nn.Module):
         """
         x = self.conv(x)
         x = self.bn(x)
-        x = self.act(x)
-        return x
+        return self.act(x)
 
 
 class UpModule(nn.Module):
@@ -282,10 +281,11 @@ class UpModule(nn.Module):
         """
         if self.mode == "UCBA":
             return self.conv(self.up(x))
-        elif self.mode == "DeconvBN":
+        if self.mode == "DeconvBN":
             return F.relu(self.bn(self.dconv(x)))
-        elif self.mode == "DeCBA":
+        if self.mode == "DeCBA":
             return self.conv(self.dconv(x))
+        return None
 
 
 class ContextModule(nn.Module):
@@ -342,24 +342,23 @@ class CropLayer(nn.Module):
         assert self.rows_to_crop >= 0
         assert self.cols_to_crop >= 0
 
-    def forward(self, input):
+    def forward(self, x):
         """
         x: N,C,H,W tensor
         return: N,C,H,W tensor
         """
         if self.rows_to_crop == 0 and self.cols_to_crop == 0:
-            return input
-        elif self.rows_to_crop > 0 and self.cols_to_crop == 0:
-            return input[:, :, self.rows_to_crop : -self.rows_to_crop, :]
-        elif self.rows_to_crop == 0 and self.cols_to_crop > 0:
-            return input[:, :, :, self.cols_to_crop : -self.cols_to_crop]
-        else:
-            return input[
-                :,
-                :,
-                self.rows_to_crop : -self.rows_to_crop,
-                self.cols_to_crop : -self.cols_to_crop,
-            ]
+            return x
+        if self.rows_to_crop > 0 and self.cols_to_crop == 0:
+            return x[:, :, self.rows_to_crop : -self.rows_to_crop, :]
+        if self.rows_to_crop == 0 and self.cols_to_crop > 0:
+            return x[:, :, :, self.cols_to_crop : -self.cols_to_crop]
+        return x[
+            :,
+            :,
+            self.rows_to_crop : -self.rows_to_crop,
+            self.cols_to_crop : -self.cols_to_crop,
+        ]
 
 
 class HeadModule(nn.Module):

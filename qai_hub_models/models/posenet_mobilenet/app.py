@@ -97,7 +97,8 @@ def traverse_to_targ_keypoint(
     Given a source keypoint and target_keypoint_id,
         predict the score and coordinates of the target keypoint.
 
-    Parameters:
+    Parameters
+    ----------
         edge_id: Index of the edge being considered.
             Equivalent to the index in `POSE_CHAIN`.
         source_keypoint: (y, x) coordinates of the keypoint.
@@ -106,7 +107,8 @@ def traverse_to_targ_keypoint(
         offsets: See `decode_multiple_poses`.
         displacements: See `decode_multiple_poses`.
 
-    Returns:
+    Returns
+    -------
         Tuple of target keypoint score and coordinates.
     """
     height = scores.shape[1]
@@ -155,7 +157,8 @@ def decode_pose(
     """
     Get all keypoint predictions for a pose given a root keypoint with a high score.
 
-    Parameters:
+    Parameters
+    ----------
         root_score: The confidence score of the root keypoint.
         root_id: Which body part type of the 17 this keypoint is.
         root_image_coord: (y, x) coordinates of the keypoint.
@@ -164,7 +167,8 @@ def decode_pose(
         displacements_fwd: See `decode_multiple_poses`.
         displacements_bwd: See `decode_multiple_poses`.
 
-    Returns:
+    Returns
+    -------
         Tuple of list of keypoint scores and list of coordinates.
     """
     num_parts = scores.shape[0]
@@ -241,7 +245,8 @@ def get_instance_score_fast(
     Equal to the average confidence of each keypoint, excluding keypoints
     that are shared with existing poses.
 
-    Parameters:
+    Parameters
+    ----------
         exist_pose_coords: Keypoint coordinates of poses that have already been found.
             Shape (N, 17, 2)
         nms_radius:
@@ -252,7 +257,8 @@ def get_instance_score_fast(
         keypoint_coords:
             Coordinates for the new pose. Shape (17, 2)
 
-    Returns:
+    Returns
+    -------
         Confidence score for the pose.
     """
     if exist_pose_coords.shape[0]:
@@ -271,12 +277,14 @@ def build_part_with_score_torch(
     Score for the keypoint must be >= all neighboring scores.
     Score must also be above given score_threshold.
 
-    Parameters:
+    Parameters
+    ----------
         score_threshold: Minimum score for a keypoint to be considered as a root.
         max_vals: See `decode_multiple_poses`.
         scores: See `decode_multiple_poses`.
 
-    Returns:
+    Returns
+    -------
         Tuple of:
             - Torch scores for each keypoint to be considered.
             - Indices of the considered keypoints. Shape (N, 3) where the 3 indices
@@ -307,7 +315,8 @@ def decode_multiple_poses(
     In this docstring, (h, w) correspond to height and width of the grid
     and are roughly equal to input image size divided by 16.
 
-    Parameters:
+    Parameters
+    ----------
         scores:
             Tensor of scores in range [0, 1] indicating probability
                 a candidate pose is real. Shape [17, h, w].
@@ -334,32 +343,33 @@ def decode_multiple_poses(
         min_pose_score:
             Minimum confidence that a pose exists for it to be displayed.
 
-    Returns:
+    Returns
+    -------
         Tuple of:
             - Numpy array of pose confidence scores.
             - Numpy array of keypoint confidence scores.
             - Numpy array of keypoint coordinates.
     """
-    part_scores, part_idx = build_part_with_score_torch(
+    part_scores_pt, part_idx_pt = build_part_with_score_torch(
         score_threshold, max_vals, scores
     )
-    part_scores = part_scores.cpu().numpy()
-    part_idx = part_idx.cpu().numpy()
+    part_scores = part_scores_pt.cpu().numpy()
+    part_idx = part_idx_pt.cpu().numpy()
 
-    scores = scores.cpu().numpy()
-    height = scores.shape[1]
-    width = scores.shape[2]
+    scores_np = scores.cpu().numpy()
+    height = scores_np.shape[1]
+    width = scores_np.shape[2]
     # change dimensions from (x, h, w) to (x//2, h, w, 2) to allow return of complete coord array
-    offsets = (
+    offsets_np = (
         offsets.cpu().numpy().reshape(2, -1, height, width).transpose((1, 2, 3, 0))
     )
-    displacements_fwd = (
+    displacements_fwd_np = (
         displacements_fwd.cpu()
         .numpy()
         .reshape(2, -1, height, width)
         .transpose((1, 2, 3, 0))
     )
-    displacements_bwd = (
+    displacements_bwd_np = (
         displacements_bwd.cpu()
         .numpy()
         .reshape(2, -1, height, width)
@@ -371,10 +381,12 @@ def decode_multiple_poses(
     pose_keypoint_scores = np.zeros((max_pose_detections, NUM_KEYPOINTS))
     pose_keypoint_coords = np.zeros((max_pose_detections, NUM_KEYPOINTS, 2))
 
-    for root_score, (root_id, root_coord_y, root_coord_x) in zip(part_scores, part_idx):
+    for root_score, (root_id, root_coord_y, root_coord_x) in zip(
+        part_scores, part_idx, strict=False
+    ):
         root_coord = np.array([root_coord_y, root_coord_x])
         root_image_coords = (
-            root_coord * OUTPUT_STRIDE + offsets[root_id, root_coord_y, root_coord_x]
+            root_coord * OUTPUT_STRIDE + offsets_np[root_id, root_coord_y, root_coord_x]
         )
 
         if within_nms_radius_fast(
@@ -388,10 +400,10 @@ def decode_multiple_poses(
             root_score,
             root_id,
             root_image_coords,
-            scores,
-            offsets,
-            displacements_fwd,
-            displacements_bwd,
+            scores_np,
+            offsets_np,
+            displacements_fwd_np,
+            displacements_bwd=displacements_bwd_np,
         )
 
         pose_score = get_instance_score_fast(
@@ -430,7 +442,8 @@ def get_adjacent_keypoints(
     score_threshold:
         If either keypoint in a candidate edge is below this threshold, omit the edge.
 
-    Returns:
+    Returns
+    -------
         List of (2, 2) numpy arrays containing coordinates of edge endpoints.
     """
     results = []
@@ -459,7 +472,8 @@ def draw_skel_and_kp(
     """
     Draw the keypoints and edges on the input numpy array image in-place.
 
-    Parameters:
+    Parameters
+    ----------
         img: Numpy array of the image.
         instance_scores: Numpy array of confidence for each pose.
         keypoint_scores: Numpy array of confidence for each keypoint.
@@ -479,7 +493,9 @@ def draw_skel_and_kp(
         )
         adjacent_keypoints.extend(new_connections)
 
-        for ks, kc in zip(keypoint_scores[ii, :], keypoint_coords[ii, :, :]):
+        for ks, kc in zip(
+            keypoint_scores[ii, :], keypoint_coords[ii, :, :], strict=False
+        ):
             if ks < min_part_score:
                 continue
             points.append([kc[1], kc[0]])
@@ -530,12 +546,14 @@ class PosenetApp:
         """
         Predicts up to 17 pose keypoints for up to 10 people in the image.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image on which to predict pose keypoints.
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 pose_scores: np.ndarray, shape (10,)
                     Confidence score that a given pose is real for up to 10 poses.

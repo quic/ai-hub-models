@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 import torch
-from qai_hub.client import Device
 from transformers import (
     WhisperConfig,
     WhisperFeatureExtractor,
@@ -25,7 +24,6 @@ from qai_hub_models.models._shared.hf_whisper.model_adaptation import (
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
-    Precision,
     TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
@@ -73,8 +71,7 @@ class HfWhisperEncoder(BaseModel):
     def forward(self, input_features: torch.Tensor) -> tuple[torch.Tensor, ...]:
         # Return cross attention key and value cache tensors
         assert self.encoder is not None, "model is None"
-        kv_cache_cross = self.encoder(input_features)[0]
-        return kv_cache_cross
+        return self.encoder(input_features)[0]
 
     @staticmethod
     def get_input_spec(num_mel_bin: int = 80) -> InputSpec:
@@ -120,25 +117,6 @@ class HfWhisperEncoder(BaseModel):
             profile_options = profile_options + " --compute_unit gpu"
         return profile_options + " --max_profiler_iterations 10"
 
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
-        )
-        if (
-            precision == Precision.float
-            and target_runtime.compilation_uses_qnn_converters
-        ):
-            compile_options = (
-                compile_options + " --quantize_full_type float16 --quantize_io"
-            )
-        return compile_options
-
 
 class HfWhisperDecoder(BaseModel):
     """
@@ -163,8 +141,8 @@ class HfWhisperDecoder(BaseModel):
         *args: Any,
     ) -> tuple[torch.Tensor, ...]:
         """
-        Args:
-
+        Parameters
+        ----------
         - input_ids: torch.tensor, shape = (batch_size, <= n_ctx)
             the text tokens
 
@@ -188,8 +166,8 @@ class HfWhisperDecoder(BaseModel):
         - position_ids: torch.tensor, shape = (1)
             index to get the positional encoding for x.
 
-        Returns:
-
+        Returns
+        -------
         - logits: of shape [1, 51865, 1, 1]
         - kv_cache_self_new: updated key value cache for self attention
         """
@@ -284,25 +262,6 @@ class HfWhisperDecoder(BaseModel):
         hf_whisper = HfWhisper.from_pretrained()
         return cls(hf_whisper.config, hf_whisper.decoder)
 
-    def get_hub_compile_options(
-        self,
-        target_runtime: TargetRuntime,
-        precision: Precision,
-        other_compile_options: str = "",
-        device: Optional[Device] = None,
-    ) -> str:
-        compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
-        )
-        if (
-            precision == Precision.float
-            and target_runtime.compilation_uses_qnn_converters
-        ):
-            compile_options = (
-                compile_options + " --quantize_full_type float16 --quantize_io"
-            )
-        return compile_options
-
 
 class HfWhisper(CollectionModel):
     def __init__(
@@ -352,16 +311,10 @@ class HfWhisper(CollectionModel):
 def get_feature_extractor(
     hf_whisper_version: str = "openai/whisper-small",
 ) -> WhisperFeatureExtractor:
-    """
-    feature_extractor to use for Whisper
-    """
-    feature_extractor = WhisperFeatureExtractor.from_pretrained(hf_whisper_version)
-    return feature_extractor
+    """feature_extractor to use for Whisper"""
+    return WhisperFeatureExtractor.from_pretrained(hf_whisper_version)
 
 
 def get_tokenizer(hf_whisper_version: str = "openai/whisper-small") -> WhisperTokenizer:
-    """
-    Tokenizer to use for Whisper
-    """
-    tokenizer = WhisperTokenizer.from_pretrained(hf_whisper_version)
-    return tokenizer
+    """Tokenizer to use for Whisper"""
+    return WhisperTokenizer.from_pretrained(hf_whisper_version)

@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from inspect import signature
 from pathlib import Path
-from typing import Callable
 from unittest.mock import MagicMock, Mock, patch
 
 import numpy as np
@@ -57,7 +57,7 @@ def _create_patches(
     patch_model = patch(
         f"qai_hub_models.models.{base_name}.Model.from_pretrained",
         mock_from_pretrained,
-    )  # type: ignore
+    )
 
     patch_glob = patch("glob.glob", side_effect=_mock_glob)
     patch_onnx_checker = patch("onnx.checker.check_model")
@@ -105,7 +105,6 @@ def cli_device_with_skips_unsupported_device(
         patch_onnx_files,
         patch_get_or_create_cached_model,
     ):
-
         sys.argv = [
             "export.py",
             "--device",
@@ -116,12 +115,11 @@ def cli_device_with_skips_unsupported_device(
             tmp_path.name,
         ]
 
-        with pytest.raises(ValueError) as e:
+        with pytest.raises(
+            ValueError,
+            match=r"The selected device does not support weight sharing\. This script relies on weight sharing and can only target devices that support it \(Snapdragon 8 Gen 2 and later\)\.",
+        ):
             export_main()  # Call the main function to submit the compile jobs
-        assert (
-            str(e.value)
-            == "The selected device does not support weight sharing. This script relies on weight sharing and can only target devices that support it (Snapdragon 8 Gen 2 and later)."
-        )
 
 
 def cli_device_with_skips(
@@ -300,7 +298,7 @@ def cli_chipset_with_options(
         assert mock_get_hub_compile_options.call_count == parts * 2
         compile_options += " --qnn_bin_conversion_via_model_library"
         if target_runtime == TargetRuntime.PRECOMPILED_QNN_ONNX:
-            compile_options += " --qairt_version 2.33"
+            compile_options += " --qairt_version 2.36"
         assert all(
             call.args == (TargetRuntime.QNN_CONTEXT_BINARY, precision, compile_options)
             for call in mock_get_hub_compile_options.call_args_list
@@ -441,7 +439,7 @@ def cli_default_device_select_component(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "skip_inferencing, skip_profiling, target_runtime",
+    ("skip_inferencing", "skip_profiling", "target_runtime"),
     [
         (True, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (True, False, TargetRuntime.QNN_CONTEXT_BINARY),
@@ -476,7 +474,7 @@ def test_cli_device_with_skips_unsupported_device(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "chipset, context_length, sequence_length, target_runtime",
+    ("chipset", "context_length", "sequence_length", "target_runtime"),
     [
         ("qualcomm-snapdragon-8gen2", 2048, 256, TargetRuntime.QNN_CONTEXT_BINARY),
         ("qualcomm-snapdragon-x-elite", 4096, 128, TargetRuntime.QNN_CONTEXT_BINARY),
@@ -504,7 +502,7 @@ def test_cli_chipset_with_options(
 
 @pytest.mark.unmarked
 @pytest.mark.parametrize(
-    "cache_mode, skip_download, skip_summary, target_runtime",
+    ("cache_mode", "skip_download", "skip_summary", "target_runtime"),
     [
         (CacheMode.ENABLE, True, True, TargetRuntime.QNN_CONTEXT_BINARY),
         (CacheMode.DISABLE, True, False, TargetRuntime.QNN_CONTEXT_BINARY),

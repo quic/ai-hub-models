@@ -7,6 +7,7 @@
 import argparse
 
 import torch
+from mobile_sam.utils.transforms import ResizeLongestSide
 
 from qai_hub_models.models._shared.sam.app import SAMApp, SAMInputImageLayout
 from qai_hub_models.models._shared.sam.utils import show_image
@@ -16,7 +17,6 @@ from qai_hub_models.models.mobilesam.model import (
     MODEL_ID,
     SMALL_MODEL_TYPE,
     MobileSAM,
-    ResizeLongestSide,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 

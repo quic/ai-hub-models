@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import torch
 
 from qai_hub_models.evaluators.pose_evaluator import CocoBodyPoseEvaluator
@@ -24,7 +23,8 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
         Processes LiteHRNet outputs (keypoints, scores, heatmaps) and converts them to
         COCO-format keypoint predictions with refinement using heatmaps.
 
-        Args:
+        Parameters
+        ----------
             output: Tuple containing:
                    - keypoints: Tensor[float] of predicted keypoints [batch, 17, 2]
                    - pred_scores:Tensor[float] of confidence scores [batch, 17, 1]
@@ -42,7 +42,7 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
         maxvals = pred_scores.detach().cpu().numpy()
         for idx in range(batch_size):
             preds_batch = refine_and_transform_keypoints(
-                np.expand_dims(preds[idx], axis=0),
+                keypoints[idx].unsqueeze(dim=0),
                 heatmaps[idx].unsqueeze(0),
                 bboxes[idx],
                 scale[idx],

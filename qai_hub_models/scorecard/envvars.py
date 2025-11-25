@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum, unique
 from pathlib import Path
 
-from qai_hub_models.models.common import QAIRTVersion
+from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.envvar_bases import (
     QAIHMBoolEnvvar,
     QAIHMDateFormatEnvvar,
@@ -21,6 +21,8 @@ from qai_hub_models.utils.envvar_bases import (
 )
 from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.path_helpers import get_git_branch
+
+DEFAULT_AGGREGATED_CSV_NAME = "aggregated_scorecard_results.csv"
 
 
 @unique
@@ -135,12 +137,6 @@ class SpecialPathSetting(Enum):
     # Enable default set of profile paths (tflite, qnn_dlc or qnn_context_binary, onnx or precompiled_qnn_onnx) used in standard scorecards.
     DEFAULT = "default"
 
-    # Enable the default set of profile paths (same as the "default" settings). Always enables AOT --COMPILE-- paths (eg. context binary)
-    # even if they don't correspond to an applicable profile path.
-    #
-    # This is typically used to generate pre-compiled assets for upload to Hugging Face (or aihub.qualcomm.com), when the equivalent JIT path is profiled.
-    DEFAULT_WITH_AOT_ASSETS = "default_with_aot_assets"
-
     # Enable all profile paths.
     ALL = "all"
 
@@ -189,6 +185,9 @@ class EnabledPathsEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialPathSetting]):
 class SpecialDeviceSetting(Enum):
     # Enable all devices.
     ALL = "all"
+
+    # "Canary" devices enabled in continuous integration.
+    CANARY = "canary"
 
     def __repr__(self):
         return self.value
@@ -245,7 +244,25 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
 
     @classmethod
     def default(cls):
-        return QAIRTVersion.DEFAULT_QAIHM_TAG
+        return "qaihm_default"
+
+    @classmethod
+    def get_qairt_version(cls, runtime: TargetRuntime, value: str | None = None):
+        """
+        Parse this envvar value as a QAIRTVersion object.
+
+        Parameters
+        ----------
+            runtime:
+                Runtime for which we are getting the QAIRT version.
+            value:
+                If set, converts this envvar value to a QAIRTVersion object.
+                If None, uses the current environment variable value instead.
+        """
+        value = value or cls.get()
+        if cls.is_default(value):
+            return runtime.default_qairt_version
+        return QAIRTVersion(value)
 
 
 class IgnoreKnownFailuresEnvvar(QAIHMBoolEnvvar):
@@ -304,9 +321,7 @@ class IgnoreDeviceJobCacheEnvvar(QAIHMBoolEnvvar):
 
 
 class ArtifactsDirEnvvar(QAIHMPathEnvvar):
-    """
-    The directory where all intermediate and results artifacts from scorecard are stored.
-    """
+    """The directory where all intermediate and results artifacts from scorecard are stored."""
 
     VARNAME = "QAIHM_TEST_ARTIFACTS_DIR"
     CLI_ARGNAMES = ["--artifacts-dir"]
@@ -318,9 +333,7 @@ class ArtifactsDirEnvvar(QAIHMPathEnvvar):
 
 
 class StaticModelsDirEnvvar(QAIHMPathEnvvar):
-    """
-    The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub) configuration yamls are stored.
-    """
+    """The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub) configuration yamls are stored."""
 
     VARNAME = "QAIHM_TEST_STATIC_MODELS_DIR"
     CLI_ARGNAMES = ["--static-models-dir"]
@@ -332,9 +345,7 @@ class StaticModelsDirEnvvar(QAIHMPathEnvvar):
 
 
 class DeploymentEnvvar(QAIHMStringEnvvar):
-    """
-    The deployment to target.
-    """
+    """The deployment to target."""
 
     VARNAME = "QAIHM_TEST_DEPLOYMENT"
     CLI_ARGNAMES = ["--deployment"]
@@ -346,9 +357,7 @@ class DeploymentEnvvar(QAIHMStringEnvvar):
 
 
 class DeploymentListEnvvar(QAIHMStringListEnvvar):
-    """
-    A list of deplotyments to target (generally used only when syncing static models / datasets to several deployments at once).
-    """
+    """A list of deplotyments to target (generally used only when syncing static models / datasets to several deployments at once)."""
 
     VARNAME = "QAIHM_TEST_DEPLOYMENTS"
     CLI_ARGNAMES = ["--deployments"]
@@ -395,9 +404,7 @@ class TableauBranchNameEnvvar(QAIHMStringEnvvar):
 
 
 class DateFormatEnvvar(QAIHMDateFormatEnvvar):
-    """
-    Date & format used for the results spreadsheet.
-    """
+    """Date & format used for the results spreadsheet."""
 
     class FormatEnvvar(QAIHMDateFormatEnvvar.FormatEnvvar):
         VARNAME = "QAIHM_TEST_DATE_FORMAT"
@@ -417,17 +424,3 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
 
     DATE_ENVVAR = DateEnvvar
     DATE_FORMAT_ENVVAR = FormatEnvvar
-
-
-class ResultsCSVFilenameEnvvar(QAIHMStringEnvvar):
-    """
-    Name of the performance results CSV file written to disk.
-    """
-
-    VARNAME = "QAIHM_TEST_RESULTS_CSV_FILENAME"
-    CLI_ARGNAMES = ["--results-csv-name"]
-    CLI_HELP_MESSAGE = "Name of results CSV file."
-
-    @classmethod
-    def default(cls):
-        return "aggregated_scorecard_results.csv"

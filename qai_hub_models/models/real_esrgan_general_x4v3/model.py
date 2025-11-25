@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 import os
-import sys
 
 import torch
 
+from qai_hub_models.extern.basicsr.archs.srvgg_arch import SRVGGNetCompact
 from qai_hub_models.models._shared.super_resolution.model import SuperResolutionModel
 from qai_hub_models.utils.asset_loaders import SourceAsRoot
 
@@ -38,7 +38,6 @@ class Real_ESRGAN_General_x4v3(SuperResolutionModel):
         weight_path: str = DEFAULT_WEIGHTS,
     ) -> Real_ESRGAN_General_x4v3:
         """Load Real_ESRGAN_General_x4v3 from a weightfile created by the source RealESRGAN repository."""
-
         # Load PyTorch model from disk
         realesrgan_model = _load_realesrgan_source_model_from_weights(weight_path)
 
@@ -87,27 +86,7 @@ def _load_realesrgan_source_model_from_weights(
                     file.write(response.content)
                 print(f"Weights file downloaded as {weights_path}")
 
-        # necessary import. `archs` comes from the realesrgan repo.
-        # This can be imported only once per session
-        if "basicsr.archs.srvgg_arch" not in sys.modules:
-            # -----
-            # Patch torchvision for out of date basicsr package that requires torchvision 1.16
-            # but does not have its requirements set correctly
-            try:
-                # This is not available after torchvision 1.16, it was renamed to "functional"
-                import torchvision.transforms.functional_tensor
-            except ImportError:
-                import torchvision.transforms.functional
-
-                sys.modules["torchvision.transforms.functional_tensor"] = (
-                    torchvision.transforms.functional
-                )
-            # ----
-            import realesrgan.archs.srvgg_arch as srvgg_arch
-        else:
-            srvgg_arch = sys.modules["basicsr.archs.srvgg_arch"]
-
-        realesrgan_model = srvgg_arch.SRVGGNetCompact(
+        realesrgan_model = SRVGGNetCompact(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=64,
@@ -115,12 +94,11 @@ def _load_realesrgan_source_model_from_weights(
             upscale=4,
             act_type="prelu",
         )
-        pretrained_dict = torch.load(weights_path, map_location=torch.device("cpu"))
+        pretrained_dict = torch.load(
+            weights_path, map_location=torch.device("cpu"), weights_only=False
+        )
 
-        if "params_ema" in pretrained_dict:
-            keyname = "params_ema"
-        else:
-            keyname = "params"
+        keyname = "params_ema" if "params_ema" in pretrained_dict else "params"
         realesrgan_model.load_state_dict(pretrained_dict[keyname], strict=True)
 
         return realesrgan_model

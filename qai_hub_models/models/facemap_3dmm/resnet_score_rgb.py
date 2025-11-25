@@ -6,15 +6,15 @@
 
 import os
 
-import torch.nn as nn
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class ConvBlock(nn.Module):
     """
     Standard convolution block with Batch normalization and activation.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -102,7 +102,7 @@ def conv1x1_block(
     """
     1x1 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -152,7 +152,7 @@ def conv3x3_block(
     """
     3x3 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -202,7 +202,7 @@ def conv7x7_block(
     """
     7x7 version of the standard convolution block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -235,7 +235,7 @@ class ResBlock(nn.Module):
     """
     Simple ResNet block for residual path in ResNet unit.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -268,15 +268,14 @@ class ResBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.conv2(x)
-        return x
+        return self.conv2(x)
 
 
 class ResBottleneck(nn.Module):
     """
     ResNet bottleneck block for residual path in ResNet unit.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -326,15 +325,14 @@ class ResBottleneck(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.conv3(x)
-        return x
+        return self.conv3(x)
 
 
 class ResUnit(nn.Module):
     """
     ResNet unit with residual connection.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -370,7 +368,7 @@ class ResUnit(nn.Module):
     ):
         super().__init__()
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
-
+        self.body: nn.Module
         if bottleneck:
             self.body = ResBottleneck(
                 in_channels=in_channels,
@@ -400,21 +398,17 @@ class ResUnit(nn.Module):
         self.activ = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        if self.resize_identity:
-            identity = self.identity_conv(x)
-        else:
-            identity = x
+        identity = self.identity_conv(x) if self.resize_identity else x
         x = self.body(x)
         x = x + identity
-        x = self.activ(x)
-        return x
+        return self.activ(x)
 
 
 class ResInitBlock(nn.Module):
     """
     ResNet specific initial block.
 
-    Parameters:
+    Parameters
     ----------
     in_channels : int
         Number of input channels.
@@ -432,15 +426,14 @@ class ResInitBlock(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = self.pool(x)
-        return x
+        return self.pool(x)
 
 
 class ResNet(nn.Module):
     """
     ResNet model from 'Deep Residual Learning for Image Recognition,' https://arxiv.org/abs/1512.03385.
 
-    Parameters:
+    Parameters
     ----------
     channels : list of list of int
         Number of output channels for each unit.
@@ -513,7 +506,7 @@ class ResNet(nn.Module):
         self._init_params()
 
     def _init_params(self):
-        for name, module in self.named_modules():
+        for _name, module in self.named_modules():
             if isinstance(module, nn.Conv2d):
                 init.kaiming_uniform_(module.weight)
                 if module.bias is not None:
@@ -523,9 +516,7 @@ class ResNet(nn.Module):
         x = self.rgb2gray_block(x)
         x = self.features(x)
         feature = x.view(x.size(0), -1)
-        out = self.output(feature)
-
-        return out
+        return self.output(feature)
 
 
 def get_resnet(
@@ -541,7 +532,7 @@ def get_resnet(
     """
     Create ResNet model with specific parameters.
 
-    Parameters:
+    Parameters
     ----------
     blocks : int
         Number of blocks.
@@ -604,7 +595,9 @@ def get_resnet(
         bottleneck_factor = 4
         channels_per_layers = [ci * bottleneck_factor for ci in channels_per_layers]
 
-    channels = [[ci] * li for (ci, li) in zip(channels_per_layers, layers)]
+    channels = [
+        [ci] * li for (ci, li) in zip(channels_per_layers, layers, strict=False)
+    ]
 
     if width_scale != 1.0:
         channels = [
@@ -645,7 +638,7 @@ def resnet18_wd2(**kwargs):
     ResNet-18 model with 0.5 width scale from 'Deep Residual Learning for Image Recognition,'
     https://arxiv.org/abs/1512.03385. It's an experimental model.
 
-    Parameters:
+    Parameters
     ----------
     pretrained : bool, default False
         Whether to load the pretrained weights for model.

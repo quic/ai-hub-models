@@ -1,0 +1,29 @@
+name: Notify, Mark, and Close Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      issues: write
+    steps:
+      - uses: actions/stale@v10
+        with:
+          days-before-issue-stale: 30
+          days-before-issue-close: 7
+          labels-to-remove-when-unstale: 'stale'
+          stale-issue-label: 'stale'
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had
+            recent activity. It will be closed if no further activity occurs.
+          close-issue-message: >
+            Closing this issue due to inactivity. If you feel this issue is still relevant,
+            please reopen it and provide additional information.
+          exempt-issue-labels: 'Feature Request'
+          enable-statistics: true
+          repo-token: ${{ secrets.QAIHM_BOT_TOKEN }}

@@ -10,7 +10,11 @@ import os
 import numpy as np
 import torch
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import (
     ASSET_CONFIG,
     CachedWebDatasetAsset,
@@ -18,6 +22,7 @@ from qai_hub_models.utils.asset_loaders import (
     load_image,
 )
 from qai_hub_models.utils.image_processing import pre_process_with_affine
+from qai_hub_models.utils.input_spec import InputSpec
 
 KITTI_FOLDER_NAME = "kitti"
 KITTI_VERSION = 1
@@ -46,8 +51,7 @@ class KittiDataset(BaseDataset):
         input_labels_zip: str | None = None,
         input_calibs_zip: str | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
-        input_height: int = 384,
-        input_width: int = 1280,
+        input_spec: InputSpec | None = None,
     ):
         self.input_images_zip = input_images_zip
         self.input_labels_zip = input_labels_zip
@@ -59,11 +63,15 @@ class KittiDataset(BaseDataset):
         self.labels_path = self.data_path / KITTI_LABELS_DIR_NAME
         self.calibs_path = self.data_path / KITTI_CALIBS_DIR_NAME
         BaseDataset.__init__(self, self.data_path, split=split)
-        self.input_width = input_width
-        self.input_height = input_height
-        image_set = open(
+
+        input_spec = input_spec or {"image": ((1, 3, 384, 1280), "")}
+        self.input_width = input_spec["image"][0][3]
+        self.input_height = input_spec["image"][0][2]
+        with open(
             VAL_TXT.fetch() if split == DatasetSplit.VAL else TRAIN_TXT.fetch()
-        )
+        ) as image_set_f:
+            image_set = image_set_f.readlines()
+
         self.sample = []
 
         for line in image_set:
@@ -83,19 +91,32 @@ class KittiDataset(BaseDataset):
         self, index: int
     ) -> tuple[torch.Tensor, tuple[int, np.ndarray, np.ndarray, np.ndarray]]:
         """
-        Returns:
-            tuple: (image_tensor, tuple(img_id, center, scale, calib)) where:
-                - image_tensor (torch.Tensor): Normalized image tensor [C, H, W]
-                - img_id (int): image id
-                - center (np.ndarray): center of the image with shape (2,)
-                - scale (np.ndarray): scale of the image with shape (2,)
-                - calib (np.ndarray): camera calibration matrix with shape (3, 4)
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image_tensor
+             Normalized image tensor [C, H, W], RGB [0-1]
+
+        gt_data
+            img_id
+                image id
+            center
+                center of the image with shape (2,)
+            scale
+                scale of the image with shape (2,)
+            calib
+                camera calibration matrix with shape (3, 4)
         """
         image_path = self.sample[index]["img_path"]
         img_id = self.sample[index]["img_id"]
 
         calib_path = self.sample[index]["calib_path"]
-        calib_str = open(calib_path).readlines()[2][:-1]
+        with open(calib_path) as calib_f:
+            calib_str = calib_f.readlines()[2][:-1]
         calib = np.array(calib_str.split(" ")[1:], dtype=np.float32)
         calib = calib.reshape(3, 4)
 
@@ -107,21 +128,21 @@ class KittiDataset(BaseDataset):
         image_tensor = pre_process_with_affine(
             image, c, s, 0, (self.input_height, self.input_width)
         ).squeeze(0)
+
         return image_tensor, (img_id, c, s, calib)
 
     def __len__(self):
         return len(self.sample)
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Kitti does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Download images (https://www.cvlibs.net/download.php?file=data_object_image_2.zip), "
-            "annotations (https://www.cvlibs.net/download.php?file=data_object_label_2.zip), and "
-            "calibrations (https://www.cvlibs.net/download.php?file=data_object_calib.zip).\n"
-            "2. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset kitti --files /path/to/data_object_image_2.zip "
-            "/path/to/data_object_label_2.zip /path/to/data_object_calib.zip`"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download images from https://www.cvlibs.net/download.php?file=data_object_image_2.zip",
+                "Download annotations from https://www.cvlibs.net/download.php?file=data_object_label_2.zip",
+                "Download calibrations from https://www.cvlibs.net/download.php?file=data_object_calib.zip",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset kitti --files /path/to/data_object_image_2.zip /path/to/data_object_label_2.zip /path/to/data_object_calib.zip`",
+            ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             KITTI_IMAGES_DIR_NAME + ".zip"
@@ -143,7 +164,5 @@ class KittiDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

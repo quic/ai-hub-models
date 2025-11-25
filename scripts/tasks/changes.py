@@ -7,7 +7,6 @@ import functools
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional
 
 from .constants import (
     PUBLIC_BENCH_MODELS,
@@ -44,16 +43,23 @@ MANUAL_EDGES = {
     "qai_hub_models/datasets/__init__.py": [
         "qai_hub_models/models/yolov7_quantized/model.py"
     ],
+    "qai_hub_models/datasets/common.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/models/common.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/asset_loaders.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_config.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/collection_model_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/envvars.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/scorecard/execution_helpers.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/scorecard/device.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/scorecard/envvars.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/base_model.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/default_export_device.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/quantization.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/input_spec.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/qai_hub_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/inference.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/onnx_torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/configs/code_gen_yaml.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/configs/_info_yaml_enums.py": REPRESENTATIVE_EXPORT_FILES,
@@ -73,7 +79,6 @@ def get_python_import_expression(filepath: str) -> str:
     For example, qiasm_model_zoo/models/trocr/model.py ->
         qiasm_model_zoo.models.trocr.model
     """
-
     rel_path = os.path.relpath(filepath, REPO_ROOT)
     init_suffix = "/__init__.py"
     if rel_path.endswith(init_suffix):
@@ -84,9 +89,7 @@ def get_python_import_expression(filepath: str) -> str:
 
 
 def _get_file_edges(filename) -> set[str]:
-    """
-    Resolve which files directly import from `filename`.
-    """
+    """Resolve which files directly import from `filename`."""
     file_import = get_python_import_expression(filename)
     grep_out = run_and_get_output(
         f"grep -r --include='*.py' '{file_import}' {PY_PACKAGE_RELATIVE_SRC_ROOT}",
@@ -206,8 +209,8 @@ def get_code_gen_changed_models() -> set[str]:
 
 @functools.lru_cache(maxsize=2)  # Size 2 for `.py` and `code-gen.yaml`
 def get_changed_files_in_package(
-    prefix: Optional[str] = None,
-    suffix: Optional[str] = None,
+    prefix: str | None = None,
+    suffix: str | None = None,
 ) -> Iterable[str]:
     """
     Returns the list of changed files in zoo based on git tracking.
@@ -263,9 +266,7 @@ def get_models_with_export_file_changes() -> set[str]:
 
 
 def get_models_with_changed_definitions() -> set[str]:
-    """
-    The models for which to run non-generated (demo / model) tests.
-    """
+    """The models for which to run non-generated (demo / model) tests."""
     return get_changed_models(
         include_model=True,
         include_demo=False,
@@ -276,9 +277,7 @@ def get_models_with_changed_definitions() -> set[str]:
 
 
 def get_models_to_run_general_tests() -> set[str]:
-    """
-    The models for which to run non-generated (demo / model) tests.
-    """
+    """The models for which to run non-generated (demo / model) tests."""
     return get_changed_models(
         include_model=True,
         include_demo=True,
@@ -317,9 +316,7 @@ def get_changed_models(
 
 
 def get_all_models() -> set[str]:
-    """
-    Resolve model IDs (folder names) of all models in QAIHM.
-    """
+    """Resolve model IDs (folder names) of all models in QAIHM."""
     model_names: set[str] = set()
     for model_name in os.listdir(PY_PACKAGE_MODELS_ROOT):
         if os.path.exists(
@@ -331,7 +328,7 @@ def get_all_models() -> set[str]:
     static_models = {x[:-5] for x in os.listdir(bench_dir) if x.endswith(".yaml")}
 
     # Select a subset of models based on user input
-    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", None).lower()
+    allowed_models_str = os.environ.get("QAIHM_TEST_MODELS", "all").lower()
     if allowed_models_str and allowed_models_str not in ["all", "pytorch"]:
         if allowed_models_str == "bench":
             with open(PUBLIC_BENCH_MODELS) as f:
@@ -359,7 +356,8 @@ def get_models_to_test() -> tuple[set[str], set[str]]:
     This is the master function that is called directly in CI to determine
     which models to test.
 
-    Returns:
+    Returns
+    -------
         tuple[list of models to run unit tests, list of models to run compile tests]
     """
     # model.py changed

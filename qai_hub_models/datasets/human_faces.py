@@ -9,7 +9,12 @@ import os
 
 from torchvision.datasets import ImageFolder
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -58,12 +63,12 @@ class HumanFacesDataset(BaseDataset):
         return self.images_path.exists() and len(os.listdir(self.images_path)) >= 100
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "The Human Faces dataset must be externally downloaded from this link "
-            "https://www.kaggle.com/datasets/ashwingupta3012/human-faces\n"
-            "Once that file is in your local filesystem, run\n"
-            "python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset human_faces --files /path/to/zip"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download the dataset from https://www.kaggle.com/datasets/ashwingupta3012/human-face",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset human_faces --files /path/to/zip`",
+            ],
         )
         if self.input_data_zip is None or not self.input_data_zip.endswith(".zip"):
             raise no_zip_error
@@ -73,9 +78,7 @@ class HumanFacesDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000
 
 

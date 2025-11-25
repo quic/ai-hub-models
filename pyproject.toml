@@ -1,0 +1,247 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qai_hub_models"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+description = "Popular Machine Learning models optimized for Qualcomm chipsets."
+requires-python = ">=3.10, <3.14"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+readme = "README.md"
+authors = [
+    { name = "Qualcomm® Technologies, Inc", email = "ai-hub-support@qti.qualcomm.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://aihub.qualcomm.com/models"
+GitHub = "https://github.com/quic/ai-hub-models"
+Issues = "https://github.com/quic/ai-hub-models/issues"
+Slack = "https://aihub.qualcomm.com/community/slack"
+HuggingFace = "https://huggingface.co/qualcomm"
+
+[tool.setuptools.package-data]
+qai_hub_models = ["**/*.yaml", "**/*.txt", "**/*.json", "**/*.diff", "**/*.md", "**/*.j2", "**/*.env", "**/*.csv"]
+
+[tool.setuptools.packages.find]
+include = ["qai_hub_models*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "qai_hub_models._version.__version__"}
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes (flake8 replacement) rules
+    "I", # sort inputs
+    "UP", # pyupgrade replacement rules
+    "PGH", # disallow naked type: ignore with no reason
+    "T10", # looks for breakpoints
+    "ISC", # Fixes incorrect string concat
+    "INP", # Missing __init__.py
+    "D", # docstring format
+    "NPY", # Numpy rules
+    "PD", # Pandas rules
+    "PERF", # Various minor syntax changes that improve performance
+    "PL", # Pylint rules
+    "YTT", # Linting rules around for comparison of python versions
+    "A",  # disallows variables that mirror builtins
+    "B",  # catches common bugs
+    "PT",  # modern pytest syntax / catches bad tests
+    "TRY", # Prevents antipatterns when exceptions are thrown (eg. `raise Exception` is bad, use a more specific exception)
+    "C4", # Prevents container antipatterns (eg. use list(xlist) instead of [el for el in xlist]) to copy a list
+    "RET", # Optimal return syntax
+    "SIM", # Various rules to make sure the more simple syntax is used. For example, enforces `return x` over `return True if x else False`.
+    "RUF",  # Various helpful rules not found in other linter sets
+    "FURB",  # Prevents outdated python syntax
+    "PIE",  # Prevents outdated python syntax
+    "PYI",  # Makes sure advanced typings (eg. generic classes) are implemented correctly
+    "TID251", # Banned imports
+]
+ignore = [
+    "E501", # line too long
+    "E741", # Ambiguous variable names
+    ###
+    # Rules that require every function / class / module to have a docstring
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D106",
+    "D107",
+    ###
+    # Rules that are overly picky about docstring verbage / formatting.
+    "D205",
+    "D400",
+    "D401",
+    "D404",
+    "D415",
+    ###
+    "PLR2004", # Magic value for constant
+    "PLC0415", # Import should be at top of file. We can't do this a lot of the time.
+    "PLR0915", # function too long
+    "PLR0913", # too many arguments
+    "PLR0914", # too many locals
+    "PLR0912", # too many branches
+    "PLR0911", # too many returns
+    "PLR0904", # too many public methods
+    "PLR0916", # too many boolean expressions
+    "PLR0917", # too many positional args
+    "PLR1702", # too many nested blocks
+    "PLW2901", # for loop variable overwritten inside loop. This is often seen in model code, so it is disabled.
+    "B019", # functools.cache can lead to memory leaks
+    "PT018", # test assertions should be broken into multiple parts. This is a buggy check that is applied by the linter outside of pytest code.
+    "PT015", # Assertion always fails, replace with pytest.fail(). This is a buggy check that is applied by the linter outside of pytest code.
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY300", # Consider moving return statement to an `else` block
+    "RUF009", # don't use function in dataclass defaults
+    "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+]
+
+[tool.pydoclint]
+style = 'numpy'
+arg-type-hints-in-docstring = false
+skip-checking-short-docstrings = true
+skip-checking-raises = true
+allow-init-docstring = true
+check-return-types = false
+check-style-mismatch = true
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["INP", "PERF"]
+"qai_hub_models/models/_internal/*" = ["INP", "PL"]
+"qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py" = ["D"] # Transformers does some odd docstring validation that this breaks.
+"qai_hub_models/extern/*" = ["PGH004", "TID251"]
+
+[tool.ruff.lint.flake8-comprehensions]
+allow-dict-calls-with-keyword-arguments = true
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"numba".msg = "Do not directly import from numba, as it is an optional dependency. Safely import from qai_hub_models.extern.numba instead."
+"xtcocotools".msg = "xtcocotools is no longer maintained, and should be avoided. A minimal version of it is provided at qai_hub_models.extern.xtcocotools."
+"git".msg = "Git requires git to be installed. All git imports outside of the scripts/ folder must be surrounded by a try/catch ImportError statement, which should point the user to https://github.com/git-guides/install-git. After surrounding the import with a try/catch statement, you may ignore this warning with '#noqa: TID251'. See maybe_clone_git_repo in utils/asset_loaders for an example."
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["torch.device", "os.path.join"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["qai_hub_models"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.*"
+disable_error_code = ["type-abstract", "override", "method-assign"]
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+tmp_path_retention_policy = "failed"
+testpaths = "qai_hub_models"
+norecursedirs = "build"
+python_files = ["tests.py", "test_*.py", "test.py"]
+filterwarnings = [
+    "ignore::DeprecationWarning:torchvision.*:",
+]
+markers = [
+    "slow: marks tests as slow",
+    "slow_cloud: marks test as slow and cloud-dependent",
+    "demo: marks tests that run demo for models",
+    "evaluate: marks tests that run model evaluation",
+    "compile: marks tests that run compile jobs",
+    "compile_ram_intensive: marks tests that run compile jobs on GPU host (more RAM is needed.)",
+    "qdc: marks tests that run on QDC",
+    "profile: marks tests that run profile jobs",
+    "inference: marks tests that run inference jobs",
+    "export: marks tests that run full export scripts",
+    "unmarked: default marker added to any job with no markers",
+]
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._internal.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.llm.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.llama3.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.qwen2.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v2_7b_chat.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/falcon_v3_7b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_8b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_1_8b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_2_3b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_2_1b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_1_sea_lion_3_5_8b_r.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_elyza_jp_8b.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/llama_v3_taide_8b_chat.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_1_5b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_3b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_7b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/gemma_3n_e2b_it.*"
+ignore_errors = true

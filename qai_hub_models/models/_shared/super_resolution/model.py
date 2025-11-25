@@ -50,12 +50,14 @@ class SuperResolutionModel(BaseModel):
         """
         Run Super Resolution on `image`, and produce an upscaled image
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for model consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             image: Pixel values
                    Range: float[0, 1]
                    3-channel Color Space: RGB

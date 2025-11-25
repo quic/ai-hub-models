@@ -7,14 +7,20 @@ from __future__ import annotations
 
 import json
 import os
+from typing import cast
 
 import cv2
 import numpy as np
+import torch
+from numpy.typing import NDArray
 from scipy.io import loadmat
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
-from qai_hub_models.utils.image_processing import pre_process_with_affine
+from qai_hub_models.utils.image_processing import (
+    pre_process_with_affine,
+)
+from qai_hub_models.utils.input_spec import InputSpec
 
 MPII_FOLDER_NAME = "mpii"
 MPII_VERSION = 1
@@ -60,16 +66,14 @@ class MPIIDataset(BaseDataset):
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.VAL,
-        input_height: int = 256,
-        input_width: int = 192,
+        input_spec: InputSpec | None = None,
         num_samples: int = -1,
     ):
-
         BaseDataset.__init__(
             self, str(MPII_ASSET.path().parent / "images_train_val"), split
         )
         assert self.split_str in ["train", "val"]
-
+        input_spec = input_spec or {"image": ((1, 3, 256, 192), "")}
         self.num_joints = 16
         gt_mat = GT.fetch()
         anno_path = CachedWebDatasetAsset.from_asset_store(
@@ -80,8 +84,8 @@ class MPIIDataset(BaseDataset):
 
         self.gt_dict = loadmat(gt_mat)
 
-        self.input_height = input_height
-        self.input_width = input_width
+        self.input_height = input_spec["image"][0][2]
+        self.input_width = input_spec["image"][0][3]
 
         with open(anno_path) as anno_file:
             anno = json.load(anno_file)
@@ -113,33 +117,53 @@ class MPIIDataset(BaseDataset):
             if len(self.images_dict_list) == num_samples:
                 break
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[
+        torch.Tensor,
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, NDArray, NDArray],
+    ]:
         """
-        Returns a tuple of input image tensor and label data.
+        Parameters
+        ----------
+        index
+            The index to retrieve.
 
-        label data is a List with the following entries:
-          - gt_keypoints with shape (self.num_joints, 2):
+        Returns
+        -------
+        input_image
+            NCHW input image of range [0-1] and RGB channel layout.
+            Height and width will confirm to self.input_spec.
+
+        gt_data
+            gt_keypoints
+                shape (self.num_joints, 2):
                 coordinates of ground truth keypoint
-          - headboxes with shape (2, 2):
+            headboxes
+                shape (2, 2):
                 [[x1,y1]     top-left corner
                  [x2,y2]]    bottom-right corner
-          - joint_missing with shape (self.num_joints,):
+            joint_missing
+                shape (self.num_joints,):
                 value 0: joint is visible
                 value 1: joint is missing
-          - center (2,):
+            center
+                shape (2,):
                 center used for image transform
-          - scale (2,):
+            scale
+                shape (2,):
                 scale used for image transform
         """
         image_dict = self.images_dict_list[index]
         data_numpy = cv2.imread(
-            image_dict["image_path"], cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION
+            cast(str, image_dict["image_path"]),
+            cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION,
         )
 
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
-        center = image_dict["center"]
-        scale = image_dict["scale"]
+        center = cast(NDArray, image_dict["center"])
+        scale = cast(NDArray, image_dict["scale"])
         rotate = 0
 
         # transforms image
@@ -151,7 +175,7 @@ class MPIIDataset(BaseDataset):
         gt_keypoints = self.gt_dict["pos_gt_src"][..., index]
         headboxes = self.gt_dict["headboxes_src"][..., index]
 
-        return image, [gt_keypoints, headboxes, joint_missing, center, scale]
+        return image, (gt_keypoints, headboxes, joint_missing, center, scale)
 
     def __len__(self):
         return len(self.images_dict_list)
@@ -161,9 +185,7 @@ class MPIIDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

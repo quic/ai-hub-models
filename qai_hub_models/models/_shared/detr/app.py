@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -35,8 +34,8 @@ class DETRApp:
     def __init__(
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
-        model_image_height: Optional[int] = None,
-        model_image_width: Optional[int] = None,
+        model_image_height: int | None = None,
+        model_image_width: int | None = None,
     ):
         self.model = model
         self.model_image_height = model_image_height
@@ -53,7 +52,8 @@ class DETRApp:
         """
         Process outputs for (pred_boxes, pred_scores, pred_class_idx) format.
 
-        Parameters:
+        Parameters
+        ----------
             pred_boxes: torch.Tensor
                 Predicted bounding boxes.
             pred_scores: torch.Tensor
@@ -65,7 +65,8 @@ class DETRApp:
             threshold: float
                 Prediction score threshold.
 
-        Returns:
+        Returns
+        -------
             scores: torch.Tensor
                 Confidence scores for the predicted class.
             labels: torch.Tensor
@@ -86,8 +87,8 @@ class DETRApp:
             pred_boxes_batch = pred_boxes
             pred_class_idx_batch = pred_class_idx
             if len(pred_boxes_batch.shape) > 0 and len(pred_class_idx_batch.shape) > 0:
-                for i, (box, label) in enumerate(
-                    zip(pred_boxes_batch, pred_class_idx_batch)
+                for box, label in zip(
+                    pred_boxes_batch, pred_class_idx_batch, strict=False
                 ):
                     draw_box_from_xyxy(
                         NHWC_int_numpy_frames[batch_idx],
@@ -109,7 +110,8 @@ class DETRApp:
         """
         From the provided image or tensor, generate the segmented mask.
 
-        Parameters:
+        Parameters
+        ----------
             image: Tensor[B, 3, H, W]
                 A PIL Image in NCHW, RGB format.
             default_weights: str
@@ -117,7 +119,8 @@ class DETRApp:
             threshold: float
                 Prediction score threshold.
 
-        Returns:
+        Returns
+        -------
             numpy_array: Original image numpy array with the corresponding predictions.
             label: Labels (class number) for the predicted class.
                 Shape is [Number of predictions above threshold]

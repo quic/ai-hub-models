@@ -10,11 +10,14 @@ from typing import Any
 
 import numpy as np
 import torch
-from mmpose.codecs.utils import refine_keypoints
 from PIL.Image import Image, fromarray
 
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
 from qai_hub_models.utils.draw import draw_points
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import refine_keypoints
 
 
 class LiteHRNetApp:
@@ -52,7 +55,8 @@ class LiteHRNetApp:
         """
         Predicts pose keypoints for a person in the image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -63,7 +67,8 @@ class LiteHRNetApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
                     Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
@@ -75,12 +80,12 @@ class LiteHRNetApp:
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
         inputs = self.inferencer.preprocess(NHWC_int_numpy_frames, batch_size=1)
-        proc_inputs, _ = list(inputs)[0]
+        proc_inputs, _ = next(iter(inputs))
         proc_inputs_ = proc_inputs["inputs"][0]
 
         # run inference
-        input = proc_inputs_.to(torch.float32).unsqueeze(0)
-        predictions, _, heatmaps = self.model(input)
+        model_input = proc_inputs_.to(torch.float32).unsqueeze(0)
+        predictions, _, heatmaps = self.model(model_input)
 
         # get the bounding box center from the preprocessing
         # In older versions of the MM modules the center is directly a member
@@ -113,9 +118,10 @@ def refine_and_transform_keypoints(
     input_size=(192, 256),
 ) -> np.ndarray:
     """
-    keypoint refinement and coordinate transformation
+    Keypoint refinement and coordinate transformation
 
-    Args:
+    Parameters
+    ----------
         keypoints: Raw keypoints [batch, 17, 2]
         heatmaps: Heatmaps [batch, 17, 64, 48]
         bboxes: Bounding boxes [batch, 4] in (x1,y1,x2,y2)
@@ -123,21 +129,19 @@ def refine_and_transform_keypoints(
         input_size: Model input size (width, height)
         scale_factor: Output stride scaling factor
 
-    Returns:
+    Returns
+    -------
         refined_keypoints [batch, 17, 2]
     """
-    predictions = (
-        predictions.numpy() if isinstance(predictions, torch.Tensor) else predictions
-    )
-    heatmaps = heatmaps.numpy() if isinstance(heatmaps, torch.Tensor) else heatmaps
-    bbox = bbox.numpy() if isinstance(bbox, torch.Tensor) else bbox
-    scale = scale.numpy() if isinstance(scale, torch.Tensor) else scale
+    predictions_np = np.asarray(predictions)
+    heatmaps_np = np.asarray(heatmaps)
+    bbox_np = np.asarray(bbox)
+    scale_np = np.asarray(scale)
 
     input_size = np.array(input_size)
 
-    keypoints = refine_keypoints(predictions, heatmaps.squeeze(0))
-    scale_factor = np.array([4.0, 4.0])
+    keypoints = refine_keypoints(predictions_np, heatmaps_np.squeeze(0))
+    scale_factor = np.array(object=[4.0, 4.0])
     keypoints = keypoints * scale_factor
-    center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2]
-    keypoints = keypoints / input_size * scale + center - 0.5 * scale
-    return keypoints
+    center = [(bbox_np[0] + bbox_np[2]) / 2, (bbox_np[1] + bbox_np[3]) / 2]
+    return keypoints / input_size * scale_np + center - 0.5 * scale_np

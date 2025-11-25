@@ -9,11 +9,12 @@ import os
 import pickle
 from abc import abstractmethod
 from pathlib import Path
-from typing import Optional, cast
+from typing import Any, cast
 
 import torch
 from qai_hub.client import Device
 
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models.common import (
     SampleInputsType,
     SourceModelFormat,
@@ -111,9 +112,8 @@ def load_input_cached_data(
     data_path = (
         f"{data_dir}/{input_seq_len}/{model_name}_{split_part}_{model_type}_inputs.pkl"
     )
-    inputs_pkl_path: Optional[Path] = None
+    inputs_pkl_path: Path | None = None
     try:
-
         # Load local data path if already generated
         inputs_pkl_path = ASSET_CONFIG.get_local_store_model_path(
             model_id,
@@ -150,9 +150,7 @@ def get_past_keyval_with_shift(
     new_key_suffix: str = "",
     bundled_kvcache: bool = True,
 ):
-    """
-    Clip past key value to feed next iteration
-    """
+    """Clip past key value to feed next iteration"""
     tg_inputs = {}
     if bundled_kvcache:
         # Key and Values are concatanated on batch dimension
@@ -191,9 +189,9 @@ def make_torch_compatible_past_key_values(
     decode_layers: int,
     past_key_val_per_layer: int,
     bundled_kvcache: bool = True,
-    *past_values_flattened,
+    *past_values_flattened: torch.Tensor,
 ):
-    past_key_values = []
+    past_key_values: list[Any] = []
     total_past_entries = len(past_values_flattened)
 
     if bundled_kvcache:
@@ -204,10 +202,10 @@ def make_torch_compatible_past_key_values(
                 f"Expecting {decode_layers * 2}, got {total_past_entries}."
             )
 
-        for i in range(0, total_past_entries, 2):
-            past_key_values.append(
-                (past_values_flattened[i], past_values_flattened[i + 1])
-            )
+        past_key_values.extend(
+            (past_values_flattened[i], past_values_flattened[i + 1])
+            for i in range(0, total_past_entries, 2)
+        )
         return tuple(past_key_values)
 
     # Key and Value are separate for each head
@@ -251,9 +249,7 @@ class RopeEmbedding:
         self.cos, self.sin = self.precompute_freqs_cis(head_dim, max_length * 2)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
-        """
-        Precompute embeeding matrix
-        """
+        """Precompute embeeding matrix"""
         freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         t = torch.arange(end)
         freqs = torch.outer(t, freqs).float()
@@ -279,6 +275,8 @@ class RopeEmbedding:
 
 
 class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
+    llm_io_type: LLMIOType = LLMIOType.genie_input_ids
+
     def __init__(self, model: torch.nn.Module, encoding_path, is_token_generator=False):
         AimetEncodingLoaderMixin.__init__(self, model, encoding_path)
         BaseModel.__init__(self)
@@ -286,7 +284,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         self.split_part = 1
         self.is_token_generator = is_token_generator
 
-    def get_qnn_graph_name(self) -> Optional[str]:
+    def get_qnn_graph_name(self) -> str | None:
         model_name = "token" if self.is_token_generator else "prompt"
         return f"{model_name}_part{self.split_part}"
 
@@ -295,13 +293,10 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
+        context_graph_name: str | None = None,
     ) -> str:
-
-        if not (
-            target_runtime.is_aot_compiled
-            and target_runtime.compilation_uses_qnn_converters
-        ):
+        if not target_runtime.is_aot_compiled:
             raise RuntimeError(
                 f"Unsupported target_runtime provided: {target_runtime}."
                 " Only Precompile QNN ONNX or QNN runtime is supported for LLMs for now."
@@ -310,27 +305,29 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
             raise RuntimeError("Only w8a16 precision is supported")
 
         compile_options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
+            target_runtime,
+            precision,
+            other_compile_options,
+            device,
+            context_graph_name or self.get_qnn_graph_name(),
         )
-        compile_options += " --quantize_full_type w8a16"
-        graph_name = self.get_qnn_graph_name()
-
-        if graph_name is not None:
-            compile_options += f" --qnn_options context_enable_graphs={graph_name}"
+        compile_options += (
+            " --quantize_full_type w8a16 --qnn_bin_conversion_via_model_library"
+        )
         return compile_options
 
     def get_hub_profile_options(
         self,
         target_runtime: TargetRuntime,
         other_profile_options: str = "",
+        context_graph_name: str | None = None,
     ) -> str:
         profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
+            target_runtime,
+            other_profile_options,
+            context_graph_name or self.get_qnn_graph_name(),
         )
         profile_options += " --max_profiler_iterations 50"
-        graph_name = self.get_qnn_graph_name()
-        if graph_name is not None:
-            profile_options += f" --qnn_options context_enable_graphs={graph_name}"
         return profile_options
 
     @staticmethod
@@ -356,7 +353,7 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
         return output_list
 
     def _sample_inputs_impl(
-        self, input_spec: Optional[InputSpec] = None
+        self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         # According to QuantizableModelProtocol, self.get_calibration_data is supposed to
         # return a DatasetEntries, i.e., something like dict[str, list[torch.Tensor]].
@@ -374,7 +371,5 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """
-        Source model format preferred for conversion on AI Hub.
-        """
+        """Source model format preferred for conversion on AI Hub."""
         return SourceModelFormat.ONNX

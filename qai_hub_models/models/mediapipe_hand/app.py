@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Callable, cast
+from collections.abc import Callable
+from typing import cast
 
 import cv2
 import numpy as np
@@ -108,10 +109,12 @@ class MediaPipeHandApp(MediaPipeApp):
         """
         From the provided image or tensor, predict the bounding boxes & classes of the hand detected within.
 
-        Parameters:
+        Parameters
+        ----------
             See parent function documentation.
 
-        Returns:
+        Returns
+        -------
             See parent function documentation for generic return values.
 
             If raw_output is false, returns an additional output:
@@ -131,9 +134,7 @@ class MediaPipeHandApp(MediaPipeApp):
                         ...
                     ]
         """
-        return super().predict_landmarks_from_image(
-            pixel_values_or_image, raw_output
-        )  # type: ignore[return-value]
+        return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore[return-value]
 
     def _draw_predictions(
         self,
@@ -179,7 +180,7 @@ class MediaPipeHandApp(MediaPipeApp):
         Override of mediapipe::app.py::MediaPipeApp::draw_landmarks
         Also draws whether the detection is a right or left hand.
         """
-        for ldm, irh in zip(landmarks, is_right_hand):
+        for ldm, irh in zip(landmarks, is_right_hand, strict=False):
             # Draw landmark points
             draw_points(NHWC_int_numpy_frame, ldm[:, :2], (0, 255, 0))
             # Draw connections between landmark points
@@ -201,7 +202,6 @@ class MediaPipeHandApp(MediaPipeApp):
         Override of mediapipe::app.py::MediaPipeApp::run_landmark_detector
         Additionally returns whether the detection is a right or left hand.
         """
-
         # selected landmarks for the ROI (if any)
         # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
         # where K == number of landmark keypoints, 3 == (x, y, confidence)
@@ -261,10 +261,9 @@ class MediaPipeHandApp(MediaPipeApp):
                 torch.stack(all_landmarks, dim=0) if all_landmarks else torch.Tensor()
             )
             batched_is_right_hand.append(all_lr)
-        else:
-            # Add None for these lists, since this batch has no predicted bounding boxes.
-            batched_selected_landmarks.append(torch.Tensor())
-            batched_is_right_hand.append([])
+        # Add None for these lists, since this batch has no predicted bounding boxes.
+        batched_selected_landmarks.append(torch.Tensor())
+        batched_is_right_hand.append([])
 
         return (batched_selected_landmarks, batched_is_right_hand)
 

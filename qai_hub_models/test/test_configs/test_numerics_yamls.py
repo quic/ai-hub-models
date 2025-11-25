@@ -12,7 +12,10 @@ from qai_hub_models.configs.numerics_yaml import (
     get_numerics_yaml_path,
 )
 from qai_hub_models.scorecard.results.yaml import ACCURACY_CSV_BASE
-from qai_hub_models.scripts.create_numerics_yaml import create_numerics_struct
+from qai_hub_models.scripts.create_numerics_yaml import (
+    create_numerics_struct,
+    get_chipset_registry,
+)
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
@@ -24,7 +27,9 @@ def test_accuracy_yaml():
             if accuracy is None:
                 continue
         except Exception as err:
-            assert False, f"{model_id} numerics yaml validation failed: {str(err)}"
+            raise AssertionError(
+                f"{model_id} numerics yaml validation failed: {err!s}"
+            ) from None
 
 
 def test_yaml_roundtrip():
@@ -54,7 +59,9 @@ def test_accuracy_yaml_creation():
     original_yaml = load_yaml(accuracy_yaml_path)
 
     # Create accuracy struct from scratch using accuracy.csv
-    new_struct = create_numerics_struct(model_id, pd.read_csv(ACCURACY_CSV_BASE))
+    new_struct = create_numerics_struct(
+        model_id, pd.read_csv(ACCURACY_CSV_BASE), get_chipset_registry()
+    )
     assert new_struct is not None
 
     # Write to yaml and load to dict

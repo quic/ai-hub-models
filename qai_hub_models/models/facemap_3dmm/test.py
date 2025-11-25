@@ -7,7 +7,7 @@ import numpy as np
 from skimage import io
 
 from qai_hub_models.models.facemap_3dmm.app import FaceMap_3DMMApp
-from qai_hub_models.models.facemap_3dmm.demo import INPUT_FBOX_PATH, INPUT_IMAGE_PATH
+from qai_hub_models.models.facemap_3dmm.demo import INPUT_IMAGE_PATH
 from qai_hub_models.models.facemap_3dmm.demo import facemap_3dmm_demo as demo_main
 from qai_hub_models.models.facemap_3dmm.model import (
     MODEL_ASSET_VERSION,
@@ -15,6 +15,10 @@ from qai_hub_models.models.facemap_3dmm.model import (
     FaceMap_3DMM,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
+
+INPUT_FBOX_PATH = CachedWebModelAsset.from_asset_store(
+    MODEL_ID, MODEL_ASSET_VERSION, "face_img_fbox.txt"
+)
 
 GT_LMK_PATH = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "face_img_lmk.txt"
@@ -35,7 +39,7 @@ def test_task() -> None:
         np.int32(fbox[3]),
     )
 
-    lmk, output_image = app.landmark_prediction(input_image, x0, x1, y0, y1)
+    lmk, _output_image = app.landmark_prediction(input_image, x0, x1, y0, y1)
     lmk_gt = np.loadtxt(GT_LMK_PATH.fetch())
 
     assert (

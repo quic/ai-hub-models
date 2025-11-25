@@ -40,7 +40,8 @@ class FaceAttribNetApp:
         """
         Return the corresponding output by running inference on input image.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -48,7 +49,8 @@ class FaceAttribNetApp:
                 or
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 masks: np.ndarray
                     A list of predicted masks.
@@ -65,7 +67,7 @@ class FaceAttribNetApp:
         elif isinstance(img, np.ndarray):
             img_array = img
         else:
-            raise RuntimeError("Invalid format")
+            raise TypeError("Invalid format")
 
         img_array = img_array.astype("float32") / 255  # image normalization
         img_array = img_array[np.newaxis, ...]

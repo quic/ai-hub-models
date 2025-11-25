@@ -18,7 +18,7 @@ from qai_hub.public_api_pb2 import (
 )
 
 from qai_hub_models.configs.tool_versions import ToolVersions
-from qai_hub_models.models.common import InferenceEngine, QAIRTVersion, TargetRuntime
+from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 
 RESULTS_PATCH_TARGET = "qai_hub_models.configs.tool_versions.get_job_results"
 
@@ -47,7 +47,10 @@ def test_extract_tool_versions_from_compiled_model():
         metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25"},
         producer=None,
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        expected_exception=ValueError,
+        match=r"Model must be compiled with AI Hub to extract tool versions\.",
+    ):
         ToolVersions.from_compiled_model(m)
 
 
@@ -102,7 +105,7 @@ def test_extract_tool_versions_from_compile_job():
     assert ToolVersions.from_job(j) == ToolVersions()
     assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions()
 
-    # Compile job: Failed with target runtime QNN
+    # Compile job: Failed
     for rt in TargetRuntime:
         j = MagicMock(
             spec=hub.CompileJob,
@@ -110,7 +113,7 @@ def test_extract_tool_versions_from_compile_job():
             get_status=lambda: JobStatus(JobStatus.State.FAILED),
             options=rt.aihub_target_runtime_flag,
         )
-        if rt.inference_engine == InferenceEngine.QNN:
+        if rt.qairt_version_changes_compilation:
             assert ToolVersions.from_job(j) == ToolVersions(
                 qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
             )
@@ -164,6 +167,62 @@ def test_extract_tool_versions_from_compile_job():
         lambda *_: _make_results([ToolVersion(name="ONNX", version="1.22.1")]),
     ):
         assert ToolVersions.from_job(j) == ToolVersions(onnx="1.22.1")
+
+
+def test_extract_tool_versions_from_link_job():
+    # LINK job: Success
+    j = MagicMock(
+        spec=hub.LinkJob,
+        _job_type=JobType.LINK,
+        get_status=lambda: JobStatus(JobStatus.State.SUCCESS),
+    )
+    m = MagicMock(
+        spec=hub.Model,
+        metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25.1234"},
+        producer=j,
+    )
+    j.get_target_model = lambda: m
+    assert ToolVersions.from_job(j) == ToolVersions(
+        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+    )
+
+    # LINK job: Failed
+    jc = MagicMock(
+        spec=hub.CompileJob,
+        _job_type=JobType.COMPILE,
+        get_status=lambda: JobStatus(JobStatus.State.SUCCESS),
+        options="--qairt_version latest",
+    )
+    m = MagicMock(
+        spec=hub.Model,
+        metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25.1234"},
+        producer=jc,
+    )
+    j = MagicMock(
+        spec=hub.LinkJob,
+        _job_type=JobType.LINK,
+        get_status=lambda: JobStatus(JobStatus.State.FAILED),
+        options="",
+        models=[m, m],
+    )
+    assert ToolVersions.from_job(j) == ToolVersions(
+        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+    )
+
+    # Link job: Failed, but source model was not created by AI Hub
+    m = MagicMock(
+        spec=hub.Model,
+        metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25.1234"},
+        producer=None,
+    )
+    j = MagicMock(
+        spec=hub.LinkJob,
+        _job_type=JobType.LINK,
+        get_status=lambda: JobStatus(JobStatus.State.FAILED),
+        options="",
+        models=[m, m],
+    )
+    assert ToolVersions.from_job(j) == ToolVersions()
 
 
 def test_extract_tool_versions_from_profile_job():

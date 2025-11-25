@@ -202,7 +202,7 @@ guidelines](https://quic.github.io/aimet-pages/releases/latest/tutorials/debuggi
 
 To evaluate on the quantized model, you will have to provide the Hugging Face model name or default model config will be used.
 
-Evaluate [tinyMMLU](https://Hugging Face.co/datasets/tinyBenchmarks/tinyMMLU) using the unquantized model:
+Evaluate [tinyMMLU](https://HuggingFace.co/datasets/tinyBenchmarks/tinyMMLU) using the unquantized model:
 
 ```sh
 python -m qai_hub_models.models.llama_v3_2_3b_instruct.evaluate \

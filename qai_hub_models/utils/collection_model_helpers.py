@@ -32,24 +32,22 @@ def get_components(model_id: str) -> list[str] | None:
         # We only care about class definitions (which may have decorators)
         if isinstance(node, ast.ClassDef):
             for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call):
-                    # Check if the decorator calls CollectionModel.add_component
-                    if isinstance(decorator.func, ast.Attribute):
-                        if (
-                            isinstance(decorator.func.value, ast.Name)
-                            and decorator.func.value.id == "CollectionModel"
-                            and decorator.func.attr == "add_component"
-                        ):
-
-                            # Expecting exactly one argument: the component.
-                            if len(decorator.args) == 1:
-                                component_arg = decorator.args[0]
-                                if isinstance(component_arg, ast.Name):
-                                    components.append(component_arg.id)
-                            if len(decorator.args) == 2:
-                                component_arg = decorator.args[1]
-                                if isinstance(component_arg, ast.Constant):
-                                    components.append(component_arg.value)
+                if (
+                    isinstance(decorator, ast.Call)
+                    and isinstance(decorator.func, ast.Attribute)
+                    and isinstance(decorator.func.value, ast.Name)
+                    and decorator.func.value.id == "CollectionModel"
+                    and decorator.func.attr == "add_component"
+                ):
+                    # Expecting exactly one argument: the component.
+                    if len(decorator.args) == 1:
+                        component_arg = decorator.args[0]
+                        if isinstance(component_arg, ast.Name):
+                            components.append(component_arg.id)
+                    if len(decorator.args) == 2:
+                        component_arg = decorator.args[1]
+                        if isinstance(component_arg, ast.Constant):
+                            components.append(str(component_arg.value))
             if components:
                 break  # only check first class defined in the file with added components
     return components if components else None

@@ -31,7 +31,7 @@ class IndentedTextStreamer(TextStreamer):
 
         # If the incoming text would cause the printed output to wrap around, start a new line
         if self.printed_width + len(text) >= self.terminal_width:
-            print("", flush=True)
+            print(flush=True)
             self.printed_width = 0
 
         # If we are on a new line, print the line starter before the text
@@ -98,8 +98,10 @@ class ChatApp:
         context_length: int,
         max_output_tokens: int,
         checkpoint: CheckpointSpec | None = None,
-        model_from_pretrained_extra: dict = {},
+        model_from_pretrained_extra: dict | None = None,
     ):
+        if model_from_pretrained_extra is None:
+            model_from_pretrained_extra = {}
         set_seed(self.seed)
         input_prompt_processed = self.get_input_prompt_with_tags(
             user_input_prompt=input_prompt
@@ -134,12 +136,23 @@ class ChatApp:
         rope_embedding = self.model_cls.EmbeddingClass(
             max_length=context_length, config=config
         )
-        inferencer = LLM_Generator(models, self.tokenizer, rope_embedding)
+        inferencer = LLM_Generator(
+            models,
+            self.tokenizer,
+            rope_embedding,
+        )
 
         # can set temperature, topK, topP, etc here
+        end_token_ids = []
+        for token in self.end_tokens:
+            token_ids = self.tokenizer.encode(token, add_special_tokens=False)
+            if len(token_ids) == 1:
+                token_id = token_ids[0]
+                end_token_ids.append(token_id)
+        end_token_ids.append(self.tokenizer.eos_token_id)
         inferencer.generation_config = GenerationConfig(
             max_new_tokens=max_output_tokens,
-            eos_token_id=self.tokenizer.eos_token_id,
+            eos_token_id=end_token_ids,
             pad_token_id=self.tokenizer.pad_token_id,
             do_sample=True,
             top_k=40,
@@ -156,3 +169,4 @@ class ChatApp:
             generation_config=inferencer.generation_config,
             streamer=streamer,
         )
+        inferencer.cleanup()

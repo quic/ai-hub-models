@@ -30,7 +30,7 @@ def test_task() -> None:
     boxes = sorted(boxes, key=lambda box: box[0])
     boxes_gt = sorted(boxes_gt, key=lambda box: box[0])
     assert len(boxes) == len(boxes_gt)
-    ious = [get_iou(box, box_gt) for box, box_gt in zip(boxes, boxes_gt)]
+    ious = [get_iou(box, box_gt) for box, box_gt in zip(boxes, boxes_gt, strict=False)]
     for iou in ious:
         assert iou > 0.95
 

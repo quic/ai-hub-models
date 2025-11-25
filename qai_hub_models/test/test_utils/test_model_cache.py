@@ -26,7 +26,7 @@ dummy_model_id = "dummy_model_id"
 dummy_model_version = 1
 
 
-@pytest.fixture()
+@pytest.fixture
 def patch_hub_model(monkeypatch):
     class DummyModel:
         def __init__(self, model_id: str):
@@ -117,7 +117,7 @@ def test_overwrite_fails():
 
     with pytest.raises(
         RuntimeError,
-        match="Cache with key already present. Please set overwrite=True to overwrite.",
+        match=r"Cache with key already present\. Please set overwrite=True to overwrite\.",
     ):
         cache.insert(key2, val2)
 

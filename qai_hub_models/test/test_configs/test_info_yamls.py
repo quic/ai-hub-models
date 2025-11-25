@@ -28,6 +28,7 @@ HF_PIPELINE_TAGS = {
     "audio-classification",
     "voice-activity-detection",
     "depth-estimation",
+    "gaze-estimation",
     "image-classification",
     "object-detection",
     "image-segmentation",
@@ -73,9 +74,11 @@ def test_info_yaml():
                 info_spec, context=dict(validate_urls_exist=True)
             )
         except Exception as err:
-            assert False, f"{model_id} config validation failed: {str(err)}"
+            raise AssertionError(
+                f"{model_id} config validation failed: {err!s}"
+            ) from None
 
         # Verify model ID is the same as folder name
-        assert (
-            info_spec.id == model_id
-        ), f"{model_id} config ID does not match the model's folder name"
+        assert info_spec.id == model_id, (
+            f"{model_id} config ID does not match the model's folder name"
+        )

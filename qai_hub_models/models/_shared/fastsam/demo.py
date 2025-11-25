@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
-import os
+from typing import cast
 
 from PIL import Image
 
 from qai_hub_models.models._shared.fastsam.app import FastSAMApp
+from qai_hub_models.models._shared.fastsam.model import Fast_SAM
 from qai_hub_models.utils.args import (
     demo_model_from_cli_args,
     get_model_cli_parser,
@@ -19,14 +20,12 @@ from qai_hub_models.utils.args import (
 from qai_hub_models.utils.asset_loaders import (
     CachedWebAsset,
     load_image,
-    qaihm_temp_dir,
 )
-from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
 
 
 def fastsam_demo(
-    model_type: type[BaseModel],
+    model_type: type[Fast_SAM],
     model_id: str,
     image_path: str | CachedWebAsset,
     is_test: bool,
@@ -45,24 +44,9 @@ def fastsam_demo(
     validate_on_device_demo_args(args, model_id)
 
     model = demo_model_from_cli_args(model_type, model_id, args)
-    app = FastSAMApp(model)
+    app = FastSAMApp(model)  # type: ignore[arg-type]
 
     image = load_image(args.image)
-
-    with qaihm_temp_dir() as tmpdir:
-        image_path = os.path.join(tmpdir, "inp_image.jpg")
-        image.save(image_path)
-        pred, prompt_process = app.segment_image(image_path)
-
-        # Store the output image
-        output_path = os.path.join(args.output_dir or tmpdir, "output.jpg")
-
-        # Save the output
-        prompt_process.plot(annotations=pred, output=output_path)
-
-        if is_test:
-            assert pred is not None
-        else:
-            display_or_save_image(
-                Image.open(output_path), args.output_dir, "output.jpg"
-            )
+    pred_image = cast(list[Image.Image], app.segment_image(image))[0]
+    if not is_test:
+        display_or_save_image(pred_image, args.output_dir, "output.jpg")

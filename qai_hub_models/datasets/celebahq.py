@@ -10,9 +10,15 @@ import os
 from glob import glob
 
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.models._shared.repaint.utils import preprocess_inputs
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
@@ -32,11 +38,7 @@ class CelebAHQDataset(BaseDataset):
         mask_type: str | None = "random_stroke",
         random_seed: int = 42,
     ):
-        """
-        Initialize CelebA-HQ dataset for inpainting tasks.
-
-        """
-
+        """Initialize CelebA-HQ dataset for inpainting tasks."""
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             CELEBAHQ_DATASET_ID, CELEBAHQ_VERSION, "data"
         )
@@ -46,8 +48,7 @@ class CelebAHQDataset(BaseDataset):
         self.mask_dir = self.data_path / "mask"
         self.random_seed = random_seed
         BaseDataset.__init__(self, self.data_path, split)
-        if self.random_seed is not None:
-            np.random.seed(self.random_seed)
+        self.random_gen = np.random.default_rng(self.random_seed)
         self.input_height = input_height
         self.input_width = input_width
         self.mask_type = mask_type
@@ -73,18 +74,22 @@ class CelebAHQDataset(BaseDataset):
         gt = app_to_net_image_inputs(image)[1].squeeze(0)
         inputs = preprocess_inputs(image, mask)
         img_tensor, mask_tensor = inputs["image"].squeeze(0), inputs["mask"].squeeze(0)
-        img_tensor = img_tensor
         return (img_tensor, mask_tensor), gt
 
-    def random_stroke(self, img_width, img_height):
+    def random_stroke(self, img_width: int, img_height: int) -> NDArray:
         """
         Creates random brush stroke patterns for image editing.
 
-        Args:
-            img_width: Width of the image
-            img_height: Height of the image
+        Parameters
+        ----------
+        img_width
+            Width of the image
+        img_height
+            Height of the image
 
-        Returns:
+        Returns
+        -------
+        strokes
             Numpy array (0=background, 1=stroke) with shape (height, width)
         """
         min_num_vertex = 4
@@ -97,25 +102,33 @@ class CelebAHQDataset(BaseDataset):
             math.sqrt(img_height * img_height + img_width * img_width) / 8
         )  # Smaller radius
         mask = Image.new("L", (img_width, img_height), 0)
-        np.random.seed(42)
         steps = 10  # Fewer strokes
-        for _ in range(np.random.randint(2, steps + 1)):
-            num_vertex = np.random.randint(min_num_vertex, max_num_vertex)
-            angle_min = mean_angle - np.random.uniform(0, angle_range)
-            angle_max = mean_angle + np.random.uniform(0, angle_range)
+        for _ in range(self.random_gen.integers(2, steps + 1)):
+            num_vertex = self.random_gen.integers(min_num_vertex, max_num_vertex)
+            angle_min = mean_angle - self.random_gen.uniform(0, angle_range)
+            angle_max = mean_angle + self.random_gen.uniform(0, angle_range)
             angles = []
             vertex = []
             for i in range(num_vertex):
                 if i % 2 == 0:
-                    angles.append(2 * math.pi - np.random.uniform(angle_min, angle_max))
+                    angles.append(
+                        2 * math.pi - self.random_gen.uniform(angle_min, angle_max)
+                    )
                 else:
-                    angles.append(np.random.uniform(angle_min, angle_max))
+                    angles.append(self.random_gen.uniform(angle_min, angle_max))
 
             h, w = mask.size
-            vertex.append((int(np.random.randint(0, w)), int(np.random.randint(0, h))))
+            vertex.append(
+                (
+                    int(self.random_gen.integers(0, w)),
+                    int(self.random_gen.integers(0, h)),
+                )
+            )
             for i in range(num_vertex):
                 r = np.clip(
-                    np.random.normal(loc=average_radius, scale=average_radius // 2),
+                    self.random_gen.normal(
+                        loc=average_radius, scale=average_radius // 2
+                    ),
                     0,
                     2 * average_radius,
                 )
@@ -124,7 +137,7 @@ class CelebAHQDataset(BaseDataset):
                 vertex.append((int(new_x), int(new_y)))
 
             draw = ImageDraw.Draw(mask)
-            width = int(np.random.uniform(min_width, max_width))
+            width = int(self.random_gen.uniform(min_width, max_width))
             draw.line(vertex, fill=1, width=width)
             for v in vertex:
                 draw.ellipse(
@@ -137,13 +150,12 @@ class CelebAHQDataset(BaseDataset):
                     fill=1,
                 )
 
-        if np.random.normal() > 0:
+        if self.random_gen.normal() > 0:
             mask = mask.transpose(Image.FLIP_LEFT_RIGHT)
-        if np.random.normal() > 0:
+        if self.random_gen.normal() > 0:
             mask = mask.transpose(Image.FLIP_TOP_BOTTOM)
 
-        mask_array = np.asarray(mask, np.uint8)
-        return mask_array
+        return np.asarray(mask, np.uint8)
 
     def _validate_data(self) -> bool:
         if not self.image_dir.exists():
@@ -161,14 +173,12 @@ class CelebAHQDataset(BaseDataset):
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "CelebAHQ does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Download `image.zip` from the Google Drive:\n"
-            " ->https://www.kaggle.com/datasets/lamsimon/celebahq and \n"
-            "Once that file is in your local filesystem, run"
-            "2. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset celebahq --files /path/to/celeba_hq.zip "
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Download `image.zip` from the Google Drive: https://www.kaggle.com/datasets/lamsimon/celebahq",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset celebahq --files /path/to/celeba_hq.zip",
+            ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             IMAGES_DIR_NAME + ".zip"

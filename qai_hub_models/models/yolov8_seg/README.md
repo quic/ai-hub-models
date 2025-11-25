@@ -15,11 +15,12 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[yolov8-seg]"
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.yolov8_seg.demo { --quantize w8a16 }
@@ -31,7 +32,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

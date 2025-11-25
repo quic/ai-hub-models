@@ -82,14 +82,12 @@ class HRNET_W48_OCR(CityscapesSegmentor):
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ) as repo_path:
-
             fixup_repo(repo_path=repo_path)
 
             from lib.config import config
             from lib.models.seg_hrnet_ocr import get_seg_model
 
             if not weights:
-                pass
                 weights = CachedWebModelAsset.from_asset_store(
                     MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
                 ).fetch()
@@ -110,13 +108,15 @@ class HRNET_W48_OCR(CityscapesSegmentor):
         """
         Predict semantic segmentation an input `image`.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, height, width] image.
                    RGB, range [0 - 1]
                    Assumes image has been resized and normalized using the
                    Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 
-        Returns:
+        Returns
+        -------
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

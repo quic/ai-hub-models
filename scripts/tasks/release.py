@@ -8,16 +8,17 @@ from __future__ import annotations
 import os
 import pathlib
 import shutil
-from typing import Optional, cast
+from typing import cast
 
 from .task import CompositeTask
-from .util import get_pip
+from .util import get_pip, on_ci
 from .venv import CreateVenvTask, RunCommandsTask, RunCommandsWithVenvTask
 
 qaihm_path = pathlib.Path(__file__).parent.parent.parent / "qai_hub_models"
 version_path = qaihm_path / "_version.py"
 version_locals: dict[str, str] = {}
-exec(open(version_path).read(), version_locals)
+with open(version_path) as verf:
+    exec(verf.read(), version_locals)
 __version__ = version_locals["__version__"]
 
 REMOTE_REPOSITORY_URL_VARNAME = "QAIHM_REMOTE_URL"
@@ -28,14 +29,12 @@ COMMIT_MSG_VARNAME = "QAIHM_COMMIT_MESSAGE"
 
 
 class CreateReleaseVenv(CompositeTask):
-    """
-    Create a venv for building and releasing the repository / wheel.
-    """
+    """Create a venv for building and releasing the repository / wheel."""
 
     def __init__(
         self,
         venv_path: str | os.PathLike,
-        python_executable: Optional[str] = None,
+        python_executable: str | None = None,
     ):
         tasks = []
         self.venv_path = str(venv_path)
@@ -55,9 +54,7 @@ class CreateReleaseVenv(CompositeTask):
 
 
 class BuildPublicRepositoryTask(CompositeTask):
-    """
-    Create a public version of the repository.
-    """
+    """Create a public version of the repository."""
 
     def __init__(self, venv: str | None, repo_output_dir: str | os.PathLike):
         tasks = []
@@ -141,10 +138,7 @@ class PushRepositoryTask(CompositeTask):
 
 Signed-off-by: $QAIHM_REPO_GH_SIGN_OFF_NAME <$QAIHM_REPO_GH_EMAIL>" """,
             # Verify Tag does not exist
-            "if [ $(git tag -l '$QAIHM_TAG') ];"
-            "then echo 'Tag $QAIHM_TAG already exists. Aborting release.';"
-            "exit 1;"
-            "fi",
+            "if [ $(git tag -l '$QAIHM_TAG') ];then echo 'Tag $QAIHM_TAG already exists. Aborting release.';exit 1;fi",
             # Push to remote
             "git push -u origin HEAD:main",
             "git tag $QAIHM_TAG",
@@ -197,10 +191,8 @@ class BuildWheelTask(CompositeTask):
                     commands=[
                         f"rm -rf {os.path.join(self.wheel_dir, '*.whl')}",
                         f"cd {self.repo_dir} && "
-                        f"python setup.py "
-                        f"build --build-base {relative_wheel_dir} "
-                        f"egg_info --egg-base {relative_wheel_dir} "
-                        f"bdist_wheel --dist-dir {relative_wheel_dir}",
+                        f"python -m build --outdir {relative_wheel_dir}"
+                        + (" > /dev/null" if on_ci() else ""),
                     ],
                 )
             )

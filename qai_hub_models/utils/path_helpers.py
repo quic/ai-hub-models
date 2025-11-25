@@ -28,9 +28,11 @@ def _get_all_models(public_only: bool = False, models_root: Path = QAIHM_MODELS_
             continue
         # Heuristic to see if this is a model we should generate export.py for.
         if (subdir / "info.yaml").exists():
-            if public_only:
-                if load_yaml(subdir / "info.yaml").get("status") != "public":
-                    continue
+            if (
+                public_only
+                and load_yaml(subdir / "info.yaml").get("status") != "public"
+            ):
+                continue
             all_models.append(subdir.name)
     return all_models
 
@@ -41,12 +43,14 @@ MODEL_IDS = sorted(_get_all_models())
 def get_git_branch():
     try:
         res = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=False,
+            capture_output=True,
         )
         if "not a git repository" in res.stderr.decode():
             # repo not found, this must be a release
             return f"release_{__version__}"
-        elif res.stderr:
+        if res.stderr:
             # unknown why git failed
             return f"unknown_git_branch_error__{__version__}"
         # return branch name

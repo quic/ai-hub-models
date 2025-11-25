@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import contextlib
 from collections.abc import Callable
-from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -59,16 +58,16 @@ class OpenAIClip(BaseModel):
         """
         with patched_in_projection_packed():
             clipped_text = torch.clip(text, min=0, max=self.eot_token)
-            text_features = self.clip.encode_text(clipped_text)
+            text_features = self.clip.encode_text(clipped_text)  # type: ignore[operator]
             # text_features: torch.Tensor [512 (transformer_width), num_text_prompts]
             # Raw text features.
             text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
-            image_features = self.clip.encode_image(image)
+            image_features = self.clip.encode_image(image)  # type: ignore[operator]
             image_features = image_features / image_features.norm(dim=1, keepdim=True)
             # image_features: torch.Tensor [num_images, 512 (transformer_width)]
             # Raw image features (multiplied to 100)
-            image_features = self.clip.logit_scale.exp() * image_features
+            image_features = self.clip.logit_scale.exp() * image_features  # type: ignore[operator]
 
         return image_features @ text_features.t()
 
@@ -125,14 +124,14 @@ def patched_in_projection_packed():
     Avoid unflatten that causes ONNX export failure.
     https://github.com/pytorch/pytorch/issues/135764
     """
-    original_in_projection_packed = torch.nn.functional._in_projection_packed
+    original_in_projection_packed = torch.nn.functional._in_projection_packed  # type: ignore[attr-defined]
 
     def patched_in_projection_packed(
         q: Tensor,
         k: Tensor,
         v: Tensor,
         w: Tensor,
-        b: Optional[Tensor] = None,
+        b: Tensor | None = None,
     ) -> tuple[Tensor, Tensor, Tensor]:
         E = q.size(-1)
         if k is v and q is k:
@@ -141,9 +140,9 @@ def patched_in_projection_packed():
             return proj[0], proj[1], proj[2]
         return original_in_projection_packed(q, k, v, w, b)
 
-    torch.nn.functional._in_projection_packed = patched_in_projection_packed
+    torch.nn.functional._in_projection_packed = patched_in_projection_packed  # type: ignore[attr-defined]
 
     try:
         yield
     finally:
-        torch.nn.functional._in_projection_packed = original_in_projection_packed
+        torch.nn.functional._in_projection_packed = original_in_projection_packed  # type: ignore[attr-defined]

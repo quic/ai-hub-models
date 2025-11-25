@@ -6,17 +6,16 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Literal, cast, overload
+from typing import Literal, cast, overload
 
 import qai_hub as hub
 from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
-from typing_extensions import TypeAlias
 
-from qai_hub_models.configs.perf_yaml import ToolVersions
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -25,6 +24,7 @@ from qai_hub_models.scorecard import (
 )
 from qai_hub_models.scorecard.device import cs_universal
 from qai_hub_models.scorecard.envvars import (
+    DEFAULT_AGGREGATED_CSV_NAME,
     ArtifactsDirEnvvar,
     EnableAsyncTestingEnvvar,
 )
@@ -32,18 +32,19 @@ from qai_hub_models.scorecard.execution_helpers import get_async_job_cache_name
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardJob
 from qai_hub_models.scorecard.results.yaml import (
     COMPILE_YAML_BASE,
+    DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME,
     get_scorecard_job_yaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml, qaihm_temp_dir
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.file_hash import file_hashes_are_identical
-from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
+from qai_hub_models.utils.onnx.torch_wrapper import extract_onnx_zip
 
 # If a model has many outputs, how many of them to store PSNR for
 MAX_PSNR_VALUES = 10
 
 
-def callable_side_effect(side_effects: Iterable) -> Callable:
+def callable_side_effect(side_effects: Iterator) -> Callable:
     """
     Return a function that:
         * Gets the next value in side_effects.
@@ -63,11 +64,10 @@ def callable_side_effect(side_effects: Iterable) -> Callable:
     """
 
     def f(*args, **kwargs):
-        result = next(side_effects)  # type: ignore
+        result = next(side_effects)
         if callable(result):
             return result(*args, **kwargs)
-        else:
-            return result
+        return result
 
     return f
 
@@ -86,9 +86,9 @@ def get_artifacts_dir_opt() -> Path:
 
 
 def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
-    dir = Path(artifacts_dir or get_artifacts_dir_opt())
-    os.makedirs(dir, exist_ok=True)
-    path = dir / filename
+    artifacts_dir = Path(artifacts_dir or get_artifacts_dir_opt())
+    os.makedirs(artifacts_dir, exist_ok=True)
+    path = artifacts_dir / filename
     path.touch()
     return path
 
@@ -123,6 +123,14 @@ def get_cpu_accuracy_file(artifacts_dir: os.PathLike | str | None = None) -> Pat
     return get_artifact_filepath("cpu-accuracy.yaml", artifacts_dir)
 
 
+def get_tool_versions_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath(DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME, artifacts_dir)
+
+
+def get_environment_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("environment.env", artifacts_dir)
+
+
 def get_accuracy_columns() -> list[str]:
     cols = [
         "model_id",
@@ -132,8 +140,7 @@ def get_accuracy_columns() -> list[str]:
         "Sim Accuracy",
         "Device Accuracy",
     ]
-    for i in range(MAX_PSNR_VALUES):
-        cols.append(f"PSNR_{i}")
+    cols.extend(f"PSNR_{i}" for i in range(MAX_PSNR_VALUES))
     cols.extend(["date", "branch", "chipset"])
     return cols
 
@@ -155,16 +162,15 @@ def get_async_test_job_cache_path(job_type: hub.JobType) -> Path:
     """
     if job_type == hub.JobType.COMPILE:
         return get_compile_job_ids_file()
-    elif job_type == hub.JobType.PROFILE:
+    if job_type == hub.JobType.PROFILE:
         return get_profile_job_ids_file()
-    elif job_type == hub.JobType.INFERENCE:
+    if job_type == hub.JobType.INFERENCE:
         return get_inference_job_ids_file()
-    elif job_type == hub.JobType.QUANTIZE:
+    if job_type == hub.JobType.QUANTIZE:
         return get_quantize_job_ids_file()
-    else:
-        raise NotImplementedError(
-            f"No file for storing test jobs of type {job_type.display_name}"
-        )
+    raise NotImplementedError(
+        f"No file for storing test jobs of type {job_type.display_name}"
+    )
 
 
 def str_with_async_test_metadata(
@@ -328,10 +334,12 @@ def fetch_async_test_job(
         raise_if_not_successful: bool = False
             Raise a ValueError if any job is not successful.
 
-    Returns:
+    Returns
+    -------
         A successful Hub job, or None if this job type was not found in the cache.
 
-    Raises:
+    Raises
+    ------
         ValueError if the job is cached but failed or is still running.
     """
     scorecard_job: ScorecardJob = get_scorecard_job_yaml(
@@ -348,7 +356,7 @@ def fetch_async_test_job(
     if not scorecard_job.job_id:
         # No job ID, this wasn't found in the cache.
         return None
-    elif raise_if_not_successful and not scorecard_job.success:
+    if raise_if_not_successful and not scorecard_job.success:
         # If the job has an ID but it's marked as "skipped", then it timed out.
         if scorecard_job.skipped:
             error_str = "still running"
@@ -473,7 +481,8 @@ def fetch_async_test_jobs(
         raise_if_not_successful: bool = False
             Raise a ValueError if any job is not successful.
 
-    Returns:
+    Returns
+    -------
         dict
             For models WITHOUT components, returns:
                 { None: Job }
@@ -488,12 +497,13 @@ def fetch_async_test_jobs(
 
         None if one or more components do not have a cached job of the given type.
 
-    Raises:
+    Raises
+    ------
         ValueError if:
             raise_if_not_successful is True and any cached job failed / is still running
     """
     component_jobs: dict[str | None, hub.Job | None] = {}
-    for component in component_names or [None]:  # type: ignore
+    for component in component_names or [None]:  # type: ignore[list-item]
         component_jobs[component] = fetch_async_test_job(
             job_type,
             model_id,
@@ -506,7 +516,7 @@ def fetch_async_test_jobs(
         )
 
     has_jobs = all(component_jobs.values())
-    return component_jobs if has_jobs else None  # type: ignore
+    return component_jobs if has_jobs else None  # type: ignore[return-value]
 
 
 def cache_dataset(model_id: str, dataset_name: str, dataset: hub.Dataset):
@@ -550,7 +560,7 @@ def write_accuracy(
     device_accuracy: float | None = None,
     sim_accuracy: float | None = None,
 ) -> None:
-    line = f"{model_name},{str(precision)},{path.value},"
+    line = f"{model_name},{precision!s},{path.value},"
     line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
     line += f"{sim_accuracy:.3g}," if sim_accuracy is not None else ","
     line += f"{device_accuracy:.3g}," if device_accuracy is not None else ","
@@ -561,11 +571,6 @@ def write_accuracy(
         line += ",".join(psnr_values) + "," * min(MAX_PSNR_VALUES - len(psnr_values), 9)
     line += f",{get_job_date()},main,{chipset}"
     append_line_to_file(get_accuracy_file(), line)
-
-
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_compile_job_cache_dict_type: TypeAlias = "Dict[str, bool]"
 
 
 class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
@@ -598,9 +603,7 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
         Component models are considered "identical" only if all components' compile jobs are identical (per the above guidelines).
     """
 
-    compile_jobs_are_identical: _compile_job_cache_dict_type = Field(
-        default_factory=dict
-    )
+    compile_jobs_are_identical: dict[str, bool] = Field(default_factory=dict)
 
     def is_identical(
         self,
@@ -694,12 +697,14 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
         """
         Compare the MD5 hashes of the compiled models for two jobs.
 
-        Args:
+        Parameters
+        ----------
             current_compile_job (hub.CompileJob): The current compile job.
             previous_compile_job (hub.CompileJob): The previous compile job.
             yaml_base (str | None): The base path of the YAML file.
 
-        Returns:
+        Returns
+        -------
             bool: True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
         """
         if previous_compile_job.get_status().failure:
@@ -752,6 +757,45 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
             return all(
                 file_hashes_are_identical(current_model, previous_model)
                 for current_model, previous_model in zip(
-                    current_model_files, previous_model_files
+                    current_model_files, previous_model_files, strict=False
                 )
             )
+
+
+def get_accuracy_csv_path(manual_path: str | None = None) -> Path | None:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    if artifacts_dir is None:
+        return None
+    for subpath in artifacts_dir.iterdir():
+        if subpath.name.startswith("Accuracy Metrics"):
+            return subpath / "accuracy.csv"
+    return None
+
+
+def get_scorecard_csv_path(manual_path: str | None = None) -> Path:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    assert artifacts_dir is not None
+    folder = artifacts_dir
+    for subpath in folder.iterdir():
+        if not subpath.name.startswith("Scorecard Results"):
+            continue
+        for scorecard_file in subpath.iterdir():
+            if scorecard_file.name.startswith("scorecard-summary"):
+                return scorecard_file
+    raise ValueError("No perf data found.")
+
+
+def get_aggreggated_results_csv_path(manual_path: str | None = None) -> Path:
+    if manual_path:
+        return Path(manual_path)
+    artifacts_dir = get_artifacts_dir_opt()
+    if artifacts_dir is not None:
+        for subpath in artifacts_dir.iterdir():
+            if subpath.name.startswith("Scorecard CSV"):
+                return subpath / DEFAULT_AGGREGATED_CSV_NAME
+        return artifacts_dir / DEFAULT_AGGREGATED_CSV_NAME
+    return Path(f"build/{DEFAULT_AGGREGATED_CSV_NAME}")

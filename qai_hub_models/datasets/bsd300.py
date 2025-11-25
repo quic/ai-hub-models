@@ -30,9 +30,7 @@ NUM_TRAIN_IMAGES = 200
 
 
 class BSD300Dataset(BaseDataset):
-    """
-    BSD300 published here: https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/
-    """
+    """BSD300 published here: https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/bsds/"""
 
     def __init__(
         self,
@@ -61,10 +59,7 @@ class BSD300Dataset(BaseDataset):
         # Ensure the correct number of images are there
         images = [f for f in self.images_path.iterdir() if ".png" in f.name]
         expected_num_images = len(self)
-        if len(images) != expected_num_images:
-            return False
-
-        return True
+        return len(images) == expected_num_images
 
     def _prepare_data(self):
         """Convert jpg to png."""
@@ -139,9 +134,7 @@ class BSD300Dataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100
 
     @staticmethod

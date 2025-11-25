@@ -11,38 +11,43 @@ import shlex
 import shutil
 import time
 import zipfile
+from collections.abc import Callable
 from os import PathLike
 from pathlib import Path
-from typing import Any, Callable, NamedTuple, Optional
+from typing import Any, NamedTuple
 
 import numpy as np
 import onnx
 import qai_hub as hub
 import torch
-from qai_hub.client import APIException, DatasetEntries, Device, UserError
+from qai_hub.client import DatasetEntries, Device
 
 from qai_hub_models.models.common import TargetRuntime
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
-from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+from qai_hub_models.utils.onnx.helpers import (
+    safe_torch_onnx_export,
 )
-from qai_hub_models.utils.onnx_torch_wrapper import extract_onnx_zip
-from qai_hub_models.utils.transpose_channel import (  # noqa: F401
+from qai_hub_models.utils.onnx.torch_wrapper import extract_onnx_zip
+from qai_hub_models.utils.transpose_channel import (
     transpose_channel_first_to_last,
 )
 
 _AIHUB_URL = "https://aihub.qualcomm.com"
 _AIHUB_NAME = "Qualcomm® AI Hub"
+_CAN_ACCESS_HUB: bool | None = None
 
 
 def can_access_qualcomm_ai_hub():
+    global _CAN_ACCESS_HUB  # noqa: PLW0603
+    if _CAN_ACCESS_HUB is not None:
+        return _CAN_ACCESS_HUB
     try:
-        hub.get_devices()
-    except APIException:
-        return False
-    except UserError:
-        return False
-    return True
+        hub.get_frameworks()
+    except Exception:
+        _CAN_ACCESS_HUB = False
+    else:
+        _CAN_ACCESS_HUB = True
+    return _CAN_ACCESS_HUB
 
 
 def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -61,27 +66,35 @@ def export_torch_to_onnx_zip(
     example_input: tuple[torch.Tensor, ...] | list[torch.Tensor],
     input_names: list[str] | None = None,
     output_names: list[str] | None = None,
-    onnx_transforms: Optional[Callable[[onnx.ModelProto], onnx.ModelProto]] = None,
+    onnx_transforms: Callable[[onnx.ModelProto], onnx.ModelProto] | None = None,
     skip_zip: bool = False,
     torch_export_kwargs=None,
+    prefer_external_weight: bool = True,
 ) -> str:
     """
     Export a torch model to ONNX, possibly as zip if model size exceeds 2GB,
     to conform to the input spec of AI Hub. Export as regular ONNX file if
-    <2GB.
+    <2GB. If prefer_external_weight is True, always export with external
+    weights regardless of size.
 
-    Parameters:
+    Parameters
+    ----------
       torch_model: The torch.nn.Module to export.
       f: The base filename. For models <2GB, this must end in ".onnx".
-         For models >=2GB with skip_zip True, this must NOT end in ".onnx" (treated as a directory name).
-         Otherwise, for models >=2GB with skip_zip False, the final output will be f+".zip".
+         For models >=2GB with skip_zip True, this must NOT end in
+         ".onnx" (treated as a directory name). Otherwise, for models
+         >=2GB with skip_zip False, the final output will be f+".zip".
       example_input: A tuple of example input tensors for the export.
       input_names: Optional list of input names.
       output_names: Optional list of output names.
-      onnx_transforms: If defined, run this on the exported ONNX before packaging.
+      onnx_transforms: If defined, run this on the exported ONNX before
+        packaging.
       skip_zip: True to suppress zipping even for models >2GB.
+      prefer_external_weight: If True, export using external data format
+        regardless of model size.
 
-    Returns:
+    Returns
+    -------
       The path to the exported file (either a .onnx file, a .onnx.zip file,
       or a directory if skip_zip is True and model size is >2GB).
     """
@@ -90,10 +103,12 @@ def export_torch_to_onnx_zip(
         example_input = tuple(example_input)
 
     # Estimate total weight size (parameters and buffers) in bytes.
-    # state_dict includes buffers etc, while model.parameters include only learnable params.
+    # state_dict includes buffers etc, while model.parameters include only
+    # learnable params.
     total_bytes = 0
     for tensor in torch_model.state_dict().values():
-        # Some tensors may not have a defined element_size() (e.g. non-numeric); skip them.
+        # Some tensors may not have a defined element_size() (e.g.
+        # non-numeric); skip them.
         if hasattr(tensor, "numel") and hasattr(tensor, "element_size"):
             total_bytes += tensor.numel() * tensor.element_size()
     threshold_bytes = 2 * 1024**3  # 2GB threshold
@@ -103,10 +118,13 @@ def export_torch_to_onnx_zip(
     if not f.name.endswith(".onnx"):
         f = f.with_suffix(".onnx")
 
-    if total_bytes < threshold_bytes:
+    # Decide whether to export as single file or external data.
+    use_external = prefer_external_weight or (total_bytes >= threshold_bytes)
+
+    if not use_external:
         # For models under 2GB, export as a single ONNX file.
         start_time = time.time()
-        torch_onnx_export_with_large_model_size_check(
+        safe_torch_onnx_export(
             torch_model,
             example_input,
             str(f),
@@ -128,79 +146,75 @@ def export_torch_to_onnx_zip(
             print(f"ONNX transform finished in {transform_time:.1f} seconds")
 
         return str(f)
-    else:
-        # Export with external data using two temporary directories.
-        with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
-            tmpdir1 = Path(tmpdir1)
-            tmpdir2 = Path(tmpdir2)
-            export_path = (
-                tmpdir1 / f.with_suffix(".onnx").name
-            )  # use .onnx extension for export
+    # Export with external data using two temporary directories.
+    with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
+        tmpdir1 = Path(tmpdir1)
+        tmpdir2 = Path(tmpdir2)
+        export_path = (
+            tmpdir1 / f.with_suffix(".onnx").name
+        )  # use .onnx extension for export
 
-            start_time = time.time()
-            torch_onnx_export_with_large_model_size_check(
-                torch_model,
-                example_input,
-                str(export_path),
-                input_names=input_names,
-                output_names=output_names,
-                **torch_export_kwargs,
-            )
-            export_time = time.time() - start_time
-            print(f"torch.onnx.export finished in {export_time:.1f} seconds")
+        start_time = time.time()
+        safe_torch_onnx_export(
+            torch_model,
+            example_input,
+            str(export_path),
+            input_names=input_names,
+            output_names=output_names,
+            **torch_export_kwargs,
+        )
+        export_time = time.time() - start_time
+        print(f"torch.onnx.export finished in {export_time:.1f} seconds")
 
-            onnx_model = onnx.load(str(export_path))
+        onnx_model = onnx.load(str(export_path))
 
-            if onnx_transforms is not None:
-                transform_start_time = time.time()
-                print("Running onnx to onnx transforms...")
-                onnx_model = onnx_transforms(onnx_model)
-                transform_time = time.time() - transform_start_time
-                print(f"ONNX transform finished in {transform_time:.1f} seconds")
+        if onnx_transforms is not None:
+            transform_start_time = time.time()
+            print("Running onnx to onnx transforms...")
+            onnx_model = onnx_transforms(onnx_model)
+            transform_time = time.time() - transform_start_time
+            print(f"ONNX transform finished in {transform_time:.1f} seconds")
 
-            save_start_time = time.time()
-            # .onnx and .data must have the same base name per hub requirement
-            export_path2 = tmpdir2 / "model.onnx"
-            onnx.save_model(
-                onnx_model,
-                str(export_path2),
-                save_as_external_data=True,
-                all_tensors_to_one_file=True,
-                # Weight file name must end with .data per Hub requirement
-                location="model.data",
-                convert_attribute=True,
-            )
-            save_time = time.time() - save_start_time
-            print(f"onnx.save_model finished in {save_time:.1f} seconds")
+        save_start_time = time.time()
+        # .onnx and .data must have the same base name per hub requirement
+        export_path2 = tmpdir2 / "model.onnx"
+        onnx.save_model(
+            onnx_model,
+            str(export_path2),
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            # Weight file name must end with .data per Hub requirement
+            location="model.data",
+            convert_attribute=True,
+        )
+        save_time = time.time() - save_start_time
+        print(f"onnx.save_model finished in {save_time:.1f} seconds")
 
-            if skip_zip:
-                # Instead of creating a zip, create a directory.
-                out_dir = (
-                    f  # f is expected to be a directory name already (without .onnx)
-                )
-                out_dir.mkdir(parents=True, exist_ok=True)
+        if skip_zip:
+            # Instead of creating a zip, create a directory.
+            out_dir = f  # f is expected to be a directory name already (without .onnx)
+            out_dir.mkdir(parents=True, exist_ok=True)
 
-                # Copy the ONNX file to the directory.
-                shutil.copy(export_path2, out_dir / "model.onnx")
-                # Copy the external data file to the directory.
-                external_data_path = export_path2.parent / "model.data"
-                shutil.copy(external_data_path, out_dir / "model.data")
+            # Copy the ONNX file to the directory.
+            shutil.copy(export_path2, out_dir / "model.onnx")
+            # Copy the external data file to the directory.
+            external_data_path = export_path2.parent / "model.data"
+            shutil.copy(external_data_path, out_dir / "model.data")
 
-                print(f"ONNX with external data saved to directory {out_dir}")
-                return str(out_dir)
-            else:
-                # Package the files into a zip.
-                zip_start_time = time.time()
-                zip_path = f.with_name(f.name + ".zip")
-                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    for file_path in tmpdir2.iterdir():
-                        # In the zip, files are placed under a folder named after the base name.
-                        arcname = f.with_suffix("").name + "/" + file_path.name
-                        zip_file.write(file_path, arcname=arcname)
-                zip_time = time.time() - zip_start_time
-                print(f"zipping onnx finished in {zip_time:.1f} seconds")
-                print(f"ONNX with external data saved to {zip_path}")
-                return str(zip_path)
+            print(f"ONNX with external data saved to directory {out_dir}")
+            return str(out_dir)
+        # Package the files into a zip.
+        zip_start_time = time.time()
+        zip_path = f.with_name(f.name + ".zip")
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for file_path in tmpdir2.iterdir():
+                # In the zip, files are placed under a folder named after the base name.
+                arcname = f.with_suffix("").name + "/" + file_path.name
+                zip_file.write(file_path, arcname=arcname)
+        zip_time = time.time() - zip_start_time
+        print(f"zipping onnx finished in {zip_time:.1f} seconds")
+        print(f"ONNX with external data saved to {zip_path}")
+        return str(zip_path)
 
 
 class CompileOptions(NamedTuple):
@@ -235,22 +249,23 @@ def make_hub_dataset_entries(
         ...,
     ],
     input_names: list[str],
-    channel_last_input: Optional[list[str]] = None,
+    channel_last_input: list[str] | None = None,
 ) -> DatasetEntries:
     """
     Given input tensor(s) in either numpy or torch format,
         convert to hub DatasetEntries format.
 
-    Parameters:
+    Parameters
+    ----------
         tensors: Tensor data in numpy or torch.Tensor format.
         input_names: List of input names.
         channel_last_input: Comma-separated list of input names to transpose channel.
     """
     dataset = {}
-    assert len(tensors_tuple) == len(
-        input_names
-    ), "Number of elements in tensors_tuple must match number of inputs"
-    for name, inputs in zip(input_names, tensors_tuple):
+    assert len(tensors_tuple) == len(input_names), (
+        "Number of elements in tensors_tuple must match number of inputs"
+    )
+    for name, inputs in zip(input_names, tensors_tuple, strict=False):
         input_seq = inputs if isinstance(inputs, (list, tuple)) else [inputs]
 
         converted_inputs = []
@@ -287,8 +302,7 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
         return f"Unable to determine hexagon version for {device.name}"
     if hex_version < 73:
         return (
-            "AIMET-ONNX requires hexagon v73 or above for Stable "
-            "Diffusion VaeDecoder. "
+            "AIMET-ONNX requires hexagon v73 or above for Stable Diffusion VaeDecoder. "
         )
     return None
 
@@ -307,7 +321,7 @@ def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
             "dict_input": "w=x;y=z"
           }
     """
-    out = dict()
+    out = {}
 
     model_options = shlex.split(job.options.strip())
     for i in range(len(model_options)):
@@ -358,9 +372,21 @@ def download_model_in_memory(model: hub.Model) -> Any:
         model_file = model.download(os.path.join(tmp_dir, "tmp_model"))
         if model.model_type == hub.SourceModelType.TORCHSCRIPT:
             return torch.jit.load(model_file)
-        else:
-            if os.path.splitext(model_file)[1] == ".zip":
-                onnx_path, _ = extract_onnx_zip(model_file)
-                return onnx.load(onnx_path)
-            else:
-                return onnx.load(model_file)
+        if os.path.splitext(model_file)[1] == ".zip":
+            onnx_path, _ = extract_onnx_zip(model_file)
+            return onnx.load(onnx_path)
+        return onnx.load(model_file)
+
+
+def get_device_and_chipset_name(device: hub.Device) -> tuple[str | None, str | None]:
+    """Given a hub Device, return the device name and chipset name."""
+    chipset = None
+    if device.attributes:
+        if isinstance(device.attributes, list):
+            for attr in device.attributes:
+                if attr.startswith("chipset:"):
+                    chipset = attr[len("chipset:") :]
+                    break
+        elif device.attributes.startswith("chipset:"):
+            chipset = device.attributes[len("chipset:") :]
+    return (device.name or None, chipset)

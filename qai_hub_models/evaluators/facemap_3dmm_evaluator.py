@@ -33,7 +33,7 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
 
     def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
         """
-        gt should be a list of tensors with the following tensors:
+        Gt should be a list of tensors with the following tensors:
             - image_ids of shape (batch_size,)
             - gt_landmarks of shape (batch_size, 68, 2)
                 - The ground truth landmarks, where each landmark is represented by its x and y coordinates.
@@ -48,7 +48,10 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
             gt_landmark = gt_landmarks[i].numpy()
             pred_landmark = project_landmark(output[i])
             transform_landmark_coordinates(
-                pred_landmark, bboxes[i], self.image_height, self.image_width
+                pred_landmark,
+                tuple(int(x) for x in bboxes[i]),  # type: ignore[arg-type]
+                self.image_height,
+                self.image_width,
             )
 
             pred_landmark = pred_landmark[:, :2].numpy()

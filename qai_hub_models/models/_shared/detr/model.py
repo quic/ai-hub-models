@@ -42,15 +42,17 @@ class DETR(BaseModel):
         """
         Postprocess the output of the DETR model.
 
-        Args:
+        Parameters
+        ----------
             logits (torch.Tensor): The classification logits.
             boxes (torch.Tensor): The bounding box coordinates.
             image_shape (tuple): The shape of the input image.
 
-        Returns:
+        Returns
+        -------
             tuple: A tuple containing the processed boxes, scores, and labels.
         """
-        b, _, h, w = image_shape
+        _, _, h, w = image_shape
 
         # Apply softmax to get probabilities
         probabilities = torch.nn.functional.softmax(logits, -1)
@@ -83,11 +85,13 @@ class DETR(BaseModel):
         """
         Run DETR on `image` and produce high quality detection results.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image tensor to run detection on. RGB, Range[0-1].
             threshold: Prediction score threshold.
 
-        Returns:
+        Returns
+        -------
             A tuple of three tensors:
                 - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
                 - scores: torch.Tensor of shape (1, 100) representing the confidence scores

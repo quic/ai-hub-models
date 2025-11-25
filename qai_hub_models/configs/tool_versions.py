@@ -8,12 +8,7 @@ import qai_hub as hub
 from qai_hub.client import JobType
 from qai_hub.public_rest_api import get_job_results
 
-from qai_hub_models.models.common import (
-    InferenceEngine,
-    Optional,
-    QAIRTVersion,
-    TargetRuntime,
-)
+from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.qai_hub_helpers import extract_job_options
 
@@ -29,10 +24,10 @@ class ToolVersions(BaseQAIHMConfig):
     (like AI Hub version) would break this without changing the equality check.
     """
 
-    qairt: Optional[QAIRTVersion] = None
-    onnx: Optional[str] = None
-    onnx_runtime: Optional[str] = None
-    tflite: Optional[str] = None
+    qairt: QAIRTVersion | None = None
+    onnx: str | None = None
+    onnx_runtime: str | None = None
+    tflite: str | None = None
 
     @staticmethod
     def from_compiled_model(
@@ -41,17 +36,25 @@ class ToolVersions(BaseQAIHMConfig):
         """
         Get the versions of tools used to compile this model.
 
-        Parameters:
-            model
-                AI Hub model. Must be compiled by AI Hub.
+        Parameters
+        ----------
+        model
+            AI Hub model. Must be compiled by AI Hub.
 
-        Returns:
+        Returns
+        -------
+        ToolVersions
             The tool versions required to compile this model.
 
-        Raises:
-            ValueError if the model was not compiled by AI Hub.
+        Raises
+        ------
+        ValueError
+            If the model was not compiled by AI Hub.
         """
-        if model.producer is None or not model.producer._job_type == JobType.COMPILE:
+        if model.producer is None or model.producer._job_type not in [
+            JobType.COMPILE,
+            JobType.LINK,
+        ]:
             raise ValueError(
                 "Model must be compiled with AI Hub to extract tool versions."
             )
@@ -88,24 +91,27 @@ class ToolVersions(BaseQAIHMConfig):
         For compile jobs, this is the toolchains used to compile the model.
         For profile / inference jobs, this is the toolchains used to run the model on device.
 
-        Parameters:
-            job
-                AI Hub compile, profile, or inference job.
+        Parameters
+        ----------
+        job
+            AI Hub compile, profile, or inference job.
 
-            parse_version_tags:
-                When getting the QNN version from a failed AI Hub job, we rely on parsing the string options of the job.
-                In this case, the version of often a tag, like 'latest' or 'default'. The definitions of these tags
-                can change over time.
+        parse_version_tags
+            When getting the QNN version from a failed AI Hub job, we rely on parsing the string options of the job.
+            In this case, the version of often a tag, like 'latest' or 'default'. The definitions of these tags
+            can change over time.
 
-                If false, failed jobs that resolve to a QAIRT version tag are treated as if the QAIRT version can't
-                be determined, and None is returned. This is the safest option and should be used in most situations.
+            If false, failed jobs that resolve to a QAIRT version tag are treated as if the QAIRT version can't
+            be determined, and None is returned. This is the safest option and should be used in most situations.
 
-                If true, version tags are parsed to match with their current meanings on AI Hub. BE CAUTIOUS USING THIS,
-                as the QAIRT version represented by this tag may have changed since the job was submitted. Generally you
-                should use this only if the job is recent enough that you know the current tags on AI Hub map to the same
-                QAIRT versions when the job was submitted.
+            If true, version tags are parsed to match with their current meanings on AI Hub. BE CAUTIOUS USING THIS,
+            as the QAIRT version represented by this tag may have changed since the job was submitted. Generally you
+            should use this only if the job is recent enough that you know the current tags on AI Hub map to the same
+            QAIRT versions when the job was submitted.
 
-        Returns:
+        Returns
+        -------
+        ToolVersions
             The tool versions used to:
                 Compile the model, if it's a compile job.
                 Profile / Inference the model, if it's a profile / inference job.
@@ -113,35 +119,47 @@ class ToolVersions(BaseQAIHMConfig):
 
             At the moment, only the QAIRT version is returned.
 
-        Raises:
-            ValueError if the job type is invalid.
+        Raises
+        ------
+        ValueError
+            If the job type is invalid.
         """
         # Use job_type instead of isinstance to support test mocking.
-        if job._job_type not in [JobType.COMPILE, JobType.PROFILE, JobType.INFERENCE]:
+        if job._job_type not in [
+            JobType.COMPILE,
+            JobType.LINK,
+            JobType.PROFILE,
+            JobType.INFERENCE,
+        ]:
             raise ValueError(
                 f"Cannot extract QAIRT SDK version from job of type {job.job_type}"
             )
 
         if not job.get_status().success:
+            if job._job_type == JobType.LINK:
+                # Link jobs inherit their QAIRT version from input model files.
+                models = cast(hub.LinkJob, job).models
+                for model in models:
+                    if model.producer is not None:
+                        return ToolVersions.from_compiled_model(model)
+                # None of the source models came from us, so we can't detect what QAIRT version to use.
+                return ToolVersions()
+
             # If the job is not successful, the only way to get the QAIRT version is to look at the job flags.
             job_options = extract_job_options(job)
-            version: Optional[str] = None
+            version: str | None = None
             if "qairt_version" in job_options:
                 version = cast(str, job_options["qairt_version"])
             elif "qnn_version" in job_options:
                 version = cast(str, job_options["qnn_version"])
+            elif job._job_type == JobType.COMPILE:
+                # QAIRT is applicable for compile jobs only if the target runtime uses QAIRT converters.
+                if x := job_options.get("target_runtime"):
+                    rts = [rt for rt in TargetRuntime if rt.value == x]
+                    if len(rts) == 1 and rts[0].qairt_version_changes_compilation:
+                        version = "default"
             else:
-                if job._job_type == JobType.COMPILE:
-                    # QAIRT is applicable for compile jobs only if the target runtime uses QAIRT converters.
-                    if x := job_options.get("target_runtime"):
-                        rts = [rt for rt in TargetRuntime if rt.value == x]
-                        if (
-                            len(rts) == 1
-                            and rts[0].inference_engine == InferenceEngine.QNN
-                        ):
-                            version = "default"
-                else:
-                    version = "default"
+                version = "default"
 
             if version is None:
                 return ToolVersions()
@@ -157,7 +175,7 @@ class ToolVersions(BaseQAIHMConfig):
                 qairt=QAIRTVersion(version, validate_exists_on_ai_hub=False)
             )
 
-        if job._job_type == JobType.COMPILE:
+        if job._job_type in {JobType.COMPILE, JobType.LINK}:
             return ToolVersions.from_compiled_model(
                 cast(hub.Model, cast(hub.CompileJob, job).get_target_model())
             )
@@ -169,11 +187,11 @@ class ToolVersions(BaseQAIHMConfig):
             profile_detail = result.inference_job_result.detail
         else:
             # This is unreachable, but we write it for type checking.
-            assert False
+            raise AssertionError()
 
         out = ToolVersions()
         for tool_version in profile_detail.tool_versions:
-            if tool_version.name == "QAIRT" or tool_version.name == "QNN":
+            if tool_version.name in {"QAIRT", "QNN"}:
                 out.qairt = QAIRTVersion(
                     tool_version.version, validate_exists_on_ai_hub=False
                 )

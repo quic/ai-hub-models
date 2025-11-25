@@ -5,19 +5,44 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import torch
 
 from qai_hub_models.datasets.kitti import KittiDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.utils.kitti import eval_class
-from qai_hub_models.models.centernet.util import ddd_post_process
+from qai_hub_models.models.centernet_3d.util import ddd_post_process
 
 
 class KittiEvaluator(BaseEvaluator):
     """Evaluator for comparing Semantic segmentation output against ground truth."""
 
-    def __init__(self, decode, max_dets=100, peak_thresh=0.2):
+    def __init__(
+        self,
+        decode: Callable[
+            [
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                torch.Tensor,
+                int,
+            ],
+            torch.Tensor,
+        ],
+        max_dets: int = 100,
+        peak_thresh: float = 0.2,
+    ):
+        """
+        decode:
+            Function to decode the raw model outputs
+            into detected objects/detections.
+        max_det (int):
+            Maximum number of detections per image.
+        """
         self.decode = decode
         self.max_dets = max_dets
         self.peak_thresh = peak_thresh
@@ -41,7 +66,7 @@ class KittiEvaluator(BaseEvaluator):
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ):
         """
-        output : tuple of following tensor
+        Output : tuple of following tensor
             hm (torch.Tensor): Heatmap with the shape of
                 [B, num_classes, H//4, W//4].
             dep (torch.Tensor): depth value with the
@@ -66,13 +91,12 @@ class KittiEvaluator(BaseEvaluator):
         """
         hm, dep, rot, dim, wh, reg = output
         img_id, c, s, calib = gt
-        dets = self.decode(hm, rot, dep, dim, wh=wh, reg=reg, K=self.max_dets)
-        dets = dets.detach().numpy()
+        dets_arr = self.decode(hm, rot, dep, dim, wh, reg, self.max_dets).numpy()
         dets = ddd_post_process(
-            dets,
+            dets_arr,
             list(np.array(c)),
             list(np.array(s)),
-            hm.shape[2:],
+            (int(hm.shape[2]), int(hm.shape[3])),
             list(np.array(calib)),
         )
 

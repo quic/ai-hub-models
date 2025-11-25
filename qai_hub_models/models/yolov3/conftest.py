@@ -6,10 +6,23 @@
 
 import gc
 import inspect
+import warnings
 
 import pytest
+import torch.jit._trace
 
 from qai_hub_models.models.yolov3 import Model
+
+
+def pytest_configure(config):
+    # pytest is unable to figure out how to silence several PyTorch warning types from pyproject.toml settings,
+    # so we apply a manual warning filter here instead.
+    warnings.filterwarnings(action="ignore", category=torch.jit._trace.TracerWarning)
+    warnings.filterwarnings(action="ignore", category=UserWarning, module="torch.*")
+    warnings.filterwarnings(action="ignore", category=FutureWarning, module="torch.*")
+    warnings.filterwarnings(
+        action="ignore", category=DeprecationWarning, module="torch.*"
+    )
 
 
 # Instantiate the model only once for all tests.
@@ -24,13 +37,12 @@ def cached_from_pretrained():
 
         def _cached_from_pretrained(*args, **kwargs):
             cache_key = str(args) + str(kwargs)
-            model = pretrained_cache.get(cache_key, None)
+            model = pretrained_cache.get(cache_key)
             if model:
                 return model
-            else:
-                non_none_model = from_pretrained(*args, **kwargs)
-                pretrained_cache[cache_key] = non_none_model  # type: ignore[assignment]
-                return non_none_model
+            non_none_model = from_pretrained(*args, **kwargs)
+            pretrained_cache[cache_key] = non_none_model
+            return non_none_model
 
         _cached_from_pretrained.__signature__ = sig  # type: ignore[attr-defined]
 

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.face_attrib_evaluator import FaceAttribNetEvaluator
@@ -297,22 +297,23 @@ class FaceAttribNet(BaseModel):
             self.mask_cls = nn.Linear(self.base_chan * 2, 2)
 
     def _make_net(self, chan, n):
-        cnn_x = []
+        cnn_x: list[nn.Module] = []
         cnn_x += [DownsampleBlock(chan)]
-        for i in range(n - 1):
+        for _i in range(n - 1):
             cnn_x += [NormalBlock(2 * chan)]
-        cnn_x = nn.Sequential(*cnn_x)
-        return cnn_x
+        return nn.Sequential(*cnn_x)
 
     def forward(self, image, target=None):
         """
         Run FaceAttribNet on cropped and pre-processed 128x128 face `image`, and produce various attributes.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed
                    3-channel Color Space
 
-        Returns:
+        Returns
+        -------
             Face attributes vector
         """
         image = (image - 0.5) / 0.50196078

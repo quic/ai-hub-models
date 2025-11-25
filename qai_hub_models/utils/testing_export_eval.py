@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from typing import Callable, Literal, Union, cast
+from typing import Any, Literal, cast
 from unittest import mock
 
 import numpy as np
@@ -17,22 +17,21 @@ import qai_hub as hub
 import torch
 from typing_extensions import assert_never
 
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets import DATASET_NAME_MAP
-from qai_hub_models.models.common import ExportResult, Precision, QAIRTVersion
+from qai_hub_models.models.common import ExportResult, Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.scorecard.envvars import (
-    IgnoreDeviceJobCacheEnvvar,
-    QAIRTVersionEnvvar,
-)
+from qai_hub_models.scorecard.envvars import IgnoreDeviceJobCacheEnvvar
 from qai_hub_models.scorecard.results.yaml import (
-    ENVIRONMENT_ENV_BASE,
     INFERENCE_YAML_BASE,
+    INTERMEDIATES_DIR,
     PROFILE_YAML_BASE,
+    ToolVersionsByPathYaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
@@ -66,10 +65,9 @@ from qai_hub_models.utils.testing_async_utils import (
     write_accuracy,
 )
 
-ExportFunc = Union[  # type:ignore[valid-type]
-    Callable[..., Union[ExportResult, list[str]]],
-    Callable[..., Union[Mapping, list[str]]],
-]
+ExportFunc = (
+    Callable[..., ExportResult | list[str]] | Callable[..., Mapping | list[str]]
+)
 
 
 def _parse_export_result(
@@ -138,7 +136,8 @@ def patch_hub_with_cached_jobs(
 
     NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         model_id: str
             Model ID
 
@@ -166,12 +165,14 @@ def patch_hub_with_cached_jobs(
         patch_inference: bool
             Whether to patch previously cached inference jobs.
 
-    Returns:
+    Returns
+    -------
         For each "type" of job, returns a patch.
         If the associated "patch_job_type" param is False, the corresponding patch will do nothing.
         If cached jobs of a specific type aren't found, the corresponding patch will do nothing.
 
-    Raises:
+    Raises
+    ------
         ValueError if jobs are will running or if any job failed.
     """
     device_patch = mock.patch(
@@ -179,16 +180,16 @@ def patch_hub_with_cached_jobs(
     )
 
     if not is_hub_testing_async():
-        return tuple([device_patch, *[nullcontext() for _ in range(5)]])
+        return (device_patch, *[nullcontext() for _ in range(5)])
     calibration_datas_to_patch: list[hub.Dataset] = []
     quantize_jobs_to_patch: list[hub.QuantizeJob] = []
     compile_jobs_to_patch: list[hub.CompileJob] = []
     profile_jobs_to_patch: list[hub.ProfileJob] = []
     inference_jobs_to_patch: list[hub.InferenceJob] = []
 
-    if patch_quantization:
-        # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
-        if quantize_jobs := fetch_async_test_jobs(
+    # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
+    if patch_quantization and (
+        quantize_jobs := fetch_async_test_jobs(
             hub.JobType.QUANTIZE,
             model_id,
             precision,
@@ -196,20 +197,21 @@ def patch_hub_with_cached_jobs(
             device,
             component_names,
             raise_if_not_successful=True,
-        ):
-            pre_quantize_compile_jobs = {
-                component_name: cast(
-                    hub.CompileJob,
-                    component_job.model.producer,
-                )
-                for component_name, component_job in quantize_jobs.items()
-            }
-            # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
-            compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
-            quantize_jobs_to_patch.extend(quantize_jobs.values())
-            calibration_datas_to_patch.extend(
-                [x.calibration_dataset for x in quantize_jobs.values()]
+        )
+    ):
+        pre_quantize_compile_jobs = {
+            component_name: cast(
+                hub.CompileJob,
+                component_job.model.producer,
             )
+            for component_name, component_job in quantize_jobs.items()
+        }
+        # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
+        compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
+        quantize_jobs_to_patch.extend(quantize_jobs.values())
+        calibration_datas_to_patch.extend(
+            [x.calibration_dataset for x in quantize_jobs.values()]
+        )
 
     if patch_compile:
         assert path
@@ -327,7 +329,7 @@ def patch_hub_with_cached_jobs(
 
 
 def quantize_via_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     device: ScorecardDevice,
@@ -343,7 +345,8 @@ def quantize_via_export(
         Waits for the submitted jobs and asserts success.
         NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Export script function
 
@@ -356,7 +359,6 @@ def quantize_via_export(
         device: ScorecardDevice | None
             Scorecard device
     """
-
     # Patch calibration data to use cached datasets
     _, calibration_data_patch, _, _, _, _ = patch_hub_with_cached_jobs(
         model_id,
@@ -368,9 +370,8 @@ def quantize_via_export(
     # Run quantize jobs
     with calibration_data_patch:
         export_result = _parse_export_result(
-            export_model(  # type:ignore[misc]
-                device=device.execution_device_name,
-                chipset=device.chipset,
+            export_model(
+                device=device.execution_device,
                 precision=precision,
                 skip_downloading=True,
                 skip_compiling=True,
@@ -388,12 +389,15 @@ def quantize_via_export(
 
 
 def compile_via_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardCompilePath,
     device: ScorecardDevice,
     component_names: list[str] | None = None,
+    skip_compile_options: bool = False,
+    extra_model_arguments: dict[str, Any] | None = None,
+    skip_downloading: bool = True,
 ) -> None:
     """
     Use the provided export script function to submit compile jobs.
@@ -410,7 +414,8 @@ def compile_via_export(
         Waits for the submitted jobs and asserts success.
         NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Export script function
 
@@ -448,19 +453,26 @@ def compile_via_export(
 
     # Use export script to create a compile job.
     with (
-        device_patch
-    ), pre_quantize_compile_job_patch, quantize_job_patch, calibration_data_patch:
+        device_patch,
+        pre_quantize_compile_job_patch,
+        quantize_job_patch,
+        calibration_data_patch,
+    ):
         export_result = _parse_export_result(
-            export_model(  # type:ignore[misc]
-                device=device.execution_device_name,
-                chipset=device.chipset,
+            export_model(
+                device=device.execution_device,
                 precision=precision,
-                skip_downloading=True,
+                skip_downloading=skip_downloading,
                 skip_profiling=True,
                 skip_inferencing=True,
                 skip_summary=True,
-                compile_options=scorecard_path.get_compile_options(precision),
+                compile_options=(
+                    scorecard_path.get_compile_options(precision)
+                    if not skip_compile_options
+                    else ""
+                ),
                 target_runtime=scorecard_path.runtime,
+                **extra_model_arguments or {},
             )
         )
 
@@ -472,9 +484,7 @@ def compile_via_export(
 
 
 def fetch_cached_jobs_if_compile_jobs_are_identical(
-    job_type_to_fetch_from_cache: (
-        Literal[hub.JobType.PROFILE] | Literal[hub.JobType.INFERENCE]
-    ),
+    job_type_to_fetch_from_cache: (Literal[hub.JobType.PROFILE, hub.JobType.INFERENCE]),
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -486,22 +496,21 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
     If all conditions are met, returns the cached profile or inference job and saves the job to the YAML cache.
     Otherwise, returns None.
 
-    Parameters:
+    Parameters
+    ----------
         model_id (str): Model ID
         precision (Precision): Model precision
         scorecard_path (ScorecardProfilePath): Scorecard path
         device (ScorecardDevice): Scorecard device
         component_names (list[str] | None, optional): Name of all model components (if applicable), or None of there are no components. Defaults to None.
 
-    Returns:
+    Returns
+    -------
         Mapping[str | ExportResult]: The cached ExportResult, or None if no cached job is found.
     """
     # Check if the QAIRT version matches the API version and if the override flag is set.
     # Previous scorecard QAIRT version is stored at /scorecard/intermediates/environment.env dump.
-    environment_str = str(load_yaml(ENVIRONMENT_ENV_BASE))
-    env_dict = dict([pair.split("=") for pair in environment_str.split()])
     is_override = IgnoreDeviceJobCacheEnvvar.get()
-
     if (
         #
         # don't run if user disabled caching
@@ -510,9 +519,11 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
         # only prod jobs are cached
         or get_default_hub_deployment() != "prod"
         #
-        # if the chosen QNN version does not match, profiling for all paths must be re-run
-        or QAIRTVersion(QAIRTVersionEnvvar.get()).api_version
-        != env_dict[QAIRTVersionEnvvar.VARNAME]
+        # if the tool versions do not match, profiling for all paths must be re-run
+        or scorecard_path.tool_versions
+        != ToolVersionsByPathYaml.from_dir(INTERMEDIATES_DIR).tool_versions.get(
+            scorecard_path, ToolVersions()
+        )
     ):
         return None
 
@@ -550,16 +561,15 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
         # No cached profile jobs for this model.
         return None
 
-    results: dict[str | None, ExportResult] = dict()
+    results: dict[str | None, ExportResult] = {}
     for component, job in cached_jobs.items():
-        if status_message := job.get_status().message:
+        if (status_message := job.get_status().message) and (
+            "unexpected device error" in status_message
+            or "Waiting for device timed out" in status_message
+            or "Job timed out" in status_message
+        ):
             # don't use this cached job if it is a random device or timeout failure
-            if (
-                "unexpected device error" in status_message
-                or "Waiting for device timed out" in status_message
-                or "Job timed out" in status_message
-            ):
-                return None
+            return None
 
         res = ExportResult()
         setattr(res, result_attrname, job)
@@ -569,7 +579,7 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
 
 
 def profile_via_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -591,7 +601,8 @@ def profile_via_export(
         Waits for the submitted jobs and asserts success.
         NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Export script function
 
@@ -649,12 +660,14 @@ def profile_via_export(
         )
 
         with (
-            device_patch
-        ), calibration_data_patch, quantize_job_patch, compile_job_patch:
+            device_patch,
+            calibration_data_patch,
+            quantize_job_patch,
+            compile_job_patch,
+        ):
             export_result = _parse_export_result(
                 export_model(
-                    device=device.execution_device_name,
-                    chipset=device.chipset,
+                    device=device.execution_device,
                     precision=precision,
                     skip_downloading=True,
                     skip_profiling=False,
@@ -679,7 +692,7 @@ def profile_via_export(
 
 
 def inference_via_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -701,7 +714,8 @@ def inference_via_export(
         Waits for the submitted jobs and asserts success.
         NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Export script function
 
@@ -742,8 +756,7 @@ def inference_via_export(
     with device_patch, calibration_data_patch, quantize_job_patch, compile_job_patch:
         export_result = _parse_export_result(
             export_model(
-                device=device.execution_device_name,
-                chipset=device.chipset,
+                device=device.execution_device,
                 precision=precision,
                 skip_downloading=True,
                 skip_profiling=True,
@@ -768,7 +781,7 @@ def inference_via_export(
 
 
 def export_test_e2e(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -786,7 +799,8 @@ def export_test_e2e(
         Waits for the submitted jobs and asserts success.
         NOTE: This method will wait infinitely long for running jobs.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Export script function
 
@@ -827,11 +841,14 @@ def export_test_e2e(
 
     # Test export script end to end
     with (
-        device_patch
-    ), calibration_data_patch, quantize_job_patch, compile_job_patch, profile_job_patch:
-        export_model(  # type:ignore[misc]
-            device=device.execution_device_name,
-            chipset=device.chipset,
+        device_patch,
+        calibration_data_patch,
+        quantize_job_patch,
+        compile_job_patch,
+        profile_job_patch,
+    ):
+        export_model(
+            device=device.execution_device,
             precision=precision,
             skip_downloading=True,
             compile_options=scorecard_path.compile_path.get_compile_options(),
@@ -840,7 +857,7 @@ def export_test_e2e(
 
 
 def on_device_inference_for_accuracy_validation(
-    model: type[BaseModel] | type[CollectionModel],
+    model: type[BaseModel | CollectionModel],
     dataset_name: str,
     model_id: str,
     precision: Precision,
@@ -851,7 +868,8 @@ def on_device_inference_for_accuracy_validation(
     Runs an inference job on the given dataset.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         model:
             Model class to run inference on.
 
@@ -916,7 +934,8 @@ def torch_inference_for_accuracy_validation(
     Uploads the results to hub and caches them.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         model:
             Model instance to run inference on.
 
@@ -926,10 +945,9 @@ def torch_inference_for_accuracy_validation(
         model_id:
             Model ID
     """
-    assert isinstance(
-        model, BaseModel
-    ), "This function is not yet supported for CollectionModel."
-
+    assert isinstance(model, BaseModel), (
+        "This function is not yet supported for CollectionModel."
+    )
     # Get the first dim of the first input. This is always the batch size.
     compiled_batch_size = next(iter(model.get_input_spec().values()))[0][0]
 
@@ -950,7 +968,7 @@ def torch_inference_for_accuracy_validation(
     num_batches = inputs[0].shape[0]
     output_names = model.get_output_names()
     outputs: list[list[np.ndarray]] = [[] for _ in output_names]
-    for b in range(0, math.ceil(num_batches / compiled_batch_size)):
+    for b in range(math.ceil(num_batches / compiled_batch_size)):
         # Complete N batches at a time to substantially reduces memory pressure
         # (not all inputs / outputs need to be in memory at once)
         # Without this, scorecard jobs can easily run OOM.
@@ -969,7 +987,7 @@ def torch_inference_for_accuracy_validation(
             model_outputs = [model_outputs]
         for i, output in enumerate(model_outputs):
             outputs[i].append(output.numpy())
-    hub_entries = dict(zip(output_names, outputs))
+    hub_entries = dict(zip(output_names, outputs, strict=False))
     cache_dataset(model_id, "torch_val", hub.upload_dataset(hub_entries))
 
 
@@ -978,11 +996,13 @@ def torch_inference_for_accuracy_validation_outputs(model_id: str) -> list[np.nd
     Fetches torch inference results computed by torch_inference_for_accuracy_validation
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         model_id: str
             Model ID
 
-    Returns:
+    Returns
+    -------
         List of results, in order of output from the torch model.
         [ output_0_array, output_1_array, ... ]
     """
@@ -1007,11 +1027,13 @@ def split_and_group_accuracy_validation_output_batches(
     Converts output generated by torch_inference_for_accuracy_validation_outputs to a different format.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         torch_inference_outputs: list[np.ndarray]
             Return value of torch_inference_for_accuracy_validation_outputs
 
-    Returns:
+    Returns
+    -------
         If torch_inference_outputs is length 1:
             [output_0::batch_0, output_0::batch_1, ...]
 
@@ -1027,21 +1049,19 @@ def split_and_group_accuracy_validation_output_batches(
         output = torch.tensor(torch_inference_outputs[0])
         return list(output.split(1))
 
-    outputs_per_batch = []
     num_batches = len(torch_inference_outputs[0])
-    for batch_idx in range(num_batches):
-        outputs_per_batch.append(
-            tuple(
-                torch.Tensor(output_n[batch_idx]).unsqueeze(0)
-                for output_n in torch_inference_outputs
-            )
+    outputs_per_batch: list[torch.Tensor | tuple[torch.Tensor, ...]] = [
+        tuple(
+            torch.Tensor(output_n[batch_idx]).unsqueeze(0)
+            for output_n in torch_inference_outputs
         )
-
+        for batch_idx in range(num_batches)
+    ]
     return outputs_per_batch
 
 
 def accuracy_on_sample_inputs_via_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model_id: str,
     precision: Precision,
     scorecard_path: ScorecardProfilePath,
@@ -1052,7 +1072,8 @@ def accuracy_on_sample_inputs_via_export(
     Computes accuracy for the given model's sample inputs and saves it to disk.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         export_model: ExportFunc
             Code-generated export function from export.py.
 
@@ -1080,7 +1101,7 @@ def accuracy_on_sample_inputs_via_export(
         calibration_data_patch,
         quantize_job_patch,
         compile_job_patch,
-        profile_job_patch,
+        _,  # profile_job_patch
         inference_job_patch,
     ) = patch_hub_with_cached_jobs(
         model_id,
@@ -1090,7 +1111,7 @@ def accuracy_on_sample_inputs_via_export(
         component_names,
         patch_quantization=True,
         patch_compile=True,
-        patch_profile=True,
+        patch_profile=False,
         patch_inference=True,
     )
 
@@ -1107,13 +1128,15 @@ def accuracy_on_sample_inputs_via_export(
     )
 
     with (
-        device_patch
-    ), (
-        calibration_data_patch
-    ), (
-        quantize_job_patch
-    ), compile_job_patch, profile_job_patch, inference_job_patch, tabulate_patch:
-        export_model(  # type:ignore[misc]
+        device_patch,
+        calibration_data_patch,
+        quantize_job_patch,
+        compile_job_patch,
+        inference_job_patch,
+        tabulate_patch,
+    ):
+        export_model(
+            device=device.execution_device,
             target_runtime=scorecard_path.runtime,
             precision=precision,
             skip_downloading=True,
@@ -1126,7 +1149,7 @@ def accuracy_on_sample_inputs_via_export(
 def _get_dataset_cache_patch(
     dataset_name: str,
     scorecard_path: ScorecardProfilePath,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
 ):
     # Patch input eval dataset to use a cached dataset if it exists
     dataset_dir = get_and_sync_datasets_cache_dir(
@@ -1154,7 +1177,7 @@ def get_num_eval_samples(dataset_name: str) -> int:
 
 
 def accuracy_on_dataset_via_evaluate_and_export(
-    export_model: ExportFunc,  # type:ignore[misc,valid-type]
+    export_model: ExportFunc,
     model: BaseModel | CollectionModel,
     dataset_name: str,
     torch_val_outputs: np.ndarray,
@@ -1168,7 +1191,8 @@ def accuracy_on_dataset_via_evaluate_and_export(
     Computes accuracy for the given model and dataset and saves it to disk.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         export_model:
             Code-generated export function from export.py.
 
@@ -1190,9 +1214,9 @@ def accuracy_on_dataset_via_evaluate_and_export(
         device:
             Scorecard device
     """
-    assert isinstance(
-        model, BaseModel
-    ), "This function is not yet supported for CollectionModel."
+    assert isinstance(model, BaseModel), (
+        "This function is not yet supported for CollectionModel."
+    )
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
     )
@@ -1212,7 +1236,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
             raise_if_not_successful=True,
         )
         if not inference_jobs:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY301
                 str_with_async_test_metadata(
                     "Missing cached inference job",
                     model_id,
@@ -1262,8 +1286,11 @@ def accuracy_on_dataset_via_evaluate_and_export(
     # Run eval script to collect accuracy metrics
     num_samples = get_num_eval_samples(dataset_name)
     with (
-        cache_path_patch
-    ), dataset_download_patch, on_device_call_patch, torch_call_patch:
+        cache_path_patch,
+        dataset_download_patch,
+        on_device_call_patch,
+        torch_call_patch,
+    ):
         inference_job = inference_jobs[None]
         evaluate_result = evaluate_on_dataset(
             compiled_model=inference_job.model,
@@ -1316,7 +1343,8 @@ def accuracy_on_dataset_via_evaluate_and_export(
         inference_job_dataset_download_patch,
         tabulate_patch,
     ):
-        export_model(  # type:ignore[misc]
+        export_model(
+            device=device.execution_device,
             target_runtime=scorecard_path.runtime,
             precision=precision,
             skip_downloading=True,
@@ -1345,7 +1373,8 @@ def torch_accuracy_on_dataset(
     Computes accuracy for the given model on pytorch.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         model:
             Model instance to run inference on.
 
@@ -1401,7 +1430,8 @@ def sim_accuracy_on_dataset(
     Computes accuracy for the given model on quantsim.
     Async testing must be enabled to run this method.
 
-    Parameters:
+    Parameters
+    ----------
         model:
             Model instance to run inference on.
 
@@ -1435,7 +1465,7 @@ def sim_accuracy_on_dataset(
         )
 
     # Create a mock hub.Model that has a producer chain to the quantize job
-    qdq_model = list(quantize_jobs.values())[0].get_target_model()
+    qdq_model = next(iter(quantize_jobs.values())).get_target_model()
     assert qdq_model is not None
     fake_model = mock.MagicMock(spec=hub.Model)
     fake_compile_job = mock.MagicMock(

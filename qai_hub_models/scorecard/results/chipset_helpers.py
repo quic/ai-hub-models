@@ -21,11 +21,7 @@ WEBSITE_CHIPSET_ORDER = [
     "qualcomm-qcs6490-proxy",
     "qualcomm-qcs8250",
     "qualcomm-qcs8250-proxy",
-    "qualcomm-qcs8275"
-    "qualcomm-qcs8275-proxy"
-    "qualcomm-qcs8265p"
-    "qualcomm-qcs8265p-proxy"
-    "qualcomm-qcs8550",
+    "qualcomm-qcs8275qualcomm-qcs8275-proxyqualcomm-qcs8265pqualcomm-qcs8265p-proxyqualcomm-qcs8550",
     "qualcomm-qcs8550-proxy",
     "qualcomm-sa8775p",
     "qualcomm-sa8775p-proxy",
@@ -38,9 +34,7 @@ WEBSITE_CHIPSET_ORDER = [
 
 
 def sorted_chipsets(chips: set[str]) -> list[str]:
-    """
-    Sort the set of chipsets in order they should show up on the website.
-    """
+    """Sort the set of chipsets in order they should show up on the website."""
     chips = set(chips)
 
     out = []
@@ -100,8 +94,8 @@ def get_supported_devices(chips: set[str]) -> list[ScorecardDevice]:
                 ScorecardDevice.get(device.name, return_unregistered=True)
                 for device in hub.get_devices(attributes=f"chipset:{chip}")
                 if "(Family)" not in device.name
-                and "Snapdragon 8 Gen 3 QRD"
-                != device.name  # this is not available to all users
+                and device.name
+                != "Snapdragon 8 Gen 3 QRD"  # this is not available to all users
             }
         supported_devices.update(__CHIP_SUPPORTED_DEVICES_CACHE[chip])
     return sorted_devices(supported_devices)

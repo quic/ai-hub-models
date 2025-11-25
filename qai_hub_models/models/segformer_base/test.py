@@ -37,7 +37,7 @@ def test_task():
 
         # Qualcomm AI Hub Model output
         qaihm_out = qaihm_model(processed_sample_image)
-        for i in range(0, len(source_out)):
+        for i in range(len(source_out)):
             assert np.allclose(source_out[i], qaihm_out[i])
 
 

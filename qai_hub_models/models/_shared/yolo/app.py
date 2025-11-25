@@ -12,7 +12,6 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 from torchvision.transforms import Resize
-from ultralytics.utils.ops import process_mask
 
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess
 from qai_hub_models.utils.bounding_box_processing import batched_nms
@@ -48,7 +47,8 @@ class YoloObjectDetectionApp:
         """
         Initialize a YoloObjectDetectionApp application.
 
-        Parameters:
+        Parameters
+        ----------
             model:
                 Yolo object detection model.
 
@@ -79,9 +79,7 @@ class YoloObjectDetectionApp:
         self.model_includes_postprocessing = model_includes_postprocessing
 
     def check_image_size(self, pixel_values: torch.Tensor) -> None:
-        """
-        Verify image size is valid model input.
-        """
+        """Verify image size is valid model input."""
         raise NotImplementedError
 
     def predict(self, *args, **kwargs):
@@ -101,7 +99,8 @@ class YoloObjectDetectionApp:
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
@@ -112,7 +111,8 @@ class YoloObjectDetectionApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is false or pixel_values_or_image is not a PIL image, returns:
                 images: list[np.ndarray]
                     A list of predicted RGB, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
@@ -125,7 +125,6 @@ class YoloObjectDetectionApp:
                 class_idx: list[torch.tensor]
                     Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
         """
-
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
@@ -144,22 +143,24 @@ class YoloObjectDetectionApp:
             )
 
         # Non Maximum Suppression on each batch
-        pred_boxes, pred_scores, pred_class_idx = batched_nms(
-            self.nms_iou_threshold,
-            self.nms_score_threshold,
-            pred_boxes,
-            pred_scores,
-            pred_class_idx,
+        pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx = (
+            batched_nms(
+                self.nms_iou_threshold,
+                self.nms_score_threshold,
+                pred_boxes,
+                pred_scores,
+                pred_class_idx,
+            )
         )
 
         # Return raw output if requested
         if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
-            print(pred_boxes, pred_scores, pred_class_idx)
-            return (pred_boxes, pred_scores, pred_class_idx)
+            print(pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx)
+            return (pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx)
 
         # Add boxes to each batch
-        for batch_idx in range(len(pred_boxes)):
-            pred_boxes_batch = pred_boxes[batch_idx]
+        for batch_idx in range(len(pred_post_nms_boxes)):
+            pred_boxes_batch = pred_post_nms_boxes[batch_idx]
             for box in pred_boxes_batch:
                 draw_box_from_xyxy(
                     NHWC_int_numpy_frames[batch_idx],
@@ -177,12 +178,14 @@ class YoloObjectDetectionApp:
         """
         Process the output of the YOLO detector for input to NMS.
 
-        Parameters:
+        Parameters
+        ----------
             predictions: torch.Tensor
                 A tuple of tensor outputs from the Yolo detection model.
                 Tensor shapes vary by model implementation.
 
-        Returns:
+        Returns
+        -------
             boxes: torch.Tensor
                 Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
             scores: torch.Tensor
@@ -230,7 +233,8 @@ class YoloSegmentationApp:
         """
         Initialize a YoloSegmentationApp application.
 
-        Parameters:
+        Parameters
+        ----------
             model:
                 Yolo Segmentation model
 
@@ -263,10 +267,8 @@ class YoloSegmentationApp:
         self.input_width = input_width
 
     def check_image_size(self, pixel_values: torch.Tensor) -> bool:
-        """
-        Verify image size is valid model input.
-        """
-        return all([s % 32 == 0 for s in pixel_values.shape[-2:]])
+        """Verify image size is valid model input."""
+        return all(s % 32 == 0 for s in pixel_values.shape[-2:])
 
     def preprocess_input(self, pixel_values: torch.Tensor) -> torch.Tensor:
         img_size = (self.input_height, self.input_width)
@@ -294,7 +296,8 @@ class YoloSegmentationApp:
         """
         From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 PIL image
                 or
@@ -305,7 +308,8 @@ class YoloSegmentationApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is false or pixel_values_or_image is not a PIL image, returns:
                 pred_boxes: list[torch.Tensor]
                     List of predicted boxes for all the batches.
@@ -324,7 +328,6 @@ class YoloSegmentationApp:
                 image_with_masks: list[PIL.Image]
                     Input image with predicted masks applied
         """
-
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
@@ -342,7 +345,12 @@ class YoloSegmentationApp:
         )
 
         # Non Maximum Suppression on each batch
-        pred_boxes, pred_scores, pred_class_idx, pred_masks = batched_nms(
+        (
+            pred_post_nms_boxes,
+            pred_post_nms_scores,
+            pred_post_nms_class_idx,
+            pred_post_nms_masks,
+        ) = batched_nms(
             self.nms_iou_threshold,
             self.nms_score_threshold,
             pred_boxes,
@@ -352,18 +360,20 @@ class YoloSegmentationApp:
         )
 
         # Process mask and upsample to input shape
-        for batch_idx in range(len(pred_masks)):
-            pred_masks[batch_idx] = process_mask(
+        from ultralytics.utils.ops import process_mask
+
+        for batch_idx in range(len(pred_post_nms_masks)):
+            pred_post_nms_masks[batch_idx] = process_mask(
                 proto[batch_idx],
-                pred_masks[batch_idx],
-                pred_boxes[batch_idx],
+                pred_post_nms_masks[batch_idx],
+                pred_post_nms_boxes[batch_idx],
                 (self.input_height, self.input_width),
                 upsample=True,
             ).numpy()
 
         # Resize masks to match with input image shape
-        pred_masks = F.interpolate(
-            input=torch.Tensor(pred_masks),
+        pred_post_nms_resized_masks: torch.Tensor = F.interpolate(
+            input=torch.Tensor(pred_post_nms_masks),
             size=(input_h, input_w),
             mode="bilinear",
             align_corners=False,
@@ -371,10 +381,15 @@ class YoloSegmentationApp:
 
         # Return raw output if requested
         if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
-            return (pred_boxes, pred_scores, pred_masks, pred_class_idx)
+            return (
+                pred_post_nms_boxes,
+                pred_post_nms_scores,
+                list(pred_post_nms_resized_masks),
+                pred_post_nms_class_idx,
+            )
 
         # Create color map and convert segmentation mask to RGB image
-        pred_mask_img = torch.argmax(pred_masks, 1)
+        pred_mask_img = torch.argmax(pred_post_nms_resized_masks, 1)
 
         # Overlay the segmentation masks on the image.
         color_map = create_color_map(pred_mask_img.max().item() + 1)

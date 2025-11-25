@@ -18,20 +18,32 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 
 Install the package via pip:
 ```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
 pip install "qai-hub-models[llama-v3-1-8b-instruct]"
 ```
 
-Note: GPU is unnecessary if you wish to only export the model for on-device deployment.
+For llama_v3_1_8b_instruct, some additional functionality can be faster or is availiable
+only with a GPU on the host machine.
 
-For llama_v3_1_8b_instruct, a dedicated CUDA enabled GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is needed to quantize the model on your local machine. GPU can also increase the speed of evaluation and demo of your quantized model significantly.
+- 🟢 Exporting the model for on-device deployment (GPU not required)
+- 🟡 Running the demo (GPU recommended for speed, but not required)
+- 🟡 Running evaluation (GPU recommended for speed, but not required)
+- 🔴 Quantizing the model (GPU required)
+
+If you are quantizing your own variant of llama_v3_1_8b_instruct, a dedicated CUDA enabled
+GPU (40 GB VRAM for 3B models to 80 GB VRAM for 8B models) is recommended. A GPU
+can also increase the speed of evaluation and demo of your quantized model
+significantly but it not strictly required.
+
 Install the GPU package via pip:
 ```bash
-pip install "qai-hub-models[llama-v3-1-8b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.10.0/aimet_onnx-2.10.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install "qai-hub-models[llama-v3-1-8b-instruct]" onnxruntime-gpu==1.22 https://github.com/quic/aimet/releases/download/2.14.0/aimet_onnx-2.14.0+cu121-cp310-cp310-manylinux_2_34_x86_64.whl -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.llama_v3_1_8b_instruct.demo
@@ -43,7 +55,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

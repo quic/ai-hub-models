@@ -12,6 +12,7 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest import mock
 
 import numpy as np
@@ -92,21 +93,22 @@ def assert_most_same(arr1: np.ndarray, arr2: np.ndarray, diff_tol: float) -> Non
 
     Instead of using np.assert_allclose, this may be a better way to test image outputs.
 
-    Parameters:
+    Parameters
+    ----------
         arr1: First input image array.
         arr2: Second input image array.
         diff_tol: Float in range [0,1] representing percentage of values
             that can be different while still having the assertion pass.
 
-    Raises:
+    Raises
+    ------
         AssertionError if input arrays are different size,
             or too many values are different.
     """
-
     different_values = arr1 != arr2
-    assert (
-        np.mean(different_values) <= diff_tol
-    ), f"More than {diff_tol * 100}% of values were different."
+    assert np.mean(different_values) <= diff_tol, (
+        f"More than {diff_tol * 100}% of values were different."
+    )
 
 
 def assert_most_close(
@@ -124,7 +126,8 @@ def assert_most_close(
 
     Instead of using np.assert_allclose, this may be a better way to test image outputs.
 
-    Parameters:
+    Parameters
+    ----------
         arr1: First input image array.
         arr2: Second input image array.
         diff_tol: Float in range [0,1] representing percentage of values
@@ -134,15 +137,15 @@ def assert_most_close(
             `absolute(a - b) <= (atol + rtol * absolute(b))`
             Documentation copied from `np.isclose`.
 
-    Raises:
+    Raises
+    ------
         AssertionError if input arrays are different size,
             or too many values are not close.
     """
-
     not_close_values = ~np.isclose(arr1, arr2, atol=atol, rtol=rtol)
-    assert (
-        np.mean(not_close_values) <= diff_tol
-    ), f"More than {diff_tol * 100}% of values were not close."
+    assert np.mean(not_close_values) <= diff_tol, (
+        f"More than {diff_tol * 100}% of values were not close."
+    )
 
 
 def mock_on_device_model_call(inference_job: hub.InferenceJob) -> Callable:
@@ -183,7 +186,7 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
 
 def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
     psnr_values = []
-    for i, (_, value) in enumerate(df.iterrows()):
+    for _, value in df.iterrows():
         psnr_values.append(value.psnr)
     return psnr_values, tabulate(df, **kwargs)  # pyright: ignore[reportArgumentType]
 
@@ -192,8 +195,42 @@ def get_and_sync_datasets_cache_dir(
     has_channel_transpose: bool,
     dataset_name: str,
     samples_per_job: int,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
 ) -> Path:
+    """
+    Write the validation input and gt hub dataset ids to a file to be
+    used by utils/evaluate.py
+
+    This avoids having the script re-uploading the validation dataset for each
+    model, which is the default behavior.
+
+    While the dataset ids are already cached in dataset-ids.yaml, the cache used
+    by this utility expects a different format. The directory structure is:
+
+    hub_datasets{_nt}/
+        {dataset_name}_{input_spec_hash}/
+            samples_per_job_{num_samples}.txt  # Contains input and gt hub dataset ids
+            cache/
+                current_samples_per_job.txt  # Contains a single number of how many samples per job
+                dataset-dxxxx.h5  # Raw data of what was uploaded to hub for input
+                dataset-dyyyy.h5  # Raw data of what was uploaded to hub for gt
+
+    Parameters
+    ----------
+    has_channel_transpose
+        Whether the input data should have the channel last transpose applied
+    dataset_name
+        Name of the dataset
+    samples_per_job
+        Number of samples in each hub dataset. Since we only run one inference job
+        per model, this is also equivalent to the overall total number of evaluation samples.
+    model_cls
+        Class of the model being evaluated. Needed to get the input spec.
+
+    Returns
+    -------
+    Path to dataset cache
+    """
     folder_name = "hub_datasets"
     if not has_channel_transpose:
         folder_name += "_nt"
@@ -240,8 +277,34 @@ def get_and_sync_datasets_cache_dir(
 
 
 def mock_get_calibration_data(
-    model: BaseModel, input_spec: InputSpec, num_samples: int
+    model: BaseModel,
+    input_spec: InputSpec,
+    num_samples: int,
+    app: Any = None,
+    collection_model: CollectionModel | None = None,
 ) -> hub.Dataset:
+    """
+    Gets the calibration data needed to quantize the input model.
+
+    Since many models use the same calibration data, we save the hub dataset
+    id to a file and re-use it across models to avoid re-uploading the same data
+    to hub.
+
+    Each dataset is uniquely identified by the dataset name and input spec.
+
+    Parameters
+    ----------
+    model
+        Pytorch model to get calibration data
+    input_spec
+        Model input spec
+    num_samples
+        Number of samples used to calibrate
+
+    Returns
+    -------
+        Hub dataset object that was uploaded
+    """
     cache_prefix_name = model.calibration_dataset_name() or model.__class__.__name__
     cache_prefix = get_folder_name(cache_prefix_name, input_spec)
     cache_key = cache_prefix + "_train"
@@ -249,7 +312,9 @@ def mock_get_calibration_data(
     dataset_ids = load_yaml(dataset_ids_file)
     if dataset_ids and cache_key in dataset_ids:
         return hub.get_dataset(dataset_ids[cache_key])
-    dataset = get_calibration_data(model, input_spec, num_samples)
+    dataset = get_calibration_data(
+        model, input_spec, num_samples, app=app, collection_model=collection_model
+    )
     hub_dataset = hub.upload_dataset(dataset)
     append_line_to_file(dataset_ids_file, f"{cache_key}: {hub_dataset.dataset_id}")
     return hub_dataset
@@ -258,6 +323,25 @@ def mock_get_calibration_data(
 def get_val_dataset_id_keys(
     dataset_name: str, apply_channel_transpose: bool
 ) -> tuple[str, str]:
+    """
+    Gets the keys used to store the hub dataset id in a yaml file.
+
+    This gives the keys for the validation split used to compute accuracy.
+
+    Some runtimes have channel transpose applied while others don't, so
+    we need separate hub datasets for each.
+
+    Parameters
+    ----------
+    dataset_name
+        Name of dataset to get keys
+    apply_channel_transpose
+        Whether to apply channel last transpose to input data
+
+    Returns
+    -------
+    Tuple of dataset id key for input and ground truth
+    """
     base_name = f"{dataset_name}_val_"
     if not apply_channel_transpose:
         base_name += "nt_"  # no transpose
@@ -267,7 +351,7 @@ def get_val_dataset_id_keys(
 def get_hub_val_dataset(
     dataset_name: str,
     ids_file: Path,
-    model_cls: type[BaseModel] | type[CollectionModel],
+    model_cls: type[BaseModel | CollectionModel],
     apply_channel_transpose: bool,
     num_samples: int | None = None,
 ) -> hub.Dataset:
@@ -286,19 +370,25 @@ def get_hub_val_dataset(
     representative model. The assumption being that all models using this dataset
     have the same values for both of those things.
 
-    Parameters:
-        dataset_name: Name of the dataset. Dataset must be registered in
-            qai_hub_models.datasets.__init__.py
-        ids_file: Path to file where dataset ids are stored.
-        model_cls: The model class using this data. Used to determine input spec
-            and channel last inputs.
-        apply_channel_transpose: If False, returns all inputs in channel first format.
-            If True, applies channel last transpose for the inputs specified by the model.
-        num_samples: Number of samples to sample from the full dataset.
+    Parameters
+    ----------
+    dataset_name
+        Name of the dataset. Dataset must be registered in
+        qai_hub_models.datasets.__init__.py
+    ids_file
+        Path to file where dataset ids are stored.
+    model_cls
+        The model class using this data. Used to determine input spec
+        and channel last inputs.
+    apply_channel_transpose
+        If False, returns all inputs in channel first format.
+        If True, applies channel last transpose for the inputs specified by the model.
+    num_samples
+        Number of samples to sample from the full dataset.
     """
-    assert issubclass(
-        model_cls, BaseModel
-    ), "CollectionModel is not yet supported by this function."
+    assert issubclass(model_cls, BaseModel), (
+        "CollectionModel is not yet supported by this function."
+    )
     dataset_ids = load_yaml(ids_file)
     input_spec = model_cls.get_input_spec()
     folder_name = get_folder_name(dataset_name, input_spec)
@@ -319,6 +409,17 @@ def get_hub_val_dataset(
     append_line_to_file(ids_file, f"{input_key}: {input_dataset.dataset_id}")
     append_line_to_file(ids_file, f"{gt_key}: {gt_dataset.dataset_id}")
     return input_dataset
+
+
+def allow_few_test_devices_for_llms(
+    target_runtime: TargetRuntime, device: ScorecardDevice
+) -> None:
+    if not target_runtime.is_aot_compiled:
+        pytest.skip("AIMET model currently runs on precompiled targets")
+    if device.name != "cs_x_elite":
+        pytest.skip(
+            "Running the tests for the model only on a few devices to save CI time."
+        )
 
 
 @contextlib.contextmanager
@@ -408,8 +509,12 @@ def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     )
 
     with (
-        patch_hub_compile
-    ), patch_hub_profile, patch_hub_inference, patch_hub_link, patch_hub_quantize:
+        patch_hub_compile,
+        patch_hub_profile,
+        patch_hub_inference,
+        patch_hub_link,
+        patch_hub_quantize,
+    ):
         # Yield mocks to allow assertions
         yield SimpleNamespace(
             submit_compile_job=mock_submit_compile_job,
@@ -425,11 +530,13 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
     Check whether the 'get_unsupported_reason' attribute is defined in the given class
     or any of its parent classes up to (but not including) any class in stop_at_classes.
 
-    Parameters:
+    Parameters
+    ----------
         cls (type): The class to check.
         stop_at_classes (list[type]): A list of classes at which to stop the search in the MRO.
 
-    Returns:
+    Returns
+    -------
         bool: True if 'get_unsupported_reason' is found in cls or one of its parent classes
               before reaching any of the stop_at_classes; False otherwise.
     """
@@ -442,25 +549,26 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
 
 
 def _skip_if_unsupported_reason(
-    model_cls: type[BaseModel] | type[BasePrecompiledModel],
+    model_cls: type[BaseModel | BasePrecompiledModel],
     runtime: TargetRuntime,
     device: ScorecardDevice,
 ):
     if not has_get_unsupported_reason(model_cls, [BaseModel, BasePrecompiledModel]):
         return
     # check get_unsupported_reason
+    model: BaseModel | BasePrecompiledModel
     if issubclass(model_cls, BaseModel):
         model = model_cls.from_pretrained()
     else:
-        model = model_cls.from_precompiled()  # type: ignore
+        model = model_cls.from_precompiled()
     hub_device = device.execution_device
-    reason = model.get_unsupported_reason(runtime, hub_device)  # type: ignore
+    reason = model.get_unsupported_reason(runtime, hub_device)
     if reason:
         pytest.xfail(reason)
 
 
 def skip_invalid_runtime_device(
-    model_cls: type[BaseModel] | type[BasePrecompiledModel] | type[CollectionModel],
+    model_cls: type[BaseModel | BasePrecompiledModel | CollectionModel],
     runtime: TargetRuntime,
     device: ScorecardDevice,
 ) -> None:

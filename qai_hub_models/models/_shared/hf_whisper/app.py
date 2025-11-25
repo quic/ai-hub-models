@@ -91,14 +91,15 @@ class HfWhisperApp:
         """
         Transcribe an audio chunk to text.
 
-        Parameters:
-
+        Parameters
+        ----------
         audio: numpy array
             A numpy array of audio of shape (number of samples).
             The sample rate of this audio must be self.sample_rate.
             The maximum length of this audio must be self.max_audio_samples.
 
-        Returns:
+        Returns
+        -------
             list of token ids
         """
         # feature
@@ -172,10 +173,11 @@ class HfWhisperApp:
 
             # decode and update kv_cache_self
             decoder_input = (
-                (input_ids, attention_mask)
-                + flattened_kv_cache_self
-                + flattened_kv_cache_cross
-                + (position_ids,)
+                input_ids,
+                attention_mask,
+                *flattened_kv_cache_self,
+                *flattened_kv_cache_cross,
+                position_ids,
             )
             decoder_output = self.decoder(*decoder_input)
             if isinstance(decoder_output, tuple) and len(decoder_output) == 2:
@@ -207,7 +209,8 @@ class HfWhisperApp:
         """
         Stream audio from the given audio device and transcribe in real time.
 
-        Parameters:
+        Parameters
+        ----------
             device:
                 Audio device (see. sounddevice.query_devices())
             audio_chunk_size_seconds:

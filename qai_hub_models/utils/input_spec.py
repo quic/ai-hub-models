@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import torch
 
@@ -21,11 +19,12 @@ InputSpec = dict[str, tuple[tuple[int, ...], str]]
 def str_to_torch_dtype(s):
     return dict(
         int32=torch.int32,
+        int64=torch.int64,
         float32=torch.float32,
     )[s]
 
 
-def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> list[torch.Tensor]:
+def make_torch_inputs(spec: InputSpec, seed: int | None = 42) -> list[torch.Tensor]:
     """Make sample torch inputs from input spec"""
     torch_input = []
     generator = None
@@ -34,7 +33,7 @@ def make_torch_inputs(spec: InputSpec, seed: Optional[int] = 42) -> list[torch.T
         generator.manual_seed(seed)
     for sp in spec.values():
         torch_dtype = str_to_torch_dtype(sp[1])
-        if sp[1] in {"int32"}:
+        if sp[1] in {"int32", "int64"}:
             t = torch.randint(10, sp[0], generator=generator).to(torch_dtype)
         else:
             t = torch.rand(sp[0], generator=generator).to(torch_dtype)

@@ -14,16 +14,12 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.resnet101 import MODEL_ID, Model
 from qai_hub_models.models.resnet101.export import export_model
-from qai_hub_models.utils.args import (
-    evaluate_parser,
-    get_model_kwargs,
-    validate_precision_runtime,
-)
+from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
 
 
-def main(restrict_to_precision: Precision | None = None):
+def main():
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
@@ -38,14 +34,10 @@ def main(restrict_to_precision: Precision | None = None):
             TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }
-
-    if restrict_to_precision:
-        supported_precision_runtimes = {
-            restrict_to_precision: supported_precision_runtimes[restrict_to_precision]
-        }
 
     parser = evaluate_parser(
         model_cls=Model,
@@ -53,20 +45,19 @@ def main(restrict_to_precision: Precision | None = None):
         supported_precision_runtimes=supported_precision_runtimes,
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, args.precision, args.target_runtime
-    )
+    device: hub.Device = args.device or hub.Device("Samsung Galaxy S25 (Family)")
 
     if len(eval_datasets) == 0:
         print(
             "Model does not have evaluation dataset specified. Evaluating PSNR on a single sample."
         )
         export_model(
-            device=getattr(args, "device", None),
-            chipset=args.chipset,
+            device=device,
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
+            compile_options=args.compile_options,
+            profile_options=args.profile_options,
             **get_model_kwargs(Model, vars(args)),
         )
         return
@@ -77,12 +68,11 @@ def main(restrict_to_precision: Precision | None = None):
         hub_model = compile_model_from_args(
             MODEL_ID, args, get_model_kwargs(Model, vars(args))
         )
-    hub_device: hub.Device = args.hub_device
     torch_model = Model.from_pretrained(**get_model_kwargs(Model, vars(args)))
     evaluate_on_dataset(
         hub_model,
         torch_model,
-        hub_device,
+        device,
         args.dataset_name,
         args.samples_per_job,
         args.num_samples,

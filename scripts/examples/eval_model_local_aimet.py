@@ -30,35 +30,33 @@ from qai_hub_models.utils.evaluate import (
     get_deterministic_sample,
 )
 from qai_hub_models.utils.input_spec import make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 from qai_hub_models.utils.qai_hub_helpers import download_model_in_memory
 
 QUANT_RESULTS_PATH = os.environ.get("QUANT_RESULTS_PATH", os.path.expanduser("~"))
 RESULTS_FOLDER = Path(QUANT_RESULTS_PATH) / "quant_debug"
-HIGHER_PRECISION_FOR_MIXED_PRECISION = "w16a16"
+HIGHER_PRECISION_FOR_MIXED_PRECISION = "float16"
 
 
 def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
     tensors = make_torch_inputs(input_spec)
-    dummy_inputs = dict()
+    dummy_inputs = {}
     for index, input_name in enumerate(input_spec):
         dummy_inputs[input_name] = tensors[index].numpy()
     return dummy_inputs
 
 
 def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader):
-    for i, sample in enumerate(dataloader):
-        model_inputs, ground_truth_values, *_ = sample
-        for j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+    for sample in dataloader:
+        model_inputs, _ground_truth_values, *_ = sample
+        for _j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
             torch_input = model_input.unsqueeze(0)
             mock_torch_onnx_inference(session, torch_input)
 
 
 def _compute_snr(expected: np.array, actual: np.array):
-    """
-    Computes the SNR for two signals where the noise is defined as expected - actual
-    """
+    """Computes the SNR for two signals where the noise is defined as expected - actual"""
     data_range = np.abs(expected).max()
     noise_pw = np.sum(np.power(expected - actual, 2))
     noise_pw /= actual.size
@@ -76,10 +74,10 @@ def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
     fp_outputs = []
     fp_inputs = []
     inputs, _ = next(iter(dataloader))
-    for index, input in enumerate(inputs):
+    for index, inp in enumerate(inputs):
         if index >= num_samples:
             break
-        torch_input = input.unsqueeze(0)
+        torch_input = inp.unsqueeze(0)
         fp_inputs.append(torch_input)
         fp_outputs.append(mock_torch_onnx_inference(fp_session, torch_input))
 
@@ -88,9 +86,7 @@ def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
 
 def _eval_accuracy(session, args):
     fp_inputs, fp_outputs = args
-    quantized_outputs = []
-    for input in fp_inputs:
-        quantized_outputs.append(mock_torch_onnx_inference(session, input))
+    quantized_outputs = [mock_torch_onnx_inference(session, i) for i in fp_inputs]
     snrs = []
     num_outputs = len(quantized_outputs[0])
     num_outputs = 1
@@ -137,7 +133,7 @@ def _create_aimet_quantsim(
         _calibration_forward_pass(sim.session, dataloader)
 
     # Export to QDQ
-    onnx_qdq_model = sim._to_onnx_qdq()
+    onnx_qdq_model = sim.to_onnx_qdq()
     onnx.save(
         onnx_qdq_model, str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx")
     )
@@ -153,7 +149,6 @@ def _create_aimet_quantsim(
 def flip_layers_to_higher_precision(
     sim, sqnr_dict: dict, percent_to_flip: int = 10, higher_precision: str = "float"
 ):
-
     sqnr_list = sorted(sqnr_dict.items(), key=lambda item: item[1])
     sqnr_list = sqnr_list[: math.ceil(len(sqnr_list) * percent_to_flip / 100)]
     cg_ops = sim.connected_graph.get_all_ops()
@@ -192,14 +187,14 @@ def evaluate_and_save_results(session, model, num_samples, overall_results, tag)
 
 
 def run_quant_analyzer(onnx_model, sim, eval_callback, input_spec, results_dir):
-
     # Check if we can use cached results
     if (
         Path(results_dir).is_dir()
         and Path(f"{results_dir}/per_layer_quant_enabled.json").is_file()
     ):
         print(f"Skipping QuantAnalyzer and using cached results from {results_dir}")
-        sqnr_dict = json.load(open(f"{results_dir}/per_layer_quant_enabled.json"))
+        with open(f"{results_dir}/per_layer_quant_enabled.json") as qf:
+            sqnr_dict = json.load(qf)
 
     else:
         analyzer = quant_analyzer.QuantAnalyzer(
@@ -230,7 +225,7 @@ def debug_quant_accuracy(
     percent_layers_to_flip: int = 0,
     num_samples: int = 200,
 ):
-    overall_results = dict()
+    overall_results = {}
 
     print("\n=======================================")
     print(f"Processing Model: {model_name}")
@@ -258,7 +253,7 @@ def debug_quant_accuracy(
         calibration_dataset_name = model.eval_datasets()[0]
     assert calibration_dataset_name is not None
     model_calibration_data = get_dataset_from_name(
-        calibration_dataset_name, DatasetSplit.VAL
+        calibration_dataset_name, DatasetSplit.VAL, input_spec
     )
     samples_per_job = model_calibration_data.default_samples_per_job()
     dataloader = get_deterministic_sample(model_calibration_data, 100, samples_per_job)
@@ -302,7 +297,7 @@ def debug_quant_accuracy(
     # w8a8
     # -----------
     if eval_w8a8:
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 8, quant_scheme, dataloader
         )
 
@@ -313,7 +308,6 @@ def debug_quant_accuracy(
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
-
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,
@@ -336,7 +330,7 @@ def debug_quant_accuracy(
                 _calibration_forward_pass(sim.session, dataloader)
 
             # Export to QDQ
-            onnx_qdq_model = sim._to_onnx_qdq()
+            onnx_qdq_model = sim.to_onnx_qdq()
             onnx.save(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
@@ -352,7 +346,7 @@ def debug_quant_accuracy(
     # -----------
     if eval_w816:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 16, quant_scheme, dataloader
         )
 
@@ -385,7 +379,7 @@ def debug_quant_accuracy(
                 _calibration_forward_pass(sim.session, dataloader)
 
             # Export to QDQ
-            onnx_qdq_model = sim._to_onnx_qdq()
+            onnx_qdq_model = sim.to_onnx_qdq()
             onnx.save(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
@@ -401,7 +395,7 @@ def debug_quant_accuracy(
     # -----------
     if eval_w16a16:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, qdq_session = _create_aimet_quantsim(
+        sim, _qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 16, 16, quant_scheme, dataloader
         )
 
@@ -414,7 +408,7 @@ def debug_quant_accuracy(
         try:
             results_dict = json.load(f)
         except json.decoder.JSONDecodeError:
-            results_dict = dict()
+            results_dict = {}
 
         results_dict.update(overall_results)
         overall_results = results_dict
@@ -426,7 +420,6 @@ def debug_quant_accuracy(
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(
         description="Use AIMET QuantSim locally to debug accuracy bottlenecks for given models"
     )
@@ -480,11 +473,12 @@ if __name__ == "__main__":
     models_to_analyze = args.models.split(",")
 
     try:
-        results = json.load(open(OVERALL_RESULTS_FILE))
+        with open(OVERALL_RESULTS_FILE) as resf:
+            results = json.load(resf)
         print(f"Found existing results file, appending: {OVERALL_RESULTS_FILE}")
     except json.decoder.JSONDecodeError:
         print(f"Creating new results file: {OVERALL_RESULTS_FILE}")
-        results = dict()
+        results = {}
 
     for model in models_to_analyze:
         try:

@@ -16,7 +16,10 @@ from qai_hub_models.models._shared.llama3.model import (
     Llama3Base,
     Llama3Base_AIMETOnnx,
 )
-from qai_hub_models.models._shared.llm.model import determine_precision_from_checkpoint
+from qai_hub_models.models._shared.llm.common import LLMIOType
+from qai_hub_models.models._shared.llm.model import (
+    determine_precision_from_checkpoint,
+)
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
@@ -37,7 +40,7 @@ HF_REPO_NAME = "taide/Llama3-TAIDE-LX-8B-Chat-Alpha1"
 HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
-MIN_MEMORY_RECOMMENDED = 80
+MIN_MEMORY_RECOMMENDED = 150
 
 DEFAULT_PRECISION = Precision.w4a16
 SUPPORTED_PRECISIONS = [Precision.w4a16]
@@ -55,7 +58,7 @@ class Llama3_TAIDE(Llama3Base):
     ):
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -80,7 +83,7 @@ class Llama3_TAIDE(Llama3Base):
         _skip_optimizations: list[str] | None = None,
     ) -> Llama3_TAIDE:
         """
-        Load a pre-trained Llama-SEA-LION-v3.5-8B-R model via HuggingFace.
+        Load a pre-trained Llama-3-TAIDE model via HuggingFace.
 
         checkpoint:
             Local path or Hugging Face name of floating point checkpoint.
@@ -98,7 +101,6 @@ class Llama3_TAIDE(Llama3Base):
             depend on the use case.
         _skip_optimizations: List of optimizations to skip.
         """
-
         return cls(
             checkpoint=checkpoint,
             sequence_length=sequence_length,
@@ -117,6 +119,7 @@ class Llama3_TAIDE(Llama3Base):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -125,6 +128,7 @@ class Llama3_TAIDE(Llama3Base):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            llm_io_type=llm_io_type,
         )
 
 
@@ -132,7 +136,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
             checkpoint=checkpoint,  # type: ignore[misc]
-            *args,
+            *args,  # noqa: B026
             **kwargs,
         )
 
@@ -151,8 +155,8 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
-        Args:
-
+        Parameters
+        ----------
         - checkpoint: Path to previously calibrated AIMET encodings and ONNX
           models. Note that encodings are sensitive to AIMET ONNX versions.
           If passing None, initializes without encodings.
@@ -162,13 +166,13 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
             if precision not in SUPPORTED_PRECISIONS:
                 available_precisions = [str(p) for p in SUPPORTED_PRECISIONS]
                 raise ValueError(
-                    f"This model is not supported for {str(precision)} precision. "
+                    f"This model is not supported for {precision!s} precision. "
                     f"Models are available in following precisions: {','.join(available_precisions)}."
                 )
             if precision not in DEFAULT_CHECKPOINT:
                 available_checkpoints = [str(p) for p in DEFAULT_CHECKPOINT]
                 raise ValueError(
-                    f"No checkpoint is available for this model in {str(precision)} precision. If you would "
+                    f"No checkpoint is available for this model in {precision!s} precision. If you would "
                     f"like to continue with this precision, please generate a local quantized checkpoint. "
                     f"Checkpoints are available in the following precisions: {','.join(available_checkpoints)}."
                 )
@@ -187,6 +191,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
                     context_length=context_length,
                     export_sequence_lengths=[sequence_length],
                     host_device=host_device,
+                    llm_io_type=fp_model.llm_io_type,
                 )
 
                 cls.save_tokenizer_and_config(checkpoint=checkpoint, fp_model=fp_model)
@@ -209,6 +214,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         llm_config: dict,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
@@ -217,4 +223,5 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            llm_io_type=llm_io_type,
         )

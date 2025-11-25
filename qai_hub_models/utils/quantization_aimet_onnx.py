@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-"""
-Items defined in this file require that AIMET-ONNX be installed.
-"""
+"""Items defined in this file require that AIMET-ONNX be installed."""
 
 from __future__ import annotations
 
@@ -17,6 +15,7 @@ try:
     aimet_onnx_is_installed = True
 except (ImportError, ModuleNotFoundError):
     aimet_onnx_is_installed = False
+import contextlib
 import gc
 import os
 import shutil
@@ -29,7 +28,6 @@ from typing import Any
 import torch
 from packaging import version
 from qai_hub.client import DatasetEntries
-from torch.utils.data import DataLoader
 from tqdm.autonotebook import tqdm
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader
@@ -38,10 +36,11 @@ from qai_hub_models.models.protocols import PretrainedHubModelProtocol
 from qai_hub_models.utils.aimet.aimet_dummy_model import zip_aimet_model
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, qaihm_temp_dir
 from qai_hub_models.utils.base_model import Precision
-from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+from qai_hub_models.utils.dataset_util import DataLoader, dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.onnx_helpers import kwargs_to_dict, mock_torch_onnx_inference
-from qai_hub_models.utils.onnx_torch_wrapper import OnnxSessionTorchWrapper
+from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
+from qai_hub_models.utils.onnx.torch_wrapper import OnnxSessionTorchWrapper
+from qai_hub_models.utils.runtime_torch_wrapper import kwargs_to_dict
 
 
 def ensure_aimet_onnx_installed(
@@ -67,6 +66,10 @@ def ensure_aimet_onnx_installed(
             else:
                 errstr += "Run "
             errstr += f"`pip install {install_target}` to install the correct version of AIMET-ONNX."
+
+        if model_id is not None:
+            errstr += f"\nAlternatively, for model export, you may run `python -m qai_hub_models.models.{model_id}.export.py --fetch-static-assets` to fetch pre-compiled assets for this model."
+
         raise RuntimeError(errstr)
 
 
@@ -74,8 +77,8 @@ def ensure_min_aimet_onnx_version(expected_version: str, model_id: str | None = 
     ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
-            f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {str(aimet_onnx.__version__)}\n"
-            f"Please run `pip install transformers=={expected_version}`"
+            f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {aimet_onnx.__version__!s}\n"
+            f"Please run `pip install aimet-onnx=={expected_version}`"
         )
 
 
@@ -83,7 +86,7 @@ def ensure_max_aimet_onnx_version(expected_version: str, model_id: str | None = 
     ensure_aimet_onnx_installed(expected_version, model_id)
     if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
         raise RuntimeError(
-            f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {str(aimet_onnx.__version__)}\n"
+            f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {aimet_onnx.__version__!s}\n"
             f"Please run `pip install transformers=={expected_version}`"
         )
 
@@ -118,9 +121,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     ):
         self.quant_sim = quant_sim
         if self.quant_sim is not None:
-            self.input_names = [
-                input.name for input in self.quant_sim.session.get_inputs()
-            ]
+            self.input_names = [i.name for i in self.quant_sim.session.get_inputs()]
             self.output_names = [
                 output.name for output in self.quant_sim.session.get_outputs()
             ]
@@ -139,8 +140,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         num_samples: int | None = None,
     ) -> DatasetEntries | None:
         """
-        Args:
-
+        Parameters
+        ----------
         num_samples: None to use all. Specify `num_samples` to use fewer. If
         `num_samples` are more than available, use all available (same
         behavior as None)
@@ -150,9 +151,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
     @classmethod
     def get_calibrated_aimet_model(cls) -> tuple[str, str]:
-        """
-        Returns .onnx and .encodings paths
-        """
+        """Returns .onnx and .encodings paths"""
         if not cls.model_id or cls.model_asset_version == -1:
             raise ValueError("model_id and model_asset_version must be defined")
 
@@ -164,14 +163,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             cls.model_asset_version,
             str(subfolder / "model.onnx"),
         ).fetch()
-        try:
+        with contextlib.suppress(Exception):
             _ = CachedWebModelAsset.from_asset_store(
                 cls.model_id,
                 cls.model_asset_version,
                 str(subfolder / "model.data"),
             ).fetch()
-        except Exception:
-            pass  # ignore. No external weight.
         aimet_encodings = CachedWebModelAsset.from_asset_store(
             cls.model_id,
             cls.model_asset_version,
@@ -186,8 +183,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         input_names = [inp.name for inp in self.quant_sim.session.get_inputs()]
 
         onnx_data = []
-        for i, batch in tqdm(enumerate(data), total=num_batches):
-            onnx_data.append(
+        for batch in tqdm(data, total=num_batches):
+            onnx_data.append(  # noqa: PERF401
                 {
                     k: v.cpu().detach().numpy()
                     for k, v in kwargs_to_dict(input_names, *batch).items()
@@ -200,7 +197,9 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         assert self.quant_sim is not None
 
         def _forward(session, _):
-            wrapper = OnnxSessionTorchWrapper(session, quantize_io=False)
+            wrapper = OnnxSessionTorchWrapper(
+                session, quantize_user_input=None, dequantize_model_output=None
+            )
             assert data.batch_size is not None
             for i, batch in tqdm(enumerate(data), total=num_batches):
                 if num_batches and i * data.batch_size >= num_batches:
@@ -216,17 +215,17 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         # TODO: Update AIMET-ONNX version for Stable Diffision.
         # Updae the calibration API to not use the forward calback
-        self.quant_sim.compute_encodings(_forward, tuple())
+        self.quant_sim.compute_encodings(_forward, ())
 
     def quantize(
         self,
-        data: _DataLoader | None = None,
+        data: DataLoader | None = None,
         num_samples: int | None = None,
         use_seq_mse: bool = False,
     ) -> None:
         """
-        Args:
-
+        Parameters
+        ----------
         - data: If None, create data loader from get_calibration_data(), which
         must be implemented.
         """
@@ -234,8 +233,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
             calib_data = self.get_calibration_data()
             if calib_data is None:
                 raise ValueError(
-                    "`data` must be specified if "
-                    "get_calibration_data is not defined."
+                    "`data` must be specified if get_calibration_data is not defined."
                 )
             data = dataset_entries_to_dataloader(calib_data)
 
@@ -253,7 +251,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         data = self.get_calibration_data()
         if data is None:
             # Fallback to BaseModel's impl
-            data = super()._sample_inputs_impl(input_spec)  # type: ignore
+            data = self._sample_inputs_impl(input_spec)
         assert isinstance(data, dict)
         return data
 
@@ -262,16 +260,12 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         *args: torch.Tensor,
         **kwargs: torch.Tensor,
     ) -> torch.Tensor | Collection[torch.Tensor]:
-        """
-        QuantSim forward pass with torch.Tensor
-        """
+        """QuantSim forward pass with torch.Tensor"""
         assert self.quant_sim is not None
         return mock_torch_onnx_inference(self.quant_sim.session, *args, **kwargs)
 
     def save_calibrated_checkpoint(self, output_checkpoint: str) -> None:
-        """
-        Save AIMET-ONNX checkpoint to output_checkpoint/subfolder, if
-        """
+        """Save AIMET-ONNX checkpoint to output_checkpoint/subfolder, if"""
         default_subfolder = getattr(self.__class__, "default_subfolder", "")
         export_dir = output_checkpoint
         if default_subfolder:
@@ -285,6 +279,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self.quant_sim.export(str(export_dir), "model")
         print(f"{self.__class__.__name__} saved to {export_dir}")
 
+    @staticmethod
     def get_ort_providers(
         device: torch.device,
     ) -> list[str | tuple[str, dict[str, int]]]:
@@ -358,21 +353,18 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
                     external_data_file_path,
                 )
             return str(zip_path)
-        else:
-            # Export directly to a directory at output_dir / f"{model_name}.aimet"
-            export_dir = output_dir / f"{model_name}.aimet"
-            shutil.rmtree(export_dir, ignore_errors=True)
-            os.makedirs(export_dir, exist_ok=True)
+        # Export directly to a directory at output_dir / f"{model_name}.aimet"
+        export_dir = output_dir / f"{model_name}.aimet"
+        shutil.rmtree(export_dir, ignore_errors=True)
+        os.makedirs(export_dir, exist_ok=True)
 
-            print(
-                f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
-            )
-            assert self.quant_sim is not None
-            self.quant_sim.export(str(export_dir), "model")
-            return str(export_dir)
+        print(
+            f"Exporting quantized {self.__class__.__name__} to directory {export_dir}"
+        )
+        assert self.quant_sim is not None
+        self.quant_sim.export(str(export_dir), "model")
+        return str(export_dir)
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        """
-        AI Hub quantize options recommended for the model.
-        """
+        """AI Hub quantize options recommended for the model."""
         return ""

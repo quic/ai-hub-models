@@ -61,7 +61,8 @@ class SegmentationApp:
         """
         Return the input image with the segmentation mask overlayed on it.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -72,7 +73,8 @@ class SegmentationApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 masks: np.ndarray
                     A list of predicted masks.

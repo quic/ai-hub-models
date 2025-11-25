@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from qai_hub_models.models._shared.hf_whisper.demo import hf_whisper_demo  # noqa
-from qai_hub_models.models.whisper_large_v3_turbo.model import (  # noqa
+from qai_hub_models.models._shared.hf_whisper.demo import hf_whisper_demo
+from qai_hub_models.models.whisper_large_v3_turbo.model import (
     WhisperLargeV3Turbo,
 )
 

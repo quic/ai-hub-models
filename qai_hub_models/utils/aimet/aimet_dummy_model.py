@@ -9,7 +9,6 @@ import os
 import shutil
 from contextlib import ExitStack
 from pathlib import Path
-from typing import Optional
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import torch
@@ -24,8 +23,8 @@ from qai_hub_models.models.protocols import (
 )
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
-from qai_hub_models.utils.onnx_helpers import (
-    torch_onnx_export_with_large_model_size_check,
+from qai_hub_models.utils.onnx.helpers import (
+    safe_torch_onnx_export,
 )
 
 
@@ -39,14 +38,14 @@ def zip_aimet_model(
     """
     Package and zip .aimet model
 
-    Parameters:
+    Parameters
+    ----------
         zip_path: output path for zipped model
         zip_base_dir: base dir path to copy model content
         model_file_path: model file path
         encoding_file_path: encodings file path
         external_data_path: external data file path
     """
-
     # compresslevel defines how fine compression should run
     # higher the level, heavier algorithm is used leading to more time.
     # For large models, higher compression takes longer time to compress.
@@ -98,7 +97,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         model_name: str | None = None,
         external_weights: bool = False,
         bundle_external_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> str:
         """
         Converts the torch module to a zip file containing an
@@ -111,15 +110,10 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
 
         os.makedirs(output_dir, exist_ok=True)
         zip_base_dir = Path(f"{model_name}.aimet")
-        zip = self._use_zip_file()
+        use_zip = self._use_zip_file()
 
         with ExitStack() as stack:
-            if zip:
-                # Use temporary directory for preparation
-                tmpdir = stack.enter_context(qaihm_temp_dir())
-            else:
-                tmpdir = output_dir
-
+            tmpdir = stack.enter_context(qaihm_temp_dir()) if use_zip else output_dir
             base_path = Path(tmpdir) / zip_base_dir
             os.makedirs(base_path, exist_ok=True)
 
@@ -139,11 +133,11 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                 print("         pip install torch==2.4.0")
                 print()
 
-            torch_onnx_export_with_large_model_size_check(
+            safe_torch_onnx_export(
                 self,
                 torch_inputs,
                 onnx_file_path,
-                input_names=[name for name in input_spec],
+                input_names=list(input_spec),
                 output_names=output_names,
                 opset_version=17,
             )
@@ -153,7 +147,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
             )
 
             external_weights_file_path = ""
-            if external_weights and zip:
+            if external_weights and use_zip:
                 external_weights_file_name = f"{model_name}.data"
                 external_weights_file_path = str(base_path / external_weights_file_name)
                 # Torch exports to onnx with external weights scattered in a directory.
@@ -167,7 +161,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                     location=external_weights_file_name,
                 )
 
-            if zip:
+            if use_zip:
                 zip_path = os.path.join(output_dir, f"{model_name}.aimet.zip")
                 zip_aimet_model(
                     zip_path,
@@ -177,22 +171,17 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
                     external_weights_file_path,
                 )
                 return zip_path
-            else:
-                # This path is persistent
-                return base_path.as_posix()
+            # This path is persistent
+            return base_path.as_posix()
 
         return ""  # mypy requires this for some reason
 
     def _use_zip_file(self) -> bool:
-        """
-        Should the return of convert_to_hub_source_model be zipped.
-        """
+        """Should the return of convert_to_hub_source_model be zipped."""
         return True
 
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
-        """
-        Overridable file that adapts the AIMET encodings.
-        """
+        """Overridable file that adapts the AIMET encodings."""
         shutil.copyfile(src=src_encodings_path, dst=dst_encodings_path)

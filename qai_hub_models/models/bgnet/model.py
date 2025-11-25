@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -51,16 +53,18 @@ class BGNet(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
         """
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             segmented mask per class: Shape [batch, classes, height, width]
         """
         image = normalize_image_torchvision(image)
-        _, _, res, e = self.model(image)
+        _, _, res, _e = self.model(image)
         return res
 
     def _sample_inputs_impl(
@@ -98,7 +102,9 @@ class BGNet(BaseModel):
 
 def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
     """Constructs a Res2Net-50_v1b_26w_4s lib.
-    Args:
+
+    Parameters
+    ----------
         pretrained (bool): If True, returns a lib pre-trained on ImageNet
     """
     weights_path_res2net50 = CachedWebModelAsset.from_asset_store(
@@ -108,17 +114,19 @@ def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
     from net.Res2Net import Bottle2neck, Res2Net
 
     model = Res2Net(Bottle2neck, [3, 4, 6, 3], baseWidth=26, scale=4, **kwargs)
-    model_state = torch.load(weights_path_res2net50, map_location="cpu")
+    model_state = torch.load(
+        weights_path_res2net50, map_location="cpu", weights_only=False
+    )
     model.load_state_dict(model_state)
     return model
 
 
 def _load_bgnet_source_model_from_weights(
-    weights_path_bgnet: str | None = None,
+    weights_path_bgnet: str | Path | None = None,
 ) -> torch.nn.Module:
     # Load BGNET model from the source repository using the given weights.
     # download the weights file
-    if not weights_path_bgnet:
+    if weights_path_bgnet is None:
         weights_path_bgnet = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         ).fetch()
@@ -139,7 +147,9 @@ def _load_bgnet_source_model_from_weights(
 
         model = Net()
         model.resnet = res2net50_v1b_26w_4s(pretrained=True)
-        checkpoint = torch.load(weights_path_bgnet, map_location="cpu")
+        checkpoint = torch.load(
+            weights_path_bgnet, map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint)
         model.to("cpu").eval()
     return model

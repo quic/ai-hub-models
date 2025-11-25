@@ -10,8 +10,6 @@ from typing import Any
 
 import numpy as np
 import torch
-from mmpose.codecs.utils import get_simcc_maximum
-from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocowholebody import CocoWholeBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
@@ -22,7 +20,12 @@ from qai_hub_models.evaluators.utils.pose import (
     LEFTHAND_SIGMAS,
     RIGHTHAND_SIGMAS,
 )
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.extern.xtcocotools.cocoeval import COCOeval
 from qai_hub_models.utils.printing import suppress_stdout
+
+with patch_mmpose_no_build_deps():
+    from mmpose.codecs.utils import get_simcc_maximum
 
 
 class WholeBodyPoseEvaluator(BaseEvaluator):
@@ -30,7 +33,8 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
 
     def __init__(self, image_height: int, image_width: int, in_vis_thre=0.2):
         """
-        Args:
+        Parameters
+        ----------
             coco_gt: COCO ground truth dataset.
         """
         self.reset()
@@ -50,9 +54,7 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
         self.predictions = []
 
     def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
-        """
-        Collects model predictions in COCO format and scales keypoints to original image space.
-        """
+        """Collects model predictions in COCO format and scales keypoints to original image space."""
         pred_x, pred_y = output
         batch_size = pred_x.shape[0]
         keypoints, scores = self.decode_output(pred_x.numpy(), pred_y.numpy())
@@ -87,7 +89,7 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
                 visibility_score = float(scores[idx][joint_idx])
                 if visibility_score < self.in_vis_thre:
                     visibility_score = 0
-                    x_coordinate, x_coordinate = 0.0, 0.0
+                    x_coordinate, y_coordinate = 0.0, 0.0
                 keypoints_list.extend(
                     [
                         x_coordinate,
@@ -97,9 +99,9 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
                 )
 
             # Verify keypoint count
-            assert (
-                len(keypoints_list) == self.total_kpts * 3
-            ), f"Expected {self.total_kpts * 3}, got {len(keypoints_list)}"
+            assert len(keypoints_list) == self.total_kpts * 3, (
+                f"Expected {self.total_kpts * 3}, got {len(keypoints_list)}"
+            )
 
             body_kpts = keypoints_list[cuts[0] : cuts[1]]
             foot_kpts = keypoints_list[cuts[1] : cuts[2]]
@@ -141,13 +143,15 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
         """Decode keypoint coordinates from SimCC representations. The decoded
         coordinates are in the input image space.
 
-        Args:
+        Parameters
+        ----------
             encoded (Tuple[np.ndarray, np.ndarray]): SimCC labels for x-axis
                 and y-axis
             simcc_x (np.ndarray): SimCC label for x-axis
             simcc_y (np.ndarray): SimCC label for y-axis
 
-        Returns:
+        Returns
+        -------
             tuple:
             - keypoints (np.ndarray): Decoded coordinates in shape (N, K, D)
             - socres (np.ndarray): The keypoint scores in shape (N, K).
@@ -164,10 +168,11 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
     def get_coco_mAP(self) -> dict[str, Any]:
         """
         Computes COCO-style mAP using COCOfooteval.
-        Returns:
+
+        Returns
+        -------
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
-
         valid_image_ids = set(self.coco_gt.getImgIds())
         pred_image_ids = {p["image_id"] for p in self.predictions}
 

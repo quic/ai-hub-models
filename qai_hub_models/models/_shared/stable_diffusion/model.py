@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 # isort: off
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.quantization_aimet_onnx import (
     AIMETOnnxQuantizableMixin,
-    ensure_max_aimet_onnx_version,
 )
 
 # isort: on
@@ -19,9 +20,11 @@ from pathlib import Path
 
 import diffusers
 import torch
-from aimet_common.defs import QuantScheme
-from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
-from aimet_onnx.quantsim import load_encodings_to_sim
+
+if TYPE_CHECKING:
+    from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+
+
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
 from huggingface_hub import hf_hub_download
@@ -49,14 +52,13 @@ from qai_hub_models.utils.checkpoint import (
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
 
-MAX_AIMET_ONNX_VERSION = "2.6.0"
-ensure_max_aimet_onnx_version(MAX_AIMET_ONNX_VERSION)
-
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
-        model.config.return_dict = False
+        model.config.return_dict = False  # type: ignore[union-attr]
 
         class TextEncoderWrapper(torch.nn.Module):
             """Return only the first output (cond and uncond embedding)"""
@@ -97,6 +99,9 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         TextEncoderBase.__init__(self, None)
         self.host_device = host_device
 
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, AIMETOnnxQuantizableMixin.forward(self, tokens))
+
     @classmethod
     def from_pretrained(
         cls,
@@ -108,6 +113,11 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        import aimet_onnx
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -132,16 +142,14 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
-            # Important: cannot use post_training_tf_enhanced which causes
-            # attention masks to not have exactly 0 (unmask)
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=8,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
             providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings:
-            load_encodings_to_sim(quant_sim, aimet_encodings)
+            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
 
     @staticmethod
@@ -150,13 +158,16 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
 
 
 class UnetBase(BaseModel, FromPretrainedMixin):
+    seq_len: int
+
     @classmethod
     def adapt_torch_model(
-        cls, model: torch.nn.Module, on_device_opt: bool = True
+        cls, model: UNet2DConditionModel, on_device_opt: bool = True
     ) -> torch.nn.Module:
         """The torch model is used to generate data in addition to generating
-        the onnx model"""
-        model.get_time_embed = get_timestep_embedding
+        the onnx model
+        """
+        model.get_time_embed = get_timestep_embedding  # type: ignore[attr-defined]
 
         if on_device_opt:
             monkey_patch_model(model)
@@ -169,13 +180,13 @@ class UnetBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, latent, timestep, text_emb):
-                return self.model(  # type: ignore
-                    latent, timestep, text_emb, return_dict=False
-                )[0]
+                return self.model(latent, timestep, text_emb, return_dict=False)[0]  # type: ignore[operator]
 
         return UNet2DConditionModelWrapper(model)
 
-    def forward(self, latent, time_emb, text_emb) -> torch.Tensor:
+    def forward(
+        self, latent: torch.Tensor, time_emb: torch.Tensor, text_emb: torch.Tensor
+    ) -> torch.Tensor:
         return self.model(latent, time_emb, text_emb)
 
     @staticmethod
@@ -216,6 +227,14 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         UnetBase.__init__(self, None)
         self.host_device = host_device
 
+    def forward(
+        self, latent: torch.Tensor, time_emb: torch.Tensor, text_emb: torch.Tensor
+    ) -> torch.Tensor:
+        return cast(
+            torch.Tensor,
+            AIMETOnnxQuantizableMixin.forward(self, latent, time_emb, text_emb),
+        )
+
     @classmethod
     def from_pretrained(
         cls,
@@ -227,6 +246,11 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        import aimet_onnx
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -241,16 +265,14 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
-            # Important: cannot use post_training_tf_enhanced which causes
-            # attention masks to not have exactly 0 (unmask)
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=8,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
             providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings is not None:
-            load_encodings_to_sim(quant_sim, aimet_encodings)
+            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
 
     @staticmethod
@@ -263,8 +285,8 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
         return self.model(latent)
 
     @classmethod
-    def adapt_torch_model(cls, model: torch.nn.Module) -> torch.nn.Module:
-        model.config.return_dict = False
+    def adapt_torch_model(cls, model: AutoencoderKL) -> torch.nn.Module:
+        model.config.return_dict = False  # type: ignore[attr-defined]
 
         class AutoencoderKLDecoder(torch.nn.Module):
             def __init__(self, model: AutoencoderKL):
@@ -272,9 +294,9 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
                 self.model = model
 
             def forward(self, z):
-                z = z / self.model.config.scaling_factor  # type: ignore
-                z = self.model.post_quant_conv(z)  # type: ignore
-                image = self.model.decoder(z)  # type: ignore
+                z = z / self.model.config.scaling_factor  # type: ignore[attr-defined]
+                z = self.model.post_quant_conv(z)  # type: ignore[attr-defined]
+                image = self.model.decoder(z)  # type: ignore[attr-defined]
                 # move output range from -1 ~ 1 to 0~1
                 image = (image / 2 + 0.5).clamp(0, 1)
                 # output in NHWC
@@ -319,11 +341,16 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetQuantizableBase:
+    ) -> VaeDecoderQuantizableBase:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
         """
+        import aimet_onnx
+        from aimet_common.defs import QuantScheme
+        from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
+        from aimet_onnx.quantsim import load_encodings_to_sim
+
         host_device = torch.device(host_device)
         subfolder = subfolder or cls.default_subfolder
         onnx_model, aimet_encodings = cls.onnx_from_pretrained(
@@ -337,17 +364,18 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
 
         quant_sim = QuantSimOnnx(
             model=onnx_model,
-            # Important: cannot use post_training_tf_enhanced which causes
-            # attention masks to not have exactly 0 (unmask)
-            quant_scheme=QuantScheme.post_training_tf,
-            default_activation_bw=16,
-            default_param_bw=8,
+            quant_scheme=QuantScheme.min_max,
+            param_type=aimet_onnx.int8,
+            activation_type=aimet_onnx.int16,
             config_file=get_aimet_config_path("default_per_tensor_config_v69"),
             providers=cls.get_ort_providers(host_device),
         )
         if aimet_encodings:
-            load_encodings_to_sim(quant_sim, aimet_encodings)
+            load_encodings_to_sim(quant_sim, aimet_encodings, strict=False)
         return cls(quant_sim, host_device=host_device)
+
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
+        return cast(torch.Tensor, AIMETOnnxQuantizableMixin.forward(self, latent))
 
     def get_unsupported_reason(
         self, target_runtime: TargetRuntime, device: Device
@@ -367,12 +395,14 @@ def make_scheduler(
     """
     Load and instantiate the scheduler from a Hugging Face repo or a local path.
 
-    Args:
+    Parameters
+    ----------
       checkpoint: Hugging Face repo ID or local path.
       subfolder: Subdirectory where scheduler_config.json is located.
       revision: Git branch, tag, or commit (only used for HF repos).
 
-    Returns:
+    Returns
+    -------
       A scheduler instance (subclass of SchedulerMixin).
     """
     if hf_repo_exists(str(checkpoint)):
@@ -397,9 +427,7 @@ def make_scheduler(
 
 
 class StableDiffusionBase(PretrainedCollectionModel):
-    """
-    Put glue modules here to aid app/demo code.
-    """
+    """Put glue modules here to aid app/demo code."""
 
     guidance_scale: float = 7.5
     default_num_steps: int = 20
@@ -421,5 +449,5 @@ class StableDiffusionBase(PretrainedCollectionModel):
         if ckpt_type in [CheckpointType.DEFAULT, CheckpointType.DEFAULT_UNQUANTIZED]:
             if cls.hf_repo_id == "":
                 raise ValueError("hf_repo_id is not defined.")
-            return cls.hf_repo_id  # type: ignore
+            return cls.hf_repo_id
         return checkpoint

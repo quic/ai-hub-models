@@ -5,21 +5,19 @@
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
+from typing import cast
 
-from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
-from qai_hub_models.utils.asset_loaders import (
-    SourceAsRoot,
-    find_replace_in_repo,
-    wipe_sys_modules,
+import torch
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import DetectionModel
+
+from qai_hub_models.models._shared.ultralytics.detect_patches import (
+    patch_ultralytics_detection_head,
 )
+from qai_hub_models.models._shared.yolo.model import Yolo, yolo_detect_postprocess
 
 MODEL_ASSET_VERSION = 2
 MODEL_ID = __name__.split(".")[-2]
-SOURCE_REPO = "https://github.com/ultralytics/ultralytics"
-SOURCE_REPO_COMMIT = "25307552100e4c03c8fec7b0f7286b4244018e15"
-
 SUPPORTED_WEIGHTS = [
     "yolov10n.pt",
     "yolov10s.pt",
@@ -35,7 +33,7 @@ class YoloV10Detector(Yolo):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: DetectionModel,
         include_postprocessing: bool = False,
         split_output: bool = False,
     ) -> None:
@@ -43,6 +41,7 @@ class YoloV10Detector(Yolo):
         self.model = model
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
+        patch_ultralytics_detection_head(model)
 
     @classmethod
     def from_pretrained(
@@ -51,50 +50,25 @@ class YoloV10Detector(Yolo):
         include_postprocessing: bool = True,
         split_output: bool = False,
     ):
-        with SourceAsRoot(
-            SOURCE_REPO,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ) as repo_path:
-            # Boxes and scores have different scales, so return separately
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/head.py",
-                "return torch.cat((dbox, cls.sigmoid()), 1)",
-                "return (dbox, cls.sigmoid())",
-            )
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/head.py",
-                "self.end2end",
-                "False",
-            )
-
-            import ultralytics
-
-            wipe_sys_modules(ultralytics)
-            from ultralytics import YOLO as ultralytics_YOLO
-
-            model = ultralytics_YOLO(ckpt_name).model
-            assert isinstance(model, torch.nn.Module)
-
-            return cls(
-                model,
-                include_postprocessing,
-                split_output,
-            )
+        model = cast(DetectionModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(
+            model,
+            include_postprocessing,
+            split_output,
+        )
 
     def forward(self, image):
         """
         Run YoloV10 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
@@ -113,8 +87,7 @@ class YoloV10Detector(Yolo):
                 Same as previous case but with boxes and scores concatenated into a single tensor.
                 Shape [batch, 4 + num_classes, num_preds]
         """
-
-        (boxes, scores), _ = self.model(image)
+        boxes, scores = self.model(image)
         if not self.include_postprocessing:
             if self.split_output:
                 return boxes, scores
@@ -138,3 +111,8 @@ class YoloV10Detector(Yolo):
         return self.__class__.get_output_names(
             self.include_postprocessing, self.split_output
         )
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10

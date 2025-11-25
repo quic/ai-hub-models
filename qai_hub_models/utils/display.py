@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from PIL.Image import Image
@@ -64,11 +63,10 @@ def display_image(image: Image, desc: str = "image") -> bool:
             print(f"Displaying {desc}")
             image.show()
             return True
-        else:
-            print(
-                "\nDemo image display is disabled by default for remote servers. "
-                f"To override, set `{ALWAYS_DISPLAY_VAR}=1` in your environment.\n"
-            )
+        print(
+            "\nDemo image display is disabled by default for remote servers. "
+            f"To override, set `{ALWAYS_DISPLAY_VAR}=1` in your environment.\n"
+        )
     except Exception:
         print("Failure to display demo images displayed on screen.")
         print(
@@ -79,7 +77,7 @@ def display_image(image: Image, desc: str = "image") -> bool:
 
 def display_or_save_image(
     image: Image,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     filename: str = "image.png",
     desc: str = "image",
 ) -> bool:
@@ -88,13 +86,15 @@ def display_or_save_image(
     Else try to display image.
     If displaying image fails, save to disk in a default location.
 
-    Parameters:
+    Parameters
+    ----------
         image: PIL Image to save.
         output_dir: If set, saves image to this directory.
         filename: If saving to directory, the filename to use.
         desc: Description of what the image is, used in a print statement.
 
-    Returns:
+    Returns
+    -------
         True if displaying was attempted.
     """
     if output_dir is not None:
@@ -113,12 +113,13 @@ def to_uint8(image: np.ndarray) -> np.ndarray:
     Converts a numpy array image to uint8 type. Values are clipped the values
     to the range [0, 255].
 
-    Parameters:
+    Parameters
+    ----------
     image (numpy array): The input image array.
 
-    Returns:
+    Returns
+    -------
     numpy array: The processed image in uint8 format.
     """
     clipped_image = np.clip(image, 0, 1)
-    uint8_image = np.round(clipped_image * 255).astype(np.uint8)
-    return uint8_image
+    return np.round(clipped_image * 255).astype(np.uint8)

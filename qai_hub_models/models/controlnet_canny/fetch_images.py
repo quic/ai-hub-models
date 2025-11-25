@@ -21,12 +21,12 @@ if __name__ == "__main__":
     )
 
     # Drop rows with missing images
-    calibration_data.dropna(inplace=True)
+    calibration_data.dropna(inplace=True)  # noqa: PD002
     print(f"Got {len(calibration_data)} images")
 
     # Extract prompts and images
-    prompts = calibration_data["TEXT"].values.tolist()
-    canny_images = calibration_data["canny_img"].values.tolist()
+    prompts = calibration_data["TEXT"].to_numpy().tolist()
+    canny_images = calibration_data["canny_img"].to_numpy().tolist()
 
     # Create output directory
     output_dir = Path("build")
@@ -34,8 +34,7 @@ if __name__ == "__main__":
 
     # Save prompts to a .txt file (one per line)
     with open(output_dir / "calib_prompts.txt", "w", encoding="utf-8") as f:
-        for prompt in prompts:
-            f.write(prompt.strip() + "\n")
+        f.writelines(prompt.strip() + "\n" for prompt in prompts)
 
     # Save images to a .pth file
     torch.save(canny_images, output_dir / "calib_images.pth")

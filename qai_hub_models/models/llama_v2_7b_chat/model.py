@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import torch
 
@@ -105,22 +104,17 @@ def get_input_prompt_with_tags(
     user_input_prompt: str = DEFAULT_USER_PROMPT,
     system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
 ):
-    """
-    Get prompt to set context and initialize prompt-processor
-    """
-    prompt = f"""<s>{INST_START} {SYS_START}
+    """Get prompt to set context and initialize prompt-processor"""
+    return f"""<s>{INST_START} {SYS_START}
 {system_context_prompt}
 {SYS_END}
 
 {user_input_prompt} {INST_END}
 """
-    return prompt
 
 
 def get_tokenizer():
-    """
-    Tokenizer to use for LLama2
-    """
+    """Tokenizer to use for LLama2"""
     tokenizer = LlamaTokenizer.from_pretrained(HF_REPO_NAME)
     tokenizer.padding_side = "left"
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.bos_token
@@ -130,7 +124,7 @@ def get_tokenizer():
 
 def prepare_combined_attention_mask(
     attention_mask: torch.Tensor,
-    input_shape: Optional[tuple] = None,
+    input_shape: tuple | None = None,
     past_key_values_length: int = 0,
     dtype: torch.dtype = torch.float32,
 ):
@@ -142,10 +136,9 @@ def prepare_combined_attention_mask(
     if input_shape is None:
         input_shape = attention_mask.shape
     dummy_enbedding = torch.tensor((1.0,)).to(dtype)
-    new_mask = LlamaModel._prepare_decoder_attention_mask(
+    return LlamaModel._prepare_decoder_attention_mask(
         attention_mask, input_shape, dummy_enbedding, past_key_values_length
     )
-    return new_mask
 
 
 class Llama2Wrapper(torch.nn.Module):
@@ -206,11 +199,9 @@ class Llama2Wrapper(torch.nn.Module):
             )
 
         # Reduce # of hidden layers as per split
-        self.model.model.layers = (
-            self.model.model.layers[  # pyright: ignore[reportAttributeAccessIssue]
-                hidden_layers_start:hidden_layers_end
-            ]
-        )
+        self.model.model.layers = self.model.model.layers[  # pyright: ignore[reportAttributeAccessIssue]
+            hidden_layers_start:hidden_layers_end
+        ]
 
         # Apply model conversion
         # Convert MHA to SHA
@@ -283,7 +274,6 @@ def _get_llama_model_with_split(
     split_part: int = 1,
     is_token_generator: bool = False,
 ) -> tuple[torch.nn.Module, str]:
-
     # Ensure User has access to model,
     # otherwise point to instructions to get access and error out.
     has_model_access(HF_REPO_NAME, HF_REPO_URL)
@@ -435,7 +425,7 @@ class Llama2_PromptProcessor_1(LlamaMixin):
             prompt, return_tensors="pt", padding="max_length", max_length=input_seq_len
         )
         tokens = int(torch.sum(input_tokens["attention_mask"]).item())
-        position_ids = [0] * (input_seq_len - tokens) + list(range(0, tokens))
+        position_ids = [0] * (input_seq_len - tokens) + list(range(tokens))
 
         inputs: dict[str, torch.Tensor] = {}
         inputs["input_ids"] = input_tokens["input_ids"].type(torch.int32)
@@ -465,9 +455,7 @@ class Llama2_PromptProcessor_1(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model and input spec.
-        """
+        """Calibration dataset for this model and input spec."""
         if input_spec is None:
             input_spec = Llama2_PromptProcessor_1.get_input_spec()
 
@@ -567,9 +555,7 @@ class Llama2_PromptProcessor_2(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_PromptProcessor_2.get_input_spec()
 
@@ -669,9 +655,7 @@ class Llama2_PromptProcessor_3(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_PromptProcessor_3.get_input_spec()
 
@@ -771,9 +755,7 @@ class Llama2_PromptProcessor_4(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_PromptProcessor_4.get_input_spec()
 
@@ -960,9 +942,7 @@ class Llama2_TokenGenerator_1(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_TokenGenerator_1.get_input_spec()
 
@@ -1116,9 +1096,7 @@ class Llama2_TokenGenerator_2(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_TokenGenerator_2.get_input_spec()
 
@@ -1271,9 +1249,7 @@ class Llama2_TokenGenerator_3(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_TokenGenerator_3.get_input_spec()
 
@@ -1427,9 +1403,7 @@ class Llama2_TokenGenerator_4(LlamaMixin):
         self,
         input_spec: InputSpec | None = None,
     ) -> dict[str, torch.Tensor] | None:
-        """
-        Calibration dataset for this model.
-        """
+        """Calibration dataset for this model."""
         if input_spec is None:
             input_spec = Llama2_TokenGenerator_4.get_input_spec()
 

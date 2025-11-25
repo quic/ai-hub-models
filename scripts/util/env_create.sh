@@ -38,8 +38,6 @@ if [ ! -d "$ENV_PATH" ]; then
 
   echo "Activating virtual env."
   source "$ENV_PATH/bin/activate"
-  # setuptools also needed for build from source
-  pip install pip==24.3.1 setuptools
 else
   source "$ENV_PATH/bin/activate"
   echo "Env created already. Skipping creation."

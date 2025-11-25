@@ -92,10 +92,7 @@ class ImagenetteDataset(BaseDataset, ImageNet):
             return False
 
         # Ensure >= 300 samples per classes
-        for subdir in subdirs:
-            if len(list(subdir.iterdir())) < 300:
-                return False
-        return True
+        return all(len(list(subdir.iterdir())) >= 300 for subdir in subdirs)
 
     def _download_data(self) -> None:
         IMAGENETTE_ASSET.fetch(extract=True)
@@ -112,9 +109,7 @@ class ImagenetteDataset(BaseDataset, ImageNet):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 2500
 
     @staticmethod

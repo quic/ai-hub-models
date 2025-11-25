@@ -67,8 +67,9 @@ class PromptProcessor_Part1(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=8) + [
-            "_model_layers_7_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=0, end=8),
+            "_model_layers_7_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -121,8 +122,9 @@ class PromptProcessor_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=8, end=16) + [
-            "_model_layers_15_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=8, end=16),
+            "_model_layers_15_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -175,8 +177,9 @@ class PromptProcessor_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=16, end=24) + [
-            "_model_layers_23_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=16, end=24),
+            "_model_layers_23_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -229,7 +232,7 @@ class PromptProcessor_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=24, end=32) + ["logits"]
+        return [*get_kv_cache_names(start=24, end=32), "logits"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -281,8 +284,9 @@ class TokenGenerator_Part1(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=8) + [
-            "_model_layers_7_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=0, end=8),
+            "_model_layers_7_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -335,8 +339,9 @@ class TokenGenerator_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=8, end=16) + [
-            "_model_layers_15_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=8, end=16),
+            "_model_layers_15_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -389,8 +394,9 @@ class TokenGenerator_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=16, end=24) + [
-            "_model_layers_23_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=16, end=24),
+            "_model_layers_23_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -443,7 +449,7 @@ class TokenGenerator_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=24, end=32) + ["logits"]
+        return [*get_kv_cache_names(start=24, end=32), "logits"]
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -473,5 +479,3 @@ class Mistral_7B_Instruct_v0_3(PrecompiledCollectionModel):
     All models are pre-trained, quantized (int4/int8 weight, float32 activations)
     and compiled into serialized binary for Qualcomm Snapdragon 8 Elite.
     """
-
-    pass

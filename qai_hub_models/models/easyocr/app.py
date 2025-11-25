@@ -5,40 +5,37 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
+from typing import cast
 
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
-from easyocr.craft_utils import adjustResultCoordinates, getDetBoxes
+import torchvision.transforms.functional as TRF
+from easyocr.craft_utils import getDetBoxes
 from easyocr.easyocr import Reader
-from easyocr.imgproc import normalizeMeanVariance, resize_aspect_ratio
-from easyocr.recognition import AlignCollate, ListDataset, custom_mean
+from easyocr.recognition import custom_mean
 from easyocr.utils import (
     diff,
-    get_image_list,
+    four_point_transform,
     group_text_box,
-    make_rotated_img_list,
-    reformat_input,
-    set_result_with_confidence,
 )
 from PIL import Image
-from torch.utils.data import DataLoader
 
-from qai_hub_models.utils.draw import draw_box_from_xyxy
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.draw import draw_box_from_corners, draw_box_from_xyxy
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    denormalize_coordinates,
+    numpy_image_to_torch,
+    resize_pad,
+)
 
 DETECTOR_ARGS = {
-    "canvas_size": 2560,
-    "mag_ratio": 1.0,
-    "estimate_num_chars": False,
     "text_threshold": 0.7,
     "link_threshold": 0.4,
     "low_text": 0.4,
     "poly": False,
-    "estimate_num_chars": False,
-    "optimal_num_chars": None,
     "slope_ths": 0.1,
     "ycenter_ths": 0.5,
     "height_ths": 0.5,
@@ -51,12 +48,16 @@ RECOGNIZER_ARGS = {
     "allowlist": None,
     "blocklist": None,
     "beamWidth": 5,
-    "detail": 1,
-    "rotation_info": None,
     "contrast_ths": 0.1,
     "adjust_contrast": 0.5,
-    "filter_ths": 0.003,
 }
+
+
+# xmin, xmax, ymin, ymax
+box_xx_yy = tuple[int, int, int, int]
+
+# ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
+box_4corners = tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]]
 
 
 class EasyOCRApp:
@@ -79,12 +80,14 @@ class EasyOCRApp:
         self,
         detector: Callable[[torch.Tensor], torch.Tensor],
         recognizer: Callable[[torch.Tensor], torch.Tensor],
-        lang_list,
+        detector_img_shape: tuple[int, int],
+        recognizer_img_shape: tuple[int, int],
+        lang_list: list[str],
+        decoder_mode: str = "greedy",
     ):
         self.detector = detector
         self.recognizer = recognizer
-        self.imgH = 64
-        self.decoder = "greedy"
+        self.decoder = decoder_mode
         ocr_reader = Reader(
             lang_list,
             gpu=False,
@@ -94,38 +97,94 @@ class EasyOCRApp:
         self.lang_char = ocr_reader.lang_char
         self.model_lang = ocr_reader.model_lang
         self.converter = ocr_reader.converter
+        self.detector_img_shape = detector_img_shape
+        self.recognizer_img_shape = recognizer_img_shape
 
-    def detector_preprocess(self, img: np.ndarray):
-        image_arrs = [img]
-
-        img_resized_list = []
-        # resize
-        for img in image_arrs:
-            img_resized, target_ratio, size_heatmap = resize_aspect_ratio(
-                img,
-                DETECTOR_ARGS["canvas_size"],
-                interpolation=cv2.INTER_LINEAR,
-                mag_ratio=DETECTOR_ARGS["mag_ratio"],
+        if RECOGNIZER_ARGS["allowlist"]:
+            self.ignore_char = "".join(
+                set(self.character) - set(RECOGNIZER_ARGS["allowlist"])  # type: ignore[call-overload]
             )
-            img_resized_list.append(img_resized)
+        elif RECOGNIZER_ARGS["blocklist"]:
+            self.ignore_char = "".join(set(RECOGNIZER_ARGS["blocklist"]))  # type: ignore[call-overload]
+        else:
+            self.ignore_char = "".join(set(self.character) - set(self.lang_char))
+        self.ignore_char_idx = []
+        for char in self.ignore_char:
+            self.ignore_char_idx.append(self.character.index(char) + 1)
 
-        ratio_h = ratio_w = 1 / target_ratio
-        # preprocessing
-        x = [
-            np.transpose(normalizeMeanVariance(n_img), (2, 0, 1))
-            for n_img in img_resized_list
-        ]
-        x = torch.from_numpy(np.array(x))
+    def detector_preprocess(
+        self, NHWC_int_numpy_frames: list[np.ndarray]
+    ) -> tuple[torch.Tensor, list[float], list[tuple[int, int]]]:
+        """
+        Resize and prepare input images (must be RGB) for detection.
 
-        return x, (ratio_h, ratio_w)
+        Inputs:
+            NHWC_int_numpy_frames: list[np.ndarray]
+                [H', W', 3], uint8
+                Input images
 
-    def detector_postprocess(self, results: torch.Tensor, infos: torch.Tensor):
-        ratio_w = infos[1]
-        ratio_h = infos[0]
-        result, horizontal_list_agg, free_list_agg = [], [], []
+        Outputs:
+            detector_input_frames: torch.Tensor
+                [B, 3, H', W'], fp32, range 0-1, RGB
+                Input tensor for the detector network.
 
-        boxes_list, polys_list = [], []
-        for out in results:
+            scales: list[float]
+                List of scaling factors used to resize each input image for network inference.
+
+            paddings: list[tuple[int, int]]
+                List of padding (width, height) used to resize each input image for network inference.
+        """
+        detector_input_frames_list, scales, paddings = [], [], []
+        for frame in NHWC_int_numpy_frames:
+            frame_resized, scale, pad = resize_pad(
+                numpy_image_to_torch(frame, to_float=False).to(torch.float32) / 255,
+                self.detector_img_shape,
+            )
+            detector_input_frames_list.append(frame_resized)
+            scales.append(scale)
+            paddings.append(pad)
+        detector_input_frames = torch.cat(detector_input_frames_list)
+
+        return detector_input_frames, scales, paddings
+
+    def detector_postprocess(
+        self,
+        results: torch.Tensor,
+        img_scale_ratios: list[float],
+        img_paddings: list[tuple[int, int]],
+    ) -> tuple[list[list[box_xx_yy]], list[list[box_4corners]]]:
+        """
+        Process results of detector network.
+
+        Inputs:
+            results: torch.Tensor
+                Output of the detector network.
+
+            img_scale_ratios: list[tuple[float, float]]
+                List of scaling factors used to resize the input image for network inference.
+
+            img_paddings:
+                List of padding (width, height) used to resize each input image for network inference.
+
+        Outputs:
+            horizontal_boxes_per_img: list[list[box_xx_yy]]
+                List of bounding boxes (absolute pixel values) in each image.
+                These boxes are always a rectangle that is parallel to the image's coordinate space.
+                Order: (xmin, xmax, ymin, ymax)
+
+            free_boxes_per_img: list[list[box_4corners]]
+                List of bounding boxes (absolute pixel values) in each image.
+                These boxes may be any parallelogram.
+                Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
+
+        """
+        boxes_per_img: list[list[np.ndarray]] = []
+        horizontal_boxes_per_img: list[list[box_xx_yy]] = []
+        free_boxes_per_img: list[list[box_4corners]] = []
+
+        for out, img_scale_ratio, img_padding in zip(
+            results, img_scale_ratios, img_paddings, strict=False
+        ):
             # make score and link map
             score_text = out[:, :, 0].cpu().data.numpy()
             score_link = out[:, :, 1].cpu().data.numpy()
@@ -138,46 +197,41 @@ class EasyOCRApp:
                 "link_threshold",
                 "low_text",
                 "poly",
-                "estimate_num_chars",
             ]
             filtered_args = {
                 k: DETECTOR_ARGS[k] for k in required_keys if k in DETECTOR_ARGS
             }
 
-            boxes, polys, mapper = getDetBoxes(score_text, score_link, **filtered_args)
+            # horizontal_boxes & free_boxes layout: top-left, top-right, low-right, low-left
+            horizontal_boxes: list[np.ndarray]
+            free_boxes: list[np.ndarray]
+            horizontal_boxes, free_boxes, _ = getDetBoxes(
+                score_text, score_link, **filtered_args
+            )
+            assert len(horizontal_boxes) == len(free_boxes)
 
-            # coordinate adjustment
-            boxes = adjustResultCoordinates(boxes, ratio_w, ratio_h)
-            polys = adjustResultCoordinates(polys, ratio_w, ratio_h)
-            if DETECTOR_ARGS["estimate_num_chars"]:
-                boxes = list(boxes)
-                polys = list(polys)
-            for k in range(len(polys)):
-                if DETECTOR_ARGS["estimate_num_chars"]:
-                    boxes[k] = (boxes[k], mapper[k])
-                if polys[k] is None:
-                    polys[k] = boxes[k]
-            boxes_list.append(boxes)
-            polys_list.append(polys)
+            # Select either horizontal_boxes or free_boxes for each returned box index. Prefer free_boxes if they exist.
+            #
+            # We combine both types of boxes into 1 list because some free boxes are
+            # reinterpreted as horizontal boxes later -- see group_text_box()
+            detections: list[np.ndarray] = []
+            for box_idx in range(len(horizontal_boxes)):
+                if free_boxes[box_idx] is not None:
+                    box = torch.Tensor(free_boxes[box_idx])
+                else:
+                    box = torch.Tensor(horizontal_boxes[box_idx])
 
-        if DETECTOR_ARGS["estimate_num_chars"]:
-            polys_list = [
-                [
-                    p
-                    for p, _ in sorted(
-                        polys,
-                        key=lambda x: abs(DETECTOR_ARGS["optimal_num_chars"] - x[1]),
-                    )
-                ]
-                for polys in polys_list
-            ]
+                # coordinate adjustment for image scaling and padding
+                # we divide scale & padding by 2 to reflect the network's scaling on output indices
+                denormalize_coordinates(
+                    box,
+                    (1, 1),
+                    img_scale_ratio / 2,
+                    (img_padding[0] // 2, img_padding[1] // 2),
+                )
+                detections.append(box.numpy().astype(np.int32).reshape(-1))
 
-        for polys in polys_list:
-            single_img_result = []
-            for i, box in enumerate(polys):
-                poly = np.array(box).astype(np.int32).reshape(-1)
-                single_img_result.append(poly)
-            result.append(single_img_result)
+            boxes_per_img.append(detections)
 
         required_keys = [
             "slope_ths",
@@ -189,9 +243,16 @@ class EasyOCRApp:
         filtered_args = {
             k: DETECTOR_ARGS[k] for k in required_keys if k in DETECTOR_ARGS
         }
-        for text_box in result:
-
-            horizontal_list, free_list = group_text_box(text_box, **filtered_args)
+        for text_box in boxes_per_img:
+            # This will reinterpret free boxes as horizontal boxes if the free box
+            # "slant" is less than 'slope_ths'. Read the function for more details.
+            horizontal_list_raw, free_list_raw = group_text_box(
+                text_box, **filtered_args
+            )
+            horizontal_list: list[box_xx_yy] = [tuple(x) for x in horizontal_list_raw]
+            free_list: list[box_4corners] = [
+                cast(box_4corners, tuple(tuple(y) for y in x)) for x in free_list_raw
+            ]
             if DETECTOR_ARGS["min_size"]:
                 horizontal_list = [
                     i
@@ -204,277 +265,360 @@ class EasyOCRApp:
                     if max(diff([c[0] for c in i]), diff([c[1] for c in i]))
                     > DETECTOR_ARGS["min_size"]
                 ]
-            horizontal_list_agg.append(horizontal_list)
-            free_list_agg.append(free_list)
+            horizontal_boxes_per_img.append(horizontal_list)
+            free_boxes_per_img.append(free_list)
 
-        return horizontal_list_agg, free_list_agg
-
-    def recognizer_preprocess(
-        self,
-        img_cv_grey: np.ndarray,
-        horizontal_list: list[list[int]] | None,
-        free_list: list[list[int]] | None,
-        batch_size: int,
-    ):
-        if RECOGNIZER_ARGS["allowlist"]:
-            assert isinstance(RECOGNIZER_ARGS["allowlist"], str)
-            ignore_char = "".join(
-                set(self.character) - set(RECOGNIZER_ARGS["allowlist"])
-            )
-        elif RECOGNIZER_ARGS["blocklist"]:
-            assert isinstance(RECOGNIZER_ARGS["blocklist"], str)
-            ignore_char = "".join(set(RECOGNIZER_ARGS["blocklist"]))
-        else:
-            ignore_char = "".join(set(self.character) - set(self.lang_char))
-
-        if self.model_lang in ["chinese_tra", "chinese_sim"]:
-            self.decoder = "greedy"
-
-        if (horizontal_list is None) and (free_list is None):
-            y_max, x_max = img_cv_grey.shape
-            horizontal_list = [[0, x_max, 0, y_max]]
-            free_list = []
-
-        return img_cv_grey, horizontal_list, free_list, ignore_char, batch_size
-
-    def recognize(
-        self,
-        img_cv_grey: np.ndarray,
-        horizontal_list: list[list[int]],
-        free_list: list[list[int]],
-        batch_size: int,
-        ignore_char: str,
-    ):
-        if batch_size == 1 and not RECOGNIZER_ARGS["rotation_info"]:
-            result = []
-            for bbox in horizontal_list:
-                h_list = [bbox]
-                f_list: list[list[int]] = []
-                image_list, max_width = get_image_list(
-                    h_list, f_list, img_cv_grey, model_height=self.imgH
-                )
-                result0 = self.recognizer_get_text(
-                    int(max_width), image_list, ignore_char, batch_size
-                )
-                result += result0
-            for bbox in free_list:
-                h_list = []
-                f_list = [bbox]
-                image_list, max_width = get_image_list(
-                    h_list, f_list, img_cv_grey, model_height=self.imgH
-                )
-                result0 = self.recognizer_get_text(
-                    int(max_width), image_list, ignore_char, batch_size
-                )
-                result += result0
-        # default mode will try to process multiple boxes at the same time
-        else:
-            image_list, max_width = get_image_list(
-                horizontal_list, free_list, img_cv_grey, model_height=self.imgH
-            )
-            image_len = len(image_list)
-            if RECOGNIZER_ARGS["rotation_info"] and image_list:
-                image_list = make_rotated_img_list(
-                    RECOGNIZER_ARGS["rotation_info"], image_list
-                )
-                max_width = max(max_width, self.imgH)
-
-            result = self.recognizer_get_text(
-                int(max_width), image_list, ignore_char, batch_size
-            )
-
-            if RECOGNIZER_ARGS["rotation_info"] and (horizontal_list + free_list):
-                # Reshape result to be a list of lists, each row being for
-                # one of the rotations (first row being no rotation)
-                result = set_result_with_confidence(
-                    [
-                        result[image_len * i : image_len * (i + 1)]
-                        for i in range(len(RECOGNIZER_ARGS["rotation_info"]) + 1)  # type: ignore[arg-type]
-                    ]
-                )
-        return result
+        return horizontal_boxes_per_img, free_boxes_per_img
 
     def recognizer_get_text(
         self,
-        imgW: int,
-        image_list: list[np.ndarray],
-        ignore_char: str = "",
-        batch_size: int = 1,
-        workers: int = 1,
-    ):
-        ignore_idx = []
-        for char in ignore_char:
-            ignore_idx.append(self.character.index(char) + 1)
+        img_cv_grey: np.ndarray,
+        horizontal_boxes: list[box_xx_yy],
+        free_boxes: list[box_4corners],
+    ) -> tuple[
+        list[tuple[box_xx_yy, str, np.float64]],
+        list[tuple[box_4corners, str, np.float64]],
+    ]:
+        """
+        Predict the text in the given image using the recognizer network.
 
-        coord: list[np.ndarray] = [item[0] for item in image_list]
-        img_list = [item[1] for item in image_list]
-        AlignCollate_normal = AlignCollate(
-            imgH=self.imgH, imgW=imgW, keep_ratio_with_pad=True
-        )
-        test_data = ListDataset(img_list)
-        test_loader = DataLoader(
-            test_data,
-            batch_size=batch_size,
-            shuffle=False,
-            num_workers=int(workers),
-            collate_fn=AlignCollate_normal,
-            pin_memory=False,
-        )
+        Inputs:
+            img_cv_grey: np.ndarray
+                [H', W', 3], uint8
+                Input image
 
-        # predict first round
-        result1 = self.recognizer_inference(test_loader, ignore_idx)
+            horizontal_boxes: list[box_xx_yy]
+                List of bounding box corners (absolute pixel values) in each image.
+                These boxes are always a rectangle that is parallel to the image's coordinate space.
+                Order: (xmin, xmax, ymin, ymax)
 
-        # predict second round
-        low_confident_idx = [
+            free_boxes_per_img: list[box_4corners]
+                List of bounding box corners (absolute pixel values) in each image.
+                These boxes may be any parallelogram.
+                Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
+
+        Outputs:
+            result_box_xxyy: list[tuple[box_xx_yy, str, np.float64]]
+                This is a list of outputs, one for each detection related to a horizontal box.
+                In this tuple:
+                    box: box_xx_yy
+                        The bounding box coordinates corresponding to this prediction.
+
+                    text: str
+                        The predicted text.
+
+                    confidence: np.float64
+                        Prediction confidence.
+
+
+            result_box_4corners: list[tuple[box_4corners, str, np.float64]]]
+                This is a list of outputs, one for each detection related to a free box.
+                In this tuple:
+                    box: box_4corners
+                        The bounding box coordinates corresponding to this prediction.
+
+                    text: str
+                        The predicted text.
+
+                    confidence: np.float64
+                        Prediction confidence.
+        """
+        # If horizontal boxes and free boxes are not set, use the entire image instead
+        if not horizontal_boxes and not free_boxes:
+            y_max, x_max = img_cv_grey.shape
+            horizontal_boxes = [(0, x_max, 0, y_max)]
+            free_boxes = []
+
+        ## Cut out boxes
+        # List[cutout image, box coords, minimum y coordinate]
+        img_cutouts: list[tuple[np.ndarray, box_xx_yy | box_4corners, int]] = []
+
+        # Free boxes must be warped to a square before cropping
+        for free_box in free_boxes:
+            rect = np.array(free_box, dtype="float32")
+            cutout = four_point_transform(img_cv_grey, rect)
+            # Sometimes a predicted parallelogram is not valid, and therefore has
+            # a cutout with a dimension of 0. We ignore these.
+            if 0 in cutout.shape:
+                continue
+
+            img_cutouts.append(
+                (cutout, free_box, min(rect[0][1], rect[1][1], rect[2][1], rect[3][1]))
+            )
+
+        # Horizontal boxes can be directly cropped out of the image
+        for box in horizontal_boxes:
+            x_min = max(0, box[0])
+            x_max = int(min(box[1], img_cv_grey.shape[1]))
+            y_min = max(0, box[2])
+            y_max = int(min(box[3], img_cv_grey.shape[0]))
+
+            # Sometimes a predicted parallelogram is not valid, and therefore has
+            # a cutout with a dimension of 0. We ignore these.
+            if y_max - y_min <= 0 or x_max - x_min <= 0:
+                continue
+
+            cutout = img_cv_grey[y_min:y_max, x_min:x_max]
+            img_cutouts.append((cutout, box, y_min))
+
+        img_cutouts = sorted(
+            img_cutouts, key=lambda item: item[2]
+        )  # sort by vertical position
+
+        # Preprocess cutouts to fit input shape of the recognizer
+        cutout_frames_list = []
+        for frame, _, _ in img_cutouts:
+            img = numpy_image_to_torch(frame[..., None])
+            # Use top left pixel as a heuristic of background color to use for padding
+            # Since zero padding creates a black rectangle that is sometimes parsed as
+            # another character.
+            frame_resized, _, _ = resize_pad(
+                img,
+                self.recognizer_img_shape,
+                horizontal_float="left",
+                pad_value=img[0][0][0][0].item(),
+            )
+            cutout_frames_list.append(frame_resized)
+
+        ## Predict text from all cutouts
+        pred_text_confidence = self.recognizer_inference(cutout_frames_list)
+
+        # For predictions with low confidence, predict again with higher contrast.
+        low_confidence_indices = [
             i
-            for i, item in enumerate(result1)
-            if (item[1] < RECOGNIZER_ARGS["contrast_ths"])
+            for i, (_, confidence) in enumerate(pred_text_confidence)
+            if (
+                RECOGNIZER_ARGS["contrast_ths"] is not None
+                and confidence < RECOGNIZER_ARGS["contrast_ths"]
+            )
         ]
-
-        result2 = []
-        if len(low_confident_idx) > 0:
-            img_list2 = [img_list[i] for i in low_confident_idx]
-            AlignCollate_contrast = AlignCollate(
-                imgH=self.imgH,
-                imgW=imgW,
-                keep_ratio_with_pad=True,
-                adjust_contrast=RECOGNIZER_ARGS["adjust_contrast"],
+        low_confience_cutouts = [cutout_frames_list[i] for i in low_confidence_indices]
+        if low_confience_cutouts:
+            contrast = (
+                1 / RECOGNIZER_ARGS["contrast_ths"]
+                if RECOGNIZER_ARGS["contrast_ths"]
+                else 1
             )
-            test_data = ListDataset(img_list2)
-            test_loader = DataLoader(
-                test_data,
-                batch_size=batch_size,
-                shuffle=False,
-                num_workers=int(workers),
-                collate_fn=AlignCollate_contrast,
-                pin_memory=False,
+            low_confience_high_contrast_cutout_frames = [
+                TRF.adjust_contrast(img, contrast).unsqueeze(0)
+                for img in low_confience_cutouts
+            ]
+            high_contrast_pred_text_confidence = self.recognizer_inference(
+                low_confience_high_contrast_cutout_frames
             )
-            result2 = self.recognizer_inference(test_loader, ignore_idx)
+        else:
+            high_contrast_pred_text_confidence = []
 
-        result = []
-        for i, zipped in enumerate(zip(coord, result1)):
-            box, pred1 = zipped
-            if i in low_confident_idx:
-                pred2 = result2[low_confident_idx.index(i)]
-                if pred1[1] > pred2[1]:
-                    result.append((box, pred1[0], pred1[1]))
+        ## Collect Results
+        result_box_xxyy: list[tuple[box_xx_yy, str, np.float64]] = []
+        result_box_4corners: list[tuple[box_4corners, str, np.float64]] = []
+        for i, ((_, cutout_box_corners, _), (pred_text, pred_confidence)) in enumerate(
+            zip(img_cutouts, pred_text_confidence, strict=False)
+        ):
+            res_text: str
+            res_confidence: np.float64
+
+            if i in low_confidence_indices:
+                # If this was predicted with enhanced contrast, then take the prediction with higher confidence.
+                high_contrast_pred_text, high_contrast_pred_confidence = (
+                    high_contrast_pred_text_confidence[low_confidence_indices.index(i)]
+                )
+                if pred_confidence > high_contrast_pred_confidence:
+                    res_text, res_confidence = pred_text, pred_confidence
                 else:
-                    result.append((box, pred2[0], pred2[1]))
+                    res_text, res_confidence = (
+                        high_contrast_pred_text,
+                        high_contrast_pred_confidence,
+                    )
             else:
-                result.append((box, pred1[0], pred1[1]))
+                res_text, res_confidence = pred_text, pred_confidence
 
-        return result
+            if not res_text:
+                # ignore empty predictions
+                continue
+
+            # The recognizer can hallucinate these tokens when there is
+            # substantial empty space at the end of the text.
+            #
+            # When the input image is padded to match the input shape of the recognizer,
+            # empty space (padding) is always added to the right of the image.
+            res_text = res_text.strip()
+            if res_text[-1] in ["]", "|"]:
+                res_text = res_text[:-1].strip()
+
+            # Append to the correct list depending on the bbox type.
+            if isinstance(cutout_box_corners[0], tuple):
+                cutout_box_4corners = cast(box_4corners, cutout_box_corners)
+                result_box_4corners.append(
+                    (cutout_box_4corners, res_text, res_confidence)
+                )
+            else:
+                cutout_box_tl = cast(box_xx_yy, cutout_box_corners)
+                result_box_xxyy.append((cutout_box_tl, res_text, res_confidence))
+
+        return result_box_xxyy, result_box_4corners
 
     def recognizer_inference(
-        self, test_loader: DataLoader, ignore_idx: list[int], device="cpu"
-    ):
-        result = []
+        self, cutout_frames: list[torch.Tensor]
+    ) -> list[tuple[str, np.float64]]:
+        """
+        Predict the text in the given cut out frames.
+
+        Inputs:
+            cutout_frames: list[torch.Tensor]
+                list of [1, 1, H', W'], fp32
+                Input cutouts. These should be image cutouts
+                containing only the text for the recognizer to read.
+
+        Outputs:
+            results: list[tuple[str, np.float64]]
+                Predictions, one per input frame.
+                In this tuple:
+                    text: str
+                        The predicted text.
+
+                    confidence: np.float64
+                        Prediction confidence.
+        """
+        result: list[tuple[str, np.float64]] = []
+        preds_list = []
         with torch.no_grad():
-            for image_tensors in test_loader:
-                batch_size = image_tensors.size(0)
-                image = image_tensors.to(device)
-                preds = self.recognizer(image)
+            preds_list = [
+                self.recognizer(cutout_frame) for cutout_frame in cutout_frames
+            ]
+        preds = torch.cat(preds_list)
 
-                # Select max probabilty (greedy decoding) then decode index to character
-                preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+        # Select max probabilty (greedy decoding) then decode index to character
+        preds_size = torch.IntTensor([preds.size(1)] * len(cutout_frames))
 
-                ######## filter ignore_char, rebalance
-                preds_prob = F.softmax(preds, dim=2)
-                preds_prob[:, :, ignore_idx] = 0.0
-                pred_norm = preds_prob.sum(dim=2)
-                preds_prob = preds_prob / pred_norm.unsqueeze(-1)
+        ######## filter ignore_char, rebalance
+        preds_prob = F.softmax(preds, dim=2)
+        preds_prob[:, :, self.ignore_char_idx] = 0.0
+        pred_norm = preds_prob.sum(dim=2)
+        preds_prob = preds_prob / pred_norm.unsqueeze(-1)
 
-                preds_str: list[str]
-                if self.decoder == "greedy":
-                    # Select max probabilty (greedy decoding) then decode index to character
-                    _, preds_index = preds_prob.max(2)
-                    preds_index = preds_index.view(-1)
-                    preds_str = self.converter.decode_greedy(
-                        preds_index.data.cpu().detach().numpy(), preds_size.data
-                    )
-                elif self.decoder == "beamsearch":
-                    k = preds_prob.cpu().detach().numpy()
-                    preds_str = self.converter.decode_beamsearch(
-                        k, beamWidth=RECOGNIZER_ARGS["beamWidth"]
-                    )
-                elif self.decoder == "wordbeamsearch":
-                    k = preds_prob.cpu().detach().numpy()
-                    preds_str = self.converter.decode_wordbeamsearch(
-                        k, beamWidth=RECOGNIZER_ARGS["beamWidth"]
-                    )
-                else:
-                    raise NotImplementedError(f"Unknown decoder {self.decoder}")
+        preds_str: list[str]
+        if self.decoder == "greedy":
+            # Select max probabilty (greedy decoding) then decode index to character
+            _, preds_index = preds_prob.max(2)
+            preds_index = preds_index.view(-1)
+            preds_str = self.converter.decode_greedy(
+                preds_index.data.cpu().detach().numpy(), preds_size.data
+            )
+        elif self.decoder == "beamsearch":
+            k = preds_prob.cpu().detach().numpy()
+            preds_str = self.converter.decode_beamsearch(
+                k, beamWidth=RECOGNIZER_ARGS["beamWidth"]
+            )
+        elif self.decoder == "wordbeamsearch":
+            k = preds_prob.cpu().detach().numpy()
+            preds_str = self.converter.decode_wordbeamsearch(
+                k, beamWidth=RECOGNIZER_ARGS["beamWidth"]
+            )
+        else:
+            raise NotImplementedError(f"Unknown decoder {self.decoder}")
 
-                preds_prob_np = preds_prob.cpu().detach().numpy()
-                values = preds_prob_np.max(axis=2)
-                indices = preds_prob_np.argmax(axis=2)
-                preds_max_prob = []
-                for v, i in zip(values, indices):
-                    max_probs = v[i != 0]
-                    if len(max_probs) > 0:
-                        preds_max_prob.append(max_probs)
-                    else:
-                        preds_max_prob.append(np.array([0]))
+        preds_prob_np = preds_prob.cpu().detach().numpy()
+        values = preds_prob_np.max(axis=2)
+        indices = preds_prob_np.argmax(axis=2)
+        preds_max_prob = []
+        for v, i in zip(values, indices, strict=False):
+            max_probs = v[i != 0]
+            if len(max_probs) > 0:
+                preds_max_prob.append(max_probs)
+            else:
+                preds_max_prob.append(np.array([0]))
 
-                for pred, pred_max_prob in zip(preds_str, preds_max_prob):
-                    confidence_score = custom_mean(pred_max_prob)
-                    result.append([pred, confidence_score])
+        for pred, pred_max_prob in zip(preds_str, preds_max_prob, strict=False):
+            confidence_score = custom_mean(pred_max_prob)
+            result.append((pred, confidence_score))
 
         return result
 
     def predict(self, *args, **kwargs):
         return self.predict_text_from_image(*args, **kwargs)
 
-    def predict_text_from_image(self, pixel_values_or_image: np.ndarray | Image.Image):
+    def predict_text_from_image(
+        self, pixel_values_or_image: np.ndarray | Image.Image
+    ) -> list[tuple[Image.Image, list[str], list[np.float64]]]:
         """
         From provided array or image, predict (bounding box of texts, text, scores)
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
                 numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
 
-        Returns:
-            results: tuple[Image.Image, list[tuple]]
-                Image.Image: it will be origin image with bounding box
-                list[tuple]: list of tuple(bounding box coords, text, scores)
-        """
-        NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
-        batch_size = len(NHWC_int_numpy_frames)
-        # TODO
-        NHWC_int_numpy_frame = NHWC_int_numpy_frames[0]
+        Returns
+        -------
+            results: list[tuple[Image.Image, list[str], list[np.float64]]]
+                Predictions for each image.
+                In this tuple:
+                    image: Image.Image
+                        Predicted image with bounding boxes drawn.
 
-        img_bgr, img_cv_grey = reformat_input(NHWC_int_numpy_frame)
-        img = img_bgr[:, :, ::-1]  # bgr -> rgb
+                    text: list[str]
+                        The predicted texts.
+
+                    confidence: list[np.float64]
+                        Prediction confidence for each predicted text / bounding box combo.
+
+        """
+        # Get frames
+        NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)
+        NHWC_int_numpy_GRAY_frames = [
+            cv2.cvtColor(x, cv2.COLOR_RGB2GRAY) for x in NHWC_int_numpy_frames
+        ]
 
         # detector
-        input_tensor, infos = self.detector_preprocess(img)
-        results, feature = self.detector(input_tensor)
-        horizontal_list, free_list = self.detector_postprocess(results, infos)
+        detector_input_frames, scales, paddings = self.detector_preprocess(
+            NHWC_int_numpy_frames
+        )
+        results = self.detector(detector_input_frames)
+        horizontal_boxes_per_img, free_boxes_per_img = self.detector_postprocess(
+            results, scales, paddings
+        )
 
         # recognizer
-        horizontal_list, free_list = horizontal_list[0], free_list[0]
-        (
-            img_cv_grey,
-            horizontal_list,
-            free_list,
-            ignore_char,
-            batch_size,
-        ) = self.recognizer_preprocess(
-            img_cv_grey, horizontal_list, free_list, batch_size
-        )
-        list_result = self.recognize(
-            img_cv_grey, horizontal_list, free_list, batch_size, ignore_char
-        )
-
-        coords = [item[0] for item in list_result]
-        for coord in coords:
-            draw_box_from_xyxy(
-                NHWC_int_numpy_frame,
-                tuple(coord[0]),
-                tuple(coord[2]),
-                color=(0, 255, 0),
-                size=2,
+        output: list[tuple[Image.Image, list[str], list[np.float64]]] = []
+        for img, img_gray, horizontal_boxes, free_boxes in zip(
+            NHWC_int_numpy_frames,
+            NHWC_int_numpy_GRAY_frames,
+            horizontal_boxes_per_img,
+            free_boxes_per_img,
+            strict=False,
+        ):
+            img_results_horizonal, img_results_free = self.recognizer_get_text(
+                img_gray, horizontal_boxes, free_boxes
             )
-        return (Image.fromarray(NHWC_int_numpy_frames[0]), list_result)
+
+            # Collect output & draw boxes
+            img = img.copy()
+            texts = []
+            confidences = []
+            for box_coords, text, confidence in img_results_horizonal:
+                draw_box_from_xyxy(
+                    img,
+                    (box_coords[0], box_coords[2]),
+                    (box_coords[1], box_coords[3]),
+                    color=(0, 255, 0),
+                    size=2,
+                )
+                texts.append(text)
+                confidences.append(confidence)
+
+            for free_box_coords, text, confidence in img_results_free:
+                draw_box_from_corners(
+                    img,
+                    np.array(free_box_coords),
+                    color=(0, 255, 0),
+                    size=2,
+                )
+                texts.append(text)
+                confidences.append(confidence)
+
+            output.append((Image.fromarray(img), texts, confidences))
+
+        return output

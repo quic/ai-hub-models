@@ -32,7 +32,7 @@ DEEPBOX_SOURCE_REPO_COMMIT = "40ba3b60fd550ff33d5c1b307212dad80149e525"
 VGG_WEIGHTS_ASSET = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "epoch_10.pkl"
 )
-DEFAULT_YOLO_WEIGHTS = "yolov3-tiny.pt"
+DEFAULT_YOLO_WEIGHTS = "yolov3-tinyu.pt"
 
 
 class Yolo2DDetection(YoloV3):
@@ -76,7 +76,7 @@ class VGG3DDetection(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:  # type: ignore[override]
+    def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:
         with SourceAsRoot(
             DEEPBOX_SOURCE_REPOSITORY,
             DEEPBOX_SOURCE_REPO_COMMIT,

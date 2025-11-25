@@ -15,14 +15,16 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/h
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[hrnet-pose]" torch==2.4.1 --trusted-host download.openmmlab.com -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.4/index.html -f https://qaihub-public-python-wheels.s3.us-west-2.amazonaws.com/index.html
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install mmpose==1.2.0 --no-deps
+pip install "qai-hub-models[hrnet-pose]"
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
-python -m qai_hub_models.models.hrnet_pose.demo { --quantize w8a8 }
+python -m qai_hub_models.models.hrnet_pose.demo { --quantize w8a8, w8a16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -31,11 +33,11 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.hrnet_pose.export { --quantize w8a8 }
+python -m qai_hub_models.models.hrnet_pose.export { --quantize w8a8, w8a16 }
 ```
 Additional options are documented with the `--help` option.
 

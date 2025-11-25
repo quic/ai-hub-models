@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+import contextlib
 import math
-from typing import Optional, Union
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 def make_divisible(x: int, divisor: int) -> int:
@@ -49,9 +49,9 @@ class Concat(nn.Module):
 
 
 def autopad(
-    kernel_size: Union[int, tuple[int, int]],
-    p: Optional[Union[int, tuple[int, int]]] = None,
-) -> Union[int, tuple[int, int]]:
+    kernel_size: int | tuple[int, int],
+    p: int | tuple[int, int] | None = None,
+) -> int | tuple[int, int]:
     """
     Compute padding size from kernel size.
 
@@ -67,7 +67,7 @@ def autopad(
         return p
     if isinstance(kernel_size, int):
         return kernel_size // 2
-    assert 2 == len(kernel_size)
+    assert len(kernel_size) == 2
     # pyright and mypy complain that we're returning tuple[int, ...], but we've just asserted
     # that it's length two so we should be safe to ignore the error.
     return tuple([x // 2 for x in kernel_size])  # type: ignore[return-value]
@@ -113,7 +113,7 @@ class FusedConvBatchNorm(nn.Module):
             groups=groups,
             bias=False,
         )
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.bn = nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.03)
         self.act = (
             nn.ReLU(True)
             if act is True
@@ -355,11 +355,9 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
     c2 = ch[-1]
     for i, (f, n, m, args) in enumerate(cfg["backbone"] + cfg["head"]):
         m = eval(m) if isinstance(m, str) else m
-        for j, a in enumerate(args):
-            try:
+        with contextlib.suppress(NameError):
+            for j, a in enumerate(args):
                 args[j] = eval(a) if isinstance(a, str) else a
-            except NameError:
-                pass
 
         n = max(round(n * gd), 1) if n > 1 else n
         if m in [FusedConvBatchNorm, Bottleneck, SPPF, C3, DoubleBlazeBlock]:
@@ -395,9 +393,7 @@ def build_gear_guard_net_model(cfg: dict, ch: list[int]):
 
 
 class DoubleBlazeBlock(nn.Module):
-    """
-    DoubleBlaze block
-    """
+    """DoubleBlaze block"""
 
     def __init__(
         self,
@@ -443,10 +439,10 @@ class DoubleBlazeBlock(nn.Module):
                 groups=in_channels,
                 bias=bias,
             ),
-            nn.BatchNorm2d(in_channels),
+            nn.BatchNorm2d(in_channels, eps=0.001, momentum=0.03),
             # pw-linear
             nn.Conv2d(in_channels, hidden_channels, 1, 1, 0, bias=bias),
-            nn.BatchNorm2d(hidden_channels),
+            nn.BatchNorm2d(hidden_channels, eps=0.001, momentum=0.03),
         )
         self.act = nn.ReLU(inplace=True)
 
@@ -462,10 +458,10 @@ class DoubleBlazeBlock(nn.Module):
                 groups=hidden_channels,
                 bias=bias,
             ),
-            nn.BatchNorm2d(hidden_channels),
+            nn.BatchNorm2d(hidden_channels, eps=0.001, momentum=0.03),
             # pw-linear
             nn.Conv2d(hidden_channels, out_channels, 1, 1, 0, bias=bias),
-            nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(out_channels, eps=0.001, momentum=0.03),
         )
 
         if self.use_pooling:

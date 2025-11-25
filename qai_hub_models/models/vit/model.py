@@ -18,3 +18,8 @@ class VIT(ImagenetClassifier):
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHTS) -> VIT:
         net = tv_models.vit_b_16(weights=weights)
         return cls(net)
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10

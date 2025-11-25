@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime
 import time
 from functools import cached_property
-from typing import Any, Generic, Optional, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
 import qai_hub as hub
 from qai_hub.public_rest_api import DatasetEntries
@@ -48,12 +48,11 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         self,
         model_id: str,
         precision: Precision,
-        job_id: Optional[str],
+        job_id: str | None,
         device: ScorecardDevice,
         wait_for_job: bool,  # If false, running jobs are treated like they were "skipped".
-        wait_for_max_job_duration: Optional[
-            int
-        ],  # Allow the job this many seconds after creation to complete
+        wait_for_max_job_duration: int
+        | None,  # Allow the job this many seconds after creation to complete
         path: ScorecardPathOrNoneTypeVar,
     ):
         self.model_id = model_id
@@ -89,16 +88,13 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         if not job.get_status().finished:
             if not self.wait_for_job:
                 return job
+            if self.wait_for_max_job_duration:
+                time_left = int(
+                    job.date.timestamp() + self.wait_for_max_job_duration - time.time()
+                )
+                job.wait(time_left)
             else:
-                if self.wait_for_max_job_duration:
-                    time_left = int(
-                        job.date.timestamp()
-                        + self.wait_for_max_job_duration
-                        - time.time()
-                    )
-                    job.wait(time_left)
-                else:
-                    job.wait()
+                job.wait()
         return job
 
     @cached_property
@@ -120,7 +116,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         return not self.skipped and self._job_status.success
 
     @cached_property
-    def status_message(self) -> Optional[str]:
+    def status_message(self) -> str | None:
         return None if self.skipped else self._job_status.message
 
     @cached_property
@@ -136,7 +132,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         if not self.skipped:
             if self._job_status.success:
                 return "Passed"
-            elif self._job_status.failure:
+            if self._job_status.failure:
                 return "Failed"
         return "Skipped"
 
@@ -163,7 +159,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         raise ValueError("No chipset found.")
 
     @cached_property
-    def date(self) -> Optional[datetime.datetime]:
+    def date(self) -> datetime.datetime | None:
         if self.job is None:
             return None
         return self.job.date
@@ -242,7 +238,7 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
 
     @cached_property
     def performance_metrics(self) -> QAIHMModelPerf.PerformanceDetails:
-        metrics = QAIHMModelPerf.PerformanceDetails(
+        return QAIHMModelPerf.PerformanceDetails(
             job_id=self.job_id,
             job_status=self.job_status,
             inference_time_milliseconds=(
@@ -257,7 +253,6 @@ class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
             layer_counts=self.layer_counts if self.success else None,
             tool_versions=self.tool_versions,
         )
-        return metrics
 
 
 class InferenceScorecardJob(ScorecardJob[hub.InferenceJob, ScorecardProfilePath]):

@@ -4,7 +4,6 @@
 # ---------------------------------------------------------------------
 
 from io import BytesIO
-from typing import Optional
 
 import requests
 import torch
@@ -13,7 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from qai_hub_models.models._shared.stable_diffusion.utils import make_canny
 
 
-def download_img(url: str) -> Optional[Image.Image]:
+def download_img(url: str) -> Image.Image | None:
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -32,8 +31,7 @@ def download_img(url: str) -> Optional[Image.Image]:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
 
-        image = Image.open(BytesIO(response.content))
-        return image
+        return Image.open(BytesIO(response.content))
 
     except UnidentifiedImageError as e:
         print(f"Cannot identify image from {url}: {e}")
@@ -48,18 +46,20 @@ def fetch_and_prepare(
     width: int = 512,
     low_threshold: int = 100,
     high_threshold: int = 200,
-) -> Optional[torch.Tensor]:
+) -> torch.Tensor | None:
     """
     Fetch image from URL and returns canny map (None if fetch failed).
 
-    Args:
+    Parameters
+    ----------
         height (int): Target height of the image.
         width (int): Target width of the image.
         low_threshold (int): Low threshold for Canny edge detection.
         high_threshold (int): High threshold for Canny edge detection.
 
-    Returns:
-        Optional[torch.Tensor]: The processed image tensor (NCHW) or None
+    Returns
+    -------
+        torch.Tensor | None: The processed image tensor (NCHW) or None
         if loading fails.
     """
     image = download_img(url)

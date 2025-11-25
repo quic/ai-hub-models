@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import torch
-import yaml  # type: ignore
+from ruamel.yaml import YAML
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.semantic_kitti_evaluator import SemanticKittiEvaluator
@@ -20,7 +21,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 SALSANEXT_PROXY_REPOSITORY = "https://github.com/TiagoCortinhal/SalsaNext.git"
 SALSANEXT_PROXY_REPO_COMMIT = "7548c124b48f0259cdc40e98dfc3aeeadca6070c"
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 DEFAULT_WEIGHTS = "pretrained/SalsaNext"
 INPUT_LIDAR_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "000000.bin"
@@ -47,7 +48,7 @@ with SourceAsRoot(
     MODEL_ASSET_VERSION,
     source_repo_patches=SALSANEXT_SOURCE_PATCHES,
 ):
-    from train.common.laserscan import SemLaserScan  # type: ignore
+    from train.common.laserscan import SemLaserScan
 
 
 class SalsaNext(BaseModel):
@@ -61,14 +62,13 @@ class SalsaNext(BaseModel):
         return cls(salsanext_model)
 
     def forward(self, lidar: torch.Tensor) -> tuple[torch.Tensor]:
-        predict = self.model(lidar)
-        return predict
+        return self.model(lidar)
 
-    def load_lidar_bin(self, lidar_bin_path: str) -> torch.Tensor:
+    def load_lidar_bin(self, lidar_bin_path: str) -> tuple[torch.Tensor, Any]:
         with open(ARCH_ADDRESS) as f:
-            arch = yaml.safe_load(f)
+            arch = YAML(typ="safe", pure=True).load(f)
         with open(DATA_ADDRESS) as f:
-            data = yaml.safe_load(f)
+            data = YAML(typ="safe", pure=True).load(f)
         color_map = data["color_map"]
         sensor = arch["dataset"]["sensor"]
         img_H = sensor["img_prop"]["height"]
@@ -137,7 +137,7 @@ class SalsaNext(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator | None:
         with open(DATA_ADDRESS) as f:
-            data = yaml.safe_load(f)
+            data = YAML(typ="safe", pure=True).load(f)
         n_classes = len(data["learning_map_inv"])
         return SemanticKittiEvaluator(
             n_classes, data["learning_map"], data["learning_ignore"]
@@ -159,13 +159,16 @@ def _load_salsanext_source_model_from_weights(
         SALSANEXT_PROXY_REPO_COMMIT,
         MODEL_ID,
         MODEL_ASSET_VERSION,
+        SALSANEXT_SOURCE_PATCHES,
     ):
-        from train.tasks.semantic.modules.SalsaNext import SalsaNext  # type: ignore
+        from train.tasks.semantic.modules.SalsaNext import SalsaNext
 
         model = SalsaNext(20)
         model = torch.nn.DataParallel(model)
         # load pretrained model
-        checkpoint = torch.load(str(weights_path_salsanext), map_location="cpu")
+        checkpoint = torch.load(
+            str(weights_path_salsanext), map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint["state_dict"], strict=True)
         model.to("cpu").eval()
     return model

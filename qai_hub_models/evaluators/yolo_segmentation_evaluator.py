@@ -34,7 +34,7 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
 
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         """
-        gt should be a tuple of tensors with the following tensors:
+        Gt should be a tuple of tensors with the following tensors:
             - mask of shape (batch_size, max_boxes, height, width)
               - The 4 should be normalized (x, y, w, h)
             - classes of shape (batch_size, max_boxes)
@@ -49,7 +49,6 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
             - protos: with shape[batch_size, 32, mask_h, mask_w]
               - multiply masks and protos to generate output masks.
         """
-
         pred_boxes, pred_scores, pred_masks, pred_class_idx, proto = output
         gt_mask, gt_label, num_box = gt
 
@@ -92,8 +91,7 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
     def get_accuracy_score(self) -> float:
         # Calculate mAP_mask[0.5-0.95]
         results = self.metric.compute()
-        mAP = results["map"]
-        return mAP
+        return results["map"]
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} mAP"

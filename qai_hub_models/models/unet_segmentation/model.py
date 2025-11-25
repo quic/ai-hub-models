@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -34,7 +32,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 class UNet(BaseModel):
     @classmethod
-    def from_pretrained(cls, weights: Optional[str] = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, weights: str | None = DEFAULT_WEIGHTS):
         net = torch.hub.load(
             MODEL_REPO, MODEL_TYPE, pretrained=False, scale=1.0, trust_repo=True
         )
@@ -50,14 +48,16 @@ class UNet(BaseModel):
         """
         Run UNet on `image`, and produce a segmentation mask over the image.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, H, W] image.
                    The smaller of H, W should be >= 16, the larger should be >=32
                    Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             mask: Shape [1, n_classes, H, W] where H, W are the same as the input image.
                   n_classes is 2 for the default model.
 

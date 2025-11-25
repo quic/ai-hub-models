@@ -10,7 +10,7 @@ import os
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 
@@ -19,7 +19,6 @@ from qai_hub_models.models.llama_v2_7b_chat import Model
 from qai_hub_models.models.llama_v2_7b_chat.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.utils import model_cache
 from qai_hub_models.utils.args import (
-    enable_model_caching,
     export_parser,
     get_input_spec_kwargs,
     get_model_kwargs,
@@ -69,25 +68,22 @@ BASE_NAME = "llama_v2_7b_chat"
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
+    device: hub.Device,
     model_name: str = MODEL_ID,
     model_asset_version: int = MODEL_ASSET_VERSION,
-    components: Optional[list[str]] = None,
+    components: list[str] | None = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_downloading: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
-    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
+    output_dir: str | None = None,
+    target_runtime: TargetRuntime = TargetRuntime.GENIE,
     compile_options: str = "",
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
 ) -> (
-    Mapping[
-        str, tuple[hub.LinkJob, Optional[hub.ProfileJob], Optional[hub.InferenceJob]]
-    ]
+    Mapping[str, tuple[hub.LinkJob, hub.ProfileJob | None, hub.InferenceJob | None]]
     | list[str]
 ):
     """
@@ -102,32 +98,56 @@ def export_model(
 
     Each of the last four steps can be optionally skipped using the input options.
 
-    Parameters:
-        device: Device for which to export the model.
-            Full list of available devices can be found by running `hub.get_devices()`.
-            Defaults to DEFAULT_DEVICE if not specified.
-        chipset: Specify the device in terms of chipset instead.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to ALL_COMPONENTS if not specified.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_downloading: If set, skips downloading of compiled model.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling and inference.
-        output_dir: Directory to store generated assets (e.g. compiled model).
-            Defaults to `<cwd>/build/<model_name>`.
-        target_runtime: Which on-device runtime to target. Default is TFLite.
-        compile_options: Additional options to pass when submitting the compile job.
-        profile_options: Additional options to pass when submitting the profile job.
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_pretrained`
+    Parameters
+    ----------
+    device
+        Device for which to export the model (e.g. hub.Device("Samsung Galaxy S25")).
+        Full list of available devices can be found by running `hub.get_devices()`.
+    model_name
+        Model name.
+    model_asset_version
+        Identifier used as a cache key to store the model asset.
+    model_name
+        Unique name for the model
+    model_id
+        Integer version of the model
+    components
+        List of sub-components of the model that will be exported.
+        Each component is compiled and profiled separately.
+        Defaults to ALL_COMPONENTS if not specified.
+    skip_profiling
+        If set, skips profiling of compiled model on real devices.
+    skip_inferencing
+        If set, skips computing on-device outputs from sample data.
+    skip_downloading
+        If set, skips downloading of compiled model.
+    skip_summary
+        If set, skips waiting for and summarizing results
+        from profiling and inference.
+    output_dir
+        Directory to store generated assets (e.g. compiled model).
+        Defaults to `<cwd>/build/<model_name>`.
+    target_runtime
+        Which on-device runtime to target. Default is TFLite.
+    compile_options
+        Additional options to pass when submitting the compile job.
+    profile_options
+        Additional options to pass when submitting the profile job.
+    model_cache_mode
+        Whether to cache uploaded AI Hub model during export.
+        If enable, caches uploaded model (i.e. re-uses uploaded AI Hub model from cache).
+        If disable, disables caching i.e. no reading from and write to cache.
+        If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.
+    additional_model_kwargs
+        Additional optional kwargs used to customize
+        `model_cls.from_pretrained`
 
-    Returns:
-        A Mapping from component_name to a 3-tuple of:
-            * A LinkJob object containing metadata about the link job submitted to hub.
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
-            * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+    Returns
+    -------
+    A Mapping from component_name to a 3-tuple of:
+        * A LinkJob object containing metadata about the link job submitted to hub.
+        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
     model_name = BASE_NAME
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
@@ -141,7 +161,6 @@ def export_model(
             "llama_v2_7b_chat",
             "Llama-v2-7B-Chat",
             device,
-            chipset,
             skip_profiling,
             skip_inferencing,
             skip_downloading,
@@ -157,14 +176,6 @@ def export_model(
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
-    hub_devices = hub.get_devices(
-        name=device if device and not chipset else "",
-        attributes=f"chipset:{chipset}" if chipset else [],
-    )
-
-    # Pick a device
-    hub_device = hub_devices[-1]
-
     compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
     profile_options_per_sub_component: dict[str, str] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}
@@ -172,7 +183,6 @@ def export_model(
     for component_name in components:
         compile_jobs[component_name] = []
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
-
             # Load model part
             component = model.load_model_part(sub_component_name)
 
@@ -217,7 +227,7 @@ def export_model(
             submitted_compile_job = hub.submit_compile_job(
                 model=current_model,
                 input_specs=input_spec,
-                device=hub_device,
+                device=device,
                 name=f"{model_name}_{sub_component_name}",
                 calibration_data=quant_calibration_data,
                 options=model_compile_options,
@@ -240,9 +250,9 @@ def export_model(
                     f"Compile job failed for {component_name}. Please re-run export script for failed component."
                 )
             target_model = compile_job.get_target_model()
-            assert (
-                target_model is not None
-            ), "Compile job did not produce a target model."
+            assert target_model is not None, (
+                "Compile job did not produce a target model."
+            )
             models.append(target_model)
 
         # Link Prompt processor and Token generator
@@ -262,7 +272,7 @@ def export_model(
                 print(f"Profiling model {component_name} on a hosted device.")
                 submitted_profile_job = hub.submit_profile_job(
                     model=hub_model,
-                    device=hub_device,
+                    device=device,
                     name=f"{model_name}_{sub_component_name}",
                     options=profile_options_all,
                 )
@@ -288,7 +298,7 @@ def export_model(
                 submitted_inference_job = hub.submit_inference_job(
                     model=link_jobs[component_name].get_target_model(),
                     inputs=sample_inputs,
-                    device=hub_device,
+                    device=device,
                     name=f"{model_name}_{sub_component_name}",
                     options=profile_options_all,
                 )
@@ -335,7 +345,7 @@ def export_model(
 
     if not skip_summary:
         print_on_target_demo_cmd(
-            link_jobs.values(), Path(__file__).parent.resolve(), hub_device
+            link_jobs.values(), Path(__file__).parent.resolve(), device
         )
 
     print(
@@ -345,25 +355,25 @@ def export_model(
     return {
         component_name: (
             link_jobs[component_name],
-            profile_jobs.get(sub_component_name, None),
-            inference_jobs.get(sub_component_name, None),
+            profile_jobs.get(sub_component_name),
+            inference_jobs.get(sub_component_name),
         )
         for component_name in components
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]
     }
 
 
-def main(argv: Optional[list[str]] = None):
+def main(argv: list[str] | None = None):
     warnings.filterwarnings("ignore")
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         components=ALL_COMPONENTS,
         supported_precision_runtimes={
             Precision.w8a16: [TargetRuntime.QNN_CONTEXT_BINARY]
         },
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
-    parser = enable_model_caching(parser)
     args = parser.parse_args(argv)
     export_model(
         model_name=MODEL_ID, model_asset_version=MODEL_ASSET_VERSION, **vars(args)

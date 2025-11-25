@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 import torch
-from ultralytics import YOLO as ultralytics_YOLO
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import DetectionModel
 
 from qai_hub_models.models._shared.yolo.model import yolo_detect_postprocess
 from qai_hub_models.models.yolov8_det.app import YoloV8DetectionApp
@@ -18,6 +21,7 @@ from qai_hub_models.models.yolov8_det.model import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.set_env import set_temp_env
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
@@ -30,7 +34,10 @@ WEIGHTS = "yolov8n.pt"
 def test_numerical() -> None:
     """Verify that raw (numeric) outputs of both (QAIHM and non-qaihm) networks are the same."""
     processed_sample_image = preprocess_PIL_image(load_image(IMAGE_ADDRESS))
-    source_model = ultralytics_YOLO(WEIGHTS).model
+    # Set the environment variable to force torch.load to use weights_only=False
+    # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+    with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+        source_model = cast(DetectionModel, ultralytics_YOLO(WEIGHTS).model)
     qaihm_model = YoloV8Detector.from_pretrained(WEIGHTS)
 
     with torch.no_grad():
@@ -41,7 +48,7 @@ def test_numerical() -> None:
 
         # Qualcomm AI Hub Model output
         qaihm_out_postprocessed = qaihm_model(processed_sample_image)
-        for i in range(0, len(source_out_postprocessed)):
+        for i in range(len(source_out_postprocessed)):
             assert np.allclose(source_out_postprocessed[i], qaihm_out_postprocessed[i])
 
 

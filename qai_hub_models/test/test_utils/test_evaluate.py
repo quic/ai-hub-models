@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 import torch
@@ -16,13 +16,11 @@ from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.evaluate import DataLoader, evaluate
 from qai_hub_models.utils.input_spec import InputSpec, make_torch_inputs
-from qai_hub_models.utils.onnx_torch_wrapper import OnnxModelTorchWrapper
+from qai_hub_models.utils.onnx.torch_wrapper import OnnxModelTorchWrapper
 
 
 class VariableIODummyModel(BaseModel):
-    """
-    Dummy AI Hub model that allows changing the number of inputs / outputs.
-    """
+    """Dummy AI Hub model that allows changing the number of inputs / outputs."""
 
     DEFAULT_IO_SHAPE = (1, 3, 2, 2)
 
@@ -48,7 +46,7 @@ class VariableIODummyModel(BaseModel):
         return VariableIODummyModel(num_inputs, num_outputs, shape)
 
     def forward(
-        self, *args: torch.Tensor | int | float, **kwargs: torch.Tensor | int | float
+        self, *args: torch.Tensor | float, **kwargs: torch.Tensor | float
     ) -> torch.Tensor | int | float | tuple[torch.Tensor | int | float, ...]:
         inputs: dict[str, torch.Tensor | int | float] = {}
 
@@ -57,9 +55,9 @@ class VariableIODummyModel(BaseModel):
 
         for kwarg_name, kwarg in kwargs.items():
             assert kwarg_name not in inputs, f"Specified input arg {kwarg_name} twice."
-            assert (
-                kwarg_name in self.get_input_spec().keys()
-            ), f"Unknown input arg {kwarg_name}"
+            assert kwarg_name in self.get_input_spec(), (
+                f"Unknown input arg {kwarg_name}"
+            )
             inputs[kwarg_name] = kwarg
 
         if len(inputs) < len(self.get_input_spec()):
@@ -71,9 +69,10 @@ class VariableIODummyModel(BaseModel):
                 f"{len(self.get_input_spec())} Provided additional inputs: {inputs.keys() - self.get_input_spec().keys()}"
             )
 
-        out = []
-        for outIdx in range(0, self.num_outputs):
-            out.append(inputs[f"in{min(self.num_inputs - 1, outIdx)}"] * 2)
+        out = [
+            inputs[f"in{min(self.num_inputs - 1, outIdx)}"] * 2
+            for outIdx in range(self.num_outputs)
+        ]
         if len(out) < self.num_inputs:
             for i in range(len(out), self.num_inputs):
                 out[min(self.num_outputs - 1, i - len(out))] *= inputs[f"in{i}"]
@@ -84,14 +83,14 @@ class VariableIODummyModel(BaseModel):
     def get_input_spec(
         cls, num_inputs: int = 1, shape: tuple[int, ...] = DEFAULT_IO_SHAPE
     ) -> InputSpec:
-        return {f"in{i}": (shape, "float32") for i in range(0, num_inputs)}
+        return {f"in{i}": (shape, "float32") for i in range(num_inputs)}
 
     def _get_input_spec_for_instance(self):
         return self.__class__.get_input_spec(self.num_inputs, self.shape)
 
     @staticmethod
     def get_output_names(num_outputs: int = 1) -> list[str]:
-        return [f"out{i}" for i in range(0, num_outputs)]
+        return [f"out{i}" for i in range(num_outputs)]
 
     def _get_output_names_for_instance(self) -> list[str]:
         return self.__class__.get_output_names(self.num_outputs)
@@ -144,8 +143,8 @@ class DummyEvaluator(BaseEvaluator):
         gt,
     ) -> None:
         if self.num_outputs != 1:
-            assert isinstance(output, tuple) or isinstance(output, list)
-            assert isinstance(gt, tuple) or isinstance(gt, list)
+            assert isinstance(output, (tuple, list))
+            assert isinstance(gt, (tuple, list))
         else:
             output = tuple(
                 output,
@@ -155,17 +154,9 @@ class DummyEvaluator(BaseEvaluator):
             )
 
         assert len(output) == len(gt)
-        for output, gt in zip(output, gt):
-            assert (
-                isinstance(output, torch.Tensor)
-                or isinstance(output, float)
-                or isinstance(output, int)
-            )
-            assert (
-                isinstance(gt, torch.Tensor)
-                or isinstance(gt, float)
-                or isinstance(gt, int)
-            )
+        for single_output, single_gt in zip(output, gt, strict=False):
+            assert isinstance(single_output, (torch.Tensor, float, int))
+            assert isinstance(single_gt, (torch.Tensor, float, int))
 
         self.dummy_metric = self.dummy_metric + 1
 
@@ -192,12 +183,12 @@ class DummyDataset(BaseDataset):
         super().__init__("", split)
         assert num_samples >= self.default_samples_per_job()
         self.data = [
-            tuple(torch.rand(shape, dtype=dtype) for _ in range(0, num_inputs))
-            for __ in range(0, num_samples)
+            tuple(torch.rand(shape, dtype=dtype) for _ in range(num_inputs))
+            for __ in range(num_samples)
         ]
         self.gt = [
-            tuple(torch.rand(shape, dtype=dtype) for _ in range(0, num_outputs))
-            for __ in range(0, num_samples)
+            tuple(torch.rand(shape, dtype=dtype) for _ in range(num_outputs))
+            for __ in range(num_samples)
         ]
 
     @classmethod
@@ -238,27 +229,27 @@ class DummyDataset(BaseDataset):
         return data if len(data) != 1 else data[0], gt if len(gt) != 1 else gt[0]
 
 
-@pytest.mark.parametrize("shuffle", (True, False))
+@pytest.mark.parametrize("shuffle", [True, False])
 @pytest.mark.parametrize(
-    ["num_samples", "dataloader_batch_size", "model_batch_size"],
-    (
+    ("num_samples", "dataloader_batch_size", "model_batch_size"),
+    [
         (100, 10, 1),
         (100, 10, 5),
         (20, 1, 1),
         (20, 20, 20),
         (100, 18, 16),
         (100, 16, 32),
-    ),
+    ],
 )
 @pytest.mark.parametrize(
-    ["num_inputs", "num_outputs"],
-    (
+    ("num_inputs", "num_outputs"),
+    [
         (1, 1),
         (1, 3),
         (2, 1),
         (3, 7),
         (4, 2),
-    ),
+    ],
 )
 def test_local_evaluate(
     num_inputs: int,  # number of model inputs
@@ -277,7 +268,10 @@ def test_local_evaluate(
     with qaihm_temp_dir() as tmpdir:
         onnx_path = f"{tmpdir}/model.onnx"
         torch.onnx.export(
-            model, tuple(make_torch_inputs(model.get_input_spec())), onnx_path
+            model,
+            tuple(make_torch_inputs(model.get_input_spec())),
+            onnx_path,
+            dynamo=False,
         )
         onnx_model = OnnxModelTorchWrapper.OnCPU(onnx_path)
 
@@ -287,7 +281,7 @@ def test_local_evaluate(
 
     if dataloader_batch_size % model_batch_size != 0:
         with pytest.raises(
-            ValueError, match=".*must evenly divide the DataLoader's batch size.*"
+            ValueError, match=r".*must evenly divide the DataLoader's batch size.*"
         ):
             out = evaluate(
                 dataloader,

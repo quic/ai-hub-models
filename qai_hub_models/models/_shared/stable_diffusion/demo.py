@@ -3,16 +3,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from typing import Union
 
 from PIL import Image
 
+from qai_hub_models.models._shared.controlnet.model import ControlNetBase
 from qai_hub_models.models._shared.stable_diffusion.app import (
     OUT_H,
     OUT_W,
     StableDiffusionApp,
 )
-from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.models._shared.stable_diffusion.model import (
+    StableDiffusionBase,
+    TextEncoderBase,
+    UnetBase,
+    VaeDecoderBase,
+)
 from qai_hub_models.models._shared.stable_diffusion.utils import make_canny
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import (
@@ -39,10 +44,11 @@ def stable_diffusion_demo(
     default_num_steps: int = 5,
     use_controlnet: bool = False,
     default_prompt: str = DEFAULT_PROMPT,
-    default_image: Union[str, None] = None,
+    default_image: str | None = None,
 ):
     """
-    Args:
+    Parameters
+    ----------
         default_image is only used if use_controlnet is True
     """
     parser = get_model_cli_parser(model_cls)
@@ -50,7 +56,10 @@ def stable_diffusion_demo(
         parser=parser,
         supported_eval_modes=[EvalMode.QUANTSIM, EvalMode.FP, EvalMode.ON_DEVICE],
         supported_precisions={Precision.w8a16},
-        available_target_runtimes=[TargetRuntime.QNN_CONTEXT_BINARY],
+        available_target_runtimes=[
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
         default_device="Snapdragon X Elite CRD",
         add_output_dir=True,
     )
@@ -87,8 +96,8 @@ def stable_diffusion_demo(
     canny_image = None
     if use_controlnet:
         # TODO: load this into torch.Tensor
-        canny_image = Image.open(args.image)
-        canny_image = make_canny(canny_image, OUT_H, OUT_W)
+        canny_image_pil = Image.open(args.image)
+        canny_image = make_canny(canny_image_pil, OUT_H, OUT_W)
 
     controlnet = None
     if args.eval_mode == EvalMode.FP:
@@ -96,23 +105,27 @@ def stable_diffusion_demo(
         # model = model_cls.from_pretrained(**kwargs)
 
         text_encoder_cls = model_cls.component_classes[0]
+        assert issubclass(text_encoder_cls, TextEncoderBase)
         text_encoder = text_encoder_cls.torch_from_pretrained(**model_kwargs)
 
         unet_cls = model_cls.component_classes[1]
+        assert issubclass(unet_cls, UnetBase)
         unet = unet_cls.torch_from_pretrained(**model_kwargs)
 
         vae_cls = model_cls.component_classes[2]
+        assert issubclass(vae_cls, VaeDecoderBase)
         vae_decoder = vae_cls.torch_from_pretrained(**model_kwargs)
 
         if use_controlnet:
             controlnet_cls = model_cls.component_classes[3]
+            assert issubclass(controlnet_cls, ControlNetBase)
             controlnet = controlnet_cls.torch_from_pretrained(**model_kwargs)
     else:
         models = demo_model_components_from_cli_args(model_cls, model_id, args)
         if use_controlnet:
-            text_encoder, unet, vae_decoder, controlnet = models
+            text_encoder, unet, vae_decoder, controlnet = models  # type: ignore[assignment]
         else:
-            text_encoder, unet, vae_decoder = models
+            text_encoder, unet, vae_decoder = models  # type: ignore[assignment]
 
     assert issubclass(model_cls, StableDiffusionBase)
     tokenizer = model_cls.make_tokenizer()

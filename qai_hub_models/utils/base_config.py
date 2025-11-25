@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from pydantic_yaml import parse_yaml_file_as, to_yaml_file
 from ruamel.yaml.representer import RoundTripRepresenter
-from typing_extensions import TypeVar
+from typing_extensions import Self, TypeVar
 
 
 class BaseQAIHMConfig(BaseModel):
@@ -43,7 +43,8 @@ class BaseQAIHMConfig(BaseModel):
         """
         Converts this class to a dict and saves that dict to a YAML file.
 
-        parameters:
+        Parameters
+        ----------
             path : str | Path
                 Path to save the file.
 
@@ -94,13 +95,11 @@ class BaseQAIHMConfig(BaseModel):
 
     @classmethod
     def from_yaml(
-        cls: type[BaseQAIHMConfigTypeVar],
+        cls,
         path: str | Path,
         create_empty_if_no_file: bool = False,
-    ) -> BaseQAIHMConfigTypeVar:
-        """
-        Reads the yaml file at the given path and loads it into an instance of this class.
-        """
+    ) -> Self:
+        """Reads the yaml file at the given path and loads it into an instance of this class."""
         if create_empty_if_no_file and (
             not os.path.exists(path) or os.path.getsize(path) == 0
         ):
@@ -126,33 +125,29 @@ class EnumListWithParseableAll(list[EnumT], Generic[EnumT]):
 
     @classmethod
     def default(
-        cls: type[EnumListWithParseableAllTypeVar],
-    ) -> EnumListWithParseableAllTypeVar:
+        cls,
+    ) -> Self:
         if cls.ALL is not None:
             return cls(cls.ALL)
-        return cls([x for x in cls.EnumType])
+        return cls(list(cls.EnumType))
 
     @classmethod
-    def parse(
-        cls: type[EnumListWithParseableAllTypeVar], obj: Any
-    ) -> EnumListWithParseableAllTypeVar:
+    def parse(cls, obj: Any) -> Self:
         if isinstance(obj, list):
-            out: EnumListWithParseableAllTypeVar = cls()
+            out: Self = cls()
             for x in obj:
                 if x == "all":
                     out = cls.default()
                 else:
-                    out.append(cls.EnumType(x))
+                    out.append(cls.EnumType(x))  # type: ignore[arg-type]
             return out
         raise ValueError(f"Unsupported type {type(obj)} for parsing to {cls}")
 
     @classmethod
-    def serialize(
-        cls: type[EnumListWithParseableAllTypeVar], list: list[EnumT]
-    ) -> list[str]:
-        if len(set(list)) == len(cls.EnumType):
+    def serialize(cls, enum_list: list[EnumT]) -> list[str]:
+        if len(set(enum_list)) == len(cls.EnumType):
             return ["all"]
-        return [x.value for x in list]
+        return [x.value for x in enum_list]
 
     @classmethod
     def __get_pydantic_core_schema__(

@@ -9,19 +9,10 @@ repos:
     hooks:
      -  id: insert-license
         files: \.py|\.sh$
+        exclude: qai_hub_models/extern/.*
         args:
             - --license-filepath
             - .pre-commit-license-header.txt
-            - --allow-past-years
-            - --no-extra-eol
-     -  id: insert-license
-        files: \.java$
-        args:
-            - --license-filepath
-            - .pre-commit-license-header.txt
-            - --comment-style
-            - //
-            - --use-current-year
             - --allow-past-years
             - --no-extra-eol
 -   repo: https://github.com/pre-commit/pre-commit-hooks
@@ -55,29 +46,31 @@ repos:
     hooks:
     -   id: shellcheck
         exclude: '\.yml$'
--   repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.0
     hooks:
-    -   id: pyupgrade
-        args: ['--py39-plus', '--keep-runtime-typing']
--   repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    -   id: ruff-check
+        name: Ruff check
+        args: [--fix]
+    -   id: ruff-format
+        name: Ruff format
+-   repo: https://github.com/jsh9/pydoclint
+    rev: 0.7.3
     hooks:
-    -   id: isort
-        args: ["--filter-files"]
--   repo: https://github.com/psf/black
-    rev: 25.1.0
-    hooks:
-    -   id: black
--   repo: https://github.com/pycqa/flake8
-    rev: 7.3.0
-    hooks:
-    -   id: flake8
+    -   id: pydoclint
+        args: [--quiet]
+        files: ^qai_hub_models/(configs|datasets)/.*
 -   repo: local
     hooks:
-        - id: mypy
-          name: mypy
-          files: qai_hub_models/.*(py|pyi|ipynb)$
-          exclude: qai_hub_models/models/_internal/.*
-          entry: scripts/util/run_mypy.sh
-          language: system
+    -   id: mypy
+        name: mypy
+        files: qai_hub_models/.*(py|pyi|ipynb)$
+        exclude: qai_hub_models/models/_internal/.*
+        entry: scripts/util/run_mypy.sh
+        language: system
+        # By default, precommit will split the files into groups and run
+        # mypy on each group in parallel. This causes mypy to miss issues
+        # and/or dump the failure several times.
+        #
+        # This flag makes precommit run mypy once on all files.
+        require_serial: true

@@ -5,6 +5,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import cast
+
 import cv2
 import torch
 
@@ -37,9 +40,10 @@ class CocoFaceDataset(CocoBodyDataset):
         num_samples: int = -1,
     ):
         super().__init__(split, input_spec, num_samples)
+        self.kpt_db: list[tuple[Path, int, int, torch.Tensor]]
 
-    def _load_kpt_db(self):
-        kpt_db = []
+    def _load_kpt_db(self) -> list[tuple[Path, int, int, torch.Tensor]]:
+        kpt_db: list[tuple[Path, int, int, torch.Tensor]] = []
         for img_id in self.img_ids:
             img_info = self.cocoGt.loadImgs(img_id)[0]
             ann_ids = self.cocoGt.getAnnIds(imgIds=img_id, catIds=[1], iscrowd=False)
@@ -53,9 +57,9 @@ class CocoFaceDataset(CocoBodyDataset):
                 if ann.get("area", 0) > 0 and x1 >= 0 and y1 >= 0:
                     x2 = x1 + w
                     y2 = y1 + h
-                    bbox = [x1, y1, x2, y2]
+                    bbox = (x1, y1, x2, y2)
 
-                    img_path = self.image_dir / img_info["file_name"]
+                    img_path = self.image_dir / cast(str, img_info["file_name"])
 
                     if not img_path.exists():
                         raise FileNotFoundError(f"Image file not found at {img_path}")
@@ -71,20 +75,36 @@ class CocoFaceDataset(CocoBodyDataset):
                     break
         return kpt_db
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, tuple[int, int, torch.Tensor]]:
         """
-        Returns a tuple of input image tensor and label data.
+        Get dataset item.
 
-        label data is a List with the following entries:
-            - imageId (int): The ID of the image.
-            - category_id (int) : The category ID
-            - bbox (torch.Tensor): The bounding box in xyxy format for face.
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        image
+            RGB, range [0-1] network input image.
+
+        ground_truth
+            imageId : int
+                The ID of the image.
+            category_id : int
+                The ground truth category ID
+            bbox : torch.Tensor
+                The ground truth face bounding box in xyxy format.
+                This box is in pixel space.
         """
-        file_name, image_id, category_id, bbox = self.kpt_db[idx]
+        file_name, image_id, category_id, bbox = self.kpt_db[index]
         img_path = file_name
 
         x0, y0, x1, y1 = bbox
-        image_array = cv2.imread(img_path)
+        image_array = cv2.imread(cast(str, img_path))
 
         image_array = cv2.resize(
             image_array[int(y0) : int(y1 + 1), int(x0) : int(x1 + 1)],
@@ -94,11 +114,9 @@ class CocoFaceDataset(CocoBodyDataset):
 
         image = torch.from_numpy(image_array).float().permute(2, 0, 1)
 
-        return image, [image_id, category_id, bbox]
+        return image, (image_id, category_id, bbox)
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1000

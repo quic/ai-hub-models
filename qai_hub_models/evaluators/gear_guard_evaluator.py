@@ -29,32 +29,31 @@ class GearGuardNetEvaluator(mAPEvaluator):
 
         for i in range(len(image_ids)):
             image_id = image_ids[i]
-            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
-            classes = all_classes[i][: all_num_boxes[i].item()]
+            bboxes = all_bboxes[i][: int(all_num_boxes[i].item())]
+            classes = all_classes[i][: int(all_num_boxes[i].item())]
             if bboxes.numel() == 0:
                 continue
 
             # Collect GT and prediction boxes
-            gt_bb_entry = []
-            for j in range(len(bboxes)):
-                if classes[j] == 0 or classes[j] == 1:
-                    gt_bb_entry.append(
-                        BoundingBox.of_bbox(
-                            image_id,
-                            int(classes[j]),
-                            bboxes[j][0].item(),
-                            bboxes[j][1].item(),
-                            bboxes[j][2].item(),
-                            bboxes[j][3].item(),
-                            1.0,
-                        )
-                    )
+            gt_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    int(classes[j]),
+                    bboxes[j][0].item(),
+                    bboxes[j][1].item(),
+                    bboxes[j][2].item(),
+                    bboxes[j][3].item(),
+                    1.0,
+                )
+                for j in range(len(bboxes))
+                if classes[j] == 0 or classes[j] == 1
+            ]
 
             output_single = [o[i : i + 1].permute(0, 2, 3, 1).detach() for o in output]
             result = postprocess(
                 output_single,
-                scales[i],
-                paddings[i],
+                float(scales[i].item()),
+                (int(paddings[i][0]), int(paddings[i][1])),
                 self.score_threshold,
                 self.nms_iou_threshold,
             )

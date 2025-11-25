@@ -23,15 +23,23 @@ class ImagenetteColorizationDataset(ImagenetteDataset):
         self.height = height
         self.width = width
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Returns:
-            tensor_gray_rgb: torch.tensor of shape (3, 256, 256)
-                Grayscale image in RGB format
-            img_l: np.ndarray of shape (1, 256, 256)
-                lightness of the image
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        tensor_gray_rgb
+            torch.tensor of shape (3, 256, 256)
+            Grayscale image in RGB format
+        img_l
+            np.ndarray of shape (1, 256, 256)
+            lightness of the image
         """
-        image, _ = ImagenetteDataset.__getitem__(self, index)
+        image, _ = super().__getitem__(index)
         img = np.array(image.permute(1, 2, 0))
 
         img_l = cv2.cvtColor(img, cv2.COLOR_BGR2Lab)[:, :, :1]
@@ -41,11 +49,9 @@ class ImagenetteColorizationDataset(ImagenetteDataset):
         img_gray_rgb = cv2.cvtColor(img_gray_lab, cv2.COLOR_LAB2RGB)
 
         tensor_gray_rgb = torch.from_numpy(img_gray_rgb).permute(2, 0, 1)
-        return tensor_gray_rgb, img_l
+        return tensor_gray_rgb, torch.from_numpy(img_l)
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 500

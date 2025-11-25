@@ -38,15 +38,19 @@ class LibriSpeechDataset(BaseDataset):
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Args:
-            index (int): The index of the audio file and transcription in the dataset.
+        Parameters
+        ----------
+        index
+            The index of the audio file and transcription in the dataset.
 
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]: A tuple containing:
-                - audio (torch.Tensor): Processed audio tensor of shape [sequence_length],
-                normalized and padded/truncated to max_sequence_length.
-                - gt_tensor (torch.Tensor): Tensor of shape [max_text_length] containing
-                ASCII character codes for the transcription, padded with zeros if needed.
+        Returns
+        -------
+        audio
+            Processed audio tensor of shape [sequence_length],
+            normalized and padded/truncated to max_sequence_length.
+        gt_tensor
+            Tensor of shape [max_text_length] containing
+            ASCII character codes for the transcription, padded with zeros if needed.
         """
         # Load audio file
         audio_path = self.audio_files[index]
@@ -141,9 +145,7 @@ class LibriSpeechDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 500
 
     @staticmethod

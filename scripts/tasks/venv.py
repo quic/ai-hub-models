@@ -11,12 +11,13 @@ from collections.abc import Iterable
 
 from .constants import (
     DEFAULT_PYTHON,
+    GLOBAL_REQUIREMENTS_PATH,
     PY_PACKAGE_INSTALL_ROOT,
     PY_PACKAGE_MODELS_ROOT,
     REPO_ROOT,
 )
 from .task import RunCommandsTask, RunCommandsWithVenvTask
-from .util import get_code_gen_str_field, get_pip
+from .util import get_code_gen_str_field, get_pip, uv_installed
 
 
 class CreateVenvTask(RunCommandsTask):
@@ -99,6 +100,36 @@ class DownloadPrivateDatasetsTask(RunCommandsWithVenvTask):
         )
 
 
+class DownloadQAIRTAndQDCWheelTask(RunCommandsWithVenvTask):
+    # Needed to run tests relying on QDC (e.g. Genie exports)
+    def __init__(
+        self,
+        venv,
+        env=None,
+        raise_on_failure=True,
+        ignore_return_codes: list[int] | None = None,
+    ):
+        super().__init__(
+            "Download QAIRT and QDC Wheel",
+            venv,
+            ["python -m qai_hub_models.scripts.download_qairt_and_qdc_tools"],
+            env,
+            raise_on_failure,
+            ignore_return_codes or [],
+        )
+
+
+class InstallGlobalRequirementsTask(RunCommandsWithVenvTask):
+    def __init__(self, venv_path):
+        super().__init__(
+            group_name="Install Global Requirements",
+            venv=venv_path,
+            commands=[
+                f'{get_pip()} install -r "{GLOBAL_REQUIREMENTS_PATH}" ',
+            ],
+        )
+
+
 class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
     """Sync the provided environment with local QAIHM and the provided extras."""
 
@@ -112,10 +143,17 @@ class SyncLocalQAIHMVenvTask(RunCommandsWithVenvTask):
     ) -> None:
         extras_str = f"[{','.join(extras)}]" if extras else ""
 
+        if flags is not None and uv_installed():
+            # use pep 517 is default behavior for UV, and therefore is not a valid arg.
+            flags = flags.replace("--use-pep517", "")
+        if flags is not None and not uv_installed():
+            # This flag disables the `--use-pep517` behavior for uv. This is the default for pip, and is not a valid pip arg.
+            flags = flags.replace("--no-build-isolation", "")
+
         if qaihm_wheel_dir is not None:
             # Find wheel file and install it (use relative path to work in both local and CI)
             commands = [
-                f'{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ""}'
+                f"{get_pip()} install $(ls {qaihm_wheel_dir}/qai_hub_models-*.whl){extras_str} {flags or ''}"
             ]
             install_method = "wheel"
         else:

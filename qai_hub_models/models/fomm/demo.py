@@ -55,7 +55,7 @@ def main(is_test: bool = False):
     resized_source = resize_frame(np.array(source_image_arr))
     concat_frames = [
         np.concatenate((frame1, resized_source, frame2), axis=1)
-        for frame1, frame2 in zip(driving_video_frames, output_image_list)
+        for frame1, frame2 in zip(driving_video_frames, output_image_list, strict=False)
     ]
 
     if not is_test:

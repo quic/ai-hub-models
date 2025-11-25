@@ -7,26 +7,21 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Dict, Optional
 
 from pydantic import Field, model_validator
-from typing_extensions import TypeAlias
 
 from qai_hub_models.configs.model_disable_reasons import ModelDisableReasonsMapping
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
-from qai_hub_models.utils.default_export_device import DEFAULT_EXPORT_DEVICE
+from qai_hub_models.utils.default_export_device import (
+    CANARY_DEVICES,
+    DEFAULT_EXPORT_DEVICE,
+)
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
-
-# This is a hack so pyupgrade doesn't remove "Dict" and replace with "dict".
-# Pydantic can't understand "dict".
-_outputs_to_skip_validation_type: TypeAlias = "Optional[Dict[int, str]]"
 
 
 class QAIHMModelCodeGen(BaseQAIHMConfig):
-    """
-    Schema & loader for model code-gen.yaml.
-    """
+    """Schema & loader for model code-gen.yaml."""
 
     # Whether the model is quantized with aimet.
     is_aimet: bool = False
@@ -40,7 +35,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
     # aimet model can additionally specify num calibration samples to speed up
     # compilation
-    num_calibration_samples: Optional[int] = None
+    num_calibration_samples: int | None = None
 
     # Whether the model's demo supports running on device with the `--eval-mode on-device` option.
     has_on_target_demo: bool = False
@@ -64,7 +59,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # filtered out in post-processing.
     # Omit printing PSNR in `export.py` for these to avoid confusion.
     # dict<output_idx, reason_for_skip>
-    outputs_to_skip_validation: _outputs_to_skip_validation_type = None
+    outputs_to_skip_validation: dict[int, str] | None = None
 
     # True for Collection model comprises of components, such as Whisper model's
     # encoder and decoder.
@@ -94,6 +89,10 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     # ("AOT prepare") are enabled, both in CI and in Scorecard.
     requires_aot_prepare: bool = False
 
+    # Supported GenAI based runtimes.
+    # If set, ONLY these runtimes will be supported. All others will be disabled.
+    supported_genai_runtimes: list[TargetRuntime] = Field(default_factory=list)
+
     # If set, disables generating `export.py`.
     skip_export: bool = False
 
@@ -111,17 +110,17 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     #
     # This is required when a package needs to be built from source by pip but
     # doesn't have its requirements set up correctly.
-    pip_pre_build_reqs: Optional[str] = None
+    pip_pre_build_reqs: str | None = None
 
     # If extra flags are needed when pip installing for this model, provide them here
-    pip_install_flags: Optional[str] = None
+    pip_install_flags: str | None = None
 
     # If extra flags are needed when pip installing for this model on GPU, provide them here
-    pip_install_flags_gpu: Optional[str] = None
+    pip_install_flags_gpu: str | None = None
 
     # A list of optimizations from `torch.utils.mobile_optimizer` that will
     # speed up the conversion to torchscript.
-    torchscript_opt: Optional[list[str]] = None
+    torchscript_opt: list[str] | None = None
 
     # A comma separated list of metrics to print in the inference summary of `export.py`.
     inference_metrics: str = "psnr"
@@ -138,12 +137,12 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
     inference_on_8gen3: bool = False
 
     # The model supports python versions that are at least this version. None == Any version
-    python_version_greater_than_or_equal_to: Optional[str] = None
-    python_version_greater_than_or_equal_to_reason: Optional[str] = None
+    python_version_greater_than_or_equal_to: str | None = None
+    python_version_greater_than_or_equal_to_reason: str | None = None
 
     # The model supports python versions that are less than this version. None == Any version
-    python_version_less_than: Optional[str] = None
-    python_version_less_than_reason: Optional[str] = None
+    python_version_less_than: str | None = None
+    python_version_less_than_reason: str | None = None
 
     def is_supported(
         self,
@@ -167,30 +166,39 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         precision: Precision,
         runtime: TargetRuntime,
         include_scorecard_failures: bool = True,
-    ) -> Optional[str]:
-        """
-        Return the reason a model failed or None if the model did not fail.
-        """
+    ) -> str | None:
+        """Return the reason a model failed or None if the model did not fail."""
+        if self.supported_genai_runtimes:
+            if runtime not in self.supported_genai_runtimes:
+                return f"{runtime} is not supported for this GenAI model."
+        elif runtime.is_exclusively_for_genai:
+            return "GenAI runtimes are not supported by this model."
+
         if self.is_precompiled and runtime != TargetRuntime.QNN_CONTEXT_BINARY:
             return "Precompiled models are only supported via the QNN path."
 
         if precision and not runtime.supports_precision(precision):
-            return f"{runtime} does not support precision {str(precision)}."
+            return f"{runtime} does not support precision {precision!s}."
 
         if self.requires_aot_prepare and not runtime.is_aot_compiled:
             return "Only runtimes that are compiled to context binary ahead of time are supported."
 
-        if not self.requires_aot_prepare and runtime.is_aot_compiled:
+        if (
+            not self.requires_aot_prepare
+            and runtime.is_aot_compiled
+            and not runtime.is_exclusively_for_genai
+        ):
             # Only the JIT path is tested if this model does not require AOT prepare.
             # All AOT paths will fail if QNN fails.
             runtime = TargetRuntime.QNN_DLC
 
-        if reason := self.disabled_paths.get_disable_reasons(precision, runtime):
-            if reason.has_failure:
-                if include_scorecard_failures:
-                    return reason.failure_reason
-                elif reason.scorecard_failure is None:
-                    return reason.failure_reason
+        if (
+            reason := self.disabled_paths.get_disable_reasons(precision, runtime)
+        ) and reason.has_failure:
+            if include_scorecard_failures:
+                return reason.failure_reason
+            if reason.scorecard_failure is None:
+                return reason.failure_reason
 
         return None
 
@@ -205,6 +213,14 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
                     break
                 supports_at_least_1_runtime = self.is_supported(precision, runtime)
         return supports_at_least_1_runtime
+
+    @property
+    def default_quantized_precision(self) -> Precision | None:
+        for precision in self.supported_precisions:
+            assert isinstance(precision, Precision)
+            if precision.has_quantized_activations:
+                return precision
+        return None
 
     @classmethod
     def from_model(cls: type[QAIHMModelCodeGen], model_id: str) -> QAIHMModelCodeGen:
@@ -230,9 +246,7 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
 
     @property
     def runs_in_scorecard(self) -> bool:
-        """
-        Whether the model runs in scorecard.
-        """
+        """Whether the model runs in scorecard."""
         return not self.skip_hub_tests_and_scorecard and not self.skip_scorecard
 
     @property
@@ -280,6 +294,15 @@ class QAIHMModelCodeGen(BaseQAIHMConfig):
         if self.pip_pre_build_reqs and not self.global_requirements_incompatible:
             raise ValueError(
                 "If pip_pre_build_reqs is set, global_requirements_incompatible must also be true."
+            )
+        for x in self.supported_genai_runtimes:
+            if not x.is_exclusively_for_genai:
+                raise ValueError(
+                    f"{x.value} is not a GenAI runtime, and should not be listed in supported_genai_runtimes."
+                )
+        if self.default_device not in CANARY_DEVICES:
+            raise ValueError(
+                f"Default device must be any of these canary devices: {CANARY_DEVICES}"
             )
 
         return self

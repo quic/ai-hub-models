@@ -16,13 +16,9 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.libri_speech_evaluator import LibriSpeechEvaluator
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
-OPENPOSE_SOURCE_REPOSITORY = (
-    "https://huggingface.co/patrickvonplaten/wavlm-libri-clean-100h-base-plus/tree/main"
-)
-OPENPOSE_SOURCE_REPO_COMMIT = "02c289c4471cd1ba4b0ff3e7c304afe395c5026a"
 DEFAULT_WEIGHTS = "patrickvonplaten/wavlm-libri-clean-100h-base-plus"
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -38,15 +34,11 @@ SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
 class HuggingFaceWavLMBasePlus(BaseModel):
     """Exportable Voice Recognition model"""
 
-    def __init__(
-        self, wavlm_model: torch.nn.Module, apply_npu_opt: bool = False
-    ) -> None:
-        super().__init__()
-
+    def __init__(self, wavlm_model: WavLMForCTC, apply_npu_opt: bool = False) -> None:
         if apply_npu_opt:
             wavlm_model = convert_to_wavlm_npu(wavlm_model)
-
-        self.model = wavlm_model
+        super().__init__(wavlm_model)
+        self.model: WavLMForCTC
 
     @classmethod
     def from_pretrained(
@@ -60,19 +52,21 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
         return cls(model, apply_npu_opt)
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Run WAvLM on `input`, and produce feature vector
+        Run WAvLM on `x`, and produce feature vector
 
-        Parameters:
-            input: 1x320000 tensor
+        Parameters
+        ----------
+            x: 1x320000 tensor
                    20 seconds of audio sampled at 16kHz
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: Logits tensor of shape (1, sequence_length, vocab_size)
             Where sequence_length = 499 , vocab_size = 31 , representing the predicted token probabilities
         """
-        return self.model(input)
+        return self.model(x)
 
     @staticmethod
     def get_input_spec(
@@ -118,13 +112,13 @@ class SliceConv1d(torch.nn.Module):
         self.stride = orig_module.stride[0]
 
     def forward(self, x: torch.Tensor):
-        num_slices = int(math.ceil(x.shape[-1] / self.slice_size))
+        num_slices = math.ceil(x.shape[-1] / self.slice_size)
 
         xs = []
         for i in range(num_slices):
             # align begin to stride boundary
             begin = i * self.slice_size
-            begin = int(math.ceil(begin / self.stride)) * self.stride
+            begin = math.ceil(begin / self.stride) * self.stride
             end = min(begin + self.slice_size + self.half_kernel_size, x.shape[-1])
             conv_out = self.orig_module(x[:, :, begin:end])
             xs.append(conv_out)
@@ -171,11 +165,11 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
         # divide it into segments of roughly 16000
         slice_size = 16000
         num_slices = x.shape[-1] // slice_size
-        xs = []
+        xs: list[torch.Tensor] = []
         for i in range(num_slices):
             begin = i * slice_size
             end = min(begin + slice_size + self.half_kernel_size, x.shape[-1])
-            conv_out = self.conv2d(x[:, :, :, begin:end])
+            conv_out: torch.Tensor = self.conv2d(x[:, :, :, begin:end])
             if i == num_slices - 1:
                 # last slice can have 1 fewer element than previous
                 # slides. In order to stack it, we pad 1
@@ -183,35 +177,22 @@ class WavLMGroupNormConvLayerNPU(torch.nn.Module):
                 num_pad = slice_size - conv_out.shape[-1]
                 if num_pad > 1:
                     raise ValueError("Should only have 1 elem missing")
-                elif num_pad == 1:
+                if num_pad == 1:
                     conv_out = torch.nn.functional.pad(conv_out, (0, 1))
             # conv_out have shape [1, 512, 1, 16000]
             xs.append(conv_out)
         # x has shape [1, 512, 2, 16000]
-        x = torch.concat(xs, axis=2)
+        x = torch.concat(xs, dim=2)
 
         # apply group norm
         x = self.orig_module.layer_norm(x)
         x = self.orig_module.activation(x)
-        x = torch.concat(torch.unbind(x, axis=2), axis=-1)
+        x = torch.concat(torch.unbind(x, dim=2), dim=-1)
         return x[:, :, :-1]
-
-    def get_hub_profile_options(
-        self,
-        target_runtime: TargetRuntime,
-        other_profile_options: str = "",
-    ) -> str:
-        profile_options = super().get_hub_profile_options(
-            target_runtime, other_profile_options
-        )
-        options = " --compute_unit cpu"  # Accuracy no regained on NPU
-        return profile_options + options
 
 
 def convert_to_wavlm_npu(model: WavLMForCTC):
-    """
-    Apply changes to make model NPU friendly
-    """
+    """Apply changes to make model NPU friendly"""
     assert isinstance(model, WavLMForCTC)
     conv_layer = model.wavlm.feature_extractor.conv_layers[0]
     assert isinstance(conv_layer, WavLMGroupNormConvLayer)

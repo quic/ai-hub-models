@@ -46,7 +46,6 @@ class CamVidSegmentationDataset(BaseDataset):
 
     def _validate_data(self) -> bool:
         """Validate dataset structure and load image/annotation pairs."""
-
         self.image_dir = self.dataset_path / self.split_str
         self.category_dir = self.dataset_path / f"{self.split_str}_labels"
 
@@ -76,38 +75,46 @@ class CamVidSegmentationDataset(BaseDataset):
 
         return True
 
-    def _load_label_info(self, csv_path: Path) -> dict:
+    def _load_label_info(self, csv_path: Path) -> dict[str, tuple[int, int, int]]:
         """
         Parse class definitions from CSV file.
 
-        Args:
-            csv_path: Path to class definitions CSV
-        Returns:
-            dict: Mapping of class names to RGB colors and metadata
+        Parameters
+        ----------
+        csv_path
+            Path to class definitions CSV
+
+        Returns
+        -------
+        label_info
+            Mapping of class names to RGB colors and metadata
         """
         ann = pd.read_csv(csv_path)
-        label = {}
+        label: dict[str, tuple[int, int, int]] = {}
         # Select Void (class_11 = 0) and classes where class_11 = 1
         selected_classes = ann[(ann["class_11"] == 1) | (ann["name"] == "Void")]
         for _, row in selected_classes.iterrows():
             label_name = row["name"]
             r, g, b = row["r"], row["g"], row["b"]
-            label[label_name] = [int(r), int(g), int(b)]
+            label[label_name] = (int(r), int(g), int(b))
         return label
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Load and preprocess image and its segmentation mask.
 
-        Args:
-            index (int): Index of image-annotation pair.
+        Parameters
+        ----------
+        index
+            Index of image-annotation pair.
 
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]:
-                - image_tensor: Preprocessed image (C, H, W), float32.
-                - label: Class indices tensor (H, W), uint8, 0 for Void, 1-N for classes.
+        Returns
+        -------
+        image_tensor
+            Preprocessed image (C, H, W), float32.
+        label
+            Class indices tensor (H, W), uint8, 0 for Void, 1-N for classes.
         """
-
         orig_image = Image.open(self.images[index]).convert("RGB")
         orig_gt = Image.open(self.categories[index])
 
@@ -118,21 +125,24 @@ class CamVidSegmentationDataset(BaseDataset):
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
         label = np.array(gt_image)
         label = self._convert_to_one_hot(label).astype(np.uint8)
-        label = torch.from_numpy(label)
 
-        return image_tensor, label
+        return image_tensor, torch.from_numpy(label)
 
     def _convert_to_one_hot(self, label: np.ndarray) -> np.ndarray:
         """
         Convert RGB segmentation mask to class indices tensor.
 
-        Args:
-            label: RGB mask array (H,W,3)
+        Parameters
+        ----------
+        label
+            RGB mask array (H,W,3)
 
-        Returns:
-            np.ndarray: Class indices array (H,W) where each pixel contains:
-                - 0 for Void/unlabeled
-                - 1-N for valid classes
+        Returns
+        -------
+        np.ndarray
+            Class indices array (H,W) where each pixel contains:
+            - 0 for Void/unlabeled
+            - 1-N for valid classes
         """
         # Initialize output array with Void class (0) as default
         semantic_map = np.zeros(label.shape[:-1], dtype=np.uint8)

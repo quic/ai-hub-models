@@ -15,11 +15,13 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/l
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[litehrnet]" torch==2.4.1 --trusted-host download.openmmlab.com -f https://download.openmmlab.com/mmcv/dist/cpu/torch2.4/index.html -f https://qaihub-public-python-wheels.s3.us-west-2.amazonaws.com/index.html
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install mmpose==1.2.0 --no-deps
+pip install "qai-hub-models[litehrnet]"
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
 python -m qai_hub_models.models.litehrnet.demo
@@ -31,7 +33,7 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash

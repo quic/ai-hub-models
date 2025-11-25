@@ -8,15 +8,14 @@ from __future__ import annotations
 import os
 import tempfile
 from collections import defaultdict
-from typing import DefaultDict
 
 import cv2
 import diffusers
 import numpy as np
 import onnx
-import PIL
 import torch
 from diffusers.utils import PIL_INTERPOLATION
+from PIL import Image
 from qai_hub.client import DatasetEntries
 from tqdm import tqdm
 from transformers import CLIPTokenizer
@@ -38,12 +37,14 @@ def clip_extreme_values(
 
     This is needed until AIMET-4029 is resolved.
 
-    Parameters:
+    Parameters
+    ----------
     model: The ONNX model to process.
     extreme_value_threshold: The threshold below which values will be clipped. Default is -1e15.
     clip_value: The value to which extreme values will be clipped. Default is -1e4.
 
-    Returns:
+    Returns
+    -------
     onnx.ModelProto: The modified ONNX model with extreme values clipped.
     """
     extreme_value_threshold_np = np.float32(extreme_value_threshold)
@@ -102,8 +103,8 @@ def make_calib_data(
     """
     Generate calibration data for Unet, Vae, and controlnet if specified.
 
-    Args:
-
+    Parameters
+    ----------
     - export_path_*: must end with .pt
 
     - prompt_path: txt file where each line is a prompt
@@ -123,15 +124,15 @@ def make_calib_data(
     if guidance_scale > 0:
         uncond_emb = text_encoder_hf(uncond_token)
 
-    calib_unet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
-    calib_vae: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+    calib_unet: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
+    calib_vae: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
     if use_controlnet:
-        calib_controlnet: DefaultDict[str, list[torch.Tensor]] = defaultdict(list)
+        calib_controlnet: defaultdict[str, list[torch.Tensor]] = defaultdict(list)
         image_conds = torch.load(image_cond_path, weights_only=False)
 
     for i, cond_token in tqdm(
         enumerate(cond_tokens),
-        desc=f"Running {num_steps} diffusion steps on " f"{len(cond_tokens)} samples",
+        desc=f"Running {num_steps} diffusion steps on {len(cond_tokens)} samples",
     ):
         cond_emb = text_encoder_hf(cond_token)
         extra_inputs = {}
@@ -139,7 +140,7 @@ def make_calib_data(
             extra_inputs["controlnet"] = controlnet_hf
             extra_inputs["cond_image"] = image_conds[i]
 
-        latent, intermediates = run_diffusion_steps_on_latents(
+        _latent, intermediates = run_diffusion_steps_on_latents(
             unet_hf,
             scheduler=scheduler,
             cond_embeddings=cond_emb,
@@ -147,7 +148,7 @@ def make_calib_data(
             num_steps=num_steps,
             guidance_scale=guidance_scale,
             return_all_steps=True,
-            **extra_inputs,  # type: ignore
+            **extra_inputs,  # type: ignore[arg-type]
         )
 
         # Add the output to calib_*
@@ -173,7 +174,7 @@ def load_calib_tokens(
 ) -> tuple[list[torch.Tensor], torch.Tensor]:
     """
     Returns
-
+    -------
     - tokens: List of length `num_samples` (500 if None) of
     torch.Tensor(int32) representing conditional tokens.
 
@@ -213,7 +214,7 @@ def load_unet_calib_dataset_entries(
 
     # torch.Tensor -> numpy
     for k, v in calib_data.items():
-        calib_data[k] = [v.detach().numpy() for v in calib_data[k]]
+        calib_data[k] = [vv.detach().numpy() for vv in v]
 
     if num_samples is not None and num_samples < len(calib_data["latent"]):
         rng = np.random.RandomState(42)
@@ -292,27 +293,24 @@ def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
 
 
 def make_canny(
-    image: PIL.Image.Image,
+    image: Image.Image,
     target_height: int,
     target_width: int,
     low_threshold: int = 100,
     high_threshold: int = 200,
 ) -> torch.Tensor:
-    """
-    Resize and convert from PIL Image to NCHW torch.Tensor.
-    """
+    """Resize and convert from PIL Image to NCHW torch.Tensor."""
     img = np.array(image)
     img = cv2.Canny(img, low_threshold, high_threshold)
     img = img[:, :, None]
-    canny_image = np.concatenate([img, img, img], axis=2)
-    canny_image = PIL.Image.fromarray(canny_image)
+    canny_image = Image.fromarray(np.concatenate([img, img, img], axis=2))
 
     # Normalize and make it NCHW
     canny_image = canny_image.convert("RGB")
     canny_image = canny_image.resize(
         (target_width, target_height), resample=PIL_INTERPOLATION["lanczos"]
     )
-    canny_image = np.array(canny_image)[None, :].astype(np.float32) / 255.0
+    canny_image_np = np.array(canny_image)[None, :].astype(np.float32) / 255.0
     # NHWC -> NCHW
-    canny_image = canny_image.transpose(0, 3, 1, 2)
-    return torch.from_numpy(canny_image)
+    canny_image_np = canny_image_np.transpose(0, 3, 1, 2)
+    return torch.from_numpy(canny_image_np)

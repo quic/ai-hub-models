@@ -35,20 +35,19 @@ class PerplexityEvaluator(BaseEvaluator):
     def __init__(
         self,
         context_length: int,
-        block_size: int,
-        tokenizer: PreTrainedTokenizer,
         device: torch.device,
+        tokenizer: PreTrainedTokenizer,
     ):
         self.context_length = context_length
-        self.block_size = block_size
         self.device = device
         self.tokenizer = tokenizer
 
         self.reset()
 
-    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.tensor):
+    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.Tensor):
         self.batch_index += 1
         logits = output.logits
+        assert logits is not None
         # This kv cache is needed to maintain the context between multiple blocks.
         lm_logits = logits.reshape(1, -1, logits.shape[-1])
         shift_logits = lm_logits[..., :-1, :].contiguous().to(dtype=torch.float32)
@@ -77,7 +76,7 @@ class PerplexityEvaluator(BaseEvaluator):
         data: _DataLoader,
         num_samples: int | None = None,
         callback: (
-            Callable[[list[torch.tensor], CausalLMOutputWithPast, torch.Tensor], None]
+            Callable[[list[torch.Tensor], CausalLMOutputWithPast, torch.Tensor], None]
             | None
         ) = None,
     ) -> None:

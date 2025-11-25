@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -49,7 +51,8 @@ class BiseNet(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
         """
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
@@ -100,11 +103,11 @@ class BiseNet(BaseModel):
 
 
 def _load_bisenet_source_model_from_weights(
-    weights_path_bisenet: str | None = None,
+    weights_path_bisenet: str | Path | None = None,
 ) -> torch.nn.Module:
     # Load Bisenet model from the source repository using the given weights.
     # download the weights file
-    if not weights_path_bisenet:
+    if weights_path_bisenet is None:
         weights_path_bisenet = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         ).fetch()
@@ -119,7 +122,9 @@ def _load_bisenet_source_model_from_weights(
 
         model = BiSeNet(12, "resnet18")
         # load pretrained model
-        checkpoint = torch.load(weights_path_bisenet, map_location="cpu")
+        checkpoint = torch.load(
+            weights_path_bisenet, map_location="cpu", weights_only=False
+        )
         model.load_state_dict(checkpoint)
         model.to("cpu").eval()
     return model

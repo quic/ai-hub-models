@@ -116,7 +116,11 @@ def yolo_segmentation_demo(
 
     # Load image & model
     model = demo_model_from_cli_args(model_type, model_id, args)
-    app = YoloSegmentationApp(model, args.score_threshold, args.iou_threshold)
+    app = YoloSegmentationApp(
+        model,  # type: ignore[arg-type]
+        args.score_threshold,
+        args.iou_threshold,
+    )
 
     print("Model Loaded")
 

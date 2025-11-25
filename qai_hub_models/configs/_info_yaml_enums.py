@@ -115,6 +115,8 @@ class MODEL_LICENSE(Enum):
     LLAMA2 = "llama2"
     LLAMA3 = "llama3"
     TAIDE = "taide"
+    FALCON3 = "falcon3"
+    GEMMA = "gemma"
 
     @property
     def is_copyleft(self) -> bool:
@@ -127,6 +129,8 @@ class MODEL_LICENSE(Enum):
             MODEL_LICENSE.LLAMA2,
             MODEL_LICENSE.LLAMA3,
             MODEL_LICENSE.TAIDE,
+            MODEL_LICENSE.FALCON3,
+            MODEL_LICENSE.GEMMA,
         ]
 
     @property
@@ -165,10 +169,14 @@ class MODEL_LICENSE(Enum):
         # If this license has a known URL, return it.
         if self == MODEL_LICENSE.AI_HUB_MODELS_LICENSE:
             return "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf"
-        elif self == MODEL_LICENSE.LLAMA2:
+        if self == MODEL_LICENSE.LLAMA2:
             return "https://github.com/facebookresearch/llama/blob/main/LICENSE"
-        elif self == MODEL_LICENSE.TAIDE:
+        if self == MODEL_LICENSE.TAIDE:
             return "https://en.taide.tw/download.html"
+        if self == MODEL_LICENSE.FALCON3:
+            return "https://falconllm.tii.ae/falcon-terms-and-conditions.html"
+        if self == MODEL_LICENSE.GEMMA:
+            return "https://ai.google.dev/gemma/terms"
         return None
 
 
@@ -187,6 +195,9 @@ class MODEL_TAG(Enum):
     FOUNDATION = "foundation"
     LLM = "llm"
     GENERATIVE_AI = "generative-ai"
+    BU_IOT = "bu-iot"
+    BU_AUTO = "bu-auto"
+    BU_COMPUTE = "bu-compute"
 
 
 @unique
@@ -206,6 +217,8 @@ class MODEL_USE_CASE(Enum):
     SUPER_RESOLUTION = "Super Resolution"
     SEMANTIC_SEGMENTATION = "Semantic Segmentation"
     DEPTH_ESTIMATION = "Depth Estimation"
+    GAZE_ESTIMATION = "Gaze Estimation"
+
     # Ex: OCR, image caption
     IMAGE_TO_TEXT = "Image To Text"
     OBJECT_DETECTION = "Object Detection"
@@ -234,6 +247,8 @@ class MODEL_USE_CASE(Enum):
             return "image-segmentation"
         if self.name == "POSE_ESTIMATION":
             return "keypoint-detection"
+        if self.name == "GAZE_ESTIMATION":
+            return "gaze-estimation"
         if self.name == "AUDIO_ENHANCEMENT":
             return "audio-to-audio"
         if self.name == "VIDEO_GENERATION":

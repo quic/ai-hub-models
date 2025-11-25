@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from .app import MovenetApp  # noqa: F401
+from .app import MovenetApp as App  # noqa: F401
 from .model import MODEL_ID  # noqa: F401
 from .model import Movenet as Model  # noqa: F401

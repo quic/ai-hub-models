@@ -13,7 +13,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
 
 from .constants import (
     BASH_EXECUTABLE,
@@ -64,25 +63,49 @@ def check_code_gen_field(model_name: str, field_name: str) -> bool:
 
 
 @functools.cache
+def check_info_field(model_name: str, field_name: str) -> bool:
+    """
+    This process does not have the yaml package, so use this primitive way
+    to check if a code gen field is true and apply branching logic within CI/scorecard.
+    """
+    yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "info.yaml"
+    if yaml_path.exists():
+        with open(yaml_path) as f:
+            if f"{field_name}: true" in f.read():
+                return True
+    return False
+
+
+@functools.cache
 def get_code_gen_str_field(model_name: str, field_name: str) -> str | None:
-    """
-    This process does not have the yaml package, so use this primitive way to get code-gen field value.
-    """
+    """This process does not have the yaml package, so use this primitive way to get code-gen field value."""
     yaml_path = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "code-gen.yaml"
     if yaml_path.exists():
         with open(yaml_path) as f:
             field = f"{field_name}:"
-            for line in f.readlines():
+            for line in f:
                 if line.startswith(field):
-                    return line[len(field) : -1].strip("'").strip('"').strip()
+                    field = line[len(field) : -1].strip()
+                    if (field[0] == '"' and field[-1] == '"') or (
+                        field[0] == "'" and field[-1] == "'"
+                    ):
+                        field = field[1:-1]
+                    return field
 
     return None
 
 
+def is_quantized_llm_model(model_name: str) -> bool:
+    quantize_script = Path(PY_PACKAGE_MODELS_ROOT) / model_name / "quantize.py"
+    return check_info_field(model_name, "model_type_llm") and quantize_script.exists()
+
+
 def can_support_aimet(platform: str = sys.platform) -> bool:
     return (
-        platform == "linux" or platform == "linux2"
-    ) and sys.version_info.minor == 10
+        platform in {"linux", "linux2"}
+        and sys.version_info.major == 3
+        and sys.version_info.minor == 10
+    )
 
 
 def get_is_hub_quantized(model_name) -> bool:
@@ -104,7 +127,8 @@ def get_model_python_version_requirements(
     info = os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "code-gen.yaml")
     req_less_than, min_version = None, None
     if os.path.exists(info):
-        info_data = open(info).read()
+        with open(info) as f:
+            info_data = f.read()
         req_less_than = re.search(
             r'python_version_less_than:\s*["\']([\d.]+)["\']', info_data
         )
@@ -183,15 +207,14 @@ def run_with_venv_and_get_output(venv, command):
                 executable=BASH_EXECUTABLE,
             )
         )
-    else:
-        return run_and_get_output(command)
+    return run_and_get_output(command)
 
 
 def str_to_bool(word: str) -> bool:
     return word.lower() in ["1", "true", "yes"]
 
 
-def get_env_bool(key: str, default: Optional[bool] = None) -> Optional[bool]:
+def get_env_bool(key: str, default: bool | None = None) -> bool | None:
     val = os.environ.get(key, None)
     if val is None:
         return None
@@ -210,7 +233,11 @@ def debug_mode() -> bool:
 def uv_installed() -> bool:
     try:
         result = subprocess.run(
-            ["which uv"], capture_output=True, executable=BASH_EXECUTABLE, shell=True
+            ["which uv"],
+            check=False,
+            capture_output=True,
+            executable=BASH_EXECUTABLE,
+            shell=True,
         )
         return result.returncode == 0
     except Exception:
@@ -219,8 +246,6 @@ def uv_installed() -> bool:
 
 @functools.cache
 def get_pip() -> str:
-    # UV has trouble building many packages from source on Python 3.12
-    if uv_installed() and (sys.version_info.major == 3 and sys.version_info.minor < 12):
+    if uv_installed():
         return "uv pip"
-    else:
-        return "pip"
+    return "pip"

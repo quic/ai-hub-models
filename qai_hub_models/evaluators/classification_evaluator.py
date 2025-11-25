@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from torch.types import Number
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
@@ -30,25 +31,25 @@ class ClassificationEvaluator(BaseEvaluator):
         self.top1_count += torch.sum(top5[:, :1] == gt_tensor).item()
 
     def reset(self):
-        self.top1_count = 0
-        self.top5_count = 0
-        self.total_samples = 0
+        self.top1_count: Number = 0
+        self.top5_count: Number = 0
+        self.total_samples: Number = 0
 
     def top1(self) -> float:
         if self.total_samples == 0:
             return 0
-        return self.top1_count / self.total_samples
+        return (self.top1_count / self.total_samples) * 100
 
     def top5(self) -> float:
         if self.total_samples == 0:
             return 0
-        return self.top5_count / self.total_samples
+        return (self.top5_count / self.total_samples) * 100
 
     def get_accuracy_score(self) -> float:
         return self.top1()
 
     def formatted_accuracy(self) -> str:
-        return f"{self.top1() * 100:.1f}% (Top 1), {self.top5() * 100:.1f}% (Top 5)"
+        return f"{self.top1():.1f}% (Top 1), {self.top5():.1f}% (Top 5)"
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(

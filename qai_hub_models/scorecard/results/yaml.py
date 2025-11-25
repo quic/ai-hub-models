@@ -8,11 +8,14 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Generic, Literal, Optional, TypeVar, overload
+from typing import Generic, Literal, TypeVar, overload
 
 import qai_hub as hub
 import ruamel.yaml
+from pydantic import Field
+from typing_extensions import Self
 
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.execution_helpers import (
@@ -36,18 +39,57 @@ from qai_hub_models.scorecard.results.scorecard_job import (
     ScorecardJobTypeVar,
     ScorecardPathOrNoneTypeVar,
 )
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
 
+DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME = "tool-versions.yaml"
 INTERMEDIATES_DIR = QAIHM_PACKAGE_ROOT / "scorecard" / "intermediates"
-
 ENVIRONMENT_ENV_BASE = INTERMEDIATES_DIR / "environment.env"
 QUANTIZE_YAML_BASE = INTERMEDIATES_DIR / "quantize-jobs.yaml"
 COMPILE_YAML_BASE = INTERMEDIATES_DIR / "compile-jobs.yaml"
 PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
+TOOL_VERSIONS_BASE = INTERMEDIATES_DIR / DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
 ACCURACY_CSV_BASE = INTERMEDIATES_DIR / "accuracy.csv"
 DATASETS_BASE = INTERMEDIATES_DIR / "dataset-ids.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
+
+
+# Schema for sdk versions dumped to Hugging Face / Scorecard Intermediates in YAML format.
+class ToolVersionsByPathYaml(BaseQAIHMConfig):
+    tool_versions: dict[ScorecardProfilePath, ToolVersions] = Field(
+        default_factory=dict
+    )
+
+    @staticmethod
+    def from_profile_paths(
+        paths: list[ScorecardProfilePath] | None = None,
+    ) -> ToolVersionsByPathYaml:
+        """
+        Get a tool versions YAML object, with all paths in the list populated with tool versions.
+        This will fetch versions for AI Hub deployment used by scorecard (set by envvars).
+
+        If paths is None, populates all enabled scorecard profile paths.
+        """
+        paths = paths or ScorecardProfilePath.all_paths(enabled=True)
+        out = ToolVersionsByPathYaml()
+        for path in paths:
+            out.tool_versions[path] = path.tool_versions
+        return out
+
+    @staticmethod
+    def from_dir(
+        dirpath: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
+    ):
+        return ToolVersionsByPathYaml.from_yaml(
+            Path(dirpath) / filename,
+            create_empty_if_no_file=True,
+        )
+
+    def to_dir(
+        self, dirpath: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
+    ):
+        return self.to_yaml(Path(dirpath) / filename, write_if_empty=False)
 
 
 class ScorecardJobYaml(
@@ -58,12 +100,10 @@ class ScorecardJobYaml(
     scorecard_model_summary_type: type[ModelSummaryTypeVar]
 
     def __init__(self, job_id_mapping: dict[str, str] | None = None):
-        self.job_id_mapping = job_id_mapping or dict()
+        self.job_id_mapping = job_id_mapping or {}
 
     @classmethod
-    def from_file(
-        cls: type[ScorecardJobYamlTypeVar], config_path: str | Path
-    ) -> ScorecardJobYamlTypeVar:
+    def from_file(cls, config_path: str | Path) -> Self:
         """Read yaml files."""
         if not os.path.exists(config_path):
             raise FileNotFoundError(f"File not found with job ids at {config_path}")
@@ -89,7 +129,10 @@ class ScorecardJobYaml(
             keys_to_delete = [
                 key
                 for key in self.job_id_mapping
-                if (model_id in key and f"{model_id}_quantized" not in key)
+                if (
+                    key.startswith(f"{model_id}_")
+                    and not key.startswith(f"{model_id}_quantized_")
+                )
             ]
 
             # Delete keys
@@ -102,13 +145,14 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         """
         Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
         Returns None if job does not exist.
 
-        parameters:
+        Parameters
+        ----------
             path: Applicable scorecard path
             model_id: The ID of the QAIHM model being tested
             device: The targeted device
@@ -131,12 +175,13 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> None:
         """
         Set the key for this job in the YAML that stores asyncronously-ran scorecard jobs.
 
-        parameters:
+        Parameters
+        ----------
             job_id: Job ID to associate with the other parameters in the YAML
             path: Applicable scorecard path
             model_id: The ID of the QAIHM model being tested
@@ -148,9 +193,7 @@ class ScorecardJobYaml(
         ] = job_id
 
     def update(self, other: ScorecardJobYaml):
-        """
-        Merge the other YAML into this YAML, overwriting any existing jobs with the same job name
-        """
+        """Merge the other YAML into this YAML, overwriting any existing jobs with the same job name"""
         if type(other) is not type(self):
             raise ValueError(
                 f"Cannot merge scorecard YAMLS of types {type(other)} and {type(self)}"
@@ -163,14 +206,15 @@ class ScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
         wait_for_job: bool = True,
-        wait_for_max_job_duration: Optional[int] = None,
+        wait_for_max_job_duration: int | None = None,
     ) -> ScorecardJobTypeVar:
         """
         Get the scorecard job from the YAML associated with these parameters.
 
-        parameters:
+        Parameters
+        ----------
             path: Applicable scorecard path
             model_id: The ID of the QAIHM model being tested
             device: The targeted device
@@ -200,13 +244,13 @@ class ScorecardJobYaml(
     def get_all_jobs(
         self,
         model_id: str,
-        precisions: list[Precision] = [Precision.float],
+        precisions: list[Precision] | None = None,
         devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> list[ScorecardJobTypeVar]:
-        """
-        Get all jobs in this YAML related to the provided model.
-        """
+        """Get all jobs in this YAML related to the provided model."""
+        if precisions is None:
+            precisions = [Precision.float]
         model_runs: list[ScorecardJobTypeVar] = []
         for component in components or [None]:  # type: ignore[list-item]
 
@@ -216,12 +260,12 @@ class ScorecardJobYaml(
                 device: ScorecardDevice,
             ):
                 model_runs.append(
-                    self.get_job(path, model_id, device, precision, component or None)
+                    self.get_job(path, model_id, device, precision, component or None)  # noqa: B023
                 )
 
             for_each_scorecard_path_and_device(
-                self.__class__.scorecard_path_type,  # type: ignore[arg-type]
-                create_job,  # type: ignore[arg-type]
+                self.__class__.scorecard_path_type,
+                create_job,
                 precisions,
                 include_mirror_devices=True,
                 include_devices=devices,
@@ -232,13 +276,13 @@ class ScorecardJobYaml(
     def summary_from_model(
         self,
         model_id: str,
-        precisions: list[Precision] = [Precision.float],
+        precisions: list[Precision] | None = None,
         devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> ModelSummaryTypeVar:
-        """
-        Creates a summary of all jobs related to the given model.
-        """
+        """Creates a summary of all jobs related to the given model."""
+        if precisions is None:
+            precisions = [Precision.float]
         runs = self.get_all_jobs(model_id, precisions, devices, components)
         return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore[arg-type]
 
@@ -256,7 +300,7 @@ class QuantizeScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         return self.job_id_mapping.get(
             get_async_job_cache_name(None, model_id, cs_universal, precision, component)
@@ -269,7 +313,7 @@ class QuantizeScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> None:
         self.job_id_mapping[
             get_async_job_cache_name(None, model_id, cs_universal, precision, component)
@@ -278,18 +322,17 @@ class QuantizeScorecardJobYaml(
     def get_all_jobs(
         self,
         model_id: str,
-        precisions: list[Precision] = [Precision.float],
+        precisions: list[Precision] | None = None,
         devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> list[QuantizeScorecardJob]:
-        model_runs: list[QuantizeScorecardJob] = []
-        for component in components or [None]:  # type: ignore[list-item]
-            for precision in precisions:
-                model_runs.append(
-                    self.get_job(
-                        None, model_id, cs_universal, precision, component or None
-                    )
-                )
+        if precisions is None:
+            precisions = [Precision.float]
+        model_runs: list[QuantizeScorecardJob] = [
+            self.get_job(None, model_id, cs_universal, precision, component or None)
+            for precision in precisions
+            for component in components or [None]  # type: ignore[list-item]
+        ]
 
         return model_runs
 
@@ -304,10 +347,12 @@ class CompileScorecardJobYaml(
     def get_all_jobs(
         self,
         model_id: str,
-        precisions: list[Precision] = [Precision.float],
+        precisions: list[Precision] | None = None,
         devices: list[ScorecardDevice] | None = None,
         components: Iterable[str] | None = None,
     ) -> list[CompileScorecardJob]:
+        if precisions is None:
+            precisions = [Precision.float]
         if devices:
             # Always include the universal device.
             devices_set = set(devices)
@@ -322,13 +367,14 @@ class CompileScorecardJobYaml(
         model_id: str,
         device: ScorecardDevice,
         precision: Precision = Precision.float,
-        component: Optional[str] = None,
+        component: str | None = None,
     ) -> str | None:
         """
         Get the ID of this job in the YAML that stores asyncronously-ran scorecard jobs.
         Returns None if job does not exist.
 
-        parameters:
+        Parameters
+        ----------
             path: Applicable scorecard path
             model_id: The ID of the QAIHM model being tested
             device: The targeted device
@@ -405,37 +451,34 @@ def get_scorecard_job_yaml(
 def get_scorecard_job_yaml(
     job_type: hub.JobType, path: str | Path | None = None
 ) -> ScorecardJobYaml:
-    """
-    Loads the appropriate Scorecard job cache for the type of the given job.
-    """
+    """Loads the appropriate Scorecard job cache for the type of the given job."""
     if job_type == hub.JobType.COMPILE:
         return (
             CompileScorecardJobYaml()
             if not path
             else CompileScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.PROFILE:
+    if job_type == hub.JobType.PROFILE:
         return (
             ProfileScorecardJobYaml()
             if not path
             else ProfileScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.INFERENCE:
+    if job_type == hub.JobType.INFERENCE:
         return (
             InferenceScorecardJobYaml()
             if not path
             else InferenceScorecardJobYaml.from_file(path)
         )
-    elif job_type == hub.JobType.QUANTIZE:
+    if job_type == hub.JobType.QUANTIZE:
         return (
             QuantizeScorecardJobYaml()
             if not path
             else QuantizeScorecardJobYaml.from_file(path)
         )
-    else:
-        raise NotImplementedError(
-            f"No file for storing test jobs of type {job_type.display_name}"
-        )
+    raise NotImplementedError(
+        f"No file for storing test jobs of type {job_type.display_name}"
+    )
 
 
 @overload

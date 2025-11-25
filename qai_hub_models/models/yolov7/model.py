@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from importlib import reload
-from typing import Any
+from typing import Any, cast
 
 import torch
 import torch.nn.functional as F
@@ -16,6 +16,7 @@ from qai_hub_models.models._shared.yolo.model import DEFAULT_YOLO_IMAGE_INPUT_HW
 from qai_hub_models.models._shared.yolo.utils import detect_postprocess_split_input
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
+from qai_hub_models.utils.set_env import set_temp_env
 
 YOLOV7_SOURCE_REPOSITORY = "https://github.com/WongKinYiu/yolov7"
 YOLOV7_SOURCE_REPO_COMMIT = "84932d70fb9e2932d0a70e4a1f02a1d6dd1dd6ca"
@@ -53,16 +54,18 @@ class YoloV7(Yolo):
         # Load PyTorch model from disk
         yolov7_model = _load_yolov7_source_model_from_weights(weights_name)
 
-        yolov7_model.profile = False
+        yolov7_model.profile = False  # type: ignore[assignment]
 
         # When traced = True, the model will skip the "Detect" step,
         # which allows us to override it with an exportable version.
-        yolov7_model.traced = True
+        yolov7_model.traced = True  # type: ignore[assignment]
 
         # Generate replacement detector that can be traced
-        detector_head_state_dict = yolov7_model.model[-1].state_dict()
+        detector_head_state_dict = yolov7_model.model[-1].state_dict()  # type: ignore[index, union-attr]
         yolov7_detect = _YoloV7Detector.from_yolov7_state_dict(
-            detector_head_state_dict, (height, width), yolov7_model.model[-1].stride
+            detector_head_state_dict,
+            (height, width),
+            yolov7_model.model[-1].stride,  # type: ignore[index, arg-type]
         )
 
         return cls(
@@ -81,12 +84,14 @@ class YoloV7(Yolo):
         """
         Run YoloV7 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
@@ -126,7 +131,7 @@ class YoloV7(Yolo):
                 return detector_output
             return torch.cat(detector_output, -1)
 
-        return detect_postprocess_split_input(*detector_output)  # type: ignore[misc]
+        return detect_postprocess_split_input(*detector_output)
 
     @staticmethod
     def get_output_names(
@@ -144,7 +149,16 @@ class YoloV7(Yolo):
         )
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
+        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
+        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         return "--range_scheme min_max"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10
 
 
 class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
@@ -166,7 +180,7 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         self.nc = self.no - 5  # number of classes
         self.nl = num_layers
         self.h, self.w = input_shape
-        for i in range(0, self.nl):
+        for i in range(self.nl):
             self.register_buffer(
                 f"anchor_grid_{i}", torch.zeros(1, self.na, 1, 1, 2)
             )  # nl * [ tensor(shape(1,na,1,1,2)) ]
@@ -192,13 +206,13 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         anchor_grid = state_dict["anchor_grid"]
         nl = len(anchor_grid)
         na = anchor_grid.shape[2]
-        for i in range(0, nl):
+        for i in range(nl):
             new_state_dict[f"anchor_grid_{i}"] = anchor_grid[i]
 
         # Copy over `m` layers
         m_in_channels = []
         m_out_channel = 0
-        for i in range(0, nl):
+        for i in range(nl):
             weight = f"m.{i}.weight"
             for x in [weight, f"m.{i}.bias"]:
                 new_state_dict[x] = state_dict[x]
@@ -235,7 +249,9 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         xy = xy.reshape(-1, self.na * nx * ny, 2)
 
         wh = y[..., 2:4].reshape(-1, self.na, nx * ny, 2)
-        wh = (wh * 2) ** 2 * self.__getattr__(f"anchor_grid_{i}").squeeze(2)
+        wh = (wh * 2) ** 2 * cast(
+            torch.Tensor, self.__getattr__(f"anchor_grid_{i}")
+        ).squeeze(2)
         wh = wh.reshape(-1, self.na * nx * ny, 2)
 
         # TODO(13933) Revert max operation once QNN issues with ReduceMax are fixed
@@ -247,11 +263,13 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
         From the outputs of the feature extraction layers of YoloV7, predict bounding boxes,
         classes, and confidence.
 
-        Parameters:
+        Parameters
+        ----------
             all_x: tuple[torch.Tensor]
                 Outputs of the feature extraction layers of YoloV7. Typically 3 5D tensors.
 
-        Returns:
+        Returns
+        -------
             pred: [batch_size, # of predictions, 5 + # of classes]
                 Where the rightmost dim contains [center_x, center_y, w, h, confidence score, n per-class scores]
         """
@@ -301,7 +319,12 @@ def _load_yolov7_source_model_from_weights(weights_name: str) -> torch.nn.Module
         from models.experimental import attempt_load
         from models.yolo import Model
 
-        yolov7_model = attempt_load(weights_name, map_location="cpu")  # load FP32 model
+        # Set the environment variable to force torch.load to use weights_only=False
+        # This is needed for PyTorch 2.8+ where the default changed to weights_only=True
+        with set_temp_env({"TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD": "1"}):
+            yolov7_model = attempt_load(
+                weights_name, map_location="cpu"
+            )  # load FP32 model
 
         assert isinstance(yolov7_model, Model)
         return yolov7_model

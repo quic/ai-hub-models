@@ -10,11 +10,11 @@ from typing import Any
 
 import numpy as np
 import torch
-from xtcocotools.cocoeval import COCOeval
 
 from qai_hub_models.datasets.cocobody import CocoBodyDataset
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.pose import get_final_preds
+from qai_hub_models.extern.xtcocotools.cocoeval import COCOeval
 from qai_hub_models.utils.printing import suppress_stdout
 
 
@@ -23,7 +23,8 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 
     def __init__(self, in_vis_thre=0.2):
         """
-        Args:
+        Parameters
+        ----------
             coco_gt: COCO ground truth dataset.
         """
         self.reset()
@@ -44,13 +45,14 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         self,
         preds: np.ndarray,
         maxvals: np.ndarray,
-        image_ids: torch.Tensor,
-        category_ids: torch.Tensor,
+        image_ids: torch.Tensor | list[int],
+        category_ids: torch.Tensor | list[int],
     ):
         """
         Store pose predictions in COCO evaluation format.
 
-        args:
+        Parameters
+        ----------
             preds: Array of predicted keypoints in image coordinates
                 Shape: [batch_size, num_joints, 2] where last dim is (x,y)
             maxvals: Array of confidence scores for each keypoint
@@ -61,7 +63,6 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
                         Shape: [batch_size]
 
         """
-
         for idx in range(preds.shape[0]):
             image_id = int(image_ids[idx])
             category_id = int(category_ids[idx])
@@ -101,7 +102,8 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         """
         Computes COCO-style mAP using COCOeval.
 
-        Returns:
+        Returns
+        -------
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         pred_image_ids = [p["image_id"] for p in self.predictions]

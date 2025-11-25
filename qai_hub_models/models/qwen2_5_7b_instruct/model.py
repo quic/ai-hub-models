@@ -9,15 +9,15 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from packaging.version import Version
 from qai_hub.client import Device
 from qai_hub.public_rest_api import DatasetEntries
 from transformers import AutoConfig, PretrainedConfig
 
-from qai_hub_models.models._shared.llama3.model import Llama3Base
 from qai_hub_models.models._shared.llama.model import LlamaMixin
+from qai_hub_models.models._shared.llama3.model import Llama3Base
+from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
@@ -41,9 +41,7 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 
 class Qwen2_5_7B_Instruct(LlamaMixin):
-    """
-    This class represents an AIMET model and not a PyTorch module.
-    """
+    """This class represents an AIMET model and not a PyTorch module."""
 
     def __init__(
         self,
@@ -77,6 +75,16 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             huggingface_model_name=huggingface_model_name,
         )
 
+    def get_qairt_context_graph_name(self, split_index: int, num_splits: int) -> str:
+        """
+        Get the name of the QAIRT Context Graph applicable for the given sub-component.
+
+        Sequence length (ar...) and context length (cl...) in graph name
+        are semantically important to Genie
+        """
+        instantiation_type = "token" if self.sequence_length == 1 else "prompt"
+        return f"{instantiation_type}_ar{self.sequence_length}_cl{self.context_length}_{split_index + 1}_of_{num_splits}"
+
     def convert_to_onnx_and_aimet_encodings(
         self,
         output_dir: str | Path,
@@ -84,7 +92,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         model_name: str | None = None,
         external_weights: bool = False,
         bundle_external_weights: bool = False,
-        output_names: Optional[list[str]] = None,
+        output_names: list[str] | None = None,
     ) -> str:
         # Download onnx+encodings from s3
         if not (self.sequence_length in [1, 128] and self.context_length == 4096):
@@ -131,15 +139,18 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
 
     @staticmethod
     def get_input_spec(
-        llm_config: dict = dict(
-            num_hidden_layers=NUM_LAYERS,
-            hidden_size=3584,
-            num_key_value_heads=4,
-            num_attention_heads=28,
-        ),
+        llm_config: dict | None = None,
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
     ) -> InputSpec:
+        if llm_config is None:
+            llm_config = dict(
+                num_hidden_layers=NUM_LAYERS,
+                hidden_size=3584,
+                num_key_value_heads=4,
+                num_attention_heads=28,
+            )
         return Llama3Base._get_input_spec(
             num_hidden_layers=llm_config["num_hidden_layers"],
             sequence_length=sequence_length,
@@ -147,6 +158,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             hidden_size=llm_config["hidden_size"],
             num_key_value_heads=llm_config["num_key_value_heads"],
             num_attention_heads=llm_config["num_attention_heads"],
+            llm_io_type=llm_io_type,
         )
 
     def get_hub_compile_options(
@@ -154,19 +166,18 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         target_runtime: TargetRuntime,
         precision: Precision = Precision.w8a16,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
+        context_graph_name: str | None = None,
     ) -> str:
         options = super().get_hub_compile_options(
-            target_runtime, precision, other_compile_options, device
+            target_runtime, precision, other_compile_options, device, context_graph_name
         )
-        return options + " --truncate_64bit_io"
+        return options + " --truncate_64bit_io --qnn_bin_conversion_via_model_library"
 
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
     ) -> None:
-        """
-        Make sure AIMET encodings are ready for ONNX split.
-        """
+        """Make sure AIMET encodings are ready for ONNX split."""
         import onnx
 
         with open(src_encodings_path) as f:
@@ -209,5 +220,5 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
 
-    def get_qnn_graph_name(self) -> Optional[str]:
+    def get_qnn_graph_name(self) -> str | None:
         return None

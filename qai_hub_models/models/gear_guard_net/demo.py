@@ -6,7 +6,7 @@
 from copy import deepcopy
 
 import numpy as np
-import PIL.Image as Image
+from PIL import Image
 
 from qai_hub_models.models.gear_guard_net.app import BodyDetectionApp
 from qai_hub_models.models.gear_guard_net.model import (

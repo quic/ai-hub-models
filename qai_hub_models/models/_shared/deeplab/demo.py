@@ -50,7 +50,10 @@ def deeplabv3_demo(
     # https://pytorch.org/hub/pytorch_vision_deeplabv3_resnet101/
     input_image = image.convert("RGB")
     inference_model = demo_model_from_cli_args(model_type, model_id, args)
-    app = DeepLabV3App(inference_model, num_classes=num_classes)
+    app = DeepLabV3App(
+        inference_model,  # type: ignore[arg-type]
+        num_classes=num_classes,
+    )
 
     # Run app
     image_annotated = app.predict(input_image, False)

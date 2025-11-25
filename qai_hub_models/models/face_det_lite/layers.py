@@ -8,9 +8,9 @@ from __future__ import annotations
 import math
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.init as init
+from torch import nn
+from torch.nn import init
 
 
 class SeModule(nn.Module):
@@ -114,8 +114,7 @@ class Block3x3(nn.Module):
 
         if self.se is not None:
             out = self.se(out)
-        out = out + self.shortcut(x) if self.stride == 1 else out
-        return out
+        return out + self.shortcut(x) if self.stride == 1 else out
 
 
 class CBAModule(nn.Module):
@@ -136,6 +135,7 @@ class CBAModule(nn.Module):
             in_channels, out_channels, kernel_size, stride, padding=padding, bias=bias
         )
         self.bn = nn.BatchNorm2d(out_channels)
+        self.act: nn.Module
         if act == "relu":
             self.act = nn.ReLU(inplace=True)
         elif act == "identity":
@@ -154,8 +154,7 @@ class CBAModule(nn.Module):
         """
         x = self.conv(x)
         x = self.bn(x)
-        x = self.act(x)
-        return x
+        return self.act(x)
 
 
 class UpModule(nn.Module):
@@ -199,10 +198,11 @@ class UpModule(nn.Module):
         """
         if self.mode == "UCBA":
             return self.conv(self.up(x))
-        elif self.mode == "DeconvBN":
+        if self.mode == "DeconvBN":
             return F.relu(self.bn(self.dconv(x)))
-        elif self.mode == "DeCBA":
+        if self.mode == "DeCBA":
             return self.conv(self.dconv(x))
+        return None
 
 
 class ContextModule(nn.Module):
@@ -271,6 +271,7 @@ class HeadModule(nn.Module):
             )
 
     def init_normal(self, std: float, bias: float):
+        assert self.head.bias is not None
         nn.init.normal_(self.head.weight, std=std)
         nn.init.constant_(self.head.bias, bias)
 

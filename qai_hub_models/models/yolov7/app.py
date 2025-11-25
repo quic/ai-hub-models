@@ -35,11 +35,13 @@ class YoloV7DetectionApp(YoloObjectDetectionApp):
         """
         Process the output of the YOLO detector for input to NMS.
 
-        Parameters:
+        Parameters
+        ----------
             detector_output: torch.Tensor
                 The output of Yolo detection model. Tensor shape varies by model implementation.
 
-        Returns:
+        Returns
+        -------
             boxes: torch.Tensor
                 Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
             scores: torch.Tensor

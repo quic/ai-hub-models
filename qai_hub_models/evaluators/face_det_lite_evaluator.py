@@ -34,7 +34,7 @@ class FaceDetLiteEvaluator(mAPEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        this function handles model prediction result then calculate the performance with provided ground truth data.
+        This function handles model prediction result then calculate the performance with provided ground truth data.
         output is the model inference output - (heatmap, bbox, landmard)
         gt is one list to hold ground truth information from dataloader, the order as following
             0 - image_id_tensor
@@ -61,26 +61,25 @@ class FaceDetLiteEvaluator(mAPEvaluator):
 
         for i in range(len(image_ids)):
             image_id = image_ids[i]
-            bboxes = all_bboxes[i][: all_num_boxes[i].item()]
-            classes = all_classes[i][: all_num_boxes[i].item()]
+            bboxes = all_bboxes[i][: int(all_num_boxes[i].item())]
+            classes = all_classes[i][: int(all_num_boxes[i].item())]
             if bboxes.numel() == 0:
                 continue
 
             # Collect GT and prediction boxes
-            gt_bb_entry = []
-            for j in range(len(bboxes)):
-                if classes[j] == 0:
-                    gt_bb_entry.append(
-                        BoundingBox.of_bbox(
-                            image_id,
-                            int(classes[j]),
-                            bboxes[j][0].item(),
-                            bboxes[j][1].item(),
-                            bboxes[j][2].item(),
-                            bboxes[j][3].item(),
-                            1.0,
-                        )
-                    )
+            gt_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    int(classes[j]),
+                    bboxes[j][0].item(),
+                    bboxes[j][1].item(),
+                    bboxes[j][2].item(),
+                    bboxes[j][3].item(),
+                    1.0,
+                )
+                for j in range(len(bboxes))
+                if classes[j] == 0
+            ]
 
             dets = detect(
                 hm[i].unsqueeze(0),
@@ -92,7 +91,7 @@ class FaceDetLiteEvaluator(mAPEvaluator):
             )
 
             res = []
-            for n in range(0, len(dets)):
+            for n in range(len(dets)):
                 xmin, ymin, w, h = dets[n].xywh
                 score = dets[n].score
 
@@ -103,14 +102,12 @@ class FaceDetLiteEvaluator(mAPEvaluator):
                 W = int(w)
                 H = int(h)
 
-                if L < 0 or T < 0 or R >= self.image_width or B >= self.image_height:
-                    if L < 0:
-                        L = 0
-                    if T < 0:
-                        T = 0
-                    if R >= self.image_width:
+                if L < 0 or T < 0 or self.image_width <= R or self.image_height <= B:
+                    L = max(L, 0)
+                    T = max(T, 0)
+                    if self.image_width <= R:
                         R = self.image_width - 1
-                    if B >= self.image_height:
+                    if self.image_height <= B:
                         B = self.image_height - 1
 
                 # Enlarge bounding box to cover more face area
@@ -134,18 +131,17 @@ class FaceDetLiteEvaluator(mAPEvaluator):
 
                 res.append([L, T, R, B, score])
 
-            pd_bb_entry = []
-            for item in res:
-                pd_bb_entry.append(
-                    BoundingBox.of_bbox(
-                        image_id,
-                        0,
-                        (float(item[0]) - paddings[i][0].item()) / scales[i].item(),
-                        (float(item[1]) - paddings[i][1].item()) / scales[i].item(),
-                        (float(item[2]) - paddings[i][0].item()) / scales[i].item(),
-                        (float(item[3]) - paddings[i][1].item()) / scales[i].item(),
-                        item[4],
-                    )
+            pd_bb_entry = [
+                BoundingBox.of_bbox(
+                    image_id,
+                    0,
+                    (float(item[0]) - paddings[i][0].item()) / scales[i].item(),
+                    (float(item[1]) - paddings[i][1].item()) / scales[i].item(),
+                    (float(item[2]) - paddings[i][0].item()) / scales[i].item(),
+                    (float(item[3]) - paddings[i][1].item()) / scales[i].item(),
+                    item[4],
                 )
+                for item in res
+            ]
 
             self.store_bboxes_for_eval(gt_bb_entry, pd_bb_entry)

@@ -53,11 +53,13 @@ class DepthEstimationApp:
         """
         Estimates the depth at each point in an image and produces a heatmap.
 
-        Parameters:
+        Parameters
+        ----------
             image: PIL Image to estimate depth.
             raw_output: If set, returns the raw depth estimates instead of a heatmap.
 
-        Returns:
+        Returns
+        -------
             A heatmap PIL Image or an np array of depth estimates.
             np array will be shape (h, w) where h, w are the dimensions of the input.
             np array will contain raw depth estimates, while PIL image will normalize
@@ -72,5 +74,5 @@ class DepthEstimationApp:
         numpy_output = cast(npt.NDArray[np.float32], prediction.squeeze().cpu().numpy())
         if raw_output:
             return numpy_output
-        heatmap = plt.cm.plasma(numpy_output / numpy_output.max())[..., :3]  # type: ignore[attr-defined]
+        heatmap = plt.cm.get_cmap("plasma")(numpy_output / numpy_output.max())[..., :3]
         return Image.fromarray((heatmap * 255).astype(np.uint8))

@@ -18,12 +18,12 @@ import threading
 import time
 import zipfile
 from collections.abc import Callable, Iterable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Optional, Union
+from typing import Any
 from unittest.mock import MagicMock
 from zipfile import ZipFile
 
@@ -33,11 +33,12 @@ import numpy as np
 import requests
 import ruamel.yaml
 import torch
-from git import Repo
 from PIL import Image
 from qai_hub.util.dataset_entries_converters import h5_to_dataset_entries
 from schema import And, Schema, SchemaError
 from tqdm import tqdm
+
+from qai_hub_models.utils.envvars import IsOnCIEnvvar
 
 ASSET_BASES_DEFAULT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "asset_bases.yaml"
@@ -48,8 +49,8 @@ LOCAL_STORE_DEFAULT_PATH = os.path.join(QAIHM_STORE_ROOT, ".qaihm")
 EXECUTING_IN_CI_ENVIRONMENT = os.getenv("QAIHM_CI", "0") == "1"
 SOURCE_AS_ROOT_LOCK = threading.Lock()
 
-PathLike = Union[os.PathLike, str]
-VersionType = Union[str, int]
+PathLike = os.PathLike | str
+VersionType = str | int
 
 # If non-None, always enter this for yes (True)/no (False) prompts
 _always_answer = None
@@ -57,7 +58,7 @@ _always_answer = None
 
 @contextmanager
 def always_answer_prompts(answer):
-    global _always_answer
+    global _always_answer  # noqa: PLW0603
     old_value = _always_answer
     _always_answer = answer
     try:
@@ -116,17 +117,16 @@ def _query_yes_no(question, default="yes"):
     elif default == "no":
         prompt = " [y/N] "
     else:
-        raise ValueError("invalid default answer: '%s'" % default)
+        raise ValueError(f"invalid default answer: {default}")
 
     while True:
         print(question + prompt, end="")
         choice = input().lower()
         if default is not None and choice == "":
             return valid[default]
-        elif choice in valid:
+        if choice in valid:
             return valid[choice]
-        else:
-            print("Please respond with 'yes' or 'no' " "(or 'y' or 'n').\n")
+        print("Please respond with 'yes' or 'no' (or 'y' or 'n').\n")
 
 
 def maybe_clone_git_repo(
@@ -134,13 +134,13 @@ def maybe_clone_git_repo(
     commit_hash,
     model_name: str,
     model_version: VersionType,
-    patches: list[str] = [],
+    patches: list[str] | None = None,
     ask_to_clone: bool = not EXECUTING_IN_CI_ENVIRONMENT,
 ) -> Path:
     """Clone (or pull) a repository, save it to disk in a standard location,
     and return the absolute path to the cloned location. Patches can be applied
-    by providing a list of paths to diff files."""
-
+    by providing a list of paths to diff files.
+    """
     # http://blah.come/author/name.git -> name, author
     repo_name = os.path.basename(git_file_path).split(".")[0]
     repo_author = os.path.basename(os.path.dirname(git_file_path))
@@ -160,9 +160,22 @@ def maybe_clone_git_repo(
         )
         if should_clone:
             print(f"Cloning {git_file_path} to {local_path}...")
+
+            try:
+                from git import (  # noqa:  TID251 Import is wrapped in try / catch as requested by precommit rules.
+                    Repo,
+                )
+            except ImportError as e:
+                if e.msg.startswith("Failed to initialize: Bad git executable."):
+                    raise ImportError(
+                        f"Git is not installed or can't be found on your system. Git is required to load {model_name}.\n"
+                        "Follow these instructions to install git: https://github.com/git-guides/install-git\n"
+                        "After Git is installed on your system, please try again."
+                    ) from None
+
             repo = Repo.clone_from(git_file_path, local_path)
             repo.git.checkout(commit_hash)
-            for patch_path in patches:
+            for patch_path in patches or []:
                 git_cmd = ["git", "apply"]
                 if platform.system() == "Windows":
                     # We pass ignore-space-change,
@@ -192,7 +205,7 @@ def wipe_sys_modules(module: ModuleType) -> None:
         but may still reference the old package for submodules.
     """
     module_name = module.__name__
-    dep_modules = [name for name in sys.modules.keys() if name.startswith(module_name)]
+    dep_modules = [name for name in sys.modules if name.startswith(module_name)]
     for submodule_name in dep_modules:
         sys.modules.pop(submodule_name)
 
@@ -214,12 +227,10 @@ def _load_file(
             dst_path = os.path.join(dst_folder_path_str, os.path.basename(file))
             download_file(file, dst_path)
             return loader_func(dst_path)
-        else:
-            return loader_func(file)
-    elif isinstance(file, CachedWebAsset):
+        return loader_func(file)
+    if isinstance(file, CachedWebAsset):
         return loader_func(str(file.fetch()))
-    else:
-        raise NotImplementedError()
+    raise NotImplementedError()
 
 
 def load_image(image: PathType, verbose=False, desc="image") -> Image.Image:
@@ -233,7 +244,7 @@ def load_numpy(file: PathType) -> Any:
 
 
 def load_torch(pt: PathType) -> Any:
-    return _load_file(pt, partial(torch.load, map_location="cpu"))
+    return _load_file(pt, partial(torch.load, map_location="cpu", weights_only=False))
 
 
 def load_json(json_filepath: PathType) -> dict:
@@ -291,12 +302,12 @@ def SourceAsRoot(
     source_repo_commit_hash: str,
     source_repo_name: str,
     source_repo_version: int | str,
-    source_repo_patches: list[str] = [],
+    source_repo_patches: list[str] | None = None,
     keep_sys_modules: bool = True,
     ask_to_clone: bool = not EXECUTING_IN_CI_ENVIRONMENT,
     # These modules are imported but unused during model loading.
     # They are mocked so they can be imported without requiring us to install them.
-    imported_but_unused_modules: list[str] = [],
+    imported_but_unused_modules: list[str] | None = None,
 ):
     """
     Context manager that runs code with:
@@ -305,7 +316,6 @@ def SourceAsRoot(
 
     Only one of this class should be active per Python session.
     """
-
     repository_path = str(
         maybe_clone_git_repo(
             source_repo_url,
@@ -324,7 +334,7 @@ def SourceAsRoot(
         # These modules are imported but unused during use.
         # They are mocked so they can be imported without error
         # without requiring us to install them.
-        for module_name in imported_but_unused_modules:
+        for module_name in imported_but_unused_modules or []:
             if module_name not in sys.modules:
                 sys.modules[module_name] = MagicMock()
 
@@ -351,7 +361,7 @@ def SourceAsRoot(
             for name, module in list(sys.modules.items()):
                 if (getattr(module, "__file__", "") or "").startswith(
                     repository_path
-                ) or name in imported_but_unused_modules:
+                ) or name in (imported_but_unused_modules or []):
                     if name in original_modules:
                         sys.modules[name] = original_modules[name]
                     else:
@@ -360,7 +370,7 @@ def SourceAsRoot(
 
 
 def find_replace_in_repo(
-    repo_path: str, filepaths: Union[str, list[str]], find_str: str, replace_str: str
+    repo_path: str, filepaths: str | list[str], find_str: str, replace_str: str
 ):
     """
     When loading models from external repos, sometimes small modifications
@@ -368,7 +378,8 @@ def find_replace_in_repo(
 
     This does a simple find + replace within a single file.
 
-    Parameters:
+    Parameters
+    ----------
         repo_path: Local filepath to the repo of interest.
         filepath: Filepath within the repo to the file to change.
         find_str: The string that needs to be replaced.
@@ -434,10 +445,10 @@ class ModelZooAssetConfig:
             "{model_name}", str(model_name)
         )
 
-    def get_web_asset_url(self, model_id: str, type: QAIHM_WEB_ASSET):
-        if type == QAIHM_WEB_ASSET.STATIC_IMG:
+    def get_web_asset_url(self, model_id: str, asset_type: QAIHM_WEB_ASSET):
+        if asset_type == QAIHM_WEB_ASSET.STATIC_IMG:
             file = self.static_web_banner_filename
-        elif type == QAIHM_WEB_ASSET.ANIMATED_MOV:
+        elif asset_type == QAIHM_WEB_ASSET.ANIMATED_MOV:
             file = self.animated_web_banner_filename
         else:
             raise NotImplementedError("unsupported web asset type")
@@ -466,7 +477,7 @@ class ModelZooAssetConfig:
         )
 
     def get_relative_model_asset_path(
-        self, model_id: str, version: Union[int, str], file_name: Path | str
+        self, model_id: str, version: int | str, file_name: Path | str
     ) -> Path:
         return Path(
             self.model_asset_folder.lstrip("/").format(
@@ -475,7 +486,7 @@ class ModelZooAssetConfig:
         ) / Path(file_name)
 
     def get_relative_dataset_asset_path(
-        self, dataset_id: str, version: Union[int, str], file_name: Path | str
+        self, dataset_id: str, version: int | str, file_name: Path | str
     ) -> Path:
         return Path(
             self.dataset_asset_folder.lstrip("/").format(
@@ -487,14 +498,14 @@ class ModelZooAssetConfig:
         return f"{self.asset_url.rstrip('/')}/{(file.as_posix() if isinstance(file, Path) else file).lstrip('/')}"
 
     def get_model_asset_url(
-        self, model_id: str, version: Union[int, str], file_name: Path | str
+        self, model_id: str, version: int | str, file_name: Path | str
     ) -> str:
         return self.get_asset_url(
             self.get_relative_model_asset_path(model_id, version, file_name)
         )
 
     def get_dataset_asset_url(
-        self, dataset_id: str, version: Union[int, str], file_name: Path | str
+        self, dataset_id: str, version: int | str, file_name: Path | str
     ) -> str:
         return self.get_asset_url(
             self.get_relative_dataset_asset_path(dataset_id, version, file_name)
@@ -503,11 +514,23 @@ class ModelZooAssetConfig:
     def get_labels_file_path(self, labels_file: str) -> str:
         return self.labels_path.lstrip("/").format(labels_file=labels_file)
 
-    def get_qaihm_repo(self, model_id: str, relative=True) -> Path | str:
+    def get_qaihm_repo(
+        self, model_id: str, relative=True, qaihm_version_tag: str | None = None
+    ) -> Path | str:
         relative_path = Path(self.qaihm_repo.lstrip("/").format(model_id=model_id))
+        repo_url = self.repo_url
+        if qaihm_version_tag:
+            repo_url = repo_url.replace("/blob/main", f"/refs/tags/{qaihm_version_tag}")
         if not relative:
-            return f"{self.repo_url.rstrip('/')}/{relative_path.as_posix()}"
+            return f"{repo_url.rstrip('/')}/{relative_path.as_posix()}"
         return relative_path
+
+    def get_qaihm_repo_download_url(
+        self, model_id: str, file_name: str, qaihm_version_tag: str | None = None
+    ) -> str:
+        repo_url = self.get_qaihm_repo(model_id, False, qaihm_version_tag)
+        repo_url = os.path.join(str(repo_url), file_name)
+        return repo_url.replace("github.com", "raw.githubusercontent.com")
 
     def get_website_url(self, model_id: str, relative=False) -> Path | str:
         relative_path = Path(
@@ -581,7 +604,7 @@ class ModelZooAssetConfig:
             # Validate high level-schema
             ModelZooAssetConfig.ASSET_CFG_SCHEMA.validate(data)
         except SchemaError as e:
-            assert 0, f"{e.code} in {path}"
+            raise ValueError(f"{e.code} in {path}") from None
 
         for key, value in data.items():
             # Environment variable replacement
@@ -594,8 +617,7 @@ class ModelZooAssetConfig:
                     _, env_var_name, default = values
                 else:
                     raise NotImplementedError(
-                        "Environment vars should be specified in asset_bases "
-                        "using format env::<var_name>::<default>"
+                        "Environment vars should be specified in asset_bases using format env::<var_name>::<default>"
                     )
 
                 data[key] = os.environ.get(env_var_name, default)
@@ -616,9 +638,7 @@ ASSET_CONFIG = ModelZooAssetConfig.from_cfg()
 
 
 class CachedWebAsset:
-    """
-    Helper class for downloading files for storage in the QAIHM asset cache.
-    """
+    """Helper class for downloading files for storage in the QAIHM asset cache."""
 
     def __init__(
         self,
@@ -656,7 +676,8 @@ class CachedWebAsset:
         """
         File from the online qaihm asset store.
 
-        Parameters:
+        Parameters
+        ----------
             relative_store_file_path: Path relative to `qai_hub_models` cache root to store this asset.
                                       (also relative to the root of the online file store)
 
@@ -682,7 +703,8 @@ class CachedWebAsset:
         """
         File from google drive.
 
-        Parameters:
+        Parameters
+        ----------
             gdrive_file_id: Unique identifier of the file in Google Drive.
                 Typically found in the URL.
 
@@ -707,7 +729,8 @@ class CachedWebAsset:
         By default, for archived (.zip, .tar, .etc) assets, path() will return the extracted path if the asset
         has been extracted, and the original archive file's path if it has not been extracted.
 
-        Parameters:
+        Parameters
+        ----------
             extracted: If true, return the path of the extracted asset on disk.
                        If false, return the path of the archive path on disk.
         """
@@ -723,7 +746,8 @@ class CachedWebAsset:
         """
         Fetch this file from the web if it does not exist on disk.
 
-        Parameters:
+        Parameters
+        ----------
             force: If the file exists on disk already, discard it and download it again.
 
             extract: Extract the asset after downloading it.
@@ -759,9 +783,7 @@ class CachedWebAsset:
         return self.path()
 
     def extract(self, force=True) -> Path:
-        """
-        Extract this asset if it is compressed. Updates the path of this asset to the folder to which the zip file was extracted.
-        """
+        """Extract this asset if it is compressed. Updates the path of this asset to the folder to which the zip file was extracted."""
         if self.is_extracted:
             if force:
                 os.remove(self.path())
@@ -787,9 +809,7 @@ class CachedWebAsset:
 
 
 class CachedWebModelAsset(CachedWebAsset):
-    """
-    Helper class for downloading files for storage in the QAIHM asset cache.
-    """
+    """Helper class for downloading files for storage in the QAIHM asset cache."""
 
     def __init__(
         self,
@@ -825,7 +845,8 @@ class CachedWebModelAsset(CachedWebAsset):
         """
         File from the online qaihm asset store.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: str
                 Model ID
 
@@ -863,7 +884,8 @@ class CachedWebModelAsset(CachedWebAsset):
         """
         File from google drive.
 
-        Parameters:
+        Parameters
+        ----------
             gdrive_file_id: Unique identifier of the file in Google Drive.
                 Typically found in the URL.
 
@@ -929,7 +951,8 @@ class CachedWebDatasetAsset(CachedWebAsset):
         """
         File from the online qaihm asset store.
 
-        Parameters:
+        Parameters
+        ----------
             model_id: Model ID
 
             dataset_version: Asset version for this model.
@@ -963,7 +986,8 @@ class CachedWebDatasetAsset(CachedWebAsset):
         """
         File from google drive.
 
-        Parameters:
+        Parameters
+        ----------
             gdrive_file_id: Unique identifier of the file in Google Drive.
                 Typically found in the URL.
 
@@ -988,14 +1012,14 @@ class CachedWebDatasetAsset(CachedWebAsset):
         )
 
 
-def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
+def download_file(
+    web_url: str, dst_path: str, num_retries: int = 4, verbose: bool = True
+) -> str:
     """
     Downloads data from the internet and stores in `dst_folder`.
     `dst_folder` should be relative to the local cache root for qai_hub_models.
     """
     if not os.path.exists(dst_path):
-        print(f"Downloading data at {web_url} to {dst_path}")
-
         # Streaming, so we can iterate over the response.
         response = requests.get(web_url, stream=True)
         if response.status_code != 200:
@@ -1008,12 +1032,21 @@ def download_file(web_url: str, dst_path: str, num_retries: int = 4) -> str:
         with qaihm_temp_dir() as tmp_dir:
             tmp_filepath = os.path.join(tmp_dir, Path(dst_path).name)
             with tqdm(total=total_size, unit="B", unit_scale=True) as progress_bar:
+                progress_bar.set_description(
+                    f"Downloading data at {web_url} to {dst_path}"
+                )
                 with open(tmp_filepath, "wb") as file:
                     for data in response.iter_content(block_size):
-                        progress_bar.update(len(data))
+                        if not IsOnCIEnvvar.get():
+                            progress_bar.update(len(data))
                         file.write(data)
+
+                if IsOnCIEnvvar.get():
+                    progress_bar.set_postfix_str("Done", refresh=False)
+                    progress_bar.update(total_size)
+                else:
+                    progress_bar.set_postfix_str("Done")
             shutil.move(tmp_filepath, dst_path)
-        print("Done")
     return dst_path
 
 
@@ -1021,7 +1054,8 @@ def download_and_cache_google_drive(web_url: str, dst_path: str, num_retries: in
     """
     Download file from google drive to the local directory.
 
-    Parameters:
+    Parameters
+    ----------
         file_id: Unique identifier of the file in Google Drive.
             Typically found in the URL.
         model_name: Model for which this asset is being downloaded.
@@ -1029,23 +1063,21 @@ def download_and_cache_google_drive(web_url: str, dst_path: str, num_retries: in
         filename: Filename under which it will be saved locally.
         num_retries: Number of times to retry in case download fails.
 
-    Returns:
+    Returns
+    -------
         Filepath within the local filesystem.
     """
     for i in range(num_retries):
         print(f"Downloading data at {web_url} to {dst_path}... ")
-        try:
+        with suppress(Exception):
             gdown.download(web_url, dst_path, quiet=False)
-        except Exception:
-            pass
         if os.path.exists(dst_path):
             print("Done")
             return dst_path
-        else:
-            print(f"Failed to download file at {web_url}")
-            if i < num_retries - 1:
-                print("Retrying in 3 seconds.")
-                time.sleep(3)
+        print(f"Failed to download file at {web_url}")
+        if i < num_retries - 1:
+            print("Retrying in 3 seconds.")
+            time.sleep(3)
     return dst_path
 
 
@@ -1065,7 +1097,8 @@ def extract_zip_file(
     in the same directory. The directory with the contents will have the same
     name as the .zip file without the `.zip` extention.
 
-    Parameters:
+    Parameters
+    ----------
         filepath_str: String of the path to the zip file in the local directory.
         out_path: Path to which contents should be extracted.
     """
@@ -1111,22 +1144,21 @@ def zip_model(output_dir_path: PathLike, model_path: PathLike) -> str:
 def callback_with_retry(
     num_retries: int,
     callback: Callable,
-    *args: Optional[Any],
-    **kwargs: Optional[Any],
+    *args: Any | None,
+    **kwargs: Any | None,
 ) -> Any:
     """Allow retries when running provided function."""
     if num_retries == 0:
         raise RuntimeError(f"Unable to run function {callback.__name__}")
-    else:
-        try:
-            return callback(*args, **kwargs)
-        except Exception as error:
-            error_msg = f"Error: {getattr(error, 'message', str(error))}"
-            print(error_msg)
-            if hasattr(error, "status_code"):
-                print(f"Status code: {getattr(error, 'status_code')}")
-            time.sleep(10)
-            return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
+    try:
+        return callback(*args, **kwargs)
+    except Exception as error:
+        error_msg = f"Error: {getattr(error, 'message', str(error))}"
+        print(error_msg)
+        if hasattr(error, "status_code"):
+            print(f"Status code: {error.status_code}")
+        time.sleep(10)
+        return callback_with_retry(num_retries - 1, callback, *args, **kwargs)
 
 
 @contextmanager
@@ -1135,7 +1167,8 @@ def qaihm_temp_dir(debug_base_dir: str | None = None):
     Keep temp file under LOCAL_STORE_DEFAULT_PATH instead of /tmp which has
     limited space.
 
-    Parameters:
+    Parameters
+    ----------
         debug_base_dir: If provided, use this directory instead of creating a temp directory.
                        If None, creates a temporary directory as usual.
     """
@@ -1151,4 +1184,4 @@ def qaihm_temp_dir(debug_base_dir: str | None = None):
             yield tempdir
 
 
-PathType = Union[str, Path, CachedWebAsset]
+PathType = str | Path | CachedWebAsset

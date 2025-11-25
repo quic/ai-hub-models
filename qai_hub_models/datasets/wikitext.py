@@ -14,10 +14,6 @@ from transformers import PreTrainedTokenizerBase
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 
 
-def collate_fn(batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["input_ids"]
-
-
 class WikiText(BaseDataset):
     def __init__(
         self,
@@ -45,11 +41,27 @@ class WikiText(BaseDataset):
 
         # This is necessary because calibrating the model on data with tokens for the "\n\n" separator between texts
         # Causes a big drop in quantization accuracy
-        separator = "\n\n" if split == DatasetSplit.TEST else self.tokenizer.bos_token
+        separator = (
+            "\n\n"
+            if split == DatasetSplit.TEST
+            else self.tokenizer.bos_token or self.tokenizer.eos_token
+        )
         self.tokens = self.tokenizer(
             separator.join(raw_dataset["text"]),
             return_tensors="pt",
             add_special_tokens=True,
+        )
+
+    @staticmethod
+    def collate_fn(
+        batch: list[dict[str, torch.Tensor]],
+    ) -> tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]
+    ]:
+        return (
+            batch[0]["input_ids"],
+            batch[0]["attention_mask"],
+            batch[0].get("label", batch[0]["input_ids"]),
         )
 
     def load_raw_dataset(self) -> Dataset:
@@ -58,12 +70,15 @@ class WikiText(BaseDataset):
         )
 
     def __len__(self) -> int:
-        if self.num_samples != 0:
-            return self.num_samples
+        max_num = math.ceil(len(self.tokens["input_ids"][0]) / self.context_length)
         if self.split_str == "train":
             # 80k samples to be passed for calibration and advanced algorithms like Sequential MSE.
-            return 20
-        return math.ceil(len(self.tokens["input_ids"][0]) / self.context_length)
+            num = 20 * 4096 // self.context_length
+        elif self.num_samples != 0:
+            num = self.num_samples
+        else:
+            num = max_num
+        return min(num, max_num)
 
     def __getitem__(self, index: int):
         num_tokens = self.tokens["input_ids"].shape[-1]
@@ -79,9 +94,7 @@ class WikiText(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1
 
     @staticmethod

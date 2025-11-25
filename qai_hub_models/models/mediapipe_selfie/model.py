@@ -48,8 +48,7 @@ class DepthwiseConv2d(nn.Module):
         )
 
     def forward(self, x):
-        x = self.depthwise(x)
-        return x
+        return self.depthwise(x)
 
 
 class SelfieSegmentation(BaseModel):
@@ -57,13 +56,15 @@ class SelfieSegmentation(BaseModel):
 
     def __init__(self, image_type: str = "square"):
         """
-        Parameters:
+        Parameters
+        ----------
             image_type: str (choices: square or landscape)
                 Instance of two model variations can be created:
                 * One for square images (H=W)
                 * One for rectangle images (landscape format)
 
-        Returns:
+        Returns
+        -------
             graph: Based on the image type, torch.nn.Module is returned.
                 The only difference in architectures is that global average pool
                 is only present in the model trained for landscape images.
@@ -177,17 +178,21 @@ class SelfieSegmentation(BaseModel):
         Hence, based on image_type different weights are loaded and
         different model instance is returned.
 
-        Parameters:
+        Parameters
+        ----------
             image_type: str (choices: square or landscape)
                 Instance of two model variations can be created:
                 * One for square images (H=W)
                 * One for rectangle images (landscape format)
-        Returns:
+
+        Returns
+        -------
             Torch model with pretrained weights loaded.
         """
         front_net = cls(image_type)
         destination_path = MEDIAPIPE_SELFIE_CKPT_MAP[image_type].fetch()
-        front_data = open(destination_path, "rb").read()
+        with open(destination_path, "rb") as fdata:
+            front_data = fdata.read()
         front_model = Model.GetRootAsModel(front_data, 0)
         front_subgraph = front_model.Subgraphs(0)
         front_tensor_dict = {
@@ -225,13 +230,15 @@ class SelfieSegmentation(BaseModel):
 
     def forward(self, image):
         """
-        Parameters:
+        Parameters
+        ----------
             image: Input image to be segmented.
                 Square: Shape [1, 3, 256, 256]
                 Landscape: Shape [1, 3, 144, 256]
                 Channel layout: RGB
 
-        Returns:
+        Returns
+        -------
             output (mask): Mask with person and the background segmented.
                 Square: Shape [1, 256, 256]
                 Landscape: Shape [1, 144, 256]
@@ -348,9 +355,7 @@ class SelfieSegmentation(BaseModel):
         x11 = self.relu(self.conv43(x))
         x = x11 + self.relu(self.depthwise11(x11))
 
-        x = self.sigmoid(self.transpose_conv(x))
-
-        return x
+        return self.sigmoid(self.transpose_conv(x))
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

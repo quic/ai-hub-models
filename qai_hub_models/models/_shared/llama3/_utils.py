@@ -15,6 +15,7 @@ def _find_node_type_with_pattern(node, node_type: str, pattern_str: str | list[s
         return node.op_type == node_type and any(
             pattern in node.name for pattern in pattern_str
         )
+    return None
 
 
 def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):

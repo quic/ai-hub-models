@@ -1,0 +1,59 @@
+# [BEVDet: Construct a bird’s eye view from sensors mounted on a vehicle](https://aihub.qualcomm.com/models/bevdet)
+
+BEVDet is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+
+This is based on the implementation of BEVDet found [here](https://github.com/HuangJunJie2017/BEVDet/). This repository contains scripts for optimized on-device
+export suitable to run on Qualcomm® devices. More details on model performance
+accross various devices, can be found [here](https://aihub.qualcomm.com/models/bevdet).
+
+[Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
+
+
+
+
+## Example & Usage
+
+Install the package via pip:
+```bash
+# NOTE: 3.10 <= PYTHON_VERSION < 3.14 is supported.
+pip install nuscenes-devkit==1.2.0 --no-deps
+pip install "qai-hub-models[bevdet]"
+```
+
+
+Once installed, run the following simple CLI demo on the host machine:
+
+```bash
+python -m qai_hub_models.models.bevdet.demo { --quantize w8a16_mixed_fp16 }
+```
+More details on the CLI tool can be found with the `--help` option. See
+[demo.py](demo.py) for sample usage of the model including pre/post processing
+scripts. Please refer to our [general instructions on using
+models](../../../#getting-started) for more usage instructions.
+
+## Export for on-device deployment
+
+This package contains export scripts that produce a model optimized for
+on-device deployment. This can be run as follows:
+
+```bash
+python -m qai_hub_models.models.bevdet.export { --quantize w8a16_mixed_fp16 }
+```
+Additional options are documented with the `--help` option.
+
+
+## License
+* The license for the original implementation of BEVDet can be found
+  [here](https://github.com/HuangJunJie2017/BEVDet/blob/dev3.0/LICENSE).
+* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
+
+
+## References
+* [BEVDet: High-Performance Multi-Camera 3D Object Detection in Bird-Eye-View](https://arxiv.org/abs/2112.11790)
+* [Source Model Implementation](https://github.com/HuangJunJie2017/BEVDet/)
+
+
+
+## Community
+* Join [our AI Hub Slack community](https://aihub.qualcomm.com/community/slack) to collaborate, post questions and learn more about on-device AI.
+* For questions or feedback please [reach out to us](mailto:ai-hub-support@qti.qualcomm.com).

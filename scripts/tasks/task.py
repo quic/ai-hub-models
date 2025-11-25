@@ -2,42 +2,36 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
 
+import os
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from sys import platform
-from typing import Optional, Union
 
+from .constants import REPO_ROOT
 from .github import end_group, start_group
 from .util import BASH_EXECUTABLE, debug_mode, default_parallelism, echo, have_root
 
 
 class Task(ABC):
-    def __init__(
-        self, group_name: Optional[str], raise_on_failure: bool = True
-    ) -> None:
+    def __init__(self, group_name: str | None, raise_on_failure: bool = True) -> None:
         self.group_name = group_name
         self.raise_on_failure = raise_on_failure
-        self.last_result: Optional[bool] = None
-        self.last_result_exception: Optional[Exception] = None
+        self.last_result: bool | None = None
+        self.last_result_exception: Exception | None = None
 
     @abstractmethod
     def does_work(self) -> bool:
-        """
-        Return True if this task actually does something (e.g., runs commands).
-        """
+        """Return True if this task actually does something (e.g., runs commands)."""
 
     @abstractmethod
     def run_task(self) -> bool:
-        """
-        Entry point for implementations: perform the task's action.
-        """
+        """Entry point for implementations: perform the task's action."""
 
     def run(self) -> bool:
-        """
-        Entry point for callers: perform any startup/teardown tasks and call run_task.
-        """
+        """Entry point for callers: perform any startup/teardown tasks and call run_task."""
         self.last_result_exception = None
 
         if self.group_name:
@@ -89,7 +83,7 @@ class ListTasksTask(Task):
 class NoOpTask(Task):
     """A Task that does nothing."""
 
-    def __init__(self, group_name: Optional[str] = None) -> None:
+    def __init__(self, group_name: str | None = None) -> None:
         super().__init__(group_name=group_name)
 
     def does_work(self) -> bool:
@@ -100,20 +94,20 @@ class NoOpTask(Task):
 
 
 class RunCommandsTask(Task):
-    """
-    A Task that runs a list of commands using the shell.
-    """
+    """A Task that runs a list of commands using the shell."""
 
     def __init__(
         self,
-        group_name: Optional[str],
-        commands: Union[list[str], str],
+        group_name: str | None,
+        commands: list[str] | str,
         as_root: bool = False,
-        env: Optional[dict[str, str]] = None,
-        cwd: Optional[str] = None,
+        env: dict[str, str] | None = None,
+        cwd: str | None = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = [],
+        ignore_return_codes: list[int] | None = None,
     ) -> None:
+        if ignore_return_codes is None:
+            ignore_return_codes = []
         super().__init__(group_name, raise_on_failure)
         if isinstance(commands, str):
             self.commands = [commands]
@@ -166,13 +160,15 @@ class RunCommandsWithVenvTask(RunCommandsTask):
 
     def __init__(
         self,
-        group_name: Optional[str],
-        venv: Optional[str],
-        commands: Union[list[str], str],
-        env: Optional[dict[str, str]] = None,
+        group_name: str | None,
+        venv: str | None,
+        commands: list[str] | str,
+        env: dict[str, str] | None = None,
         raise_on_failure: bool = True,
-        ignore_return_codes: list[int] = [],
+        ignore_return_codes: list[int] | None = None,
     ) -> None:
+        if ignore_return_codes is None:
+            ignore_return_codes = []
         super().__init__(
             group_name,
             commands,
@@ -198,20 +194,22 @@ class PyTestTask(RunCommandsWithVenvTask):
 
     def __init__(
         self,
-        group_name: Optional[str],
-        venv: Optional[str],
+        group_name: str | None,
+        venv: str | None,
         files_or_dirs: str,
-        ignore: Optional[Union[str, list[str]]] = None,
-        parallel: Optional[Union[bool, int]] = None,
-        extra_args: Optional[str] = None,
-        env: Optional[dict[str, str]] = None,
+        ignore: str | list[str] | None = None,
+        parallel: bool | int | None = None,
+        extra_args: str | None = None,
+        env: dict[str, str] | None = None,
         raise_on_failure: bool = True,
         # Pytest returns code 5 if no tests were run. Set this to true
         # to ignore that return code (count it as "passed")
         ignore_no_tests_return_code: bool = False,
         include_pytest_cmd_in_status_message: bool = True,
+        junit_xml_path: str | None = None,  # Add this parameter
+        config_file: str | os.PathLike = os.path.join(REPO_ROOT, "pyproject.toml"),
     ) -> None:
-        pytest_options = ""
+        pytest_options = f"--config-file={config_file}"
 
         if ignore:
             if isinstance(ignore, str):
@@ -227,6 +225,10 @@ class PyTestTask(RunCommandsWithVenvTask):
             pytest_options += ' -m "not serial"'
 
         pytest_options += " -ra -vvv"
+
+        # Add JUnit XML output option if specified
+        if junit_xml_path:
+            pytest_options += f" --junit-xml={junit_xml_path}"
 
         if extra_args:
             pytest_options += f" {extra_args}"
@@ -262,13 +264,11 @@ class PyTestTask(RunCommandsWithVenvTask):
 
 
 class CompositeTask(Task):
-    """
-    A Task composed of a list of other Tasks.
-    """
+    """A Task composed of a list of other Tasks."""
 
     def __init__(
         self,
-        group_name: Optional[str],
+        group_name: str | None,
         tasks: list[Task],
         continue_after_single_task_failure: bool = False,
         raise_on_failure: bool = True,
@@ -280,7 +280,7 @@ class CompositeTask(Task):
         self.show_subtasks_in_failure_message = show_subtasks_in_failure_message
 
     def does_work(self) -> bool:
-        return any([t.does_work() for t in self.tasks])
+        return any(t.does_work() for t in self.tasks)
 
     def run_task(self) -> bool:
         self.prev_run_status = {}
@@ -299,22 +299,21 @@ class CompositeTask(Task):
         if self.last_result is not None:
             if self.last_result:
                 return f"{self.group_name} succeeded."
-            elif self.group_name is None:
+            if self.group_name is None:
                 all_res = []
                 for task in self.tasks:
                     if not task.last_result:
                         all_res.append(task.get_status_message())
                 return "\n".join(all_res)
-            else:
-                res = f"{self.group_name} failed."
-                if self.show_subtasks_in_failure_message:
-                    res += " Composite failure summary:"
-                    for task in self.tasks:
-                        if not task.last_result:
-                            res += "\n    " + task.get_status_message().replace(
-                                "\n", "\n    "
-                            )
-                return res
+            res = f"{self.group_name} failed."
+            if self.show_subtasks_in_failure_message:
+                res += " Composite failure summary:"
+                for task in self.tasks:
+                    if not task.last_result:
+                        res += "\n    " + task.get_status_message().replace(
+                            "\n", "\n    "
+                        )
+            return res
         return f"{self.group_name} has not run."
 
 
@@ -326,7 +325,7 @@ class ConditionalTask(Task):
 
     def __init__(
         self,
-        group_name: Optional[str],
+        group_name: str | None,
         condition: Callable[[], bool],
         true_task: Task,
         false_task: Task,
@@ -340,11 +339,9 @@ class ConditionalTask(Task):
     def does_work(self) -> bool:
         if self.condition():
             return self.true_task.does_work()
-        else:
-            return self.false_task.does_work()
+        return self.false_task.does_work()
 
     def run_task(self) -> bool:
         if self.condition():
             return self.true_task.run()
-        else:
-            return self.false_task.run()
+        return self.false_task.run()

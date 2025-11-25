@@ -5,52 +5,57 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Optional, TypeVar
+from typing import TypeVar
 
 import qai_hub as hub
 
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.scorecard import ScorecardCompilePath, ScorecardProfilePath
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
 from qai_hub_models.scorecard.envvars import (
-    EnabledPathsEnvvar,
     EnabledPrecisionsEnvvar,
     IgnoreKnownFailuresEnvvar,
-    SpecialPathSetting,
     SpecialPrecisionSetting,
 )
-from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
-from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.scorecard.results.scorecard_job import ScorecardPathOrNoneTypeVar
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
 try:
     from qai_hub_models.scorecard.internal.list_models import (
         get_bench_pytorch_w8a8_models,
+        get_bench_pytorch_w8a16_models,
     )
+
 except ImportError:
 
     def get_bench_pytorch_w8a8_models() -> list[str]:  # type: ignore[misc]
+        return []
+
+    def get_bench_pytorch_w8a16_models() -> list[str]:  # type: ignore[misc]
         return []
 
 
 def for_each_scorecard_path_and_device(
     path_type: type[ScorecardPathOrNoneTypeVar],
     callback: Callable[[Precision, ScorecardPathOrNoneTypeVar, ScorecardDevice], None],
-    precisions: list[Precision] = [Precision.float],
+    precisions: list[Precision] | None = None,
     include_paths: list[ScorecardPathOrNoneTypeVar] | None = None,
     include_devices: list[ScorecardDevice] | None = None,
     exclude_paths: list[ScorecardPathOrNoneTypeVar] | None = None,
     exclude_devices: list[ScorecardDevice] | None = None,
     include_mirror_devices: bool = False,
 ):
+    if precisions is None:
+        precisions = [Precision.float]
     for precision in precisions:
         if path_type is not type(None) and path_type is not None:
             all_paths = path_type.all_paths(enabled=True, supports_precision=precision)  # type: ignore[attr-defined]
         else:
-            all_paths = [None]  # type: ignore[list-item]
+            all_paths = [None]
 
         for path in all_paths:
             if include_paths is not None and path not in include_paths:
@@ -74,16 +79,17 @@ def for_each_scorecard_path_and_device(
                 if exclude_devices is not None and device in exclude_devices:
                     continue
 
-                callback(precision, path, device)  # type: ignore[arg-type]
+                callback(precision, path, device)
 
 
-def get_enabled_test_precisions() -> (
-    tuple[SpecialPrecisionSetting | None, list[Precision]]
-):
+def get_enabled_test_precisions() -> tuple[
+    SpecialPrecisionSetting | None, list[Precision]
+]:
     """
     Determine what precisions are enabled based on the test environment.
 
-    Returns:
+    Returns
+    -------
         special_precision_setting: Any special precision setting with which the run was configured.
         extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
@@ -123,7 +129,8 @@ def get_model_test_precisions(
     """
     Get the list of precisions that should be tested in this environment.
 
-    Parameters:
+    Parameters
+    ----------
         model_supported_precisions:
             The set of Precisions that this model can support.
 
@@ -131,7 +138,8 @@ def get_model_test_precisions(
             Whether a model can use quantize job.
             If true, extra precisions set in parameter `enabled_test_precisions` will be included.
 
-    Returns:
+    Returns
+    -------
         model_test_precisions:
             The list of precisions to test for this model.
     """
@@ -164,6 +172,11 @@ def get_model_test_precisions(
             and model_id in get_bench_pytorch_w8a8_models()
         ):
             enabled_precisions.add(Precision.w8a8)
+        if (
+            Precision.w8a16 in model_supported_precisions
+            and model_id in get_bench_pytorch_w8a16_models()
+        ):
+            enabled_precisions.add(Precision.w8a16)
     if can_use_quantize_job:
         # If quantize job is supported, this model can run tests on any desired precision.
         enabled_precisions.update(extra_enabled_precisions)
@@ -189,12 +202,14 @@ def get_model_test_parameterizations(
     can_use_quantize_job: bool = True,
     devices: list[ScorecardDevice] | None = None,
     include_unsupported_paths: bool | None = None,
-    only_include_aot_paths: bool = False,
+    requires_aot_prepare: bool = False,
+    only_include_genai_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]]:
     """
     Get a list of parameterizations for testing a model.
 
-    Parameters:
+    Parameters
+    ----------
         model_id:
             model_id of the relevant model.
 
@@ -218,10 +233,12 @@ def get_model_test_parameterizations(
             If true, all enabled paths will be included, instead of the ones compatible with
             parameter supported_paths.
 
-        only_include_aot_paths:
-            If True, only AOT compiled paths are included.
+        requires_aot_prepare:
+            If True, only AOT (compilation to context binary on Hub) paths are included.
+            If False, only JIT (compilation to context binary on-device) paths are included.
 
-    Returns:
+    Returns
+    -------
         enabled_test_paths:
             A list of (Precision, ScorecardPath, Device) pairs to test.
 
@@ -250,46 +267,32 @@ def get_model_test_parameterizations(
         model_id, model_supported_precisions, can_use_quantize_job
     )
 
-    default_with_aot_assets_enabled = (
-        SpecialPathSetting.DEFAULT_WITH_AOT_ASSETS in EnabledPathsEnvvar.get()
-    )
-
     # For each enabled test precision...
     for precision in test_precisions:
         # Get all enabled paths that support this precision
         path_list = path_type.all_paths(  # type: ignore[attr-defined]
             enabled=True,
             supports_precision=precision,
+            include_genai_paths=only_include_genai_paths,
         )
 
-        if only_include_aot_paths:
-            # Only include AOT paths.
+        if only_include_genai_paths:
+            # Only include GenAI paths.
             path_list = [
-                path
-                for path in path_list
-                if path.runtime.is_aot_compiled or path.is_force_enabled
+                path for path in path_list if path.runtime.is_exclusively_for_genai
             ]
-        elif path_type == ScorecardCompilePath and default_with_aot_assets_enabled:
-            # Don't filter. We compile both AOT and JIT paths.
-            pass
+        elif requires_aot_prepare:
+            # Only include AOT compiled paths.
+            path_list = [path for path in path_list if path.runtime.is_aot_compiled]
         else:
-            # If both AOT and JIT paths are in the list, only include the JIT path.
-            path_list = [
-                path
-                for path in path_list
-                if not path.runtime.is_aot_compiled
-                or path.jit_equivalent is None
-                or path.jit_equivalent not in path_list
-                or path.is_force_enabled
-            ]
+            # Only include JIT compiled paths.
+            path_list = [path for path in path_list if not path.runtime.is_aot_compiled]
 
         # Filter the list to include only paths that are supported by this model.
         if not include_unsupported_paths:
             supported_runtime_list = supported_paths.get(precision, [])
             path_list = [
-                path
-                for path in path_list
-                if path.runtime in supported_runtime_list or path.is_force_enabled
+                path for path in path_list if path.runtime in supported_runtime_list
             ]
 
         # Filter out timeout paths
@@ -299,6 +302,7 @@ def get_model_test_parameterizations(
         ]
 
         # For each test path...
+
         for sc_path in path_list:
             for device in devices or ScorecardDevice.all_devices(is_mirror=False):
                 if not device.enabled or not device.npu_supports_precision(precision):
@@ -309,20 +313,7 @@ def get_model_test_parameterizations(
                 ):
                     continue
 
-                # This "if" block is applicable for the DEFAULT_WITH_AOT_ASSETS enabled path. mode
-                # It selectively enables AOT compilation for specific devices. These devices are
-                # offered as pre-generated context binaries in each release (via Hugging Face).
-                if (
-                    not only_include_aot_paths  # the model is not AOT-only
-                    and path_type == ScorecardCompilePath  # we are running compile jobs
-                    and sc_path.runtime.is_aot_compiled  # this scorecard path is compiled AOT
-                    and default_with_aot_assets_enabled  # the scorecard is producing AOT assets that it will not profile
-                    and not device.always_produce_aot_assets  # the device should not produce AOT assets in this scorecard mode
-                    and not sc_path.is_force_enabled  # the AOT path isn't "force enabled" (requested explicitly by the user)
-                ):
-                    continue
                 ret.append((precision, sc_path, device))
-
     return ret
 
 
@@ -331,7 +322,7 @@ def pytest_device_idfn(val):
     Pytest generates test titles based on the parameterization of each test.
     This title can both be used as a filter during test selection and is
     printed to console to identify the test. An example title:
-    qai_hub_models/models/whisper_base/test_generated.py::test_compile[qnn-cs_8_gen_2]
+    qai_hub_models/models/whisper_base/test_generated.py::test_compile[qnn-cs_8_gen_3]
 
     Several unit tests parameterize based on device objects. Pytest is not capable by default
     of understanding what string identifier to use for a device object, so it will print
@@ -346,6 +337,7 @@ def pytest_device_idfn(val):
         return val.name
     if isinstance(val, Precision):
         return str(val)
+    return None
 
 
 def get_quantize_parameterized_pytest_config(
@@ -358,7 +350,7 @@ def get_quantize_parameterized_pytest_config(
         set(supported_paths.keys()),
         can_use_quantize_job,
     )
-    return [x for x in precisions if not x.has_float_activations]
+    return [x for x in precisions if x.has_quantized_activations]
 
 
 def get_compile_parameterized_pytest_config(
@@ -366,18 +358,18 @@ def get_compile_parameterized_pytest_config(
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
-    only_include_aot_paths: bool = False,
+    requires_aot_prepare: bool = False,
+    only_include_genai_paths: bool = False,
 ) -> list[tuple[Precision, ScorecardCompilePath, ScorecardDevice]]:
-    """
-    Get a pytest parameterization list of all enabled (device, compile path) pairs.
-    """
+    """Get a pytest parameterization list of all enabled (device, compile path) pairs."""
     return get_model_test_parameterizations(
         model_id,
         supported_paths,
         timeout_paths,
         ScorecardCompilePath,
         can_use_quantize_job,
-        only_include_aot_paths=only_include_aot_paths,
+        requires_aot_prepare=requires_aot_prepare,
+        only_include_genai_paths=only_include_genai_paths,
     )
 
 
@@ -386,18 +378,16 @@ def get_profile_parameterized_pytest_config(
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
-    only_include_aot_paths: bool = False,
+    requires_aot_prepare: bool = False,
 ) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
-    """
-    Get a pytest parameterization list of all enabled (device, profile path) pairs.
-    """
+    """Get a pytest parameterization list of all enabled (device, profile path) pairs."""
     return get_model_test_parameterizations(
         model_id,
         supported_paths,
         timeout_paths,
         ScorecardProfilePath,
         can_use_quantize_job,
-        only_include_aot_paths=only_include_aot_paths,
+        requires_aot_prepare=requires_aot_prepare,
     )
 
 
@@ -407,11 +397,22 @@ def get_evaluation_parameterized_pytest_config(
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
     device: ScorecardDevice = cs_universal,
-    only_include_aot_paths: bool = False,
+    requires_aot_prepare: bool = False,
 ) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
-    """
-    Get a pytest parameterization list of all enabled (device, profile path) pairs.
-    """
+    """Get a pytest parameterization list of all enabled (device, profile path) pairs."""
+    # If only 1 device is set for the scorecard, run evaluation on that device
+    enabled_devices = [
+        device
+        for device in ScorecardDevice.all_devices(enabled=True)
+        if device != cs_universal
+    ]
+    if device not in enabled_devices:
+        if len(enabled_devices) == 1:
+            device = enabled_devices[0]
+        else:
+            raise ValueError(
+                f"When running numerical evaluation, must specify exactly one device or have {device} as part of the device list."
+            )
     return get_model_test_parameterizations(
         model_id,
         supported_paths,
@@ -419,7 +420,7 @@ def get_evaluation_parameterized_pytest_config(
         ScorecardProfilePath,
         can_use_quantize_job,
         [device],
-        only_include_aot_paths=only_include_aot_paths,
+        requires_aot_prepare=requires_aot_prepare,
     )
 
 
@@ -428,12 +429,13 @@ def get_async_job_cache_name(
     model_id: str,
     device: ScorecardDevice,
     precision: Precision = Precision.float,
-    component: Optional[str] = None,
+    component: str | None = None,
 ) -> str:
     """
     Get the key for this job in the YAML that stores asyncronously-ran scorecard jobs.
 
-    parameters:
+    Parameters
+    ----------
         path: Applicable scorecard path
         model_id: The ID of the QAIHM model being tested
         device: The targeted device
@@ -442,7 +444,7 @@ def get_async_job_cache_name(
     """
     return (
         f"{model_id}"
-        + ("_" + str(precision) if not precision == Precision.float else "")
+        + ("_" + str(precision) if precision != Precision.float else "")
         + ("_" + path.name if path else "")
         + ("-" + device.name if device != cs_universal else "")
         + ("_" + component if component else "")
@@ -467,7 +469,7 @@ class ClientState:
 
 
 class ClientStateSingleton:
-    _instance: Optional[ClientState] = None
+    _instance: ClientState | None = None
 
     def __init__(self):
         if self._instance is None:

@@ -25,7 +25,7 @@ KEYPOINT_SCORES_GT = CachedWebModelAsset.from_asset_store(
 def test_task():
     image = load_image(IMAGE_ADDRESS)
     model = Movenet.from_pretrained()
-    h, w = Movenet.get_input_spec()["image"][0][1:3]
+    h, w = Movenet.get_input_spec()["image"][0][2:4]
     app = MovenetApp(model, h, w)
     kpt_with_conf = app.predict(image, raw_output=True)
     np.testing.assert_allclose(

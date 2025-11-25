@@ -12,22 +12,26 @@ import shutil
 import warnings
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import qai_hub as hub
 
 from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
-from qai_hub_models.models.mistral_7b_instruct_v0_3 import Model
-from qai_hub_models.utils.args import export_parser, validate_precision_runtime
+from qai_hub_models.models.mistral_7b_instruct_v0_3 import MODEL_ID, Model
+from qai_hub_models.utils.args import (
+    export_parser,
+)
 from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
-from qai_hub_models.utils.printing import print_profile_metrics_from_job
+from qai_hub_models.utils.printing import (
+    print_profile_metrics_from_job,
+)
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 
 def profile_model(
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: dict[str, str],
     target_runtime: TargetRuntime,
@@ -38,7 +42,7 @@ def profile_model(
         print(f"Profiling model {component_name} on a hosted device.")
         submitted_profile_job = hub.submit_profile_job(
             model=uploaded_models[component_name],
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options.get(component_name, ""),
         )
@@ -51,7 +55,7 @@ def profile_model(
 def inference_model(
     model: CollectionModel,
     model_name: str,
-    hub_device: hub.Device,
+    device: hub.Device,
     components: list[str],
     profile_options: str,
     target_runtime: TargetRuntime,
@@ -71,7 +75,7 @@ def inference_model(
         submitted_inference_job = hub.submit_inference_job(
             model=uploaded_models[component_name],
             inputs=sample_inputs,
-            device=hub_device,
+            device=device,
             name=f"{model_name}_{component_name}",
             options=profile_options_all,
         )
@@ -93,15 +97,14 @@ def download_model(
 
 
 def export_model(
-    device: Optional[str] = None,
-    chipset: Optional[str] = None,
-    components: Optional[list[str]] = None,
+    device: hub.Device,
+    components: list[str] | None = None,
     skip_profiling: bool = False,
     skip_inferencing: bool = False,
     skip_summary: bool = False,
-    output_dir: Optional[str] = None,
+    output_dir: str | None = None,
     profile_options: str = "",
-    fetch_static_assets: bool = False,
+    fetch_static_assets: str | None = None,
     **additional_model_kwargs,
 ) -> Mapping[str, ExportResult] | list[str]:
     """
@@ -115,42 +118,44 @@ def export_model(
 
     Each of the last 3 steps can be optionally skipped using the input options.
 
-    Parameters:
-        device: Device for which to export the model.
-            Full list of available devices can be found by running `hub.get_devices()`.
-            Defaults to DEFAULT_DEVICE if not specified.
-        chipset: If set, will choose a random device with this chipset.
-            Overrides the `device` argument.
-        components: List of sub-components of the model that will be exported.
-            Each component is compiled and profiled separately.
-            Defaults to all components of the CollectionModel if not specified.
-        skip_profiling: If set, skips profiling of compiled model on real devices.
-        skip_inferencing: If set, skips computing on-device outputs from sample data.
-        skip_summary: If set, skips waiting for and summarizing results
-            from profiling.
-        output_dir: Directory to store generated assets (e.g. compiled model).
-            Defaults to `<cwd>/build/<model_name>`.
-        profile_options: Additional options to pass when submitting the profile job.
-        fetch_static_assets: If true, static assets are fetched from Hugging Face, rather than re-compiling / quantizing / profiling from PyTorch.
-        **additional_model_kwargs: Additional optional kwargs used to customize
-            `model_cls.from_precompiled`
+    Parameters
+    ----------
+    device
+        Device for which to export the model (e.g., hub.Device("Samsung Galaxy S25")).
+        Full list of available devices can be found by running `hub.get_devices()`.
+    components
+        List of sub-components of the model that will be exported.
+        Each component is compiled and profiled separately.
+        Defaults to all components of the CollectionModel if not specified.
+    skip_profiling
+        If set, skips profiling of compiled model on real devices.
+    skip_inferencing
+        If set, skips computing on-device outputs from sample data.
+    skip_summary
+        If set, skips waiting for and summarizing results
+        from profiling.
+    output_dir
+        Directory to store generated assets (e.g. compiled model).
+        Defaults to `<cwd>/build/<model_name>`.
+    profile_options
+        Additional options to pass when submitting the profile job.
+    fetch_static_assets
+        If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
+    additional_model_kwargs
+        Additional optional kwargs used to customize
+        `model_cls.from_precompiled`
 
-    Returns:
-        A Mapping from component_name to a struct of:
-            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+    Returns
+    -------
+    A Mapping from component_name to a struct of:
+        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
     """
     if not skip_inferencing:
         raise ValueError(
             "This model does not support inferencing. Please pass --skip-inferencing"
         )
-    model_name = "mistral_7b_instruct_v0_3"
+    model_name = MODEL_ID
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
-    if not device and not chipset:
-        hub_device = hub.Device("Snapdragon 8 Elite QRD")
-    else:
-        hub_device = hub.Device(
-            name=device or "", attributes=f"chipset:{chipset}" if chipset else []
-        )
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
@@ -158,10 +163,9 @@ def export_model(
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
         return export_without_hub_access(
-            "mistral_7b_instruct_v0_3",
+            MODEL_ID,
             "Mistral-7B-Instruct-v0.3",
-            hub_device.name,
-            chipset,
+            device,
             skip_profiling,
             skip_inferencing,
             False,
@@ -172,7 +176,7 @@ def export_model(
             "",
             profile_options,
             component_arg,
-            is_forced_static_asset_fetch=fetch_static_assets,
+            qaihm_version_tag=fetch_static_assets,
         )
 
     target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
@@ -203,7 +207,7 @@ def export_model(
     if not skip_profiling:
         profile_jobs = profile_model(
             model_name,
-            hub_device,
+            device,
             components,
             {
                 component_name: model.components[
@@ -245,14 +249,11 @@ def main():
 
     parser = export_parser(
         model_cls=Model,
+        export_fn=export_model,
         supported_precision_runtimes=supported_precision_runtimes,
-        uses_quantize_job=False,
-        exporting_compiled_model=True,
+        default_export_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
-    validate_precision_runtime(
-        supported_precision_runtimes, Precision.w4a16, args.target_runtime
-    )
     export_model(**vars(args))
 
 

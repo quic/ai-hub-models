@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import torch
 
@@ -57,13 +56,15 @@ class FOMMDetector(BaseModel):
         """
         Run FOMM keypoint detector on an image
 
-        Parameters:
+        Parameters
+        ----------
             image: torch.Tensor
                    BxCxHxW
                    RGB, range [0 - 1]
                    Image to detect keypoints in
 
-        Returns:
+        Returns
+        -------
             keypoints: torch.Tensor
                        B x Num keypoints x 2
                        Keypoints detected in the image
@@ -101,7 +102,8 @@ class FOMMDetector(BaseModel):
 
 class FOMMGenerator(BaseModel):
     """Given keypoints from a source image, a target image, and the norm of the keypoints from the target,
-    generates the new target image"""
+    generates the new target image
+    """
 
     def __init__(self, generator: torch.nn.Module):
         super().__init__()
@@ -118,7 +120,8 @@ class FOMMGenerator(BaseModel):
         """
         Generate the new target image based on the source keypoints and target keypoints
 
-        Parameters:
+        Parameters
+        ----------
             image:            torch.Tensor
                               BxCxHxW
                               RGB, range [0 - 1]
@@ -137,22 +140,21 @@ class FOMMGenerator(BaseModel):
                                        Jacobians around driving keypoints
 
 
-        Returns:
+        Returns
+        -------
             prediction: torch.Tensor
                         BxCxHxW
                         Predicted output image for the given driving frame keypoints
         """
-
         # run generator. The underlying model takes in dictionaries
         source_kp = dict(
             value=source_keypoint_values, jacobian=source_keypoint_jacobians
         )
         kp_norm = dict(value=kp_norm_values, jacobian=kp_norm_jacobians)
         out = self.model(image * 255, kp_source=source_kp, kp_driving=kp_norm)
-        prediction = out["prediction"]
+        return out["prediction"]
         # For the purposes of tracing we return only the prediction element of the dictionary
         # as this is the only part that the app uses
-        return prediction
 
     @classmethod
     def from_pretrained(cls) -> FOMMGenerator:
@@ -192,14 +194,13 @@ class FOMM(PretrainedCollectionModel):
         self.generator = generator
 
     @classmethod
-    def from_pretrained(cls, weights_url: Optional[str] = None):
+    def from_pretrained(cls, weights_url: str | None = None):
         with SourceAsRoot(
             FOMM_SOURCE_REPOSITORY,
             FOMM_SOURCE_REPO_COMMIT,
             MODEL_ID,
             MODEL_ASSET_VERSION,
         ):
-
             # Change filename to avoid import clash with current file
             if os.path.exists("demo.py"):
                 os.rename("demo.py", "fomm_demo.py")

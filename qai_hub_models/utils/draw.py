@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 import cv2
 import numpy as np
 import torch
@@ -16,12 +14,13 @@ def draw_points(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
     color: tuple[int, int, int] = (0, 0, 0),
-    size: Union[int, list[int]] = 10,
+    size: int | list[int] = 10,
 ):
     """
     Draw the given points on the frame.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -38,7 +37,8 @@ def draw_points(
         size: int
             Size of drawn points
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     if len(points.shape) == 1:
@@ -61,14 +61,15 @@ def draw_points(
 def draw_connections(
     frame: np.ndarray,
     points: np.ndarray | torch.Tensor,
-    connections: list[tuple[int, int]],
+    connections: list[tuple[int, int]] | None = None,
     color: tuple[int, int, int] = (0, 0, 0),
     size: int = 1,
 ):
     """
     Draw connecting lines between the given points on the frame.
 
-    Parameters:
+    Parameters
+    ----------
         frame:
             np array (H W C x uint8, RGB)
 
@@ -78,10 +79,26 @@ def draw_connections(
             or
             array (N * 2,) where layout is
                 x1, y1, x2, y2, ...
+            or
+            array (N, 2, 2) where layout is
+                [
+                  [ # connection 1
+                    [ x1, y1 ]
+                    [ x2, y2 ]
+                  ],
+                  [ # connection 2
+                    [ x1, y1 ]
+                    [ x2, y2 ]
+                  ],
+                  ...
+                ]
+                (in this case, connections is unused and can be None)
 
         connections:
             List of points that should be connected by a line.
             Format is [(src point index, dst point index), ...]
+
+            Unused if points is of shape (N, 2, 2).
 
         color:
             Color of drawn points (RGB)
@@ -89,17 +106,32 @@ def draw_connections(
         size: int
             Size of drawn connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
-    if len(points.shape) == 1:
-        points = points.reshape(-1, 2)
-    point_pairs = [
-        ((int(points[i][0]), int(points[i][1])), (int(points[j][0]), int(points[j][1])))
-        for (i, j) in connections
-    ]
+    point_pairs: (
+        list[tuple[tuple[int, int], tuple[int, int]]] | torch.Tensor | np.ndarray
+    )
+    if len(points.shape) == 3:
+        point_pairs = points
+    else:
+        assert connections is not None
+        if len(points.shape) == 1:
+            points = points.reshape(-1, 2)
+        point_pairs = [
+            (
+                (int(points[i][0]), int(points[i][1])),
+                (int(points[j][0]), int(points[j][1])),
+            )
+            for (i, j) in connections
+        ]
     cv2.polylines(
-        frame, np.array(point_pairs), isClosed=False, color=color, thickness=size  # type: ignore[call-overload]
+        frame,
+        np.asarray(point_pairs, dtype=np.int64),
+        isClosed=False,
+        color=color,
+        thickness=size,  # type: ignore[call-overload]
     )
 
 
@@ -109,7 +141,8 @@ def draw_box_from_corners(
     """
     Draw a box using the 4 points provided as boundaries.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -126,7 +159,8 @@ def draw_box_from_corners(
         size: int
             Size of drawn points and connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     draw_points(frame, corners, color, size)
@@ -142,7 +176,8 @@ def draw_box_from_xywh(
     """
     Draw a box using the provided data (center / height / width) to compute the box.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -156,7 +191,8 @@ def draw_box_from_xywh(
         size: int
             Size of drawn points and connection lines
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     xc, yc, h, w = box
@@ -171,12 +207,13 @@ def draw_box_from_xyxy(
     bottom_right: np.ndarray | torch.Tensor | tuple[int, int],
     color: tuple[int, int, int] = (0, 0, 0),
     size: int = 3,
-    text: Optional[str] = None,
+    text: str | None = None,
 ):
     """
     Draw a box using the provided top left / bottom right points to compute the box.
 
-    Parameters:
+    Parameters
+    ----------
         frame: np.ndarray
             np array (H W C x uint8, RGB)
 
@@ -193,7 +230,8 @@ def draw_box_from_xyxy(
         text: None | str
             Overlay text at the top of the box.
 
-    Returns:
+    Returns
+    -------
         None; modifies frame in place.
     """
     if not isinstance(top_left, tuple):
@@ -220,10 +258,17 @@ def create_color_map(num_classes):
     Inputs:
         num_classes: Number of colors to produce.
 
-    Returns:
+    Returns
+    -------
         A list of `num_classes` colors in RGB format.
     """
-    np.random.seed(42)  # For reproducible results
-    color_map = np.random.randint(0, 256, size=(num_classes, 3), dtype=np.uint8)
+    # Use seed for reproducible results
+    #
+    # We use RandomState instead of np.random.default_rng here because default_rng is a
+    # different randomization algorithm from np.random.rand(). RandomState matches the old behavior.
+    # Several model tests rely on the older RandomState rng.
+    color_map = np.random.RandomState(42).randint(
+        0, 256, size=(num_classes, 3), dtype=np.uint8
+    )
     color_map[0] = [0, 0, 0]  # Background class, usually black
     return color_map

@@ -5,25 +5,23 @@
 
 from __future__ import annotations
 
-import torch
-import torch.nn as nn
+from typing import cast
 
+import torch
+from ultralytics.models import YOLO as ultralytics_YOLO
+from ultralytics.nn.tasks import DetectionModel
+
+from qai_hub_models.models._shared.ultralytics.detect_patches import (
+    patch_ultralytics_detection_head,
+)
 from qai_hub_models.models._shared.yolo.model import (
-    DEFAULT_YOLO_IMAGE_INPUT_HW,
     Yolo,
     yolo_detect_postprocess,
 )
 from qai_hub_models.models.common import Precision
-from qai_hub_models.utils.asset_loaders import (
-    SourceAsRoot,
-    find_replace_in_repo,
-    wipe_sys_modules,
-)
 
 MODEL_ASSET_VERSION = 1
 MODEL_ID = __name__.split(".")[-2]
-SOURCE_REPO = "https://github.com/ultralytics/ultralytics"
-SOURCE_REPO_COMMIT = "3208eb72ef277b0b825306a84df6c460a8406647"
 
 SUPPORTED_WEIGHTS = [
     "yolov8n.pt",
@@ -40,7 +38,7 @@ class YoloV8Detector(Yolo):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: DetectionModel,
         include_postprocessing: bool = True,
         split_output: bool = False,
     ) -> None:
@@ -48,6 +46,7 @@ class YoloV8Detector(Yolo):
         self.model = model
         self.include_postprocessing = include_postprocessing
         self.split_output = split_output
+        patch_ultralytics_detection_head(self.model)
 
     @classmethod
     def from_pretrained(
@@ -55,86 +54,32 @@ class YoloV8Detector(Yolo):
         ckpt_name: str = DEFAULT_WEIGHTS,
         include_postprocessing: bool = True,
         split_output: bool = False,
-        height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
-        width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
     ):
-        with SourceAsRoot(
-            SOURCE_REPO,
-            SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-        ) as repo_path:
-            # Functionally equivalent re-writes that make it torch.fx.Graph compatible
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/block.py",
-                "softmax(1)",
-                "softmax(dim=1)",
-            )
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/block.py",
-                "y = list(self.cv1(x).chunk(2, 1))",
-                "y = self.cv1(x).chunk(2, 1)\n        y = [y[0], y[1]]",
-            )
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/head.py",
-                "self.dynamic or self.shape != shape",
-                "False",
-            )
-            # TFLite doesn't support quantized division, so convert to multiply
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/utils/tal.py",
-                "/ 2",
-                "* 0.5",
-            )
-            # Boxes and scores have different scales, so return separately
-            find_replace_in_repo(
-                repo_path,
-                "ultralytics/nn/modules/head.py",
-                "y = torch.cat((dbox, cls.sigmoid()), 1)",
-                "return (dbox, cls.sigmoid())",
-            )
+        model = cast(DetectionModel, ultralytics_YOLO(ckpt_name).model)
+        return cls(
+            model,
+            include_postprocessing,
+            split_output,
+        )
 
-            import ultralytics
-
-            wipe_sys_modules(ultralytics)
-            from ultralytics import YOLO as ultralytics_YOLO
-            from ultralytics.nn.modules.head import Detect
-            from ultralytics.utils.tal import make_anchors
-
-            model = ultralytics_YOLO(ckpt_name).model
-            assert isinstance(model, torch.nn.Module)
-            assert isinstance(model.model, torch.nn.Module)
-            detect_module = model.model._modules["22"]
-            assert isinstance(detect_module, Detect)
-            make_anchors_input = [
-                torch.randn((1, 1, int(height // stride), int(width // stride)))
-                for stride in detect_module.stride
-            ]
-            detect_module.anchors, detect_module.strides = (
-                x.transpose(0, 1)
-                for x in make_anchors(make_anchors_input, detect_module.stride, 0.5)
-            )
-
-            return cls(
-                model,
-                include_postprocessing,
-                split_output,
-            )
-
-    def forward(self, image):
+    def forward(
+        self, image: torch.Tensor
+    ) -> (
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        | tuple[torch.Tensor, torch.Tensor]
+        | torch.Tensor
+    ):
         """
         Run YoloV8 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             If self.include_postprocessing:
                 boxes: torch.Tensor
                     Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
@@ -178,4 +123,13 @@ class YoloV8Detector(Yolo):
         )
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
+        if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
+        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
+            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
         return "--range_scheme min_max"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10

@@ -96,8 +96,9 @@ class PromptProcessor_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=7) + [
-            "_model_layers_6_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=0, end=7),
+            "_model_layers_6_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -148,8 +149,9 @@ class PromptProcessor_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=7, end=14) + [
-            "_model_layers_13_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=7, end=14),
+            "_model_layers_13_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -200,8 +202,9 @@ class PromptProcessor_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=14, end=21) + [
-            "_model_layers_20_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=14, end=21),
+            "_model_layers_20_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -283,8 +286,9 @@ class TokenGenerator_Part2(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=0, end=7) + [
-            "_model_layers_6_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=0, end=7),
+            "_model_layers_6_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -335,8 +339,9 @@ class TokenGenerator_Part3(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=7, end=14) + [
-            "_model_layers_13_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=7, end=14),
+            "_model_layers_13_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -387,8 +392,9 @@ class TokenGenerator_Part4(BasePrecompiledModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return get_kv_cache_names(start=14, end=21) + [
-            "_model_layers_20_Add_1_Add_output_0"
+        return [
+            *get_kv_cache_names(start=14, end=21),
+            "_model_layers_20_Add_1_Add_output_0",
         ]
 
     def get_hub_profile_options(
@@ -419,5 +425,3 @@ class Qwen2_7B_Instruct(PrecompiledCollectionModel):
      All models are pre-trained, quantized (int4/int8 weight, float32 activations)
      and compiled into serialized binary for Qualcomm Snapdragon 8 Elite.
     """
-
-    pass

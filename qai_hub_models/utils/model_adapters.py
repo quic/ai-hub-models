@@ -8,10 +8,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 
-import numpy as np
 import torch
-
-from qai_hub_models.models.protocols import ExecutableModelProtocol
 
 
 def flatten(obj):
@@ -33,7 +30,6 @@ def suppress_warnings():
     This is helpful to supress warning when one loads part of the model and
     sub-module throws warning which should be ignored for clean UX.
     """
-
     old_level = logging.root.manager.disable
     logging.disable(logging.WARNING)
     try:
@@ -42,42 +38,14 @@ def suppress_warnings():
         logging.disable(old_level)
 
 
-class TorchNumpyAdapter:
-    def __init__(self, base_model: torch.jit.ScriptModule | torch.nn.Module):
-        """
-        Wraps torch models to use numpy input / outputs
-        """
-        assert isinstance(
-            base_model,
-            (torch.jit.ScriptModule, torch.nn.Module, ExecutableModelProtocol),
-        )
-        self.base_model = base_model
-
-    def __call__(self, *args) -> tuple[np.ndarray, ...]:
-        inp = []
-        for t in args:
-            if not isinstance(t, np.ndarray):
-                inp.append(t)
-            else:
-                inp.append(torch.from_numpy(t))
-        input_data = tuple(inp)
-        res = self.base_model(*input_data)
-        if isinstance(res, torch.Tensor):
-            output = res.detach().numpy()
-        else:
-            output = tuple(t.detach().numpy() for t in flatten(res))
-        if isinstance(output, tuple) and len(output) == 1:
-            return output[0]
-        return output
-
-
 class Conv2dLinear(torch.nn.Module):
     """
     A class to convert a Linear layer to a Conv2D layer with a 1x1 kernel.
     This allows the linear transformation to be applied to the channel dimension
     at each spatial location in the input tensor.
 
-    Args:
+    Parameters
+    ----------
         linear (nn.Linear): The original linear layer to be converted.
     """
 
@@ -100,17 +68,19 @@ class Conv2dLinear(torch.nn.Module):
         )
 
         # Copy the bias if it exists
-        if linear.bias is not None:
+        if linear.bias is not None and self.conv.bias is not None:
             self.conv.bias.data.copy_(linear.bias.data)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward-pass routine for the Conv2D layer.
 
-        Args:
+        Parameters
+        ----------
             x (torch.Tensor): The input tensor in NCHW format.
 
-        Returns:
+        Returns
+        -------
             torch.Tensor: The output tensor after applying the Conv2D transformation.
         """
         return self.conv(x)

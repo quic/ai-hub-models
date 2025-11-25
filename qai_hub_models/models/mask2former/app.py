@@ -53,7 +53,8 @@ class Mask2FormerApp:
         """
         Return the input image with the segmentation mask overlayed on it.
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -64,7 +65,8 @@ class Mask2FormerApp:
             raw_output: bool
                 See "returns" doc section for details.
 
-        Returns:
+        Returns
+        -------
             If raw_output is true, returns:
                 masks: torch.tensor
                     A list of predicted masks.
@@ -73,7 +75,6 @@ class Mask2FormerApp:
                 segmented_images: list[PIL.Image]
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
-
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
@@ -115,14 +116,15 @@ class Mask2FormerApp:
         threshold: float = 0.5,
         mask_threshold: float = 0.5,
         overlap_mask_area_threshold: float = 0.8,
-        label_ids_to_fuse=None,
-        target_sizes=None,
+        label_ids_to_fuse: set[int] | None = None,
+        target_sizes: list[tuple[int, int]] | None = None,
     ):
         """
         Converts the output of [`Mask2FormerForUniversalSegmentationOutput`] into image panoptic segmentation
         predictions. Only supports PyTorch.
 
-        Args:
+        Parameters
+        ----------
             class_queries_logits(`torch.Tensor`):
                 The class probability has shape of [num_batch, num_classes, 134]
             masks_queries_logits(`torch.Tensor`):
@@ -143,7 +145,8 @@ class Mask2FormerApp:
                 final size (height, width) of each prediction in batch. If left to None, predictions will not be
                 resized.
 
-        Returns:
+        Returns
+        -------
             `List[Dict]`: A list of dictionaries, one per image, each dictionary containing two keys:
             - **segmentation** -- a tensor of shape `(height, width)` where each pixel represents a `segment_id`, set
             to `None` if no mask if found above `threshold`. If `target_sizes` is specified, segmentation is resized
@@ -155,7 +158,6 @@ class Mask2FormerApp:
                 Multiple instances of the same class / label were fused and assigned a single `segment_id`.
                 - **score** -- Prediction score of segment with `segment_id`.
         """
-
         if label_ids_to_fuse is None:
             # logger.warning("`label_ids_to_fuse` unset. No instance will be fused.")
             label_ids_to_fuse = set()

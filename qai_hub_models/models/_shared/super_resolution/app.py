@@ -46,7 +46,8 @@ class SuperResolutionApp:
         """
         Upscale provided images
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image
                 PIL image(s)
                 or
@@ -54,7 +55,8 @@ class SuperResolutionApp:
                 or
                 pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-        Returns:
+        Returns
+        -------
                 images: list[PIL.Image.Image]
                     A list of upscaled images (one for each input image).
         """

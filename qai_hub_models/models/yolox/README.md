@@ -15,14 +15,16 @@ accross various devices, can be found [here](https://aihub.qualcomm.com/models/y
 
 Install the package via pip:
 ```bash
-pip install "qai-hub-models[yolox]"
+# NOTE: 3.10 <= PYTHON_VERSION < 3.11 is supported.
+pip install wheel==0.45.1 "torch>=2.1,<2.9.0" "setuptools>=77.0.3"
+pip install "qai-hub-models[yolox]" git+https://github.com/Megvii-BaseDetection/YOLOX.git@6ddff48 --no-build-isolation --use-pep517
 ```
 
 
-Once installed, run the following simple CLI demo:
+Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
-python -m qai_hub_models.models.yolox.demo { --quantize w8a16, w8a8 }
+python -m qai_hub_models.models.yolox.demo { --quantize w8a16, w8a8, w8a8_mixed_int16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -31,11 +33,11 @@ models](../../../#getting-started) for more usage instructions.
 
 ## Export for on-device deployment
 
-This repository contains export scripts that produce a model optimized for
+This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.yolox.export { --quantize w8a16, w8a8 }
+python -m qai_hub_models.models.yolox.export { --quantize w8a16, w8a8, w8a8_mixed_int16 }
 ```
 Additional options are documented with the `--help` option.
 

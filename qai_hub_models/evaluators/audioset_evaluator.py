@@ -20,7 +20,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Initialize evaluator for AudioSet.
 
-        Args:
+        Parameters
+        ----------
             num_classes: Number of AudioSet classes (default: 521).
         """
         self.num_classes = num_classes
@@ -34,7 +35,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Add a batch of predictions and ground truth for evaluation.
 
-        Args:
+        Parameters
+        ----------
             output: Model raw output scores (B, num_classes).
             gt: Ground truth multi-label binary tensor (B, num_classes).
         """
@@ -42,7 +44,7 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         label_tensor, sample_ids = gt
         label_tensor = label_tensor.cpu()
 
-        for out, target, sid in zip(output, label_tensor, sample_ids):
+        for out, target, sid in zip(output, label_tensor, sample_ids, strict=False):
             self.preds[sid].append(out)
             if not self.targets[sid]:
                 self.targets[sid].append(target)
@@ -51,7 +53,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         """
         Compute mean Average Precision (mAP) across all accumulated samples.
 
-        Returns:
+        Returns
+        -------
             float: mAP score
         """
         aggregated_preds = []
@@ -68,7 +71,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         for i in range(self.num_classes):
             if targets[:, i].sum() > 0:  # Skip classes with no positive targets
                 ap = average_precision_score(targets[:, i], preds[:, i])
-                aps.append(ap)
+                if not np.isnan(ap):
+                    aps.append(ap)
         return np.mean(aps)
 
     def get_accuracy_score(self) -> float:

@@ -34,8 +34,7 @@ from qai_hub_models.utils.base_model import TargetRuntime
 def _get_model_class(split_part: int, is_token_generator: bool = False):
     if split_part < 1 or split_part > 4:
         raise RuntimeError(
-            "Incorrect index provided to request Model split class."
-            f" Must be within (1-4), provided ({split_part})."
+            f"Incorrect index provided to request Model split class. Must be within (1-4), provided ({split_part})."
         )
 
     if is_token_generator:
@@ -64,8 +63,10 @@ def llama_2_chat_demo(
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
     is_test: bool = False,
-    available_target_runtimes: list[TargetRuntime] = [TargetRuntime.QNN_CONTEXT_BINARY],
+    available_target_runtimes: list[TargetRuntime] | None = None,
 ):
+    if available_target_runtimes is None:
+        available_target_runtimes = [TargetRuntime.QNN_CONTEXT_BINARY]
     llama_chat_demo(
         model_cls=model_cls,
         model_id=model_id,

@@ -5,75 +5,69 @@
 
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
-from typing import Optional
-
 import torch
 from qai_hub.client import Device
 from torch import nn
 from torch.nn import functional as F
+from transformers.models.mask2former.modeling_mask2former import (
+    Mask2FormerForUniversalSegmentation,
+)
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.panoptic_segmentation_evaluator import (
     PanopticSegmentationEvaluator,
 )
-from qai_hub_models.utils.asset_loaders import SourceAsRoot, wipe_sys_modules
+from qai_hub_models.models._shared.common import replace_module_recursively
+from qai_hub_models.models.mask2former.model_patches import (
+    Mask2FormerMaskPredictor,
+    Mask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
+    PatchedMask2FormerMaskPredictor,
+    PatchedMask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
+    PatchedSwinLayer,
+    PatchedSwinSelfAttention,
+    SwinLayer,
+    SwinSelfAttention,
+)
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
 DEFAULT_WEIGHTS = "facebook/mask2former-swin-tiny-coco-panoptic"
-M2F_SOURCE_REPOSITORY = "https://github.com/huggingface/transformers.git"
-M2F_SOURCE_REPO_COMMIT = "5f4ecf2d9f867a1255131d2461d75793c0cf1db2"
-# optimize model to run on QNN
-M2F_SOURCE_PATCHES = [
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "patches/optimize.diff"))
-]
 NUM_CLASSES = 134
 
 
 class Mask2Former(BaseModel):
-    """
-    Mask2Former segmentation
-    """
+    """Mask2Former segmentation"""
 
     def __init__(self, model: nn.Module) -> None:
-        super().__init__()
-        self.model = model
+        super().__init__(model)
 
     @classmethod
     def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> Mask2Former:
-        with SourceAsRoot(
-            M2F_SOURCE_REPOSITORY,
-            M2F_SOURCE_REPO_COMMIT,
-            MODEL_ID,
-            MODEL_ASSET_VERSION,
-            source_repo_patches=M2F_SOURCE_PATCHES,
-        ) as repo_path:
-
-            net_repo_path = Path(repo_path) / "src"
-            sys.path.insert(0, str(net_repo_path))
-
-            import transformers
-
-            wipe_sys_modules(transformers)
-
-            from transformers.models.mask2former.modeling_mask2former import (
-                Mask2FormerForUniversalSegmentation,
-            )
-
-            net = Mask2FormerForUniversalSegmentation.from_pretrained(ckpt)
+        net = Mask2FormerForUniversalSegmentation.from_pretrained(ckpt)
+        replace_module_recursively(
+            net, Mask2FormerMaskPredictor, PatchedMask2FormerMaskPredictor
+        )
+        replace_module_recursively(
+            net,
+            Mask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
+            PatchedMask2FormerPixelDecoderEncoderMultiscaleDeformableAttention,
+        )
+        replace_module_recursively(net, SwinSelfAttention, PatchedSwinSelfAttention)
+        replace_module_recursively(net, SwinLayer, PatchedSwinLayer)
         return cls(net)
 
     def forward(self, image: torch.Tensor):
         """
         Predict panoptic segmentation an input `image`.
-        Parameters:
+
+        Parameters
+        ----------
             image: A [1, 3, height, width] image with value range of [0, 1], RGB channel layout.
-        Returns:
+
+        Returns
+        -------
             Raw logit probabilities of classes as a tensor of shape
                 [1, num_classes, num_labels].
             Raw logit probabilities of mask as a tensor of shape
@@ -111,7 +105,7 @@ class Mask2Former(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device: Optional[Device] = None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +14,11 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
 
@@ -25,9 +30,7 @@ CLASS_STR2IDX = {"0": "0", "1": "1"}
 
 
 class GearGuardDataset(BaseDataset):
-    """
-    Wrapper class for gear_guard_net dataset
-    """
+    """Wrapper class for gear_guard_net dataset"""
 
     def __init__(
         self,
@@ -62,19 +65,16 @@ class GearGuardDataset(BaseDataset):
         )
         image_tensor = image_tensor.squeeze(0)
 
-        labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            labels_gt = np.genfromtxt(gt_path, delimiter=" ", dtype="str")
         for key, value in CLASS_STR2IDX.items():
             labels_gt = np.char.replace(labels_gt, key, value)
         labels_gt = labels_gt.astype(np.float32)
         labels_gt = np.reshape(labels_gt, (-1, 5))
 
-        boxes = []
-        labels = []
-        for label in labels_gt:
-            boxes.append(label[1:5])
-            labels.append(label[0])
-        boxes = torch.tensor(boxes)
-        labels = torch.tensor(labels)
+        boxes = torch.tensor(labels_gt[:, 1:5])
+        labels = torch.tensor(labels_gt[:, 0])
 
         # Pad the number of boxes to a standard value
         num_boxes = len(labels)
@@ -112,23 +112,20 @@ class GearGuardDataset(BaseDataset):
         self.gt_path = self.gt_path / "labels" / self.split_str
         self.image_list: list[Path] = []
         self.gt_list: list[Path] = []
-        img_count = 0
         for img_path in self.images_path.iterdir():
-            img_count += 1
             gt_filename = img_path.name.replace(".jpg", ".txt")
             gt_path = self.gt_path / gt_filename
             if not gt_path.exists():
-                print(f"Ground truth file not found: {str(gt_path)}")
+                print(f"Ground truth file not found: {gt_path!s}")
                 return False
             self.image_list.append(img_path)
             self.gt_list.append(gt_path)
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "GearGuardDataset is used for gear_guard_net quantization and evaluation. \n"
-            "Pass gearguard_trainvaltest.zip to the init function of class. \n"
-            "This should only be needed the first time you run this on the machine."
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=None,
         )
         if self.input_data_zip is None or not self.input_data_zip.endswith(
             GEARGUARD_DATASET_DIR_NAME + ".zip"
@@ -140,14 +137,10 @@ class GearGuardDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 422
 
     @staticmethod
     def default_num_calibration_samples() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

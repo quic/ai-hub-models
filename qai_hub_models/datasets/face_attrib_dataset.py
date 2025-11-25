@@ -10,19 +10,21 @@ from pathlib import Path
 
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
-FACEATTRIB_DATASET_VERSION = 1
+FACEATTRIB_DATASET_VERSION = 2
 FACEATTRIB_DATASET_ID = "faceattrib_dataset"
 FACEATTRIB_DATASET_DIR_NAME = "faceattrib_trainvaltest"
 
 
 class FaceAttribDataset(BaseDataset):
-    """
-    Wrapper class for face_attrib_net private dataset
-    """
+    """Wrapper class for face_attrib_net private dataset"""
 
     def __init__(
         self,
@@ -68,19 +70,16 @@ class FaceAttribDataset(BaseDataset):
 
         self.images_path = self.images_path / "images" / self.split_str
         self.image_list: list[Path] = []
-        img_count = 0
         for img_path in self.images_path.iterdir():
             if Image.open(img_path).size != (self.img_width, self.img_height):
                 raise ValueError(Image.open(img_path).size)
-            img_count += 1
             self.image_list.append(img_path)
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "FaceAttrib Dataset is used for face_attrib_net quantization and evaluation. \n"
-            "Pass faceattrib_trainvaltest.zip to the init function of class. \n"
-            "This should only be needed the first time you run this on the machine."
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=None,
         )
 
         if self.input_data_zip is None or not self.input_data_zip.endswith(
@@ -93,7 +92,5 @@ class FaceAttribDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 15

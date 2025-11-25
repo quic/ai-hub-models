@@ -30,15 +30,22 @@ class LeViT(ImagenetClassifier):
         """
         Predict class probabilities for an input `image`.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, 224, 224] image.
                     Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
         predictions = self.net(normalize_image_torchvision(image), return_dict=False)
         return predictions[0]
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10

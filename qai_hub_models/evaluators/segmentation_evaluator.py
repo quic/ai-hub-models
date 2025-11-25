@@ -33,18 +33,16 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         self.confusion_matrix = torch.zeros((self.num_classes, self.num_classes))
 
     def Pixel_Accuracy(self):
-        Acc = torch.diag(self.confusion_matrix).sum() / self.confusion_matrix.sum()
-        return Acc
+        return torch.diag(self.confusion_matrix).sum() / self.confusion_matrix.sum()
 
     def Pixel_Accuracy_Class(self):
-        Acc = torch.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
-        Acc = torch.nanmean(Acc)
-        return Acc
+        Acc = torch.diag(self.confusion_matrix) / self.confusion_matrix.sum(dim=1)
+        return torch.nanmean(Acc)
 
     def Intersection_over_Union(self):
         return torch.diag(self.confusion_matrix) / (
-            torch.sum(self.confusion_matrix, axis=1)
-            + torch.sum(self.confusion_matrix, axis=0)
+            torch.sum(self.confusion_matrix, dim=1)
+            + torch.sum(self.confusion_matrix, dim=0)
             - torch.diag(self.confusion_matrix)
         )
 
@@ -52,24 +50,22 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         return torch.nanmean(self.Intersection_over_Union())
 
     def Frequency_Weighted_Intersection_over_Union(self):
-        freq = torch.sum(self.confusion_matrix, axis=1) / torch.sum(
+        freq = torch.sum(self.confusion_matrix, dim=1) / torch.sum(
             self.confusion_matrix
         )
         iu = torch.diag(self.confusion_matrix) / (
-            torch.sum(self.confusion_matrix, axis=1)
-            + torch.sum(self.confusion_matrix, axis=0)
+            torch.sum(self.confusion_matrix, dim=1)
+            + torch.sum(self.confusion_matrix, dim=0)
             - torch.diag(self.confusion_matrix)
         )
 
-        FWIoU = (freq[freq > 0] * iu[freq > 0]).sum()
-        return FWIoU
+        return (freq[freq > 0] * iu[freq > 0]).sum()
 
     def _generate_matrix(self, gt_image, pre_image):
         mask = (gt_image >= 0) & (gt_image < self.num_classes)
         label = self.num_classes * gt_image[mask].int() + pre_image[mask].int()
         count = torch.bincount(label, minlength=self.num_classes**2)
-        confusion_matrix = count.reshape(self.num_classes, self.num_classes)
-        return confusion_matrix
+        return count.reshape(self.num_classes, self.num_classes)
 
     def get_accuracy_score(self) -> float:
         return self.Mean_Intersection_over_Union()

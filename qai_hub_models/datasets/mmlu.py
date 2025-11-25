@@ -12,10 +12,6 @@ from transformers import PreTrainedTokenizerBase
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
 
 
-def collate_fn(batch) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
-
-
 class MMLU(BaseDataset):
     def __init__(
         self,
@@ -47,6 +43,14 @@ class MMLU(BaseDataset):
 
         self.preprocess_dataset()
 
+    @staticmethod
+    def collate_fn(
+        batch: list[dict[str, torch.Tensor]],
+    ) -> tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]
+    ]:
+        return batch[0]["input_ids"], batch[0]["attention_mask"], batch[0]["label"]
+
     def __len__(self) -> int:
         if self.num_samples != 0:
             return self.num_samples
@@ -76,7 +80,7 @@ class MMLU(BaseDataset):
 
         fewshot_split.map(group_fewshot_questions)
 
-        for _, questions in grouped_fewshot_questions.items():
+        for questions in grouped_fewshot_questions.values():
             if len(questions) < self.num_fewshot:
                 raise ValueError(
                     f"Not enough samples available in split {fewshot_split} to satisfy {self.num_fewshot} fewshot samples."
@@ -89,11 +93,10 @@ class MMLU(BaseDataset):
                 formatted_string += "\n\n"
             return formatted_string
 
-        formatted_fewshot_questions = {
+        return {
             subject: combine_questions(questions)
             for subject, questions in grouped_fewshot_questions.items()
         }
-        return formatted_fewshot_questions
 
     def preprocess_dataset(self):
         fewshot_subject_headers = self.load_fewshot()
@@ -105,7 +108,8 @@ class MMLU(BaseDataset):
 
             formatted_question = list(
                 map(
-                    lambda question, choices: f"{question.strip()}\nA. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:",
+                    lambda question,
+                    choices: f"{question.strip()}\nA. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\nAnswer:",
                     question,
                     choices,
                 )
@@ -131,20 +135,21 @@ class MMLU(BaseDataset):
             )
 
             tokenized_question = {
-                k: list(map(lambda field: [field[-self.context_length :]], v))
+                k: [[field[-self.context_length :]] for field in v]
                 for k, v in tokenized_question.items()
             }
 
             tokenized_answer = self.tokenizer(
-                list(map(lambda answer: chr(ord("A") + answer), sample["answer"])),
+                ["Answer: " + chr(ord("A") + answer) for answer in sample["answer"]],
                 return_token_type_ids=False,
                 add_special_tokens=False,
                 return_tensors="pt",
             )
 
             result = tokenized_question
-            result.update({"label": tokenized_answer["input_ids"]})
-
+            # Grab only the last token
+            answer_token_ids = tokenized_answer["input_ids"][:, -1:]
+            result.update({"label": answer_token_ids})
             return result
 
         # if a cache file storing the current computation from function can be identified, use it instead of recomputing.
@@ -172,9 +177,7 @@ class MMLU(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 1
 
     @staticmethod

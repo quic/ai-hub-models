@@ -15,8 +15,10 @@ from diffusers.schedulers.scheduling_utils import SCHEDULER_CONFIG_NAME
 from huggingface_hub import hf_hub_download
 
 from qai_hub_models.models._shared.stable_diffusion.model import StableDiffusionBase
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import CheckpointSpec, hf_repo_exists
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
+from qai_hub_models.utils.inference import AIMETOnnxQuantizableMixin
 from qai_hub_models.utils.quantization import get_calibration_data
 
 
@@ -24,11 +26,11 @@ def maybe_save_scheduler_config(checkpoint: CheckpointSpec, output_dir: str | Pa
     """
     Save the scheduler config from a HuggingFace repo to the output directory.
 
-    Args:
+    Parameters
+    ----------
         checkpoint: Hugging Face repo ID or local path.
         output_dir: Directory where the scheduler config should be saved.
     """
-
     scheduler_dir = Path(output_dir) / "scheduler"
     scheduler_dir.mkdir(parents=True, exist_ok=True)
     target_path = scheduler_dir / SCHEDULER_CONFIG_NAME
@@ -104,8 +106,7 @@ def stable_diffusion_quantize(
         "--prompt",
         type=str,
         help=(
-            "Path to a plain text file where each line is a prompt. "
-            "The default uses a preset of 500 prompts"
+            "Path to a plain text file where each line is a prompt. The default uses a preset of 500 prompts"
         ),
         **kwargs,
     )
@@ -122,11 +123,12 @@ def stable_diffusion_quantize(
 
     host_device = torch.device(args.host_device)
     component_cls = dict(
-        zip(model_cls.component_class_names, model_cls.component_classes)
+        zip(model_cls.component_class_names, model_cls.component_classes, strict=False)
     )[args.component]
     component = component_cls.from_pretrained(
         checkpoint=args.checkpoint, host_device=host_device
     )
+    assert isinstance(component, BaseModel)
     dataset_options = dict(
         sd_cls=model_cls,
         num_samples=args.num_samples,
@@ -140,10 +142,13 @@ def stable_diffusion_quantize(
     # get_calibration_data is also used in submit_quantize_job for non-aimet
     # models
     ds = get_calibration_data(
-        component, num_samples=args.num_samples, dataset_options=dataset_options
+        component,
+        num_samples=args.num_samples,
+        dataset_options=dataset_options,
     )
     data_loader = dataset_entries_to_dataloader(ds)
 
+    assert isinstance(component, AIMETOnnxQuantizableMixin)
     component.quantize(data_loader, num_samples=args.num_samples)
 
     output_dir = args.output or str(Path() / "build" / model_id)

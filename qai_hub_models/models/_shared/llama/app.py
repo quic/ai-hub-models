@@ -29,9 +29,7 @@ def _get_tokens_from_logits(output: torch.Tensor):
 
 
 class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
-    """
-    Llama Pipeline to execute model splits one after another
-    """
+    """Llama Pipeline to execute model splits one after another"""
 
     def __init__(
         self,
@@ -81,7 +79,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
         # Return logits + past_key_values
         assert out is not None
-        return tuple((out[0], *past_key_values))
+        return (out[0], *past_key_values)
 
     def forward_tg(
         self,
@@ -125,10 +123,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
                 past_j = past_key_values[start_past_key_offset + j]
 
                 # Concatenation is not always along the same dimension
-                if new_cache_j.shape[3] == 1:
-                    dim = 3
-                else:
-                    dim = 2
+                dim = 3 if new_cache_j.shape[3] == 1 else 2
 
                 # Slice to remove oldest value
                 slices = [slice(None)] * dim + [slice(1, None)]
@@ -146,7 +141,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
         # Return logits + past_key_values
         assert out is not None
-        return tuple((out[0], *past_key_values_new))
+        return (out[0], *past_key_values_new)
 
     @abstractmethod
     def load_model_part(self, model_part: int) -> BaseModel:
@@ -154,9 +149,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
 
 
 class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
-    """
-    Pipeline wrapper for OnDeviceModels
-    """
+    """Pipeline wrapper for OnDeviceModels"""
 
     def __init__(
         self,
@@ -203,9 +196,7 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
 
 
 class LlamaModelPipeline(LlamaModelPipelineBase):
-    """
-    Pipeline wrapper for PyTorch base model
-    """
+    """Pipeline wrapper for PyTorch base model"""
 
     def __init__(
         self,
@@ -295,7 +286,7 @@ class ChatApp:
         input_ids = input_tokens["input_ids"].type(torch.long)
         num_tokens = int(torch.sum(input_tokens["attention_mask"]).item())
         padding_size = max_seq_len - num_tokens
-        position_ids_lst = [0] * (padding_size) + list(range(0, num_tokens))
+        position_ids_lst = [0] * (padding_size) + list(range(num_tokens))
         position_ids = (
             torch.Tensor(position_ids_lst).type(torch.long).reshape(1, max_seq_len)
         )

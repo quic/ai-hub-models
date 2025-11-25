@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from typing import Optional
 
 from pydantic import model_validator
 
@@ -25,31 +24,21 @@ class LLM_CALL_TO_ACTION(Enum):
 
 
 class LLMDeviceRuntimeDetails(BaseQAIHMConfig):
-    """
-    LLM details for a specific device+runtime combo.
-    """
+    """LLM details for a specific device+runtime combo."""
 
     model_download_url: str
 
 
 class LLMDetails(BaseQAIHMConfig):
-    """
-    LLM details included in model info.yaml.
-    """
+    """LLM details included in model info.yaml."""
 
     call_to_action: LLM_CALL_TO_ACTION
     genie_compatible: bool = False
 
     # Dict<Device Name, Dict<Long Runtime Name, LLMDeviceRuntimeDetails>
-    devices: Optional[
-        dict[
-            str,
-            dict[
-                ScorecardProfilePath,
-                LLMDeviceRuntimeDetails,
-            ],
-        ]
-    ] = None
+    devices: dict[str, dict[ScorecardProfilePath, LLMDeviceRuntimeDetails]] | None = (
+        None
+    )
 
     def __init__(self, **kwargs):
         val_dict = kwargs
@@ -60,15 +49,13 @@ class LLMDetails(BaseQAIHMConfig):
             #
             # We construct a valid input dict by stuffing all of the "devices" into the appropriate namespace.
             dict_to_parse = {
-                k: v
-                for k, v in val_dict.items()
-                if k in [x for x in LLMDetails.model_fields.keys()]
+                k: v for k, v in val_dict.items() if k in list(LLMDetails.model_fields)
             }
             dict_to_parse["devices"] = {
                 k: v for k, v in val_dict.items() if k not in dict_to_parse
             }
 
-        return super().__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @model_validator(mode="after")
     def check_fields(self) -> LLMDetails:

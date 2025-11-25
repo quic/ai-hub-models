@@ -6,6 +6,7 @@
 import os
 import subprocess
 
+import torch
 from torchvision.datasets import ImageNet
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
@@ -37,9 +38,7 @@ VAL_PREP_ASSET = CachedWebDatasetAsset(
 
 
 class ImagenetDataset(BaseDataset, ImageNet):
-    """
-    Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/
-    """
+    """Wrapper class for using the Imagenet validation dataset: https://www.image-net.org/"""
 
     def __init__(
         self, split: DatasetSplit = DatasetSplit.VAL, transform=IMAGENET_TRANSFORM
@@ -82,6 +81,9 @@ class ImagenetDataset(BaseDataset, ImageNet):
             return False
         return True
 
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        return super().__getitem__(index)
+
     def __len__(self) -> int:
         return ImageNet.__len__(self)
 
@@ -103,9 +105,7 @@ class ImagenetDataset(BaseDataset, ImageNet):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 2500
 
     @staticmethod

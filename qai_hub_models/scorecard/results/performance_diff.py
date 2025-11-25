@@ -10,6 +10,7 @@ from prettytable import PrettyTable
 from qai_hub_models.configs.devices_and_chipsets_yaml import ScorecardDevice
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf, ScorecardProfilePath
 from qai_hub_models.models.common import Precision
+from qai_hub_models.scorecard.envvars import DeploymentEnvvar
 
 # Last 3 values in tuple are: [prev inference time, new inference time, diff, job_id]
 InferenceInfo = tuple[
@@ -21,7 +22,8 @@ InferenceInfo = tuple[
     float,  # prev inference time (millisecs)
     float,  # new inference time (millisecs),
     float,  # inference time diff
-    str,  # Profile Job ID
+    str,  # New Profile Job ID
+    str,  # Previous Profile Job ID
 ]
 
 
@@ -95,9 +97,9 @@ class PerformanceDiff:
         previous_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
         new_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
     ):
-        prev_inference_time = previous_report.get(
-            path, QAIHMModelPerf.PerformanceDetails()
-        ).inference_time_milliseconds
+        prev_results = previous_report.get(path, QAIHMModelPerf.PerformanceDetails())
+        prev_inference_time = prev_results.inference_time_milliseconds
+
         new_results = new_report.get(path, QAIHMModelPerf.PerformanceDetails())
         new_inference_time = new_results.inference_time_milliseconds
         if prev_inference_time and new_inference_time:
@@ -115,10 +117,7 @@ class PerformanceDiff:
             # both failed, don't add this to the summary
             return
 
-        if is_progression:
-            append_to = self.progressions
-        else:
-            append_to = self.regressions
+        append_to = self.progressions if is_progression else self.regressions
         bucket = None
         for i in range(len(self.perf_buckets)):
             key = self.perf_buckets[i]
@@ -139,6 +138,7 @@ class PerformanceDiff:
                 new_inference_time or float("-inf"),
                 diff,
                 new_results.job_id or "null",
+                prev_results.job_id or "null",
             )
         )
 
@@ -193,7 +193,7 @@ class PerformanceDiff:
             and component not in new_report.components
         ):
             return
-        elif (
+        if (
             component in previous_report.components
             and component not in new_report.components
         ):
@@ -261,7 +261,7 @@ class PerformanceDiff:
     ):
         if not new_report and not previous_report:
             return
-        elif new_report and not previous_report:
+        if new_report and not previous_report:
             self.new_models.append(model_id)
         elif previous_report and not new_report:
             self.missing_models.append(model_id)
@@ -281,7 +281,9 @@ class PerformanceDiff:
     def _get_summary_table(self, bucket_id, get_progressions=True):
         """
         Returns Summary Table for given bucket
-        Args:
+
+        Parameters
+        ----------
             bucket_id : bucket_id from perf_buckets
         """
         table = PrettyTable(
@@ -294,7 +296,8 @@ class PerformanceDiff:
                 "Prev Inference time",
                 "New Inference time",
                 "Kx faster" if get_progressions else "Kx slower",
-                "Job ID",
+                f"Job ID ({DeploymentEnvvar.get()})",
+                "Previous Job ID (prod)",  # Comparison jobs are always run on prod.
             ]
         )
         data = self.progressions if get_progressions else self.regressions
@@ -319,9 +322,7 @@ class PerformanceDiff:
         )
 
     def dump_summary(self, summary_file_path: str):
-        """
-        Dumps Perf change summary captured so far to the provided path.
-        """
+        """Dumps Perf change summary captured so far to the provided path."""
         with open(summary_file_path, "w") as sf:
             sf.write("================= Perf Change Summary =================")
             if self._has_perf_changes():

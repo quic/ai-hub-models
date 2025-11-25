@@ -6,6 +6,7 @@
 from qai_hub_models.models.easyocr.app import EasyOCRApp
 from qai_hub_models.models.easyocr.model import MODEL_ASSET_VERSION, MODEL_ID, EasyOCR
 from qai_hub_models.utils.args import (
+    demo_model_components_from_cli_args,
     get_model_cli_parser,
     get_on_device_demo_parser,
     model_from_cli_args,
@@ -13,9 +14,10 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
 from qai_hub_models.utils.display import display_or_save_image
+from qai_hub_models.utils.evaluate import EvalMode
 
 INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "english.png"
+    MODEL_ID, MODEL_ASSET_VERSION, "gracewood.png"
 )
 
 
@@ -36,14 +38,31 @@ def main(is_test: bool = False):
 
     # Load app and image
     image = load_image(args.image)
-    model = model_from_cli_args(EasyOCR, args)
-    app = EasyOCRApp(model.detector, model.recognizer, model.lang_list)
+    python_model = model_from_cli_args(EasyOCR, args)
+    if args.eval_mode == EvalMode.ON_DEVICE:
+        detector, recognizer = demo_model_components_from_cli_args(
+            EasyOCR, MODEL_ID, args
+        )
+    else:
+        detector = python_model.detector
+        recognizer = python_model.recognizer
+
+    app = EasyOCRApp(
+        detector,  # type: ignore[arg-type]
+        recognizer,  # type: ignore[arg-type]
+        tuple(python_model.detector.get_input_spec()["image"][0][2:4]),  # type: ignore[arg-type]
+        tuple(python_model.recognizer.get_input_spec()["image"][0][2:4]),  # type: ignore[arg-type]
+        python_model.lang_list,
+    )
     print("Model Loaded")
 
-    results = app.predict_text_from_image(image)
+    results = app.predict_text_from_image(image)[0]
 
     if not is_test:
         display_or_save_image(results[0], args.output_dir)
+        print("Predicted texts & confidence:")
+        for i in range(len(results[1])):
+            print(f"{results[1][i]}   {results[2][i]}")
 
 
 if __name__ == "__main__":

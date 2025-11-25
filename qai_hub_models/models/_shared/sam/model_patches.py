@@ -63,7 +63,7 @@ def sam_decoder_predict_masks(
     upscaled_embedding = self.output_upscaling(src)
     hyper_in_list: list[torch.Tensor] = []
     for i in range(self.num_mask_tokens):
-        hyper_in_list.append(
+        hyper_in_list.append(  # noqa: PERF401
             self.output_hypernetworks_mlps[i](mask_tokens_out[:, i, :])
         )
     hyper_in = torch.stack(hyper_in_list, dim=1)
@@ -85,6 +85,8 @@ class Conv2DInplaceLinear(nn.Module):
 
     @staticmethod
     def from_linear(mod: torch.nn.Linear | torch.nn.Conv1d) -> Conv2DInplaceLinear:
+        weight: torch.Tensor | torch.nn.Parameter
+        bias: torch.Tensor | torch.nn.Parameter | None
         if isinstance(mod, torch.nn.Linear):
             weight, bias = mod.weight, mod.bias
             bias = mod.bias
@@ -98,7 +100,7 @@ class Conv2DInplaceLinear(nn.Module):
             in_features,
             out_features,
             bias is not None,
-            mod.device if hasattr(mod, "device") else None,
+            mod.device if hasattr(mod, "device") else None,  # type: ignore[arg-type]
         )
         linear.conv2d.weight.data.copy_(weight.data[:, :, None, None])
         if bias is not None:
@@ -148,9 +150,7 @@ class Conv2DInplaceLinear(nn.Module):
 
 
 class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
-    """
-    SAM MLP that uses 1x1 Conv2D in place of linear layers.
-    """
+    """SAM MLP that uses 1x1 Conv2D in place of linear layers."""
 
     def __init__(self, mlp):  # from segment_anything.modeling.mask_decoder import MLP
         super().__init__()
@@ -170,12 +170,11 @@ class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
 
 
 class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
-    """
-    SAM MLPBlock that uses 1x1 Conv2D in place of linear layers.
-    """
+    """SAM MLPBlock that uses 1x1 Conv2D in place of linear layers."""
 
     def __init__(
-        self, mlp_block  # from segment_anything.modeling.image_encoder import MLPBlock,
+        self,
+        mlp_block,  # from segment_anything.modeling.image_encoder import MLPBlock,
     ):
         super().__init__()
         self.lin1 = Conv2DInplaceLinear.from_linear(mlp_block.lin1)
@@ -215,8 +214,7 @@ class SplitHeadSAMDecoderAttention(nn.Module):
                 )
                 split_layer.conv2d.weight.data.copy_(
                     merged_layer.weight[
-                        i
-                        * self.qkv_out_features_per_head : (i + 1)
+                        i * self.qkv_out_features_per_head : (i + 1)
                         * self.qkv_out_features_per_head,
                         :,
                         None,
@@ -224,10 +222,10 @@ class SplitHeadSAMDecoderAttention(nn.Module):
                     ]
                 )
 
+                assert split_layer.conv2d.bias is not None
                 split_layer.conv2d.bias.data.copy_(
                     merged_layer.bias[
-                        i
-                        * self.qkv_out_features_per_head : (i + 1)
+                        i * self.qkv_out_features_per_head : (i + 1)
                         * self.qkv_out_features_per_head
                     ]
                 )
@@ -237,7 +235,7 @@ class SplitHeadSAMDecoderAttention(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
     ) -> torch.Tensor:
         attns = []
-        for i in range(0, self.num_heads):
+        for i in range(self.num_heads):
             # Single head attention
             qOut: torch.Tensor = self.qproj[i](q)
             kOut: torch.Tensor = self.kproj[i](k)
@@ -260,11 +258,10 @@ def resize_longest_image_size(
     Modified to break this apart from the decoder class instance.
     """
     scale = longest_side / max(input_image_size)
-    transformed_size = cast(
+    return cast(
         tuple[int, int],
-        tuple(int(floor(scale * each + 0.5)) for each in input_image_size),
+        tuple(floor(scale * each + 0.5) for each in input_image_size),
     )
-    return transformed_size
 
 
 def mask_postprocessing(
@@ -286,5 +283,4 @@ def mask_postprocessing(
     masks = masks[..., : int(prepadded_size[0]), : int(prepadded_size[1])]
 
     h, w = orig_im_size[0], orig_im_size[1]
-    masks = F.interpolate(masks, size=(h, w), mode="bilinear", align_corners=False)
-    return masks
+    return F.interpolate(masks, size=(h, w), mode="bilinear", align_corners=False)

@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, cast
+from typing import cast
 
 import qai_hub as hub
 from pydantic import Field
@@ -34,11 +35,11 @@ class QAIHMModelPerf(BaseQAIHMConfig):
 
             @staticmethod
             def from_bytes(
-                min: int, max: int
+                mmin: int, mmax: int
             ) -> QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB:
                 return QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB(
-                    min=round(min / (1 << 20)),
-                    max=round(max / (1 << 20)),
+                    min=round(mmin / (1 << 20)),
+                    max=round(mmax / (1 << 20)),
                 )
 
         class LayerCounts(BaseQAIHMConfig):
@@ -63,27 +64,28 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 compute_unit_for_most_layers = max(self.cpu, self.gpu, self.npu)
                 if compute_unit_for_most_layers == self.npu:
                     return "NPU"
-                elif compute_unit_for_most_layers == self.gpu:
+                if compute_unit_for_most_layers == self.gpu:
                     return "GPU"
                 return "CPU"
 
         # Only set for LLMs.
-        time_to_first_token_range_milliseconds: Optional[
-            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds
-        ] = None
-        tokens_per_second: Optional[float] = None
+        time_to_first_token_range_milliseconds: (
+            QAIHMModelPerf.PerformanceDetails.TimeToFirstTokenRangeMillieconds | None
+        ) = None
+        tokens_per_second: float | None = None
+        context_length: int | None = None
 
         # Only set for non-LLMs.
-        job_id: Optional[str] = None
-        job_status: Optional[str] = None
+        job_id: str | None = None
+        job_status: str | None = None
 
         # Only set for successful non-LLM jobs.
-        inference_time_milliseconds: Optional[float] = None
-        estimated_peak_memory_range_mb: Optional[
-            QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB
-        ] = None
-        primary_compute_unit: Optional[str] = None
-        layer_counts: Optional[QAIHMModelPerf.PerformanceDetails.LayerCounts] = None
+        inference_time_milliseconds: float | None = None
+        estimated_peak_memory_range_mb: (
+            QAIHMModelPerf.PerformanceDetails.PeakMemoryRangeMB | None
+        ) = None
+        primary_compute_unit: str | None = None
+        layer_counts: QAIHMModelPerf.PerformanceDetails.LayerCounts | None = None
 
         # Can be set for LLMs or for successful jobs.
         # The tool versions used by the profile jobs to execute this model.
@@ -99,9 +101,9 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             """Extract asset details from the given compile or profile job."""
             if job._job_type == JobType.COMPILE:
                 job = cast(hub.CompileJob, job)
-                assert (
-                    job.get_status().success
-                ), f"Cannot extract asset details from failed compile job {job.job_id}"
+                assert job.get_status().success, (
+                    f"Cannot extract asset details from failed compile job {job.job_id}"
+                )
                 model_id = cast(hub.Model, job.get_target_model()).model_id
             elif job._job_type == JobType.PROFILE:
                 job = cast(hub.ProfileJob, job)
@@ -155,34 +157,34 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             ],
             bool | None,
         ],
-        include_paths: Optional[list[ScorecardProfilePath]] = None,
-    ):
+        include_paths: list[ScorecardProfilePath] | None = None,
+    ) -> None:
         """
         Walk over each valid perf.yaml job entry and call the callback.
 
-        Parameters:
-            callback:
-                A function to call for each perf.yaml job entry.
+        Parameters
+        ----------
+        callback
+            A function to call for each perf.yaml job entry.
+            Func Params:
+                precision: Precision
+                    The precision for this entry,
+                component: str
+                    Component name. Will be Model Name if there is 1 component.
+                device: ScorecardDevice,
+                    Device for this entry.
+                path: ScorecardProfilePath
+                    Path for this entry.
+                QAIHMModelPerf.PerformanceDetails
+                    Actual entry perf data
 
-                Parameters:
-                    precision: Precision
-                        The precision for this entry,
-                    component: str
-                        Component name. Will be Model Name if there is 1 component.
-                    device: ScorecardDevice,
-                        Device for this entry.
-                    path: ScorecardProfilePath
-                        Path for this entry.
-                    QAIHMModelPerf.PerformanceDetails
-                        Actual entry perf data
+            Func Returns:
+                Boolean or None.
+                If None or True, for_each_entry continues to walk over more entries.
+                If False, for_each_entry will stop walking over additional entries.
 
-                Returns:
-                    None or a Bool.
-                        If None or True, for_each_entry continues to walk over more entries.
-                        If False, for_each_entry will stop walking over additional entries.
-
-            include_pathsL
-                If set, only paths in this list will be iterated over.
+        include_paths
+            Scorecard Profile Paths to loop over. If None, uses all enabled paths.
         """
         for precision, precision_perf in self.precisions.items():
             for component_name, component_detail in precision_perf.components.items():

@@ -5,20 +5,26 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.litehrnet_evaluator import LiteHRNetPoseEvaluator
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.models._shared.mmpose.silence import (
+    set_mmpose_inferencer_show_progress,
+)
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
 
-try:
+with patch_mmpose_no_build_deps():
     from mmpose.apis import MMPoseInferencer
-except ImportError as e:
-    print_mmcv_import_failure_and_exit(e, "litehrnet", "MMPose")
+    from mmpose.codecs.msra_heatmap import MSRAHeatmap
+    from mmpose.models.heads.heatmap_heads.heatmap_head import HeatmapHead
+    from mmpose.models.pose_estimators.topdown import TopdownPoseEstimator
 
 
 MODEL_ID = __name__.split(".")[-2]
@@ -36,21 +42,29 @@ SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
 class LiteHRNet(BaseModel):
     """Exportable LiteHRNet pose joint detector, end-to-end."""
 
-    def __init__(self, inferencer) -> None:
-        super().__init__()
+    def __init__(self, inferencer: MMPoseInferencer) -> None:
+        assert isinstance(inferencer.inferencer.model, TopdownPoseEstimator)
+        super().__init__(inferencer.inferencer.model)
+        self.model: TopdownPoseEstimator
+
+        head = cast(HeatmapHead, self.model.head)
+        assert isinstance(head, HeatmapHead)
+        head_decoder = cast(MSRAHeatmap, head.decoder)
+        assert isinstance(head_decoder, MSRAHeatmap)
 
         self.inferencer = inferencer
-        self.model = self.inferencer.inferencer.model
-        self.pre_processor = self.inferencer.inferencer.model.data_preprocessor
-        self.H, self.W = self.inferencer.inferencer.model.head.decoder.heatmap_size
-        self.K = self.inferencer.inferencer.model.head.out_channels
+        self.pre_processor = self.model.data_preprocessor
+        self.H, self.W = head_decoder.heatmap_size
+        self.K = head.out_channels
         self.B = 1
 
     @classmethod
     def from_pretrained(cls, inferencer_arch=DEFAULT_INFERENCER_ARCH) -> LiteHRNet:
         """LiteHRNet comes from the MMPose library, so we load using an internal config
-        rather than a public weights file"""
-        inferencer = MMPoseInferencer(inferencer_arch, device=torch.device(type="cpu"))
+        rather than a public weights file
+        """
+        inferencer = MMPoseInferencer(inferencer_arch, device="cpu")
+        set_mmpose_inferencer_show_progress(inferencer, False)
         return cls(inferencer)
 
     def forward(
@@ -59,12 +73,14 @@ class LiteHRNet(BaseModel):
         """
         Run LiteHRNet on `image`, and produce an upscaled image
 
-        Parameters:
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                    Range: float[0, 1]
                    3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             keypoints: 1x17x2 array of coordinate pairs (in x,y format) denoting joint keypoints in the original image
             scores: 1x17 array of float[0,1] denoting the score of each corresponding keypoint
             heatmaps: 1x17 array of 64x48 heatmaps. These hold the raw confidence values of the locations
@@ -76,6 +92,7 @@ class LiteHRNet(BaseModel):
 
         # Model prediction
         heatmaps = self.model._forward(x)
+        assert isinstance(heatmaps, torch.Tensor)
 
         batch_size = heatmaps.shape[0]
         num_keypoints = heatmaps.shape[1]

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import cv2
 import numpy as np
 import torch
@@ -32,31 +34,52 @@ class CocoSegDataset(CocoDataset):
         max_boxes: int = 100,
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
-        label_types: list[str] = ["segmentations"],
+        label_types: list[Literal["detections", "segmentations"]] | None = None,
     ):
         super().__init__(
-            split, input_spec, max_boxes, num_samples, num_classes, label_types
+            split,
+            input_spec,
+            max_boxes,
+            num_samples,
+            num_classes,
+            label_types or ["segmentations"],
         )
 
-    def __getitem__(self, item):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, int]]:
         """
-        Returns a tuple of input image tensor and label data.
+        Get dataset item.
 
-        Label data is a tuple with the following entries:
-          - mask data with shape (self.max_boxes, self.target_h, self.target_w)
-          - labels with shape (self.max_boxes,)
-          - number of actual boxes present
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+
+        Returns
+        -------
+        image
+            RGB, range [0-1] network input image.
+
+        ground_truth
+            mask_data
+                mask data with shape (self.max_boxes, self.target_h, self.target_w)
+            labels
+                labels with shape (self.max_boxes,)
+            bbox_count
+                number of actual boxes present
         """
         from fiftyone.core.sample import SampleView
 
-        sample = self.dataset[item : item + 1].first()
+        sample = self.dataset[index : index + 1].first()
         assert isinstance(sample, SampleView)
         image = Image.open(sample.filepath).convert("RGB")
         image = image.resize((self.target_w, self.target_h))
         width, height = image.size
 
-        masks = []
-        labels = []
+        masks_list = []
+        labels_list = []
         if sample.ground_truth is not None:
             for annotation in sample.ground_truth.detections:
                 if annotation.label not in self.label_map:
@@ -80,11 +103,11 @@ class CocoSegDataset(CocoDataset):
                 mask_image = np.zeros((height, width))
                 mask_image[point_y1:point_y2, point_x1:point_x2] = mask_resized
 
-                masks.append(mask_image)
-                labels.append(self.label_map[annotation.label])
+                masks_list.append(mask_image)
+                labels_list.append(self.label_map[annotation.label])
 
-        masks = torch.tensor(masks).to(torch.uint8)
-        labels = torch.tensor(labels).to(torch.uint8)
+        masks = torch.tensor(masks_list).to(torch.uint8)
+        labels = torch.tensor(labels_list).to(torch.uint8)
 
         num_boxes = len(labels)
         if num_boxes == 0:
@@ -109,13 +132,10 @@ class CocoSegDataset(CocoDataset):
             masks = torch.concat([masks, extra_masks])
             labels = torch.concat([labels, extra_labels])
 
-        image = app_to_net_image_inputs(image)[1].squeeze(0)
-
-        return image, [masks, labels, num_boxes]
+        image_pt = app_to_net_image_inputs(image)[1].squeeze(0)
+        return image_pt, (masks, labels, num_boxes)
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 100

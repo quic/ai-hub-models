@@ -1,0 +1,34 @@
+name: BEVFusion
+id: bevfusion_det
+status: public
+headline: Construct a bird’s eye view from sensors mounted on a vehicle.
+domain: Computer Vision
+description: BeVFusion is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+use_case: Driver Assistance
+tags: []
+applicable_scenarios:
+- Object Detection
+related_models:
+- simple_bev_cam
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset:
+- nuscene
+technical_details:
+  Model checkpoint: camera-only-det.pth
+  Input resolution: 1 x 6 x 3 x 256 x 704
+  Number of parameters: 44M
+  Model size: 171 MB
+license_type: apache-2.0
+private_perf_form_factors:
+- Auto
+research_paper: https://arxiv.org/abs/2205.13542
+research_paper_title: "BEVFusion: Multi-Task Multi-Sensor Fusion with Unified Bird's-Eye View Representation"
+source_repo: https://github.com/mit-han-lab/bevfusion
+license: https://github.com/w-hc/torch_audioset/blob/master/LICENSE
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+deploy_license_type: ai-hub-models-license

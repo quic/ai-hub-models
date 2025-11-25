@@ -15,11 +15,14 @@ from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
 from qai_hub_models.datasets.gear_guard_dataset import GearGuardDataset
 from qai_hub_models.datasets.human_faces import HumanFacesDataset
 from qai_hub_models.datasets.kitti import KittiDataset
+from qai_hub_models.datasets.nuscenes import NuscenesDataset
 from qai_hub_models.datasets.nyuv2 import NyUv2Dataset
+from qai_hub_models.datasets.sav import SaVDataset
 from qai_hub_models.datasets.semantic_kitti import SemanticKittiDataset
 
 SUPPORTED_DATASETS = [
     "nyuv2",
+    "nuscenes",
     "foot_track_dataset",
     "gear_guard_dataset",
     "facemap_3dmm_dataset",
@@ -31,6 +34,7 @@ SUPPORTED_DATASETS = [
     "face_det_lite",
     "semantic_kitti",
     "kitti",
+    "sav",
 ]
 
 
@@ -60,6 +64,8 @@ def get_parser() -> argparse.ArgumentParser:
 def configure_dataset(dataset: str, files: list[str]) -> None:
     if dataset == "nyuv2":
         NyUv2Dataset(source_dataset_file=files[0])
+    elif dataset == "nuscenes":
+        NuscenesDataset(source_dataset_file=files[0])
     elif dataset == "foot_track_dataset":
         FootTrackDataset(input_data_zip=files[0])
     elif dataset == "gear_guard_dataset":
@@ -86,6 +92,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
             input_labels_zip=files[1],
             input_calibs_zip=files[2],
         )
+    elif dataset == "sav":
+        SaVDataset(input_tar=files[0])
     else:
         raise ValueError(f"Invalid dataset {dataset}")
 

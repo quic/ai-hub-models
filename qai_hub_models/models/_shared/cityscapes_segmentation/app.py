@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Optional
 
 import numpy as np
 import torch
@@ -28,7 +27,7 @@ from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, SourceAsRoot
 from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resize_pad
 
 
-def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
+def _load_cityscapes_loader(cityscapes_path: str | None = None) -> object:
     if cityscapes_path is None:
         # Allow a loader without data. There are useful auxiliary functions.
         cityscapes_path = str(
@@ -61,8 +60,7 @@ def _load_cityscapes_loader(cityscapes_path: Optional[str] = None) -> object:
             return_dataloader,
         )
 
-        dataloader = return_dataloader(num_workers=1, batch_size=1)
-        return dataloader
+        return return_dataloader(num_workers=1, batch_size=1)
 
 
 def preprocess_cityscapes_image(image: Image) -> torch.Tensor:
@@ -100,10 +98,12 @@ class CityscapesSegmentationApp:
         From the provided image or tensor, predict semantic segmentation over
         the Cityscapes classes.
 
-        Parameters:
+        Parameters
+        ----------
             image: A PIL Image in RGB format.
 
-        Returns:
+        Returns
+        -------
             If raw_output is False it will return an annotated image of the
             same size as the input image. If True, it will return raw logit
             probabilities as an numpy array of shape [1, CLASSES, HEIGHT,
@@ -131,6 +131,4 @@ class CityscapesSegmentationApp:
         out = ImageModule.blend(resized_image, color_mask.convert("RGB"), 0.5)
 
         # Resize / unpad annotated image
-        image_annotated = pil_undo_resize_pad(out, image.size, scale, padding)
-
-        return image_annotated
+        return pil_undo_resize_pad(out, image.size, scale, padding)

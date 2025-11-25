@@ -73,7 +73,11 @@ class AOTGAN(RepaintModel):
 
             args = InpaintArgs()
             model = InpaintGenerator(args)
-            model.load_state_dict(torch.load(downloaded_model_path, map_location="cpu"))
+            model.load_state_dict(
+                torch.load(
+                    downloaded_model_path, map_location="cpu", weights_only=False
+                )
+            )
             return cls(model)
 
     def forward(self, image: torch.Tensor, mask: torch.Tensor):
@@ -81,7 +85,8 @@ class AOTGAN(RepaintModel):
         Run AOTGAN Inpaint Generator on `image` with given `mask`
         and generates new high-resolution in-painted image.
 
-        Parameters:
+        Parameters
+        ----------
             image: Image to which the mask should be applied. [N, C, H, W]
                     Range: float[0, 1]
                     3-channel color Space: RGB
@@ -89,7 +94,8 @@ class AOTGAN(RepaintModel):
                     Range: float[0, 1] and only values of 0. or 1.
                     1-channel binary image.
 
-        Returns:
+        Returns
+        -------
             In-painted image for given image and mask of shape [N, C, H, W]
             Range: float[0, 1]
             3-channel color space: RGB
@@ -104,8 +110,7 @@ class AOTGAN(RepaintModel):
 
         pred_rgb = torch.flip(pred_bgr, dims=[1])
         pred_rgb_clamped = torch.clamp(pred_rgb, -1, 1)
-        pred_rgb_unnormalized = (pred_rgb_clamped + 1) / 2
-        return pred_rgb_unnormalized
+        return (pred_rgb_clamped + 1) / 2
 
     def get_evaluator(self) -> BaseEvaluator:
         return InpaintEvaluator()

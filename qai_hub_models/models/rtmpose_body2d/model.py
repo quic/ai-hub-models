@@ -5,20 +5,27 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.wholebody_pose_evaluator import WholeBodyPoseEvaluator
+from qai_hub_models.extern.mmpose import patch_mmpose_no_build_deps
+from qai_hub_models.models._shared.mmpose.silence import (
+    set_mmpose_inferencer_show_progress,
+)
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.printing import print_mmcv_import_failure_and_exit
 
-try:
+with patch_mmpose_no_build_deps():
     from mmpose.apis import MMPoseInferencer
-except ImportError as e:
-    print_mmcv_import_failure_and_exit(e, "rtmpose_body2d", "MMPose")
+    from mmpose.apis.inferencers.pose2d_inferencer import Pose2DInferencer
+    from mmpose.models.data_preprocessors.data_preprocessor import PoseDataPreprocessor
+    from mmpose.models.pose_estimators.topdown import TopdownPoseEstimator
+
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -34,31 +41,41 @@ SAMPLE_INPUTS = CachedWebModelAsset.from_asset_store(
 class RTMPosebody2d(BaseModel):
     """Exportable RTMPose body2d detector, end-to-end."""
 
-    def __init__(self, inferencer) -> None:
-        super().__init__()
+    def __init__(self, inferencer: Pose2DInferencer) -> None:
+        assert isinstance(inferencer.model, TopdownPoseEstimator)
+        super().__init__(inferencer.model)
+        self.model: TopdownPoseEstimator
+
+        pre_processor = self.model.data_preprocessor
+        assert isinstance(pre_processor, PoseDataPreprocessor)
+        self.pre_processor: PoseDataPreprocessor = cast(
+            PoseDataPreprocessor, pre_processor
+        )
 
         self.inferencer = inferencer
-        self.model = self.inferencer.inferencer.model
-        self.pre_processor = self.inferencer.inferencer.model.data_preprocessor
 
     @classmethod
     def from_pretrained(cls) -> RTMPosebody2d:
         """RTMPose comes from the MMPose library, so we load using an internal config
-        rather than a public weights file"""
-        inferencer = MMPoseInferencer(
-            DEFAULT_INFERENCER_ARCH, device=torch.device(type="cpu")
-        )
-        return cls(inferencer)
+        rather than a public weights file
+        """
+        inferencer = MMPoseInferencer(DEFAULT_INFERENCER_ARCH, device="cpu")
+        set_mmpose_inferencer_show_progress(inferencer, False)
+        assert isinstance(inferencer.inferencer, Pose2DInferencer)
+        return cls(cast(Pose2DInferencer, inferencer.inferencer))
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass for processing the inout image ad obtaining the model outputs.
-        Parameters:
+
+        Parameters
+        ----------
             image: Pixel values pre-processed for encoder consumption.
                     Range: float[0, 1]
                     3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             -tuple[torch.Tensor, torch.Tensor]: A tuple containg:
                 -output 1: SimCC x- axis predictions with shaoe (N, 17, 384), where :
                     N = batch size ,
@@ -71,7 +88,7 @@ class RTMPosebody2d(BaseModel):
         """
         x = image[:, [2, 1, 0], ...]  # RGB -> BGR
         x = (x - self.pre_processor.mean) / self.pre_processor.std
-        return self.model._forward(x)
+        return cast(tuple[torch.Tensor, torch.Tensor], self.model._forward(x))
 
     def _sample_inputs_impl(
         self, input_spec: InputSpec | None = None

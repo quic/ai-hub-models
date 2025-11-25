@@ -12,7 +12,12 @@ import numpy as np
 import torch
 from PIL import Image
 
-from qai_hub_models.datasets.common import BaseDataset, DatasetMetadata, DatasetSplit
+from qai_hub_models.datasets.common import (
+    BaseDataset,
+    DatasetMetadata,
+    DatasetSplit,
+    UnfetchableDatasetError,
+)
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
 from qai_hub_models.utils.image_processing import app_to_net_image_inputs
 
@@ -54,9 +59,7 @@ def class_map_lookup(key: int):
 
 
 class CityscapesDataset(BaseDataset):
-    """
-    Wrapper class around Cityscapes dataset https://www.cityscapes-dataset.com/
-    """
+    """Wrapper class around Cityscapes dataset https://www.cityscapes-dataset.com/"""
 
     def __init__(
         self,
@@ -105,7 +108,7 @@ class CityscapesDataset(BaseDataset):
         for subdir in sorted(self.images_path.iterdir(), key=lambda item: item.name):
             for img_path in sorted(subdir.iterdir(), key=lambda item: item.name):
                 if not img_path.name.endswith("leftImg8bit.png"):
-                    print(f"Invalid file: {str(img_path)}")
+                    print(f"Invalid file: {img_path!s}")
                     return False
                 if Image.open(img_path).size != (WIDTH, HEIGHT):
                     raise ValueError(Image.open(img_path).size)
@@ -115,22 +118,20 @@ class CityscapesDataset(BaseDataset):
                 )
                 gt_path = self.gt_path / subdir.name / gt_filename
                 if not gt_path.exists():
-                    print(f"Ground truth file not found: {str(gt_path)}")
+                    print(f"Ground truth file not found: {gt_path!s}")
                     return False
                 self.image_list.append(img_path)
                 self.gt_list.append(gt_path)
         return True
 
     def _download_data(self) -> None:
-        no_zip_error = ValueError(
-            "Cityscapes does not have a publicly downloadable URL, "
-            "so users need to manually download it by following these steps: \n"
-            "1. Go to https://www.cityscapes-dataset.com/ and make an account\n"
-            "2. Go to https://www.cityscapes-dataset.com/downloads/ and download "
-            "`leftImg8bit_trainvaltest.zip` and `gtFine_trainvaltest.zip`\n"
-            "3. Run `python -m qai_hub_models.datasets.configure_dataset "
-            "--dataset cityscapes --files /path/to/leftImg8bit_trainvaltest.zip "
-            "/path/to/gtFine_trainvaltest.zip`"
+        no_zip_error = UnfetchableDatasetError(
+            dataset_name=self.dataset_name(),
+            installation_steps=[
+                "Go to https://www.cityscapes-dataset.com/ and make an account",
+                "Go to https://www.cityscapes-dataset.com/downloads/ and download `leftImg8bit_trainvaltest.zip` and `gtFine_trainvaltest.zip`",
+                "Run `python -m qai_hub_models.datasets.configure_dataset --dataset cityscapes --files /path/to/leftImg8bit_trainvaltest.zip /path/to/gtFine_trainvaltest.zip`",
+            ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
             IMAGES_DIR_NAME + ".zip"
@@ -147,9 +148,7 @@ class CityscapesDataset(BaseDataset):
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """
-        The default value for how many samples to run in each inference job.
-        """
+        """The default value for how many samples to run in each inference job."""
         return 50
 
     @staticmethod

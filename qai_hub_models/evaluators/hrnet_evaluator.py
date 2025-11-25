@@ -21,7 +21,8 @@ class HRNetPoseEvaluator(CocoBodyPoseEvaluator):
     ) -> None:
         """Process a batch of HRNet model outputs and ground truth data.
 
-        Args:
+        Parameters
+        ----------
             output: Model predictions which can be :
                    - A tuple containing (heatmaps,) [batch, joints, H, W]
             gt: Ground truth data containing:
@@ -32,5 +33,7 @@ class HRNetPoseEvaluator(CocoBodyPoseEvaluator):
         """
         output = output[0] if isinstance(output, tuple) else output
         image_ids, category_ids, center, scale = gt
-        preds, maxvals = get_final_preds(output.detach().cpu().numpy(), center, scale)
+        preds, maxvals = get_final_preds(
+            output.detach().cpu().numpy(), center.numpy(), scale.numpy()
+        )
         self._store_predictions(preds, maxvals, image_ids, category_ids)

@@ -9,7 +9,7 @@ import sys
 from importlib import reload
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.hrnet_evaluator import HRNetPoseEvaluator
@@ -57,11 +57,10 @@ class HRNetPose(BaseModel):
 
     @classmethod
     def from_pretrained(cls, variant: str = DEFAULT_VARIANT) -> HRNetPose:
-
         weights_file = CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, WEIGHTS[variant]
         ).fetch()
-        weights = torch.load(weights_file, map_location="cpu")
+        weights = torch.load(weights_file, map_location="cpu", weights_only=False)
         with SourceAsRoot(
             SOURCE_REPOSITORY,
             COMMIT_HASH,
@@ -87,9 +86,7 @@ class HRNetPose(BaseModel):
             return cls(net, variant)
 
     def forward(self, image):
-        """
-        Image inputs are expected to be in RGB format in the range [0, 1].
-        """
+        """Image inputs are expected to be in RGB format in the range [0, 1]."""
         image = normalize_image_torchvision(image)
         return self.model(image)
 
@@ -121,8 +118,7 @@ class HRNetPose(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         if self.variant == "mpii":
             return MPIIPoseEvaluator()
-        else:
-            return HRNetPoseEvaluator()
+        return HRNetPoseEvaluator()
 
     @staticmethod
     def eval_datasets() -> list[str]:

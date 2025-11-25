@@ -28,9 +28,7 @@ NUM_CLASSES = 150
 
 
 class SegformerBase(BaseModel):
-    """
-    Segformer Base segmentation
-    """
+    """Segformer Base segmentation"""
 
     @classmethod
     def from_pretrained(cls, ckpt: str = DEFAULT_WEIGHTS) -> SegformerBase:
@@ -41,12 +39,14 @@ class SegformerBase(BaseModel):
         """
         Predict semantic segmentation an input `image`.
 
-        Parameters:
+        Parameters
+        ----------
             image: A [1, 3, height, width] image.
                 Range: float[0, 1]
                 3-channel Color Space: RGB
 
-        Returns:
+        Returns
+        -------
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

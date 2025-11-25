@@ -6,16 +6,23 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
-from ultralytics.engine.results import Results
-from ultralytics.models.fastsam import FastSAMPrompt
-from ultralytics.models.fastsam.utils import bbox_iou
-from ultralytics.utils import ops
+from ultralytics.engine.results import Annotator, colors
+from ultralytics.models.fastsam.utils import adjust_bboxes_to_image_border
+from ultralytics.utils.metrics import box_iou
+from ultralytics.utils.ops import crop_mask
 
-from qai_hub_models.utils.image_processing import preprocess_PIL_image
+from qai_hub_models.utils.bounding_box_processing import batched_nms
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    denormalize_coordinates,
+    resize_pad,
+)
 
 
 class FastSAMApp:
@@ -34,9 +41,12 @@ class FastSAMApp:
 
     def __init__(
         self,
-        fastsam_model: Callable[[torch.Tensor], torch.Tensor],
-        confidence: float = 0.4,
-        iou_threshold: float = 0.9,
+        fastsam_model: Callable[
+            [torch.Tensor],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        ],
+        confidence: float = 0.25,
+        iou_threshold: float = 0.7,
         retina_masks: bool = True,
         model_image_input_shape: tuple[int, int] = (640, 640),
     ):
@@ -50,85 +60,166 @@ class FastSAMApp:
         # See upscale_image.
         return self.segment_image(*args, **kwargs)
 
-    def segment_image(self, image_path: str) -> tuple[list[Results], FastSAMPrompt]:
+    def segment_image(
+        self,
+        pixel_values_or_image: (
+            torch.Tensor | np.ndarray | Image.Image | list[Image.Image]
+        ),
+        raw_output: bool = False,
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[Image.Image]
+    ):
         """
         Upscale provided images
 
-        Parameters:
+        Parameters
+        ----------
             pixel_values_or_image: torch.Tensor
                 Input PIL image (before pre-processing) or pyTorch tensor (after image pre-processing).
 
-        Returns:
-            images: list[PIL.Image.Image]
-                A list of upscaled images (one for each input image).
+        Returns
+        -------
+            if raw_output is False:
+                images: list[PIL.Image.Image]
+                    A list of images with masks / boxes/ confidences drawn.
+            if raw_output is True:
+                boxes
+                    List of each batch of predicted bounding boxes.
+                    Each tensor is shape [N, 4], where N is the number of boxes
+                    and 4 == [x1, y1, x2, y2] (box coordinates in pixel space)
+                scores:
+                    List of each batch of predicted box scores.
+                    Each tensor is shape [B], where N is the number of boxes.
+                masks:
+                    List of each batch of predicted masks.
+                    Each tensor is shape [N, H, W], where N is the number of boxes,
+                    and (H, W) is the network image input shape.
         """
-        original_image = Image.open(image_path)
-        resized_image = original_image.resize(
-            (self.model_image_input_shape[0], self.model_image_input_shape[1])
+        # Input Prep
+        NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
+            pixel_values_or_image
         )
-        img = preprocess_PIL_image(resized_image)
-        original_image_arr = np.array(original_image)
-        raw_boxes, raw_masks = self.model(img)
-        nms_out = ops.non_max_suppression(
-            raw_boxes,
-            self.confidence,
+
+        source_image_size = (
+            NCHW_fp32_torch_frames.shape[2],
+            NCHW_fp32_torch_frames.shape[3],
+        )
+        images, scales, paddings = resize_pad(
+            NCHW_fp32_torch_frames, self.model_image_input_shape
+        )
+
+        pred_boxes, pred_scores, pred_mask_coeffs, pred_mask_protos = self.model(images)
+
+        # Non Maximum Suppression on each batch
+        boxes: list[torch.Tensor]
+        scores: list[torch.Tensor]
+        mask_coeffs: list[torch.Tensor]
+        masks: list[torch.Tensor] = []
+        (
+            boxes,
+            scores,
+            mask_coeffs,
+        ) = batched_nms(
             self.iou_threshold,
-            agnostic=False,
-            max_det=100,
-            nc=1,  # set to 1 class since SAM has no class predictions
-            classes=None,
+            self.confidence,
+            pred_boxes,
+            pred_scores,
+            None,
+            pred_mask_coeffs,
         )
 
-        full_box = torch.zeros(nms_out[0].shape[1], device=nms_out[0].device)
-        full_box[2], full_box[3], full_box[4], full_box[6:] = (
-            img.shape[3],
-            img.shape[2],
-            1.0,
-            1.0,
-        )
-        full_box = full_box.view(1, -1)
-        critical_iou_index = bbox_iou(
-            full_box[0][:4], nms_out[0][:, :4], iou_thres=0.9, image_shape=img.shape[2:]
-        )
-        if (
-            isinstance(critical_iou_index, torch.Tensor)
-            and critical_iou_index.numel() != 0
-        ):
-            full_box[0][4] = nms_out[0][critical_iou_index][:, 4]
-            full_box[0][6:] = nms_out[0][critical_iou_index][:, 6:]
-            nms_out[0][critical_iou_index] = full_box
+        for batch_idx in range(len(pred_boxes)):
+            batch_boxes = boxes[batch_idx]
+            batch_mask_coeffs = mask_coeffs[batch_idx]
+            batch_mask_protos = pred_mask_protos[batch_idx]
+            batch_scores = scores[batch_idx]
 
-        results: list[Results] = []
-        for i, pred in enumerate(nms_out):
-            orig_img = original_image_arr
-            img_path = image_path[i]
-            # No predictions, no masks
-            if not len(pred):
-                masks = None
-            elif self.retina_masks:
-                pred[:, :4] = ops.scale_boxes(
-                    img.shape[2:], pred[:, :4], orig_img.shape
-                )
-
-                masks = ops.process_mask_native(
-                    raw_masks[i], pred[:, 6:], pred[:, :4], orig_img.shape[:2]
-                )  # HWC
-            else:
-                masks = ops.process_mask(
-                    raw_masks[i], pred[:, 6:], pred[:, :4], img.shape[2:], upsample=True
-                )  # HWC
-                pred[:, :4] = ops.scale_boxes(
-                    img.shape[2:], pred[:, :4], orig_img.shape
-                )
-            results.append(
-                Results(
-                    orig_img,
-                    path=img_path,
-                    names="fastsam",
-                    boxes=pred[:, :6],
-                    masks=masks,
-                )
+            # Compute masks from coeffs + protos
+            # It's possible to do this once on all anchors (inside the network)
+            # instead of running it after NMS for each batch. However, the batched matmul
+            # in the network is very expensive; it increases network latency by 10x.
+            #
+            # Instead of computing the masks before NMS, computing after substantually
+            # reduces computation needs because we have many fewer boxes to deal with.
+            c, proto_h, proto_w = batch_mask_protos.shape
+            batch_masks = (batch_mask_coeffs @ batch_mask_protos.view(c, -1)).view(
+                -1, proto_h, proto_w
             )
-        prompt_process = FastSAMPrompt(image_path, results, device="cpu")
-        segmented_result = prompt_process.everything_prompt()
-        return segmented_result, prompt_process
+
+            # Crop masks to associated bounding box
+            ih, iw = source_image_size
+            mw, mh = (batch_masks.shape[1], batch_masks.shape[2])
+            width_ratio = mw / iw
+            height_ratio = mh / ih
+            downsampled_bboxes = batch_boxes.clone()
+            downsampled_bboxes[:, 0] *= width_ratio
+            downsampled_bboxes[:, 2] *= width_ratio
+            downsampled_bboxes[:, 3] *= height_ratio
+            downsampled_bboxes[:, 1] *= height_ratio
+            batch_masks = cast(torch.Tensor, crop_mask(batch_masks, downsampled_bboxes))
+
+            # Rescale masks to original image size
+            batch_masks = F.interpolate(
+                batch_masks.unsqueeze(1),
+                self.model_image_input_shape,
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(1)
+
+            # Make mask a 1-hot mapping
+            batch_masks = torch.gt(batch_masks, 0.0).type(torch.uint8)
+
+            # Denormalize coords to original image size, clip to image size
+            denormalize_coordinates(
+                batch_boxes.view(-1, 2, 2), (1, 1), scales, paddings
+            )
+            batch_boxes[..., [1, 3]] = torch.clip(
+                batch_boxes[..., [1, 3]], 0, source_image_size[0]
+            )  # y1, y2
+            batch_boxes[..., [0, 2]] = torch.clip(
+                batch_boxes[..., [0, 2]], 0, source_image_size[1]
+            )  # x1, x2
+
+            # Only keep predictions with masks
+            keep = batch_masks.sum((-2, -1)) > 0  # only keep predictions with masks
+            batch_boxes, batch_scores, batch_masks = (
+                batch_boxes[keep],
+                batch_scores[keep],
+                batch_masks[keep],
+            )
+
+            # Adjust boxes to match the edge of the image, if close enough.
+            full_box = torch.tensor([0, 0, *source_image_size], dtype=torch.float32)
+            batch_boxes = adjust_bboxes_to_image_border(batch_boxes, source_image_size)
+            idx = torch.nonzero(
+                input=box_iou(full_box[None], batch_boxes) > self.iou_threshold
+            ).flatten()
+            if idx.numel() != 0:
+                batch_boxes[idx] = full_box
+
+            masks.append(batch_masks)
+            scores[batch_idx] = batch_scores
+            boxes[batch_idx] = batch_boxes
+
+        # Return raw output if requested
+        if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
+            return boxes, scores, masks
+
+        # Overlay the segmentation masks on the image.
+        out = []
+        for batch_idx in range(len(pred_boxes)):
+            batch_boxes = boxes[batch_idx]
+            batch_masks = masks[batch_idx]
+            batch_scores = scores[batch_idx]
+            batch_frame = NHWC_int_numpy_frames[batch_idx]
+            cc = [colors(x, True) for x in reversed(range(len(batch_masks)))]
+            a = Annotator(batch_frame, pil=True)
+            a.masks(batch_masks.numpy(), colors=cc)
+            for box_idx, box in enumerate(batch_boxes):
+                a.box_label(
+                    box, f"{batch_scores[box_idx].item():.2f}", color=cc[box_idx]
+                )
+            out.append(a.im)
+
+        return out
