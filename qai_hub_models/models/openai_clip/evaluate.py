@@ -14,9 +14,14 @@ import qai_hub as hub
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.openai_clip import MODEL_ID, Model
 from qai_hub_models.models.openai_clip.export import export_model
-from qai_hub_models.utils.args import evaluate_parser, get_model_kwargs
+from qai_hub_models.utils.args import (
+    evaluate_parser,
+    get_input_spec_kwargs,
+    get_model_kwargs,
+)
 from qai_hub_models.utils.evaluate import evaluate_on_dataset
 from qai_hub_models.utils.inference import compile_model_from_args
+from qai_hub_models.utils.input_spec import InputSpec
 
 
 def main():
@@ -36,44 +41,55 @@ def main():
         model_cls=Model,
         supported_datasets=eval_datasets,
         supported_precision_runtimes=supported_precision_runtimes,
+        uses_quantize_job=False,
+        default_device="Samsung Galaxy S25 (Family)",
     )
     args = parser.parse_args()
-    device: hub.Device = args.device or hub.Device("Samsung Galaxy S25 (Family)")
+
+    model_kwargs = get_model_kwargs(Model, vars(args))
+    input_spec_kwargs = get_input_spec_kwargs(Model, vars(args))
 
     if len(eval_datasets) == 0:
         print(
             "Model does not have evaluation dataset specified. Evaluating PSNR on a single sample."
         )
         export_model(
-            device=device,
+            device=args.device,
             target_runtime=args.target_runtime,
             skip_downloading=True,
             skip_profiling=True,
             compile_options=args.compile_options,
             profile_options=args.profile_options,
-            **get_model_kwargs(Model, vars(args)),
+            **{**model_kwargs, **input_spec_kwargs},
         )
         return
 
-    if args.hub_model_id is not None:
-        hub_model = hub.get_model(args.hub_model_id)
-    else:
-        hub_model = compile_model_from_args(
-            MODEL_ID, args, get_model_kwargs(Model, vars(args))
-        )
+    compiled_model: hub.Model | None = None
+    if not args.skip_device_accuracy:
+        if args.hub_model_id is not None:
+            compiled_model = hub.get_model(args.hub_model_id)
+        else:
+            compiled_model = compile_model_from_args(
+                MODEL_ID, args, {**model_kwargs, **input_spec_kwargs}
+            )
+
     torch_model = Model.from_pretrained(**get_model_kwargs(Model, vars(args)))
+    input_spec: InputSpec | None = None
+    if not args.skip_torch_accuracy and not compiled_model:
+        input_spec = torch_model.get_input_spec(**input_spec_kwargs)
+
     evaluate_on_dataset(
-        hub_model,
-        torch_model,
-        device,
-        args.dataset_name,
-        args.samples_per_job,
-        args.num_samples,
-        args.seed,
-        args.profile_options,
-        args.use_dataset_cache,
-        skip_device_accuracy=args.skip_device_accuracy,
-        skip_torch_accuracy=args.skip_torch_accuracy,
+        evaluator_func=torch_model.get_evaluator,
+        dataset_name=args.dataset_name,
+        input_spec=input_spec,
+        torch_model=torch_model,
+        compiled_model=compiled_model,
+        hub_device=args.device,
+        samples_per_job=args.samples_per_job,
+        num_samples=args.num_samples,
+        seed=args.seed,
+        profile_options=args.profile_options,
+        use_cache=args.use_dataset_cache,
     )
 
 

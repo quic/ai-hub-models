@@ -15,6 +15,7 @@ import torch
 from qai_hub.client import Device
 from typing_extensions import Self
 
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models.common import (
     Precision,
     QAIRTVersion,
@@ -159,6 +160,31 @@ class CollectionModel:
         """
         return []
 
+    def sample_inputs(
+        self,
+        input_spec: InputSpec | None = None,
+        use_channel_last_format: bool = True,
+    ) -> dict[str, SampleInputsType]:
+        return {
+            component_name: component.sample_inputs(
+                input_spec=input_spec, use_channel_last_format=use_channel_last_format
+            )
+            for component_name, component in self.components.items()
+        }
+
+    def get_hub_profile_options(
+        self,
+        target_runtime: TargetRuntime,
+        other_profile_options: str = "",
+    ) -> dict[str, str]:
+        return {
+            component_name: component.get_hub_profile_options(
+                target_runtime=target_runtime,
+                other_profile_options=other_profile_options,
+            )
+            for component_name, component in self.components.items()
+        }
+
 
 class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
     @classmethod
@@ -234,7 +260,7 @@ class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
 
 
 class HubModel(HubModelProtocol):
-    """Base interface for AI Hub models."""
+    """Base interface for AI Hub Workbench models."""
 
     def __init__(self):
         # If a child class implements _get_input_spec_for_instance(),
@@ -345,7 +371,7 @@ class HubModel(HubModelProtocol):
         other_profile_options: str = "",
         context_graph_name: str | None = None,
     ) -> str:
-        """AI Hub profile options recommended for the model."""
+        """AI Hub Workbench profile options recommended for the model."""
         if QAIRTVersion.HUB_FLAG not in other_profile_options:
             other_profile_options = (
                 other_profile_options
@@ -368,7 +394,7 @@ class HubModel(HubModelProtocol):
         target_runtime: TargetRuntime,
         other_link_options: str = "",
     ) -> str:
-        """AI Hub link options recommended for the model."""
+        """AI Hub Workbench link options recommended for the model."""
         if QAIRTVersion.HUB_FLAG not in other_link_options:
             other_link_options = (
                 other_link_options
@@ -400,7 +426,7 @@ class BaseModel(
     PretrainedHubModelProtocol,
     ExecutableModelProtocol,
 ):
-    """A pre-trained PyTorch model with helpers for submission to AI Hub."""
+    """A pre-trained PyTorch model with helpers for submission to AI Hub Workbench."""
 
     def __init__(self, model: torch.nn.Module | None = None):
         torch.nn.Module.__init__(self)  # Initialize Torch Module
@@ -459,7 +485,7 @@ class BaseModel(
         external_onnx_weights: bool = False,
         output_names: list[str] | None = None,
     ) -> str | None:
-        """Convert to a AI Hub source model appropriate for the export method."""
+        """Convert to a AI Hub Workbench source model appropriate for the export method."""
         # Local import to prevent circular dependency
         from qai_hub_models.utils.inference import prepare_compile_zoo_model_to_hub
 
@@ -482,7 +508,7 @@ class BaseModel(
         device: Device | None = None,
         context_graph_name: str | None = None,
     ) -> str:
-        """AI Hub compile options recommended for the model."""
+        """AI Hub Workbench compile options recommended for the model."""
         compile_options = ""
         if "--target_runtime" not in other_compile_options:
             compile_options = target_runtime.aihub_target_runtime_flag
@@ -534,7 +560,7 @@ class BaseModel(
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """Source model format preferred for conversion on AI Hub."""
+        """Source model format preferred for conversion on AI Hub Workbench."""
         return SourceModelFormat.TORCHSCRIPT
 
     def get_unsupported_reason(
@@ -556,6 +582,10 @@ class BaseModel(
         """
         return []
 
+    def get_evaluator(self) -> BaseEvaluator:
+        """Gets a class for evaluating output of this model."""
+        raise NotImplementedError("No evaluator is supported for this model.")
+
     @staticmethod
     def calibration_dataset_name() -> str | None:
         """
@@ -567,9 +597,9 @@ class BaseModel(
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
         """
-        Return the AI Hub quantize options for the given model precision.
+        Return the AI Hub Workbench quantize options for the given model precision.
 
-        Generates CLI flags used during AI Hub quantization.
+        Generates CLI flags used during AI Hub Workbench quantization.
 
         - For `w8a8` precision, the default `range_scheme` is `mse_minimizer`.
         - For `w8a16` and mixed-precision profiles, the `range_scheme` is set to `min_max`.

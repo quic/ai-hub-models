@@ -21,10 +21,6 @@ from qai_hub_models.scorecard.envvars import (
 from qai_hub_models.scorecard.path_compile import ScorecardCompilePath
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
-from qai_hub_models.utils.default_export_device import (
-    CANARY_DEVICES,
-    DEFAULT_EXPORT_DEVICE,
-)
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
 _FRAMEWORK_ATTR_PREFIX = "framework"
@@ -47,6 +43,11 @@ class ScorecardDevice:
 
     @classmethod
     def get(cls, device_name: str, return_unregistered=False) -> ScorecardDevice:
+        if device_name == "default":
+            for device in cls._registry.values():
+                if device.is_default:
+                    return device
+            raise ValueError("No default device found.")
         # If the name is a device name in the registry, return that device
         if device_name in ScorecardDevice._registry:
             return ScorecardDevice._registry[device_name]
@@ -106,7 +107,7 @@ class ScorecardDevice:
                 (enabled is None or enabled == device.enabled)
                 and (
                     not check_available_in_hub
-                    # Ignore availability check if AI Hub is not accessible
+                    # Ignore availability check if AI Hub Workbench is not accessible
                     or not can_access_qualcomm_ai_hub()
                     or device.available_in_hub
                 )
@@ -168,6 +169,7 @@ class ScorecardDevice:
         npu_count: int | None = None,
         public: bool = True,
         register: bool = True,
+        is_default: bool = False,
     ):
         """
         Parameters
@@ -188,10 +190,12 @@ class ScorecardDevice:
 
             npu_count: How many NPUs this device has. If undefined, uses the NPU count of the mirror device or defaults to 1.
 
-            public: Whether this device is publicly available on AI Hub.
+            public: Whether this device is publicly available on AI Hub Workbench.
                 NOTE: Private devices are not included when "all" devices are selected. They must be explicitly included in the list of devices to test.
 
             register: Whether to register this device in the list of all devices.
+
+            is_default: Whether this device represents the user choosing the default device.
         """
         if register and name in ScorecardDevice._registry:
             raise ValueError("Device " + name + "already registered.")
@@ -221,6 +225,7 @@ class ScorecardDevice:
         self.mirror_device: ScorecardDevice | None = mirror_device
         self._npu_count = npu_count
         self.public = public
+        self.is_default = is_default
 
         if register:
             ScorecardDevice._registry[name] = self
@@ -254,7 +259,6 @@ class ScorecardDevice:
         return core_schema.with_info_after_validator_function(
             lambda obj, _: cls.parse(obj),
             handler(Any),
-            field_name=handler.field_name,
             serialization=core_schema.plain_serializer_function_ser_schema(
                 ScorecardDevice.__str__, when_used="json"
             ),
@@ -302,7 +306,7 @@ class ScorecardDevice:
 
     @cached_property
     def available_in_hub(self) -> bool:
-        """Returns true if this device is available in AI Hub."""
+        """Returns true if this device is available in AI Hub Workbench."""
         return _get_cached_device(self.reference_device_name) is not None and (
             self.execution_device_name is None
             or _get_cached_device(self.execution_device_name) is not None
@@ -457,7 +461,7 @@ class ScorecardDevice:
 
         Note that we exclude some paths that are "supported" by Hub devices
         because we don't want to test them in scorecard. For example, we don't
-        run ONNX on auto devices even though this is supported by AI Hub.
+        run ONNX on auto devices even though this is supported by AI Hub Workbench.
         """
         if self.mirror_device:
             return self.mirror_device.profile_paths
@@ -548,6 +552,7 @@ cs_8_elite = ScorecardDevice(
     name="cs_8_elite",
     reference_device_name="Samsung Galaxy S25",
     execution_device_name="Samsung Galaxy S25 (Family)",
+    is_default=True,
 )
 
 cs_7_gen_4 = ScorecardDevice(
@@ -632,4 +637,12 @@ cs_9075 = ScorecardDevice(
 cs_xr_8450 = ScorecardDevice(name="cs_xr_8450", reference_device_name="QCS8450 (Proxy)")
 
 
-DEFAULT_SCORECARD_DEVICE = ScorecardDevice.get(DEFAULT_EXPORT_DEVICE)
+DEFAULT_SCORECARD_DEVICE = ScorecardDevice.get("default")
+DEFAULT_EXPORT_DEVICE = (
+    ScorecardDevice.get("default").execution_device_name
+    or ScorecardDevice.get("default").reference_device_name
+)
+CANARY_DEVICES = {
+    DEFAULT_EXPORT_DEVICE,
+    "Snapdragon X Elite CRD",
+}

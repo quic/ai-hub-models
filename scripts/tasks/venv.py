@@ -100,7 +100,7 @@ class DownloadPrivateDatasetsTask(RunCommandsWithVenvTask):
         )
 
 
-class DownloadQAIRTAndQDCWheelTask(RunCommandsWithVenvTask):
+class DownloadQDCWheelTask(RunCommandsWithVenvTask):
     # Needed to run tests relying on QDC (e.g. Genie exports)
     def __init__(
         self,
@@ -110,9 +110,9 @@ class DownloadQAIRTAndQDCWheelTask(RunCommandsWithVenvTask):
         ignore_return_codes: list[int] | None = None,
     ):
         super().__init__(
-            "Download QAIRT and QDC Wheel",
+            "Download QDC Wheel",
             venv,
-            ["python -m qai_hub_models.scripts.download_qairt_and_qdc_tools"],
+            ["python -m qai_hub_models.scripts.download_qdc_tools"],
             env,
             raise_on_failure,
             ignore_return_codes or [],

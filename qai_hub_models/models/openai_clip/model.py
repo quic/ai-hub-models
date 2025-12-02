@@ -8,26 +8,26 @@ from __future__ import annotations
 import contextlib
 from collections.abc import Callable
 
+import clip
 import torch
 import torch.nn.functional as F
+from clip.model import CLIP
 from PIL.Image import Image
 from torch import Tensor
 
-from qai_hub_models.utils.asset_loaders import SourceAsRoot, callback_with_retry
+from qai_hub_models.utils.asset_loaders import callback_with_retry
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 PRETRAINED_WEIGHTS = "ViT-B/16"
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
-OPENAI_CLIP_SOURCE_REPOSITORY = "https://github.com/openai/CLIP"
-OPENAI_CLIP_SOURCE_REPO_COMMIT = "a1d071733d7111c9c014f024669f959182114e33"
 
 
 class OpenAIClip(BaseModel):
     def __init__(
         self,
-        clip: torch.nn.Module,
+        clip: CLIP,
         text_tokenizer: Callable[[str], torch.Tensor],
         image_preprocessor: Callable[[Image], torch.Tensor],
     ):
@@ -58,16 +58,16 @@ class OpenAIClip(BaseModel):
         """
         with patched_in_projection_packed():
             clipped_text = torch.clip(text, min=0, max=self.eot_token)
-            text_features = self.clip.encode_text(clipped_text)  # type: ignore[operator]
+            text_features = self.clip.encode_text(clipped_text)
             # text_features: torch.Tensor [512 (transformer_width), num_text_prompts]
             # Raw text features.
             text_features = text_features / text_features.norm(dim=1, keepdim=True)
 
-            image_features = self.clip.encode_image(image)  # type: ignore[operator]
+            image_features = self.clip.encode_image(image)
             image_features = image_features / image_features.norm(dim=1, keepdim=True)
             # image_features: torch.Tensor [num_images, 512 (transformer_width)]
             # Raw image features (multiplied to 100)
-            image_features = self.clip.logit_scale.exp() * image_features  # type: ignore[operator]
+            image_features = self.clip.logit_scale.exp() * image_features
 
         return image_features @ text_features.t()
 
@@ -99,22 +99,15 @@ class OpenAIClip(BaseModel):
     @classmethod
     def from_pretrained(cls) -> OpenAIClip:
         def load_clip():
-            with SourceAsRoot(
-                OPENAI_CLIP_SOURCE_REPOSITORY,
-                OPENAI_CLIP_SOURCE_REPO_COMMIT,
-                MODEL_ID,
-                MODEL_ASSET_VERSION,
-            ):
-                import clip
-
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-                tokenizer = clip.tokenize
-                net, preprocess = clip.load(PRETRAINED_WEIGHTS, device=device)
-                return net, tokenizer, preprocess
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            tokenizer = clip.tokenize
+            net, preprocess = clip.load(PRETRAINED_WEIGHTS, device=device)
+            return net, tokenizer, preprocess
 
         net, tokenizer, preprocess = callback_with_retry(
             num_retries=5, callback=load_clip
         )
+        assert isinstance(net, CLIP)
         return OpenAIClip(net, tokenizer, preprocess)
 
 

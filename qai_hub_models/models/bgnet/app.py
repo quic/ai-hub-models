@@ -79,7 +79,7 @@ class BGNetApp:
             out.append(
                 Image.blend(
                     Image.fromarray(img_tensor),
-                    Image.fromarray(color_map[pred_mask_img[i]]),
+                    Image.fromarray(color_map[pred_mask_img[i][0]]),
                     alpha=0.5,
                 )
             )
@@ -100,7 +100,7 @@ def postprocess_masks(
 
     Returns
     -------
-        torch.Tensor: Masks [N, H, W], uint8
+        torch.Tensor: Masks [N, C, H, W], uint8
     """
     # Upsample pred mask to original image size
     # Need to upsample in the probability space, not in class labels
@@ -112,9 +112,10 @@ def postprocess_masks(
         align_corners=False,
     )
 
-    pred_masks = pred_masks.sigmoid().squeeze(0)
-    pred_masks = (pred_masks - pred_masks.min()) / (
-        pred_masks.max() - pred_masks.min() + 1e-8
-    )
+    pred_masks = pred_masks.sigmoid()
+    mask_min = pred_masks.amin((1, 2, 3))
+    mask_max = pred_masks.amax((1, 2, 3))
+    pred_masks = (pred_masks - mask_min) / (mask_max - mask_min + 1e-8)
+
     # convert segmentation mask to RGB image
     return (pred_masks * 255).to(torch.uint8)

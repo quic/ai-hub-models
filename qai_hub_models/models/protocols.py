@@ -26,7 +26,7 @@ from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from qai_hub.client import DatasetEntries, Device, SourceModel
 
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, _DataLoader
+from qai_hub_models.evaluators.base_evaluators import _DataLoader
 from qai_hub_models.models.common import (
     Precision,
     SampleInputsType,
@@ -54,9 +54,14 @@ class HubModelProtocol(Protocol):
         ...
 
     @abstractmethod
-    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+    def sample_inputs(
+        self,
+        input_spec: InputSpec | None = None,
+        use_channel_last_format: bool = True,
+    ) -> SampleInputsType:
         """
-        Returns a set of sample inputs for the model.
+        Returns a set of sample inputs for the model. Or, for component models,
+        a dictionary of sample inputs indexed by the component name.
 
         For each input name in the model, a list of numpy arrays is provided.
         If the returned set is batch N, all input names must contain exactly N numpy arrays.
@@ -149,16 +154,6 @@ class ExecutableModelProtocol(Protocol, Generic[T_co]):
 
 
 @runtime_checkable
-class EvalModelProtocol(Protocol):
-    """Models follow this protocol if they can be numerically evaluated."""
-
-    @abstractmethod
-    def get_evaluator(self) -> BaseEvaluator:
-        """Gets a class for evaluating output of this model."""
-        ...
-
-
-@runtime_checkable
 class FromPretrainedProtocol(Protocol):
     """Models follow this protocol if they can be initiated from a pretrained torch model."""
 
@@ -208,17 +203,17 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         other_compile_options: str = "",
         device: Device | None = None,
     ) -> str:
-        """AI Hub compile options recommended for the model."""
+        """AI Hub Workbench compile options recommended for the model."""
         ...
 
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """Source model format preferred for conversion on AI Hub."""
+        """Source model format preferred for conversion on AI Hub Workbench."""
         ...
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        """AI Hub quantize options recommended for the model."""
+        """AI Hub Workbench quantize options recommended for the model."""
         ...
 
 

@@ -162,6 +162,7 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Drone
+    enabled_in_scorecard: true
   QCS6490 (Proxy):
     chipset: qualcomm-qcs6490-proxy
     os:
@@ -178,6 +179,7 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Drone
+    enabled_in_scorecard: true
   QCS8250 (Proxy):
     chipset: qualcomm-qcs8250-proxy
     os:
@@ -194,6 +196,7 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Drone
+    enabled_in_scorecard: true
   Samsung Galaxy S22 Ultra 5G:
     chipset: qualcomm-snapdragon-8gen1
     os:
@@ -250,6 +253,7 @@ devices:
     form_factor: XR
     vendor: qualcomm
     icon: XR_Headset
+    enabled_in_scorecard: true
   XR2 Gen 2 (Proxy):
     chipset: qualcomm-qcs8450-proxy
     os:
@@ -266,6 +270,7 @@ devices:
     form_factor: Auto
     vendor: qualcomm
     icon: Car
+    enabled_in_scorecard: true
   SA8775 (Proxy):
     chipset: qualcomm-sa8775p-proxy
     os:
@@ -282,6 +287,7 @@ devices:
     form_factor: Auto
     vendor: qualcomm
     icon: Car
+    enabled_in_scorecard: true
   Samsung Galaxy S23:
     chipset: qualcomm-snapdragon-8gen2
     os:
@@ -314,6 +320,7 @@ devices:
     form_factor: Phone
     vendor: samsung
     icon: Phone_S24
+    enabled_in_scorecard: true
   Samsung Galaxy S24 Ultra:
     chipset: qualcomm-snapdragon-8gen3
     os:
@@ -338,6 +345,7 @@ devices:
     form_factor: Phone
     vendor: samsung
     icon: Phone_S21
+    enabled_in_scorecard: true
   Samsung Galaxy S25 Ultra:
     chipset: qualcomm-snapdragon-8-elite-for-galaxy
     os:
@@ -370,6 +378,7 @@ devices:
     form_factor: Compute
     vendor: qualcomm
     icon: Laptop_X_Elite
+    enabled_in_scorecard: true
   Snapdragon X Plus 8-Core CRD:
     chipset: qualcomm-snapdragon-x-plus-8-core
     os:
@@ -402,14 +411,16 @@ devices:
     form_factor: Phone
     vendor: qualcomm
     icon: Phone_S21
-  Snapdragon 7 Gen 5 QRD:
-    chipset: qualcomm-snapdragon-7gen5
+    enabled_in_scorecard: true
+  Snapdragon 7 Gen 4 QRD:
+    chipset: qualcomm-snapdragon-7gen4
     os:
       ostype: Android
-      version: '16'
+      version: '15'
     form_factor: Phone
     vendor: qualcomm
     icon: Phone_S21
+    enabled_in_scorecard: true
   SA8295P ADP:
     chipset: qualcomm-sa8295p
     os:
@@ -418,14 +429,7 @@ devices:
     form_factor: Auto
     vendor: qualcomm
     icon: Car
-  SA8255P ADP:
-    chipset: qualcomm-sa8255p
-    os:
-      ostype: Android
-      version: '14'
-    form_factor: Auto
-    vendor: qualcomm
-    icon: Car
+    enabled_in_scorecard: true
   SA8775P ADP:
     chipset: qualcomm-sa8775p
     os:
@@ -435,6 +439,7 @@ devices:
     vendor: qualcomm
     icon: Car
     npu_count: 2
+    enabled_in_scorecard: true
   SA7255P ADP:
     chipset: qualcomm-sa7255p
     os:
@@ -443,6 +448,16 @@ devices:
     form_factor: Auto
     vendor: qualcomm
     icon: Car
+    enabled_in_scorecard: true
+  Dragonwing Q-6690 MTP:
+    chipset: qualcomm-qcm6690
+    os:
+      ostype: Android
+      version: '15'
+    form_factor: IoT
+    vendor: qualcomm
+    icon: IoT_Drone
+    enabled_in_scorecard: true
   QCS9075 (Proxy):
     chipset: qualcomm-qcs9075-proxy
     os:
@@ -452,6 +467,7 @@ devices:
     vendor: qualcomm
     icon: IoT_Chip
     npu_count: 2
+    enabled_in_scorecard: true
   QCS8275 (Proxy):
     chipset: qualcomm-qcs8275-proxy
     os:
@@ -460,19 +476,12 @@ devices:
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Chip
-  Dragonwing RB3 Gen 2:
+    enabled_in_scorecard: true
+  Dragonwing RB3 Gen 2 Vision Kit:
     chipset: qualcomm-qcs6490
     os:
       ostype: Qualcomm Linux
-      version: '1.3'
-    form_factor: IoT
-    vendor: qualcomm
-    icon: IoT_Drone
-  Dragonwing QCS8550:
-    chipset: qualcomm-qcs8550
-    os:
-      ostype: Qualcomm Linux
-      version: '1.0'
+      version: '1.6'
     form_factor: IoT
     vendor: qualcomm
     icon: IoT_Drone
@@ -626,21 +635,16 @@ chipsets:
     - sm8850
     marketing_name: Snapdragon® 8 Elite Gen5 Mobile
     world: Mobile
-  qualcomm-snapdragon-7gen5:
+  qualcomm-snapdragon-7gen4:
     aliases:
-    - qualcomm-snapdragon-7gen5
+    - qualcomm-snapdragon-7gen4
     - sm7750
-    marketing_name: Snapdragon® 7 Gen 5 Mobile
+    marketing_name: Snapdragon® 7 Gen 4 Mobile
     world: Mobile
   qualcomm-sa8295p:
     aliases:
     - qualcomm-sa8295p
     marketing_name: Qualcomm® SA8295P
-    world: Automotive
-  qualcomm-sa8255p:
-    aliases:
-    - qualcomm-sa8255p
-    marketing_name: Qualcomm® SA8255P
     world: Automotive
   qualcomm-sa8775p:
     aliases:
@@ -652,6 +656,12 @@ chipsets:
     - qualcomm-sa7255p
     marketing_name: Qualcomm® SA7255P
     world: Automotive
+  qualcomm-qcm6690:
+    aliases:
+    - qualcomm-qcm6690
+    - qcm6690
+    marketing_name: Qualcomm® Qcm6690
+    world: IoT
   qualcomm-qcs9075-proxy:
     aliases:
     - qualcomm-qcs9075-proxy
@@ -665,10 +675,6 @@ chipsets:
   qualcomm-qcs6490:
     aliases:
     - qualcomm-qcs6490
+    - qcs6490
     marketing_name: Qualcomm® QCS6490
-    world: IoT
-  qualcomm-qcs8550:
-    aliases:
-    - qualcomm-qcs8550
-    marketing_name: Qualcomm® QCS8550
     world: IoT

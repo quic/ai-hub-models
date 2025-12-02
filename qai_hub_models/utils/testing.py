@@ -187,7 +187,7 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
 def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
     psnr_values = []
     for _, value in df.iterrows():
-        psnr_values.append(value.psnr)
+        psnr_values.append(str(value.psnr))
     return psnr_values, tabulate(df, **kwargs)  # pyright: ignore[reportArgumentType]
 
 
@@ -286,7 +286,7 @@ def mock_get_calibration_data(
     """
     Gets the calibration data needed to quantize the input model.
 
-    Since many models use the same calibration data, we save the hub dataset
+    Since many models use the same calibration data, we save the workbench dataset
     id to a file and re-use it across models to avoid re-uploading the same data
     to hub.
 
@@ -324,7 +324,7 @@ def get_val_dataset_id_keys(
     dataset_name: str, apply_channel_transpose: bool
 ) -> tuple[str, str]:
     """
-    Gets the keys used to store the hub dataset id in a yaml file.
+    Gets the keys used to store the workbench dataset id in a yaml file.
 
     This gives the keys for the validation split used to compute accuracy.
 
@@ -411,21 +411,10 @@ def get_hub_val_dataset(
     return input_dataset
 
 
-def allow_few_test_devices_for_llms(
-    target_runtime: TargetRuntime, device: ScorecardDevice
-) -> None:
-    if not target_runtime.is_aot_compiled:
-        pytest.skip("AIMET model currently runs on precompiled targets")
-    if device.name != "cs_x_elite":
-        pytest.skip(
-            "Running the tests for the model only on a few devices to save CI time."
-        )
-
-
 @contextlib.contextmanager
 def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     """
-    Generic AI Hub patch with assertable mocks. Example::
+    Generic AI Hub Workbench patch with assertable mocks. Example::
 
         with patch_qai_hub() as mock_hub:
             hub.submit_profile_job(...)

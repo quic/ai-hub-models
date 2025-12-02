@@ -103,8 +103,6 @@ def export_model(
     device
         Device for which to export the model (e.g. hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
-    chipset
-        Specify the device in terms of chipset instead.
     skip_profiling
         If set, skips profiling of compiled model on real devices.
     skip_inferencing
@@ -127,10 +125,10 @@ def export_model(
     synchronous
         If set, waits for each job to finish before submitting the next.
     model_cache_mode
-        Whether to cache uploaded AI Hub model during export.
-        If enable, caches uploaded model (i.e. re-uses uploaded AI Hub model from cache).
+        Whether to cache uploaded AI Hub Workbench model during export.
+        If enable, caches uploaded model (i.e. re-uses uploaded AI Hub Workbench model from cache).
         If disable, disables caching i.e. no reading from and write to cache.
-        If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.
+        If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub Workbench model instead.
     onnx_export_dir
         If set, save intermediate ONNX file under this directory.
     additional_model_kwargs
@@ -146,7 +144,7 @@ def export_model(
     """
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
 
-    # Resolves all of the device attributes from a partiall specified hub.Device
+    # Resolves all of the device attributes from a partially specified hub.Device
     hub_devices = hub.get_devices(
         name=device.name,
         attributes=device.attributes,
@@ -217,7 +215,7 @@ def export_model(
     if not onnx_export_dir:
         # TODO(#12640): This scope is not ideal and only a temporary fix until
         # this issue has landed and we can pull this IO information from the
-        # AI Hub model directly.
+        # AI Hub Workbench model directly.
         tmpdir_handler = tempfile.TemporaryDirectory()
         atexit.register(tmpdir_handler.cleanup)
         onnx_export_dir = tmpdir_handler.name
@@ -253,7 +251,6 @@ def export_model(
         assert source_model_dir is not None
         source_model_bundle = ONNXBundle.from_bundle_path(source_model_dir)
         input_encodings_path = str(source_model_bundle.aimet_encodings_path)
-
         # Split encodings
         model_artifact = Path(onnx_export_dir) / instantiation_name
         os.makedirs(model_artifact, exist_ok=True)

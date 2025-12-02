@@ -435,8 +435,8 @@ def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
     is_on_device = args.eval_mode == EvalMode.ON_DEVICE
     if is_on_device and not can_access_qualcomm_ai_hub():
         raise ValueError(
-            "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub access.\n",
-            "Please sign up for Qualcomm® AI Hub at https://myaccount.qualcomm.com/signup .",
+            "On-device demos (--eval-mode on-device) are not available without Qualcomm® AI Hub Workbench access.\n",
+            "Please sign up for Qualcomm® AI Hub Workbench at https://myaccount.qualcomm.com/signup .",
         )
 
     if is_on_device and (args.device is None):
@@ -970,6 +970,7 @@ def evaluate_parser(
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     uses_quantize_job: bool = True,
     num_calibration_samples: int | None = None,
+    default_device: str | None = None,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in evaluate scripts.
@@ -987,6 +988,8 @@ def evaluate_parser(
     num_calibration_samples
         How many samples to calibrate on when quantizing by default.
         If not set, defers to the dataset to decide the number.
+    default_device:
+        The default device to use for export + eval.
 
     Returns
     -------
@@ -1011,7 +1014,7 @@ def evaluate_parser(
         help="Additional options to pass when submitting the profile job.",
     )
 
-    _add_device_args(parser)
+    _add_device_args(parser, default_device)
     if len(supported_datasets) == 0:
         return parser
     if uses_quantize_job:

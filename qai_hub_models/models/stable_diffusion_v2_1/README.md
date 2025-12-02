@@ -6,7 +6,7 @@ This is based on the implementation of Stable-Diffusion-v2.1 found [here](https:
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/stable_diffusion_v2_1).
 
-[Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
+Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
 ## Deploy to Snapdragon X Elite NPU
 Please follow the [Stable Diffusion Windows App](https://github.com/quic/ai-hub-apps/tree/main/apps/windows/python/StableDiffusion) tutorial to quantize model with custom weights.

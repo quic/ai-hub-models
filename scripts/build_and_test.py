@@ -57,7 +57,7 @@ from tasks.venv import (
     AggregateScorecardResultsTask,
     CreateVenvTask,
     DownloadPrivateDatasetsTask,
-    DownloadQAIRTAndQDCWheelTask,
+    DownloadQDCWheelTask,
     GenerateGlobalRequirementsTask,
     SyncLocalQAIHMVenvTask,
 )
@@ -324,12 +324,12 @@ class TaskLibrary:
 
     @public_task("Download QDC wheel")
     @depends(["install_deps", "validate_aws_credentials"])
-    def download_qairt_and_qdc_wheel(
-        self, plan: Plan, step_id: str = "download_qairt_and_qdc_wheel"
+    def download_qdc_wheel(
+        self, plan: Plan, step_id: str = "download_qdc_wheel"
     ) -> str:
         return plan.add_step(
             step_id,
-            DownloadQAIRTAndQDCWheelTask(
+            DownloadQDCWheelTask(
                 venv=self.venv_path,
             ),
         )
@@ -578,6 +578,9 @@ class TaskLibrary:
             run_export_compile=enable_compile,
             run_export_profile=enable_profile,
             run_export_inference=enable_inference,
+            # Scorecards don't verify compile jobs.
+            # Instead they wait on-demand.
+            verify_compile_jobs_success=False,
             # If one model fails, we should still try the others.
             exit_after_single_model_failure=False,
             test_trace=False,

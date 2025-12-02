@@ -17,7 +17,7 @@ from qai_hub_models.models._shared.mmpose.silence import (
 )
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_numpy
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
 from qai_hub_models.utils.input_spec import InputSpec
 
 with patch_mmpose_no_build_deps():
@@ -127,6 +127,21 @@ class LiteHRNet(BaseModel):
         self, input_spec: InputSpec | None = None
     ) -> SampleInputsType:
         return {"image": [load_numpy(SAMPLE_INPUTS)]}
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device=None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
+        )
+        if target_runtime != TargetRuntime.ONNX:
+            compile_options += " --truncate_64bit_tensors"
+
+        return compile_options
 
     @staticmethod
     def get_output_names() -> list[str]:

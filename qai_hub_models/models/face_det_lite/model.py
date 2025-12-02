@@ -22,8 +22,8 @@ from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = "face_det_lite"
-MODEL_ASSET_VERSION = "2"
-DEFAULT_WEIGHTS = "qfd360_sl_model.pt"
+MODEL_ASSET_VERSION = "3"
+DEFAULT_WEIGHTS = "QFD_V3_superlite_060525_50_pickled.pt"
 
 
 class FaceDetLite(BaseModel):
@@ -143,11 +143,23 @@ class FaceDetLite(BaseModel):
     @classmethod
     def from_pretrained(cls, checkpoint_path: str | None = None):
         """Load FaceDetLite from a weightfile created by the source FaceDetLite repository."""
-        checkpoint_to_load = CachedWebModelAsset.from_asset_store(
+        # Initialize model
+        FaceDetLite_model = FaceDetLite()
+        # Determine checkpoint source: user-provided path or cached asset
+        checkpoint_to_load = checkpoint_path or CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
         )
-        FaceDetLite_model = FaceDetLite()
-        FaceDetLite_model.load_state_dict(load_torch(checkpoint_to_load)["model_state"])
+        # Load weights from checkpoint
+        pretrained_dict = load_torch(checkpoint_to_load)
+
+        # Normalize checkpoint format across versions:
+        # - v3: weights directly in dict
+        # - v2: weights nested under "model_state"
+        if "model_state" in pretrained_dict:
+            pretrained_dict = pretrained_dict["model_state"]
+
+        # Load weights into model and move to CPU
+        FaceDetLite_model.load_state_dict(pretrained_dict)
         FaceDetLite_model.to(torch.device("cpu"))
 
         return FaceDetLite_model
@@ -160,7 +172,7 @@ class FaceDetLite(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"input": ((batch_size, 1, height, width), "float32")}
 

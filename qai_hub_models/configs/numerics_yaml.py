@@ -11,7 +11,7 @@ from pathlib import Path
 from pydantic import Field
 
 from qai_hub_models.models.common import Precision
-from qai_hub_models.scorecard import ScorecardDevice, ScorecardProfilePath
+from qai_hub_models.scorecard import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
@@ -34,7 +34,7 @@ class QAIHMModelNumerics(BaseQAIHMConfig):
         num_partial_samples: int
         partial_torch_metric: float
         device_metric: dict[
-            ScorecardDevice,
+            str,
             dict[
                 Precision, dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails]
             ],

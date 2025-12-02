@@ -67,7 +67,7 @@ class ToolVersionsByPathYaml(BaseQAIHMConfig):
     ) -> ToolVersionsByPathYaml:
         """
         Get a tool versions YAML object, with all paths in the list populated with tool versions.
-        This will fetch versions for AI Hub deployment used by scorecard (set by envvars).
+        This will fetch versions for AI Hub Workbench deployment used by scorecard (set by envvars).
 
         If paths is None, populates all enabled scorecard profile paths.
         """

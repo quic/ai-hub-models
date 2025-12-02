@@ -38,8 +38,9 @@ class BaseBertModel(BaseModel):
         logits = self.model(input_tokens, attention_mask=attention_masks).logits
         batch_size = input_tokens.shape[0]
         batch_indices = torch.arange(batch_size)
+        mask_indices = mask_indices.to(torch.int64)
         masked_logits = logits[batch_indices, mask_indices]
-        return torch.softmax(masked_logits, dim=-1).argmax(dim=-1)
+        return masked_logits.argmax(dim=-1)
 
     @staticmethod
     def get_input_spec(
@@ -49,7 +50,7 @@ class BaseBertModel(BaseModel):
         return {
             "input_tokens": ((batch_size, sample_length), "int32"),
             "attention_masks": ((batch_size, sample_length), "float32"),
-            "mask_indices": ((batch_size,), "int64"),
+            "mask_indices": ((batch_size,), "int32"),
         }
 
     @staticmethod

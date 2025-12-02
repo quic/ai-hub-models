@@ -43,8 +43,14 @@ class KineticsClassifier(BaseModel):
 
     def __init__(self, model: torch.nn.Module):
         super().__init__(model)
-        self.mean = torch.Tensor([0.43216, 0.394666, 0.37645]).reshape(1, 3, 1, 1, 1)
-        self.std = torch.Tensor([0.22803, 0.22145, 0.216989]).reshape(1, 3, 1, 1, 1)
+        # TODO: rename input_mean/input_std back to mean/std when
+        # #https://github.com/pytorch/pytorch/issues/168211 is fixed
+        self.input_mean = torch.Tensor([0.43216, 0.394666, 0.37645]).reshape(
+            1, 3, 1, 1, 1
+        )
+        self.input_std = torch.Tensor([0.22803, 0.22145, 0.216989]).reshape(
+            1, 3, 1, 1, 1
+        )
 
     def forward(self, video: torch.Tensor):
         """
@@ -61,7 +67,7 @@ class KineticsClassifier(BaseModel):
             A [1, 400] where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """
-        video = (video - self.mean) / self.std
+        video = (video - self.input_mean) / self.input_std
         return self.model(video)
 
     @staticmethod
@@ -70,7 +76,7 @@ class KineticsClassifier(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {
             "video": (

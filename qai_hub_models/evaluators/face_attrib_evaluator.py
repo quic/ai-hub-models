@@ -5,11 +5,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Collection
-
-import numpy as np
 import torch
-from numpy.linalg import norm
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 
@@ -18,83 +14,89 @@ class FaceAttribNetEvaluator(BaseEvaluator):
     """Evaluator for comparing a batched image output."""
 
     def __init__(self):
-        self.id_features = {}
-        self.id_total = 0
-        self.feature_total = 0
-
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
-        """
-        Gt should be a tuple of tensors with the following tensors:
-            - image_ids of shape (batch_size,)
-            - image heights of shape (batch_size,)
-            - image widths of shape (batch_size,)
-
-        output should be a tuple of tensors with the following tensors:
-            - identity feature map with shape (batch_size, 512)
-        """
-        id_features, _, _, _, _, _ = output
-        image_ids, image_idxs, _, _ = gt
-
-        """
-        extract id and index information from filename, for example image filename
-        ***_27_0, extracted id is 27, and image index for id 27 is 0. Normally there
-        are multiple images with same id, index with 0 for enroll, other index for query
-        """
-        for i in range(len(image_ids)):
-            id_str = str(image_ids[i].item())
-            id_idx = str(image_idxs[i].item())
-            if id_str not in self.id_features:
-                self.id_features[id_str] = {}
-                self.id_total += 1
-            if id_idx not in self.id_features[id_str]:
-                self.feature_total += 1
-            self.id_features[id_str][id_idx] = np.squeeze(
-                id_features[i].detach().numpy()
-            )
+        """FaceAttribNetEvaluator constructor"""
+        self.reset()
 
     def reset(self):
-        self.id_features = {}
-        self.id_total = 0
-        self.feature_total = 0
+        """Reset the evaluation result variables."""
+        self.TP_count: int = 0
+        self.total: int = 0
 
-    def get_accuracy_score(self):
+    def add_batch(
+        self,
+        output: torch.Tensor,
+        gt: torch.Tensor,
+    ):
         """
-        query_feas is 10 x 512 array, enroll_feas is 5 x 512 array.
-        cos_sim is 10 x 5 array for similarity score.
-        return mean value of cos_sim.
-        """
-        query_feas = []
-        enroll_feas = []
-        mask_sign = np.full((self.feature_total - self.id_total, self.id_total), -1)
-        mask_offset = np.full((self.feature_total - self.id_total, self.id_total), 1)
-        query_pos = 0
-        for enroll_pos, value_0 in enumerate(self.id_features.values()):
-            for key_1, value_1 in value_0.items():
-                if key_1 == "0":
-                    enroll_feas.append(value_1)
-                else:
-                    query_feas.append(value_1)
-                    mask_sign[query_pos][enroll_pos] = 1
-                    mask_offset[query_pos][enroll_pos] = 0
-                    query_pos += 1
-        query_feas_total = np.array(query_feas)
-        enroll_feas_total = np.array(enroll_feas)
-        cos_sim = (
-            np.matmul(query_feas_total, enroll_feas_total.T)
-            / norm(query_feas_total, axis=1)[:, None]
-            / norm(enroll_feas_total, axis=1)[None, :]
-        )
-        cos_sim[cos_sim < 0] = 0
-        cos_sim = cos_sim * mask_sign + mask_offset
+        Adds a batch of model outputs and corresponding ground truth data.
 
-        return np.mean(cos_sim)
+        Parameters
+        ----------
+        output : torch.Tensor
+            Range [0, 1], shape (N, M), probability output from the `face_attrib_net` model
+                N: batch_size
+                M: number of attributes (5)
+            5 attributes below in order are included:
+                - openness of the left eye.
+                - openness of the right eye.
+                - presence of eyeglasses.
+                - presence of a face mask.
+                - presence of sunglasses.
+
+        gt : torch.Tensor
+            A tensor of shape (N, M) containing ground truth labels from `FaceAttribDataset`.
+            Attributes follow the same order as `output`.
+            Value meanings:
+                - 0: Closed / Absent
+                - 1: Opened / Present
+                - -1: Not available
+        """
+        assert output.shape == gt.shape
+
+        pred = (output > 0.5).int()
+        valid_mask = gt != -1
+        matches = (pred == gt) & valid_mask
+        _TP_count = int(matches.sum().item())
+        _count = int(valid_mask.sum().item())
+
+        self.TP_count += _TP_count
+        self.total += _count
+
+    def get_accuracy_score(self) -> float:
+        """
+        Calculate and return the accuracy score for model evaluation.
+
+        Accuracy is defined as the ratio of true positives (TP) to the total number of samples.
+        If no samples are present (i.e., total is 0), the method returns 0.0.
+
+        Returns
+        -------
+        float
+            Accuracy score in the range [0, 1].
+        """
+        return float(self.TP_count) / float(self.total) if self.total > 0 else 0.0
 
     def formatted_accuracy(self) -> str:
-        return f"{self.get_accuracy_score():.3f} Cosine Similarity"
+        """
+        Return accuracy in formatted string
+
+        Returns
+        -------
+        str
+            formatted string of accuracy report
+        """
+        return f"Accuracy: {self.get_accuracy_score():.3f}"
 
     def get_metric_metadata(self) -> MetricMetadata:
+        """
+        Return accuracy in MetricMetadata
+
+        Returns
+        -------
+        MetricMetadata
+        """
         return MetricMetadata(
-            name="Cosine Similarity",
+            name="Accuracy",
             unit="",
-            description="Similarity between the predicted facial features and the expected.",
+            description="Correctness between the predicted detection and the label.",
         )

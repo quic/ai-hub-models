@@ -17,6 +17,7 @@ import qai_hub as hub
 import torch
 from typing_extensions import assert_never
 
+from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets import DATASET_NAME_MAP
 from qai_hub_models.models.common import ExportResult, Precision
@@ -50,6 +51,7 @@ from qai_hub_models.utils.testing import (
     mock_tabulate_fn,
 )
 from qai_hub_models.utils.testing_async_utils import (
+    CachedScorecardJobError,
     CompileJobsAreIdenticalCache,
     append_line_to_file,
     assert_success_or_cache_job,
@@ -188,8 +190,8 @@ def patch_hub_with_cached_jobs(
     inference_jobs_to_patch: list[hub.InferenceJob] = []
 
     # Collect pre-quantization (to ONNX) compile jobs & quantize jobs
-    if patch_quantization and (
-        quantize_jobs := fetch_async_test_jobs(
+    if patch_quantization:
+        if quantize_jobs := fetch_async_test_jobs(
             hub.JobType.QUANTIZE,
             model_id,
             precision,
@@ -197,21 +199,23 @@ def patch_hub_with_cached_jobs(
             device,
             component_names,
             raise_if_not_successful=True,
-        )
-    ):
-        pre_quantize_compile_jobs = {
-            component_name: cast(
-                hub.CompileJob,
-                component_job.model.producer,
+        ):
+            pre_quantize_compile_jobs = {
+                component_name: cast(
+                    hub.CompileJob,
+                    component_job.model.producer,
+                )
+                for component_name, component_job in quantize_jobs.items()
+            }
+
+            # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
+            compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
+            quantize_jobs_to_patch.extend(quantize_jobs.values())
+            calibration_datas_to_patch.extend(
+                [x.calibration_dataset for x in quantize_jobs.values()]
             )
-            for component_name, component_job in quantize_jobs.items()
-        }
-        # Don't create a compile patch here yet since we may need to also patch the main compile jobs later.
-        compile_jobs_to_patch.extend(pre_quantize_compile_jobs.values())
-        quantize_jobs_to_patch.extend(quantize_jobs.values())
-        calibration_datas_to_patch.extend(
-            [x.calibration_dataset for x in quantize_jobs.values()]
-        )
+        elif precision != Precision.float:
+            raise CachedScorecardJobError("Could not find cached quantize jobs.")
 
     if patch_compile:
         assert path
@@ -225,6 +229,8 @@ def patch_hub_with_cached_jobs(
             raise_if_not_successful=True,
         ):
             compile_jobs_to_patch.extend(compile_jobs.values())
+        else:
+            raise CachedScorecardJobError("Could not find cached compile jobs.")
 
     if patch_profile:
         assert path
@@ -238,6 +244,8 @@ def patch_hub_with_cached_jobs(
             raise_if_not_successful=True,
         ):
             profile_jobs_to_patch.extend(profile_jobs.values())
+        else:
+            raise CachedScorecardJobError("Could not find cached profile jobs.")
 
     if patch_inference:
         assert path
@@ -251,6 +259,8 @@ def patch_hub_with_cached_jobs(
             raise_if_not_successful=True,
         ):
             inference_jobs_to_patch.extend(inference_jobs.values())
+        else:
+            raise CachedScorecardJobError("Could not find cached inference jobs.")
 
     calib_side_effect = itertools.chain(
         calibration_datas_to_patch, itertools.repeat(mock_get_calibration_data)
@@ -448,7 +458,7 @@ def compile_via_export(
         scorecard_path,
         device,
         component_names,
-        patch_quantization=True,
+        patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
     )
 
     # Use export script to create a compile job.
@@ -655,7 +665,7 @@ def profile_via_export(
             scorecard_path,
             device,
             component_names,
-            patch_quantization=True,
+            patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
             patch_compile=True,
         )
 
@@ -749,7 +759,7 @@ def inference_via_export(
         scorecard_path,
         device,
         component_names,
-        patch_quantization=True,
+        patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
         patch_compile=True,
     )
 
@@ -833,7 +843,7 @@ def export_test_e2e(
         scorecard_path,
         device,
         component_names,
-        patch_quantization=True,
+        patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
         patch_compile=True,
         patch_profile=True,
         patch_inference=False,
@@ -897,7 +907,7 @@ def on_device_inference_for_accuracy_validation(
         raise_if_not_successful=True,
     )
     if not compile_jobs:
-        raise ValueError(
+        raise CachedScorecardJobError(
             str_with_async_test_metadata(
                 "Missing cached compile job",
                 model_id,
@@ -1109,7 +1119,7 @@ def accuracy_on_sample_inputs_via_export(
         scorecard_path,
         device,
         component_names,
-        patch_quantization=True,
+        patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
         patch_compile=True,
         patch_profile=False,
         patch_inference=True,
@@ -1178,7 +1188,7 @@ def get_num_eval_samples(dataset_name: str) -> int:
 
 def accuracy_on_dataset_via_evaluate_and_export(
     export_model: ExportFunc,
-    model: BaseModel | CollectionModel,
+    model: BaseModel,
     dataset_name: str,
     torch_val_outputs: np.ndarray,
     torch_evaluate_mock_outputs: list[torch.Tensor | tuple[torch.Tensor, ...]],
@@ -1214,16 +1224,20 @@ def accuracy_on_dataset_via_evaluate_and_export(
         device:
             Scorecard device
     """
-    assert isinstance(model, BaseModel), (
-        "This function is not yet supported for CollectionModel."
-    )
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
     )
 
     cpu_accuracy = load_yaml(get_cpu_accuracy_file())
     sim_acc = cpu_accuracy.get(_get_sim_cpu_key(model_id, precision), None)
-    torch_acc = float(cpu_accuracy[_get_torch_cpu_key(model_id)])
+
+    torch_key = _get_torch_cpu_key(model_id)
+    if torch_key not in cpu_accuracy:
+        raise CachedScorecardJobError(
+            "Torch accuracy data is missing. Accuracy data collection (test_torch_accuracy) probably failed."
+        )
+    torch_acc = float(cpu_accuracy[torch_key])
+
     try:
         # Get existing inference jobs, then create related patches
         # This will raise a ValueError if any of the jobs failed
@@ -1236,7 +1250,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
             raise_if_not_successful=True,
         )
         if not inference_jobs:
-            raise ValueError(  # noqa: TRY301
+            raise CachedScorecardJobError(
                 str_with_async_test_metadata(
                     "Missing cached inference job",
                     model_id,
@@ -1245,7 +1259,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
                     device,
                 )
             )
-    except ValueError:
+    except:
         # If no on-device accuracy numbers, we still want to write torch, sim numbers
         write_accuracy(
             model_id,
@@ -1293,13 +1307,11 @@ def accuracy_on_dataset_via_evaluate_and_export(
     ):
         inference_job = inference_jobs[None]
         evaluate_result = evaluate_on_dataset(
+            evaluator_func=model.get_evaluator,
             compiled_model=inference_job.model,
-            torch_model=model,
             hub_device=inference_job.device,
             dataset_name=dataset_name,
             use_cache=True,
-            skip_torch_accuracy=True,
-            compute_quant_cpu_accuracy=False,
             num_samples=num_samples,
             samples_per_job=num_samples,
         )
@@ -1317,7 +1329,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
         precision,
         scorecard_path,
         device,
-        patch_quantization=True,
+        patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
         patch_compile=True,
         patch_inference=True,
     )
@@ -1399,17 +1411,10 @@ def torch_accuracy_on_dataset(
     num_samples = get_num_eval_samples(dataset_name)
     with torch_call_patch, cache_path_patch:
         evaluate_result = evaluate_on_dataset(
-            compiled_model=mock.MagicMock(
-                producer=mock.MagicMock(
-                    target_shapes=model.get_input_spec(), _job_type=hub.JobType.COMPILE
-                )
-            ),
+            evaluator_func=model.get_evaluator,
             torch_model=model,
-            hub_device=hub.Device(),  # unused
-            dataset_name=dataset_name,
             use_cache=True,
-            skip_device_accuracy=True,
-            compute_quant_cpu_accuracy=False,
+            dataset_name=dataset_name,
             num_samples=num_samples,
             samples_per_job=num_samples,
         )
@@ -1464,30 +1469,13 @@ def sim_accuracy_on_dataset(
             f"Expected 1 quantize job for precision {precision} but got {len(quantize_jobs)}."
         )
 
-    # Create a mock hub.Model that has a producer chain to the quantize job
-    qdq_model = next(iter(quantize_jobs.values())).get_target_model()
-    assert qdq_model is not None
-    fake_model = mock.MagicMock(spec=hub.Model)
-    fake_compile_job = mock.MagicMock(
-        spec=hub.CompileJob,
-        _job_type=hub.JobType.COMPILE,
-        target_shapes=model.get_input_spec(),
-    )
-    fake_model.producer = fake_compile_job
-    fake_compile_job.model = qdq_model
-    fake_compile_job.options = ""
-
     num_samples = get_num_eval_samples(dataset_name)
     with cache_path_patch:
         evaluate_result = evaluate_on_dataset(
-            compiled_model=fake_model,
-            torch_model=model,
-            hub_device=hub.Device(),  # unused
+            evaluator_func=model.get_evaluator,
+            quantized_model=quantize_jobs[None].get_target_model(),
             dataset_name=dataset_name,
             use_cache=True,
-            skip_device_accuracy=True,
-            skip_torch_accuracy=True,
-            compute_quant_cpu_accuracy=True,
             num_samples=num_samples,
             samples_per_job=num_samples,
         )

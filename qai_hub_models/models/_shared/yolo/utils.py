@@ -101,8 +101,7 @@ def detect_postprocess_split_input(
     conf, per_class_scores = scores.split_with_sizes([1, scores.shape[-1] - 1], dim=-1)
 
     # Get class ID of most likely score.
-    # (#10357) QNN has a bug where passing a result of Mul into ReduceMax returns all 0s
-    class_idx_scores, class_idx = torch.max(per_class_scores + 1e-10, -1, keepdim=False)
+    class_idx_scores, class_idx = torch.max(per_class_scores, -1, keepdim=False)
 
     # Combine confidence and scores.
     # Original repo does this before the max operation, but that is more

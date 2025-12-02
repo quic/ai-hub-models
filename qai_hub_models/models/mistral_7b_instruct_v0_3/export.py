@@ -16,12 +16,12 @@ from typing import Any, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
+from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.models.common import ExportResult, SampleInputsType
 from qai_hub_models.models.mistral_7b_instruct_v0_3 import MODEL_ID, Model
 from qai_hub_models.utils.args import (
     export_parser,
 )
-from qai_hub_models.utils.base_model import CollectionModel
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.printing import (
     print_profile_metrics_from_job,
@@ -33,8 +33,7 @@ def profile_model(
     model_name: str,
     device: hub.Device,
     components: list[str],
-    profile_options: dict[str, str],
-    target_runtime: TargetRuntime,
+    options: dict[str, str],
     uploaded_models: dict[str, hub.Model],
 ) -> dict[str, hub.client.ProfileJob]:
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
@@ -44,7 +43,7 @@ def profile_model(
             model=uploaded_models[component_name],
             device=device,
             name=f"{model_name}_{component_name}",
-            options=profile_options.get(component_name, ""),
+            options=options.get(component_name, ""),
         )
         profile_jobs[component_name] = cast(
             hub.client.ProfileJob, submitted_profile_job
@@ -53,12 +52,11 @@ def profile_model(
 
 
 def inference_model(
-    model: CollectionModel,
+    inputs: dict[str, SampleInputsType],
     model_name: str,
     device: hub.Device,
     components: list[str],
-    profile_options: str,
-    target_runtime: TargetRuntime,
+    options: dict[str, str],
     uploaded_models: dict[str, hub.Model],
 ) -> dict[str, hub.client.InferenceJob]:
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
@@ -66,18 +64,12 @@ def inference_model(
         print(
             f"Running inference for {component_name} on a hosted device with example inputs."
         )
-        profile_options_all = model.components[component_name].get_hub_profile_options(
-            target_runtime, profile_options
-        )
-        sample_inputs = model.components[component_name].sample_inputs(
-            use_channel_last_format=target_runtime.channel_last_native_execution
-        )
         submitted_inference_job = hub.submit_inference_job(
             model=uploaded_models[component_name],
-            inputs=sample_inputs,
+            inputs=inputs[component_name],
             device=device,
             name=f"{model_name}_{component_name}",
-            options=profile_options_all,
+            options=options.get(component_name, ""),
         )
         inference_jobs[component_name] = cast(
             hub.client.InferenceJob, submitted_inference_job
@@ -209,13 +201,7 @@ def export_model(
             model_name,
             device,
             components,
-            {
-                component_name: model.components[
-                    component_name
-                ].get_hub_profile_options(target_runtime, profile_options)
-                for component_name in components
-            },
-            target_runtime,
+            model.get_hub_profile_options(target_runtime, profile_options),
             uploaded_models,
         )
 

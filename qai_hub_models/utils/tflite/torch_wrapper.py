@@ -37,6 +37,8 @@ class TFLiteInterpreterTorchWrapper(RuntimeTorchWrapper[TFLiteModelIODetails]):
         interpreter: Interpreter,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ):
         """
         Create a wrapper for an TF Lite interpreter that uses torch-like I/O for the forward call.
@@ -62,10 +64,25 @@ class TFLiteInterpreterTorchWrapper(RuntimeTorchWrapper[TFLiteModelIODetails]):
             - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
+
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
         """
         self.interpreter = interpreter
         inputs, outputs = extract_io_types_from_tflite_model(interpreter)
-        super().__init__(inputs, outputs, quantize_user_input, dequantize_model_output)
+        super().__init__(
+            inputs,
+            outputs,
+            quantize_user_input,
+            dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
+        )
         self.interpreter.allocate_tensors()  # required to run the model; no-op if this was run already
 
     def run(
@@ -100,6 +117,8 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
         delegate_attempt_order: list[list[Delegate]] | None = None,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
         num_threads: int | None = None,
     ):
         """
@@ -144,6 +163,14 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
 
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
+
         num_threads
             Sets the number of threads used by the interpreter and available to CPU kernels.
             If not set, the interpreter will use an implementation-dependent default number of threads.
@@ -168,7 +195,13 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
                 f"Unable to create a TF Lite interpreter for this model: {err!s}"
             )
 
-        super().__init__(interpreter, quantize_user_input, dequantize_model_output)
+        super().__init__(
+            interpreter,
+            quantize_user_input,
+            dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
+        )
 
     @classmethod
     def OnCPU(
@@ -176,6 +209,8 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
         model_path: str | PathLike,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
         num_threads: int | None = None,
     ) -> TFLiteModelTorchWrapper:
         """
@@ -203,6 +238,14 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
 
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
+
         num_threads
             Sets the number of threads used by the interpreter and available to CPU kernels.
             If not set, the interpreter will use an implementation-dependent default number of threads.
@@ -214,5 +257,11 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
             TF Lite torch wrapper targeting the CPU.
         """
         return TFLiteModelTorchWrapper(
-            model_path, None, quantize_user_input, dequantize_model_output, num_threads
+            model_path,
+            None,
+            quantize_user_input,
+            dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
+            num_threads,
         )

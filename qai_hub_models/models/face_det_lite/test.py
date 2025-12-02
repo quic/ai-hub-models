@@ -22,7 +22,7 @@ from qai_hub_models.utils.asset_loaders import (
 )
 
 OUTPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "outputs.json"
+    MODEL_ID, MODEL_ASSET_VERSION, "FaceDetLitebNet_output.json"
 )
 
 

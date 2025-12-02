@@ -62,7 +62,7 @@ for deployment in "${hub_deployments[@]}"; do
   echo "HUB_API_URL_$deployment_upper=$url" >> "$GITHUB_ENV"
 done
 
-# Configure AI Hub to use the first deployment in the list by default
+# Configure AI Hub Workbench to use the first deployment in the list by default
 if [ -n "$venv_path" ]; then
   # Bash env variables can't have {".", "-"} characters in the name, replace with "_" for valid naming
   deployment_upper=$(echo "${hub_deployments[0]}" | tr '[:lower:]' '[:upper:]' | sed 's/-/_/g' | sed 's/\./_/g')

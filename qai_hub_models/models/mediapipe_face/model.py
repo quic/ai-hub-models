@@ -244,7 +244,7 @@ class FaceDetector(BaseModel):
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the face detector.
-        This can be used to submit profiling job on Qualcomm AI Hub.
+        This can be used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
@@ -306,7 +306,7 @@ class FaceLandmarkDetector(BaseModel):
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the face landmark detector.
-        This can be used to submit profiling job on Qualcomm AI Hub.
+        This can be used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, 192, 192), "float32")}
 

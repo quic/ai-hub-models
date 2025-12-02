@@ -16,9 +16,10 @@ import torch
 from transformers import AutoConfig
 
 from qai_hub_models.models._shared.llama3 import test
+from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import CheckpointSpec, cleanup
+from qai_hub_models.models._shared.llm.model import CheckpointSpec
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.qwen2_5_1_5b_instruct import (
     MODEL_ID,
@@ -31,7 +32,6 @@ from qai_hub_models.models.qwen2_5_1_5b_instruct.export import (
     DEFAULT_EXPORT_DEVICE,
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
-    SUPPORTED_PRECISION_RUNTIMES,
 )
 from qai_hub_models.models.qwen2_5_1_5b_instruct.export import main as export_main
 from qai_hub_models.models.qwen2_5_1_5b_instruct.model import (
@@ -43,22 +43,19 @@ from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
 )
-from qai_hub_models.scorecard.execution_helpers import (
-    get_compile_parameterized_pytest_config,
-    pytest_device_idfn,
-)
+from qai_hub_models.scorecard.device import cs_8_elite
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
     log_perf_on_device_result,
 )
 from qai_hub_models.utils.model_cache import CacheMode
-from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
 from qai_hub_models.utils.testing_export_eval import compile_via_export
 
 DEFAULT_EVAL_SEQLEN = 2048
 
 
+@pytest.mark.unmarked
 def test_create_genie_config():
     context_length = 1024
     llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
@@ -219,6 +216,20 @@ def test_load_encodings_to_quantsim(checkpoint):
     Model.from_pretrained(fp_model=FP_Model.from_pretrained())
 
 
+@pytest.fixture(scope="session")
+def setup_quantized_checkpoints(tmpdir_factory):
+    path = tmpdir_factory.mktemp(f"{MODEL_ID}_w4_quantized_checkpoint")
+    yield test.setup_test_quantization(
+        Model,
+        FP_Model,
+        path,
+        precision=Precision.w4,
+        checkpoint=HF_REPO_NAME,
+        use_seq_mse=True,
+    )
+    cleanup()
+
+
 @pytest.mark.evaluate
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
@@ -228,16 +239,17 @@ def test_load_encodings_to_quantsim(checkpoint):
     [
         ("wikitext", 10.58, 0),
         ("mmlu", 0.554, 1000),
-        ("tiny_mmlu", 0.59, 0),
+        ("tiny_mmlu", 0.57, 0),
     ],
 )
 def test_evaluate_default(
     task: str,
     expected_metric: float,
     num_samples: int,
+    setup_quantized_checkpoints: CheckpointSpec,
 ) -> None:
     cleanup()
-    checkpoint = "DEFAULT_W4"
+    checkpoint = setup_quantized_checkpoints
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
@@ -303,13 +315,27 @@ def test_evaluate_default_unquantized(
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
-@pytest.mark.parametrize("checkpoint", ["DEFAULT", "DEFAULT_UNQUANTIZED"])
-def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
+def test_demo_default_unquantized(capsys) -> None:
     cleanup()
     qwen2_5_1_5b_chat_demo(
         fp_model_cls=FP_Model,
         default_prompt="What is the capital of France?",
-        test_checkpoint=checkpoint,
+        test_checkpoint="DEFAULT_UNQUANTIZED",
+    )
+    captured = capsys.readouterr()
+    assert "Paris" in captured.out
+
+
+@pytest.mark.demo
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="This test can be run on GPU only."
+)
+def test_demo_quantized(setup_quantized_checkpoints: CheckpointSpec, capsys) -> None:
+    cleanup()
+    qwen2_5_1_5b_chat_demo(
+        fp_model_cls=FP_Model,
+        default_prompt="What is the capital of France?",
+        test_checkpoint=setup_quantized_checkpoints,
     )
     captured = capsys.readouterr()
     assert "Paris" in captured.out
@@ -321,23 +347,18 @@ def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
 )
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    [
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite),
+    ],
 )
 @pytest.mark.compile_ram_intensive
 def test_compile(
     precision: Precision,
     scorecard_path: ScorecardCompilePath,
     device: ScorecardDevice,
+    setup_quantized_checkpoints: CheckpointSpec,
 ) -> None:
     cleanup()
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
     genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     compile_via_export(
         export_model,
@@ -346,7 +367,7 @@ def test_compile(
         scorecard_path,
         device,
         extra_model_arguments=dict(
-            checkpoint="DEFAULT",
+            checkpoint=setup_quantized_checkpoints,
             sequence_length=128,
             context_length=DEFAULT_CONTEXT_LENGTH,
             _skip_quantsim_creation=True,
@@ -379,14 +400,9 @@ def test_compile(
 )
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    [
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite),
+    ],
 )
 @pytest.mark.qdc
 def test_qdc(
@@ -395,7 +411,6 @@ def test_qdc(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
     genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
@@ -404,6 +419,7 @@ def test_qdc(
     tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
         device, genie_bundle_path
     )
+    assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
         model_name=MODEL_ID,
         precision=precision,

@@ -73,7 +73,7 @@ def export_torch_to_onnx_zip(
 ) -> str:
     """
     Export a torch model to ONNX, possibly as zip if model size exceeds 2GB,
-    to conform to the input spec of AI Hub. Export as regular ONNX file if
+    to conform to the input spec of AI Hub Workbench. Export as regular ONNX file if
     <2GB. If prefer_external_weight is True, always export with external
     weights regardless of size.
 
@@ -310,7 +310,7 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
 def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
     """
     Get a dictionary of all options passed for this job.
-    Options that are not passed explicitly in the hub job options (that Hub will treat as defaults) are not included in the dictionary.
+    Options that are not passed explicitly in the workbench job options (that Hub will treat as defaults) are not included in the dictionary.
 
     Example:
         If a hub job is submitted with options "--qairt_version 2.33 --dequantize_outputs --dict_input='w=x;y=z'"
@@ -359,7 +359,7 @@ def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
 def download_model_in_memory(model: hub.Model) -> Any:
     """
     Download the model to a file and load it into memory.
-    This replicates functionality that used to exist natively in the hub client.
+    This replicates functionality that used to exist natively in the workbench client.
     """
     if model.model_type not in [
         hub.SourceModelType.TORCHSCRIPT,

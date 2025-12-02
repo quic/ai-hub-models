@@ -6,7 +6,7 @@ This is based on the implementation of IBM-Granite-v3.1-8B-Instruct found [here]
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct).
 
-[Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
+Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
 ## Deploying IBM Granite 3.1 on-device
 

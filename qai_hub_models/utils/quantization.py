@@ -107,7 +107,7 @@ def get_calibration_data(
 
     Returns
     -------
-        Dataset compatible with the format expected by AI Hub.
+        Dataset compatible with the format expected by AI Hub Workbench.
     """
     calibration_dataset_name = model.calibration_dataset_name()
     if calibration_dataset_name is None:

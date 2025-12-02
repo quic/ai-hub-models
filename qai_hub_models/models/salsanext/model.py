@@ -135,7 +135,7 @@ class SalsaNext(BaseModel):
     def calibration_dataset_name() -> str:
         return "semantic_kitti"
 
-    def get_evaluator(self) -> BaseEvaluator | None:
+    def get_evaluator(self) -> BaseEvaluator:
         with open(DATA_ADDRESS) as f:
             data = YAML(typ="safe", pure=True).load(f)
         n_classes = len(data["learning_map_inv"])

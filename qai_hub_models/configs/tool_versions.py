@@ -19,9 +19,9 @@ class ToolVersions(BaseQAIHMConfig):
 
     BE CAREFUL when adding new tool versions.
 
-    Equality of all fields in this class is used by scorecard to check whether a Hub
+    Equality of all fields in this class is used by scorecard to check whether a Workbench
     compile job is the same as the previous week. Adding a very granular tool version
-    (like AI Hub version) would break this without changing the equality check.
+    (like AI Hub Workbench version) would break this without changing the equality check.
     """
 
     qairt: QAIRTVersion | None = None
@@ -39,7 +39,7 @@ class ToolVersions(BaseQAIHMConfig):
         Parameters
         ----------
         model
-            AI Hub model. Must be compiled by AI Hub.
+            AI Hub Workbench model. Must be compiled by AI Hub Workbench.
 
         Returns
         -------
@@ -49,14 +49,14 @@ class ToolVersions(BaseQAIHMConfig):
         Raises
         ------
         ValueError
-            If the model was not compiled by AI Hub.
+            If the model was not compiled by AI Hub Workbench.
         """
         if model.producer is None or model.producer._job_type not in [
             JobType.COMPILE,
             JobType.LINK,
         ]:
             raise ValueError(
-                "Model must be compiled with AI Hub to extract tool versions."
+                "Model must be compiled with AI Hub Workbench to extract tool versions."
             )
 
         out = ToolVersions()
@@ -94,19 +94,19 @@ class ToolVersions(BaseQAIHMConfig):
         Parameters
         ----------
         job
-            AI Hub compile, profile, or inference job.
+            AI Hub Workbench compile, profile, or inference job.
 
         parse_version_tags
-            When getting the QNN version from a failed AI Hub job, we rely on parsing the string options of the job.
+            When getting the QNN version from a failed AI Hub Workbench job, we rely on parsing the string options of the job.
             In this case, the version of often a tag, like 'latest' or 'default'. The definitions of these tags
             can change over time.
 
             If false, failed jobs that resolve to a QAIRT version tag are treated as if the QAIRT version can't
             be determined, and None is returned. This is the safest option and should be used in most situations.
 
-            If true, version tags are parsed to match with their current meanings on AI Hub. BE CAUTIOUS USING THIS,
+            If true, version tags are parsed to match with their current meanings on AI Hub Workbench. BE CAUTIOUS USING THIS,
             as the QAIRT version represented by this tag may have changed since the job was submitted. Generally you
-            should use this only if the job is recent enough that you know the current tags on AI Hub map to the same
+            should use this only if the job is recent enough that you know the current tags on AI Hub Workbench map to the same
             QAIRT versions when the job was submitted.
 
         Returns

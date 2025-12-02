@@ -103,6 +103,7 @@ class GPUPyTestModelsTask(CompositeTask):
         for model_name in list(model_names):
             if is_quantized_llm_model(model_name):
                 models_to_test.append(model_name)
+        models_to_test.extend(["qwen2_5_7b_instruct", "llama_v2_7b_chat"])
 
         tasks = []
         common_command = f"export HOME={home_dir} && mkdir -p {tmp_dir} && export TMPDIR={tmp_dir} && rm -rf {home_dir}/.cache/huggingface/hub/models--* {home_dir}/.qaihm/models/* {tmp_dir}/*"
@@ -124,8 +125,17 @@ class GPUPyTestModelsTask(CompositeTask):
                     f"{filename_parts[0]}-{test_suite}-{model_name}{filename_parts[1]}"
                 )
                 model_junit_xml_path = os.path.join(base_dir, model_filename)
-                options = f"-k '{test_suite}' --junit-xml={model_junit_xml_path}"
-
+                options = f"-m '{test_suite}' --junit-xml={model_junit_xml_path}"
+                if model_name == "llama_v2_7b_chat":
+                    tasks.append(
+                        RunCommandsWithVenvTask(
+                            group_name=f"Install Dependencies For Model {model_name}",
+                            venv=venv,
+                            commands=[
+                                f"{common_command} && pip install -r qai_hub_models/models/{model_name}/requirements.txt",
+                            ],
+                        )
+                    )
                 tasks.append(
                     RunCommandsWithVenvTask(
                         group_name=f"Run {test_suite} Tests For Model {model_name}",
@@ -344,6 +354,7 @@ class PyTestModelsTask(CompositeTask):
         run_export_profile: bool = False,
         run_export_inference: bool = False,
         run_full_export: bool = False,
+        verify_compile_jobs_success: bool = True,
         exit_after_single_model_failure=False,
         raise_on_failure=True,
         qaihm_wheel_dir: str | os.PathLike | None = None,
@@ -476,19 +487,20 @@ class PyTestModelsTask(CompositeTask):
                     base_dir, compile_jobs_filename
                 )
 
-            tasks.append(
-                PyTestTask(
-                    group_name="Verify Compile Jobs Success",
-                    venv=base_test_venv,
-                    files_or_dirs=os.path.join(
-                        PY_PACKAGE_SRC_ROOT, "test", "test_async_compile_jobs.py"
-                    ),
-                    parallel=False,
-                    extra_args="-s",
-                    raise_on_failure=has_venv,  # Do not raise on failure if a venv was created, to make sure the venv is removed when the test finishes
-                    junit_xml_path=compile_jobs_junit_xml_path,
+            if verify_compile_jobs_success:
+                tasks.append(
+                    PyTestTask(
+                        group_name="Verify Compile Jobs Success",
+                        venv=base_test_venv,
+                        files_or_dirs=os.path.join(
+                            PY_PACKAGE_SRC_ROOT, "test", "test_async_compile_jobs.py"
+                        ),
+                        parallel=False,
+                        extra_args="-s",
+                        raise_on_failure=has_venv,  # Do not raise on failure if a venv was created, to make sure the venv is removed when the test finishes
+                        junit_xml_path=compile_jobs_junit_xml_path,
+                    )
                 )
-            )
 
             if not has_venv:
                 # Cleanup venv

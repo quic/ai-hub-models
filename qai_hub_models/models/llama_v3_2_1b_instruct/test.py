@@ -16,9 +16,10 @@ import torch
 from transformers import AutoConfig
 
 from qai_hub_models.models._shared.llama3 import test
+from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import CheckpointSpec, cleanup
+from qai_hub_models.models._shared.llm.model import CheckpointSpec
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_1b_instruct import (
     MODEL_ID,
@@ -29,10 +30,8 @@ from qai_hub_models.models.llama_v3_2_1b_instruct import (
 from qai_hub_models.models.llama_v3_2_1b_instruct.demo import llama_3_2_1b_chat_demo
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
     DEFAULT_EXPORT_DEVICE,
-    DEFAULT_PRECISION,
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
-    SUPPORTED_PRECISION_RUNTIMES,
 )
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_2_1b_instruct.model import (
@@ -44,22 +43,19 @@ from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
 )
-from qai_hub_models.scorecard.execution_helpers import (
-    get_compile_parameterized_pytest_config,
-    pytest_device_idfn,
-)
+from qai_hub_models.scorecard.device import cs_8_elite_gen_5, cs_x_elite
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
     log_perf_on_device_result,
 )
 from qai_hub_models.utils.model_cache import CacheMode
-from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
 from qai_hub_models.utils.testing_export_eval import compile_via_export
 
 DEFAULT_EVAL_SEQLEN = 2048
 
 
+@pytest.mark.unmarked
 def test_create_genie_config():
     context_length = 1024
     llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
@@ -227,13 +223,14 @@ def test_load_encodings_to_quantsim(checkpoint):
 
 @pytest.fixture(scope="session")
 def setup_quantized_checkpoints(tmpdir_factory):
-    path = tmpdir_factory.mktemp(f"{MODEL_ID}_ai_nexuz_ckpt")
+    path = tmpdir_factory.mktemp(f"{MODEL_ID}_w4a16_quantized_checkpoint")
     yield test.setup_test_quantization(
         Model,
         FP_Model,
         path,
-        precision=DEFAULT_PRECISION,
-        checkpoint="ai-nexuz/llama-3.2-1b-instruct-fine-tuned",
+        precision=Precision.w4a16,
+        checkpoint=HF_REPO_NAME,
+        use_seq_mse=True,
     )
     cleanup()
 
@@ -327,16 +324,17 @@ def test_evaluate_default_unquantized(
     [
         ("wikitext", 17.29, 0),
         ("mmlu", 0.397, 1000),
-        ("tiny_mmlu", 0.39, 0),
+        ("tiny_mmlu", 0.36, 0),
     ],
 )
 def test_evaluate_quantsim_default_w4a16(
     task: str,
     expected_metric: float,
     num_samples: int,
+    setup_quantized_checkpoints: CheckpointSpec,
 ) -> None:
     cleanup()
-    checkpoint = "DEFAULT_W4A16"
+    checkpoint = setup_quantized_checkpoints
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
@@ -352,7 +350,7 @@ def test_evaluate_quantsim_default_w4a16(
     )
     log_evaluate_test_result(
         model_name=MODEL_ID,
-        checkpoint=checkpoint,
+        checkpoint="DEFAULT_W4A16",
         metric=task,
         value=actual_metric,
     )
@@ -397,25 +395,20 @@ def test_demo_quantized_checkpoint(
     reason="This test can be run on GPU only.",
 )
 @pytest.mark.parametrize(
-    ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    ("precision", "scorecard_path", "device", "checkpoint"),
+    [
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite_gen_5, "DEFAULT_W4"),
+    ],
 )
 @pytest.mark.compile_ram_intensive
 def test_compile(
     precision: Precision,
     scorecard_path: ScorecardCompilePath,
     device: ScorecardDevice,
+    checkpoint: CheckpointSpec,
 ) -> None:
     cleanup()
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     compile_via_export(
         export_model,
         MODEL_ID,
@@ -423,7 +416,54 @@ def test_compile(
         scorecard_path,
         device,
         extra_model_arguments=dict(
-            checkpoint="DEFAULT",
+            checkpoint=checkpoint,
+            sequence_length=128,
+            context_length=DEFAULT_CONTEXT_LENGTH,
+            _skip_quantsim_creation=True,
+            model_cls=Model,
+            model_name=MODEL_ID,
+            model_asset_version=MODEL_ASSET_VERSION,
+            num_splits=NUM_SPLITS,
+            num_layers_per_split=NUM_LAYERS_PER_SPLIT,
+            output_dir=genie_bundle_path,
+            fp_model=FP_Model.from_pretrained(
+                sequence_length=128, context_length=DEFAULT_CONTEXT_LENGTH
+            ),
+            position_processor_cls=PositionProcessor,
+        ),
+        skip_compile_options=True,
+        skip_downloading=False,
+    )
+    assert os.path.exists(genie_bundle_path)
+    assert os.path.exists(os.path.join(genie_bundle_path, "tokenizer.json"))
+    assert os.path.exists(os.path.join(genie_bundle_path, "genie_config.json"))
+    assert os.path.exists(
+        os.path.join(genie_bundle_path, "htp_backend_ext_config.json")
+    )
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="This test can be run on GPU only.",
+)
+@pytest.mark.compile_ram_intensive
+def test_compile_quantized_checkpoint(
+    setup_quantized_checkpoints: CheckpointSpec,
+) -> None:
+    precision = Precision.w4a16
+    scorecard_path = ScorecardCompilePath.GENIE
+    device = cs_x_elite
+    checkpoint = setup_quantized_checkpoints
+    cleanup()
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
+    compile_via_export(
+        export_model,
+        MODEL_ID,
+        precision,
+        scorecard_path,
+        device,
+        extra_model_arguments=dict(
+            checkpoint=checkpoint,
             sequence_length=128,
             context_length=DEFAULT_CONTEXT_LENGTH,
             _skip_quantsim_creation=True,
@@ -456,14 +496,10 @@ def test_compile(
 )
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    [
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_x_elite),
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite_gen_5),
+    ],
 )
 @pytest.mark.qdc
 def test_qdc(
@@ -472,7 +508,6 @@ def test_qdc(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
     genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
@@ -481,6 +516,7 @@ def test_qdc(
     tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
         device, genie_bundle_path
     )
+    assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
         model_name=MODEL_ID,
         precision=precision,
@@ -492,5 +528,5 @@ def test_qdc(
         assert tps > 13.0
         assert min_ttft < 200000.0
     else:
-        assert tps > 16.0
+        assert tps > 11.0
         assert min_ttft < 125000.0

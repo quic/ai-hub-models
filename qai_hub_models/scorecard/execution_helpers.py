@@ -453,7 +453,7 @@ def get_async_job_cache_name(
 
 def _on_staging() -> bool:
     """
-    Returns whether the hub client is pointing to staging.
+    Returns whether the workbench client is pointing to staging.
     Can be sometimes useful to diverge logic between PR CI (prod) and nightly (staging).
     """
     client = hub.client.Client()

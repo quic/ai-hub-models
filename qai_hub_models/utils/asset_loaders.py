@@ -308,6 +308,7 @@ def SourceAsRoot(
     # These modules are imported but unused during model loading.
     # They are mocked so they can be imported without requiring us to install them.
     imported_but_unused_modules: list[str] | None = None,
+    source_root_subdir: str | None = None,
 ):
     """
     Context manager that runs code with:
@@ -326,6 +327,8 @@ def SourceAsRoot(
             ask_to_clone=ask_to_clone,
         )
     )
+    if source_root_subdir:
+        repository_path = os.path.join(repository_path, source_root_subdir)
     SOURCE_AS_ROOT_LOCK.acquire()
     original_path = list(sys.path)
     original_modules = dict(sys.modules)
@@ -515,9 +518,13 @@ class ModelZooAssetConfig:
         return self.labels_path.lstrip("/").format(labels_file=labels_file)
 
     def get_qaihm_repo(
-        self, model_id: str, relative=True, qaihm_version_tag: str | None = None
+        self, model_id: str | None, relative=True, qaihm_version_tag: str | None = None
     ) -> Path | str:
-        relative_path = Path(self.qaihm_repo.lstrip("/").format(model_id=model_id))
+        relative_path = (
+            Path(self.qaihm_repo.lstrip("/").format(model_id=model_id))
+            if model_id
+            else Path("qai_hub_models")
+        )
         repo_url = self.repo_url
         if qaihm_version_tag:
             repo_url = repo_url.replace("/blob/main", f"/refs/tags/{qaihm_version_tag}")
@@ -526,7 +533,7 @@ class ModelZooAssetConfig:
         return relative_path
 
     def get_qaihm_repo_download_url(
-        self, model_id: str, file_name: str, qaihm_version_tag: str | None = None
+        self, model_id: str | None, file_name: str, qaihm_version_tag: str | None = None
     ) -> str:
         repo_url = self.get_qaihm_repo(model_id, False, qaihm_version_tag)
         repo_url = os.path.join(str(repo_url), file_name)

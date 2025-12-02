@@ -115,7 +115,7 @@ class HandDetector(BaseModel):
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the hand detector.
-        This can be used to submit profiling job on Qualcomm AI Hub.
+        This can be used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 
@@ -165,7 +165,7 @@ class HandLandmarkDetector(BaseModel):
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type) of the hand landmark detector.
-        This can be used to submit profiling job on Qualcomm AI Hub.
+        This can be used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, 256, 256), "float32")}
 

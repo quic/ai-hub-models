@@ -105,7 +105,7 @@ def safe_torch_onnx_export(*args, **kwargs):
     """
     Calls torch.onnx.export.
 
-    1. Makes sure ONNX installed is compatible with AI Hub.
+    1. Makes sure ONNX installed is compatible with AI Hub Workbench.
     2. Makes sure dynamo export is not used by default.
     3. Catches large model export failures caused by a bug in Torch 2.5.
     """
@@ -333,7 +333,7 @@ def verify_onnx_export_is_compatible_with_ai_hub(
 ):
     """
     Verifies the ONNX version installed on this machine can be used to export
-    model files that are compatible with AI Hub.
+    model files that are compatible with AI Hub Workbench.
 
     Runs only once then caches the result for this python session.
 
@@ -347,7 +347,7 @@ def verify_onnx_export_is_compatible_with_ai_hub(
     ValueError
         If onnx:
         * is not installed
-        * is too new (produces an IR version that AI Hub cannot handle)
+        * is too new (produces an IR version that AI Hub Workbench cannot handle)
     """
     global ONNX_ENV_CHECKED  # noqa: PLW0603
     global ONNX_ENV_ERROR  # noqa: PLW0603
@@ -363,7 +363,7 @@ def verify_onnx_export_is_compatible_with_ai_hub(
         elif parse_version(pkg_versions[ONNX_PACKAGE_NAME]) >= parse_version(
             ONNX_MIN_INCOMPATIBLE_VERSION
         ):
-            ONNX_ENV_ERROR = f"Installed onnx package (onnx=={pkg_versions[ONNX_PACKAGE_NAME]}) is too new for compatibility with AI Hub."
+            ONNX_ENV_ERROR = f"Installed onnx package (onnx=={pkg_versions[ONNX_PACKAGE_NAME]}) is too new for compatibility with AI Hub Workbench."
 
         if ONNX_ENV_ERROR is not None:
             ONNX_ENV_ERROR = f"{ONNX_ENV_ERROR} Install {ONNX_MAX_COMPATIBLE_VERSION} or earlier:  pip install onnx=={ONNX_MAX_COMPATIBLE_VERSION}"

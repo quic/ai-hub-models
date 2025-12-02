@@ -49,7 +49,7 @@ def test_extract_tool_versions_from_compiled_model():
     )
     with pytest.raises(
         expected_exception=ValueError,
-        match=r"Model must be compiled with AI Hub to extract tool versions\.",
+        match=r"Model must be compiled with AI Hub Workbench to extract tool versions\.",
     ):
         ToolVersions.from_compiled_model(m)
 

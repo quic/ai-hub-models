@@ -49,7 +49,7 @@ cache:
 
 Having List of KeyValue pair makes it easy to store multiple keys pointing to multiple values.
 
-`ModelCache` below uses `Cache` to store Models uploaded on AI Hub at client side and looks like the following:
+`ModelCache` below uses `Cache` to store Models uploaded on AI Hub Workbench at client side and looks like the following:
 
 ```
 cache:
@@ -195,7 +195,7 @@ def _get_hub_model_id(
 
     Returns
     -------
-        str | None: Returns cached `hub_model_id` for uploaded AI Hub model if found, otherwise None.
+        str | None: Returns cached `hub_model_id` for uploaded AI Hub Workbench model if found, otherwise None.
     """
     if additional_keys is None:
         additional_keys = {}
@@ -235,7 +235,7 @@ def _update_hub_model_id(
         model_name (str): Model ID from AI Hub Models repo.
         model_asset_version (int): Model asset version from AI Hub Models repo.
         cache_name (str): Model name in cache.
-        hub_model_id (str): AI Hub uploaded model id to set as value in cache.
+        hub_model_id (str): AI Hub Workbench uploaded model id to set as value in cache.
         cache_mode (CacheMode, optional): CacheMode for current instance.
             If CacheMode.ENABLE, then writes to cache if key is not already present, otherwise raises RuntimeError.
             If CacheMode.DISABLE, then skips updating cache.

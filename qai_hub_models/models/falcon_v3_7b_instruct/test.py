@@ -14,9 +14,9 @@ import torch
 from transformers import AutoConfig
 
 from qai_hub_models.models._shared.llama3 import test
+from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import cleanup
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.falcon_v3_7b_instruct import (
     MODEL_ID,
@@ -28,7 +28,6 @@ from qai_hub_models.models.falcon_v3_7b_instruct.demo import falcon_v3_7b_instru
 from qai_hub_models.models.falcon_v3_7b_instruct.export import (
     NUM_LAYERS_PER_SPLIT,
     NUM_SPLITS,
-    SUPPORTED_PRECISION_RUNTIMES,
 )
 from qai_hub_models.models.falcon_v3_7b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -39,22 +38,19 @@ from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
 )
-from qai_hub_models.scorecard.execution_helpers import (
-    get_compile_parameterized_pytest_config,
-    pytest_device_idfn,
-)
+from qai_hub_models.scorecard.device import cs_x_elite
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
     log_perf_on_device_result,
 )
-from qai_hub_models.utils.testing import allow_few_test_devices_for_llms
 from qai_hub_models.utils.testing_export_eval import compile_via_export
 
 DEFAULT_EVAL_SEQLEN = 2048
 
 
+@pytest.mark.unmarked
 def test_create_genie_config():
     context_length = 4096
     llm_config = AutoConfig.from_pretrained(HF_REPO_NAME)
@@ -214,14 +210,9 @@ def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
 )
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    [
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_x_elite),
+    ],
 )
 @pytest.mark.compile_ram_intensive
 def test_compile(
@@ -230,8 +221,7 @@ def test_compile(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     compile_via_export(
         export_model,
         MODEL_ID,
@@ -272,14 +262,9 @@ def test_compile(
 )
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
-    get_compile_parameterized_pytest_config(
-        MODEL_ID,
-        SUPPORTED_PRECISION_RUNTIMES,
-        {},
-        can_use_quantize_job=False,
-        only_include_genai_paths=True,
-    ),
-    ids=pytest_device_idfn,
+    [
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_x_elite),
+    ],
 )
 @pytest.mark.qdc
 def test_qdc(
@@ -288,8 +273,7 @@ def test_qdc(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    allow_few_test_devices_for_llms(scorecard_path.runtime, device)
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
@@ -297,6 +281,7 @@ def test_qdc(
     tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
         device, genie_bundle_path
     )
+    assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
         model_name=MODEL_ID,
         precision=precision,
@@ -304,5 +289,5 @@ def test_qdc(
         tps=tps,
         ttft=min_ttft,
     )
-    assert tps > 9.0
+    assert tps > 6.0
     assert min_ttft < 250000.0

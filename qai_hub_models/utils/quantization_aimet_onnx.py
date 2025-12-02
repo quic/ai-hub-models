@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from qai_hub_models.utils.base_model import BaseModel
+
 try:
     import aimet_onnx
     from aimet_common.utils import AimetLogger
@@ -23,7 +25,7 @@ import sys
 from collections.abc import Collection
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import torch
 from packaging import version
@@ -251,7 +253,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         data = self.get_calibration_data()
         if data is None:
             # Fallback to BaseModel's impl
-            data = self._sample_inputs_impl(input_spec)
+            data = BaseModel._sample_inputs_impl(cast(BaseModel, self), input_spec)
         assert isinstance(data, dict)
         return data
 
@@ -366,5 +368,5 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         return str(export_dir)
 
     def get_hub_quantize_options(self, precision: Precision) -> str:
-        """AI Hub quantize options recommended for the model."""
+        """AI Hub Workbench quantize options recommended for the model."""
         return ""

@@ -312,7 +312,7 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
     def get_input_spec(batch_size: int = 1) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return dict(
             latent=((batch_size, 4, 64, 64), "float32"),

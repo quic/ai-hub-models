@@ -41,7 +41,20 @@ class CamouflageDataset(BaseDataset):
             self, CAMO_ASSET.path(extracted=True) / "TestDataset", split
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Parameters
+        ----------
+        index
+            Dataset element index
+
+        Returns
+        -------
+        image
+            Input image of shape [3, height, width]. RGB, range [0-1]
+        gt
+            Ground truth masks with shape [1, height, width]. uint8, range [0, 255]
+        """
         orig_image = Image.open(self.images[index]).convert("RGB")
         orig_gt = Image.open(self.categories[index]).convert("L")
 
@@ -50,9 +63,8 @@ class CamouflageDataset(BaseDataset):
 
         _, img_tensor = app_to_net_image_inputs(image)
         img_tensor = img_tensor.squeeze(0)
-        gt_array = np.array(gt_image).astype(np.float32)
-        target = torch.from_numpy(gt_array)
-        return img_tensor, target
+        gt_array = torch.from_numpy(np.asarray(gt_image)).unsqueeze(0)
+        return img_tensor, gt_array
 
     def __len__(self):
         return len(self.images)

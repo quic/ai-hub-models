@@ -104,8 +104,8 @@ def bilinear_sample(input_tensor: torch.Tensor, coords: torch.Tensor) -> torch.T
     _, _, H, W = input_tensor.shape
     coords = coords.permute(0, 2, 3, 1)
     coords_xy_fp = list(coords.split(1, dim=-1))
-    coords_y = torch.floor(coords_xy_fp[0]).int()
-    coords_x = torch.floor(coords_xy_fp[1]).int()
+    coords_y = torch.floor(coords_xy_fp[0]).long()
+    coords_x = torch.floor(coords_xy_fp[1]).long()
 
     # Clamp coordinates to valid range [0, H-1] and [0, W-1]
     x0: torch.Tensor = coords_x.squeeze(-1).clamp(0, W - 1)

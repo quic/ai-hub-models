@@ -240,7 +240,7 @@ class TrOCRDecoder(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         input_ids_spec = ((1, 1), "int32")
 

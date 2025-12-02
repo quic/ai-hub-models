@@ -144,9 +144,9 @@ def extract_onnx_zip(
     ----------
     path
         a folder to validate or zip file to unzip.
-        The zip should have been created by AI Hub, or the
+        The zip should have been created by AI Hub Workbench, or the
         folder should be an unzipped version of a zip
-        created by AI Hub.
+        created by AI Hub Workbench.
 
     out_path
         Folder to which the zip file should be unzipped.
@@ -173,7 +173,7 @@ def extract_onnx_zip(
     weights_path = onnx_path / "model.data"
     if validate_exists and not os.path.exists(model_path):
         raise ValueError(
-            f"model.onnx could not be found at path {model_path}. Was the parent directory created by AI Hub?"
+            f"model.onnx could not be found at path {model_path}. Was the parent directory created by AI Hub Workbench?"
         )
 
     return (model_path, weights_path)
@@ -304,7 +304,7 @@ class ExecutionProviderOptions:
 
     @classmethod
     def aihub_defaults(cls) -> ExecutionProviderOptions:
-        """Get the default settings that AI Hub uses."""
+        """Get the default settings that AI Hub Workbench uses."""
         return cls()
 
     @property
@@ -497,6 +497,8 @@ class OnnxSessionTorchWrapper(RuntimeTorchWrapper[ModelIODetails]):
         outputs: dict[str, ModelIODetails] | None = None,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ):
         """
         Create a wrapper for an ONNX session that uses torch-like I/O for the forward call.
@@ -536,13 +538,28 @@ class OnnxSessionTorchWrapper(RuntimeTorchWrapper[ModelIODetails]):
             - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
+
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
         """
         self.session = session
         if not inputs or not outputs:
             gen_inputs, gen_outputs = extract_io_types_from_onnx_model(session)
             inputs = inputs or gen_inputs
             outputs = outputs or gen_outputs
-        super().__init__(inputs, outputs, quantize_user_input, dequantize_model_output)
+        super().__init__(
+            inputs,
+            outputs,
+            quantize_user_input,
+            dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
+        )
 
     def run(
         self, inputs: Sequence[ArrayLike] | Mapping[str, ArrayLike]
@@ -572,6 +589,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         execution_providers: list[ExecutionProviderOptions],
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ):
         """
         Create a wrapper for an ONNX model that uses torch-like I/O for the forward call.
@@ -603,6 +622,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
+
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
         """
         for ep in execution_providers:
             # Verify the environment is set up correctly for QNN.
@@ -672,7 +699,13 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             print(f"Saved session context at {session_options.context_file_path}")
 
         super().__init__(
-            session, inputs, outputs, quantize_user_input, dequantize_model_output
+            session,
+            inputs,
+            outputs,
+            quantize_user_input,
+            dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
         )
 
     @classmethod
@@ -683,6 +716,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         npu_options: QNNExecutionProviderOptions | None = None,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ) -> OnnxModelTorchWrapper:
         """
         Create an executable ONNX model that runs on the Qualcomm NPU via the QNN Execution Provider.
@@ -693,11 +728,11 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             ONNX model to load.
 
         session_options
-            ONNX session options. If undefined, uses AI Hub defaults.
+            ONNX session options. If undefined, uses AI Hub Workbench defaults.
             This object will be modified in-place and should not be reused.
 
         npu_options
-            QNN execution provider options. If undefined, uses AI Hub defaults.
+            QNN execution provider options. If undefined, uses AI Hub Workbench defaults.
 
         quantize_user_input
             If a model input is float and the corresponding model input type is
@@ -715,6 +750,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
+
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
 
         Returns
         -------
@@ -729,6 +772,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             [npu_options],
             quantize_user_input,
             dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
         )
 
     @classmethod
@@ -738,6 +783,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         session_options: OnnxSessionOptions | None = None,
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ):
         """
         Create an executable ONNX model that runs on the CPU.
@@ -748,7 +795,7 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             ONNX model to load.
 
         session_options
-            ONNX session options. If undefined, uses AI Hub defaults.
+            ONNX session options. If undefined, uses AI Hub Workbench defaults.
             This object will be modified in-place and should not be reused.
 
         quantize_user_input
@@ -768,6 +815,14 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
 
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
+
         Returns
         -------
         OnnxModelTorchWrapper
@@ -780,6 +835,8 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             [],
             quantize_user_input,
             dequantize_model_output,
+            convert_inputs_to_channel_last,
+            convert_outputs_to_channel_first,
         )
 
     @classmethod

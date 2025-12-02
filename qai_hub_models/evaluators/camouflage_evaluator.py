@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import numpy as np
 import torch
 from py_sod_metrics import MAE, Emeasure, Smeasure, WeightedFmeasure
 
@@ -28,28 +27,33 @@ class CamouflageEvaluator(BaseEvaluator):
         self.mae = MAE()
         self.results: dict = {m: [] for m in self.metrics}
 
-    def add_batch(self, pred_images: torch.Tensor, gt_images: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         """
         Process a batch of segmentation predictions and ground truth masks.
 
         Parameters
         ----------
-            pred_images (torch.Tensor):  output predictions with shape
-                [batch_size, 1, height, width]
-            gt_images (torch.Tensor): Ground truth masks with shape
-                [batch_size, 1, height, width]
+        output
+            model predicted masks with shape
+            [batch_size, 1, height, width]
+            float32, range (0 - 1)
+        gt
+            Ground truth masks with shape
+            [batch_size, 1, height, width]
+            uint8, range (0, 255)
         """
-        if isinstance(pred_images, tuple):
-            pred_images = pred_images[0]
+        # Resize predicted masks to the same size as the ground truth masks, convert prediction to uint8 [0, 255]
+        pred_masks_np = postprocess_masks(output, gt.shape[-2:]).numpy()
 
-        pred_np = postprocess_masks(pred_images, gt_images.shape[-2:])
-        gt_np = gt_images.cpu().numpy().astype(np.uint8)
+        # Remove channel dimension from prediction and ground truth.
+        pred_masks_np = pred_masks_np.squeeze(1)
+        gt_masks_np = gt.numpy().squeeze(1)
 
-        for pred, gt in zip(pred_np, gt_np, strict=False):
-            self.sm.step(pred=pred, gt=gt, normalize=True)
-            self.wfm.step(pred=pred, gt=gt, normalize=True)
-            self.em.step(pred=pred, gt=gt, normalize=True)
-            self.mae.step(pred=pred, gt=gt, normalize=True)
+        for b_out, b_gt in zip(pred_masks_np, gt_masks_np, strict=False):
+            self.sm.step(pred=b_out, gt=b_gt, normalize=True)
+            self.wfm.step(pred=b_out, gt=b_gt, normalize=True)
+            self.em.step(pred=b_out, gt=b_gt, normalize=True)
+            self.mae.step(pred=b_out, gt=b_gt, normalize=True)
 
     def smeasure(self) -> float:
         """Returns the S-measure (structural similarity) score

@@ -103,7 +103,7 @@ class NuscenesDataset(BaseDataset):
         self, index: int
     ) -> tuple[
         tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-        tuple[str, torch.Tensor, torch.Tensor],
+        tuple[int, torch.Tensor, torch.Tensor],
     ]:
         """
         Get item from infos according to the given index.
@@ -242,7 +242,7 @@ class NuscenesDataset(BaseDataset):
         # used to project 2D image coordinates to 3D points
         inv_intrins = torch.inverse(torch.tensor(intrins))
         return (imgs, sensor2keyegos, inv_intrins, inv_post_rots, post_trans), (
-            info.token,
+            index,
             torch.tensor(info.cams["CAM_FRONT_LEFT"]["ego2global_translation"]),
             torch.tensor(info.cams["CAM_FRONT_LEFT"]["ego2global_rotation"]),
         )

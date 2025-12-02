@@ -17,16 +17,15 @@ import pytest
 import qai_hub as hub
 
 from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.model import (
     LLM_AIMETOnnx,
     LLMBase,
-    cleanup,
 )
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models._shared.llm.split_onnx_utils.utils import ONNXBundle
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
 from qai_hub_models.scorecard import ScorecardDevice
-from qai_hub_models.utils.llm_helpers import copy_qairt_files_for_genie_bundle
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
 
@@ -34,12 +33,6 @@ from qai_hub_models.utils.testing import patch_qai_hub
 def complete_genie_bundle_and_run_on_device(
     device: ScorecardDevice, genie_bundle_path: str
 ) -> None:
-    copy_qairt_files_for_genie_bundle(
-        device.reference_device,
-        Path(genie_bundle_path),
-        os.environ["QAIRT_SDK_PATH"],
-    )
-
     # Add prompt.txt to genie_bundle
     with open(os.path.join(genie_bundle_path, "prompt.txt"), "w") as f:
         f.write(
@@ -564,6 +557,7 @@ def setup_test_quantization(
     precision: Precision,
     checkpoint: str | None = None,
     num_samples: int = 0,
+    use_seq_mse: bool = False,
 ) -> str:
     if not (
         (Path(output_path) / "model.encodings").exists()
@@ -581,6 +575,7 @@ def setup_test_quantization(
             allow_cpu_to_quantize=True,
             checkpoint=checkpoint,
             num_samples=num_samples,
+            use_seq_mse=use_seq_mse,
         )
         cleanup()
     return output_path

@@ -371,5 +371,5 @@ class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """Source model format preferred for conversion on AI Hub."""
+        """Source model format preferred for conversion on AI Hub Workbench."""
         return SourceModelFormat.ONNX

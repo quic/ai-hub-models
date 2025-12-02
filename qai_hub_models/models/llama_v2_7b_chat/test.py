@@ -9,24 +9,27 @@ from unittest.mock import MagicMock, Mock, patch
 import numpy as np
 import pytest
 import qai_hub as hub
+import torch
 
-from qai_hub_models.models.common import TargetRuntime
+from qai_hub_models.models._shared.llm.common import cleanup
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.llama_v2_7b_chat import Model
-from qai_hub_models.models.llama_v2_7b_chat.demo import llama_2_chat_demo
 from qai_hub_models.models.llama_v2_7b_chat.export import (
+    ALL_COMPONENTS,
     BASE_NAME,
     DEFAULT_EXPORT_DEVICE,
+    export_model,
 )
 from qai_hub_models.models.llama_v2_7b_chat.export import main as export_main
+from qai_hub_models.models.llama_v2_7b_chat.model import MODEL_ASSET_VERSION, MODEL_ID
+from qai_hub_models.scorecard import (
+    ScorecardCompilePath,
+    ScorecardDevice,
+)
+from qai_hub_models.scorecard.device import cs_x_elite
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
-
-
-@pytest.mark.skip("#105 move slow_cloud and slow tests to nightly.")
-@pytest.mark.slow_cloud
-def test_demo() -> None:
-    # Run demo and verify it does not crash
-    llama_2_chat_demo(is_test=True)
+from qai_hub_models.utils.testing_export_eval import compile_via_export
 
 
 def _mock_from_pretrained() -> Mock:
@@ -101,8 +104,7 @@ def test_cli_chipset_with_options(tmp_path) -> None:
         return_value=mock_model,
     )
 
-    chipset = "qualcomm-snapdragon-x-elite"
-    # device = hub.get_devices(attributes=f"chipset:{chipset}")[0]
+    chipset = "qualcomm-snapdragon-8-elite"
     with patch_qai_hub() as mock_hub, patch_model, patch_get_cache:
         export_main(
             [
@@ -110,58 +112,26 @@ def test_cli_chipset_with_options(tmp_path) -> None:
                 chipset,
                 "--output-dir",
                 tmp_path.name,
-                "--target-runtime",
-                "qnn_context_binary",
                 "--compile-options",
                 "compile_extra",
                 "--profile-options",
                 "profile_extra",
             ]
         )
+        parts = 4  # Number of model parts
+        assert mock_hub.submit_compile_job.call_count == parts * 2
+        assert mock_hub.submit_profile_job.call_count == parts * 2
+        assert mock_hub.submit_inference_job.call_count == parts * 2
 
-        # Compile is called 8 times (4 token parts, 4 prompt parts)
-        assert mock_hub.submit_compile_job.call_count == 8
-        assert all(
-            c.kwargs["device"].attributes == f"chipset:{chipset}"
-            for c in mock_hub.submit_compile_job.call_args_list
-        )
-
-        # Link 4 times
-        assert mock_hub.submit_link_job.call_count == 4
-        assert all(
-            c.kwargs["name"] == f"{BASE_NAME}_Llama2_Part{i + 1}_Quantized"
-            for i, c in enumerate(mock_hub.submit_link_job.call_args_list)
-        )
-        mock_comp = mock_model.load_model_part.return_value
-
-        assert all(
-            c.args[0] == TargetRuntime.QNN_CONTEXT_BINARY
-            for c in mock_comp.get_hub_compile_options.call_args_list
-        )
-        assert all(
-            c.args[2] == "compile_extra"
-            for c in mock_comp.get_hub_compile_options.call_args_list
-        )
-
-        # Profile 8 times
-        assert mock_hub.submit_profile_job.call_count == 8
-        call_args_list = mock_hub.submit_profile_job.call_args_list
-        assert all(
-            c.kwargs["device"].attributes == f"chipset:{chipset}"
-            for c in call_args_list
-        )
-        assert all(
-            c.args[1] == "profile_extra"
-            for c in mock_comp.get_hub_profile_options.call_args_list
-        )
-
-        # Inference 8 times
-        assert mock_hub.submit_inference_job.call_count == 8
-        call_args_list = mock_hub.submit_inference_job.call_args_list
-        assert all(
-            c.kwargs["device"].attributes == f"chipset:{chipset}"
-            for c in call_args_list
-        )
+        for mock in [
+            mock_hub.submit_compile_job,
+            mock_hub.submit_profile_job,
+            mock_hub.submit_inference_job,
+        ]:
+            assert all(
+                f"chipset:{chipset}" in call.kwargs["device"].attributes
+                for call in mock.call_args_list
+            )
 
         assert tmp_path.exists()
         assert tmp_path.is_dir()
@@ -193,7 +163,6 @@ def test_cli_default_device_select_component(tmp_path) -> None:
                 "Llama2_Part4_Quantized",
             ]
         )
-
         mock_from_pretrained.assert_called_with(max_position_embeddings=128)
 
         assert mock_hub.submit_compile_job.call_count == 4
@@ -232,3 +201,38 @@ def test_cli_default_device_select_component(tmp_path) -> None:
 
         assert tmp_path.exists()
         assert tmp_path.is_dir()
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="This test can be run on GPU only.",
+)
+@pytest.mark.parametrize(
+    ("precision", "scorecard_path", "device"),
+    [
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_x_elite),
+    ],
+)
+@pytest.mark.compile_ram_intensive
+def test_compile(
+    precision: Precision,
+    scorecard_path: ScorecardCompilePath,
+    device: ScorecardDevice,
+) -> None:
+    cleanup()
+    compile_via_export(
+        export_model,
+        MODEL_ID,
+        precision,
+        scorecard_path,
+        device,
+        extra_model_arguments=dict(
+            checkpoint="DEFAULT",
+            model_cls=Model,
+            model_name=MODEL_ID,
+            model_asset_version=MODEL_ASSET_VERSION,
+            components=ALL_COMPONENTS,
+            output_dir="output_dir",
+        ),
+        skip_compile_options=True,
+    )

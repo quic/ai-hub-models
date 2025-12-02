@@ -70,3 +70,36 @@ def transpose_channel_last_to_first_input_specs(
                 shape = (shape[0], shape[-1], *shape[1:-1])
         out[i] = (shape, input_type)
     return out
+
+
+def transpose_channel_first_to_last_np(array: np.ndarray) -> np.ndarray:
+    # Channel dimension is assumed to be the second index (i.e., shape[1])
+    # if the tensor is rank 4 or 5 and the first index (i.e., shape[0])
+    # if the tensor is rank 3
+    num_dims = len(array.shape)
+    transpose_order = list(range(num_dims))
+
+    assert num_dims <= 5 and num_dims >= 3, (
+        "Channel transpose tensors must be rank-3, 4, or 5."
+    )
+
+    if num_dims < 5:
+        transpose_order.append(transpose_order.pop(-3))
+    else:
+        transpose_order.append(transpose_order.pop(1))
+    return np.transpose(array, transpose_order)
+
+
+def transpose_channel_last_to_first_np(array: np.ndarray) -> np.ndarray:
+    num_dims = len(array.shape)
+    transpose_order = list(range(num_dims))
+
+    assert num_dims <= 5 and num_dims >= 3, (
+        "Channel transpose tensors must be rank-3, 4, or 5."
+    )
+
+    if num_dims < 5:
+        transpose_order.insert(-2, transpose_order.pop(-1))
+    else:
+        transpose_order.insert(1, transpose_order.pop(-1))
+    return np.transpose(array, transpose_order)

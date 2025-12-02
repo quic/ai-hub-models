@@ -35,7 +35,7 @@ from qai_hub_models.datasets import (
 )
 from qai_hub_models.datasets.common import UnfetchableDatasetError, get_folder_name
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
-from qai_hub_models.models.protocols import EvalModelProtocol, ExecutableModelProtocol
+from qai_hub_models.models.protocols import ExecutableModelProtocol
 from qai_hub_models.utils.asset_loaders import (
     get_hub_datasets_path,
     load_h5,
@@ -184,6 +184,8 @@ def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
 
     If the model was not ultimately from a quantize job, returns None.
     """
+    if isinstance(model.producer, hub.QuantizeJob):
+        return model
     if not isinstance(model.producer, hub.CompileJob):
         return None
     if not isinstance(model.producer.model, hub.Model):
@@ -462,7 +464,7 @@ class HubDataset(Dataset):
 
     def load_hub_dataset_for_sample(self, sample_index) -> DatasetFromIOTuples:
         """
-        Fetches the AI Hub dataset that stores the sample at the given index,
+        Fetches the AI Hub Workbench dataset that stores the sample at the given index,
         and stores it in memory.
 
         Returns a tuple of:
@@ -625,7 +627,7 @@ def evaluate(
                 )
                 async_output = async_model(*device_inputs)
 
-            # On device output is computed asynchronously on AI Hub, so save it for later.
+            # On device output is computed asynchronously on AI Hub Workbench, so save it for later.
             ai_hub_async_inference_outputs[model_name].append(async_output)
 
         # Run the remaining local models separately.
@@ -687,73 +689,134 @@ def evaluate(
 
 
 def evaluate_on_dataset(
-    compiled_model: hub.Model,
-    torch_model: BaseModel | CollectionModel,
-    hub_device: hub.Device,
     dataset_name: str,
+    evaluator_func: Callable[..., BaseEvaluator],
+    input_spec: InputSpec | None = None,
+    torch_model: torch.nn.Module | BaseModel | None = None,
+    compiled_model: hub.Model | None = None,
+    quantized_model: hub.Model | None = None,
+    hub_device: hub.Device | None = None,
     samples_per_job: int | None = None,
     num_samples: int | None = None,
     seed: int | None = None,
     profile_options: str = "",
     use_cache: bool = False,
-    compute_quant_cpu_accuracy: bool = False,
-    skip_device_accuracy: bool = False,
-    skip_torch_accuracy: bool = False,
 ) -> EvaluateResult:
     """
     Evaluate model accuracy on a dataset both on device and with PyTorch.
 
     Parameters
     ----------
-        compiled_model: A hub.Model object pointing to compiled model on hub.
-            This is what will be used to compute accuracy on device.
-        torch_model: The torch model to evaluate locally to compare accuracy.
-        hub_device: Which device to use for on device measurement.
-        dataset_name: The name of the dataset to use for evaluation.
-        samples_per_job: Limit on the number of samples to submit in a single inference job.
-            If not specified, uses the default value set on the dataset.
-        num_samples: The number of samples to use for evaluation.
-            If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
-        seed: The random seed to use when subsampling the dataset. If not set, creates
-            a deterministic subset.
-        profile_options: Options to set when running inference on device.
-            For example, which compute unit to use.
-        use_cache: If set, will upload the full dataset to hub and store a local copy.
-            This prevents re-uploading data to hub for each evaluation, with the
-            tradeoff of increased initial overhead.
-        compute_quant_cpu_accuracy: If the compiled model came from a quantize job,
-            and this option is set, computes the quantized ONNX accuracy on the CPU.
-        skip_device_accuracy: If set, skips on-device accuracy checks.
-        skip_device_accuracy: If set, skips torch cpu accuracy checks.
+    dataset_name
+        The name of the dataset to use for evaluation.
+
+    evaluator_func:
+        Function that returns a new evaluator instance to use for eval.
+
+    input_spec
+        If set, uses this as the desired model input spec.
+        Input types are unused; only the shapes and order are considered.
+        The input spec should _always_ be in channel first format.
+
+        If None...
+            1. Extracts the input_spec from the compiled model if provided, or...
+            2. Extracts the input_spec from the quantized model if provided, or...
+            3. Extracts the input_spec from torch_model if provided.
+
+    torch_model
+        The torch model to evaluate locally to compare accuracy.
+        If None, torch accuracy is skipped.
+
+    compiled_model
+        A hub.Model object pointing to compiled model on AI Hub Workbench.
+        This is what will be used to compute accuracy on device.
+        If None, on-device accuracy is skipped.
+
+    quantized_model
+        A quantized hub.Model object. This can point to any model that is downstream of
+        an AI Hub Workbench Quantize Job. This function will find the appropriate
+        upstream ONNX asset to use.
+
+        This is used to compute quantized accuracy on your local CPU.
+        If this is set to None, this CPU-based accuracy step is skipped.
+
+    hub_device
+        Which device to use for on device measurement.
+        If None, on-device accuracy is skipped.
+
+    samples_per_job
+        Limit on the number of samples to submit in a single inference job.
+        If not specified, uses the default value set on the dataset.
+
+    num_samples
+        The number of samples to use for evaluation.
+        If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
+
+    seed
+        The random seed to use when subsampling the dataset. If not set, creates a deterministic subset.
+
+    profile_options
+        Options to set when running inference on device.
+        For example, which compute unit to use.
+
+    use_cache
+        If set, will upload the full dataset to hub and store a local copy.
+        This prevents re-uploading data to hub for each evaluation, with the
+        tradeoff of increased initial overhead.
 
     Returns
     -------
-        Tuple of (torch accuracy, quant cpu accuracy, on device accuracy) all as float.
+    EvaluateResult
+        Contains (torch accuracy, quant cpu accuracy, on device accuracy), all as float.
         quant cpu accuracy is the accuracy from running the quantized ONNX on the CPU.
-        If any accuracy was not computed, its value in the tuple will be None.
+        If any accuracy was not computed, its value will be None.
     """
-    assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
-    assert isinstance(torch_model, BaseModel), (
-        "Evaluation is not yet supported for CollectionModels."
-    )
+    on_device_model: AsyncOnDeviceModel | None = None
+    if compiled_model is not None:
+        if compiled_model.producer is None:
+            raise ValueError(
+                "Compiled models must be compiled with AI Hub Workbench; they cannot be uploaded manually."
+            )
+        if hub_device is None:
+            raise ValueError("Must specify a device to evaluate a compiled model.")
+        on_device_model = AsyncOnDeviceModel(
+            model=compiled_model,
+            input_names=list(input_spec) if input_spec else None,
+            device=hub_device,
+            inference_options=profile_options,
+        )
 
-    input_names = list(torch_model.get_input_spec().keys())
-    output_names = torch_model.get_output_names()
-    on_device_model = AsyncOnDeviceModel(
-        compiled_model, input_names, hub_device, profile_options, output_names
-    )
+    if input_spec is None:
+        if on_device_model is not None:
+            input_spec = on_device_model.get_input_spec()
+        elif quantized_model is not None and quantized_model.producer is not None:
+            assert isinstance(
+                quantized_model.producer, (hub.QuantizeJob, hub.CompileJob)
+            )
+            input_spec = cast(InputSpec, quantized_model.producer.shapes)
+        elif isinstance(torch_model, BaseModel):
+            input_spec = torch_model.get_input_spec()
+        else:
+            raise ValueError("Cannot extract input spec.")
 
-    dataset_from_name_args = (
-        dataset_name,
-        DatasetSplit.VAL,
-        on_device_model.get_input_spec(),
-    )
+    dataset_from_name_args = (dataset_name, DatasetSplit.VAL, input_spec)
     samples_per_job = (
         samples_per_job or DATASET_NAME_MAP[dataset_name].default_samples_per_job()
     )
     num_samples = num_samples or min(samples_per_job, DEFAULT_NUM_EVAL_SAMPLES)
 
     if use_cache:
+        input_names = list(input_spec)
+        channel_last_input = []
+        if on_device_model is not None:
+            channel_last_input = on_device_model.channel_last_input
+            if channel_last_input and (
+                torch_model is not None or quantized_model is not None
+            ):
+                raise ValueError(
+                    "If cache is enabled, a compiled model with channel last input cannot be evaluated alongside a torch / quantized onnx model."
+                )
+
         # When the cache is enabled, we don't want to load the torch dataset unless
         # the cache is out of date. Therefore we pass the args of get_dataset_from_name to
         # the function that populates the cache, so it can instantiate the dataset only if necessary.
@@ -761,14 +824,14 @@ def evaluate_on_dataset(
             dataset_from_name_args,
             samples_per_job,
             seed,
-            on_device_model.input_names,
-            on_device_model.channel_last_input,
+            input_names,
+            channel_last_input,
         )
         torch_dataset = HubDataset(
             dataset_name,
             num_samples,
-            on_device_model.input_names,
-            on_device_model.channel_last_input,
+            input_names,
+            channel_last_input,
             dataset_from_name_args[2],
         )
         dataloader = DataLoader(
@@ -801,17 +864,17 @@ def evaluate_on_dataset(
     print(f"Evaluating on {num_samples} samples.")
 
     models: dict[str, ExecutableModelProtocol | AsyncOnDeviceModel] = {}
-    if compute_quant_cpu_accuracy:
-        models["quant cpu"] = _load_quant_cpu_onnx(compiled_model)
-    if not skip_device_accuracy:
+    if quantized_model is not None:
+        models["quant cpu"] = _load_quant_cpu_onnx(quantized_model)
+    if on_device_model is not None:
         models["on-device"] = on_device_model
-    if not skip_torch_accuracy:
+    if torch_model is not None:
         models["torch"] = torch_model
 
     results = evaluate(
         dataloader,
-        cast(EvalModelProtocol, torch_model).get_evaluator,
-        models,
+        evaluator_func,
+        models=models,
         model_batch_size=1,
         verbose=True,
     )
@@ -830,7 +893,7 @@ class EvalMode(Enum):
 
     FP = ("fp", "run floating point model")
     QUANTSIM = ("quantsim", "simulated quantization")
-    ON_DEVICE = ("on-device", "physical device via AI Hub (slow)")
+    ON_DEVICE = ("on-device", "physical device via AI Hub Workbench (slow)")
     LOCAL_DEVICE = ("local-device", "running on local device like X Elite")
 
     def __new__(cls, value: str, description: str):
@@ -870,7 +933,6 @@ def evaluate_session_on_dataset(
     -------
         Tuple of accuracy(in float), formatted accuracy (as a string)
     """
-    assert isinstance(torch_model, EvalModelProtocol), "Model must have an evaluator."
     assert isinstance(torch_model, BaseModel), (
         "Evaluation is not yet supported for CollectionModels."
     )
@@ -884,7 +946,7 @@ def evaluate_session_on_dataset(
     dataloader = get_deterministic_sample(source_torch_dataset, num_samples, None)
 
     print(f"Evaluating on {num_samples} samples.")
-    evaluator = cast(EvalModelProtocol, torch_model).get_evaluator()
+    evaluator = torch_model.get_evaluator()
     inputs, outputs = extract_io_types_from_onnx_model(session)
     session_wrapper = OnnxSessionTorchWrapper(session, inputs, outputs)
 

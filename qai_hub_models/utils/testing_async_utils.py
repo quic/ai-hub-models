@@ -44,6 +44,10 @@ from qai_hub_models.utils.onnx.torch_wrapper import extract_onnx_zip
 MAX_PSNR_VALUES = 10
 
 
+class CachedScorecardJobError(ValueError):
+    """Raised when a scorecard job is missing or failed."""
+
+
 def callable_side_effect(side_effects: Iterator) -> Callable:
     """
     Return a function that:
@@ -358,15 +362,12 @@ def fetch_async_test_job(
         return None
     if raise_if_not_successful and not scorecard_job.success:
         # If the job has an ID but it's marked as "skipped", then it timed out.
-        if scorecard_job.skipped:
-            error_str = "still running"
-        else:
-            # Otherwise capture the status and failure message
-            error_str = f"{scorecard_job.job_status}: {scorecard_job.status_message}"
-
-        raise ValueError(
+        error_str = (
+            "still running" if scorecard_job.skipped else scorecard_job.job_status
+        )
+        raise CachedScorecardJobError(
             str_with_async_test_metadata(
-                f"{scorecard_job.job._job_type.display_name.title()} job ({scorecard_job.job_id}) {error_str}",
+                f"{scorecard_job.job._job_type.display_name.title()} job {error_str}: {scorecard_job.job.url}",
                 model_id,
                 precision,
                 path,

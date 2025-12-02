@@ -17,6 +17,7 @@ from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.scorecard.path_profile import ScorecardProfilePath
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_PACKAGE_ROOT
+from qai_hub_models.utils.qai_hub_helpers import get_device_and_chipset_name
 
 SCORECARD_DEVICE_YAML_PATH = QAIHM_PACKAGE_ROOT / "devices_and_chipsets.yaml"
 
@@ -133,6 +134,7 @@ class DeviceDetailsYaml(BaseQAIHMConfig):
     vendor: str
     icon: WebsiteIcon
     npu_count: int = 1
+    enabled_in_scorecard: bool = False
 
     @staticmethod
     def from_device(device: ScorecardDevice):
@@ -143,6 +145,7 @@ class DeviceDetailsYaml(BaseQAIHMConfig):
             vendor=device.vendor,
             icon=WebsiteIcon.from_device(device),
             npu_count=device.npu_count,
+            enabled_in_scorecard=device in ScorecardDevice._registry.values(),
         )
 
 
@@ -269,3 +272,44 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
     def save(self):
         """Save this configuration to its standard YAML location in the AI Hub Models python package."""
         return self.to_yaml(SCORECARD_DEVICE_YAML_PATH)
+
+    def get_device_details_without_aihub(
+        self, device: hub.Device
+    ) -> tuple[str, DeviceDetailsYaml]:
+        """
+        Uses the devices defined in the YAML to convert a hub device to a device name and device details.
+        This allows us to get device information without using the AI Hub API.
+
+        Parameters
+        ----------
+        device
+            Device for which to get details.
+
+        Returns
+        -------
+        str
+            Device Name
+
+        DeviceDetailsYaml
+            Device Details
+        """
+        device_name, chipset = get_device_and_chipset_name(device)
+        # Device families aren't included in the YAML. Replace with the original device name.
+        device_name = device_name.replace(" (Family)", "") if device_name else None
+
+        if device_name is not None:
+            if device_details := self.devices.get(device_name):
+                return (device_name, device_details)
+
+        elif chipset is not None:
+            # Prefer to match scorecard-enabled devices first.
+            for name, details in self.devices.items():
+                if details.enabled_in_scorecard and details.chipset == chipset:
+                    return (name, details)
+
+            # Otherwise check all devices.
+            for name, details in self.devices.items():
+                if details.chipset == chipset:
+                    return (name, details)
+
+        raise ValueError(f"Unknown device: {device}.")

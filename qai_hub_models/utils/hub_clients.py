@@ -21,7 +21,7 @@ from qai_hub_models.utils.asset_loaders import EXECUTING_IN_CI_ENVIRONMENT
 
 """
 A mapping of Hub clients for the given deployment names.
-The mapping is Map<AI Hub deployment name (lower case), AI Hub client>
+The mapping is Map<AI Hub Workbench deployment name (lower case), AI Hub Workbench client>
 
 Deployment names are mapped to None in the dictionary if a client for them could not be created.
 """
@@ -33,7 +33,7 @@ HUB_GLOBAL_CLIENT_CONFIG_OVERRIDE_REENTRANT_LOCK = threading.RLock()
 
 
 def deployment_is_prod(deployment: str):
-    return deployment.lower() in ["app", "prod"]
+    return deployment.lower() in ["workbench", "prod"]
 
 
 def _get_global_client() -> tuple[str, HubClient] | None:
@@ -46,10 +46,10 @@ def _get_global_client() -> tuple[str, HubClient] | None:
 
         #
         # Prod deployment is a special case where the deployment "name" does not match the URL
-        # "prod" deployment is "app.aihub.qualcomm.com"
+        # "prod" deployment is "workbench.aihub.qualcomm.com"
         #
         deployment_name = (
-            "prod" if deployment_name == "app" else deployment_name.lower()
+            "prod" if deployment_name == "workbench" else deployment_name.lower()
         )
 
         return deployment_name, global_client
@@ -102,7 +102,7 @@ def get_hub_client(
         f"HUB_{user}_USER_TOKEN_" if user != DEFAULT_CLIENT_USER else "HUB_USER_TOKEN_"
     )
     deployment_name = deployment_name.lower()
-    deployment_name = "prod" if deployment_name == "app" else deployment_name
+    deployment_name = "prod" if deployment_name == "workbench" else deployment_name
 
     # Return Cached client if applicable
     if user in _CACHED_CLIENTS and deployment_name in _CACHED_CLIENTS[user]:
@@ -117,9 +117,11 @@ def get_hub_client(
     ):
         #
         # Prod deployment is a special case where the deployment "name" does not match the URL
-        # "prod" deployment is "app.aihub.qualcomm.com"
+        # "prod" deployment is "workbench.aihub.qualcomm.com"
         #
-        deployment_name_url = "app" if deployment_name == "prod" else deployment_name
+        deployment_name_url = (
+            "workbench" if deployment_name == "prod" else deployment_name
+        )
 
         api_url = os.environ.get(
             f"HUB_API_URL_{upper_deployment_name}",

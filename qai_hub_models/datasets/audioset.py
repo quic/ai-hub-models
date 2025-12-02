@@ -68,7 +68,7 @@ class AudioSetDataset(BaseDataset):
         self.audio_files: list = []
         self.labels: list[torch.Tensor] = []
         self.id_to_idx: dict[str, int] = {}
-        self.sample_ids: list[str] = []
+        self.sample_idx: list[int] = []
         self.csv_data: pd.DataFrame | None = None
         self.audio_frames: dict[str, int] = {}
 
@@ -86,7 +86,7 @@ class AudioSetDataset(BaseDataset):
 
         return True
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, tuple[torch.Tensor, str]]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, tuple[torch.Tensor, int]]:
         """Get a single audio sample and its labels by index.
 
         Parameters
@@ -120,7 +120,7 @@ class AudioSetDataset(BaseDataset):
             input_tensor = cast(
                 torch.Tensor, patches[frame_idx : frame_idx + 1]
             ).squeeze(0)
-        return input_tensor, (self.labels[index], self.sample_ids[index])
+        return input_tensor, (self.labels[index], self.sample_idx[index])
 
     def _parse_audioset_csv(self) -> pd.DataFrame:
         try:
@@ -152,9 +152,9 @@ class AudioSetDataset(BaseDataset):
         self.audio_dir = self.audio_dir / "audio" / "eval"
 
         # Find all audio files
-        audio_files = list(self.audio_dir.glob("*.flac"))
+        audio_files = sorted(self.audio_dir.glob("*.flac"))
 
-        for audio_file in audio_files:
+        for sample_idx, audio_file in enumerate(audio_files):
             ytid = audio_file.stem
             if ytid in csv_lookup:
                 row = csv_lookup[ytid]
@@ -172,7 +172,7 @@ class AudioSetDataset(BaseDataset):
                 for _frame_idx in range(frames_per_sample):
                     self.audio_files.append(audio_file)
                     self.labels.append(label_vector)
-                    self.sample_ids.append(ytid)
+                    self.sample_idx.append(sample_idx)
 
         if not self.audio_files:
             raise ValueError("No matching audio files found for CSV entries")

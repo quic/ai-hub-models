@@ -21,11 +21,11 @@ def test_profile_qnn_version():
     """
     This verifies behavior of ScorecardProfilePath.get_profile_options() with
     different combinations of:
-      * default AI Hub QAIRT version
-      * default AI Hub models QAIRT version
+      * default AI Hub Workbench QAIRT version
+      * default AI Hub Models QAIRT version
       * QAIRT version override environment variables in the test environment
     """
-    # Patch frameworks so this test continues to work regardless of AI Hub version changes.
+    # Patch frameworks so this test continues to work regardless of AI Hub Workbench version changes.
     frameworks = [
         Framework(
             name="QAIRT",
@@ -47,7 +47,7 @@ def test_profile_qnn_version():
         ),
     ]
 
-    # Test working AI Hub instance
+    # Test working AI Hub Workbench instance
     for api_version, per_runtime_api_version in (
         ("2.32", {InferenceEngine.ONNX: "2.33"}),
         ("2.31", {InferenceEngine.ONNX: "2.32"}),
@@ -153,7 +153,7 @@ def test_profile_qnn_version():
                     )
 
             # The QAIRT version is always included explicitly if not set to the AI Hub Models default tag
-            # It is still explicit even if it's the default AI Hub version.
+            # It is still explicit even if it's the default AI Hub Workbench version.
             with set_temp_env(
                 {QAIRTVersionEnvvar.VARNAME: QAIRTVersion.DEFAULT_AIHUB_TAG}
             ):

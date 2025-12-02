@@ -56,12 +56,12 @@ class KittiDataset(BaseDataset):
         self.input_images_zip = input_images_zip
         self.input_labels_zip = input_labels_zip
         self.input_calibs_zip = input_calibs_zip
-        self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
-            KITTI_FOLDER_NAME, KITTI_VERSION, "training"
+        self.root_path = ASSET_CONFIG.get_local_store_dataset_path(
+            KITTI_FOLDER_NAME, KITTI_VERSION, ""
         )
-        self.images_path = self.data_path / KITTI_IMAGES_DIR_NAME
-        self.labels_path = self.data_path / KITTI_LABELS_DIR_NAME
-        self.calibs_path = self.data_path / KITTI_CALIBS_DIR_NAME
+        self.data_path = self.root_path / (
+            "training" if split == DatasetSplit.TRAIN else "testing"
+        )
         BaseDataset.__init__(self, self.data_path, split=split)
 
         input_spec = input_spec or {"image": ((1, 3, 384, 1280), "")}
@@ -145,22 +145,22 @@ class KittiDataset(BaseDataset):
             ],
         )
         if self.input_images_zip is None or not self.input_images_zip.endswith(
-            KITTI_IMAGES_DIR_NAME + ".zip"
+            f"{KITTI_IMAGES_DIR_NAME}.zip"
         ):
             raise no_zip_error
         if self.input_labels_zip is None or not self.input_labels_zip.endswith(
-            KITTI_LABELS_DIR_NAME + ".zip"
+            f"{KITTI_LABELS_DIR_NAME}.zip"
         ):
             raise no_zip_error
         if self.input_calibs_zip is None or not self.input_calibs_zip.endswith(
-            KITTI_CALIBS_DIR_NAME + ".zip"
+            f"{KITTI_CALIBS_DIR_NAME}.zip"
         ):
             raise no_zip_error
 
-        os.makedirs(self.images_path.parent, exist_ok=True)
-        extract_zip_file(self.input_images_zip, self.images_path.parent)
-        extract_zip_file(self.input_labels_zip, self.labels_path.parent)
-        extract_zip_file(self.input_calibs_zip, self.calibs_path.parent)
+        os.makedirs(self.root_path, exist_ok=True)
+        extract_zip_file(self.input_images_zip, self.root_path)
+        extract_zip_file(self.input_labels_zip, self.root_path)
+        extract_zip_file(self.input_calibs_zip, self.root_path)
 
     @staticmethod
     def default_samples_per_job() -> int:

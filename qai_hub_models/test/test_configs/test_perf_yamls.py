@@ -15,7 +15,9 @@ from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 def test_perf_yaml():
     # DevicesAndChipsetsYaml defines the devices valid for use with the AI Hub Models website.
-    valid_devices = DevicesAndChipsetsYaml.load().devices
+    dc = DevicesAndChipsetsYaml.load()
+    valid_devices = dc.devices
+    valid_chipsets = dc.chipsets
 
     def _validate_device(device: ScorecardDevice):
         # Verify the given device is valid for use in the AI Hub Models website.
@@ -25,13 +27,27 @@ def test_perf_yaml():
                 "You may need to re-generate the valid device list via `python qai_hub_models/models/generate_scorecard_device_yaml.py`"
             )
 
+    def _validate_chipset(chipset_name: str):
+        # Verify the given chipsets is valid for use in the AI Hub Models website.
+        if chipset_name not in valid_chipsets:
+            raise ValueError(
+                f"Invalid chipset '{chipset_name}'. Chipset must be listed in {SCORECARD_DEVICE_YAML_PATH}.\n"
+                "You may need to re-generate the valid device list via `python qai_hub_models/models/generate_scorecard_device_yaml.py`"
+            )
+
     model_id = ""
     try:
         for model_id in MODEL_IDS:
             perf = QAIHMModelPerf.from_model(model_id, not_exists_ok=True)
             model_name: str | None = None
 
-            # Verify all devices are valid AI Hub devices.
+            # Verify all devices are valid AI Hub Workbench devices.
+            for chipset in perf.supported_chipsets:
+                _validate_chipset(chipset)
+
+            for device in perf.supported_devices:
+                _validate_device(device)
+
             for precision_perf in perf.precisions.values():
                 for component_detail in precision_perf.components.values():
                     for device in component_detail.performance_metrics:

@@ -131,7 +131,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
             torch.Tensor,
             torch.Tensor,
         ],
-        gt: tuple[str, torch.Tensor, torch.Tensor],
+        gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
     ):
         """
         Parameters
@@ -150,17 +150,19 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 heatmap (torch.Tensor): Heatmap with the shape of
                     [B, N, H, W].
             gt: A tuple of tensors containing
-                samplet_token (str): Unique identifier for the sample.
+                id (torch.Tensor): Unique sample ID
+                    shape of [B]
                 trans (torch.Tensor): ego2global Translation with the
                     shape of [B, 3].
                 rots (torch.Tensor): ego2global Rotation with the
                     shape of [B, 4].
         """
-        sample_token, trans, rots = gt
+        ids, trans, rots = gt
         reg, height, dim, rot, vel, heatmap = output
 
         result_list = self.get_bboxes(reg, height, dim, rot, vel, heatmap)
-        for i in range(len(sample_token)):
+        for i in range(len(ids)):
+            sample_id = ids[i]
             boxes_pt, scores_pt, labels_pt = result_list[i]
             boxes = boxes_pt.numpy()
             scores = scores_pt.numpy()
@@ -189,7 +191,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 else:
                     attr = self.NotMovingAttribute[name]
                 nusc_anno = NuscenesAnnotation(
-                    sample_token=sample_token[i],
+                    sample_token=str(sample_id),
                     translation=nusc_box.center.tolist(),
                     size=nusc_box.wlh.tolist(),
                     rotation=nusc_box.orientation.elements.tolist(),
@@ -200,10 +202,10 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                 )
                 annos.append(nusc_anno.__dict__)
             # other cams results of the same frame should be concatenated
-            if sample_token[i] in self.nusc_annos:
-                self.nusc_annos[sample_token[i]].extend(annos)
+            if sample_id[i] in self.nusc_annos:
+                self.nusc_annos[sample_id[i]].extend(annos)
             else:
-                self.nusc_annos[sample_token[i]] = annos
+                self.nusc_annos[sample_id[i]] = annos
 
     def get_bboxes(
         self,

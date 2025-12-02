@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from torch import nn
+from torch import Tensor, nn
 
 
 ###########################################
@@ -13,10 +13,24 @@ from torch import nn
 ##########################################
 # HeadBlock
 class HeadBlock(nn.Module):
-    def __init__(self, chan, group_size=32, activ_type="prelu"):
+    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+        """
+        Initialize the HeadBlock module for feature extraction.
+
+        Parameters
+        ----------
+        chan : int
+            Number of channels for the convolutional layers.
+
+        group_size : int, optional
+            Group size for grouped convolutions. Defaults to 32.
+
+        activ_type : str, optional
+            Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
+        """
         super().__init__()
         self.conv = Conv2dBlock(
-            1, chan, 3, padding=1, stride=1, group=1, norm="bn", activ=activ_type
+            3, chan, 3, padding=1, stride=1, group=1, norm="bn", activ=activ_type
         )
         bran1_block = [
             Conv2dBlock(
@@ -74,7 +88,20 @@ class HeadBlock(nn.Module):
             self.activ = None
             raise ValueError(f"Unsupported activation function: {activ_type}")
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Perform forward pass through the HeadBlock.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor of shape [N, 3, H, W].
+
+        Returns
+        -------
+        Tensor
+            Output tensor of shape [N, chan, H/2, W/2].
+        """
         x = self.conv(x)
         x = self.bran1(x) + self.bran2(x)
         if self.activ:
@@ -84,7 +111,22 @@ class HeadBlock(nn.Module):
 
 # DownsampleBlock
 class DownsampleBlock(nn.Module):
-    def __init__(self, chan, group_size=32, activ_type="prelu"):
+    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+        """
+        Initialize the DownsampleBlock module for reducing spatial dimensions while increasing channel depth.
+
+        Parameters
+        ----------
+        chan : int
+            Number of input channels.
+
+        group_size : int, optional
+            Group size for grouped convolutions. Defaults to 32.
+
+        activ_type : str, optional
+            Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
+
+        """
         super().__init__()
         assert chan % group_size == 0, (
             f"chan {chan:d} cannot be divided by group_size {group_size:d}"
@@ -166,7 +208,20 @@ class DownsampleBlock(nn.Module):
             self.activ = None
             assert 0, f"Unsupported activation function: {activ_type}"
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Perform forward pass through the DownsampleBlock.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor of shape [N, chan, H, W].
+
+        Returns
+        -------
+        Tensor
+            Output tensor of shape [N, 2*chan, H/2, W/2].
+        """
         x = self.bran1(x) + self.bran2(x)
         if self.activ:
             x = self.activ(x)
@@ -175,7 +230,22 @@ class DownsampleBlock(nn.Module):
 
 # NormalBlock
 class NormalBlock(nn.Module):
-    def __init__(self, chan, group_size=32, activ_type="prelu"):
+    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+        """
+        Initialize the NormalBlock module for standard feature extraction without changing spatial dimensions.
+
+        Parameters
+        ----------
+        chan : int
+            Number of input and output channels.
+
+        group_size : int, optional
+            Group size for grouped convolutions. Defaults to 32.
+
+        activ_type : str, optional
+            Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
+
+        """
         super().__init__()
         assert chan % group_size == 0, (
             f"chan {chan:d} cannot be divided by group_size {group_size:d}"
@@ -226,7 +296,20 @@ class NormalBlock(nn.Module):
             self.activ = None
             assert 0, f"Unsupported activation function: {activ_type}"
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Perform forward pass through the NormalBlock.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor of shape [N, chan, H, W].
+
+        Returns
+        -------
+        Tensor
+            Output tensor of shape [N, chan, H, W] (residual connection maintains spatial dimensions).
+        """
         x = self.model(x) + x
         if self.activ:
             x = self.activ(x)
@@ -234,7 +317,21 @@ class NormalBlock(nn.Module):
 
 
 class EmbedBlock(nn.Module):
-    def __init__(self, chan, group_size=32, activ_type="prelu"):
+    def __init__(self, chan: int, group_size: int = 32, activ_type: str = "prelu"):
+        """
+        Initialize the EmbedBlock module for converting feature maps into flattened embeddings.
+
+        Parameters
+        ----------
+        chan : int
+            Number of input and output channels.
+
+        group_size : int, optional
+            Group size for grouped convolutions. Defaults to 32.
+
+        activ_type : str, optional
+            Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
+        """
         super().__init__()
         self.model = nn.Sequential(
             Conv2dBlock(
@@ -252,7 +349,20 @@ class EmbedBlock(nn.Module):
             ),
         )
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Perform forward pass through the EmbedBlock.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor of shape [N, chan, H, W] where H,W >= 8.
+
+        Returns
+        -------
+        Tensor
+            Flattened output tensor of shape [N, chan * (H-7) * (W-7)].
+        """
         x = self.model(x)
         return x.flatten(start_dim=1)
 
@@ -263,15 +373,45 @@ class EmbedBlock(nn.Module):
 class Conv2dBlock(nn.Module):
     def __init__(
         self,
-        in_chan,
-        out_chan,
-        kernel_size,
-        padding=0,
-        stride=1,
-        group=1,
-        norm="none",
-        activ="none",
+        in_chan: int,
+        out_chan: int,
+        kernel_size: int | tuple,
+        padding: int | tuple = 0,
+        stride: int | tuple = 1,
+        group: int = 1,
+        norm: str = "none",
+        activ: str = "none",
     ):
+        """
+        Initialize the Conv2dBlock module with convolution, normalization, and activation layers.
+
+        Parameters
+        ----------
+        in_chan : int
+            Number of input channels.
+
+        out_chan : int
+            Number of output channels.
+
+        kernel_size : int or tuple
+            Size of the convolutional kernel.
+
+        padding : int or tuple, optional
+            Zero-padding added to both sides of the input. Defaults to 0.
+
+        stride : int or tuple, optional
+            Stride of the convolution. Defaults to 1.
+
+        group : int, optional
+            Number of blocked connections from input channels to output channels. Defaults to 1.
+
+        norm : str, optional
+            Normalization type ('bn' for BatchNorm2d, 'none'). Defaults to 'none'.
+
+        activ : str, optional
+            Activation function type ('prelu', 'relu', 'sigmoid', 'none'). Defaults to 'none'.
+
+        """
         super().__init__()
         self.conv = nn.Conv2d(
             in_chan,
@@ -303,7 +443,20 @@ class Conv2dBlock(nn.Module):
         else:
             assert 0, f"Unsupported activation layer: {activ}"
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        Perform forward pass through the Conv2dBlock.
+
+        Parameters
+        ----------
+        x : Tensor
+            Input tensor of shape [N, in_chan, H, W].
+
+        Returns
+        -------
+        Tensor
+            Output tensor of shape [N, out_chan, H_out, W_out], where H_out and W_out depend on kernel_size, padding, and stride.
+        """
         x = self.conv(x)
         if self.norm:
             x = self.norm(x)

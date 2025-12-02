@@ -224,7 +224,7 @@ class PyTestTask(RunCommandsWithVenvTask):
             # Don't run tests that don't support parallelism
             pytest_options += ' -m "not serial"'
 
-        pytest_options += " -ra -vvv"
+        pytest_options += " -ra -vvv --tb=short"
 
         # Add JUnit XML output option if specified
         if junit_xml_path:

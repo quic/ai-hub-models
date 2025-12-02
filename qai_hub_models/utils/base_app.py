@@ -59,6 +59,6 @@ class CollectionAppProtocol(Protocol):
 
         Returns
         -------
-            Dataset compatible with the format expected by AI Hub.
+            Dataset compatible with the format expected by AI Hub Workbench.
         """
         ...

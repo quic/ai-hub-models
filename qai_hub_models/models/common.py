@@ -21,7 +21,7 @@ from typing_extensions import assert_never
 
 
 class QAIRTVersion:
-    # Map of <Hub URL -> Valid AI Hub QAIRT Versions>
+    # Map of <Workbench URL -> Valid AI Hub Workbench QAIRT Versions>
     _FRAMEWORKS: dict[str, list[QAIRTVersion.ParsedFramework]] = {}
     _HUB_DEFAULT_FRAMEWORK: dict[str, QAIRTVersion.ParsedFramework] = {}
     HUB_FLAG = "--qairt_version"
@@ -37,27 +37,27 @@ class QAIRTVersion:
         """
         Create this QAIRT Version.
 
-        By default, the version or tag is validated against AI Hub's valid versions / tags, and an error is raised
+        By default, the version or tag is validated against AI Hub Workbench's valid versions / tags, and an error is raised
         if the version or tag isn't valid.
 
-        If AI Hub is not configured on this machine, returns a partially completed object. Some fields may be set to
-        UNKNOWN because we can't get information from AI Hub.
+        If AI Hub Workbench is not configured on this machine, returns a partially completed object. Some fields may be set to
+        UNKNOWN because we can't get information from AI Hub Workbench.
 
         Parameters
         ----------
             version_or_tag:
-                QAIRT version or AI Hub version tag.
+                QAIRT version or AI Hub Workbench version tag.
 
             return_default_if_does_not_exist:
-                If true, return the default AI Hub QAIRT version if this QAIRT version does not exist on AI Hub.
+                If true, return the default AI Hub Workbench QAIRT version if this QAIRT version does not exist on AI Hub Workbench.
 
             validate_exists_on_ai_hub:
-                If this is True and AI Hub is reachable,
-                raises an exception if this QAIRT version is not available on AI Hub.
+                If this is True and AI Hub Workbench is reachable,
+                raises an exception if this QAIRT version is not available on AI Hub Workbench.
 
-                If this is False, and this version does not exist on AI Hub,
-                acts as if AI Hub is not configured on this machine and returns a partially completed object.
-                Some fields may be set to UNKNOWN because we can't get version information from AI Hub.
+                If this is False, and this version does not exist on AI Hub Workbench,
+                acts as if AI Hub Workbench is not configured on this machine and returns a partially completed object.
+                Some fields may be set to UNKNOWN because we can't get version information from AI Hub Workbench.
         """
         user_parsed_framework = (
             version_or_tag
@@ -72,7 +72,7 @@ class QAIRTVersion:
         ) = QAIRTVersion._load_frameworks()
         chosen_framework: QAIRTVersion.ParsedFramework | None = None
         if self._api_url and validate_exists_on_ai_hub:
-            # Try to match the version_or_tag with a known QAIRT framework from AI Hub.
+            # Try to match the version_or_tag with a known QAIRT framework from AI Hub Workbench.
             for hub_framework in valid_hub_frameworks:
                 if user_parsed_framework is None:
                     if version_or_tag in hub_framework.tags:
@@ -82,7 +82,7 @@ class QAIRTVersion:
                     chosen_framework = hub_framework
                     break
 
-            # If no AI Hub QAIRT framework matches, then use a default.
+            # If no AI Hub Workbench QAIRT framework matches, then use a default.
             if (
                 chosen_framework is None
                 and return_default_if_does_not_exist
@@ -110,7 +110,7 @@ class QAIRTVersion:
             # No valid framework available; raise.
             all_versions_str = "\n    ".join([str(x) for x in QAIRTVersion.all()])
             raise ValueError(
-                f"QAIRT version {version_or_tag} is not supported by AI Hub. Available versions are:\n    {all_versions_str}"
+                f"QAIRT version {version_or_tag} is not supported by AI Hub Workbench. Available versions are:\n    {all_versions_str}"
             )
 
         self.framework = chosen_framework
@@ -153,7 +153,7 @@ class QAIRTVersion:
 
     @property
     def is_default(self) -> bool:
-        """Whether this is the default AI Hub QAIRT version."""
+        """Whether this is the default AI Hub Workbench QAIRT version."""
         return QAIRTVersion.DEFAULT_AIHUB_TAG in self.tags
 
     @staticmethod
@@ -194,12 +194,12 @@ class QAIRTVersion:
 
     @staticmethod
     def default() -> QAIRTVersion:
-        """Default QAIRT version on AI Hub."""
+        """Default QAIRT version on AI Hub Workbench."""
         return QAIRTVersion(QAIRTVersion.DEFAULT_AIHUB_TAG)
 
     @staticmethod
     def latest() -> QAIRTVersion:
-        """Latest QAIRT version on AI Hub."""
+        """Latest QAIRT version on AI Hub Workbench."""
         return QAIRTVersion(QAIRTVersion.LATEST_AIHUB_TAG)
 
     @staticmethod
@@ -210,13 +210,13 @@ class QAIRTVersion:
     @staticmethod
     def _load_frameworks() -> tuple[str, list[ParsedFramework], ParsedFramework | None]:
         """
-        Load frameworks from AI Hub and populate cache.
+        Load frameworks from AI Hub Workbench and populate cache.
 
         Returns
         -------
             * currently active Hub api_url
             * all valid frameworks on this Hub version
-            * framework that corresponds with AI Hub default
+            * framework that corresponds with AI Hub Workbench default
             * framework that corresponds with AI Hub Models default
         """
         try:
@@ -254,7 +254,6 @@ class QAIRTVersion:
                 else obj
             ),
             handler(Any),
-            field_name=handler.field_name,
             serialization=core_schema.plain_serializer_function_ser_schema(
                 lambda v: v.full_version_with_flavor, when_used="json"
             ),
@@ -266,7 +265,7 @@ class QAIRTVersion:
         QAIRT version parsed into components, + any related tags.
 
         major / minor are required for this to be meaningful in all sigurations.
-        patch / ident / flavor are optional as they can be inferred from AI Hub's list of valid QAIRT versions.
+        patch / ident / flavor are optional as they can be inferred from AI Hub Workbench's list of valid QAIRT versions.
         """
 
         major: int
@@ -385,7 +384,7 @@ class InferenceEngine(Enum):
     @property
     def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
         """Default QAIRT version used by this inference engine."""
-        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.39"
+        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.40"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -399,12 +398,12 @@ class InferenceEngine(Enum):
                 )
                 raise ValueError(
                     msg
-                    + f"\n\nAI Hub no longer supports the standard QAIRT version ({qairt_version}) used by this version of AI Hub Models.\n"
+                    + f"\n\nAI Hub Workbench no longer supports the standard QAIRT version ({qairt_version}) used by this version of AI Hub Models.\n"
                     + runtime_version_str
                     + "You have two options:\n"
                     f" 1. Pass --fetch-static-assets to the export.py script, to fetch numbers / model files created for this release, that are compatible with QAIRT {qairt_version}.\n"
                     f" OR\n"
-                    f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub. "
+                    f" 2. Pass --compile-options='--qairt_version=default' and/or --profile-options='--qairt_version=default' to use the current default available on AI Hub Workbench. "
                     "DO THIS AT YOUR OWN RISK -- Older versions of AI Hub Models are not guaranteed to work with newer versions of QAIRT."
                 ) from None
             raise
@@ -576,7 +575,7 @@ class TargetRuntime(Enum):
 
     @property
     def aihub_target_runtime_flag(self) -> str:
-        """AI Hub job flag for compiling to this runtime."""
+        """AI Hub Workbench job flag for compiling to this runtime."""
         if self.is_exclusively_for_genai:
             hub_target_runtime_flag = TargetRuntime.QNN_CONTEXT_BINARY.value
         else:
@@ -627,7 +626,7 @@ class Precision:
     """
     Stores a precision configuration for a model's graph.
 
-    Precision can represent any precision that AI Hub's QuantizeJob supports.
+    Precision can represent any precision that AI Hub Workbench's QuantizeJob supports.
     It also can represent floating point (no quantization).
     """
 
@@ -805,7 +804,6 @@ class Precision:
         return core_schema.with_info_after_validator_function(
             lambda obj, _: cls.parse(obj),
             handler(Any),
-            field_name=handler.field_name,
             serialization=core_schema.plain_serializer_function_ser_schema(
                 Precision.__str__, when_used="json"
             ),

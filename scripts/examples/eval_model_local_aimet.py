@@ -10,15 +10,14 @@ import math
 import os
 from pathlib import Path
 
-import numpy as np
 import onnx
 import onnxruntime
 import qai_hub as hub
 import torch
-from aimet_common.defs import CallbackFunc, QuantScheme
-from aimet_common.quantsim_config.utils import get_path_for_per_channel_config
+from aimet_common.defs import QuantScheme
 from aimet_onnx import quant_analyzer
 from aimet_onnx.quantsim import QuantizationSimModel, compute_encodings
+from aimet_onnx.utils import OrtInferenceSession, make_psnr_eval_fn
 from qai_hub.client import CompileJob
 from tqdm import tqdm
 
@@ -55,16 +54,6 @@ def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader)
             mock_torch_onnx_inference(session, torch_input)
 
 
-def _compute_snr(expected: np.array, actual: np.array):
-    """Computes the SNR for two signals where the noise is defined as expected - actual"""
-    data_range = np.abs(expected).max()
-    noise_pw = np.sum(np.power(expected - actual, 2))
-    noise_pw /= actual.size
-    noise = np.sqrt(noise_pw)
-    noise = max(noise, 1e-10)
-    return 20 * np.log10(data_range / noise)
-
-
 def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
     model_bytes = model.SerializeToString()
     fp_session = onnxruntime.InferenceSession(
@@ -84,33 +73,6 @@ def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
     return fp_inputs, fp_outputs, fp_session
 
 
-def _eval_accuracy(session, args):
-    fp_inputs, fp_outputs = args
-    quantized_outputs = [mock_torch_onnx_inference(session, i) for i in fp_inputs]
-    snrs = []
-    num_outputs = len(quantized_outputs[0])
-    num_outputs = 1
-    for idx in range(len(quantized_outputs)):
-        if num_outputs == 1:
-            snr_i = _compute_snr(
-                fp_outputs[idx][0].numpy(),
-                quantized_outputs[idx][0].numpy(),
-            )
-        else:
-            snr_i = np.stack(
-                [
-                    _compute_snr(
-                        fp_outputs[idx][i].numpy(), quantized_outputs[idx][i].numpy()
-                    )
-                    for i in range(num_outputs)
-                ]
-            ).mean()
-        snrs.append(snr_i)
-
-    avg_snr = sum(snrs) / len(snrs)
-    return avg_snr if not math.isnan(avg_snr) else 0.0
-
-
 def _create_aimet_quantsim(
     model_name: str,
     model: onnx.ModelProto,
@@ -125,7 +87,7 @@ def _create_aimet_quantsim(
         quant_scheme=quant_scheme,
         default_param_bw=param_bw,
         default_activation_bw=activation_bw,
-        config_file=get_path_for_per_channel_config(),
+        config_file="htp_v81",
         providers=["CUDAExecutionProvider"],
     )
 
@@ -171,6 +133,10 @@ def flip_layers_to_higher_precision(
                 q.set_bitwidth(16)
             else:
                 q.enabled = False
+
+
+def to_qdq_session(qdq_model):
+    return OrtInferenceSession(qdq_model, providers=["CudaExecutionProvider"])
 
 
 def evaluate_and_save_results(session, model, num_samples, overall_results, tag):
@@ -224,6 +190,7 @@ def debug_quant_accuracy(
     apply_mixed_precision: bool = False,
     percent_layers_to_flip: int = 0,
     num_samples: int = 200,
+    onnx_qdq_eval: bool = False,
 ):
     overall_results = {}
 
@@ -281,10 +248,14 @@ def debug_quant_accuracy(
         onnx_model = download_model_in_memory(target_model)
         onnx.save(onnx_model, str(onnx_model_path))
 
-    fp_inputs, fp_outputs, fp_session = _collect_inputs_and_fp_outputs(
-        onnx_model, dataloader, 5
-    )
-    eval_callback = CallbackFunc(_eval_accuracy, (fp_inputs, fp_outputs))
+    fp_inputs, _, fp_session = _collect_inputs_and_fp_outputs(onnx_model, dataloader, 5)
+
+    input_names = [inp.name for inp in fp_session.get_inputs()]
+    sensitivity_check_inputs = []
+    for fp_input in fp_inputs:
+        sensitivity_check_inputs.append(
+            {input_names[0]: fp_input.cpu().detach().numpy()}
+        )
 
     # -----------
     # float
@@ -297,21 +268,24 @@ def debug_quant_accuracy(
     # w8a8
     # -----------
     if eval_w8a8:
-        sim, _qdq_session = _create_aimet_quantsim(
+        sim, qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 8, quant_scheme, dataloader
         )
 
         # Evaluate QDQ model
+        sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
+
         evaluate_and_save_results(
-            sim.session, model, num_samples, overall_results, "w8a8_accuracy"
+            sess_to_eval, model, num_samples, overall_results, "w8a8_accuracy"
         )
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
+            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs)
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,
-                eval_callback,
+                psnr_fn,
                 input_spec,
                 results_dir=str(
                     RESULTS_FOLDER / f"{model_name}" / f"{model_name}_w8a8_results/"
@@ -335,10 +309,12 @@ def debug_quant_accuracy(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
             )
+            qdq_session = to_qdq_session(onnx_qdq_model)
 
             # Evaluate QDQ model
+            sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
             evaluate_and_save_results(
-                sim.session, model, num_samples, overall_results, "w8a8_mixed_accuracy"
+                sess_to_eval, model, num_samples, overall_results, "w8a8_mixed_accuracy"
             )
 
     # -----------
@@ -346,21 +322,24 @@ def debug_quant_accuracy(
     # -----------
     if eval_w816:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, _qdq_session = _create_aimet_quantsim(
+        sim, qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 8, 16, quant_scheme, dataloader
         )
 
         # Evaluate QDQ model
+        sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
+
         evaluate_and_save_results(
-            sim.session, model, num_samples, overall_results, "w8a16_accuracy"
+            sess_to_eval, model, num_samples, overall_results, "w8a16_accuracy"
         )
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
+            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs)
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,
-                eval_callback,
+                psnr_fn,
                 input_spec,
                 results_dir=str(
                     RESULTS_FOLDER / f"{model_name}" / f"{model_name}_w8a16_results/"
@@ -386,8 +365,13 @@ def debug_quant_accuracy(
             )
 
             # Evaluate QDQ model
+            sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
             evaluate_and_save_results(
-                sim.session, model, num_samples, overall_results, "w8a16_mixed_accuracy"
+                sess_to_eval,
+                model,
+                num_samples,
+                overall_results,
+                "w8a16_mixed_accuracy",
             )
 
     # -----------
@@ -395,13 +379,15 @@ def debug_quant_accuracy(
     # -----------
     if eval_w16a16:
         onnx_model = onnx.load(str(onnx_model_path))
-        sim, _qdq_session = _create_aimet_quantsim(
+        sim, qdq_session = _create_aimet_quantsim(
             model_name, onnx_model, 16, 16, quant_scheme, dataloader
         )
 
         # Evaluate QDQ model
+        sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
+
         evaluate_and_save_results(
-            sim.session, model, num_samples, overall_results, "w16a16_accuracy"
+            sess_to_eval, model, num_samples, overall_results, "w16a16_accuracy"
         )
 
     with open(RESULTS_FOLDER / f"{model_name}" / f"{model_name}.json", "w+") as f:
@@ -429,7 +415,7 @@ if __name__ == "__main__":
         "--models",
         type=str,
         required=True,
-        help="Comma separated list of model ids (from AI Hub models). Note no spaces allowed",
+        help="Comma separated list of model ids (from AI Hub Workbench models). Note no spaces allowed",
     )
 
     parser.add_argument(
@@ -466,6 +452,12 @@ if __name__ == "__main__":
         help="Number of samples to use for evaluation",
     )
 
+    parser.add_argument(
+        "--onnx-qdq-eval",
+        action="store_true",
+        help="If set, evaluates the QDQ model instead of the QuantSim session",
+    )
+
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
 
@@ -491,6 +483,7 @@ if __name__ == "__main__":
                 apply_mixed_precision=args.apply_mixed_precision,
                 percent_layers_to_flip=args.percent_layers_to_flip,
                 num_samples=args.num_samples,
+                onnx_qdq_eval=args.onnx_qdq_eval,
             )
         except Exception as e:
             print(f"Caught exception when running {model} - ", str(e))

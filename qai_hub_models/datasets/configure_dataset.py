@@ -9,6 +9,9 @@ from qai_hub_models.datasets.carvana import CarvanaDataset
 from qai_hub_models.datasets.celebahq import CelebAHQDataset
 from qai_hub_models.datasets.cityscapes import CityscapesDataset
 from qai_hub_models.datasets.face_attrib_dataset import FaceAttribDataset
+from qai_hub_models.datasets.face_attrib_enhanced_dataset import (
+    FaceAttribEnhancedDataset,
+)
 from qai_hub_models.datasets.face_det_lite import FaceDetLiteDataset
 from qai_hub_models.datasets.facemap_3dmm_dataset import FaceMap3DMMDataset
 from qai_hub_models.datasets.foot_track_dataset import FootTrackDataset
@@ -26,6 +29,7 @@ SUPPORTED_DATASETS = [
     "foot_track_dataset",
     "gear_guard_dataset",
     "facemap_3dmm_dataset",
+    "face_attrib_enhanced_dataset",
     "face_attrib_dataset",
     "cityscapes",
     "human_faces",
@@ -72,6 +76,8 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         GearGuardDataset(input_data_zip=files[0])
     elif dataset == "facemap_3dmm_dataset":
         FaceMap3DMMDataset(input_data_zip=files[0])
+    elif dataset == "face_attrib_enhanced_dataset":
+        FaceAttribEnhancedDataset(input_data_zip=files[0])
     elif dataset == "face_attrib_dataset":
         FaceAttribDataset(input_data_zip=files[0])
     elif dataset == "cityscapes":

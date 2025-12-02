@@ -31,14 +31,17 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         self.preds = defaultdict(list)
         self.targets = defaultdict(list)
 
-    def add_batch(self, output: torch.Tensor, gt: tuple[torch.Tensor, list[str]]):
+    def add_batch(self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor]):
         """
         Add a batch of predictions and ground truth for evaluation.
 
         Parameters
         ----------
-            output: Model raw output scores (B, num_classes).
-            gt: Ground truth multi-label binary tensor (B, num_classes).
+        output
+            Model raw output scores (B, num_classes).
+        gt:
+            - Ground truth multi-label binary tensor (B, num_classes).
+            - Integer Sample ID for each binary tensor. Shape (B)
         """
         output = output.cpu()
         label_tensor, sample_ids = gt

@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import torch
 from PIL import Image
 
 from qai_hub_models.datasets.common import (
@@ -15,68 +16,230 @@ from qai_hub_models.datasets.common import (
     DatasetSplit,
     UnfetchableDatasetError,
 )
+from qai_hub_models.models.face_attrib_net.model import OUT_NAMES, FaceAttribNet
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, extract_zip_file
-from qai_hub_models.utils.image_processing import app_to_net_image_inputs
+from qai_hub_models.utils.image_processing import app_to_net_image_inputs, resize_pad
+from qai_hub_models.utils.input_spec import InputSpec
 
-FACEATTRIB_DATASET_VERSION = 2
-FACEATTRIB_DATASET_ID = "faceattrib_dataset"
+FACEATTRIB_DATASET_VERSION = 3
+FACEATTRIB_DATASET_ID = "faceattrib"
 FACEATTRIB_DATASET_DIR_NAME = "faceattrib_trainvaltest"
 
 
+def load_annotations(file_path: Path) -> dict[str, int]:
+    """
+    Helper function to load label data from an annotation file.
+
+    Parameters
+    ----------
+    file_path
+        The path to the annotation file.
+
+    Returns
+    -------
+    dict[str, int]
+        A dictionary containing label data:
+            - Key : str
+                The filename.
+
+            - Value : int
+                The attribute value:
+                    - 0: Closed/Absent
+                    - 1: Opened/Present
+    """
+    annotations = {}
+    with open(file_path) as f:
+        for line in f:
+            parts = line.strip().split(" ")
+            if len(parts) == 2:
+                filename, label = parts
+                annotations[filename] = int(label)
+    return annotations
+
+
 class FaceAttribDataset(BaseDataset):
-    """Wrapper class for face_attrib_net private dataset"""
+    """Wrapper class for face_attrib_net private dataset, for detections output"""
 
     def __init__(
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
-        max_boxes: int = 100,
+        input_spec: InputSpec | None = None,
     ):
+        """
+        FaceAttribDataset constructor
+
+        Parameters
+        ----------
+        split
+            either DatasetSplit.TRAIN or DatasetSplit.VAL.
+            DatasetSplit.TRAIN: training dataset
+            DatasetSplit.VAL: validation dataset
+
+        input_data_zip
+            path to zip file containing dataset.
+
+        input_spec
+            name, shape, type of sample data.
+        """
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FACEATTRIB_DATASET_ID, FACEATTRIB_DATASET_VERSION, "data"
         )
-        self.images_path = self.data_path / FACEATTRIB_DATASET_DIR_NAME
         self.input_data_zip = input_data_zip
-        self.max_boxes = max_boxes
 
-        self.img_width = 128
-        self.img_height = 128
-        BaseDataset.__init__(self, self.data_path, split=split)
+        input_spec = input_spec or FaceAttribNet.get_input_spec()
+        self.input_height = input_spec["image"][0][2]
+        self.input_width = input_spec["image"][0][3]
+        BaseDataset.__init__(self, self.data_path, split)
 
-    def __getitem__(self, index):
+    def getitem_image(self, index: int) -> tuple[torch.Tensor, Path]:
+        """
+        Helper function to retrieve an image and its corresponding file path from the dataset.
+
+        Parameters
+        ----------
+        index
+            The index used to retrieve the image from the dataset.
+
+        Returns
+        -------
+        image_tensor : torch.Tensor
+            A face image with shape (C, H, W), where:
+                - C: Number of channels (3 for RGB)
+                - H: Height (128 pixels)
+                - W: Width (128 pixels)
+            The image is scaled and center-padded to match the model's expected input dimensions.
+            Pixel values should be in the range [0, 1].
+
+        image_path : Path
+            The file path of the retrieved image.
+        """
+        assert index < len(self.image_list)
         image_path = self.image_list[index]
         image = Image.open(image_path)
-        image_tensor = app_to_net_image_inputs(image)[1].squeeze(0).repeat(3, 1, 1)
+        image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
+        if image.size != (self.input_width, self.input_height):
+            print(f"image size for {image_path} does not fit model, we'll resize it")
+            image_tensor = resize_pad(
+                image=image_tensor, dst_size=(self.input_height, self.input_width)
+            )[0]
 
-        image_fname = str(image_path.name[:-4])
-        last_idx = image_fname.rfind("_")
-        second_last_idx = image_fname[:last_idx].rfind("_")
-        image_id = image_fname[second_last_idx + 1 : last_idx]
-        image_idx = image_fname[last_idx + 1 :]
+        return image_tensor, image_path
 
-        return image_tensor, (
-            int(image_id),
-            int(image_idx),
-            self.img_height,
-            self.img_width,
-        )
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns a tuple containing an input image tensor and label data.
 
-    def __len__(self):
+        Parameters
+        ----------
+        index
+            The index used to retrieve the image from the dataset.
+
+        Returns
+        -------
+        image_tensor : torch.Tensor
+            A face image with shape (C, H, W), where:
+                - C: Number of channels (3 for RGB)
+                - H: Height (128 pixels)
+                - W: Width (128 pixels)
+            The image is scaled and center-padded to match the model's expected input dimensions.
+            Pixel values should be in the range [0, 1].
+
+        label_data : torch.Tensor
+            An integer tensor of shape (5) representing the following attributes in order:
+                - left_openness
+                - right_openness
+                - glasses
+                - mask
+                - sunglasses
+
+            Value meanings:
+                - 0: Closed/Absent
+                - 1: Opened/Present
+                - -1: not available
+        """
+        image_tensor, _ = self.getitem_image(index=index)
+        label_data: torch.Tensor = torch.full((5,), -1, dtype=torch.int32)
+
+        if self.split == DatasetSplit.VAL:
+            assert index < len(self.gt_list)
+            assert index < len(self.attr_index_list)
+            attr_val = self.gt_list[index]
+            attr_index = self.attr_index_list[index]
+            label_data[attr_index] = attr_val
+
+        return image_tensor, label_data
+
+    def __len__(self) -> int:
+        """
+        Return number of samples in the dataset.
+
+        Returns
+        -------
+        int
+            number of samples
+        """
         return len(self.image_list)
 
     def _validate_data(self) -> bool:
-        if not self.images_path.exists():
+        """
+        Validate and load dataset.
+
+        Returns
+        -------
+        bool
+            True: data is valid and loaded successfully
+            False: otherwise
+        """
+        image_path = (
+            self.data_path / FACEATTRIB_DATASET_DIR_NAME / "images" / self.split_str
+        )
+        gt_path = self.data_path / FACEATTRIB_DATASET_DIR_NAME / "labels"
+        if not image_path.exists():
+            print(f"Missing image {image_path}")
             return False
 
-        self.images_path = self.images_path / "images" / self.split_str
+        if not gt_path.exists() and self.split == DatasetSplit.VAL:
+            print(f"Missing ground truth {gt_path}")
+
         self.image_list: list[Path] = []
-        for img_path in self.images_path.iterdir():
-            if Image.open(img_path).size != (self.img_width, self.img_height):
-                raise ValueError(Image.open(img_path).size)
-            self.image_list.append(img_path)
+        self.gt_list: list[int] = []
+        self.attr_index_list: list[int] = []
+
+        if self.split == DatasetSplit.TRAIN:
+            for _img_path in sorted(image_path.iterdir(), key=lambda item: item.name):
+                self.image_list.append(_img_path)
+
+        elif self.split == DatasetSplit.VAL:
+            for _attr_index, _out_name in enumerate(OUT_NAMES):
+                _images_dir = image_path / _out_name
+                _gt_txt = gt_path / f"{_out_name}_answer.txt"
+                if not _images_dir.exists():
+                    print(f"Missing image path for '{_out_name}': {_images_dir}")
+                    return False
+                if not _gt_txt.exists():
+                    print(f"Missing ground truth for '{_out_name}': {gt_path}")
+                    return False
+
+                _gt_dict = load_annotations(_gt_txt)
+
+                for _img_file in sorted(
+                    _images_dir.iterdir(), key=lambda item: item.name
+                ):
+                    if _img_file.name in _gt_dict:
+                        self.image_list.append(_img_file)
+                        self.gt_list.append(_gt_dict[_img_file.name])
+                        self.attr_index_list.append(_attr_index)
+                    else:
+                        print(f"Warning: No annotation found for {_img_file.name}")
+                        return False
+        else:
+            return False
+
         return True
 
     def _download_data(self) -> None:
+        """Helper function to unzip and setup dataset."""
         no_zip_error = UnfetchableDatasetError(
             dataset_name=self.dataset_name(),
             installation_steps=None,
@@ -87,10 +250,31 @@ class FaceAttribDataset(BaseDataset):
         ):
             raise no_zip_error
 
-        os.makedirs(self.images_path.parent, exist_ok=True)
-        extract_zip_file(self.input_data_zip, self.images_path)
+        os.makedirs(self.data_path, exist_ok=True)
+        extract_zip_file(
+            self.input_data_zip, self.data_path / FACEATTRIB_DATASET_DIR_NAME
+        )
 
     @staticmethod
     def default_samples_per_job() -> int:
-        """The default value for how many samples to run in each inference job."""
-        return 15
+        """
+        The default value for how many samples to run in each inference job.
+
+        Returns
+        -------
+        int
+            samples to run in each inference job.
+        """
+        return 500
+
+    @staticmethod
+    def default_num_calibration_samples() -> int:
+        """
+        The default value for how many samples to include in quantization job.
+
+        Returns
+        -------
+        int
+            number of samples to include in quantization job.
+        """
+        return 1000

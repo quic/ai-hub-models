@@ -19,7 +19,6 @@ from qai_hub_models.utils.printing import print_profile_metrics, print_with_box
 from qai_hub_models.utils.qai_hub_helpers import (
     _AIHUB_NAME,
     _AIHUB_URL,
-    get_device_and_chipset_name,
 )
 from qai_hub_models.utils.version_helpers import QAIHMVersion
 
@@ -80,37 +79,11 @@ def export_without_hub_access(
     if not components and parsed_perf is not None:
         components = list(parsed_perf.components.keys())
 
-    device_name, chipset = get_device_and_chipset_name(device)
-    # Device families aren't stored in perf yamls. Replace with the original device name.
-    device_name = device_name.replace(" (Family)", "") if device_name else None
-
-    # Device families aren't stored in perf yamls. Replace with the original device name.
-    sc_device: ScorecardDevice | None = None
-    if device_name is not None:
-        try:
-            sc_device = ScorecardDevice.get(device_name)
-            chipset = (
-                DevicesAndChipsetsYaml.load()
-                .devices[sc_device.reference_device_name]
-                .chipset
-            )
-            device_name = sc_device.reference_device_name
-        except ValueError:
-            pass
-    elif chipset is not None:
-        saved_sc_devices = DevicesAndChipsetsYaml.load().devices
-        for device_candidate in ScorecardDevice.all_devices():
-            if (
-                saved_sc_devices[device_candidate.reference_device_name].chipset
-                == chipset
-            ):
-                print(
-                    f"Found matching device for chipset {chipset}: {device_candidate.reference_device_name}"
-                )
-                device_name = device_candidate.reference_device_name
-                sc_device = device_candidate
-                break
-
+    device_name, device_details = (
+        DevicesAndChipsetsYaml.load().get_device_details_without_aihub(device)
+    )
+    chipset = device_details.chipset
+    sc_device = ScorecardDevice.get(device_name)
     printable_device_identifier = device_name or f"chipset {chipset}"
 
     if not skip_profiling and not skip_summary:
@@ -154,7 +127,7 @@ def export_without_hub_access(
                 print()
         elif qaihm_version_tag:
             print(
-                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub.\n"
+                f"Cannot obtain results for device {printable_device_identifier} with runtime {target_runtime.name} without using AI Hub Workbench.\n"
                 f"Run without the --fetch-static-assets flag to target this device."
             )
         else:
@@ -191,7 +164,7 @@ def export_without_hub_access(
             model_id,
             target_runtime,
             precision,
-            sc_device,
+            hub.Device(device_name),
             components,
             qaihm_version_tag=qaihm_version_tag,
             output_folder=output_path if not skip_downloading else None,

@@ -137,7 +137,7 @@ class ScorecardCompilePath(Enum):
                     self.runtime, qairt_version_str
                 )
             if QAIRTVersionEnvvar.is_default(qairt_version_str):
-                # We typically don't want the default QAIRT version added here if it matches with the AI Hub models default.
+                # We typically don't want the default QAIRT version added here if it matches with the AI Hub Models default.
                 # This allows the export script (which scorecard relies on) to pass in the default version that users will see when they use the CLI.
                 #
                 # Static models do need this included explicitly because they don't rely on export scripts.
@@ -148,7 +148,7 @@ class ScorecardCompilePath(Enum):
                     out = out + f" {qairt_version.explicit_hub_option}"
             else:
                 # The explicit option will always pass `--qairt_version 2.XX`,
-                # regardless of whether this is the AI Hub default.
+                # regardless of whether this is the AI Hub Workbench default.
                 #
                 # This is useful for tracking what QAIRT version applies for scorecard jobs.
                 out = out + f" {qairt_version.explicit_hub_option}"

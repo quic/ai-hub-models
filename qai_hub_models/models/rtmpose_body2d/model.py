@@ -111,8 +111,8 @@ class RTMPosebody2d(BaseModel):
     def get_output_names() -> list[str]:
         return ["pred_x", "pred_y"]
 
-    def get_evaluator(self) -> BaseEvaluator | None:
-        h, w = self.get_input_spec()["image"][0][2:]
+    def get_evaluator(self) -> BaseEvaluator:
+        h, w = RTMPosebody2d.get_input_spec()["image"][0][2:]
         return WholeBodyPoseEvaluator(h, w)
 
     @staticmethod

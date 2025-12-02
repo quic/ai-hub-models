@@ -221,7 +221,7 @@ def dataset_entries_from_batch(
     Given a batch from a torch dataloader with the standard (inputs, gt) format,
 
     Inputs will be converted to a format compatible with inference of a compiled
-    model on AI Hub. Inputs will be broken into N tensors with a batch size of 1, since
+    model on AI Hub Workbench. Inputs will be broken into N tensors with a batch size of 1, since
     compiled models require a batch size of 1.
 
     GT data will be left as-is (1 tensor with a batch dim of size N), as it's not passed to the model.
@@ -343,19 +343,21 @@ class AsyncOnDeviceModel:
     def __init__(
         self,
         model: hub.Model,
-        input_names: list[str],
+        input_names: list[str] | None,
         device: hub.Device,
         inference_options: str = "",
         output_names: list[str] | None = None,
     ):
         self.model = model
-        self.input_names = input_names
+        self.input_names = input_names or []
         self.device = device
         self.inference_options = inference_options
 
         # Determine whether I/O is channel last
         self.channel_last_input, self.channel_last_output = [], []
         compile_output_names = None
+        if isinstance(self.model.producer, (hub.CompileJob, hub.QuantizeJob)):
+            self.input_names = self.input_names or list(self.model.producer.shapes)
         if isinstance(self.model.producer, hub.CompileJob):
             compile_options = parse_compile_options(self.model.producer)
             self.channel_last_input = compile_options.channel_last_input or []
@@ -411,11 +413,11 @@ class AsyncOnDeviceModel:
         Get the input specs for this model.
 
         OnDeviceModel will adapt channel-first pyTorch input to channel last. Thus
-        channel-last shapes in the Hub model will always be returned in channel-first format.
+        channel-last shapes in AI Hub Workbench model will always be returned in channel-first format.
         """
         if self.model.producer is None:
             raise ValueError(
-                "Unable to extract input shape from a model that was not compiled with AI Hub."
+                "Unable to extract input shape from a model that was not compiled with AI Hub Workbench."
             )
         if self.model.producer._job_type == hub.JobType.QUANTIZE:
             return cast(InputSpec, cast(hub.QuantizeJob, self.model.producer).shapes)
@@ -493,7 +495,7 @@ class OnDeviceModel(ExecutableModelProtocol):
         Get the input specs for this model.
 
         OnDeviceModel will adapt channel-first pyTorch input to channel last. Thus
-        channel-last shapes in the Hub model will always be returned in channel-first format.
+        channel-last shapes in AI Hub Workbench model will always be returned in channel-first format.
         """
         return self.async_model.get_input_spec()
 

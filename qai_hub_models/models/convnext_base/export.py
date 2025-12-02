@@ -15,7 +15,8 @@ from typing import Any, cast
 import qai_hub as hub
 import torch
 
-from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
+from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.models.common import ExportResult, SampleInputsType
 from qai_hub_models.models.convnext_base import MODEL_ID, Model
 from qai_hub_models.utils import quantization as quantization_utils
 from qai_hub_models.utils.args import (
@@ -81,7 +82,7 @@ def compile_model(
     model_name: str,
     device: hub.Device,
     input_spec: InputSpec,
-    compile_options: str,
+    options: str,
     target_runtime: TargetRuntime,
     precision: Precision,
     quantize_job: hub.client.QuantizeJob | None,
@@ -93,7 +94,7 @@ def compile_model(
         source_model = torch.jit.trace(model.to("cpu"), make_torch_inputs(input_spec))
 
     model_compile_options = model.get_hub_compile_options(
-        target_runtime, precision, compile_options, device
+        target_runtime, precision, options, device
     )
     print(f"Optimizing model {model_name} to run on-device")
     submitted_compile_job = hub.submit_compile_job(
@@ -109,8 +110,7 @@ def compile_model(
 def profile_model(
     model_name: str,
     device: hub.Device,
-    profile_options: str,
-    target_runtime: TargetRuntime,
+    options: str,
     compile_job: hub.client.CompileJob,
 ) -> hub.client.ProfileJob:
     print(f"Profiling model {model_name} on a hosted device.")
@@ -118,31 +118,25 @@ def profile_model(
         model=compile_job.get_target_model(),
         device=device,
         name=model_name,
-        options=profile_options,
+        options=options,
     )
     return cast(hub.client.ProfileJob, submitted_profile_job)
 
 
 def inference_model(
-    model: BaseModel,
+    inputs: SampleInputsType,
     model_name: str,
     device: hub.Device,
-    input_spec: InputSpec,
-    profile_options: str,
-    target_runtime: TargetRuntime,
+    options: str,
     compile_job: hub.client.CompileJob,
 ) -> hub.client.InferenceJob:
-    profile_options_all = model.get_hub_profile_options(target_runtime, profile_options)
     print(f"Running inference for {model_name} on a hosted device with example inputs.")
-    sample_inputs = model.sample_inputs(
-        input_spec, use_channel_last_format=target_runtime.channel_last_native_execution
-    )
     submitted_inference_job = hub.submit_inference_job(
         model=compile_job.get_target_model(),
-        inputs=sample_inputs,
+        inputs=inputs,
         device=device,
         name=model_name,
-        options=profile_options_all,
+        options=options,
     )
     return cast(hub.client.InferenceJob, submitted_inference_job)
 
@@ -294,7 +288,6 @@ def export_model(
             model_name,
             device,
             model.get_hub_profile_options(target_runtime, profile_options),
-            target_runtime,
             compile_job,
         )
 
@@ -302,12 +295,12 @@ def export_model(
     inference_job: hub.client.InferenceJob | None = None
     if not skip_inferencing:
         inference_job = inference_model(
-            model,
+            model.sample_inputs(
+                use_channel_last_format=target_runtime.channel_last_native_execution
+            ),
             model_name,
             device,
-            input_spec,
-            profile_options,
-            target_runtime,
+            model.get_hub_profile_options(target_runtime, profile_options),
             compile_job,
         )
 

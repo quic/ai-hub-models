@@ -78,7 +78,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
     @cached_property
     def job(self) -> JobTypeVar:
         """
-        Get the AI Hub Job.
+        Get the AI Hub Workbench Job.
         Waits for completion if necessary.
         """
         if not self.job_id:

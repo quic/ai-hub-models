@@ -77,7 +77,7 @@ class HfWhisperEncoder(BaseModel):
     def get_input_spec(num_mel_bin: int = 80) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return dict(input_features=((1, num_mel_bin, MELS_AUDIO_LEN), "float32"))
 
@@ -205,7 +205,7 @@ class HfWhisperDecoder(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         specs = dict(
             input_ids=((1, 1), "int32"),

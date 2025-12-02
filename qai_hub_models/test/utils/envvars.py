@@ -10,11 +10,11 @@ from qai_hub_models.utils.envvar_bases import (
 class DisableCompileJobTimeoutEnvvar(QAIHMBoolEnvvar):
     """
     If this is false, a 1 hr timeout is enforced on compile jobs, post submission time.
-    This is a separate timeout than the timeout on AI Hub. This timeout is intended for
+    This is a separate timeout than the timeout on AI Hub Workbench. This timeout is intended for
     PR tests, so users don't have to wait hours for hub to time out their job to know it's failing.
 
     If this is true, the override timeout is disabled for AI Hub Models testing.
-    We will wait for the job to time out on AI Hub instead."
+    We will wait for the job to time out on AI Hub Workbench instead."
     """
 
     VARNAME = "QAIHM_TEST_DISABLE_COMPILE_JOB_TIMEOUT"

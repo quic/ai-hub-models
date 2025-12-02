@@ -15,7 +15,8 @@ from typing import Any, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
+from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.models.common import ExportResult, SampleInputsType
 from qai_hub_models.models.controlnet_canny import MODEL_ID, Model
 from qai_hub_models.utils.args import (
     export_parser,
@@ -37,7 +38,7 @@ def compile_model(
     model_name: str,
     device: hub.Device,
     components: list[str],
-    compile_options: str,
+    options: str,
     target_runtime: TargetRuntime,
     output_path: Path,
 ) -> dict[str, hub.client.CompileJob]:
@@ -52,7 +53,7 @@ def compile_model(
         )
 
         model_compile_options = component.get_hub_compile_options(
-            target_runtime, Precision.w8a16, compile_options, device
+            target_runtime, Precision.w8a16, options, device
         )
         print(f"Optimizing model {component_name} to run on-device")
         submitted_compile_job = hub.submit_compile_job(
@@ -72,8 +73,7 @@ def profile_model(
     model_name: str,
     device: hub.Device,
     components: list[str],
-    profile_options: dict[str, str],
-    target_runtime: TargetRuntime,
+    options: dict[str, str],
     compile_jobs: dict[str, hub.client.CompileJob],
 ) -> dict[str, hub.client.ProfileJob]:
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
@@ -83,7 +83,7 @@ def profile_model(
             model=compile_jobs[component_name].get_target_model(),
             device=device,
             name=f"{model_name}_{component_name}",
-            options=profile_options.get(component_name, ""),
+            options=options.get(component_name, ""),
         )
         profile_jobs[component_name] = cast(
             hub.client.ProfileJob, submitted_profile_job
@@ -92,12 +92,11 @@ def profile_model(
 
 
 def inference_model(
-    model: CollectionModel,
+    inputs: dict[str, SampleInputsType],
     model_name: str,
     device: hub.Device,
     components: list[str],
-    profile_options: str,
-    target_runtime: TargetRuntime,
+    options: dict[str, str],
     compile_jobs: dict[str, hub.client.CompileJob],
 ) -> dict[str, hub.client.InferenceJob]:
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
@@ -105,18 +104,12 @@ def inference_model(
         print(
             f"Running inference for {component_name} on a hosted device with example inputs."
         )
-        profile_options_all = model.components[component_name].get_hub_profile_options(
-            target_runtime, profile_options
-        )
-        sample_inputs = model.components[component_name].sample_inputs(
-            use_channel_last_format=target_runtime.channel_last_native_execution
-        )
         submitted_inference_job = hub.submit_inference_job(
             model=compile_jobs[component_name].get_target_model(),
-            inputs=sample_inputs,
+            inputs=inputs[component_name],
             device=device,
             name=f"{model_name}_{component_name}",
-            options=profile_options_all,
+            options=options.get(component_name, ""),
         )
         inference_jobs[component_name] = cast(
             hub.client.InferenceJob, submitted_inference_job
@@ -258,13 +251,7 @@ def export_model(
             model_name,
             device,
             components,
-            {
-                component_name: model.components[
-                    component_name
-                ].get_hub_profile_options(target_runtime, profile_options)
-                for component_name in components
-            },
-            target_runtime,
+            model.get_hub_profile_options(target_runtime, profile_options),
             compile_jobs,
         )
 
@@ -272,12 +259,13 @@ def export_model(
     inference_jobs: dict[str, hub.client.InferenceJob] = {}
     if not skip_inferencing:
         inference_jobs = inference_model(
-            model,
+            model.sample_inputs(
+                use_channel_last_format=target_runtime.channel_last_native_execution
+            ),
             model_name,
             device,
             components,
-            profile_options,
-            target_runtime,
+            model.get_hub_profile_options(target_runtime, profile_options),
             compile_jobs,
         )
 

@@ -48,14 +48,14 @@ def bev_pool(
     kept = 1 - (ranks[1:] == ranks[:-1]).int()
 
     # Filters non-zero elements in kept, 58999 was found to be memory-efficient through testing, as dynamic sizing is slower
-    interval_starts = torch.topk(kept, 58999)[1].sort()[0].int()
-    starts = torch.concat([torch.tensor([0]).int(), interval_starts])
+    interval_starts = torch.topk(kept, 58999)[1].sort()[0].long()
+    starts = torch.concat([torch.tensor([0]).long(), interval_starts])
     geom_feats = geom_feats[:, starts + 1]  # .split(1,0)
 
     # Custom Bev Pool
     # out = torch.zeros((B * D, H, W, x.size(1))).to(x.device)
 
-    ends = torch.concat([interval_starts, torch.tensor([len(interval_starts)]).int()])
+    ends = torch.concat([interval_starts, torch.tensor([len(interval_starts)]).long()])
 
     lengths = ends - starts
 

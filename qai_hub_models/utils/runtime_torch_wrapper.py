@@ -15,6 +15,10 @@ import torch
 from numpy.typing import ArrayLike, NDArray
 
 from qai_hub_models.models.protocols import ExecutableModelProtocol
+from qai_hub_models.utils.transpose_channel import (
+    transpose_channel_first_to_last_np,
+    transpose_channel_last_to_first_np,
+)
 
 
 @dataclass
@@ -52,6 +56,8 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         outputs: dict[str, ModelIODetailsT],
         quantize_user_input: Sequence[str] | Literal["ALL"] | None = "ALL",
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
+        convert_inputs_to_channel_last: Sequence[str] | None = None,
+        convert_outputs_to_channel_first: Sequence[str] | None = None,
     ):
         """
         Parameters
@@ -80,6 +86,14 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
             - If Sequence[str]: de-quantization applies only to the output names defined in the sequence
             - If "ALL": de-quantization applies to all outputs
             - If None: de-quantization is SKIPPED for all outputs
+
+        convert_inputs_to_channel_last
+            Applies a NCHW -> NHWC conversion to model inputs in this list before feeding them to the model.
+            WARNING: The converter isn't smart. If the user passes a NHWC tensor, the
+                     conversion will be applied anyway, resulting in a NWCH tensor.
+
+        convert_outputs_to_channel_first
+            Applies a NHWC -> NCHW conversion to model outputs in this list before returning them to the user.
         """
         self.inputs = inputs
         self.outputs = outputs
@@ -97,6 +111,11 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
                 self.dequantize_model_output = set(self.outputs.keys())
             else:
                 self.dequantize_model_output = set(dequantize_model_output)
+
+        self.convert_inputs_to_channel_last = set(convert_inputs_to_channel_last or [])
+        self.convert_outputs_to_channel_first = set(
+            convert_outputs_to_channel_first or []
+        )
 
     def __call__(
         self, *args: ArrayLike, **kwargs: ArrayLike
@@ -178,10 +197,11 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         """
         Prepare the input dictionary by:
             * converting each value to a numpy array
+            * applying NCHW -> NHWC conversion if the input is in self.convert_inputs_to_channel_last
             * casting each value to the associated input type (if applicable)
             * quantizing float values to integers if:
                 - qdq parameters are defined in self.inputs
-                - self.quantize_user_input is true
+                - self.quantize_user_input contains this input
 
         Parameters
         ----------
@@ -269,6 +289,9 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
                         )
                     )
 
+            if input_name in self.convert_inputs_to_channel_last:
+                input_val = transpose_channel_first_to_last_np(input_val)
+
             prepared_inputs[input_name] = input_val
 
         return prepared_inputs
@@ -278,7 +301,8 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         Process the output dictionary by:
             * dequantizing integer values to float if:
                 - qdq parameters are defined in self.outputs
-                - self.dequantize_model_output is true
+                - self.dequantize_model_output includes this output
+            * converting from NHWC -> NCHW if the output is in self.convert_outputs_to_channel_first
 
         Parameters
         ----------
@@ -312,6 +336,10 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
                     output = (
                         output - np.int32(output_details.qdq_params.zero_point)
                     ) * np.float32(output_details.qdq_params.scale)
+
+                if output_name in self.convert_outputs_to_channel_first:
+                    output = transpose_channel_last_to_first_np(output)
+
                 processed_outputs.append(output)
             return processed_outputs
 

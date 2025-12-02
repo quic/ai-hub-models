@@ -156,7 +156,6 @@ class EnumListWithParseableAll(list[EnumT], Generic[EnumT]):
         return core_schema.with_info_after_validator_function(
             lambda obj, _: cls.parse(obj),
             handler(Any),
-            field_name=handler.field_name,
             serialization=core_schema.plain_serializer_function_ser_schema(
                 cls.serialize, when_used="json"
             ),

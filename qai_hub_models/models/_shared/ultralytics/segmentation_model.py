@@ -77,7 +77,7 @@ class UltralyticsSingleClassSegmentor(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm® AI Hub.
+        used to submit profiling job on Qualcomm® AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, height, width), "float32")}
 
@@ -111,7 +111,7 @@ class UltralyticsMulticlassSegmentor(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub.
+        used to submit profiling job on Qualcomm AI Hub Workbench.
         """
         return {"image": ((batch_size, 3, height, width), "float32")}
 

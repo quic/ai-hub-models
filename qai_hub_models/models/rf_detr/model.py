@@ -75,6 +75,6 @@ class RF_DETR(DETR):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm® AI Hub.
+        used to submit profiling job on Qualcomm® AI Hub Workbench.
         """
         return DETR.get_input_spec(batch_size, height, width)

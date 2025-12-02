@@ -91,14 +91,14 @@ def test_verify_onnx_export_is_compatible_with_ai_hub():
     ):
         with pytest.raises(
             ValueError,
-            match=r"Installed onnx package \(onnx==1.45.0\) is too new for compatibility with AI Hub\..*",
+            match=r"Installed onnx package \(onnx==1.45.0\) is too new for compatibility with AI Hub Workbench\..*",
         ):
             verify_onnx_export_is_compatible_with_ai_hub({ONNX_PACKAGE_NAME: "1.45.0"})
         assert onnx_helpers.ONNX_ENV_CHECKED
         assert (
             onnx_helpers.ONNX_ENV_ERROR is not None
             and onnx_helpers.ONNX_ENV_ERROR.startswith(
-                "Installed onnx package (onnx==1.45.0) is too new for compatibility with AI Hub."
+                "Installed onnx package (onnx==1.45.0) is too new for compatibility with AI Hub Workbench."
             )
         )
 

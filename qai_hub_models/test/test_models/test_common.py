@@ -59,7 +59,7 @@ def reset_hub_frameworks_patches(
         ),
         mock.patch(
             "qai_hub.hub._global_client.config.api_url",
-            "https://app.aihub.qualcomm.com",
+            "https://workbench.aihub.qualcomm.com",
         ),
         version_patch,
         api_url_patch,
@@ -154,7 +154,7 @@ def test_precision_parse_serialize():
 
 
 def test_qairt_version():
-    # Patch frameworks so this test continues to work regardless of AI Hub version changes.
+    # Patch frameworks so this test continues to work regardless of AI Hub Workbench version changes.
     frameworks = [
         Framework(
             name="QAIRT",
@@ -176,12 +176,14 @@ def test_qairt_version():
         ),
     ]
 
-    # Test working AI Hub instance
+    # Test working AI Hub Workbench instance
     with reset_hub_frameworks_patches(frameworks):
         # Get default from tag
         ai_hub_default = QAIRTVersion.default()
         assert ai_hub_default.tags == [QAIRTVersion.DEFAULT_AIHUB_TAG]
-        assert ai_hub_default.hub_option == ""  # empty because it's the hub default
+        assert (
+            ai_hub_default.hub_option == ""
+        )  # empty because it's the workbench default
         assert ai_hub_default.explicit_hub_option == "--qairt_version 2.32"
         assert ai_hub_default == QAIRTVersion.DEFAULT_AIHUB_TAG
         assert ai_hub_default == ai_hub_default.api_version
@@ -234,7 +236,8 @@ def test_qairt_version():
 
         # Version that does not exist
         with pytest.raises(
-            ValueError, match=r".*QAIRT version 0.0 is not supported by AI Hub\..*"
+            ValueError,
+            match=r".*QAIRT version 0.0 is not supported by AI Hub Workbench\..*",
         ):
             QAIRTVersion("0.0")
 
@@ -256,12 +259,14 @@ def test_qairt_version():
         assert qaihm_default != QAIRTVersion.default()
         assert not qaihm_default.is_default
 
-    # Verify QAIHM default behavior with same version as the AI Hub default
+    # Verify QAIHM default behavior with same version as the AI Hub Workbench default
     with reset_hub_frameworks_patches(
         frameworks, default_qaihm_version=ai_hub_default.api_version
     ):
         qaihm_default = global_default_runtime.default_qairt_version
-        assert qaihm_default.hub_option == ""  # empty because it's the hub default
+        assert (
+            qaihm_default.hub_option == ""
+        )  # empty because it's the workbench default
         assert qaihm_default.explicit_hub_option == "--qairt_version 2.32"
         assert qaihm_default == QAIRTVersion.default()
         assert QAIRTVersion.DEFAULT_AIHUB_TAG in qaihm_default.tags
@@ -275,18 +280,19 @@ def test_qairt_version():
     # Verify "too old" QAIHM default behavior
     with reset_hub_frameworks_patches(frameworks, "2.30"):
         with pytest.raises(
-            ValueError, match=r".*QAIRT version 2.30 is not supported by AI Hub\..*"
+            ValueError,
+            match=r".*QAIRT version 2.30 is not supported by AI Hub Workbench\..*",
         ):
             global_default_runtime.default_qairt_version  # noqa: B018
 
-        # fallback is to the Hub default since the QAIHM default is not available
+        # fallback is to AI Hub Workbench default since the QAIHM default is not available
         default_backup = QAIRTVersion("0.0", return_default_if_does_not_exist=True)
         assert ai_hub_default == default_backup
         assert default_backup.is_default
 
 
 def test_qairt_version_without_aihub_access():
-    # Patch frameworks so this test continues to work regardless of AI Hub version changes.
+    # Patch frameworks so this test continues to work regardless of AI Hub Workbench version changes.
     with reset_hub_frameworks_patches([], api_url=""):
         # Get default from tag
         ai_hub_default = QAIRTVersion.default()
@@ -324,7 +330,7 @@ def test_qairt_version_without_aihub_access():
 def test_qairt_version_pydantic_roundtrip():
     """
     Verifies that QAIRT versions are roundtripped to and from config files as-is,
-    and aren't auto-resolved to current AI Hub QAIRT versions.
+    and aren't auto-resolved to current AI Hub Workbench QAIRT versions.
     """
 
     class VersionConfig(BaseQAIHMConfig):

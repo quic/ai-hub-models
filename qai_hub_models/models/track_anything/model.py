@@ -10,11 +10,9 @@ import sys
 
 import torch
 
-from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
     SourceAsRoot,
-    load_numpy,
     load_yaml,
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
@@ -24,36 +22,6 @@ from qai_hub_models.utils.input_spec import InputSpec
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
 
-FIRST_FRAME_IMAGE = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/first_frame_image.npy"
-)
-FIRST_FRAME_MASK = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/first_frame_mask.npy"
-)
-FIRST_FRAME_F16 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/first_frame_f16.npy"
-)
-FIRST_FRAME_HIDDEN_STATE = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/first_frame_hidden_state.npy"
-)
-NEXT_FRAME_IMAGE = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_image.npy"
-)
-NEXT_FRAME_F16 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_f16.npy"
-)
-NEXT_FRAME_F8 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_f8.npy"
-)
-NEXT_FRAME_F4 = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_f4.npy"
-)
-NEXT_FRAME_MEMORY_READOUT = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_memory_readout.npy"
-)
-NEXT_FRAME_HIDDEN_STATE = CachedWebModelAsset.from_asset_store(
-    MODEL_ID, MODEL_ASSET_VERSION, "sample_inputs/next_frame_hidden_state.npy"
-)
 
 TRACKANYTHING_SOURCE_REPOSITORY = "https://github.com/gaomingqi/Track-Anything.git"
 TRACKANYTHING_SOURCE_REPO_COMMIT = "e6e159273790974e04eeea6673f1f93c035005fc"
@@ -149,12 +117,6 @@ class TrackAnythingEncodeKeyWithShrinkage(TrackAnything):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        image = load_numpy(FIRST_FRAME_IMAGE)
-        return {"image": [image]}
-
 
 class TrackAnythingEncodeValue(TrackAnything):
     def forward(
@@ -222,20 +184,6 @@ class TrackAnythingEncodeValue(TrackAnything):
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
 
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        image = load_numpy(FIRST_FRAME_IMAGE)
-        mask = load_numpy(FIRST_FRAME_MASK)
-        f16 = load_numpy(FIRST_FRAME_F16)
-        hidden_state = load_numpy(FIRST_FRAME_HIDDEN_STATE)
-        return {
-            "image": [image],
-            "mask": [mask],
-            "f16": [f16],
-            "hidden_state": [hidden_state],
-        }
-
 
 class TrackAnythingEncodeKeyWithoutShrinkage(TrackAnything):
     def forward(
@@ -288,12 +236,6 @@ class TrackAnythingEncodeKeyWithoutShrinkage(TrackAnything):
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
-
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        image = load_numpy(NEXT_FRAME_IMAGE)
-        return {"image": [image]}
 
 
 class TrackAnythingSegment(TrackAnything):
@@ -362,22 +304,6 @@ class TrackAnythingSegment(TrackAnything):
     @staticmethod
     def get_output_names() -> list[str]:
         return ["masks", "hidden"]
-
-    def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
-    ) -> SampleInputsType:
-        f16 = load_numpy(NEXT_FRAME_F16)
-        f8 = load_numpy(NEXT_FRAME_F8)
-        f4 = load_numpy(NEXT_FRAME_F4)
-        memory_readout = load_numpy(NEXT_FRAME_MEMORY_READOUT)
-        hidden_state = load_numpy(NEXT_FRAME_HIDDEN_STATE)
-        return {
-            "f16": [f16],
-            "f8": [f8],
-            "f4": [f4],
-            "memory_readout": [memory_readout],
-            "hidden_state": [hidden_state],
-        }
 
 
 @CollectionModel.add_component(TrackAnythingEncodeKeyWithShrinkage)

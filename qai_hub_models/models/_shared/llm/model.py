@@ -147,13 +147,6 @@ def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
     }
 
 
-def cleanup():
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    gc.collect()
-
-
 def sample_input(
     input_spec: InputSpec,
     input_prompt_processed: str,
@@ -751,7 +744,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
     def preferred_hub_source_model_format(
         self, target_runtime: TargetRuntime
     ) -> SourceModelFormat:
-        """Source model format preferred for conversion on AI Hub."""
+        """Source model format preferred for conversion on AI Hub Workbench."""
         return SourceModelFormat.ONNX
 
     def get_calibration_data(

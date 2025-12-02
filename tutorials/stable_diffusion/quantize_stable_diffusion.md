@@ -65,7 +65,7 @@ The image might look like
 ![Image Generated from Simulated Quantization](assets/quantsim.png)
 
 If that looks good, we can proceed to compile the quantized model for on-device profiling and
-inference. Note that you'd need to first register an account on [Qualcomm AI Hub](https://app.aihub.qualcomm.com/) and set up the token if you haven't already.
+inference. Note that you'd need to first register an account on [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com/) and set up the token if you haven't already.
 
 ```sh
 python -m qai_hub_models.models.stable_diffusion_v2_1.export --checkpoint build/alchemist --chipset qualcomm-snapdragon-x-elite

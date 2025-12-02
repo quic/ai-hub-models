@@ -216,7 +216,7 @@ class FootTrackNet(BaseModel):
     ) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub. Default resolution is 2048x1024
+        used to submit profiling job on Qualcomm AI Hub Workbench. Default resolution is 2048x1024
         so this expects an image where width is twice the height.
         """
         return {"image": ((batch_size, 3, height, width), "float32")}

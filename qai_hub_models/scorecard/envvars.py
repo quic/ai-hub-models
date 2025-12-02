@@ -225,6 +225,18 @@ class EnabledDevicesEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialDeviceSetting]):
     def default(cls):
         return {SpecialDeviceSetting.ALL}
 
+    @classmethod
+    def get(
+        cls, default: set[str | SpecialDeviceSetting] | None = None
+    ) -> set[str | SpecialDeviceSetting]:
+        result = super().get(default)
+        if "default" in result:
+            from qai_hub_models.scorecard.device import DEFAULT_SCORECARD_DEVICE
+
+            result.remove("default")
+            result.add(DEFAULT_SCORECARD_DEVICE.name)
+        return result
+
 
 class QAIRTVersionEnvvar(QAIHMStringEnvvar):
     """
@@ -333,7 +345,7 @@ class ArtifactsDirEnvvar(QAIHMPathEnvvar):
 
 
 class StaticModelsDirEnvvar(QAIHMPathEnvvar):
-    """The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub) configuration yamls are stored."""
+    """The directory in which all 'static model' (ONNX / Torchscript files uploaded to AI Hub Workbench) configuration yamls are stored."""
 
     VARNAME = "QAIHM_TEST_STATIC_MODELS_DIR"
     CLI_ARGNAMES = ["--static-models-dir"]
@@ -349,7 +361,7 @@ class DeploymentEnvvar(QAIHMStringEnvvar):
 
     VARNAME = "QAIHM_TEST_DEPLOYMENT"
     CLI_ARGNAMES = ["--deployment"]
-    CLI_HELP_MESSAGE = "AI Hub deployment to target."
+    CLI_HELP_MESSAGE = "AI Hub Workbench deployment to target."
 
     @classmethod
     def default(cls):
@@ -361,7 +373,7 @@ class DeploymentListEnvvar(QAIHMStringListEnvvar):
 
     VARNAME = "QAIHM_TEST_DEPLOYMENTS"
     CLI_ARGNAMES = ["--deployments"]
-    CLI_HELP_MESSAGE = "AI Hub deployments to target."
+    CLI_HELP_MESSAGE = "AI Hub Workbench deployments to target."
 
     @classmethod
     def default(cls):
@@ -424,3 +436,23 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
 
     DATE_ENVVAR = DateEnvvar
     DATE_FORMAT_ENVVAR = FormatEnvvar
+
+
+class AsyncHubFailuresAsTestFailuresEnvvar(QAIHMBoolEnvvar):
+    """
+    This is only applicable if QAIHM_TEST_HUB_ASYNC is set.
+
+    If True, AI Hub Workbench job failures submitted in a previous step will cause downstream tests to fail.
+    For example, if a compile job fails or is missing, the tests that run profile and inference on the same model will also fail.
+
+    If False, AI Hub Workbench job failures submitted in a previous step will cause downstream tests to be skipped.
+    For example, if a compile job fails or is missing, the tests that run profile and inference on the same model will be skipped.
+    """
+
+    VARNAME = "QAIHM_TEST_ASYNC_HUB_FAILURES_AS_TEST_FAILURES"
+    CLI_ARGNAMES = ["--async-hub-failures-as-test-failures"]
+    CLI_HELP_MESSAGE = " This is only applicable if QAIHM_TEST_HUB_ASYNC is set. If true, AI Hub Workbench job failures submitted in a previous step will cause downstream tests to fail rather than be skipped."
+
+    @classmethod
+    def default(cls):
+        return False

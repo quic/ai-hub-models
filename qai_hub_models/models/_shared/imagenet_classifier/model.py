@@ -107,7 +107,7 @@ class ImagenetClassifier(BaseModel):
     def get_input_spec(batch_size: int = 1) -> InputSpec:
         """
         Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm® AI Hub.
+        used to submit profiling job on Qualcomm® AI Hub Workbench.
         """
         return {
             "image_tensor": ((batch_size, 3, IMAGENET_DIM, IMAGENET_DIM), "float32")

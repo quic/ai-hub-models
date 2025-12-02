@@ -35,12 +35,12 @@ additional dependencies. View the model README (at [qai_hub_models/models/model_
 
 &nbsp;
 
-### 2. Configure AI Hub Access
+### 2. Configure AI Hub Workbench Access
 
-Many features of AI Hub Models _(such as model compilation, on-device profiling, etc.)_ require access to Qualcomm® AI Hub:
+Many features of AI Hub Models _(such as model compilation, on-device profiling, etc.)_ require access to Qualcomm® AI Hub Workbench:
 
--  [Create a Qualcomm® ID](https://myaccount.qualcomm.com/signup), and use it to [login to Qualcomm® AI Hub](https://app.aihub.qualcomm.com/).
--  Configure your [API token](https://app.aihub.qualcomm.com/account/): `qai-hub configure --api_token API_TOKEN`
+-  [Create a Qualcomm® ID](https://myaccount.qualcomm.com/signup), and use it to [login to Qualcomm® AI Hub Workbench](https://workbench.aihub.qualcomm.com/).
+-  Configure your [API token](https://workbench.aihub.qualcomm.com/account/): `qai-hub configure --api_token API_TOKEN`
 
 &nbsp;
 
@@ -57,12 +57,12 @@ pip install "qai_hub_models[yolov7]"
 python -m qai_hub_models.models.yolov7.export [--target-runtime ...] [--device ...] [--help]
 ```
 
-_Using Qualcomm® AI Hub_, the export script will:
+_Using Qualcomm® AI Hub Workbench_, the export script will:
 
-1. **Compile** the model for the chosen device and target runtime (see: [Compiling Models on AI Hub](https://app.aihub.qualcomm.com/docs/hub/compile_examples.html)).
-2. If applicable, **Quantize** the model (see: [Quantization on AI Hub](https://app.aihub.qualcomm.com/docs/hub/quantize_examples.html))
-3. **Profile** the compiled model on a real device in the cloud (see: [Profiling Models on AI Hub](https://app.aihub.qualcomm.com/docs/hub/profile_examples.html)).
-4. **Run inference** with a sample input data on a real device in the cloud, and compare on-device model output with PyTorch output (see: [Running Inference on AI Hub](https://app.aihub.qualcomm.com/docs/hub/inference_examples.html))
+1. **Compile** the model for the chosen device and target runtime (see: [Compiling Models on AI Hub Workbench](https://workbench.aihub.qualcomm.com/docs/hub/compile_examples.html)).
+2. If applicable, **Quantize** the model (see: [Quantization on AI Hub Workbench](https://workbench.aihub.qualcomm.com/docs/hub/quantize_examples.html))
+3. **Profile** the compiled model on a real device in the cloud (see: [Profiling Models on AI Hub Workbench](https://workbench.aihub.qualcomm.com/docs/hub/profile_examples.html)).
+4. **Run inference** with a sample input data on a real device in the cloud, and compare on-device model output with PyTorch output (see: [Running Inference on AI Hub Workbench](https://workbench.aihub.qualcomm.com/docs/hub/inference_examples.html))
 5. **Download** the compiled model to disk.
 
 &nbsp;
@@ -82,7 +82,7 @@ _End-to-end_ demos:
 2. Run **model inference**
 3. **Postprocess** model output to a human-readable format
 
-**Many end-to-end demos use AI Hub to run inference on a real cloud-hosted device** _(with `--eval-mode on-device`)_. All end-to-end demos can also run locally via PyTorch (with `--eval-mode fp`).
+**Many end-to-end demos use AI Hub Workbench to run inference on a real cloud-hosted device** _(with `--eval-mode on-device`)_. All end-to-end demos can also run locally via PyTorch (with `--eval-mode fp`).
 
 &nbsp;
 
@@ -175,6 +175,7 @@ and many more.
 | [Swin-Base](https://aihub.qualcomm.com/models/swin_base) | [qai_hub_models.models.swin_base](qai_hub_models/models/swin_base/README.md) |
 | [Swin-Small](https://aihub.qualcomm.com/models/swin_small) | [qai_hub_models.models.swin_small](qai_hub_models/models/swin_small/README.md) |
 | [Swin-Tiny](https://aihub.qualcomm.com/models/swin_tiny) | [qai_hub_models.models.swin_tiny](qai_hub_models/models/swin_tiny/README.md) |
+| [SwinV2-Base](https://aihub.qualcomm.com/models/swinv2_base) | [qai_hub_models.models.swinv2_base](qai_hub_models/models/swinv2_base/README.md) |
 | [VIT](https://aihub.qualcomm.com/models/vit) | [qai_hub_models.models.vit](qai_hub_models/models/vit/README.md) |
 | [WideResNet50](https://aihub.qualcomm.com/models/wideresnet50) | [qai_hub_models.models.wideresnet50](qai_hub_models/models/wideresnet50/README.md) |
 | | |
@@ -236,6 +237,7 @@ and many more.
 | | |
 | **Object Detection**
 | [3D-Deep-BOX](https://aihub.qualcomm.com/models/deepbox) | [qai_hub_models.models.deepbox](qai_hub_models/models/deepbox/README.md) |
+| [CavaFace](https://aihub.qualcomm.com/models/cavaface) | [qai_hub_models.models.cavaface](qai_hub_models/models/cavaface/README.md) |
 | [CenterNet-2D](https://aihub.qualcomm.com/models/centernet_2d) | [qai_hub_models.models.centernet_2d](qai_hub_models/models/centernet_2d/README.md) |
 | [Conditional-DETR-ResNet50](https://aihub.qualcomm.com/models/conditional_detr_resnet50) | [qai_hub_models.models.conditional_detr_resnet50](qai_hub_models/models/conditional_detr_resnet50/README.md) |
 | [DETR-ResNet101](https://aihub.qualcomm.com/models/detr_resnet101) | [qai_hub_models.models.detr_resnet101](qai_hub_models/models/detr_resnet101/README.md) |
@@ -317,7 +319,6 @@ and many more.
 | | |
 | **Image Generation**
 | [ControlNet-Canny](https://aihub.qualcomm.com/models/controlnet_canny) | [qai_hub_models.models.controlnet_canny](qai_hub_models/models/controlnet_canny/README.md) |
-| [Stable-Diffusion-v1.5](https://aihub.qualcomm.com/models/stable_diffusion_v1_5) | [qai_hub_models.models.stable_diffusion_v1_5](qai_hub_models/models/stable_diffusion_v1_5/README.md) |
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1) | [qai_hub_models.models.stable_diffusion_v2_1](qai_hub_models/models/stable_diffusion_v2_1/README.md) |
 | | |
 | **Text Generation**
@@ -329,6 +330,7 @@ and many more.
 | [Llama-SEA-LION-v3.5-8B-R](https://aihub.qualcomm.com/models/llama_v3_1_sea_lion_3_5_8b_r) | [qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r](qai_hub_models/models/llama_v3_1_sea_lion_3_5_8b_r/README.md) |
 | [Llama-v2-7B-Chat](https://aihub.qualcomm.com/models/llama_v2_7b_chat) | [qai_hub_models.models.llama_v2_7b_chat](qai_hub_models/models/llama_v2_7b_chat/README.md) |
 | [Llama-v3-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_8b_instruct) | [qai_hub_models.models.llama_v3_8b_instruct](qai_hub_models/models/llama_v3_8b_instruct/README.md) |
+| [Llama-v3-ELYZA-JP-8B](https://aihub.qualcomm.com/models/llama_v3_elyza_jp_8b) | [qai_hub_models.models.llama_v3_elyza_jp_8b](qai_hub_models/models/llama_v3_elyza_jp_8b/README.md) |
 | [Llama-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/llama_v3_1_8b_instruct) | [qai_hub_models.models.llama_v3_1_8b_instruct](qai_hub_models/models/llama_v3_1_8b_instruct/README.md) |
 | [Llama-v3.2-1B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_1b_instruct) | [qai_hub_models.models.llama_v3_2_1b_instruct](qai_hub_models/models/llama_v3_2_1b_instruct/README.md) |
 | [Llama-v3.2-3B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_3b_instruct) | [qai_hub_models.models.llama_v3_2_3b_instruct](qai_hub_models/models/llama_v3_2_3b_instruct/README.md) |

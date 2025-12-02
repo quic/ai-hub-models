@@ -11,7 +11,7 @@ import torch
 from qai_hub_models.models.common import SampleInputsType
 
 # PyTorch trace doesn't capture the input specs. Hence we need an additional
-# InputSpec (name -> (shape, type)) when submitting profiling job to Qualcomm AI Hub.
+# InputSpec (name -> (shape, type)) when submitting profiling job to Qualcomm AI Hub Workbench.
 # This is a subtype of qai_hub.InputSpecs
 InputSpec = dict[str, tuple[tuple[int, ...], str]]
 

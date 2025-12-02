@@ -20,7 +20,7 @@ from qai_hub_models.utils.onnx.torch_wrapper import OnnxModelTorchWrapper
 
 
 class VariableIODummyModel(BaseModel):
-    """Dummy AI Hub model that allows changing the number of inputs / outputs."""
+    """Dummy AI Hub Workbench model that allows changing the number of inputs / outputs."""
 
     DEFAULT_IO_SHAPE = (1, 3, 2, 2)
 

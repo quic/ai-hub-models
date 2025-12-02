@@ -6,7 +6,7 @@ This is based on the implementation of Llama-SEA-LION-v3.5-8B-R found [here](htt
 export suitable to run on Qualcomm® devices. More details on model performance
 accross various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v3_1_sea_lion_3_5_8b_r).
 
-[Sign up](https://myaccount.qualcomm.com/signup) to start using Qualcomm AI Hub and run these models on a hosted Qualcomm® device.
+Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
 ## Deploying Llama-SEA-LION-v3.5-8B-R on-device
 

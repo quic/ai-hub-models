@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import Precision
+from qai_hub_models.models.common import ExportResult, Precision
 from qai_hub_models.models.llama_v2_7b_chat import Model
 from qai_hub_models.models.llama_v2_7b_chat.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.utils import model_cache
@@ -79,6 +79,7 @@ def export_model(
     output_dir: str | None = None,
     target_runtime: TargetRuntime = TargetRuntime.GENIE,
     compile_options: str = "",
+    link_options: str = "",
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
@@ -131,13 +132,15 @@ def export_model(
         Which on-device runtime to target. Default is TFLite.
     compile_options
         Additional options to pass when submitting the compile job.
+    link_options
+        Additional options to pass when submitting the link job.
     profile_options
         Additional options to pass when submitting the profile job.
     model_cache_mode
-        Whether to cache uploaded AI Hub model during export.
-        If enable, caches uploaded model (i.e. re-uses uploaded AI Hub model from cache).
+        Whether to cache uploaded AI Hub Workbench model during export.
+        If enable, caches uploaded model (i.e. re-uses uploaded AI Hub Workbench model from cache).
         If disable, disables caching i.e. no reading from and write to cache.
-        If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub model instead.
+        If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub Workbench model instead.
     additional_model_kwargs
         Additional optional kwargs used to customize
         `model_cls.from_pretrained`
@@ -149,6 +152,13 @@ def export_model(
         * A ProfileJob containing metadata about the profile job (None if profiling skipped).
         * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
     """
+    # Resolves all of the device attributes from a partially specified hub.Device
+    hub_devices = hub.get_devices(
+        name=device.name,
+        attributes=device.attributes,
+        os=device.os,
+    )
+    device = hub_devices[-1]
     model_name = BASE_NAME
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
     component_arg = components
@@ -176,12 +186,12 @@ def export_model(
     # 1. Initialize PyTorch model
     model = Model.from_pretrained(**get_model_kwargs(Model, additional_model_kwargs))
 
-    compile_jobs: dict[str, list[hub.client.CompileJob]] = {}
+    compile_jobs_to_link: dict[str, list[hub.client.CompileJob]] = {}
+    compile_jobs: dict[str, hub.client.CompileJob] = {}
     profile_options_per_sub_component: dict[str, str] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}
 
     for component_name in components:
-        compile_jobs[component_name] = []
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]:
             # Load model part
             component = model.load_model_part(sub_component_name)
@@ -233,31 +243,29 @@ def export_model(
                 options=model_compile_options,
             )
             assert isinstance(submitted_compile_job, hub.CompileJob)
+            if component_name not in compile_jobs_to_link:
+                compile_jobs_to_link[component_name] = []
+
+            compile_jobs_to_link[component_name].append(
+                cast(hub.client.CompileJob, submitted_compile_job)
+            )
+            compile_jobs[sub_component_name] = cast(
+                hub.client.CompileJob, submitted_compile_job
+            )
 
             profile_options_per_sub_component[sub_component_name] = (
                 component.get_hub_profile_options(target_runtime, profile_options)
             )
+            link_options = component.get_hub_link_options(target_runtime, link_options)
 
-            compile_jobs[component_name].append(submitted_compile_job)
             # Free model part to reduce memory-pressure
             del component
 
-    for component_name, compile_jobs_list in compile_jobs.items():
-        models = []
-        for compile_job in compile_jobs_list:
-            if compile_job.get_status().code == "FAILED":
-                raise RuntimeError(
-                    f"Compile job failed for {component_name}. Please re-run export script for failed component."
-                )
-            target_model = compile_job.get_target_model()
-            assert target_model is not None, (
-                "Compile job did not produce a target model."
-            )
-            models.append(target_model)
-
+    for component_name, cjobs in compile_jobs_to_link.items():
+        models = [cast(hub.Model, cjob.get_target_model()) for cjob in cjobs]
         # Link Prompt processor and Token generator
         link_jobs[component_name] = hub.submit_link_job(
-            models, name=f"{model_name}_{component_name}"
+            models, name=f"{model_name}_{component_name}", options=link_options
         )
 
     # 4. Profile the model assets on real devices
@@ -353,10 +361,11 @@ def export_model(
     )
 
     return {
-        component_name: (
-            link_jobs[component_name],
-            profile_jobs.get(sub_component_name),
-            inference_jobs.get(sub_component_name),
+        component_name: ExportResult(
+            compile_job=compile_jobs[sub_component_name],
+            link_job=link_jobs[component_name],
+            profile_job=profile_jobs.get(sub_component_name),
+            inference_job=inference_jobs.get(sub_component_name),
         )
         for component_name in components
         for sub_component_name in ALL_SUB_COMPONENTS[component_name]
@@ -369,9 +378,7 @@ def main(argv: list[str] | None = None):
         model_cls=Model,
         export_fn=export_model,
         components=ALL_COMPONENTS,
-        supported_precision_runtimes={
-            Precision.w8a16: [TargetRuntime.QNN_CONTEXT_BINARY]
-        },
+        supported_precision_runtimes={Precision.w8a16: [TargetRuntime.GENIE]},
         default_export_device=DEFAULT_EXPORT_DEVICE,
     )
     args = parser.parse_args(argv)
