@@ -13,6 +13,7 @@ import torch
 from transformers import GenerationConfig, TextStreamer, set_seed
 
 from qai_hub_models.models._shared.llm.generator import LLM_Generator, LLM_Loader
+from qai_hub_models.models._shared.llm.model import get_llm_config
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 
@@ -129,8 +130,12 @@ class ChatApp:
         ]
         if "fp_model" in model_from_pretrained_extra:
             config = model_from_pretrained_extra["fp_model"].llm_config
+        elif checkpoint is not None:
+            config = get_llm_config(checkpoint)
         else:
+            # This is expensive, so only done as last resort
             config = models[-1].load().llm_config
+            models[-1].release()
 
         # TODO: Use instance in model already?
         rope_embedding = self.model_cls.EmbeddingClass(

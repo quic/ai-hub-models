@@ -118,7 +118,7 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
             coco_eval.accumulate()
             coco_eval.summarize()
 
-        return {"AP": coco_eval.stats[0], "AP@.5": coco_eval.stats[1]}
+        return {"AP": coco_eval.stats[0] * 100, "AP@.5": coco_eval.stats[1] * 100}
 
     def get_accuracy_score(self) -> float:
         """Returns the overall mAP score."""
@@ -134,6 +134,8 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
             name="Mean Average Precision",
             unit="mAP",
             description="Percentage of keypoints that are close to the expected location.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )
 
 
@@ -203,15 +205,19 @@ class MPIIPoseEvaluator(BaseEvaluator):
 
         mean = np.sum(PCKh * jnt_ratio)
         self.mean_ratio = np.sum(pckAll[11, :] * jnt_ratio)
-        return mean
+        return mean * 100
 
     def formatted_accuracy(self) -> str:
         mean = self.get_accuracy_score()
-        return f"{mean:.3f} (Mean), {self.mean_ratio:.3f} (Mean@0.1)"
+        return (
+            f"{mean:.3f} (Percentage Mean), {self.mean_ratio:.3f} (Percentage Mean@0.1)"
+        )
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(
             name="Percentage Correct Keypoints (head-normalized)",
             unit="PCKh",
             description="Percentage of keypoints within a certain distance of expected.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

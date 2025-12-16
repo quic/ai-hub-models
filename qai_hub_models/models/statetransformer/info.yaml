@@ -1,0 +1,29 @@
+name: StateTransformer
+id: statetransformer
+status: public
+headline: Multi-agent trajectory prediction model for autonomous driving.
+domain: Computer Vision
+description: StateTransformer is a transformer-based model designed for trajectory prediction in self-driving scenarios. It integrates rasterized map data, agent context, and temporal dynamics to generate accurate future trajectories.
+use_case: Driver Assistance
+tags:
+- bu-auto
+applicable_scenarios:
+- Self driving cars
+related_models: []
+form_factors:
+- Auto
+has_static_banner: true
+has_animated_banner: false
+dataset:
+- nuPlan
+- Waymo
+technical_details:
+  Model checkpoint: pretrained-mixtral-small
+  Input resolution: 1x224x224x58, 1x224x224x58, 1x4x7
+  Number of parameters: 90.7M
+  Model size (float): 348 MB
+license_type: unlicensed
+private_perf_form_factors:
+- Auto
+deploy_license: https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+deploy_license_type: ai-hub-models-license

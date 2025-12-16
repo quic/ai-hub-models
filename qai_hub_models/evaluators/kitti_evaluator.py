@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from qai_hub_models.datasets.kitti import KittiDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.evaluators.utils.kitti import eval_class
 from qai_hub_models.models.centernet_3d.util import ddd_post_process
 
@@ -167,7 +167,7 @@ class KittiEvaluator(BaseEvaluator):
             difficultys=[0],
             num_parts=num_parts,
         )
-        return float(bbox)
+        return float(bbox) * 100
 
     def formatted_accuracy(self) -> str:
         num_parts = len(self.dt_annos) // 100 + 1
@@ -183,3 +183,12 @@ class KittiEvaluator(BaseEvaluator):
         aos_str = ", ".join([f"{v:.2f}" for v in aos])
 
         return f"{bbox_str} AP-(E,M,H) {aos_str} AOS-(E,M,H) {bev_str} BEV-(E,M,H)"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Average Precision",
+            unit="AP",
+            description="Average Precision",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
+        )

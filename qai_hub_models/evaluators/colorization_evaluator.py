@@ -71,4 +71,6 @@ class ColorizationEvaluator(BaseEvaluator):
             name="Colorfulness",
             unit="",
             description="A measure of how varied the colors are in the image.",
+            range=(0.0, None),
+            float_vs_device_threshold=10.0,
         )

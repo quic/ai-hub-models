@@ -23,6 +23,7 @@ from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_SEQUENCE_LENGTH,
     Llama3Base,
     Llama3Base_AIMETOnnx,
+    Llama3Base_QNN,
 )
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
@@ -318,3 +319,13 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
                     inputs[i].append(tensor)
 
         return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))
+
+
+class Llama3_Elyza_JP_8B_QNN(Llama3Base_QNN):
+    num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
+
+    @staticmethod
+    def get_output_names():
+        return Llama3_Elyza_JP_8B_QNN._get_output_names(NUM_LAYERS)
+
+    get_input_spec = staticmethod(Llama3_Elyza_JP_8B.get_input_spec)

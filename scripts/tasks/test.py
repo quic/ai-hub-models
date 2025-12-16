@@ -100,11 +100,13 @@ class GPUPyTestModelsTask(CompositeTask):
                 os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "info.yaml")
             ):
                 model_names.add(model_name)
+        model_names.add("llama_v2_7b_chat")
         for model_name in list(model_names):
-            if is_quantized_llm_model(model_name):
+            if is_quantized_llm_model(model_name) or model_name == "llama_v2_7b_chat":
                 models_to_test.append(model_name)
-        models_to_test.extend(["qwen2_5_7b_instruct", "llama_v2_7b_chat"])
 
+        # Run llama_v2_7b_chat last to avoid resource contention or conflicts with other models.
+        models_to_test.sort(key=lambda x: x == "llama_v2_7b_chat")
         tasks = []
         common_command = f"export HOME={home_dir} && mkdir -p {tmp_dir} && export TMPDIR={tmp_dir} && rm -rf {home_dir}/.cache/huggingface/hub/models--* {home_dir}/.qaihm/models/* {tmp_dir}/*"
         for model_name in models_to_test:

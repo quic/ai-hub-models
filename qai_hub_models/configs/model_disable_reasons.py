@@ -24,6 +24,16 @@ class ModelDisableReasons(BaseQAIHMConfig):
     # begins to work again, this will be removed automatically by scorecard.
     scorecard_failure: str | None = None
 
+    # The reason this model failed accuracy testing in the last scorecard run.
+    # Only failures on the default device are included here.
+    #
+    # If set, testing and export are disabled for the given Precision + TargetRuntime combination.
+    #
+    # This field is managed automatically by the scorecard, and should
+    # not be manually edited after a model is first added. If the model
+    # begins to work again, this will be removed automatically by scorecard.
+    scorecard_accuracy_failure: str | None = None
+
     # If set, testing and export are disabled for the given Precision + TargetRuntime combination.
     # This requires a filed issue link. You can also include additional info besides the link if you want.
     #
@@ -42,20 +52,25 @@ class ModelDisableReasons(BaseQAIHMConfig):
             )
         if self.issue:
             issue_link = "https://github.com/qcom-ai-hub/tetracode/issues/"
-            if issue_link not in self.issue:
+            jira_link = "https://jira-dc.qualcomm.com/"
+            if issue_link not in self.issue and jira_link not in self.issue:
                 raise ValueError(
-                    f"'disable_issue' must include a full link to an issue (expected format: `{issue_link}1234` )"
+                    f"'disable_issue' must include a full link to an issue or JIRA (expected format: `{issue_link}1234` )"
                 )
         return self
 
     @property
     def has_failure(self) -> bool:
-        return self.scorecard_failure is not None or self.issue is not None
+        return (
+            self.scorecard_failure is not None
+            or self.scorecard_accuracy_failure is not None
+            or self.issue is not None
+        )
 
     @property
     def failure_reason(self) -> str:
         assert self.has_failure
-        return self.scorecard_failure or self.issue  # type: ignore[return-value]
+        return self.scorecard_failure or self.scorecard_accuracy_failure or self.issue  # type: ignore[return-value]
 
 
 class ModelDisableReasonsMapping(BaseQAIHMConfig):

@@ -66,8 +66,79 @@ class CheckpointType(Enum):
     # model.encodings, and optionally model.data
     AIMET_ONNX_EXPORT = "AIMET_ONNX_EXPORT"
 
+    # Genie bundle
+    GENIE_BUNDLE = "GENIE_BUNDLE"
+
     # invalid or unrecognized checkpoint
     INVALID = "INVALID"
+
+    @classmethod
+    def from_checkpoint(
+        cls, checkpoint: CheckpointSpec, subfolder: str = ""
+    ) -> CheckpointType:
+        """
+        Determines the type of checkpoint referred to by `checkpoint`, which may be:
+          - one of the special enums DEFAULT[_…]
+          - a local directory containing HF_LOCAL / ONNX / Torch files
+          - a remote HF repo ID string
+          - invalid / unrecognized
+        """
+        # Handle our two built-in sentinels
+        if checkpoint in ["DEFAULT_UNQUANTIZED", CheckpointType.DEFAULT_UNQUANTIZED]:
+            return CheckpointType.DEFAULT_UNQUANTIZED
+        if checkpoint in ["DEFAULT", CheckpointType.DEFAULT]:
+            return CheckpointType.DEFAULT
+        if checkpoint in ["DEFAULT_W4", CheckpointType.DEFAULT_W4]:
+            return CheckpointType.DEFAULT_W4
+        if checkpoint in ["DEFAULT_W4A16", CheckpointType.DEFAULT_W4A16]:
+            return CheckpointType.DEFAULT_W4A16
+
+        # Non-existent strings -> remote HF lookup
+        if isinstance(checkpoint, str):
+            cp_path = Path(checkpoint)
+            if not cp_path.exists():
+                return (
+                    CheckpointType.HF_REPO
+                    if hf_repo_exists(checkpoint)
+                    else CheckpointType.INVALID
+                )
+
+        # From here on, we must have an existing directory
+        cp_path = Path(checkpoint)
+        if subfolder != "":
+            cp_path = cp_path / subfolder
+        if not cp_path.is_dir():
+            return CheckpointType.INVALID
+
+        # Genie bundle (genie_config.json + bins)
+        if (cp_path / "genie_config.json").is_file() and list(cp_path.glob("*.bin")):
+            return CheckpointType.GENIE_BUNDLE
+
+        # Local HF-style (config + safetensor)
+        if (cp_path / "config.yaml").is_file() and (
+            cp_path / "model.safetensor"
+        ).is_file():
+            return CheckpointType.HF_LOCAL
+
+        # Aimet ONNX export (ONNX + encodings)
+        if cp_path.glob("model*.onnx") and (cp_path / "model.encodings").is_file():
+            return CheckpointType.AIMET_ONNX_EXPORT
+
+        # Single PyTorch state-dict
+        torch_files = list(cp_path.glob("*.pth")) + list(cp_path.glob("*.pt"))
+        if len(torch_files) == 1:
+            return CheckpointType.TORCH_STATE_DICT
+
+        # Nothing matched
+        return CheckpointType.INVALID
+
+    def is_aimet_onnx(self) -> bool:
+        return self in {
+            self.DEFAULT,
+            self.DEFAULT_W4,
+            self.DEFAULT_W4A16,
+            self.AIMET_ONNX_EXPORT,
+        }
 
 
 def hf_repo_exists(repo_id: str) -> bool:
@@ -91,60 +162,6 @@ def hf_repo_exists(repo_id: str) -> bool:
         return True
     except Exception:
         return False
-
-
-def determine_checkpoint_type(
-    checkpoint: CheckpointSpec, subfolder: str = ""
-) -> CheckpointType:
-    """
-    Determines the type of checkpoint referred to by `checkpoint`, which may be:
-      - one of the special enums DEFAULT[_…]
-      - a local directory containing HF_LOCAL / ONNX / Torch files
-      - a remote HF repo ID string
-      - invalid / unrecognized
-    """
-    # 1) Handle our two built-in sentinels
-    if checkpoint in ["DEFAULT_UNQUANTIZED", CheckpointType.DEFAULT_UNQUANTIZED]:
-        return CheckpointType.DEFAULT_UNQUANTIZED
-    if checkpoint in ["DEFAULT", CheckpointType.DEFAULT]:
-        return CheckpointType.DEFAULT
-    if checkpoint in ["DEFAULT_W4", CheckpointType.DEFAULT_W4]:
-        return CheckpointType.DEFAULT_W4
-    if checkpoint in ["DEFAULT_W4A16", CheckpointType.DEFAULT_W4A16]:
-        return CheckpointType.DEFAULT_W4A16
-
-    # 2) Non-existent strings -> remote HF lookup
-    if isinstance(checkpoint, str):
-        cp_path = Path(checkpoint)
-        if not cp_path.exists():
-            return (
-                CheckpointType.HF_REPO
-                if hf_repo_exists(checkpoint)
-                else CheckpointType.INVALID
-            )
-
-    # 3) From here on, we must have an existing directory
-    cp_path = Path(checkpoint)
-    if subfolder != "":
-        cp_path = cp_path / subfolder
-    if not cp_path.is_dir():
-        return CheckpointType.INVALID
-
-    # 4) Local HF-style (config + safetensor)
-    if (cp_path / "config.yaml").is_file() and (cp_path / "model.safetensor").is_file():
-        return CheckpointType.HF_LOCAL
-
-    # 5) Aimet ONNX export (ONNX + encodings)
-    if cp_path.glob("model*.onnx") and (cp_path / "model.encodings").is_file():
-        return CheckpointType.AIMET_ONNX_EXPORT
-
-    # 6) Single PyTorch state-dict
-    torch_files = list(cp_path.glob("*.pth")) + list(cp_path.glob("*.pt"))
-    if len(torch_files) == 1:
-        return CheckpointType.TORCH_STATE_DICT
-
-    # 7) Nothing matched
-    return CheckpointType.INVALID
 
 
 T = TypeVar("T", bound="FromPretrainedMixin")
@@ -199,7 +216,9 @@ class FromPretrainedMixin(Generic[T]):
     ) -> torch.nn.Module:
         subfolder_hf = subfolder or cls.default_subfolder_hf
         subfolder_local = subfolder or cls.default_subfolder
-        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder_local)
+        ckpt_type = CheckpointType.from_checkpoint(
+            checkpoint, subfolder=subfolder_local
+        )
 
         if ckpt_type == CheckpointType.TORCH_STATE_DICT:
             raise NotImplementedError(
@@ -289,7 +308,9 @@ class FromPretrainedMixin(Generic[T]):
         subfolder_hf = subfolder or cls.default_subfolder_hf
         subfolder_local = subfolder or cls.default_subfolder
         host_device = torch.device(host_device)
-        ckpt_type = determine_checkpoint_type(checkpoint, subfolder=subfolder_local)
+        ckpt_type = CheckpointType.from_checkpoint(
+            checkpoint, subfolder=subfolder_local
+        )
 
         is_quantized_src = ckpt_type in (
             CheckpointType.DEFAULT,

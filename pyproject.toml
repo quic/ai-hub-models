@@ -152,6 +152,12 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
+module = "google.*"
+ignore_errors = true
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
 module = "qai_hub_models.*"
 disable_error_code = ["type-abstract", "override", "method-assign"]
 check_untyped_defs = true
@@ -240,6 +246,10 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models/models/qwen2_5_7b_instruct.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/qwen2_5_7b_instruct_recipe.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

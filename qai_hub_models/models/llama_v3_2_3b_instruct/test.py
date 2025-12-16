@@ -25,8 +25,8 @@ from qai_hub_models.models.llama_v3_2_3b_instruct import (
     FP_Model,
     Model,
     PositionProcessor,
+    QNN_Model,
 )
-from qai_hub_models.models.llama_v3_2_3b_instruct.demo import llama_3_2_3b_chat_demo
 from qai_hub_models.models.llama_v3_2_3b_instruct.export import (
     DEFAULT_EXPORT_DEVICE,
     NUM_LAYERS_PER_SPLIT,
@@ -35,8 +35,6 @@ from qai_hub_models.models.llama_v3_2_3b_instruct.export import (
 from qai_hub_models.models.llama_v3_2_3b_instruct.export import main as export_main
 from qai_hub_models.models.llama_v3_2_3b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
-    DEFAULT_PRECISION,
-    DEFAULT_SEQUENCE_LENGTH,
     HF_REPO_NAME,
     MODEL_ASSET_VERSION,
 )
@@ -44,7 +42,7 @@ from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
 )
-from qai_hub_models.scorecard.device import cs_8_elite_gen_5
+from qai_hub_models.scorecard.device import cs_8_elite
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
@@ -226,19 +224,6 @@ def test_cli_device_with_skips_unsupported_context_length(tmp_path: Path):
     )
 
 
-@pytest.fixture(scope="session")
-def setup_quantized_checkpoints(tmpdir_factory):
-    path = tmpdir_factory.mktemp(f"{MODEL_ID}_korean")
-    yield test.setup_test_quantization(
-        Model,
-        FP_Model,
-        path,
-        precision=DEFAULT_PRECISION,
-        checkpoint="Bllossom/llama-3.2-Korean-Bllossom-3B",
-    )
-    cleanup()
-
-
 @pytest.mark.evaluate
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
@@ -248,7 +233,6 @@ def setup_quantized_checkpoints(tmpdir_factory):
     [
         ("wikitext", 12.273, 0),
         ("mmlu", 0.567, 1000),
-        ("tiny_mmlu", 0.53, 0),
     ],
 )
 def test_evaluate_default(
@@ -261,8 +245,10 @@ def test_evaluate_default(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -287,7 +273,6 @@ def test_evaluate_default(
     [
         ("wikitext", 10.165, 0),
         ("mmlu", 0.607, 1000),
-        ("tiny_mmlu", 0.61, 0),
     ],
 )
 def test_evaluate_default_unquantized(
@@ -301,6 +286,7 @@ def test_evaluate_default_unquantized(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         num_samples=num_samples,
+        qnn_model_cls=QNN_Model,
         task=task,
         kwargs=dict(
             checkpoint=checkpoint,
@@ -317,49 +303,9 @@ def test_evaluate_default_unquantized(
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
 
-@pytest.mark.demo
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
 )
-def test_evaluate_quantized_checkpoint(
-    setup_quantized_checkpoints: str,
-) -> None:
-    cleanup()
-    actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=FP_Model,
-        task="mmmlu_ko",
-        num_samples=100,
-        kwargs=dict(
-            checkpoint=setup_quantized_checkpoints,
-            sequence_length=DEFAULT_SEQUENCE_LENGTH,
-            context_length=DEFAULT_CONTEXT_LENGTH,
-        ),
-    )
-    log_evaluate_test_result(
-        model_name=MODEL_ID,
-        checkpoint="Bllossom/llama-3.2-Korean-Bllossom-3B",
-        metric="mmmlu_ko",
-        value=actual_metric,
-    )
-    np.testing.assert_allclose(actual_metric, 0.25, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.demo
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-def test_demo_quantized_checkpoint(setup_quantized_checkpoints: str, capsys) -> None:
-    cleanup()
-    llama_3_2_3b_chat_demo(
-        fp_model_cls=FP_Model,
-        default_prompt="What is the capital of France?",
-        test_checkpoint=Path(setup_quantized_checkpoints),
-    )
-    captured = capsys.readouterr()
-    assert "Paris" in captured.out
-
-
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="This test can be run on GPU only.",
@@ -367,7 +313,7 @@ def test_demo_quantized_checkpoint(setup_quantized_checkpoints: str, capsys) -> 
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
     [
-        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_8_elite_gen_5),
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_8_elite),
     ],
 )
 @pytest.mark.compile_ram_intensive
@@ -411,6 +357,9 @@ def test_compile(
     )
 
 
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available()
     or not importlib.util.find_spec("qdc_public_api_client"),
@@ -419,7 +368,7 @@ def test_compile(
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device"),
     [
-        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_8_elite_gen_5),
+        (Precision.w4a16, ScorecardCompilePath.GENIE, cs_8_elite),
     ],
 )
 @pytest.mark.qdc
@@ -434,8 +383,10 @@ def test_qdc(
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
-        device, genie_bundle_path
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(

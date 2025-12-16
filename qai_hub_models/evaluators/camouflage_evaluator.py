@@ -87,6 +87,8 @@ class CamouflageEvaluator(BaseEvaluator):
             name="Structural Similarity",
             unit="SSIM",
             description="A measure of the perceived quality difference between two images.",
+            range=(0.0, 1.0),
+            float_vs_device_threshold=0.1,
         )
 
     def formatted_accuracy(self) -> str:

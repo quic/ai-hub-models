@@ -47,3 +47,8 @@ class EfficientViT(ImagenetClassifier):
             efficientvit_model.to(torch.device("cpu"))
             efficientvit_model.eval()
             return cls(efficientvit_model)
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
+        return 10

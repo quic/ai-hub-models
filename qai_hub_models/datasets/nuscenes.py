@@ -82,10 +82,10 @@ class NuscenesDataset(BaseDataset):
         try:
             from nuscenes.nuscenes import NuScenes
             from nuscenes.utils import splits
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
                 "nuscenes-devkit must be installed to create the nuscenes dataset."
-            ) from None
+            ) from e
 
         self.nusc = NuScenes(
             version="v1.0-mini", dataroot=self.data_path, verbose=False

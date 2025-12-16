@@ -35,9 +35,8 @@ def main():
             TargetRuntime.ONNX,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
-        Precision.w8a16: [
-            TargetRuntime.ONNX,
-        ],
+        Precision.w8a16: [],
+        Precision.w8a16_mixed_fp16: [],
     }
 
     parser = evaluate_parser(
@@ -88,8 +87,8 @@ def main():
         dataset_name=args.dataset_name,
         input_spec=input_spec,
         torch_model=torch_model,
-        compiled_model=compiled_model,
-        quantized_model=quantized_model,
+        compiled_model=compiled_model if not args.skip_device_accuracy else None,
+        quantized_model=quantized_model if args.compute_quant_cpu_accuracy else None,
         hub_device=args.device,
         samples_per_job=args.samples_per_job,
         num_samples=args.num_samples,

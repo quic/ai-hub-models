@@ -7,7 +7,12 @@ from __future__ import annotations
 
 from qai_hub_models.models._shared.llama3.model import DEFAULT_USER_PROMPT, END_TOKENS
 from qai_hub_models.models._shared.llm.demo import llm_chat_demo
-from qai_hub_models.models.llama_v3_1_8b_instruct import MODEL_ID, FP_Model, Model
+from qai_hub_models.models.llama_v3_1_8b_instruct import (
+    MODEL_ID,
+    FP_Model,
+    Model,
+    QNN_Model,
+)
 from qai_hub_models.models.llama_v3_1_8b_instruct.model import (
     HF_REPO_NAME,
     HF_REPO_URL,
@@ -20,11 +25,13 @@ from qai_hub_models.utils.checkpoint import CheckpointSpec
 def llama_3_1_chat_demo(
     model_cls: type[BaseModel] = Model,
     fp_model_cls: type[BaseModel] = FP_Model,
+    qnn_model_cls: type[BaseModel] = QNN_Model,
     model_id: str = MODEL_ID,
     end_tokens: set = END_TOKENS,
     hf_repo_name: str = HF_REPO_NAME,
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
+    raw: bool = False,
     test_checkpoint: CheckpointSpec | None = None,
     available_target_runtimes: list[TargetRuntime] | None = None,
 ):
@@ -33,12 +40,14 @@ def llama_3_1_chat_demo(
     llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,
+        qnn_model_cls=qnn_model_cls,
         model_id=model_id,
         end_tokens=end_tokens,
         hf_repo_name=hf_repo_name,
         hf_repo_url=hf_repo_url,
         supported_precisions=SUPPORTED_PRECISIONS,
         default_prompt=default_prompt,
+        raw=raw,
         test_checkpoint=test_checkpoint,
     )
 

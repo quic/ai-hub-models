@@ -266,4 +266,6 @@ class PanopticSegmentationEvaluator(BaseEvaluator):
             name="Panoptic Quality",
             unit="PQ",
             description="A measure of how well all objects in the image were correctly identified and segmented.",
+            range=(0.0, 1.0),
+            float_vs_device_threshold=0.1,
         )

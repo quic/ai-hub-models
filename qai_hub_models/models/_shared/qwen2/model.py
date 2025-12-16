@@ -10,6 +10,7 @@ from qai_hub_models.models._shared.llm.model import (
     LLMBase,
     PositionProcessorBase,
     LLM_AIMETOnnx,
+    LLM_QNN,
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
 )
@@ -20,7 +21,7 @@ import json
 import os
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import onnx
 import torch
@@ -28,6 +29,7 @@ import torch
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
+import qai_hub as hub
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
 from transformers.modeling_attn_mask_utils import AttentionMaskConverter
@@ -43,6 +45,7 @@ from qai_hub_models.models._shared.qwen2.model_adaptations import (
     SHAQwen2Attention,
 )
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
+from qai_hub_models.utils.base_model import Precision
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 1
@@ -63,12 +66,6 @@ END_TOKENS = {"<|im_end|>", "<|endoftext|>"}
 
 DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "What is gravity? Keep the answer under ten words."
-
-# Genie defaults to -1000 as "-infity" for FP16 attention masks.
-# However, Qwen 2.5 1.5B requires -10000 for good results.
-# Since Genie currently cannot configure this, to make this model compatible
-# with Genie, we have too boost this value inside the network.
-QWEN2_ATTENTION_MULTIPLIER = 10
 
 
 class Qwen2_Optimizations(str, Enum):  # Inherit from str and Enum
@@ -157,7 +154,7 @@ class Qwen2Base(LLMBase):
     ):
         return super().forward(
             input_tokens,
-            QWEN2_ATTENTION_MULTIPLIER * attention_mask,
+            self.attention_mask_multiplier * attention_mask,
             *rest,
         )
 
@@ -193,6 +190,8 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
     EmbeddingClass = RopeEmbedding
     FPModel = Qwen2Base
 
+    get_input_prompt_with_tags = Qwen2Base.get_input_prompt_with_tags
+
     def __init__(
         self,
         quant_sim: QuantizationSimModel,
@@ -203,6 +202,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         attention_mask_min_clip: float | None = None,
+        attention_mask_multiplier: float = 1.0,
     ):
         super().__init__(
             quant_sim=quant_sim,
@@ -213,9 +213,8 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
             context_length=context_length,
             host_device=host_device,
             attention_mask_min_clip=attention_mask_min_clip,
+            attention_mask_multiplier=attention_mask_multiplier,
         )
-
-    get_input_prompt_with_tags = Qwen2Base.get_input_prompt_with_tags
 
     @staticmethod
     def _get_output_names(num_hidden_layers: int):
@@ -225,6 +224,40 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
             output_names.append(f"past_value_{layer}_out")
         return output_names
 
+    @classmethod
+    def prepare_genie_assets(
+        cls,
+        hub_device: hub.Device,
+        checkpoint: str | os.PathLike | Path,
+        llm_config: PretrainedConfig,
+        context_length: int,
+        model_list: list[str],
+        output_path: Path,
+        precision: Precision,
+        encodings_path: str | os.PathLike | Path,
+        input_specs: dict[str, Any],
+        output_specs: dict[str, Any],
+    ) -> None:
+        super().prepare_genie_assets(
+            hub_device,
+            checkpoint,
+            llm_config,
+            context_length,
+            model_list,
+            output_path,
+            precision,
+            encodings_path,
+            input_specs,
+            output_specs,
+        )
+        with open(output_path / "sample_prompt.txt", "w") as f:
+            f.write(
+                Qwen2Base_AIMETOnnx.get_input_prompt_with_tags(
+                    user_input_prompt="What is gravity?",
+                    system_context_prompt="You are a helpful AI assistant. Be concise.",
+                )
+            )
+
     def forward(
         self,
         input_tokens: torch.Tensor,
@@ -233,7 +266,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
     ):
         return super().forward(
             input_tokens,
-            QWEN2_ATTENTION_MULTIPLIER * attention_mask,
+            self.attention_mask_multiplier * attention_mask,
             *rest,
         )
 
@@ -287,3 +320,11 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
 
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
+
+
+class Qwen2Base_QNN(LLM_QNN):
+    FPModel = Qwen2Base
+    EmbeddingClass = RopeEmbedding
+    num_layers_per_split: int
+
+    get_input_prompt_with_tags = Qwen2Base.get_input_prompt_with_tags

@@ -22,10 +22,6 @@ DEFAULT_WEIGHT = "piddnad/ddcolor_paper_tiny"
 
 
 class DDColor(BaseModel):
-    def __init__(self, model: torch.nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
     @classmethod
     def from_pretrained(cls, weights: str = DEFAULT_WEIGHT) -> DDColor:
         with SourceAsRoot(

@@ -10,6 +10,7 @@ from __future__ import annotations
 from qai_hub_models.models._shared.llm.model import (
     LLMBase,
     LLM_AIMETOnnx,
+    LLM_QNN,
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_SEQUENCE_LENGTH,
 )
@@ -25,10 +26,13 @@ from typing import TYPE_CHECKING, Any
 import onnx
 import torch
 
+from qai_hub_models.utils.base_model import Precision
+
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
 
 
+import qai_hub as hub
 import transformers
 from packaging.version import Version
 from transformers import PretrainedConfig, PreTrainedTokenizer
@@ -259,6 +263,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         attention_mask_min_clip: float | None = None,
+        attention_mask_multiplier: float = 1.0,
     ):
         super().__init__(
             quant_sim=quant_sim,
@@ -269,6 +274,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             context_length=context_length,
             host_device=host_device,
             attention_mask_min_clip=attention_mask_min_clip,
+            attention_mask_multiplier=attention_mask_multiplier,
         )
 
     @staticmethod
@@ -286,6 +292,41 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
 
 """
+
+    @classmethod
+    def prepare_genie_assets(
+        cls,
+        hub_device: hub.Device,
+        checkpoint: str | os.PathLike | Path,
+        llm_config: PretrainedConfig,
+        context_length: int,
+        model_list: list[str],
+        output_path: Path,
+        precision: Precision,
+        encodings_path: str | os.PathLike | Path,
+        input_specs: dict[str, Any],
+        output_specs: dict[str, Any],
+    ) -> None:
+        super().prepare_genie_assets(
+            hub_device,
+            checkpoint,
+            llm_config,
+            context_length,
+            model_list,
+            output_path,
+            precision,
+            encodings_path,
+            input_specs,
+            output_specs,
+        )
+
+        with open(output_path / "sample_prompt.txt", "w") as f:
+            f.write(
+                Llama3Base_AIMETOnnx.get_input_prompt_with_tags(
+                    user_input_prompt="What is gravity?",
+                    system_context_prompt="You are a helpful AI assistant. Be concise.",
+                )
+            )
 
     @staticmethod
     def _get_output_names(num_hidden_layers: int):
@@ -400,3 +441,11 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
 
         with open(dst_encodings_path, "w") as write_file:
             json.dump(encodings, write_file, indent=4, sort_keys=True)
+
+
+class Llama3Base_QNN(LLM_QNN):
+    FPModel = Llama3Base
+    EmbeddingClass = RopeEmbedding
+    num_layers_per_split: int
+
+    get_input_prompt_with_tags = Llama3Base.get_input_prompt_with_tags

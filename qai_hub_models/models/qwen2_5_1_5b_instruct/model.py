@@ -18,6 +18,7 @@ from qai_hub_models.models._shared.qwen2.model import (
     DEFAULT_SEQUENCE_LENGTH,
     Qwen2Base,
     Qwen2Base_AIMETOnnx,
+    Qwen2Base_QNN,
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
@@ -133,12 +134,12 @@ class Qwen2_5_1_5B(Qwen2Base):
 
 
 class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
-    def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
-        super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
-            *args,  # noqa: B026
-            **kwargs,
-        )
+    @classmethod
+    def attention_mask_min_clip_and_multiplier(
+        cls,
+        precision: Precision,
+    ) -> tuple[float | None, float]:
+        return (-7100.0, 1.0)
 
     @classmethod
     def from_pretrained(
@@ -225,3 +226,13 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
             num_attention_heads=llm_config["num_attention_heads"],
             llm_io_type=llm_io_type,
         )
+
+
+class Qwen2_5_1_5B_QNN(Qwen2Base_QNN):
+    num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
+
+    @staticmethod
+    def get_output_names():
+        return Qwen2_5_1_5B_QNN._get_output_names(NUM_LAYERS)
+
+    get_input_spec = staticmethod(Qwen2_5_1_5B.get_input_spec)

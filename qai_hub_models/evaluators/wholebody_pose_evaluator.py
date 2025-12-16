@@ -191,7 +191,7 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
             coco_eval.evaluate()
             coco_eval.accumulate()
             coco_eval.summarize()
-        return {"AP": coco_eval.stats[0], "AP@.5": coco_eval.stats[1]}
+        return {"AP": coco_eval.stats[0] * 100, "AP@.5": coco_eval.stats[1] * 100}
 
     def get_accuracy_score(self) -> float:
         """Returns the overall mAP score."""
@@ -207,4 +207,6 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
             name="Mean Average Precision",
             unit="mAP",
             description="Percentage of keypoints that are close to the expected location.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

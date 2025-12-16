@@ -61,7 +61,7 @@ class LibriSpeechEvaluator(BaseEvaluator):
 
     def get_accuracy_score(self) -> float:
         """Return WER as the accuracy score"""
-        return jiwer.wer(self.references, self.predictions)
+        return jiwer.wer(self.references, self.predictions) * 100
 
     def formatted_accuracy(self) -> str:
         """Return formatted WER score"""
@@ -72,5 +72,7 @@ class LibriSpeechEvaluator(BaseEvaluator):
         return MetricMetadata(
             name="Word Error Rate",
             unit="WER",
-            description="The percentage of words incorrectly predicted.",
+            description="The percentage of words incorrectly predicted. Lower is better.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

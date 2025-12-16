@@ -12,13 +12,15 @@ from typing import TYPE_CHECKING, Any
 import onnx
 import torch
 from packaging.version import Version
-from transformers import PretrainedConfig
 
 from qai_hub_models.utils.onnx.helpers import (
+    generate_wrapper_onnx_file,
     safe_torch_onnx_export,
 )
 
 if TYPE_CHECKING:
+    from transformers import PretrainedConfig
+
     from qai_hub_models.models._shared.llm.model import PositionProcessorBase
 
 
@@ -307,56 +309,6 @@ def create_onnxruntime_genai_assets(
     with open(config_output_path, "w") as f:
         # Order of pipeline models matter, make sure not to sort keys.
         json.dump(config_dict, f, indent=4, sort_keys=False)
-
-
-def generate_wrapper_onnx_file(
-    graph_name: str,
-    onnx_output_path: str | Path,
-    onnx_input_specs: dict[str, tuple[tuple[int, ...], onnx.TensorProto.DataType]],
-    onnx_output_specs: dict[str, tuple[tuple[int, ...], onnx.TensorProto.DataType]],
-    qnn_context_bin_path: str | Path,
-    qairt_version: str,
-):
-    graph_nodes = []
-
-    model_inputs = []
-    for name, (shape, onnx_dtype) in onnx_input_specs.items():
-        model_inputs.append(onnx.helper.make_tensor_value_info(name, onnx_dtype, shape))
-
-    ep_cache_context_content = str(qnn_context_bin_path)
-    ctx_embed_mode = 0
-
-    qnn_ep_context_node = onnx.helper.make_node(
-        "EPContext",
-        name=graph_name,
-        inputs=list(onnx_input_specs.keys()),
-        outputs=list(onnx_output_specs.keys()),
-        ep_cache_context=ep_cache_context_content,
-        embed_mode=ctx_embed_mode,
-        ep_sdk_version=qairt_version,
-        source="Qnn",
-        domain="com.microsoft",
-    )
-    graph_nodes.append(qnn_ep_context_node)
-
-    model_outputs = []
-    for name, (shape, onnx_dtype) in onnx_output_specs.items():
-        model_outputs.append(
-            onnx.helper.make_tensor_value_info(name, onnx_dtype, shape)
-        )
-
-    graph_def = onnx.helper.make_graph(
-        graph_nodes,
-        "qnn-onnx-model",
-        model_inputs,
-        model_outputs,
-        [],
-        "",
-        [],
-    )
-    model_def = onnx.helper.make_model(graph_def)
-
-    onnx.save(model_def, onnx_output_path)
 
 
 class QuantParams:

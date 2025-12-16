@@ -12,11 +12,11 @@ from qai_hub_models.configs.numerics_yaml import (
     get_numerics_yaml_path,
 )
 from qai_hub_models.scorecard.results.yaml import ACCURACY_CSV_BASE
-from qai_hub_models.scripts.create_numerics_yaml import (
+from qai_hub_models.utils.asset_loaders import load_yaml
+from qai_hub_models.utils.numerics_yaml import (
     create_numerics_struct,
     get_chipset_registry,
 )
-from qai_hub_models.utils.asset_loaders import load_yaml
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 

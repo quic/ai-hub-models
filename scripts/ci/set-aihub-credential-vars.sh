@@ -32,11 +32,11 @@ for deployment in "${hub_deployments[@]}"; do
   case "$deployment_upper" in
     PROD)
       token=$prod_token
-      deployment_url_name="app"
+      deployment_url_name="workbench"
       ;;
-    APP)
+    WORKBENCH)
       token=$prod_token
-      deployment_url_name="app"
+      deployment_url_name="workbench"
       ;;
     STAGING)
       token=$staging_token

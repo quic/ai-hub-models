@@ -1,0 +1,28 @@
+metrics:
+- dataset_name: cofw
+  dataset_link: https://1drv.ms/u/s!AiWjZ1LamlxzdmYbSkHpPYhI8Ms
+  dataset_split_description: COFW train or test split
+  metric_name: Normalized Mean Error
+  metric_description: Average keypoint error normalized by inter-ocular distance (COFW dataset). Lower is better.
+  metric_unit: NME
+  metric_range:
+    min: 0.0
+  metric_fp_vs_device_enablement_threshold: 0.01
+  num_partial_samples: 507
+  partial_torch_metric: 0.0335
+  device_metric:
+    Samsung Galaxy S25:
+      float:
+        tflite:
+          partial_metric: 0.0335
+        qnn_dlc:
+          partial_metric: 0.0335
+        onnx:
+          partial_metric: 0.0335
+      w8a8:
+        tflite:
+          partial_metric: 0.0335
+        qnn_dlc:
+          partial_metric: 0.0335
+        onnx:
+          partial_metric: 0.0335

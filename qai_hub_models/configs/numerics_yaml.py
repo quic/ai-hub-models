@@ -12,6 +12,7 @@ from pydantic import Field
 
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import ScorecardProfilePath
+from qai_hub_models.scorecard.device import ScorecardDevice
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.path_helpers import QAIHM_MODELS_ROOT
 
@@ -24,6 +25,10 @@ class QAIHMModelNumerics(BaseQAIHMConfig):
     class DeviceDetails(BaseQAIHMConfig):
         partial_metric: float
 
+    class Range(BaseQAIHMConfig):
+        min: float | None = None
+        max: float | None = None
+
     class MetricDetails(BaseQAIHMConfig):
         dataset_name: str
         dataset_link: str
@@ -31,10 +36,12 @@ class QAIHMModelNumerics(BaseQAIHMConfig):
         metric_name: str
         metric_description: str
         metric_unit: str
+        metric_range: QAIHMModelNumerics.Range
+        metric_fp_vs_device_enablement_threshold: float | None = None
         num_partial_samples: int
         partial_torch_metric: float
         device_metric: dict[
-            str,
+            ScorecardDevice,
             dict[
                 Precision, dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails]
             ],

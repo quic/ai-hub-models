@@ -90,5 +90,7 @@ class HRNetFaceEvaluator(BaseEvaluator):
         return MetricMetadata(
             name="Normalized Mean Error",
             unit="NME",
-            description="Average keypoint error normalized by inter-ocular distance (COFW dataset).",
+            description="Average keypoint error normalized by inter-ocular distance (COFW dataset). Lower is better.",
+            range=(0.0, None),
+            float_vs_device_threshold=0.01,
         )

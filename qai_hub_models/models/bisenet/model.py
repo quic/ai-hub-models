@@ -37,11 +37,6 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 class BiseNet(BaseModel):
     """Exportable BiseNet segmentation end-to-end."""
 
-    def __init__(self, model) -> None:
-        super().__init__()
-
-        self.model = model
-
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> BiseNet:
         """Load bisenet from a weightfile created by the source bisenet repository."""
@@ -49,15 +44,18 @@ class BiseNet(BaseModel):
         bisenet_model = _load_bisenet_source_model_from_weights(weights_path)
         return cls(bisenet_model)
 
-    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
-        Returns:
-            predict mask per class: Shape [batch,classes,height, width]
+        image: Pixel values pre-processed for encoder consumption.
+                Range: float[0, 1]
+                3-channel Color Space: RGB
+
+        Returns
+        -------
+        masks_per_class
+            Predicted mask for each class. Shape [batch, classes, height, width]
         """
         return self.model(normalize_image_torchvision(image))
 
@@ -84,11 +82,15 @@ class BiseNet(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
-        return ["predict"]
+        return ["mask"]
 
     @staticmethod
     def get_channel_last_inputs() -> list[str]:
         return ["image"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
+        return ["mask"]
 
     def get_evaluator(self) -> BaseEvaluator:
         return SegmentationOutputEvaluator(num_classes=12, resize_to_gt=True)

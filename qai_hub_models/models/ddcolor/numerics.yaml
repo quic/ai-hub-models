@@ -5,21 +5,18 @@ metrics:
   metric_name: Colorfulness
   metric_description: A measure of how varied the colors are in the image.
   metric_unit: ''
+  metric_range:
+    min: 0.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 500
   partial_torch_metric: 38.3
   device_metric:
     Samsung Galaxy S25:
-      w8a8:
-        tflite:
-          partial_metric: 37.7
-        qnn_dlc:
-          partial_metric: 113.0
-        onnx:
-          partial_metric: 115.0
       float:
         tflite:
           partial_metric: 29.9
         qnn_dlc:
           partial_metric: 38.5
-        onnx:
-          partial_metric: 60.8
+      w8a8:
+        tflite:
+          partial_metric: 35.5

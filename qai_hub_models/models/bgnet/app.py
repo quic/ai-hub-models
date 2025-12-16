@@ -50,17 +50,24 @@ class BGNetApp:
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+
+        raw_output: bool
+            See "returns" doc section for details.
 
         Returns
         -------
-                segmented_images: list[PIL.Image]
-                    Images with segmentation map overlaid with an alpha of 0.5.
+        If raw_output is true, returns:
+            pred_mask_img
+                Numpy array of predicted RGB masks. Shape [N, C, H, W], uint8
+        Otherwise, returns:
+            segmented_images
+                List of PIL Images with segmentation map overlaid with an alpha of 0.5.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -68,13 +75,13 @@ class BGNetApp:
         )
         # Run prediction
         pred_masks = self.model(NCHW_fp32_torch_frames)
-        if isinstance(pred_masks, tuple):
-            pred_masks = pred_masks[0]
-
         pred_mask_img = postprocess_masks(pred_masks, NCHW_fp32_torch_frames.shape[-2:])
+        if raw_output:
+            return pred_mask_img.numpy()
+
         # Create color map
         color_map = create_color_map(pred_mask_img.max().item() + 1)
-        out = []
+        out: list[Image.Image] = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
             out.append(
                 Image.blend(

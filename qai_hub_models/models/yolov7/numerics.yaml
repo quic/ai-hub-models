@@ -5,26 +5,30 @@ metrics:
   metric_name: Mean Average Precision
   metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
   metric_unit: mAP@0.5:0.95
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 300
-  partial_torch_metric: 0.395
+  partial_torch_metric: 39.5
   device_metric:
     Samsung Galaxy S25:
-      w8a16:
-        qnn_dlc:
-          partial_metric: 0.393
-        onnx:
-          partial_metric: 0.392
-      w8a8:
-        tflite:
-          partial_metric: 0.348
-        qnn_dlc:
-          partial_metric: 0.348
-        onnx:
-          partial_metric: 0.354
       float:
         tflite:
-          partial_metric: 0.396
+          partial_metric: 39.6
         qnn_dlc:
-          partial_metric: 0.396
+          partial_metric: 39.6
         onnx:
-          partial_metric: 0.396
+          partial_metric: 39.6
+      w8a8:
+        tflite:
+          partial_metric: 35.5
+        qnn_dlc:
+          partial_metric: 35.1
+        onnx:
+          partial_metric: 35.1
+      w8a16:
+        qnn_dlc:
+          partial_metric: 39.3
+        onnx:
+          partial_metric: 39.3

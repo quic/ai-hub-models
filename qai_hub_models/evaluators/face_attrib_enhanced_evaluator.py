@@ -16,14 +16,17 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
     """Evaluator for comparing a batched image output."""
 
     def __init__(self):
-        self.id_features = {}
+        # dict[person ID, dict[image ID, Feature Embedding]]
+        self.id_features: dict[int, dict[int, np.ndarray]] = {}
+        # total number of persons
         self.id_total = 0
+        # total number of images
         self.feature_total = 0
 
     def add_batch(
         self,
         output: tuple[torch.Tensor, torch.Tensor],
-        gt: tuple[list[str], list[int]],
+        gt: tuple[torch.Tensor, torch.Tensor],
     ):
         """
         Adds a batch of model outputs and corresponding ground truth data.
@@ -38,10 +41,10 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
                 - feature_embed : torch.Tensor, shape (N, 512)
 
-        gt : tuple[list[str], list[int]]
+        gt : tuple[Tensor, Tensor]
             Ground truth labels from the `FaceAttribEnhancedDataset`, corresponding to the batch:
-                - list[str] : Len N. Names of individuals.
-                - list[int] : Len N. Image identifiers.
+                - Tensor[int] : Shape [N], each is the ID of an individual in this image.
+                - Tensor[int] : Shape [N], each is the ID of the image.
         """
         _, feature_embed = output
         person_names, image_ids = gt
@@ -52,14 +55,14 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
         are multiple images with same id. Take the first one for enroll, other index for query
         """
         for i in range(len(person_names)):
-            id_str = str(person_names[i])
-            id_idx = str(image_ids[i])
-            if id_str not in self.id_features:
-                self.id_features[id_str] = {}
+            id_person = int(person_names[i].item())
+            id_idx = int(image_ids[i].item())
+            if id_person not in self.id_features:
+                self.id_features[id_person] = {}
                 self.id_total += 1
-            if id_idx not in self.id_features[id_str]:
+            if id_idx not in self.id_features[id_person]:
                 self.feature_total += 1
-            self.id_features[id_str][id_idx] = np.squeeze(
+            self.id_features[id_person][id_idx] = np.squeeze(
                 feature_embed[i].detach().numpy()
             )
 
@@ -143,4 +146,6 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
             name="Cosine Similarity",
             unit="",
             description="Similarity between the predicted facial features and the expected.",
+            range=(0.0, 1.0),
+            float_vs_device_threshold=0.1,
         )

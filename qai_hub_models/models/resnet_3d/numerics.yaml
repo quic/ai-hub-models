@@ -5,21 +5,25 @@ metrics:
   metric_name: Classification Accuracy
   metric_description: Percentage of inputs that were correctly classified.
   metric_unit: '%'
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 100
-  partial_torch_metric: 0.38
+  partial_torch_metric: 38.0
   device_metric:
     Samsung Galaxy S25:
       float:
         tflite:
-          partial_metric: 0.38
+          partial_metric: 38.0
         qnn_dlc:
-          partial_metric: 0.38
+          partial_metric: 38.0
         onnx:
-          partial_metric: 0.38
+          partial_metric: 38.0
       w8a8:
         tflite:
-          partial_metric: 0.38
+          partial_metric: 39.0
         qnn_dlc:
-          partial_metric: 0.38
+          partial_metric: 39.0
         onnx:
-          partial_metric: 0.38
+          partial_metric: 39.0

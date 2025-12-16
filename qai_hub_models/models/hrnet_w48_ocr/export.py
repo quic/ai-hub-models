@@ -161,7 +161,7 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: str | None = None,
-    target_runtime: TargetRuntime = TargetRuntime.TFLITE,
+    target_runtime: TargetRuntime = TargetRuntime.ONNX,
     compile_options: str = "",
     profile_options: str = "",
     fetch_static_assets: str | None = None,
@@ -340,7 +340,6 @@ def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.TFLITE,
             TargetRuntime.ONNX,
         ],
         Precision.w8a16: [],

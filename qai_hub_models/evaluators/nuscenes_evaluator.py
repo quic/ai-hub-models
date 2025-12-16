@@ -29,7 +29,7 @@ from nuscenes.utils.data_classes import Box as NuScenesBox
 from pyquaternion import Quaternion
 
 from qai_hub_models.datasets.nuscenes import NuscenesDataset
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetadata
 from qai_hub_models.utils.bounding_box_processing_3d import circle_nms
 
 
@@ -367,7 +367,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
                     tp = calc_tp(metric_data, cfg.min_recall, metric_name)
                 metrics.add_label_tp(class_name, metric_name, tp)
 
-        return metrics.mean_ap, metrics.nd_score
+        return metrics.mean_ap * 100, metrics.nd_score
 
     def get_accuracy_score(self) -> float:
         mAP, _NDS = self.evaluate()
@@ -376,3 +376,12 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
     def formatted_accuracy(self) -> str:
         mAP, NDS = self.evaluate()
         return f"{NDS:.4f} NDS, {mAP:.4f} mAP"
+
+    def get_metric_metadata(self) -> MetricMetadata:
+        return MetricMetadata(
+            name="Mean Average Precision",
+            unit="mAP",
+            description="Mean Average Precision accross detected object classes.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
+        )

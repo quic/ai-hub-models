@@ -5,12 +5,16 @@ metrics:
   metric_name: Mean Average Precision
   metric_description: Percentage of keypoints that are close to the expected location.
   metric_unit: mAP
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 500
-  partial_torch_metric: 0.58
+  partial_torch_metric: 58.0
   device_metric:
-    Samsung Galaxy S24:
+    Samsung Galaxy S25:
       float:
         tflite:
-          partial_metric: 0.582
+          partial_metric: 58.2
         onnx:
-          partial_metric: 0.582
+          partial_metric: 58.2

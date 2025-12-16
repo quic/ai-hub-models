@@ -78,8 +78,8 @@ class DummyMockModel(LLM_AIMETOnnx):
         model.get_hub_link_options.side_effect = functools.partial(
             LLM_AIMETOnnx.get_hub_link_options, model
         )
-        model.get_qairt_context_graph_name.side_effect = functools.partial(
-            LLM_AIMETOnnx.get_qairt_context_graph_name, model
+        model.get_qnn_context_graph_name.side_effect = functools.partial(
+            LLM_AIMETOnnx.get_qnn_context_graph_name, model
         )
 
         if model_mock_side_effects is not None:

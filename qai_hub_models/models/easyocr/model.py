@@ -77,6 +77,10 @@ class EasyOCRDetector(BaseModel):
     def get_output_names(*args, **kwargs):
         return ["results"]
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "icdar2015"
+
 
 class EasyOCRRecognizer(BaseModel):
     """VGG based model is the default model of text recognition"""
@@ -129,6 +133,10 @@ class EasyOCRRecognizer(BaseModel):
     @staticmethod
     def get_output_names(*args, **kwargs):
         return ["output_preds"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "icdar2015"
 
 
 @CollectionModel.add_component(EasyOCRDetector)

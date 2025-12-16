@@ -74,7 +74,9 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         float
             Accuracy score in the range [0, 1].
         """
-        return float(self.TP_count) / float(self.total) if self.total > 0 else 0.0
+        return (
+            (float(self.TP_count) / float(self.total)) * 100 if self.total > 0 else 0.0
+        )
 
     def formatted_accuracy(self) -> str:
         """
@@ -96,7 +98,9 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         MetricMetadata
         """
         return MetricMetadata(
-            name="Accuracy",
-            unit="",
+            name="Attribute Accuracy",
+            unit="%",
             description="Correctness between the predicted detection and the label.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

@@ -7,14 +7,17 @@ from __future__ import annotations
 
 from qai_hub_models.models._shared.llm.app import ChatApp as App
 from qai_hub_models.models._shared.llm.model import (
+    LLM_QNN,
     LLM_AIMETOnnx,
     LLMBase,
     get_tokenizer,
-    is_quantized_checkpoint,
 )
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser
-from qai_hub_models.utils.checkpoint import CheckpointSpec
+from qai_hub_models.utils.checkpoint import (
+    CheckpointSpec,
+    CheckpointType,
+)
 from qai_hub_models.utils.huggingface import has_model_access
 
 # Max output tokens to generate
@@ -25,12 +28,14 @@ MAX_OUTPUT_TOKENS = 1000
 def llm_chat_demo(
     model_cls: type[LLM_AIMETOnnx],
     fp_model_cls: type[LLMBase],
+    qnn_model_cls: type[LLM_QNN],
     model_id: str,
     end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
     default_prompt: str,
     supported_precisions: list[Precision],
+    raw: bool = False,
     test_checkpoint: CheckpointSpec | None = None,
 ):
     """
@@ -85,7 +90,7 @@ def llm_chat_demo(
 
     args = parser.parse_args([] if test_checkpoint is not None else None)
     checkpoint = args.checkpoint if test_checkpoint is None else test_checkpoint
-    max_output_tokens = args.max_output_tokens if test_checkpoint is None else 100
+    max_output_tokens = args.max_output_tokens if test_checkpoint is None else 1000
     if args.prompt is not None and args.prompt_file is not None:
         raise ValueError("Must specify one of --prompt or --prompt-file")
     if args.prompt_file is not None:
@@ -102,20 +107,20 @@ def llm_chat_demo(
     # observed to be particularly sensitive to this).
     prompt = prompt.replace("\\n", "\n")
 
-    if args.raw:
+    if args.raw or raw:
 
         def preprocess_prompt_fn(
             user_input_prompt: str = "",
             system_context_prompt: str = "",
         ):
             return user_input_prompt
-
     else:
         preprocess_prompt_fn = fp_model_cls.get_input_prompt_with_tags
 
     assert checkpoint is not None
-    is_quantized = is_quantized_checkpoint(checkpoint)
-    if checkpoint not in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
+    checkpoint_type = CheckpointType.from_checkpoint(checkpoint)
+    is_default = isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT")
+    if not is_default:
         tokenizer = get_tokenizer(checkpoint)
     else:
         has_model_access(hf_repo_name, hf_repo_url)
@@ -124,7 +129,10 @@ def llm_chat_demo(
     if test_checkpoint is None:
         print(f"\n{'-' * 85}")
         print(f"** Generating response via {model_id} **")
-        if is_quantized:
+        if checkpoint_type == CheckpointType.GENIE_BUNDLE:
+            print("Variant: ON-DEVICE (QNN)")
+            print("    This runs on the target hardware.")
+        elif checkpoint_type.is_aimet_onnx():
             print("Variant: QUANTIZED (AIMET-ONNX)")
             print("    This aims to replicate on-device accuracy through simulation.")
         else:
@@ -139,8 +147,11 @@ def llm_chat_demo(
 
     extra = {}
 
-    if is_quantized:
-        if checkpoint in {"DEFAULT", "DEFAULT_QUANTIZED"}:
+    if checkpoint_type == CheckpointType.GENIE_BUNDLE:
+        model = qnn_model_cls
+
+    elif checkpoint_type.is_aimet_onnx():
+        if is_default and checkpoint != "DEFAULT_UNQUANTIZED":
             extra["fp_model"] = fp_model_cls.from_pretrained(
                 sequence_length=args.sequence_length,
                 context_length=args.context_length,

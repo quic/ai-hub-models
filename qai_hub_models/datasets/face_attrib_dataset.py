@@ -86,6 +86,9 @@ class FaceAttribDataset(BaseDataset):
             FACEATTRIB_DATASET_ID, FACEATTRIB_DATASET_VERSION, "data"
         )
         self.input_data_zip = input_data_zip
+        self.image_list: list[Path] = []
+        self.gt_list: list[int] = []
+        self.attr_index_list: list[int] = []
 
         input_spec = input_spec or FaceAttribNet.get_input_spec()
         self.input_height = input_spec["image"][0][2]
@@ -201,10 +204,6 @@ class FaceAttribDataset(BaseDataset):
 
         if not gt_path.exists() and self.split == DatasetSplit.VAL:
             print(f"Missing ground truth {gt_path}")
-
-        self.image_list: list[Path] = []
-        self.gt_list: list[int] = []
-        self.attr_index_list: list[int] = []
 
         if self.split == DatasetSplit.TRAIN:
             for _img_path in sorted(image_path.iterdir(), key=lambda item: item.name):

@@ -54,11 +54,9 @@ def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader)
             mock_torch_onnx_inference(session, torch_input)
 
 
-def _collect_inputs_and_fp_outputs(model, dataloader, num_samples):
+def _collect_inputs_and_fp_outputs(model, dataloader, num_samples, exec_providers):
     model_bytes = model.SerializeToString()
-    fp_session = onnxruntime.InferenceSession(
-        model_bytes, providers=["CUDAExecutionProvider"]
-    )
+    fp_session = onnxruntime.InferenceSession(model_bytes, providers=exec_providers)
 
     fp_outputs = []
     fp_inputs = []
@@ -80,6 +78,7 @@ def _create_aimet_quantsim(
     activation_bw: int,
     quant_scheme: QuantScheme,
     dataloader,
+    exec_providers: list[str],
 ):
     # Quantize
     sim = QuantizationSimModel(
@@ -88,7 +87,7 @@ def _create_aimet_quantsim(
         default_param_bw=param_bw,
         default_activation_bw=activation_bw,
         config_file="htp_v81",
-        providers=["CUDAExecutionProvider"],
+        providers=exec_providers,
     )
 
     with compute_encodings(sim):
@@ -101,11 +100,24 @@ def _create_aimet_quantsim(
     )
 
     model_bytes = onnx_qdq_model.SerializeToString()
-    qdq_session = onnxruntime.InferenceSession(
-        model_bytes, providers=["CUDAExecutionProvider"]
-    )
+    qdq_session = onnxruntime.InferenceSession(model_bytes, providers=exec_providers)
 
     return sim, qdq_session
+
+
+def flip_one_layer_to_w16(sim, layer_name):
+    cg_ops = sim.connected_graph.get_all_ops()
+    op = cg_ops[layer_name]
+    (
+        input_quantizers,
+        output_quantizers,
+        param_quantizers,
+    ) = sim.get_op_quantizers(op)
+    for q in input_quantizers + output_quantizers:
+        q.set_bitwidth(16)
+
+    for _, q in param_quantizers.items():
+        q.set_bitwidth(16)
 
 
 def flip_layers_to_higher_precision(
@@ -135,8 +147,8 @@ def flip_layers_to_higher_precision(
                 q.enabled = False
 
 
-def to_qdq_session(qdq_model):
-    return OrtInferenceSession(qdq_model, providers=["CudaExecutionProvider"])
+def to_qdq_session(qdq_model, exec_providers):
+    return OrtInferenceSession(qdq_model, providers=exec_providers)
 
 
 def evaluate_and_save_results(session, model, num_samples, overall_results, tag):
@@ -178,6 +190,10 @@ def run_quant_analyzer(onnx_model, sim, eval_callback, input_spec, results_dir):
             results_dir=results_dir,
         )
 
+        # Save the sensitivity dict
+        with open(f"{results_dir}/per_layer_quant_enabled.json", "w") as qf:
+            json.dump(sqnr_dict, qf, indent=4)
+
     return sqnr_dict
 
 
@@ -191,8 +207,11 @@ def debug_quant_accuracy(
     percent_layers_to_flip: int = 0,
     num_samples: int = 200,
     onnx_qdq_eval: bool = False,
+    exec_providers=None,
 ):
     overall_results = {}
+    if exec_providers is None:
+        exec_providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     print("\n=======================================")
     print(f"Processing Model: {model_name}")
@@ -248,7 +267,9 @@ def debug_quant_accuracy(
         onnx_model = download_model_in_memory(target_model)
         onnx.save(onnx_model, str(onnx_model_path))
 
-    fp_inputs, _, fp_session = _collect_inputs_and_fp_outputs(onnx_model, dataloader, 5)
+    fp_inputs, _, fp_session = _collect_inputs_and_fp_outputs(
+        onnx_model, dataloader, 5, exec_providers
+    )
 
     input_names = [inp.name for inp in fp_session.get_inputs()]
     sensitivity_check_inputs = []
@@ -269,7 +290,7 @@ def debug_quant_accuracy(
     # -----------
     if eval_w8a8:
         sim, qdq_session = _create_aimet_quantsim(
-            model_name, onnx_model, 8, 8, quant_scheme, dataloader
+            model_name, onnx_model, 8, 8, quant_scheme, dataloader, exec_providers
         )
 
         # Evaluate QDQ model
@@ -309,7 +330,7 @@ def debug_quant_accuracy(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
             )
-            qdq_session = to_qdq_session(onnx_qdq_model)
+            qdq_session = to_qdq_session(onnx_qdq_model, exec_providers)
 
             # Evaluate QDQ model
             sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
@@ -323,7 +344,7 @@ def debug_quant_accuracy(
     if eval_w816:
         onnx_model = onnx.load(str(onnx_model_path))
         sim, qdq_session = _create_aimet_quantsim(
-            model_name, onnx_model, 8, 16, quant_scheme, dataloader
+            model_name, onnx_model, 8, 16, quant_scheme, dataloader, exec_providers
         )
 
         # Evaluate QDQ model
@@ -363,6 +384,7 @@ def debug_quant_accuracy(
                 onnx_qdq_model,
                 str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
             )
+            qdq_session = to_qdq_session(onnx_qdq_model, exec_providers)
 
             # Evaluate QDQ model
             sess_to_eval = qdq_session if onnx_qdq_eval else sim.session
@@ -380,7 +402,7 @@ def debug_quant_accuracy(
     if eval_w16a16:
         onnx_model = onnx.load(str(onnx_model_path))
         sim, qdq_session = _create_aimet_quantsim(
-            model_name, onnx_model, 16, 16, quant_scheme, dataloader
+            model_name, onnx_model, 16, 16, quant_scheme, dataloader, exec_providers
         )
 
         # Evaluate QDQ model
@@ -458,8 +480,19 @@ if __name__ == "__main__":
         help="If set, evaluates the QDQ model instead of the QuantSim session",
     )
 
+    parser.add_argument(
+        "--use-cuda",
+        action="store_true",
+        help="If set, uses the CUDA execution provider for ONNX Runtime",
+    )
+
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
+
+    if not args.use_cuda:
+        exec_providers = ["CPUExecutionProvider"]
+    else:
+        exec_providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     OVERALL_RESULTS_FILE = str(RESULTS_FOLDER / "overall_results.json")
     models_to_analyze = args.models.split(",")
@@ -468,7 +501,7 @@ if __name__ == "__main__":
         with open(OVERALL_RESULTS_FILE) as resf:
             results = json.load(resf)
         print(f"Found existing results file, appending: {OVERALL_RESULTS_FILE}")
-    except json.decoder.JSONDecodeError:
+    except (json.decoder.JSONDecodeError, FileNotFoundError):
         print(f"Creating new results file: {OVERALL_RESULTS_FILE}")
         results = {}
 
@@ -484,6 +517,7 @@ if __name__ == "__main__":
                 percent_layers_to_flip=args.percent_layers_to_flip,
                 num_samples=args.num_samples,
                 onnx_qdq_eval=args.onnx_qdq_eval,
+                exec_providers=exec_providers,
             )
         except Exception as e:
             print(f"Caught exception when running {model} - ", str(e))

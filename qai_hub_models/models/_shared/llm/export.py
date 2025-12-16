@@ -54,6 +54,74 @@ from qai_hub_models.utils.args import (
 VALID_TARGET_RUNTIMES = Literal[TargetRuntime.GENIE, TargetRuntime.ONNXRUNTIME_GENAI]
 
 
+def _make_sub_component_name(
+    instantiation_name: str, part_index: int, num_splits: int
+) -> str:
+    return f"{instantiation_name}_{part_index + 1}_of_{num_splits}"
+
+
+# TODO(#12640): Unnecessary if we can pull this information directly.
+def _infer_output_specs(
+    instantiations: list[tuple[str, int]],
+    num_splits: int,
+    input_specs: dict[str, Any],
+    llm_config: PretrainedConfig,
+    precision: Precision,
+) -> dict[str, tuple[tuple[int, ...], str]]:
+    """This infers the output specs from the input specs."""
+
+    def out_from_in_shape(
+        name: str, in_shape: tuple[int, ...], sequence_length: int
+    ) -> tuple[int, ...]:
+        """Convert output KV cache shape from input KV cache shape"""
+        if "_key" in name:
+            return (*in_shape[:3], sequence_length)
+        return (*in_shape[:2], sequence_length, in_shape[3])
+
+    output_specs: dict[str, Any] = {}
+    intermediate_type = "float16" if precision == Precision.w4 else "uint16"
+    for instantiation_name, seq_len in instantiations:
+        for i in range(num_splits):
+            specs: tuple[tuple[int, ...], str] = {}
+            if i == num_splits - 1:
+                specs["logits"] = (
+                    (1, seq_len, llm_config.vocab_size),
+                    intermediate_type,
+                )
+            else:
+                # Find name by process of elimination of next part's inputs
+                next_sub_component_name = _make_sub_component_name(
+                    instantiation_name, i + 1, num_splits
+                )
+                intermediate_name_candidates = [
+                    name
+                    for name, spec in input_specs[next_sub_component_name].items()
+                    if "past_" not in name
+                    and "position_ids_" not in name
+                    and name != "attention_mask"
+                ]
+                if intermediate_name_candidates:
+                    specs[intermediate_name_candidates[0]] = (
+                        (1, seq_len, llm_config.hidden_size),
+                        intermediate_type,
+                    )
+
+            # Convert the KV cache inputs to outputs
+            sub_component_name = _make_sub_component_name(
+                instantiation_name, i, num_splits
+            )
+            for name, (shape, dtype_str) in input_specs[sub_component_name].items():
+                if "past_" in name:
+                    out_name = name.replace("_in", "_out")
+                    specs[out_name] = (
+                        out_from_in_shape(name, shape, seq_len),
+                        dtype_str,
+                    )
+
+            output_specs[sub_component_name] = specs
+    return output_specs
+
+
 def export_model(
     model_cls: type[LLM_AIMETOnnx],
     model_name: str,
@@ -203,6 +271,8 @@ def export_model(
 
     compile_jobs_to_link: dict[str, list[hub.client.CompileJob]] = {}
     compile_jobs: dict[str, hub.client.CompileJob] = {}
+    input_specs: dict[str, Any] = {}
+    output_specs: dict[str, Any] = {}
     link_jobs: dict[str, hub.client.LinkJob] = {}
     profile_options_per_subcomponent: dict[str, str] = {}
     onnx_model_path_from_sub_component_name: dict[str, str] = {}
@@ -274,7 +344,9 @@ def export_model(
         for i, onnx_model_bundle in enumerate(subcomponent_onnx_bundles):
             # Sequence length (ar...) and context lenght (cl...) in graph name
             # are semantically important to Genie
-            sub_component_name = f"{instantiation_name}_{i + 1}_of_{num_splits}"
+            sub_component_name = _make_sub_component_name(
+                instantiation_name, i, num_splits
+            )
             component_name = f"part_{i + 1}_of_{num_splits}"
             sub_component_names[instantiation_name].append(sub_component_name)
             full_name = f"{model_name}_{sub_component_name}"
@@ -287,7 +359,7 @@ def export_model(
                 target_runtime,
                 precision,
                 compile_options,
-                context_graph_name=model.get_qairt_context_graph_name(i, num_splits),
+                context_graph_name=model.get_qnn_context_graph_name(i, num_splits),
             )
             current_model = get_or_create_cached_model(
                 model_name=model_name,
@@ -325,9 +397,17 @@ def export_model(
                 model.get_hub_profile_options(
                     target_runtime,
                     profile_options,
-                    model.get_qairt_context_graph_name(i, num_splits),
+                    model.get_qnn_context_graph_name(i, num_splits),
                 )
             )
+
+    # 1 1/2. Determine IO specs from jobs
+    for sub_component_name, cjob in compile_jobs.items():
+        cjob.wait()  # make sure target_shapes materializes
+        input_specs[sub_component_name] = cjob.target_shapes
+    output_specs = _infer_output_specs(
+        instantiations, num_splits, input_specs, llm_config, precision
+    )
 
     # 2. Link jobs
     for component_name, cjobs in compile_jobs_to_link.items():
@@ -460,11 +540,12 @@ def export_model(
         hub_model = link_job.get_target_model()
         assert hub_model is not None
 
-        qairt_version = ToolVersions.from_job(link_job).qairt
+        tool_versions = ToolVersions.from_job(link_job)
+        tool_versions.to_yaml(output_path / "tool-versions.yaml")
+
+        qairt_version = tool_versions.qairt
         assert qairt_version is not None
         version = f"{qairt_version.api_version}.{qairt_version.framework.patch}"
-        with open(output_path / "qairt_version.txt", "w") as f:
-            f.write(version)
 
         if target_runtime == TargetRuntime.ONNXRUNTIME_GENAI:
             assert position_processor_cls is not None
@@ -486,7 +567,7 @@ def export_model(
             print(
                 "These models can be deployed on-device using ONNX Runtime with the GenAI extension."
             )
-        if (
+        elif (
             target_runtime == TargetRuntime.GENIE
             and hasattr(model, "checkpoint")
             and model.checkpoint is not None
@@ -498,6 +579,10 @@ def export_model(
                 context_length=model_params["context_length"],
                 model_list=target_model_list,
                 output_path=output_path,
+                precision=precision,
+                encodings_path=input_encodings_path,
+                input_specs=input_specs,
+                output_specs=output_specs,
             )
 
             raw_message = f"""

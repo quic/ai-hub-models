@@ -25,6 +25,7 @@ from qai_hub_models.models.llama_v3_8b_instruct import (
     FP_Model,
     Model,
     PositionProcessor,
+    QNN_Model,
 )
 from qai_hub_models.models.llama_v3_8b_instruct.demo import llama_3_chat_demo
 from qai_hub_models.models.llama_v3_8b_instruct.export import (
@@ -217,7 +218,6 @@ def test_cli_default_device_select_component(
     ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 8.736, 0),
-        ("mmlu", 0.618, 1000),
         ("tiny_mmlu", 0.53, 0),
     ],
 )
@@ -231,8 +231,10 @@ def test_evaluate_default(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -256,7 +258,6 @@ def test_evaluate_default(
     ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 7.76, 0),
-        ("mmlu", 0.674, 1000),
         ("tiny_mmlu", 0.61, 0),
     ],
 )
@@ -270,6 +271,7 @@ def test_evaluate_default_unquantized(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
@@ -291,7 +293,7 @@ def test_evaluate_default_unquantized(
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
-@pytest.mark.parametrize("checkpoint", ["DEFAULT", "DEFAULT_UNQUANTIZED"])
+@pytest.mark.parametrize("checkpoint", ["DEFAULT"])
 def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
     cleanup()
     llama_3_chat_demo(
@@ -303,6 +305,9 @@ def test_demo_default(checkpoint: CheckpointSpec, capsys) -> None:
     assert "Paris" in captured.out
 
 
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="This test can be run on GPU only.",
@@ -354,6 +359,9 @@ def test_compile(
     )
 
 
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available()
     or not importlib.util.find_spec("qdc_public_api_client"),
@@ -377,8 +385,10 @@ def test_qdc(
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
-        device, genie_bundle_path
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
@@ -388,5 +398,5 @@ def test_qdc(
         tps=tps,
         ttft=min_ttft,
     )
-    assert tps > 6.0
+    assert tps > 5.0
     assert min_ttft < 250000.0

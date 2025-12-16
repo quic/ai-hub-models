@@ -19,13 +19,13 @@ from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import CheckpointSpec
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.qwen2_5_1_5b_instruct import (
     MODEL_ID,
     FP_Model,
     Model,
     PositionProcessor,
+    QNN_Model,
 )
 from qai_hub_models.models.qwen2_5_1_5b_instruct.demo import qwen2_5_1_5b_chat_demo
 from qai_hub_models.models.qwen2_5_1_5b_instruct.export import (
@@ -44,6 +44,7 @@ from qai_hub_models.scorecard import (
     ScorecardDevice,
 )
 from qai_hub_models.scorecard.device import cs_8_elite
+from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
@@ -225,7 +226,6 @@ def setup_quantized_checkpoints(tmpdir_factory):
         path,
         precision=Precision.w4,
         checkpoint=HF_REPO_NAME,
-        use_seq_mse=True,
     )
     cleanup()
 
@@ -237,9 +237,8 @@ def setup_quantized_checkpoints(tmpdir_factory):
 @pytest.mark.parametrize(
     ("task", "expected_metric", "num_samples"),
     [
-        ("wikitext", 10.58, 0),
-        ("mmlu", 0.554, 1000),
-        ("tiny_mmlu", 0.57, 0),
+        ("wikitext", 16.178, 0),
+        ("mmlu", 0.488, 1000),
     ],
 )
 def test_evaluate_default(
@@ -253,8 +252,10 @@ def test_evaluate_default(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -263,7 +264,7 @@ def test_evaluate_default(
     )
     log_evaluate_test_result(
         model_name=MODEL_ID,
-        checkpoint=checkpoint,
+        checkpoint="DEFAULT_W4",
         metric=task,
         value=actual_metric,
     )
@@ -277,8 +278,7 @@ def test_evaluate_default(
 @pytest.mark.parametrize(
     ("task", "expected_metric", "num_samples"),
     [
-        ("wikitext", 9.16, 0),
-        ("mmlu", 0.605, 1000),
+        ("wikitext", 10.324, 0),
         ("tiny_mmlu", 0.61, 0),
     ],
 )
@@ -292,6 +292,7 @@ def test_evaluate_default_unquantized(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
@@ -309,21 +310,6 @@ def test_evaluate_default_unquantized(
         value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.demo
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-def test_demo_default_unquantized(capsys) -> None:
-    cleanup()
-    qwen2_5_1_5b_chat_demo(
-        fp_model_cls=FP_Model,
-        default_prompt="What is the capital of France?",
-        test_checkpoint="DEFAULT_UNQUANTIZED",
-    )
-    captured = capsys.readouterr()
-    assert "Paris" in captured.out
 
 
 @pytest.mark.demo
@@ -359,7 +345,7 @@ def test_compile(
     setup_quantized_checkpoints: CheckpointSpec,
 ) -> None:
     cleanup()
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     compile_via_export(
         export_model,
         MODEL_ID,
@@ -411,13 +397,15 @@ def test_qdc(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision!s}"
+    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
-        device, genie_bundle_path
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(

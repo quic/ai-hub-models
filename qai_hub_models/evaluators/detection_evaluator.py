@@ -131,7 +131,7 @@ class mAPEvaluator(BaseEvaluator):
             iOU += increment_iOU
 
         return (
-            sum(x[1] for x in mAP_by_iOU) / len(mAP_by_iOU),
+            (sum(x[1] for x in mAP_by_iOU) / len(mAP_by_iOU)) * 100,
             mAP_by_iOU,
             low_iOU,
             high_iOU,
@@ -188,6 +188,8 @@ class mAPEvaluator(BaseEvaluator):
             name="Mean Average Precision",
             unit="mAP@0.5:0.95",
             description="Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )
 
 

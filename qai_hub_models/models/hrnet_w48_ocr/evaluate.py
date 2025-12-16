@@ -29,7 +29,6 @@ def main():
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.TFLITE,
             TargetRuntime.ONNX,
         ],
         Precision.w8a16: [],
@@ -83,8 +82,8 @@ def main():
         dataset_name=args.dataset_name,
         input_spec=input_spec,
         torch_model=torch_model,
-        compiled_model=compiled_model,
-        quantized_model=quantized_model,
+        compiled_model=compiled_model if not args.skip_device_accuracy else None,
+        quantized_model=quantized_model if args.compute_quant_cpu_accuracy else None,
         hub_device=args.device,
         samples_per_job=args.samples_per_job,
         num_samples=args.num_samples,

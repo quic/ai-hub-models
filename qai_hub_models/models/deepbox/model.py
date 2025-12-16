@@ -71,10 +71,6 @@ class VGG3DDetection(BaseModel):
     and un-tilted in the frame. Returns [landmark_scores, prob_is_right_hand, landmarks]
     """
 
-    def __init__(self, model: torch.nn.Module) -> None:
-        super().__init__()
-        self.model = model
-
     @classmethod
     def from_pretrained(cls, ckpt_path: str = "DEFAULT") -> VGG3DDetection:
         with SourceAsRoot(

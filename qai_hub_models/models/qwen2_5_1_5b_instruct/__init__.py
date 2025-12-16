@@ -10,3 +10,4 @@ from qai_hub_models.models._shared.qwen2.model import (  # noqa: F401
 from .model import MODEL_ID  # noqa: F401
 from .model import Qwen2_5_1_5B as FP_Model  # noqa: F401
 from .model import Qwen2_5_1_5B_AIMETOnnx as Model  # noqa: F401
+from .model import Qwen2_5_1_5B_QNN as QNN_Model  # noqa: F401

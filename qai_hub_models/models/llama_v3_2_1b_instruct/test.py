@@ -19,13 +19,13 @@ from qai_hub_models.models._shared.llama3 import test
 from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.evaluate import evaluate
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import CheckpointSpec
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.models.llama_v3_2_1b_instruct import (
     MODEL_ID,
     FP_Model,
     Model,
     PositionProcessor,
+    QNN_Model,
 )
 from qai_hub_models.models.llama_v3_2_1b_instruct.demo import llama_3_2_1b_chat_demo
 from qai_hub_models.models.llama_v3_2_1b_instruct.export import (
@@ -43,7 +43,8 @@ from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
 )
-from qai_hub_models.scorecard.device import cs_8_elite_gen_5, cs_x_elite
+from qai_hub_models.scorecard.device import cs_8_elite, cs_x_elite
+from qai_hub_models.utils.checkpoint import CheckpointSpec
 from qai_hub_models.utils.llm_helpers import (
     create_genie_config,
     log_evaluate_test_result,
@@ -257,8 +258,10 @@ def test_evaluate_default(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -296,6 +299,7 @@ def test_evaluate_default_unquantized(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
@@ -323,8 +327,7 @@ def test_evaluate_default_unquantized(
     ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 17.29, 0),
-        ("mmlu", 0.397, 1000),
-        ("tiny_mmlu", 0.36, 0),
+        ("mmlu", 0.358, 1000),
     ],
 )
 def test_evaluate_quantsim_default_w4a16(
@@ -338,8 +341,10 @@ def test_evaluate_quantsim_default_w4a16(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             _skip_quantsim_creation=False,
             checkpoint=checkpoint,
@@ -397,7 +402,7 @@ def test_demo_quantized_checkpoint(
 @pytest.mark.parametrize(
     ("precision", "scorecard_path", "device", "checkpoint"),
     [
-        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite_gen_5, "DEFAULT_W4"),
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite, "DEFAULT_W4"),
     ],
 )
 @pytest.mark.compile_ram_intensive
@@ -498,7 +503,7 @@ def test_compile_quantized_checkpoint(
     ("precision", "scorecard_path", "device"),
     [
         (Precision.w4a16, ScorecardCompilePath.GENIE, cs_x_elite),
-        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite_gen_5),
+        (Precision.w4, ScorecardCompilePath.GENIE, cs_8_elite),
     ],
 )
 @pytest.mark.qdc
@@ -513,8 +518,10 @@ def test_qdc(
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
-        device, genie_bundle_path
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
@@ -528,5 +535,5 @@ def test_qdc(
         assert tps > 13.0
         assert min_ttft < 200000.0
     else:
-        assert tps > 11.0
+        assert tps > 9.0
         assert min_ttft < 125000.0

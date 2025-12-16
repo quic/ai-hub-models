@@ -274,8 +274,15 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
                 ):
                     # Quantize input if it's a float and the target dtype is quantized with known QDQ params.
                     input_val = (
-                        np.rint(input_val / input_details.qdq_params.scale)
-                    ).astype(input_details.dtype) + input_details.qdq_params.zero_point
+                        np.rint(
+                            input_val.astype(np.float64)
+                            / input_details.qdq_params.scale
+                        )
+                        + input_details.qdq_params.zero_point
+                    )
+                    info = np.iinfo(input_details.dtype)
+                    input_val = input_val.clip(info.min, info.max)
+                    input_val = input_val.astype(input_details.dtype)
                 else:
                     raise ValueError(
                         f"Input {input_name} has incorrect type {input_val.dtype}. Expected type {input_details.dtype}."
@@ -334,8 +341,9 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
                     and output_name in self.dequantize_model_output
                 ):
                     output = (
-                        output - np.int32(output_details.qdq_params.zero_point)
-                    ) * np.float32(output_details.qdq_params.scale)
+                        (output - np.int32(output_details.qdq_params.zero_point))
+                        * np.float64(output_details.qdq_params.scale)
+                    ).astype(np.float32)
 
                 if output_name in self.convert_outputs_to_channel_first:
                     output = transpose_channel_last_to_first_np(output)

@@ -26,21 +26,28 @@ import math
 import os
 import shutil
 import tempfile
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum, unique
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 import onnx
 import qai_hub as hub
 import torch
 from onnx.external_data_helper import load_external_data_for_model
+from packaging.version import Version
 from qai_hub.client import DatasetEntries, Device
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.utils.onnx.torch_wrapper import (
+    OnnxModelTorchWrapper,
+    _verify_onnxruntime_qnn_installed,
+)
+from qai_hub_models.utils.runtime_torch_wrapper import ModelIODetails
 
 try:
     from transformers import AutoConfig, PretrainedConfig, PreTrainedTokenizer
@@ -55,17 +62,14 @@ except ImportError:
 
 from typing_extensions import Self
 
-from qai_hub_models.datasets import get_dataset_from_name
-from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.models._shared.llm.common import LLMIOType
+from qai_hub_models.models._shared.llm.onnxruntime_genai import (
+    generate_wrapper_onnx_file,
+)
 from qai_hub_models.models.common import SampleInputsType, SourceModelFormat
 from qai_hub_models.utils.aimet.config_loader import get_aimet_config_path
+from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.base_model import BaseModel, Precision, TargetRuntime
-from qai_hub_models.utils.checkpoint import (
-    CheckpointSpec,
-    CheckpointType,
-    determine_checkpoint_type,
-)
 from qai_hub_models.utils.huggingface import ensure_has_required_transformer
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.llm_helpers import (
@@ -105,6 +109,9 @@ except (ImportError, ModuleNotFoundError):
         "Install qai-hub-models on a Linux machine to use quantized models."
     )
 
+if TYPE_CHECKING:
+    from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
+
 MIN_TRANFORMER_VERSION = "4.45.0"
 MIN_AIMET_ONNX_VERSION = "2.8.0"
 # isort: off
@@ -135,16 +142,6 @@ def determine_precision_from_checkpoint(checkpoint: str) -> Precision | None:
     if checkpoint.startswith("DEFAULT_"):
         return Precision.parse(checkpoint[len("DEFAULT_") :].lower())
     return None
-
-
-def is_quantized_checkpoint(checkpoint: CheckpointSpec) -> bool:
-    checkpoint_type = determine_checkpoint_type(checkpoint)
-    return checkpoint_type in {
-        CheckpointType.DEFAULT,
-        CheckpointType.DEFAULT_W4,
-        CheckpointType.DEFAULT_W4A16,
-        CheckpointType.AIMET_ONNX_EXPORT,
-    }
 
 
 def sample_input(
@@ -433,6 +430,30 @@ class SHADynamicCacheNewValueOnly(DynamicCache):
         return self.layers[layer_idx][0][0].shape[-2]
 
 
+class LLMMetadata(BaseQAIHMConfig):
+    """
+    Used to represent overall LLM metadata. Primarily IO shapes, types, and
+    quantization parameters.
+    """
+
+    class QuantizationParameters(BaseQAIHMConfig):
+        scale: float
+        offset: int
+
+    class IOEntry(BaseQAIHMConfig):
+        shape: tuple[int, ...]
+        dtype: str
+        quantization_parameters: LLMMetadata.QuantizationParameters | None = None
+
+    class Component(BaseQAIHMConfig):
+        inputs: dict[str, LLMMetadata.IOEntry] = {}
+        outputs: dict[str, LLMMetadata.IOEntry] = {}
+
+    components: dict[str, LLMMetadata.Component] = {}
+    precision: Precision
+    runtime: TargetRuntime
+
+
 class LLMBase(BaseModel, LLMConfigEditor, ABC):
     # The Hugging Face LLM class (e.g., LlamaForCausalLM)
     LMClass: Any | None = None
@@ -462,6 +483,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
         load_pretrained: bool = True,
         host_device: torch.device | None = None,
         attention_mask_min_clip: float | None = None,
+        attention_mask_multiplier: float = 1.0,
         _skip_optimizations: list[str] | None = None,
     ):
         """
@@ -481,6 +503,11 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
             Load a pre-trained model as opposed to a randomly initialized.
         attetion_mask_min_clip:
             Min clip the attention mask by this value if not None.
+        attetion_mask_multiplier:
+            Bake in a multiplier for the attention mask into the network.
+            This is useful to conform to Genie's unconfigurable -1000
+            "infinity" for FP16 activations, when a network may require an even
+            larger (in magnitude) value.
         _skip_optimizations:
             Turn off one or more of {sha_attention, rank4_rms_norm}
         """
@@ -530,6 +557,7 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
         self.is_token_generator = is_token_generator
         self.model = model
         self.attention_mask_min_clip = attention_mask_min_clip
+        self.attention_mask_multiplier = attention_mask_multiplier
 
     @staticmethod
     def get_input_spec(
@@ -832,6 +860,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         llm_config: PretrainedConfig | None = None,
         host_device: torch.device | None = None,
         attention_mask_min_clip: float | None = None,
+        attention_mask_multiplier: float = 1.0,
     ):
         BaseModel.__init__(self)
         AIMETOnnxQuantizableMixin.__init__(self, quant_sim)
@@ -854,6 +883,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         )
         self.checkpoint = checkpoint
         self.attention_mask_min_clip = attention_mask_min_clip
+        self.attention_mask_multiplier = attention_mask_multiplier
 
     def __del__(self):
         if hasattr(self, "quant_sim") and self.quant_sim is not None:
@@ -864,6 +894,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 gc.collect()
             if "torch" in globals() and torch is not None and torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+    def release(self):
+        del self.quant_sim
 
     @staticmethod
     def get_input_spec(
@@ -972,7 +1005,10 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 print()
                 print(f"Loading onnx model from {onnx_path}")
                 assert onnx_path is not None
-                onnx_model = onnx.load(onnx_path)
+                onnx_model = onnx.load(onnx_path, load_external_data=False)
+                from onnx.external_data_helper import load_external_data_for_model
+
+                load_external_data_for_model(onnx_model, os.path.dirname(onnx_path))
 
             if onnx_path is None:
                 tmp_dir.cleanup()
@@ -1001,11 +1037,9 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         else:
             quant_sim = None
 
-        if precision in {Precision.w4, Precision.float}:
-            # Align with Genie (Genie/src/qualla/src/src/engines/qnn-htp/nsp-model.cpp)
-            attention_mask_min_clip = -1000.0
-        else:
-            attention_mask_min_clip = -50.0
+        attention_mask_min_clip, attention_mask_multiplier = (
+            cls.attention_mask_min_clip_and_multiplier(precision)
+        )
 
         return cls(
             quant_sim=quant_sim,
@@ -1016,7 +1050,20 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             tokenizer=fp_model.tokenizer if fp_model is not None else None,
             llm_config=fp_model.llm_config if fp_model is not None else None,
             attention_mask_min_clip=attention_mask_min_clip,
+            attention_mask_multiplier=attention_mask_multiplier,
         )
+
+    @classmethod
+    def attention_mask_min_clip_and_multiplier(
+        cls,
+        precision: Precision,
+    ) -> tuple[float | None, float]:
+        if precision in {Precision.w4, Precision.float}:
+            # Align with Genie (Genie/src/qualla/src/src/engines/qnn-htp/nsp-model.cpp)
+            attention_mask_min_clip = -1000.0
+        else:
+            attention_mask_min_clip = -50.0
+        return (attention_mask_min_clip, 1.0)
 
     def _adapt_aimet_encodings(
         self, src_encodings_path: str, dst_encodings_path: str, onnx_model_path: str
@@ -1232,7 +1279,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             other_link_options,
         )
 
-    def get_qairt_context_graph_name(self, split_index: int, num_splits: int) -> str:
+    def get_qnn_context_graph_name(self, split_index: int, num_splits: int) -> str:
         """
         Get the name of the QAIRT Context Graph applicable for the given sub-component.
 
@@ -1263,9 +1310,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         input_spec: InputSpec | None = None,
     ) -> DatasetEntries | None:
         from qai_hub_models.models._shared.llm.generator import LLM_Generator
+        from qai_hub_models.datasets.common import DatasetSplit
+        from qai_hub_models.datasets import get_dataset_from_name
 
         if num_samples == 0:
             num_samples = math.ceil(80000 / self.context_length)
+
         dataset = get_dataset_from_name(
             name="wikitext",
             split=DatasetSplit.TRAIN,
@@ -1358,20 +1408,408 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
         context_length: int,
         model_list: list[str],
         output_path: Path,
+        precision: Precision,
+        encodings_path: str | os.PathLike | Path,
+        input_specs: dict[str, Any],
+        output_specs: dict[str, Any],
     ) -> None:
         """Prepare assets to run the model end to end on-device using Genie SDK."""
-        # Copy tokenizer.json
-        if (Path(checkpoint) / "tokenizer.json").exists():
-            shutil.copy(
-                Path(checkpoint) / "tokenizer.json",
-                output_path / "tokenizer.json",
-            )
+        # Copy necessary config files
+        for name in ["tokenizer.json", "tokenizer_config.json", "config.json"]:
+            if (Path(checkpoint) / name).exists():
+                shutil.copy(
+                    Path(checkpoint) / name,
+                    output_path / name,
+                )
         # Save the HTP config
         save_htp_config_for_genie_bundle(hub_device, output_path)
         # Save the genie config
         config = create_genie_config(context_length, llm_config, "rope", model_list)
         with open(output_path / "genie_config.json", "w") as f:
             json.dump(config, f, indent=4)
+
+        # Save metadata needed for on-device run (via LLM_QNN)
+        llm_metadata = cls._create_llm_metadata(
+            precision, TargetRuntime.GENIE, encodings_path, input_specs, output_specs
+        )
+        llm_metadata.to_yaml(output_path / "metadata.yaml")
+
+    @staticmethod
+    def _create_llm_metadata(
+        precision: Precision,
+        target_runtime: TargetRuntime,
+        input_encodings_path: str | os.PathLike | Path,
+        input_specs: dict[str, Any],
+        output_specs: dict[str, Any],
+    ) -> LLMMetadata:
+        def make_io_metadata(
+            specs: dict[str, Any], encodings: dict[str, LLMMetadata.LLM]
+        ) -> dict[str, LLMMetadata.IOEntry]:
+            uses_lists = Version(encodings["version"]) >= Version("1.0.0")
+            if uses_lists:
+                all_encodings = {
+                    v["name"]: v for v in encodings["activation_encodings"]
+                }
+            else:
+                all_encodings = encodings["activation_encodings"]
+
+            entries: dict[str, LLMMetadata.IOEntry] = {}
+            for name, (shape, dtype_str) in specs.items():
+                entry = LLMMetadata.IOEntry(shape=tuple(shape), dtype=dtype_str)
+
+                fixed_name = name
+                if name == "logits":
+                    # The logits are missing. We need to start correcting this when
+                    # making the encodings. For legacy encodings, we try to look it up.
+                    for key in all_encodings:
+                        if "lm_head" in key and "Conv_output_0" in key:
+                            fixed_name = key
+                            break
+
+                if node_encodings := all_encodings.get(fixed_name):
+                    if isinstance(node_encodings, list):
+                        scale = node_encodings[0].get("scale")
+                        offset = node_encodings[0].get("offset")
+
+                        if scale is not None and offset is not None:
+                            entry.quantization_parameters = (
+                                LLMMetadata.QuantizationParameters(
+                                    scale=scale, offset=offset
+                                )
+                            )
+                    else:
+                        scale = node_encodings.get("scale")
+                        offset = node_encodings.get("offset")
+
+                        if scale is not None and offset is not None:
+                            entry.quantization_parameters = (
+                                LLMMetadata.QuantizationParameters(
+                                    scale=scale[0], offset=offset[0]
+                                )
+                            )
+
+                entries[name] = entry
+            return entries
+
+        with open(input_encodings_path) as f:
+            encodings = json.load(f)
+
+        input_metadata = {
+            k: make_io_metadata(v, encodings) for k, v in input_specs.items()
+        }
+        output_metadata = {
+            k: make_io_metadata(v, encodings) for k, v in output_specs.items()
+        }
+
+        llm_metadata = LLMMetadata(precision=precision, runtime=target_runtime)
+        for k, v in input_metadata.items():
+            llm_metadata.components[k] = LLMMetadata.Component(
+                inputs=v, outputs=output_metadata[k]
+            )
+
+        return llm_metadata
+
+    @functools.cache
+    def _get_embedding_table(self) -> torch.nn.Embedding:
+        if self.quant_sim is None:
+            raise RuntimeError(
+                "Cannot get embedding table from LLM object created with _skip_quantsim_creation=True"
+            )
+        assert isinstance(self.quant_sim, QuantizationSimModel)
+
+        lm_head_weights = list(_get_lm_head_weights(self.quant_sim.model.model))
+        if len(lm_head_weights) != 1:
+            raise RuntimeError("Unable to isolate LM Head weights from ONNX Model.")
+
+        embedding_table = torch.from_numpy(
+            onnx.numpy_helper.to_array(lm_head_weights[0]).copy()
+        )
+        return torch.nn.Embedding(
+            self.llm_config.vocab_size,
+            self.llm_config.hidden_size,
+            self.llm_config.pad_token_id,
+            _weight=embedding_table.T,
+        )
+
+    def convert_input_ids_to_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self._get_embedding_table()(input_ids)
+
+
+class LLM_QNN(LLMConfigEditor, BaseModel, ABC):
+    # Embedding subclass
+    FPModel: type[LLMBase] | None = None
+    EmbeddingClass: type[Embedding] | None = None
+    num_layers_per_split: int
+    llm_io_type: LLMIOType = LLMIOType.genie_input_ids
+
+    def __init__(
+        self,
+        part_models: Any | None,
+        checkpoint: str | os.PathLike | Path | None,
+        metadata: LLMMetadata,
+        sequence_length: int,
+        context_length: int,
+        precision: Precision,
+        tokenizer: PreTrainedTokenizer | None = None,
+        llm_config: PretrainedConfig | None = None,
+        host_device: torch.device | None = None,
+        _temporary_paths: list[str] | None = None,
+    ):
+        BaseModel.__init__(self)
+        self.part_models = part_models
+        self.context_length = context_length
+        self.sequence_length = sequence_length
+        self.host_device = host_device
+        self.metadata = metadata
+        self.precision = precision
+        self._temporary_paths = _temporary_paths
+
+        assert (
+            tokenizer is not None and llm_config is not None
+        ) or checkpoint is not None, (
+            f"{self.__class__.__name__} is unable to instantiate tokenizer/config. Must pass either checkpoint or tokenizer/config explicitly."
+        )
+
+        self.tokenizer = tokenizer or get_tokenizer(checkpoint)
+        llm_config = llm_config or get_llm_config(checkpoint)
+        self.llm_config = self.edit_llm_config(llm_config)
+        assert self.EmbeddingClass is not None
+        self.embedding = self.EmbeddingClass(
+            max_length=context_length, config=llm_config
+        )
+        self.checkpoint = checkpoint
+
+    def release(self):
+        self.part_models.clear()
+
+    @staticmethod
+    def get_input_spec(
+        llm_config: dict,
+        sequence_length: int,
+        context_length: int,
+        llm_io_type: LLMIOType = LLMIOType.genie_input_ids,
+    ) -> InputSpec:
+        raise NotImplementedError
+
+    def _sample_inputs_impl(
+        self, input_spec: InputSpec | None = None
+    ) -> SampleInputsType:
+        if not input_spec:
+            input_spec = self.get_input_spec(
+                sequence_length=self.sequence_length,
+                context_length=self.context_length,
+                llm_config=self.llm_config.to_dict(),
+            )
+        return sample_input(
+            input_spec,
+            self.get_input_prompt_with_tags(),
+            self.context_length,
+            self.sequence_length,
+            self.tokenizer,
+            self.llm_config,
+            self.embedding,
+        )
+
+    def sample_inputs(self, input_spec: InputSpec | None = None) -> SampleInputsType:
+        # This must be defined by the HubModelProtocol protocol via BaseModel
+        return self._sample_inputs_impl(input_spec)
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        host_device: torch.device,
+        sequence_length: int,
+        context_length: int,
+        fp_model: torch.nn.Module | None = None,
+        checkpoint: str | os.PathLike | Path | None = None,
+        _skip_quantsim_creation: bool = False,
+    ) -> LLM_QNN:
+        """
+        Load weight from local checkpoint of Huggingface and create Aimet-ONNX QuantSim.
+        Optionally load onnx model and AIMET encodings from a checkpoint.
+
+        Args:
+
+        - host_device: Device to use: GPU/CPU
+        - sequence_length: Sequence Length for the model
+        - context_length: Context Length for the model
+        - fp_model: Floating point version of this model.
+        This is quantized as part of this class and QuantSim model is created.
+        - checkpoint: Path to previously calibrated AIMET encodings and
+        ONNX models. Note that encodings are sensitive to AIMET ONNX versions
+        because loading back the
+        """
+        _verify_onnxruntime_qnn_installed()
+
+        if host_device is None:
+            host_device = torch.device("cpu")
+
+        inst = "prompt" if sequence_length > 1 else "token"
+
+        # Construct ONNX model wrapping the context binaries
+        context_bin_paths = sorted(glob.glob(os.path.join(checkpoint, "*.bin")))
+
+        metadata = LLMMetadata.from_yaml(Path(checkpoint) / "metadata.yaml")
+
+        tool_versions = ToolVersions.from_yaml(Path(checkpoint) / "tool-versions.yaml")
+        qairt_version = tool_versions.qairt.full_version
+
+        part_models = {}
+        temporary_paths = []
+
+        num_splits = len(context_bin_paths)
+        for part_i, context_bin_path in enumerate(context_bin_paths):
+            graph_name = cls.construct_qnn_context_graph_name(
+                part_i, len(context_bin_paths), sequence_length, context_length
+            )
+            onnx_path = os.path.join(
+                checkpoint,
+                os.path.splitext(os.path.basename(context_bin_path))[0]
+                + f"_{inst}.onnx",
+            )
+
+            io_metadata = metadata.components[f"{inst}_{part_i + 1}_of_{num_splits}"]
+
+            def _io_metadata_to_specs(
+                entries: dict[str, LLMMetadata.IOEntry],
+            ) -> dict[str, ModelIODetails]:
+                onnx_specs: dict[str, Any] = {}
+                for k, v in entries.items():
+                    qdq_params = None
+                    if v.quantization_parameters is not None:
+                        qdq_params = ModelIODetails.QDQParams(
+                            scale=v.quantization_parameters.scale,
+                            zero_point=-v.quantization_parameters.offset,
+                        )
+
+                    onnx_specs[k] = ModelIODetails(
+                        shape=v.shape,
+                        dtype=np.dtype(v.dtype),
+                        qdq_params=qdq_params,
+                    )
+                return onnx_specs
+
+            onnx_input_specs = _io_metadata_to_specs(io_metadata.inputs)
+            onnx_output_specs = _io_metadata_to_specs(io_metadata.outputs)
+
+            rel_context_bin_path = os.path.relpath(context_bin_path, checkpoint)
+            generate_wrapper_onnx_file(
+                graph_name,
+                onnx_path,
+                onnx_input_specs,
+                onnx_output_specs,
+                rel_context_bin_path,
+                qairt_version,
+            )
+            # Quantization parameters for intermediates are not available and
+            # will raise warnings. Leaving them quantized is fine.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=UserWarning)
+                part_models[(inst, part_i)] = OnnxModelTorchWrapper.OnNPU(onnx_path)
+            temporary_paths.append(onnx_path)
+
+        return cls(
+            part_models=part_models,
+            checkpoint=checkpoint,
+            sequence_length=sequence_length,
+            metadata=metadata,
+            context_length=context_length,
+            host_device=host_device,
+            precision=metadata.precision,
+            _temporary_paths=temporary_paths,
+        )
+
+    def __del__(self):
+        if hasattr(self, "_temporary_paths") and self._temporary_paths:
+            for path in self._temporary_paths:
+                os.remove(path)
+
+    def forward(self, *args):
+        input_ids = args[0]
+        sequence_length = input_ids.shape[1]
+        num_splits = len(self.part_models)
+        inst = "prompt" if sequence_length > 1 else "token"
+
+        part1_model = self.part_models[(inst, 0)]
+        part1_out = part1_model(input_ids)
+
+        last_intermediate = part1_out
+
+        # Shared between between parts
+        attn_mask = args[1]
+        position_ids_cos = args[2]
+        position_ids_sin = args[3]
+
+        kv_output = []
+
+        for part_i in range(1, num_splits):
+            torch_part_i_inputs = [
+                last_intermediate,
+                attn_mask,
+                position_ids_cos,
+                position_ids_sin,
+            ]
+
+            kv_indices = range(
+                (part_i - 1) * self.num_layers_per_split,
+                min(
+                    part_i * self.num_layers_per_split,
+                    self.llm_config.num_hidden_layers,
+                ),
+            )
+            for idx in kv_indices:
+                torch_part_i_inputs.append(args[4 + idx * 2])
+                torch_part_i_inputs.append(args[4 + idx * 2 + 1])
+
+            part_i_model = self.part_models[(inst, part_i)]
+            part_i_out = part_i_model(*torch_part_i_inputs)
+
+            last_intermediate = part_i_out[0]
+            kv_output += part_i_out[1:]
+
+        logits = last_intermediate
+        return [logits, *kv_output]
+
+    @classmethod
+    def construct_qnn_context_graph_name(
+        cls,
+        split_index: int,
+        num_splits: int,
+        sequence_length: int,
+        context_length: int,
+    ) -> str:
+        """Similar to get_qnn_context_graph_name, but can be run without instance."""
+        if sequence_length == 1:
+            instantiation_type = LLMInstantiationType.TOKEN_GENERATOR
+        else:
+            instantiation_type = LLMInstantiationType.PROMPT_PROCESSOR
+        return f"{instantiation_type.value}_ar{sequence_length}_cl{context_length}_{split_index + 1}_of_{num_splits}"
+
+    def get_qnn_context_graph_name(self, split_index: int, num_splits: int) -> str:
+        """
+        Get the name of the QNN Context Graph applicable for the given sub-component.
+
+        Sequence length (ar...) and context length (cl...) in graph name
+        are semantically important to Genie.
+        """
+        return self.construct_qnn_context_graph_name(
+            split_index, num_splits, self.sequence_length, self.context_length
+        )
+
+    def get_evaluator(
+        self, task: str = "wikitext", device: torch.device = torch.device("cpu")
+    ) -> BaseEvaluator:
+        return _get_evaluator(
+            task, self.context_length, self.sequence_length, self.tokenizer, device
+        )
+
+    eval_datasets = LLMBase.eval_datasets
+
+    @property
+    def main_input_name(self) -> str:
+        if self.llm_io_type == LLMIOType.genie_input_embeds:
+            return "input_embeds"
+        return "input_ids"
 
     @functools.cache
     def _get_embedding_table(self) -> torch.nn.Embedding:

@@ -98,4 +98,6 @@ class ValentiniEvaluator(BaseEvaluator):
             name="Perceptual Evaluation of Speech Quality",
             unit="PESQ",
             description="A measure of quality degradation between original and predicted quality.",
+            range=(-0.5, 4.5),
+            float_vs_device_threshold=0.5,
         )

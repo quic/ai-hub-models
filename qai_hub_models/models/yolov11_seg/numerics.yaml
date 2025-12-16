@@ -3,16 +3,18 @@ metrics:
   dataset_link: https://cocodataset.org/
   dataset_split_description: val2017 split
   metric_name: Mean Average Precision
-  metric_description: Ratio of objects where the IOU of the predicted mask against the gt is >0.5.
-  metric_unit: mAP
+  metric_description: Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.
+  metric_unit: mAP@0.5:0.95
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 100
-  partial_torch_metric: 0.264
+  partial_torch_metric: 26.4
   device_metric:
     Samsung Galaxy S25:
       float:
         tflite:
-          partial_metric: 0.258
-        qnn_dlc:
-          partial_metric: 0.0122
+          partial_metric: 25.9
         onnx:
-          partial_metric: 0.258
+          partial_metric: 25.9

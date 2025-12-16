@@ -80,5 +80,7 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
         return MetricMetadata(
             name="Normalized Mean Error",
             unit="NME",
-            description="Average distance between predicted and expected landmark, weighted by the typical scale for each landmark.",
+            description="Average distance between predicted and expected landmark, weighted by the typical scale for each landmark. Lower is better.",
+            range=(0.0, None),
+            float_vs_device_threshold=0.01,
         )

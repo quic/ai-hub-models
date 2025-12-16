@@ -9,6 +9,7 @@ from abc import abstractmethod
 from typing import Any
 
 import torch
+from qai_hub import Device
 from transformers import (
     WhisperConfig,
     WhisperFeatureExtractor,
@@ -21,10 +22,10 @@ from qai_hub_models.models._shared.hf_whisper.model_adaptation import (
     QcWhisperEncoder,
     monkey_patch_model,
 )
+from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
-    TargetRuntime,
 )
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -116,6 +117,25 @@ class HfWhisperEncoder(BaseModel):
         ):
             profile_options = profile_options + " --compute_unit gpu"
         return profile_options + " --max_profiler_iterations 10"
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
+        )
+        if (
+            precision == Precision.float
+            and target_runtime.qairt_version_changes_compilation
+        ):
+            compile_options = (
+                compile_options + " --quantize_full_type float16 --quantize_io"
+            )
+        return compile_options
 
 
 class HfWhisperDecoder(BaseModel):
@@ -261,6 +281,25 @@ class HfWhisperDecoder(BaseModel):
     def from_pretrained(cls):
         hf_whisper = HfWhisper.from_pretrained()
         return cls(hf_whisper.config, hf_whisper.decoder)
+
+    def get_hub_compile_options(
+        self,
+        target_runtime: TargetRuntime,
+        precision: Precision,
+        other_compile_options: str = "",
+        device: Device | None = None,
+    ) -> str:
+        compile_options = super().get_hub_compile_options(
+            target_runtime, precision, other_compile_options, device
+        )
+        if (
+            precision == Precision.float
+            and target_runtime.qairt_version_changes_compilation
+        ):
+            compile_options = (
+                compile_options + " --quantize_full_type float16 --quantize_io"
+            )
+        return compile_options
 
 
 class HfWhisper(CollectionModel):

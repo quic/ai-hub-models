@@ -47,7 +47,7 @@ class SegmentationOutputEvaluator(BaseEvaluator):
         )
 
     def Mean_Intersection_over_Union(self):
-        return torch.nanmean(self.Intersection_over_Union())
+        return torch.nanmean(self.Intersection_over_Union()) * 100
 
     def Frequency_Weighted_Intersection_over_Union(self):
         freq = torch.sum(self.confusion_matrix, dim=1) / torch.sum(
@@ -78,4 +78,6 @@ class SegmentationOutputEvaluator(BaseEvaluator):
             name="Mean Intersection Over Union",
             unit="mIOU",
             description="Overlap of predicted and expected segmentation divided by the union size.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

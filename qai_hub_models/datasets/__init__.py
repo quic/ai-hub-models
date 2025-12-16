@@ -91,6 +91,7 @@ _try_import_dataset(".imagenette", "ImagenetteDataset")
 _try_import_dataset(".imagenette_colorization", "ImagenetteColorizationDataset")
 _try_import_dataset(".imagenette_256", "Imagenette_256Dataset")
 _try_import_dataset(".nuscenes", "NuscenesDataset")
+_try_import_dataset(".nuscenes_bev", "NuscenesBevDataset")
 _try_import_dataset(".nyuv2", "NyUv2Dataset")
 _try_import_dataset(".cofw", "COFWDataset")
 _try_import_dataset(".nyuv2x518", "NyUv2x518Dataset")
@@ -106,6 +107,7 @@ _try_import_dataset(".eg1800", "eg1800SegmentationDataset")
 _try_import_dataset(".kitti", "KittiDataset")
 _try_import_dataset(".semantic_kitti", "SemanticKittiDataset")
 _try_import_dataset(".sav", "SaVDataset")
+_try_import_dataset(".icdar2015", "ICDAR2015Dataset")
 _try_import_dataset(
     ".stable_diffusion_calib",
     "StableDiffusionCalibDatasetTextEncoder",
@@ -128,6 +130,7 @@ _try_import_dataset(
 )
 _try_import_dataset(".celebahq", "CelebAHQDataset")
 _try_import_dataset(".wikitext", "WikiText")
+_try_import_dataset(".wikitext_masked", "WikiTextMasked")
 _try_import_dataset(".wikitext_ja", "WikiText_Japanese")
 _try_import_dataset(".tiny_mmlu", "TinyMMLU")
 _try_import_dataset(".mmlu", "MMLU")

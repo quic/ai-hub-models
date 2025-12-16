@@ -16,6 +16,8 @@ from pydantic import Field
 from qai_hub.public_rest_api import DatasetEntries
 
 from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.datasets.common import DatasetMetadata
+from qai_hub_models.evaluators.base_evaluators import MetricMetadata
 from qai_hub_models.models.common import Precision, TargetRuntime
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
@@ -135,17 +137,32 @@ def get_environment_file(artifacts_dir: os.PathLike | str | None = None) -> Path
     return get_artifact_filepath("environment.env", artifacts_dir)
 
 
-def get_accuracy_columns() -> list[str]:
-    cols = [
-        "model_id",
-        "precision",
-        "runtime",
-        "Torch Accuracy",
-        "Sim Accuracy",
-        "Device Accuracy",
+def get_accuracy_metadata_columns() -> list[str]:
+    return [
+        "dataset_name",
+        "dataset_link",
+        "split_description",
+        "metric_name",
+        "metric_unit",
+        "metric_description",
+        "metric_min",
+        "metric_max",
+        "metric_threshold",
+        "num_samples",
     ]
+
+
+def get_accuracy_numerics_columns() -> list[str]:
+    cols = ["Torch Accuracy", "Sim Accuracy", "Device Accuracy"]
     cols.extend(f"PSNR_{i}" for i in range(MAX_PSNR_VALUES))
+    return cols
+
+
+def get_accuracy_columns() -> list[str]:
+    cols = ["model_id", "precision", "runtime"]
+    cols.extend(get_accuracy_numerics_columns())
     cols.extend(["date", "branch", "chipset"])
+    cols.extend(get_accuracy_metadata_columns())
     return cols
 
 
@@ -560,6 +577,10 @@ def write_accuracy(
     torch_accuracy: float | None = None,
     device_accuracy: float | None = None,
     sim_accuracy: float | None = None,
+    dataset_name: str | None = None,
+    dataset_metadata: DatasetMetadata | None = None,
+    metric_metadata: MetricMetadata | None = None,
+    num_samples: int | None = None,
 ) -> None:
     line = f"{model_name},{precision!s},{path.value},"
     line += f"{torch_accuracy:.3g}," if torch_accuracy is not None else ","
@@ -571,6 +592,24 @@ def write_accuracy(
         # If the psnr list is empty, we only want 9 commas after
         line += ",".join(psnr_values) + "," * min(MAX_PSNR_VALUES - len(psnr_values), 9)
     line += f",{get_job_date()},main,{chipset}"
+
+    line += ","
+    if dataset_name is not None:
+        line += dataset_name
+
+    if dataset_metadata is not None:
+        line += f",{dataset_metadata.link},{dataset_metadata.split_description}"
+    else:
+        line += ",,"
+
+    if metric_metadata is not None:
+        line += f",{metric_metadata.name},{metric_metadata.unit},{metric_metadata.description},{metric_metadata.range[0]},{metric_metadata.range[1]},{metric_metadata.float_vs_device_threshold}"
+    else:
+        line += ",,,"
+
+    line += ","
+    if num_samples is not None:
+        line += str(num_samples)
     append_line_to_file(get_accuracy_file(), line)
 
 
@@ -769,9 +808,11 @@ def get_accuracy_csv_path(manual_path: str | None = None) -> Path | None:
     artifacts_dir = get_artifacts_dir_opt()
     if artifacts_dir is None:
         return None
-    for subpath in artifacts_dir.iterdir():
-        if subpath.name.startswith("Accuracy Metrics"):
-            return subpath / "accuracy.csv"
+    for scorecard_file in artifacts_dir.iterdir():
+        if scorecard_file.name.startswith("accuracy") and scorecard_file.name.endswith(
+            ".csv"
+        ):
+            return scorecard_file
     return None
 
 
@@ -780,13 +821,11 @@ def get_scorecard_csv_path(manual_path: str | None = None) -> Path:
         return Path(manual_path)
     artifacts_dir = get_artifacts_dir_opt()
     assert artifacts_dir is not None
-    folder = artifacts_dir
-    for subpath in folder.iterdir():
-        if not subpath.name.startswith("Scorecard Results"):
-            continue
-        for scorecard_file in subpath.iterdir():
-            if scorecard_file.name.startswith("scorecard-summary"):
-                return scorecard_file
+    for scorecard_file in artifacts_dir.iterdir():
+        if scorecard_file.name.startswith(
+            "scorecard-summary"
+        ) and scorecard_file.name.endswith(".csv"):
+            return scorecard_file
     raise ValueError("No perf data found.")
 
 

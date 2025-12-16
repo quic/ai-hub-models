@@ -91,7 +91,7 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
     def get_accuracy_score(self) -> float:
         # Calculate mAP_mask[0.5-0.95]
         results = self.metric.compute()
-        return results["map"]
+        return results["map"] * 100
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} mAP"
@@ -99,6 +99,8 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(
             name="Mean Average Precision",
-            unit="mAP",
-            description="Ratio of objects where the IOU of the predicted mask against the gt is >0.5.",
+            unit="mAP@0.5:0.95",
+            description="Mean Average Precision averaged over IOU thresholds 0.5 to 0.95 in 0.05 increments.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

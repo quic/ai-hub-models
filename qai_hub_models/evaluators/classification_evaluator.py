@@ -56,4 +56,6 @@ class ClassificationEvaluator(BaseEvaluator):
             name="Classification Accuracy",
             unit="%",
             description="Percentage of inputs that were correctly classified.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

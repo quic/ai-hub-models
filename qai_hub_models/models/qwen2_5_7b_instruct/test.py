@@ -7,8 +7,8 @@ from __future__ import annotations
 import pytest
 import torch
 
+from qai_hub_models.models._shared.llm.common import cleanup
 from qai_hub_models.models._shared.llm.export import export_model
-from qai_hub_models.models._shared.llm.model import cleanup
 from qai_hub_models.models.common import Precision
 from qai_hub_models.models.qwen2_5_7b_instruct import MODEL_ID, Model
 from qai_hub_models.models.qwen2_5_7b_instruct.export import (

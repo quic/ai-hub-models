@@ -90,7 +90,7 @@ class SemanticKittiEvaluator(BaseEvaluator):
         intersection = tp
         union = tp + fp + fn + 1e-15
         iou_mean = (intersection[self.include] / union[self.include]).mean()
-        return iou_mean.item()
+        return iou_mean.item() * 100
 
     def get_accuracy_score(self) -> float:
         return self.getIoU()
@@ -103,4 +103,6 @@ class SemanticKittiEvaluator(BaseEvaluator):
             name="Mean Intersection Over Union",
             unit="mIOU",
             description="Overlap of predicted and expected segmentation divided by the union size.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

@@ -608,7 +608,7 @@ cs_auto_lemans_8775 = ScorecardDevice(
 ##
 cs_6490 = ScorecardDevice(
     name="cs_6490",
-    reference_device_name="RB3 Gen 2 (Proxy)",
+    reference_device_name="Dragonwing RB3 Gen 2 Vision Kit",
 )
 
 cs_8250 = ScorecardDevice(

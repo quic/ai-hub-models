@@ -75,7 +75,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
             huggingface_model_name=huggingface_model_name,
         )
 
-    def get_qairt_context_graph_name(self, split_index: int, num_splits: int) -> str:
+    def get_qnn_context_graph_name(self, split_index: int, num_splits: int) -> str:
         """
         Get the name of the QAIRT Context Graph applicable for the given sub-component.
 

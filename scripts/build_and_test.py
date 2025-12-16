@@ -557,6 +557,20 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Generate numerics.yamls.")
+    @depends(["install_deps"])
+    def create_numerics(self, plan: Plan, step_id: str = "generate_numerics") -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=[
+                    "python qai_hub_models/scripts/collect_scorecard_numerics_results.py --sync-code-gen"
+                ],
+            ),
+        )
+
     def _make_hub_scorecard_task(
         self,
         mypy: bool = False,

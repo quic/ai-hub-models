@@ -33,7 +33,7 @@ HUB_GLOBAL_CLIENT_CONFIG_OVERRIDE_REENTRANT_LOCK = threading.RLock()
 
 
 def deployment_is_prod(deployment: str):
-    return deployment.lower() in ["workbench", "prod"]
+    return deployment.lower() in ["workbench", "app", "prod"]
 
 
 def _get_global_client() -> tuple[str, HubClient] | None:

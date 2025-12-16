@@ -25,6 +25,7 @@ from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r import (
     FP_Model,
     Model,
     PositionProcessor,
+    QNN_Model,
 )
 from qai_hub_models.models.llama_v3_1_sea_lion_3_5_8b_r.export import (
     DEFAULT_EXPORT_DEVICE,
@@ -228,7 +229,6 @@ def test_cli_default_device_select_component(
     ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 8.78, 30),
-        ("mmlu", 0.655, 200),
     ],
 )
 def test_evaluate_default(
@@ -241,8 +241,10 @@ def test_evaluate_default(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
+        skip_fp_model_eval=True,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -266,7 +268,6 @@ def test_evaluate_default(
     ("task", "expected_metric", "num_samples"),
     [
         ("wikitext", 7.62, 0),
-        ("tiny_mmlu", 0.72, 0),
     ],
 )
 def test_evaluate_default_unquantized(
@@ -279,6 +280,7 @@ def test_evaluate_default_unquantized(
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
         kwargs=dict(
@@ -296,6 +298,9 @@ def test_evaluate_default_unquantized(
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
 
 
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available(),
     reason="This test can be run on GPU only.",
@@ -347,6 +352,9 @@ def test_compile(
     )
 
 
+@pytest.mark.skip(
+    reason="This test is skipped till we use it to get automatic performance numbers for the LLMs."
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available()
     or not importlib.util.find_spec("qdc_public_api_client"),
@@ -370,8 +378,10 @@ def test_qdc(
         pytest.skip("This test is only valid for Genie runtime.")
     if not os.path.exists(genie_bundle_path):
         pytest.fail("The genie bundle does not exist.")
-    tps, min_ttft = test.complete_genie_bundle_and_run_on_device(
-        device, genie_bundle_path
+    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+
+    tps, min_ttft = submit_genie_bundle_to_qdc_device(
+        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(

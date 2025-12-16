@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 from collections.abc import Callable
 from inspect import signature
@@ -25,30 +24,8 @@ from qai_hub_models.models._shared.llm.model import (
 from qai_hub_models.models._shared.llm.quantize import quantize
 from qai_hub_models.models._shared.llm.split_onnx_utils.utils import ONNXBundle
 from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
-from qai_hub_models.scorecard import ScorecardDevice
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
-
-
-def complete_genie_bundle_and_run_on_device(
-    device: ScorecardDevice, genie_bundle_path: str
-) -> None:
-    # Add prompt.txt to genie_bundle
-    with open(os.path.join(genie_bundle_path, "prompt.txt"), "w") as f:
-        f.write(
-            "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant. Be concise.<|eot_id|><|start_header_id|>user<|end_header_id|>\n\nWhat is France's capital?<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
-        )
-
-    # Run QDC APIs to validate the bundle on-device.
-    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
-
-    _, avg_tps, min_ttft = submit_genie_bundle_to_qdc_device(
-        os.environ["QDC_API_TOKEN"], device.reference_device.name, genie_bundle_path
-    )
-
-    # Cleanup the generated genie bundle after test
-    shutil.rmtree(genie_bundle_path)
-    return avg_tps, min_ttft
 
 
 def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
@@ -410,7 +387,7 @@ def test_cli_chipset_with_options(
             assert "context_graph_name" in call.kwargs
             assert (
                 call.kwargs["context_graph_name"]._mock_new_parent._mock_name
-                == mock_from_pretrained.return_value.get_qairt_context_graph_name._mock_name
+                == mock_from_pretrained.return_value.get_qnn_context_graph_name._mock_name
             )
 
         # Profile parts * 2 times
@@ -424,7 +401,7 @@ def test_cli_chipset_with_options(
             assert call.args[:2] == (target_runtime, profile_options)
             assert (
                 call.args[2]._mock_new_parent._mock_name
-                == mock_from_pretrained.return_value.get_qairt_context_graph_name._mock_name
+                == mock_from_pretrained.return_value.get_qnn_context_graph_name._mock_name
             )
 
         assert mock_hub.submit_inference_job.call_count == parts * 2

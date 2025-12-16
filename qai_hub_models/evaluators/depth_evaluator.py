@@ -93,4 +93,6 @@ class DepthEvaluator(BaseEvaluator):
             name="Delta Threshold Accuracy",
             unit="δ1",
             description="The percentage of pixels where the predicted depth is within 25% of the expected.",
+            range=(0.0, 100.0),
+            float_vs_device_threshold=10.0,
         )

@@ -1,0 +1,189 @@
+# ---------------------------------------------------------------------
+# Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
+# SPDX-License-Identifier: BSD-3-Clause
+# ---------------------------------------------------------------------
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import cast
+
+import numpy as np
+import torch
+from PIL import Image
+
+from qai_hub_models.datasets.common import DatasetSplit
+from qai_hub_models.datasets.nuscenes import NuscenesDataset
+from qai_hub_models.utils.asset_loaders import CachedWebDatasetAsset
+from qai_hub_models.utils.bounding_box_processing_3d import transform_to_matrix
+from qai_hub_models.utils.input_spec import InputSpec
+
+NUSCENE_ID = "nuscenes"
+NUSCENE_FILE = "v1.0-mini"
+NUSCENE_VERSION = 1
+NUM_CLASSES = 12  # Based on CLASSES = STATIC + DIVIDER + DYNAMIC
+NUSCENE_LABEL = CachedWebDatasetAsset.from_asset_store(
+    NUSCENE_ID,
+    NUSCENE_VERSION,
+    "cvt_labels_nuscenes.tar.gz",
+)
+
+
+class NuscenesBevDataset(NuscenesDataset):
+    """Wrapper around nuScenes dataset for Bird's-Eye-View (BEV) segmentation using 6 camera inputs."""
+
+    def __init__(
+        self,
+        dataset_file: str | None = None,
+        input_spec: InputSpec | None = None,
+        top_crop: int | None = None,
+        split: DatasetSplit = DatasetSplit.TRAIN,
+    ):
+        input_spec = input_spec or {"image": ((1, 6, 3, 224, 480), "")}
+        super().__init__(
+            source_dataset_file=dataset_file,
+            split=split,
+            input_spec=input_spec,
+        )
+        # Remove top part of image (sky + car hood) - not useful for road detection
+        # Default 46 pixels works well for BEV tasks
+        self.top_crop = top_crop if top_crop is not None else 46
+        self.input_height = input_spec["image"][0][3]
+        self.input_width = input_spec["image"][0][4]
+        self.bev_labels_dir = (
+            str(NUSCENE_LABEL.path(extracted=True).parent) + "/cvt_labels_nuscenes_v2/"
+        )
+        if not os.path.exists(self.bev_labels_dir):
+            NUSCENE_LABEL.fetch(extract=True)
+
+        self._load_bev_labels()
+
+    def _load_bev_labels(self):
+        """Load BEV label paths from JSON files in the BEV labels directory."""
+        self.bev_labels = {}
+        labels_path = Path(self.bev_labels_dir)
+        for scene_file in labels_path.glob("scene-*.json"):
+            with open(scene_file) as f:
+                scene_data = json.load(f)
+                for sample in scene_data:
+                    bev_path = sample.get("bev", None)
+                    if bev_path is not None:
+                        bev_image_path = os.path.join(
+                            self.bev_labels_dir, sample["scene"], bev_path
+                        )
+                        self.bev_labels[sample["token"]] = (
+                            bev_image_path if os.path.exists(bev_image_path) else None
+                        )
+
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
+        """
+        Get item from infos according to the given index.
+        Returns a tuple of input tensors and ground truth data.
+
+        Parameters
+        ----------
+        idx
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        input_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            - images : torch.Tensor, shape [S, 3, H, W], float32
+                Preprocessed RGB images from S=6 cameras, normalized to [0, 1], size 224x480.
+            intrinsics
+                torch.Tensor of shape [S, 3, 3] as float32
+                Camera intrinsic matrices, adjusted for resize and crop.
+            extrinsics
+                torch.Tensor of shape [S, 4, 4] as float32
+                Matrices transforming camera sensor to global frame, aligned with LiDAR.
+        gt_data
+            gt_bev
+                torch.Tensor of shape [H_bev, W_bev, 12] as float32
+                Binary BEV segmentation map with 12 classes.
+        """
+        info = self.data_infos[idx]
+        token = info.token
+        cam_names = [
+            "CAM_FRONT_LEFT",
+            "CAM_FRONT",
+            "CAM_FRONT_RIGHT",
+            "CAM_BACK_LEFT",
+            "CAM_BACK",
+            "CAM_BACK_RIGHT",
+        ]
+        # Load BEV ground truth
+        bev_path = self.bev_labels.get(token)
+        assert bev_path is not None, f"BEV label not found for token: {token}"
+        bev_image = Image.open(bev_path)
+
+        # The CVT labels are bit-packed: each pixel stores 12 class flags in 12 bits
+        # Unpack using bitwise shift + mask to get one-hot per class
+        shift = np.arange(NUM_CLASSES, dtype=np.int32)[None, None]
+        x = np.asarray(bev_image)[..., None]
+        x = (x >> shift) & 1
+        gt_bev = torch.tensor(x.astype(np.float32))
+
+        # Get camera images and transformations
+        images: list[torch.Tensor] = []
+        intrinsics: list[torch.Tensor] = []
+        extrinsics: list[torch.Tensor] = []
+
+        for cam_name in cam_names:
+            if cam_name in info.cams:
+                cam_info = info.cams[cam_name]
+
+                # Load and preprocess image
+                img_path = os.path.join(self.data_path, cam_info["data_path"])
+                image = Image.open(img_path).convert("RGB")
+
+                # Resize then crop
+                h_resize = self.input_height + self.top_crop
+                w_resize = self.input_width
+                original_w, original_h = image.size
+                image_resized = image.resize(
+                    (w_resize, h_resize), Image.Resampling.BILINEAR
+                )
+                image_cropped = image_resized.crop(
+                    (0, self.top_crop, w_resize, h_resize)
+                )
+
+                # Convert to tensor
+                image_tensor = torch.from_numpy(np.array(image_cropped)).float() / 255.0
+                image_tensor = image_tensor.permute(2, 0, 1)
+                images.append(image_tensor)
+
+                # Process intrinsics
+                intrinsic = np.array(cam_info["cam_intrinsic"], dtype=np.float32)
+                scale_x = w_resize / original_w
+                scale_y = h_resize / original_h
+                intrinsic[0, 0] *= scale_x  # fx
+                intrinsic[0, 2] *= scale_x  # cx
+                intrinsic[1, 1] *= scale_y  # fy
+                intrinsic[1, 2] *= scale_y  # cy
+                intrinsic[1, 2] -= self.top_crop  # cy adjustment for crop
+                intrinsics.append(torch.tensor(intrinsic))
+
+                # Process extrinsics using transform_to_matrix
+                sensor2ego = transform_to_matrix(
+                    translation=cast(list[float], cam_info["sensor2ego_translation"]),
+                    rotation=cast(list[float], cam_info["sensor2ego_rotation"]),
+                    inv=False,
+                )
+                ego2global_inv = transform_to_matrix(
+                    translation=cast(list[float], info.ego2global_translation),
+                    rotation=cast(list[float], info.ego2global_rotation),
+                    inv=True,
+                )
+                world_from_egolidarflat = np.eye(4, dtype=np.float32)
+                extrinsic = sensor2ego @ ego2global_inv @ world_from_egolidarflat
+                extrinsics.append(torch.tensor(extrinsic, dtype=torch.float32))
+
+        # Stack lists into tensors
+        images_tensor = torch.stack(images)
+        intrinsics_tensor = torch.stack(intrinsics)
+        extrinsics_tensor = torch.stack(extrinsics)
+
+        return (images_tensor, intrinsics_tensor, extrinsics_tensor), gt_bev

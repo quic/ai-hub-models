@@ -15,6 +15,7 @@ from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_SEQUENCE_LENGTH,
     Llama3Base,
     Llama3Base_AIMETOnnx,
+    Llama3Base_QNN,
 )
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
@@ -225,3 +226,13 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
             num_attention_heads=llm_config["num_attention_heads"],
             llm_io_type=llm_io_type,
         )
+
+
+class Llama3_TAIDE_QNN(Llama3Base_QNN):
+    num_layers_per_split: int = NUM_LAYERS_PER_SPLIT
+
+    @staticmethod
+    def get_output_names():
+        return Llama3_TAIDE_QNN._get_output_names(NUM_LAYERS)
+
+    get_input_spec = staticmethod(Llama3_TAIDE.get_input_spec)

@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import importlib.metadata
+import logging
 import os
 import platform
 from abc import abstractmethod
@@ -549,7 +550,9 @@ class OnnxSessionTorchWrapper(RuntimeTorchWrapper[ModelIODetails]):
         """
         self.session = session
         if not inputs or not outputs:
-            gen_inputs, gen_outputs = extract_io_types_from_onnx_model(session)
+            gen_inputs, gen_outputs = extract_io_types_from_onnx_model(
+                session,
+            )
             inputs = inputs or gen_inputs
             outputs = outputs or gen_outputs
         super().__init__(
@@ -673,7 +676,7 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
                     session_options.context_enable = False
                     session_options.context_file_path = None
                     model_path = context_file_path
-                    print(f"Loading cached session context at {model_path}")
+                    logging.info(f"Loading cached session context at {model_path}")
 
         # Create the inference session
         self.model_path = model_path
@@ -696,7 +699,9 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
             and session_options.context_file_path is not None
             and os.path.exists(session_options.context_file_path)
         ):
-            print(f"Saved session context at {session_options.context_file_path}")
+            logging.info(
+                f"Saved session context at {session_options.context_file_path}"
+            )
 
         super().__init__(
             session,

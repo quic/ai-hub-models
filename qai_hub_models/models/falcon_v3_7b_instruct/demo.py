@@ -6,7 +6,12 @@
 from __future__ import annotations
 
 from qai_hub_models.models._shared.llm.demo import llm_chat_demo
-from qai_hub_models.models.falcon_v3_7b_instruct import MODEL_ID, FP_Model, Model
+from qai_hub_models.models.falcon_v3_7b_instruct import (
+    MODEL_ID,
+    FP_Model,
+    Model,
+    QNN_Model,
+)
 from qai_hub_models.models.falcon_v3_7b_instruct.model import (
     DEFAULT_USER_PROMPT,
     END_TOKENS,
@@ -21,6 +26,7 @@ from qai_hub_models.utils.checkpoint import CheckpointSpec
 def falcon_v3_7b_instruct_demo(
     model_cls: type[BaseModel] = Model,
     fp_model_cls: type[BaseModel] = FP_Model,
+    qnn_model_cls: type[BaseModel] = QNN_Model,
     model_id: str = MODEL_ID,
     end_tokens: set = END_TOKENS,
     hf_repo_name: str = HF_REPO_NAME,
@@ -34,6 +40,7 @@ def falcon_v3_7b_instruct_demo(
     llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,
+        qnn_model_cls=qnn_model_cls,
         model_id=model_id,
         end_tokens=end_tokens,
         hf_repo_name=hf_repo_name,

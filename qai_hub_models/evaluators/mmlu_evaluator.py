@@ -285,5 +285,7 @@ class MMLUEvaluator(BaseEvaluator):
         return MetricMetadata(
             name="Massive Multitask Language Understanding",
             unit="MMLU",
-            description="A measure of how well the model can answer multiple choice questions.",
+            description="Set of multiple choice questions that the model answered correctly.",
+            range=(0.0, 1.0),
+            float_vs_device_threshold=0.1,
         )

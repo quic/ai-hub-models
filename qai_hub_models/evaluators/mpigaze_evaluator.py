@@ -86,6 +86,8 @@ class MPIIGazeEvaluator(BaseEvaluator):
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(
             name="Mean Angular Error",
-            unit="degrees",
-            description="Mean angular error between predicted and ground truth gaze directions.",
+            unit="MAE (Degrees)",
+            description="Mean angular error between predicted and ground truth gaze directions. Lower is better.",
+            range=(0.0, None),
+            float_vs_device_threshold=5.0,
         )

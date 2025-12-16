@@ -16,10 +16,13 @@ from transformers.cache_utils import DynamicCache
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import AugmentedLabelDataset, DatasetSplit
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
-from qai_hub_models.models._shared.llm.model import is_quantized_checkpoint
+from qai_hub_models.models._shared.llm.model import DEFAULT_SEQUENCE_LENGTH
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
 from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.utils.checkpoint import (
+    CheckpointType,
+)
 
 
 def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
@@ -45,11 +48,13 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
 def evaluate(
     quantized_model_cls: type[BaseModel],
     fp_model_cls: type[BaseModel],
+    qnn_model_cls: type[BaseModel],
     num_samples: int,
     task: str,
     kwargs: Mapping[str, Any],
+    skip_fp_model_eval: bool = False,
 ) -> tuple[float, str]:
-    is_quantized = is_quantized_checkpoint(kwargs["checkpoint"])
+    checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
 
     host_device = (
         torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -68,25 +73,31 @@ def evaluate(
     ).to(torch.device("cpu"))
 
     final_kwargs: dict[str, Any] = copy(kwargs)  # type: ignore[arg-type]
-    if is_quantized:
+    if checkpoint_type == CheckpointType.GENIE_BUNDLE:
+        model_cls = qnn_model_cls
+        is_fp = False
+    elif checkpoint_type.is_aimet_onnx():
         if is_default:
             final_kwargs["fp_model"] = fp_model
         final_kwargs["host_device"] = host_device
         model_cls = quantized_model_cls
+        is_fp = False
     else:
         final_kwargs.pop("_skip_quantsim_creation", None)
         model_cls = fp_model_cls
+        is_fp = True
 
     if final_kwargs["checkpoint"] in {"DEFAULT", "DEFAULT_UNQUANTIZED"}:
         del final_kwargs["checkpoint"]
 
     eval_dataloader = get_dataset(fp_model, task, num_samples)
     evaluator = fp_model.get_evaluator(
-        task, torch.device("cpu") if is_quantized else host_device
+        task,
+        torch.device("cpu") if not is_fp else host_device,
     )
 
     embedding = None
-    if evaluator.is_distance_metric and is_quantized:
+    if skip_fp_model_eval and evaluator.is_distance_metric and not is_fp:
         # If it's a distance metric, we run the FP model and attach the outputs
         # to the ground truth of the eval data loader.
         embedding = fp_model_cls.EmbeddingClass(
@@ -117,12 +128,12 @@ def evaluate(
             collate_fn=eval_dataloader.collate_fn,
         )
 
-    if is_quantized:
+    if not is_fp:
         fp_model.to(torch.device("cpu"))
         if "fp_model" not in final_kwargs:
             del fp_model
             gc.collect()
-            torch.cuda.empty_cache()
+        torch.cuda.empty_cache()
 
         model = model_cls.from_pretrained(**final_kwargs).to(host_device)
     else:
@@ -130,6 +141,7 @@ def evaluate(
 
     if eval_dataloader is None:
         eval_dataloader = get_dataset(model, task, num_samples)
+
     if embedding is None:
         embedding = fp_model_cls.EmbeddingClass(
             max_length=final_kwargs["context_length"],
@@ -156,6 +168,7 @@ def evaluate(
 def llm_evaluate(
     quantized_model_cls: type[BaseModel],
     fp_model_cls: type[BaseModel],
+    qnn_model_cls: type[BaseModel],
     supported_precisions: list[Precision],
     default_calibration_seqlen: int = 2048,
 ):
@@ -177,15 +190,21 @@ def llm_evaluate(
         help="Number of samples to be used for evaluation.",
     )
 
-    # Use a higher default sequence length for efficiency
     parser.set_defaults(sequence_length=default_calibration_seqlen)
     args = parser.parse_args()
 
     kwargs = get_model_kwargs(quantized_model_cls, vars(args))
 
+    checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
+
+    if checkpoint_type == CheckpointType.GENIE_BUNDLE:
+        # The NPU does not support the higher sequence length we use on GPU
+        kwargs["sequence_length"] = DEFAULT_SEQUENCE_LENGTH
+
     _, formatted_accuracy = evaluate(
         quantized_model_cls=quantized_model_cls,
         fp_model_cls=fp_model_cls,
+        qnn_model_cls=qnn_model_cls,
         num_samples=args.num_samples,
         task=args.task,
         kwargs=kwargs,

@@ -82,7 +82,7 @@ def main():
         dataset_name=args.dataset_name,
         input_spec=input_spec,
         torch_model=torch_model,
-        compiled_model=compiled_model,
+        compiled_model=compiled_model if not args.skip_device_accuracy else None,
         hub_device=args.device,
         samples_per_job=args.samples_per_job,
         num_samples=args.num_samples,

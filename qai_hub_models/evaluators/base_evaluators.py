@@ -22,6 +22,8 @@ class MetricMetadata(NamedTuple):
     name: str
     unit: str
     description: str
+    range: tuple[float | None, float | None]
+    float_vs_device_threshold: float | None = None
 
 
 class BaseEvaluator(ABC):

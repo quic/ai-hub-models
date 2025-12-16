@@ -46,7 +46,6 @@ from qai_hub_models.utils.checkpoint import (
     CheckpointSpec,
     CheckpointType,
     FromPretrainedMixin,
-    determine_checkpoint_type,
     hf_repo_exists,
 )
 from qai_hub_models.utils.input_spec import InputSpec
@@ -445,7 +444,7 @@ class StableDiffusionBase(PretrainedCollectionModel):
     @classmethod
     def handle_default_checkpoint(cls, checkpoint: CheckpointSpec) -> CheckpointSpec:
         """Convert DEFAULT checkpoint to HF_REPO id"""
-        ckpt_type = determine_checkpoint_type(checkpoint)
+        ckpt_type = CheckpointType.from_checkpoint(checkpoint)
         if ckpt_type in [CheckpointType.DEFAULT, CheckpointType.DEFAULT_UNQUANTIZED]:
             if cls.hf_repo_id == "":
                 raise ValueError("hf_repo_id is not defined.")

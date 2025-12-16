@@ -8,7 +8,7 @@ from __future__ import annotations
 import itertools
 import math
 from collections.abc import Callable, Mapping
-from contextlib import nullcontext
+from contextlib import nullcontext, suppress
 from typing import Any, Literal, cast
 from unittest import mock
 
@@ -1238,6 +1238,16 @@ def accuracy_on_dataset_via_evaluate_and_export(
         )
     torch_acc = float(cpu_accuracy[torch_key])
 
+    dataset_metadata = None
+    metric_metadata = None
+    num_samples = None
+    with suppress(NotImplementedError):
+        dataset_cls = DATASET_NAME_MAP[dataset_name]
+        dataset_metadata = dataset_cls.get_dataset_metadata()
+        num_samples = get_num_eval_samples(dataset_name)
+        dataset_metadata = DATASET_NAME_MAP[dataset_name].get_dataset_metadata()
+        metric_metadata = model.get_evaluator().get_metric_metadata()
+
     try:
         # Get existing inference jobs, then create related patches
         # This will raise a ValueError if any of the jobs failed
@@ -1250,7 +1260,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
             raise_if_not_successful=True,
         )
         if not inference_jobs:
-            raise CachedScorecardJobError(
+            raise CachedScorecardJobError(  # noqa: TRY301
                 str_with_async_test_metadata(
                     "Missing cached inference job",
                     model_id,
@@ -1259,7 +1269,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
                     device,
                 )
             )
-    except:
+    except (CachedScorecardJobError, ValueError):
         # If no on-device accuracy numbers, we still want to write torch, sim numbers
         write_accuracy(
             model_id,
@@ -1270,6 +1280,10 @@ def accuracy_on_dataset_via_evaluate_and_export(
             torch_acc,
             None,
             float(sim_acc) if sim_acc is not None else None,
+            dataset_name,
+            dataset_metadata,
+            metric_metadata,
+            num_samples,
         )
         raise
 
@@ -1372,6 +1386,10 @@ def accuracy_on_dataset_via_evaluate_and_export(
         torch_acc,
         evaluate_result.device_accuracy,
         float(sim_acc) if sim_acc is not None else None,
+        dataset_name,
+        dataset_metadata,
+        metric_metadata,
+        num_samples,
     )
 
 

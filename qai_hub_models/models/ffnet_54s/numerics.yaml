@@ -5,21 +5,25 @@ metrics:
   metric_name: Mean Intersection Over Union
   metric_description: Overlap of predicted and expected segmentation divided by the union size.
   metric_unit: mIOU
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 50
-  partial_torch_metric: 0.781
+  partial_torch_metric: 78.1
   device_metric:
     Samsung Galaxy S25:
-      float:
-        tflite:
-          partial_metric: 0.781
-        qnn_dlc:
-          partial_metric: 0.781
-        onnx:
-          partial_metric: 0.781
       w8a8:
         tflite:
-          partial_metric: 0.78
+          partial_metric: 77.9
         qnn_dlc:
-          partial_metric: 0.779
+          partial_metric: 77.9
         onnx:
-          partial_metric: 0.778
+          partial_metric: 77.8
+      float:
+        tflite:
+          partial_metric: 78.1
+        qnn_dlc:
+          partial_metric: 78.1
+        onnx:
+          partial_metric: 78.1

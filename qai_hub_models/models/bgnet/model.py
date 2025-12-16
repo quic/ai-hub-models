@@ -39,11 +39,6 @@ INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 class BGNet(BaseModel):
     """Exportable BGNet segmentation end-to-end."""
 
-    def __init__(self, model) -> None:
-        super().__init__()
-
-        self.model = model
-
     @classmethod
     def from_pretrained(cls, weights_path: str | None = None) -> BGNet:
         """Load bgnet from a weightfile created by the source bgnet repository."""
@@ -51,17 +46,19 @@ class BGNet(BaseModel):
         bgnet_model = _load_bgnet_source_model_from_weights(weights_path)
         return cls(bgnet_model)
 
-    def forward(self, image: torch.Tensor) -> tuple[torch.Tensor]:
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Parameters
         ----------
-            image: Pixel values for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            segmented mask per class: Shape [batch, classes, height, width]
+        masks_per_class
+            Predicted per-class, per-pixel mask logits. Shape [batch, classes, height, width]
         """
         image = normalize_image_torchvision(image)
         _, _, res, _e = self.model(image)
@@ -90,6 +87,10 @@ class BGNet(BaseModel):
 
     @staticmethod
     def get_output_names() -> list[str]:
+        return ["mask"]
+
+    @staticmethod
+    def get_channel_last_outputs() -> list[str]:
         return ["mask"]
 
     def get_evaluator(self, name: str | None = None) -> BaseEvaluator:

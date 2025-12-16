@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import torch
 
@@ -45,9 +44,13 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
             name, shape, type of sample data.
         """
         input_spec = input_spec or FaceAttribNetEnhanced.get_input_spec()
+        self.image_id_list: list[int] = []
+        self.image_person_list: list[str] = []
+        # Mapping from person name to person ID
+        self.person_name_to_person_id: dict[str, int] = {}
         super().__init__(split, input_data_zip, input_spec)
 
-    def __getitem__(self, index: int) -> tuple[torch.Tensor, tuple[str, int]]:
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, tuple[int, int]]:
         """
         Returns a tuple containing an input image tensor and label data.
 
@@ -68,33 +71,17 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
 
         label : tuple[str, int]
             Label data with the following entries:
-                person_name : str
-                    The name of the individual.
+                person_id : int
+                    The ID of the individual.
 
                 image_id : int
-                    The identifier for the image.
+                    The ID for the image.
         """
-        image_tensor, image_path = super().getitem_image(index=index)
-
-        # extract person_name, and image_id from filename
-        # e.g., filename = Billy_Burke_7415, person_name = "Billy_Burke", image_id = int("7523")
-        if self.split_str == "val":
-            pattern = r"^([A-Za-z_-]+)_(\d+)$"
-        else:
-            pattern = r"^(.*)_sample(\d+)$"
-        filename = image_path.stem
-
-        match = re.match(pattern, filename)
-
-        if match:
-            person_name = match.group(1)
-            image_id = int(match.group(2))
-        else:
-            raise ValueError(
-                f"filename is not valid, should be <name>_<image id>, check {image_path}"
-            )
-
-        return image_tensor, (person_name, image_id)
+        image_tensor, _ = super().getitem_image(index=index)
+        return image_tensor, (
+            self.person_name_to_person_id[self.image_person_list[index]],
+            self.image_id_list[index],
+        )
 
     def _validate_data(self) -> bool:
         """
@@ -106,11 +93,11 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
             True: data is valid and loaded successfully
             False: otherwise
         """
-        image_path = (
+        images_path = (
             self.data_path / FACEATTRIB_DATASET_DIR_NAME / "images" / self.split_str
         )
         if self.split == DatasetSplit.VAL:
-            image_path = (
+            images_path = (
                 self.data_path
                 / FACEATTRIB_DATASET_DIR_NAME
                 / "images"
@@ -118,12 +105,33 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
                 / "embed"
             )
 
-        if not image_path.exists():
+        if not images_path.exists():
             return False
 
-        self.image_list: list[Path] = []
-        for _img_path in sorted(image_path.iterdir(), key=lambda item: item.name):
-            self.image_list.append(_img_path)
+        for image_path in sorted(images_path.iterdir(), key=lambda item: item.name):
+            if self.split_str == "val":
+                pattern = r"^([A-Za-z_-]+)_(\d+)$"
+            else:
+                pattern = r"^(.*)_sample(\d+)$"
+            filename = image_path.stem
+
+            match = re.match(pattern, filename)
+
+            if match:
+                person_name = str(match.group(1))
+                image_id = int(match.group(2))
+                if person_name not in self.person_name_to_person_id:
+                    self.person_name_to_person_id[person_name] = len(
+                        self.person_name_to_person_id
+                    )
+                self.image_list.append(image_path)
+                self.image_id_list.append(image_id)
+                self.image_person_list.append(person_name)
+            else:
+                raise ValueError(
+                    f"filename is not valid, should be <name>_<image id>, check {image_path}"
+                )
+
         return True
 
     @staticmethod

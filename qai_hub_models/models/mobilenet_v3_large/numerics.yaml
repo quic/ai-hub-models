@@ -5,6 +5,10 @@ metrics:
   metric_name: Classification Accuracy
   metric_description: Percentage of inputs that were correctly classified.
   metric_unit: '%'
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
   num_partial_samples: 1000
   partial_torch_metric: 72.1
   device_metric:
@@ -13,7 +17,7 @@ metrics:
         qnn_dlc:
           partial_metric: 68.6
         onnx:
-          partial_metric: 67.8
+          partial_metric: 68.6
       float:
         tflite:
           partial_metric: 72.0

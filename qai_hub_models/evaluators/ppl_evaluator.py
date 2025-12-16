@@ -119,4 +119,5 @@ class PerplexityEvaluator(BaseEvaluator):
             name="Perplexity",
             unit="PPL",
             description="A measure of how likely the model is to predict a given sequence of words. Lower is better.",
+            range=(0.0, None),
         )

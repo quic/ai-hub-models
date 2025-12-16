@@ -9,6 +9,7 @@ import importlib
 import importlib.metadata
 import os
 import struct
+import warnings
 from collections.abc import Collection
 from dataclasses import dataclass
 from functools import wraps
@@ -267,18 +268,20 @@ def extract_io_types_from_onnx_model(
                     if input_name in input_names:
                         dtype = inputs[input_name].dtype
                         if dtype in QUANTIZED_IO_TYPES:
-                            print(
-                                f"Warning: Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
-                                " Cannot determine the QDQ parameters for the input."
+                            warnings.warn(
+                                f"Network input {input_name} is an input to an EPContext node, and is {dtype} quantized."
+                                " Cannot determine the QDQ parameters for the input.",
+                                stacklevel=2,
                             )
 
                 for output_name in node.output:
                     if output_name in output_names:
                         dtype = outputs[output_name].dtype
                         if dtype in QUANTIZED_IO_TYPES:
-                            print(
-                                f"Warning: Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
-                                " Cannot determine the QDQ parameters for the output."
+                            warnings.warn(
+                                f"Network output {output_name} is an output of an EPContext node, and is {dtype} quantized."
+                                " Cannot determine the QDQ parameters for the output.",
+                                stacklevel=2,
                             )
 
             if node.op_type == "DequantizeLinear":
@@ -371,3 +374,160 @@ def verify_onnx_export_is_compatible_with_ai_hub(
 
     if ONNX_ENV_CHECKED and ONNX_ENV_ERROR:
         raise ValueError(ONNX_ENV_ERROR)
+
+
+def _add_io_helper(
+    io_name: str,
+    spec: tuple[tuple[int, ...], onnx.TensorProto.DataType] | ModelIODetails,
+    is_input: bool,
+) -> tuple[
+    list[onnx.NodeProto],
+    list[onnx.TensorProto],
+    list[onnx.ValueInfoProto],
+    list[onnx.ValueInfoProto],
+    list[onnx.ValueInfoProto],
+]:
+    graph_nodes = []
+    initializers = []
+    input_nodes = []
+    output_nodes = []
+    value_info = []
+    if isinstance(spec, ModelIODetails):
+        onnx_dtype = onnx.helper.np_dtype_to_tensor_dtype(spec.dtype)
+        if spec.qdq_params:
+            # We have quantization parameters, add Q-DQ
+            output_q = onnx.helper.make_tensor_value_info(
+                f"{io_name}_q",
+                onnx_dtype,
+                spec.shape,
+            )
+            output_dq = onnx.helper.make_tensor_value_info(
+                f"{io_name}_dq",
+                onnx.TensorProto.FLOAT,
+                spec.shape,
+            )
+            value_info += [output_q, output_dq]
+
+            input_name = output_q.name if not is_input else io_name
+            output_name = output_q.name if is_input else io_name
+            onnx_input = onnx.helper.make_tensor_value_info(
+                input_name,
+                onnx_dtype,
+                spec.shape,
+            )
+            onnx_output = onnx.helper.make_tensor_value_info(
+                output_name,
+                onnx_dtype,
+                spec.shape,
+            )
+            value_info += [onnx_input, onnx_output]
+
+            q_scale = onnx.helper.make_tensor(
+                f"{io_name}_scale",
+                onnx.TensorProto.FLOAT,
+                [],
+                [spec.qdq_params.scale],
+            )
+            q_zp = onnx.helper.make_tensor(
+                f"{io_name}_zp", onnx_dtype, [], [spec.qdq_params.zero_point]
+            )
+            initializers += [q_scale, q_zp]
+
+            q_op = onnx.helper.make_node(
+                "DequantizeLinear",
+                name=onnx_input.name,
+                inputs=[onnx_input.name, q_scale.name, q_zp.name],
+                outputs=[output_dq.name],
+            )
+            dq_op = onnx.helper.make_node(
+                "QuantizeLinear",
+                name=onnx_output.name,
+                inputs=[output_dq.name, q_scale.name, q_zp.name],
+                outputs=[onnx_output.name],
+            )
+            graph_nodes += [q_op, dq_op]
+            input_nodes.append(onnx_input)
+            output_nodes.append(onnx_output)
+        else:
+            onnx_input = onnx.helper.make_tensor_value_info(
+                io_name, onnx_dtype, spec.shape
+            )
+            input_nodes.append(onnx_input)
+            output_nodes.append(onnx_input)
+            value_info.append(onnx_input)
+    else:
+        shape, onnx_dtype = spec
+        onnx_input = onnx.helper.make_tensor_value_info(io_name, onnx_dtype, shape)
+        input_nodes.append(onnx_input)
+        output_nodes.append(onnx_input)
+        value_info.append(onnx_input)
+    return graph_nodes, initializers, value_info, input_nodes, output_nodes
+
+
+def generate_wrapper_onnx_file(
+    graph_name: str,
+    onnx_output_path: str | Path,
+    onnx_input_specs: dict[
+        str, tuple[tuple[int, ...], onnx.TensorProto.DataType] | ModelIODetails
+    ],
+    onnx_output_specs: dict[
+        str, tuple[tuple[int, ...], onnx.TensorProto.DataType] | ModelIODetails
+    ],
+    qnn_context_bin_path: str | Path,
+    qairt_version: str,
+):
+    ep_cache_context_content = str(qnn_context_bin_path)
+    ctx_embed_mode = 0
+
+    graph_nodes = []
+    initializers = []
+    model_inputs = []
+    ep_context_inputs = []
+    value_info = []
+    for key, spec in onnx_input_specs.items():
+        graph_nodes_new, initializers_new, value_info_new, input_nodes, output_nodes = (
+            _add_io_helper(key, spec, True)
+        )
+        initializers += initializers_new
+        graph_nodes += graph_nodes_new
+        value_info += value_info_new
+        model_inputs += input_nodes
+        ep_context_inputs += output_nodes
+
+    model_outputs = []
+    ep_context_outputs = []
+    for key, spec in onnx_output_specs.items():
+        graph_nodes_new, initializers_new, value_info_new, input_nodes, output_nodes = (
+            _add_io_helper(key, spec, False)
+        )
+        initializers += initializers_new
+        value_info += value_info_new
+        graph_nodes += graph_nodes_new
+        model_outputs += output_nodes
+        ep_context_outputs += input_nodes
+
+    qnn_ep_context_node = onnx.helper.make_node(
+        "EPContext",
+        name=graph_name,
+        inputs=[node.name for node in ep_context_inputs],
+        outputs=[node.name for node in ep_context_outputs],
+        ep_cache_context=ep_cache_context_content,
+        embed_mode=ctx_embed_mode,
+        ep_sdk_version=qairt_version,
+        source="Qnn",
+        domain="com.microsoft",
+    )
+    graph_nodes.append(qnn_ep_context_node)
+
+    graph_def = onnx.helper.make_graph(
+        graph_nodes,
+        "qnn-onnx-model",
+        model_inputs,
+        model_outputs,
+        initializers,
+        "",
+        value_info,
+    )
+    model_def = onnx.helper.make_model(graph_def)
+
+    onnx.save(model_def, onnx_output_path)

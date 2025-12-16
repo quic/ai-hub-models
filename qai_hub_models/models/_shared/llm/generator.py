@@ -20,6 +20,7 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    LLM_QNN,
     Embedding,
     LLM_AIMETOnnx,
     LLMBase,
@@ -118,7 +119,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
 
     def __init__(
         self,
-        models: list[LLM_AIMETOnnx | LLM_Loader],
+        models: list[LLM_QNN | LLM_AIMETOnnx | LLM_Loader],
         tokenizer: transformers.PreTrainedTokenizer,
         embedding: Embedding,
         accumulate_logits_on_cpu: bool = False,
@@ -240,7 +241,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             "attention_mask": attention_mask,
         }
 
-    def select_model(self, num_input_tokens) -> LLM_AIMETOnnx | LLMBase:
+    def select_model(self, num_input_tokens) -> LLM_AIMETOnnx | LLM_QNN | LLMBase:
         # Select the model with the smallest sequence length that can fit all of num_input_tokens
         # If there is no model that can consume num_input_tokens in one inference, select the model with the largest
         # sequence length
@@ -260,11 +261,9 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         print(
             f"Switching from sequence_length={self.selected_model.sequence_length} to sequence_length={new_selected_model.sequence_length}"
         )
-        # release all LLM_Loader objects to preserve memory
-        if isinstance(self.selected_model, LLM_Loader):
+        # release the model to preserve memory
+        if hasattr(self.selected_model, "release"):
             self.selected_model.release()
-        if isinstance(self.selected_model, LLM_AIMETOnnx):
-            del self.selected_model.quant_sim
 
         self.selected_model = (
             new_selected_model.load()

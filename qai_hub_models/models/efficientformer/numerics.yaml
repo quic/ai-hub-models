@@ -1,0 +1,27 @@
+metrics:
+- dataset_name: imagenet
+  dataset_link: https://www.image-net.org/
+  dataset_split_description: validation split
+  metric_name: Classification Accuracy
+  metric_description: Percentage of inputs that were correctly classified.
+  metric_unit: '%'
+  metric_range:
+    min: 0.0
+    max: 100.0
+  metric_fp_vs_device_enablement_threshold: 10.0
+  num_partial_samples: 1000
+  partial_torch_metric: 77.1
+  device_metric:
+    Samsung Galaxy S25:
+      w8a16:
+        qnn_dlc:
+          partial_metric: 75.9
+        onnx:
+          partial_metric: 76.9
+      float:
+        tflite:
+          partial_metric: 77.3
+        qnn_dlc:
+          partial_metric: 77.3
+        onnx:
+          partial_metric: 77.3

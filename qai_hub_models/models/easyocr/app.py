@@ -22,14 +22,21 @@ from easyocr.utils import (
     group_text_box,
 )
 from PIL import Image
+from qai_hub.client import DatasetEntries
+from torch.utils.data import DataLoader
 
+from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
+from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.draw import draw_box_from_corners, draw_box_from_xyxy
+from qai_hub_models.utils.evaluate import sample_dataset
 from qai_hub_models.utils.image_processing import (
     app_to_net_image_inputs,
     denormalize_coordinates,
     numpy_image_to_torch,
     resize_pad,
 )
+from qai_hub_models.utils.input_spec import InputSpec, get_batch_size
+from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 DETECTOR_ARGS = {
     "text_threshold": 0.7,
@@ -270,6 +277,95 @@ class EasyOCRApp:
 
         return horizontal_boxes_per_img, free_boxes_per_img
 
+    def get_detector_output(
+        self,
+        img_cv_grey: np.ndarray,
+        horizontal_boxes: list[box_xx_yy],
+        free_boxes: list[box_4corners],
+    ) -> tuple[
+        list[tuple[np.ndarray, box_xx_yy | box_4corners, int]], list[torch.Tensor]
+    ]:
+        """
+        Process the detector output and prepare cutouts for recognition.
+
+        Args:
+            img_cv_grey: Grayscale input image
+            horizontal_boxes: List of horizontal bounding boxes
+            free_boxes: List of free-form bounding boxes
+
+        Returns
+        -------
+            tuple: (img_cutouts, cutout_frames_list)
+                - img_cutouts: List of (cutout_image, box_coords, y_min)
+                - cutout_frames_list: List of preprocessed cutout tensors for recognition
+        """
+        # If horizontal boxes and free boxes are not set, use the entire image instead
+        if not horizontal_boxes and not free_boxes:
+            y_max, x_max = img_cv_grey.shape
+            horizontal_boxes = [(0, x_max, 0, y_max)]
+            free_boxes = []
+
+        # List[cutout image, box coords, minimum y coordinate]
+        img_cutouts: list[tuple[np.ndarray, box_xx_yy | box_4corners, int]] = []
+
+        # Free boxes must be warped to a square before cropping
+        for free_box in free_boxes:
+            rect = np.array(free_box, dtype="float32")
+            cutout = four_point_transform(img_cv_grey, rect)
+            if 0 in cutout.shape:
+                continue
+            img_cutouts.append(
+                (cutout, free_box, min(rect[0][1], rect[1][1], rect[2][1], rect[3][1]))
+            )
+
+        # Horizontal boxes can be directly cropped out of the image
+        for box in horizontal_boxes:
+            x_min = max(0, box[0])
+            x_max = int(min(box[1], img_cv_grey.shape[1]))
+            y_min = max(0, box[2])
+            y_max = int(min(box[3], img_cv_grey.shape[0]))
+
+            if y_max - y_min <= 0 or x_max - x_min <= 0:
+                continue
+
+            cutout = img_cv_grey[y_min:y_max, x_min:x_max]
+            img_cutouts.append((cutout, box, y_min))
+
+        # Sort by vertical position
+        img_cutouts = sorted(img_cutouts, key=lambda item: item[2])
+
+        # Prepare cutouts for recognition
+        cutout_frames_list = self.prepare_recognizer_input([c[0] for c in img_cutouts])
+
+        return img_cutouts, cutout_frames_list
+
+    def prepare_recognizer_input(
+        self, cutout_images: list[np.ndarray]
+    ) -> list[torch.Tensor]:
+        """
+        Prepare cutout images for recognition by the recognizer model.
+
+        Args:
+            cutout_images: List of grayscale cutout images
+
+        Returns
+        -------
+            List of preprocessed image tensors ready for recognition
+        """
+        cutout_frames_list = []
+        for frame in cutout_images:
+            img = numpy_image_to_torch(frame[..., None] if frame.ndim == 2 else frame)
+            # Use top left pixel as background color for padding
+            pad_value = img[0][0][0][0].item() if img.numel() > 0 else 0
+            frame_resized, _, _ = resize_pad(
+                img,
+                self.recognizer_img_shape,
+                horizontal_float="left",
+                pad_value=pad_value,
+            )
+            cutout_frames_list.append(frame_resized)
+        return cutout_frames_list
+
     def recognizer_get_text(
         self,
         img_cv_grey: np.ndarray,
@@ -323,64 +419,12 @@ class EasyOCRApp:
                     confidence: np.float64
                         Prediction confidence.
         """
-        # If horizontal boxes and free boxes are not set, use the entire image instead
-        if not horizontal_boxes and not free_boxes:
-            y_max, x_max = img_cv_grey.shape
-            horizontal_boxes = [(0, x_max, 0, y_max)]
-            free_boxes = []
+        # Get detector output and prepare recognizer input
+        img_cutouts, cutout_frames_list = self.get_detector_output(
+            img_cv_grey, horizontal_boxes, free_boxes
+        )
 
-        ## Cut out boxes
-        # List[cutout image, box coords, minimum y coordinate]
-        img_cutouts: list[tuple[np.ndarray, box_xx_yy | box_4corners, int]] = []
-
-        # Free boxes must be warped to a square before cropping
-        for free_box in free_boxes:
-            rect = np.array(free_box, dtype="float32")
-            cutout = four_point_transform(img_cv_grey, rect)
-            # Sometimes a predicted parallelogram is not valid, and therefore has
-            # a cutout with a dimension of 0. We ignore these.
-            if 0 in cutout.shape:
-                continue
-
-            img_cutouts.append(
-                (cutout, free_box, min(rect[0][1], rect[1][1], rect[2][1], rect[3][1]))
-            )
-
-        # Horizontal boxes can be directly cropped out of the image
-        for box in horizontal_boxes:
-            x_min = max(0, box[0])
-            x_max = int(min(box[1], img_cv_grey.shape[1]))
-            y_min = max(0, box[2])
-            y_max = int(min(box[3], img_cv_grey.shape[0]))
-
-            # Sometimes a predicted parallelogram is not valid, and therefore has
-            # a cutout with a dimension of 0. We ignore these.
-            if y_max - y_min <= 0 or x_max - x_min <= 0:
-                continue
-
-            cutout = img_cv_grey[y_min:y_max, x_min:x_max]
-            img_cutouts.append((cutout, box, y_min))
-
-        img_cutouts = sorted(
-            img_cutouts, key=lambda item: item[2]
-        )  # sort by vertical position
-
-        # Preprocess cutouts to fit input shape of the recognizer
-        cutout_frames_list = []
-        for frame, _, _ in img_cutouts:
-            img = numpy_image_to_torch(frame[..., None])
-            # Use top left pixel as a heuristic of background color to use for padding
-            # Since zero padding creates a black rectangle that is sometimes parsed as
-            # another character.
-            frame_resized, _, _ = resize_pad(
-                img,
-                self.recognizer_img_shape,
-                horizontal_float="left",
-                pad_value=img[0][0][0][0].item(),
-            )
-            cutout_frames_list.append(frame_resized)
-
-        ## Predict text from all cutouts
+        # Predict text from all cutouts
         pred_text_confidence = self.recognizer_inference(cutout_frames_list)
 
         # For predictions with low confidence, predict again with higher contrast.
@@ -622,3 +666,91 @@ class EasyOCRApp:
             output.append((Image.fromarray(img), texts, confidences))
 
         return output
+
+    @classmethod
+    def get_calibration_data(
+        cls,
+        model: BaseModel,
+        calibration_dataset_name: str,
+        num_samples: int | None,
+        input_spec: InputSpec,
+        collection_model: CollectionModel,
+    ) -> DatasetEntries:
+        batch_size = get_batch_size(input_spec) or 1
+        encoder = collection_model.components["EasyOCRDetector"]
+        assert isinstance(encoder, BaseModel)
+
+        dataset = get_dataset_from_name(
+            calibration_dataset_name,
+            split=DatasetSplit.TRAIN,
+            input_spec=encoder.get_input_spec(),
+        )
+        num_samples = num_samples or dataset.default_num_calibration_samples()
+        num_samples = (num_samples // batch_size) * batch_size
+        print(f"Loading {num_samples} calibration samples.")
+        torch_dataset = sample_dataset(dataset, num_samples)
+        dataloader = DataLoader(torch_dataset, batch_size=batch_size)
+
+        # Create a EasyOCRApp instance
+        recognizer = collection_model.components.get("EasyOCRRecognizer", model)
+        app_instance = cls(
+            detector=encoder,
+            recognizer=recognizer,  # type: ignore[arg-type]
+            detector_img_shape=encoder.get_input_spec()["image"][0][2:],  # type: ignore[arg-type]
+            recognizer_img_shape=recognizer.get_input_spec()["image"][0][2:],  # type: ignore[arg-type]
+            lang_list=["en"],
+            decoder_mode="greedy",
+        )
+
+        inputs: list[list[torch.Tensor | np.ndarray]] = [
+            [] for _ in range(len(input_spec))
+        ]
+
+        for sample_input, _ in dataloader:
+            NHWC_int_numpy_frames, _ = app_to_net_image_inputs(sample_input)
+            NHWC_int_numpy_GRAY_frames = [
+                cv2.cvtColor(x, cv2.COLOR_RGB2GRAY) for x in NHWC_int_numpy_frames
+            ]
+
+            detector_input_frames, scales, paddings = app_instance.detector_preprocess(
+                NHWC_int_numpy_frames
+            )
+
+            model_name = model._get_name()
+            if model_name == "EasyOCRDetector":
+                inputs[0].append(detector_input_frames)
+
+            elif model_name == "EasyOCRRecognizer":
+                # Run detector to obtain text boxes
+                with torch.no_grad():
+                    detector_output = encoder(detector_input_frames)
+                horizontal_boxes_per_img, free_boxes_per_img = (
+                    app_instance.detector_postprocess(detector_output, scales, paddings)
+                )
+
+                # Prepare recognizer inputs
+                batch_cutouts = []
+                for img_gray, horizontal_boxes, free_boxes in zip(
+                    NHWC_int_numpy_GRAY_frames,
+                    horizontal_boxes_per_img,
+                    free_boxes_per_img,
+                    strict=False,
+                ):
+                    # Get detector output and prepare recognizer input
+                    _, cutout_frames_list = app_instance.get_detector_output(
+                        img_gray, horizontal_boxes, free_boxes
+                    )
+                    batch_cutouts.extend(cutout_frames_list)
+
+                if batch_cutouts:
+                    sample_tensor = torch.cat(batch_cutouts)
+                    for single_cutout in sample_tensor.split(1, dim=0):
+                        inputs[0].append(single_cutout)
+
+            else:
+                raise ValueError(
+                    f"Unsupported model for calibration: {model_name}. "
+                    "Expected 'EasyOCRDetector' or 'EasyOCRRecognizer'."
+                )
+
+        return make_hub_dataset_entries(tuple(inputs), list(input_spec.keys()))

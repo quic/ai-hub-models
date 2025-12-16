@@ -65,4 +65,6 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
             name="Peak Signal-to-Noise Ratio (PSNR)",
             unit="dB",
             description="A measure of how similar two images are.",
+            range=(0.0, None),
+            float_vs_device_threshold=10.0,
         )

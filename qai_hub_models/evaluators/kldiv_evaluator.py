@@ -207,5 +207,6 @@ class KLDivEvaluator(BaseEvaluator):
         return MetricMetadata(
             name="KL divergence",
             unit="kldiv",
-            description="A distance metric between two probability distributions.",
+            description="A distance metric between two probability distributions. Lower is better.",
+            range=(0.0, None),
         )
