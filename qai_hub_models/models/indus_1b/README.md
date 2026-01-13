@@ -4,7 +4,7 @@ Indus is today a 1.2 billion parameter model and has been supervised fine tuned 
 
 This is based on the implementation of IndusQ-1.1B found [here](https://huggingface.co/nickmalhotra/ProjectIndus). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/indus_1b).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/indus_1b).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 

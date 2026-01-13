@@ -50,7 +50,7 @@ class BaseEvaluator(ABC):
             If the model forward() function has 1 output, this is a tensor.
             If the model forward() function outputs multiple tensors, this is a tuple of tensors.
 
-        gt: torch.Tensor | Collection[torch.Tensor]
+        gt
             The ground truth(s) for this output.
 
             Some evaluators may accept only a Collection. Others may accept only a tensor.

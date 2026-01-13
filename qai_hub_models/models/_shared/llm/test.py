@@ -27,6 +27,8 @@ from qai_hub_models.models.common import Precision, QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.testing import patch_qai_hub
 
+GENIE_BUNDLES_ROOT = "genie_bundles"
+
 
 def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
     model = MagicMock()
@@ -191,7 +193,7 @@ def test_cli_device_with_skips_unsupported_context_length(
 
         with pytest.raises(
             ValueError,
-            match=r"The llama_v3_2_3b_instruct's context length is too large to deploy on SA8295P\. Please set the context length to 1024 or lower\.",
+            match=rf"The {base_name}'s context length is too large to deploy on SA8295P\. Please set the context length to 1024 or lower\.",
         ):
             export_main()  # Call the main function to submit the compile jobs
 

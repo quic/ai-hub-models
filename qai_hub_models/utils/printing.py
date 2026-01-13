@@ -24,10 +24,34 @@ from qai_hub_models.configs.devices_and_chipsets_yaml import (
     ScorecardDevice,
 )
 from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import METRICS_FUNCTIONS, generate_comparison_metrics
 
 _INFO_DASH = "-" * 60
+
+
+def print_tool_versions(
+    tool_versions: ToolVersions | None, tool_versions_are_from_device_job: bool = False
+) -> None:
+    """Print tool versions."""
+    print(_INFO_DASH)
+    if tool_versions is not None:
+        version_type = (
+            "compilation and on-device inference"
+            if tool_versions_are_from_device_job
+            else "compilation"
+        )
+        print(
+            f"The versions of tools (eg. SDKs, runtimes) used during {version_type} via AI Hub Workbench:"
+        )
+        print(tool_versions)
+        if not tool_versions_are_from_device_job:
+            print(
+                "NOTE: Some tool (eg. SDK, runtime) versions required to run this model may be missing, as those tools were not needed for compilation. "
+                "Run a profile job on the model to get the full set of tools versions required to run the model on-device."
+            )
+    print(_INFO_DASH)
 
 
 def print_with_box(data: list[str]) -> None:
@@ -253,27 +277,24 @@ def print_file_tree_changes(
 
     Parameters
     ----------
-        base_dir: str
-            The "top level" directory in which all files live.
-
-        files_unmodified: list[str]
-            ABSOLUTE paths to files in base_dir that are not modified.
-
-        files_added: list[str]
-            ABSOLUTE paths to files in base_dir that will be added.
-
-        files_unmodified: list[str]
-            ABSOLUTE paths to files in base_dir that will be removed.
+    base_dir
+        The "top level" directory in which all files live.
+    files_unmodified
+        ABSOLUTE paths to files in base_dir that are not modified.
+    files_added
+        ABSOLUTE paths to files in base_dir that will be added.
+    files_removed
+        ABSOLUTE paths to files in base_dir that will be removed.
 
     Returns
     -------
-        list[str]
-            Output lines (return value mainly used for unit testing)
+    output_lines
+        Output lines (return value mainly used for unit testing)
 
     Raises
     ------
-        AssertionError
-            If any file path is not contained within base_dir.
+    AssertionError
+        If any file path is not contained within base_dir.
     """
     if files_removed is None:
         files_removed = []

@@ -148,12 +148,19 @@ class YoloV7(Yolo):
             self.include_postprocessing, self.split_output
         )
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
         if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
-        if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
-        return "--range_scheme min_max"
+            options += f" --range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
+        elif precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
+            options += f" --range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
+        else:
+            options += " --range_scheme min_max"
+        return options
 
     @staticmethod
     def get_hub_litemp_percentage(_) -> float:

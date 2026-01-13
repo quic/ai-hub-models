@@ -47,10 +47,10 @@ def io_details_from_tflite_interpreter(
 
     Returns
     -------
-    str
+    io_name
         I/O name.
 
-    TFLiteIODetails
+    io_details
         Typed IO details.
 
     Raises
@@ -124,10 +124,10 @@ def extract_io_types_from_tflite_model(
 
     Returns
     -------
-    dict[str, ModelIODetails]
+    input_details
         Details for each model input, in model-declared input order.
 
-    dict[str, ModelIODetails]
+    output_details
         Details for each model output, in model-declared output order.
 
     Raises

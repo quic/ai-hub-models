@@ -129,7 +129,7 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
         model_path
             TF Lite model to load.
 
-        delegate_priority_order
+        delegate_attempt_order
             Delegates, in order they should be registered to the interpreter.
 
             The "inner list" defines which delegates should be registered when creating the interpreter.

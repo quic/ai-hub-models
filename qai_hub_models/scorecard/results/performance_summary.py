@@ -62,6 +62,16 @@ from qai_hub_models.scorecard.results.scorecard_job import (
 #   InferenceJob (mapped by ScorecardProfilePath)
 
 
+def _santize_chipset_name(name: str) -> str:
+    """
+    We want some chipset names to appear differently on the website and perf.yaml
+    compared to the name registered in workbench.
+    """
+    if name.endswith("-for-galaxy"):
+        return name[: -len("-for-galaxy")]
+    return name
+
+
 class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar]):
     scorecard_job_type: type[ScorecardJobTypeVar]
 
@@ -153,17 +163,14 @@ class ScorecardModelPrecisionSummary(
 
         Parameters
         ----------
-            model_id: str
-                Model ID.
-
-            precision: Precision
-                Model quantization scheme.
-
-            runs_per_device: dict[ScorecardDevice, DeviceSummaryTypeVar] | None
-                Set if the model does not have components.
-
-            runs_per_component_device: dict[component_id, dict[ScorecardDevice, DeviceSummaryTypeVar]] | None
-                Set if the model has components.
+        model_id
+            Model ID.
+        precision
+            Model quantization scheme.
+        runs_per_device
+            Set if the model does not have components.
+        runs_per_component_device
+            Set if the model has components.
         """
         if (runs_per_device is None) == (runs_per_component_device is None):
             raise ValueError(
@@ -229,10 +236,17 @@ class ScorecardModelPrecisionSummary(
 
         Parameters
         ----------
-            device: ScorecardDevice
-            path: ScorecardPathOrNoneTypeVar
-            component: str | None
-                To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+        device
+            The target device.
+        path
+            The scorecard path.
+        component
+            To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+
+        Returns
+        -------
+        job
+            The scorecard job matching the parameters.
         """
         if component:
             if not self.has_components and component != self.model_id:
@@ -290,11 +304,10 @@ class ScorecardModelSummary(
 
         Parameters
         ----------
-            model_id: str
-                Model ID.
-
-            summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
-                Summary per precision.
+        model_id
+            Model ID.
+        summaries_per_precision
+            Summary per precision.
         """
         if summaries_per_precision is None:
             summaries_per_precision = {}
@@ -342,10 +355,19 @@ class ScorecardModelSummary(
 
         Parameters
         ----------
-            device: ScorecardDevice
-            path: ScorecardPathOrNoneTypeVar
-            component: str | None
-                To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+        precision
+            The precision to query.
+        device
+            The target device.
+        path
+            The scorecard path.
+        component
+            To make writing helper functions easier, users may pass component == model_id if this model does not have components.
+
+        Returns
+        -------
+        job
+            The scorecard job matching the parameters.
         """
         if model_summary := self.summaries_per_precision.get(precision):
             return model_summary.get_run(device, path, component)  # type: ignore[arg-type,return-value]
@@ -624,9 +646,12 @@ class ModelPerfSummary(
                 ).performance_metrics:
                     supported_chipsets.update(device.extended_supported_chipsets)
 
+        displayed_chipsets = [
+            _santize_chipset_name(chipset) for chipset in supported_chipsets
+        ]
         return QAIHMModelPerf(
             supported_devices=get_supported_devices(supported_chipsets),
-            supported_chipsets=sorted_chipsets(supported_chipsets),
+            supported_chipsets=sorted_chipsets(set(displayed_chipsets)),
             precisions=precision_cards,
         )
 

@@ -105,10 +105,22 @@ class SemanticKittiDataset(BaseDataset):
         """
         Returns a tuple of input lidar proj tensor and label data.
 
-        Label data is a tuple with the following entries:
-            proj_x (torch.tensor): x coordinates of lidar points with shape [max_points,]
-            proj_y (torch.tensor): y coordinates of lidar points with shape [max_points,]
-            unproj_labels (torch.tensor): semantic labels with shape [max_points,]
+        Parameters
+        ----------
+        index
+            Index of the sample to retrieve.
+
+        Returns
+        -------
+        proj
+            Input lidar projection tensor.
+        label_data
+            proj_x
+                x coordinates of lidar points with shape [max_points,].
+            proj_y
+                y coordinates of lidar points with shape [max_points,].
+            unproj_labels
+                Semantic labels with shape [max_points,].
         """
         scan_file = self.scan_files[index]
         label_file = self.label_files[index]

@@ -96,17 +96,25 @@ def get_calibration_data(
 
     Parameters
     ----------
-        model: The model for which to get calibration data.
-        input_spec: The input spec of the model. Used to ensure the returned dataset's names
-            match the input names of the model.
-        num_samples: Number of data samples to use. If not specified, uses
-            default specified on dataset.
-        app: The model's app used with collection_model to fetch calibration data
-            via app.get_calibration_data() if it is instance of CollectionAppProtocol.
-        collection_model: It is required when using app-based calibration.
+    model
+        The model for which to get calibration data.
+    input_spec
+        The input spec of the model. Used to ensure the returned dataset's names
+        match the input names of the model.
+    num_samples
+        Number of data samples to use. If not specified, uses
+        default specified on dataset.
+    dataset_options
+        Additional options to pass to the dataset constructor.
+    app
+        The model's app used with collection_model to fetch calibration data
+        via app.get_calibration_data() if it is instance of CollectionAppProtocol.
+    collection_model
+        It is required when using app-based calibration.
 
     Returns
     -------
+    calibration_dataset
         Dataset compatible with the format expected by AI Hub Workbench.
     """
     calibration_dataset_name = model.calibration_dataset_name()

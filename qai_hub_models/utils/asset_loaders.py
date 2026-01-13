@@ -17,7 +17,7 @@ import tempfile
 import threading
 import time
 import zipfile
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager, suppress
 from enum import Enum
 from functools import partial
@@ -383,10 +383,14 @@ def find_replace_in_repo(
 
     Parameters
     ----------
-        repo_path: Local filepath to the repo of interest.
-        filepath: Filepath within the repo to the file to change.
-        find_str: The string that needs to be replaced.
-        replace_str: The string with which to replace all instances of `find_str`.
+    repo_path
+        Local filepath to the repo of interest.
+    filepaths
+        Filepath within the repo to the file to change.
+    find_str
+        The string that needs to be replaced.
+    replace_str
+        The string with which to replace all instances of `find_str`.
     """
     if isinstance(filepaths, str):
         filepaths = [filepaths]
@@ -678,19 +682,27 @@ class CachedWebAsset:
 
     @staticmethod
     def from_asset_store(
-        relative_store_file_path: str, num_retries=4, asset_config=ASSET_CONFIG
+        relative_store_file_path: str,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from the online qaihm asset store.
 
         Parameters
         ----------
-            relative_store_file_path: Path relative to `qai_hub_models` cache root to store this asset.
-                                      (also relative to the root of the online file store)
+        relative_store_file_path
+            Path relative to `qai_hub_models` cache root to store this asset.
+            (also relative to the root of the online file store)
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            num_retries: Number of retries when downloading thie file.
-
-            asset_config: Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebAsset instance for the file.
         """
         return CachedWebAsset(
             asset_config.get_asset_url(relative_store_file_path),
@@ -704,22 +716,28 @@ class CachedWebAsset:
     def from_google_drive(
         gdrive_file_id: str,
         relative_store_file_path: str | Path,
-        num_retries=4,
-        asset_config=ASSET_CONFIG,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from google drive.
 
         Parameters
         ----------
-            gdrive_file_id: Unique identifier of the file in Google Drive.
-                Typically found in the URL.
+        gdrive_file_id
+            Unique identifier of the file in Google Drive.
+            Typically found in the URL.
+        relative_store_file_path
+            Path relative to `qai_hub_models` cache root to store this asset.
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            relative_store_file_path: Path relative to `qai_hub_models` cache root to store this asset.
-
-            num_retries: Number of retries when downloading thie file.
-
-            asset_config: Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebAsset instance for the file.
         """
         return CachedWebAsset(
             f"https://drive.google.com/uc?id={gdrive_file_id}",
@@ -729,7 +747,7 @@ class CachedWebAsset:
             num_retries,
         )
 
-    def path(self, extracted=None) -> Path:
+    def path(self, extracted: bool | None = None) -> Path:
         """
         Get the path of this asset on disk.
 
@@ -738,8 +756,14 @@ class CachedWebAsset:
 
         Parameters
         ----------
-            extracted: If true, return the path of the extracted asset on disk.
-                       If false, return the path of the archive path on disk.
+        extracted
+            If true, return the path of the extracted asset on disk.
+            If false, return the path of the archive path on disk.
+
+        Returns
+        -------
+        path
+            Path to the asset on disk.
         """
         file: str | Path
         if (extracted is None and self.is_extracted) or extracted:
@@ -749,15 +773,21 @@ class CachedWebAsset:
 
         return self.asset_config.get_local_store_path() / file
 
-    def fetch(self, force=False, extract=False) -> Path:
+    def fetch(self, force: bool = False, extract: bool = False) -> Path:
         """
         Fetch this file from the web if it does not exist on disk.
 
         Parameters
         ----------
-            force: If the file exists on disk already, discard it and download it again.
+        force
+            If the file exists on disk already, discard it and download it again.
+        extract
+            Extract the asset after downloading it.
 
-            extract: Extract the asset after downloading it.
+        Returns
+        -------
+        path
+            Path to the fetched asset on disk.
         """
         path = self.path()
 
@@ -846,25 +876,29 @@ class CachedWebModelAsset(CachedWebAsset):
         model_id: str,
         model_asset_version: str | int,
         filename: str | Path,
-        num_retries=4,
-        asset_config=ASSET_CONFIG,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from the online qaihm asset store.
 
         Parameters
         ----------
-            model_id: str
-                Model ID
+        model_id
+            Model ID
+        model_asset_version
+            Asset version for this model.
+        filename
+            Filename for this asset on disk.
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            model_asset_version: str | int
-                Asset version for this model.
-
-            num_retries: int
-                Number of retries when downloading thie file.
-
-            asset_config: ModelZooAssetConfig
-                Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebModelAsset instance for the file.
         """
         web_store_path = asset_config.get_model_asset_url(
             model_id, model_asset_version, filename
@@ -885,26 +919,32 @@ class CachedWebModelAsset(CachedWebAsset):
         model_id: str,
         model_asset_version: str | int,
         filename: str,
-        num_retries=4,
-        asset_config=ASSET_CONFIG,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from google drive.
 
         Parameters
         ----------
-            gdrive_file_id: Unique identifier of the file in Google Drive.
-                Typically found in the URL.
+        gdrive_file_id
+            Unique identifier of the file in Google Drive.
+            Typically found in the URL.
+        model_id
+            Model ID
+        model_asset_version
+            Asset version for this model.
+        filename
+            Filename for this asset on disk.
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            model_id: Model ID
-
-            model_asset_version: Asset version for this model.
-
-            filename: Filename for this asset on disk.
-
-            num_retries: Number of retries when downloading thie file.
-
-            asset_config: Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebModelAsset instance for the file.
         """
         return CachedWebModelAsset(
             f"https://drive.google.com/uc?id={gdrive_file_id}",
@@ -952,21 +992,29 @@ class CachedWebDatasetAsset(CachedWebAsset):
         dataset_id: str,
         dataset_version: str | int,
         filename: str,
-        num_retries=4,
-        asset_config=ASSET_CONFIG,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from the online qaihm asset store.
 
         Parameters
         ----------
-            model_id: Model ID
+        dataset_id
+            Dataset ID
+        dataset_version
+            Asset version for this dataset.
+        filename
+            Filename for this asset on disk.
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            dataset_version: Asset version for this model.
-
-            num_retries: Number of retries when downloading thie file.
-
-            asset_config: Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebDatasetAsset instance for the file.
         """
         web_store_path = asset_config.get_dataset_asset_url(
             dataset_id, dataset_version, filename
@@ -987,26 +1035,32 @@ class CachedWebDatasetAsset(CachedWebAsset):
         model_id: str,
         model_asset_version: str | int,
         filename: str,
-        num_retries=4,
-        asset_config=ASSET_CONFIG,
+        num_retries: int = 4,
+        asset_config: ModelZooAssetConfig = ASSET_CONFIG,
     ):
         """
         File from google drive.
 
         Parameters
         ----------
-            gdrive_file_id: Unique identifier of the file in Google Drive.
-                Typically found in the URL.
+        gdrive_file_id
+            Unique identifier of the file in Google Drive.
+            Typically found in the URL.
+        model_id
+            Model ID
+        model_asset_version
+            Asset version for this model.
+        filename
+            Filename for this asset on disk.
+        num_retries
+            Number of retries when downloading thie file.
+        asset_config
+            Asset config to use to save this file.
 
-            model_id: Model ID
-
-            model_asset_version: Asset version for this model.
-
-            filename: Filename for this asset on disk.
-
-            num_retries: Number of retries when downloading thie file.
-
-            asset_config: Asset config to use to save this file.
+        Returns
+        -------
+        asset
+            CachedWebDatasetAsset instance for the file.
         """
         return CachedWebDatasetAsset(
             f"https://drive.google.com/uc?id={gdrive_file_id}",
@@ -1063,15 +1117,16 @@ def download_and_cache_google_drive(web_url: str, dst_path: str, num_retries: in
 
     Parameters
     ----------
-        file_id: Unique identifier of the file in Google Drive.
-            Typically found in the URL.
-        model_name: Model for which this asset is being downloaded.
-            Used to choose where in the local filesystem to put it.
-        filename: Filename under which it will be saved locally.
-        num_retries: Number of times to retry in case download fails.
+    web_url
+        URL of the file in Google Drive.
+    dst_path
+        Destination path where the file will be saved.
+    num_retries
+        Number of times to retry in case download fails.
 
     Returns
     -------
+    dst_path
         Filepath within the local filesystem.
     """
     for i in range(num_retries):
@@ -1106,8 +1161,15 @@ def extract_zip_file(
 
     Parameters
     ----------
-        filepath_str: String of the path to the zip file in the local directory.
-        out_path: Path to which contents should be extracted.
+    filepath_str
+        String of the path to the zip file in the local directory.
+    out_path
+        Path to which contents should be extracted.
+
+    Returns
+    -------
+    out_path
+        Path to the extracted directory.
     """
     filepath = Path(filepath_str)
     with ZipFile(filepath, "r") as zf:
@@ -1169,15 +1231,21 @@ def callback_with_retry(
 
 
 @contextmanager
-def qaihm_temp_dir(debug_base_dir: str | None = None):
+def qaihm_temp_dir(debug_base_dir: str | None = None) -> Generator[str, None, None]:
     """
     Keep temp file under LOCAL_STORE_DEFAULT_PATH instead of /tmp which has
     limited space.
 
     Parameters
     ----------
-        debug_base_dir: If provided, use this directory instead of creating a temp directory.
-                       If None, creates a temporary directory as usual.
+    debug_base_dir
+        If provided, use this directory instead of creating a temp directory.
+        If None, creates a temporary directory as usual.
+
+    Yields
+    ------
+    str
+        Path to the temporary directory.
     """
     if debug_base_dir is not None:
         # Use the debug directory directly

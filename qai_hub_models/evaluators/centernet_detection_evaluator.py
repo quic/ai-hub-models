@@ -31,15 +31,31 @@ class CenternetDetectionEvaluator(DetectionEvaluator):
         mAP_default_increment_iOU: float | None = None,
     ):
         """
-        decode:
+        Parameters
+        ----------
+        image_height
+            Height of the input image.
+        image_width
+            Width of the input image.
+        decode
             Function to decode the raw model outputs
             into detected objects/detections.
-        cat_spec_wh (bool):
-            If True, indicates that the `wh` tensoris category-specific
+        max_dets
+            Maximum number of detections per image.
+        cat_spec_wh
+            If True, indicates that the `wh` tensor is category-specific
             (i.e., its channel dimension is `2 * num_classes`). If False,
             `wh` is not category-specific. Defaults to False.
-        max_det (int):
-            Maximum number of detections per image.
+        nms_iou_threshold
+            IOU threshold for non-maximum suppression.
+        score_threshold
+            Score threshold for filtering detections.
+        mAP_default_low_iOU
+            Low IOU threshold for mAP calculation.
+        mAP_default_high_iOU
+            High IOU threshold for mAP calculation.
+        mAP_default_increment_iOU
+            IOU increment for mAP calculation.
         """
         self.decode = decode
         self.max_dets = max_dets
@@ -56,27 +72,36 @@ class CenternetDetectionEvaluator(DetectionEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
+        Add a batch of predictions and ground truth for evaluation.
+
         Parameters
         ----------
-            output: A tuple of tensors containing;
-                - hm (torch.Tensor): Heatmap with the shape of
-                    [B, num_classes, H//4, W//4].
-                - wh (torch.Tensor): Width/Height value with the
-                    shape of [B, 2, H//4, W//4].
-                - reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H//4, W//4].
-                where num_classes = 80.
+        output
+            hm
+                Heatmap with the shape of [B, num_classes, H//4, W//4].
+            wh
+                Width/Height value with the shape of [B, 2, H//4, W//4].
+            reg
+                2D regression value with the shape of [B, 2, H//4, W//4].
 
-            gt: A tuple of tensors containing the ground truth bounding boxes and other metadata.
-                - image_ids of shape (batch_size,)
-                - image heights of shape (batch_size,)
-                - image widths of shape (batch_size,)
-                - bounding boxes of shape (batch_size, max_boxes, 4) - 4 order is (x1, y1, x2, y2)
-                - classes of shape (batch_size, max_boxes)
-                - num nonzero boxes for each sample of shape (batch_size,)
+            where num_classes = 80.
+        gt
+            image_ids
+                Shape (batch_size,).
+            image_heights
+                Shape (batch_size,).
+            image_widths
+                Shape (batch_size,).
+            bounding_boxes
+                Shape (batch_size, max_boxes, 4) where 4 order is (x1, y1, x2, y2).
+            classes
+                Shape (batch_size, max_boxes).
+            num_boxes
+                Number of nonzero boxes for each sample, shape (batch_size,).
 
-        Note:
-            The `output` and `gt` tensors should be of the same length, i.e., the same batch size.
+        Note
+        ----
+        The output and gt tensors should be of the same length, i.e., the same batch size.
         """
         hm, wh, reg = output
         dets = self.decode(hm, wh, reg, self.cat_spec_wh, self.max_dets)

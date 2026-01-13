@@ -40,8 +40,10 @@ class InpaintEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            fake_images(torch.Tensor): model output with shape (B, 3, 512, 512) and range [0, 1]
-            real_images(torch.Tensor): ground truth with shape (B, 3, 512, 512) and range [0, 1]
+        fake_images
+            Model output with shape (B, 3, 512, 512) and range [0, 1].
+        real_images
+            Ground truth with shape (B, 3, 512, 512) and range [0, 1].
         """
         fake_np = self.postprocess(fake_images)
         real_np = self.postprocess(real_images)
@@ -57,11 +59,12 @@ class InpaintEvaluator(BaseEvaluator):
         """
         Calculate and store all metrics for one image pair.
 
-
         Parameters
         ----------
-            real: Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255]
-            fake: Model output image with shape (512, 512, 3), type of uint8, and range [0, 255]
+        real
+            Ground truth image with shape (512, 512, 3), type of uint8, and range [0, 255].
+        fake
+            Model output image with shape (512, 512, 3), type of uint8, and range [0, 255].
         """
         if "mae" in self.metrics:
             real_fp, fake_fp = real.astype(np.float32), fake.astype(np.float32)

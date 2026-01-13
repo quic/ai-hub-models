@@ -95,15 +95,18 @@ def assert_most_same(arr1: np.ndarray, arr2: np.ndarray, diff_tol: float) -> Non
 
     Parameters
     ----------
-        arr1: First input image array.
-        arr2: Second input image array.
-        diff_tol: Float in range [0,1] representing percentage of values
-            that can be different while still having the assertion pass.
+    arr1
+        First input image array.
+    arr2
+        Second input image array.
+    diff_tol
+        Float in range [0,1] representing percentage of values
+        that can be different while still having the assertion pass.
 
     Raises
     ------
-        AssertionError if input arrays are different size,
-            or too many values are different.
+    AssertionError
+        If input arrays are different size, or too many values are different.
     """
     different_values = arr1 != arr2
     assert np.mean(different_values) <= diff_tol, (
@@ -128,19 +131,26 @@ def assert_most_close(
 
     Parameters
     ----------
-        arr1: First input image array.
-        arr2: Second input image array.
-        diff_tol: Float in range [0,1] representing percentage of values
-            that can be different while still having the assertion pass.
-        atol: See rtol documentation.
-        rtol: Two values a, b are considered close if the following expresion is true
-            `absolute(a - b) <= (atol + rtol * absolute(b))`
-            Documentation copied from `np.isclose`.
+    arr1
+        First input image array.
+    arr2
+        Second input image array.
+    diff_tol
+        Float in range [0,1] representing percentage of values
+        that can be different while still having the assertion pass.
+    rtol
+        Two values a, b are considered close if the following expresion is true
+        `absolute(a - b) <= (atol + rtol * absolute(b))`
+        Documentation copied from `np.isclose`.
+        Default is 0.0.
+    atol
+        See rtol documentation.
+        Default is 0.0.
 
     Raises
     ------
-        AssertionError if input arrays are different size,
-            or too many values are not close.
+    AssertionError
+        If input arrays are different size, or too many values are not close.
     """
     not_close_values = ~np.isclose(arr1, arr2, atol=atol, rtol=rtol)
     assert np.mean(not_close_values) <= diff_tol, (
@@ -300,9 +310,14 @@ def mock_get_calibration_data(
         Model input spec
     num_samples
         Number of samples used to calibrate
+    app
+        Application object. Default is None.
+    collection_model
+        Collection model object. Default is None.
 
     Returns
     -------
+    hub.Dataset
         Hub dataset object that was uploaded
     """
     cache_prefix_name = model.calibration_dataset_name() or model.__class__.__name__
@@ -340,7 +355,10 @@ def get_val_dataset_id_keys(
 
     Returns
     -------
-    Tuple of dataset id key for input and ground truth
+    input_key
+        Dataset id key for input.
+    gt_key
+        Dataset id key for ground truth.
     """
     base_name = f"{dataset_name}_val_"
     if not apply_channel_transpose:
@@ -384,7 +402,12 @@ def get_hub_val_dataset(
         If False, returns all inputs in channel first format.
         If True, applies channel last transpose for the inputs specified by the model.
     num_samples
-        Number of samples to sample from the full dataset.
+        Number of samples to sample from the full dataset. Default is None.
+
+    Returns
+    -------
+    hub.Dataset
+        Hub dataset containing validation data.
     """
     assert issubclass(model_cls, BaseModel), (
         "CollectionModel is not yet supported by this function."
@@ -521,13 +544,16 @@ def has_get_unsupported_reason(cls: type, stop_at_classes: list[type]) -> bool:
 
     Parameters
     ----------
-        cls (type): The class to check.
-        stop_at_classes (list[type]): A list of classes at which to stop the search in the MRO.
+    cls
+        The class to check.
+    stop_at_classes
+        A list of classes at which to stop the search in the MRO.
 
     Returns
     -------
-        bool: True if 'get_unsupported_reason' is found in cls or one of its parent classes
-              before reaching any of the stop_at_classes; False otherwise.
+    has_method
+        True if 'get_unsupported_reason' is found in cls or one of its parent classes
+        before reaching any of the stop_at_classes; False otherwise.
     """
     for base in cls.__mro__:
         if base in stop_at_classes:

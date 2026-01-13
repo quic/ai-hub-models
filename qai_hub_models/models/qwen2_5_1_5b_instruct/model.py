@@ -37,7 +37,7 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 
 # Minimum memory (RAM+swap) recommended for export.
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 3
 MIN_MEMORY_RECOMMENDED = 60
 DEFAULT_PRECISION = Precision.w4
 SUPPORTED_PRECISIONS = [Precision.w4]

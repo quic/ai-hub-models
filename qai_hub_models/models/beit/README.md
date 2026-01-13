@@ -4,7 +4,7 @@ Beit is a machine learning model that can classify images from the Imagenet data
 
 This is based on the implementation of Beit found [here](https://github.com/microsoft/unilm/tree/master/beit). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/beit).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/beit).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Beit can be found
   [here](https://github.com/pytorch/vision/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

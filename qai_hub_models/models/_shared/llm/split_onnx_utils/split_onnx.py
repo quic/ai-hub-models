@@ -142,7 +142,7 @@ class OnnxSplitter:
             count += 1
             graphname = f"{self.model.graph.name}_split{count}"
             if self.verbose:
-                print(f"Partitoin new graph: {graphname} for outputs[{output_tensors}]")
+                print(f"Partition new graph: {graphname} for outputs[{output_tensors}]")
             subgraph = self.partition_subgraph(
                 graphname, output_tensors, additional_input_tensors
             )

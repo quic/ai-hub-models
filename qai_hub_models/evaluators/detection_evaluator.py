@@ -32,12 +32,12 @@ class mAPEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            mAP_default_low_iOU:
-                The default low iOU (inclusive) of the range for which average mAP should be calculated.
-            mAP_default_high_iOU:
-                The default high iOU (inclusive) of the range for which average mAP should be calculated.
-            mAP_default_increment_iOU:
-                The default iOU increment for which average mAP should be calculated.
+        mAP_default_low_iOU
+            The default low iOU (inclusive) of the range for which average mAP should be calculated.
+        mAP_default_high_iOU
+            The default high iOU (inclusive) of the range for which average mAP should be calculated.
+        mAP_default_increment_iOU
+            The default iOU increment for which average mAP should be calculated.
         """
         self.mAP_default_low_iOU = (
             mAP_default_low_iOU
@@ -69,12 +69,12 @@ class mAPEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            gt_bbox:
-                Ground truth bounding boxes. Expected box format is
-                    x1, y1, x2, y2, in pixel space.
-            pred_bbox:
-                Predicted bounding boxes. Expected box format is
-                    x1, y1, x2, y2, in pixel space.
+        gt_bbox
+            Ground truth bounding boxes. Expected box format is
+                x1, y1, x2, y2, in pixel space.
+        pred_bbox
+            Predicted bounding boxes. Expected box format is
+                x1, y1, x2, y2, in pixel space.
         """
         self.gt_bbox += gt_bbox
         self.pred_bbox += pred_bbox
@@ -95,25 +95,25 @@ class mAPEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            low_iOU:
-                Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
-            high_iOU:
-                Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
-            increment_iOU:
-                iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
+        low_iOU
+            Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
+        high_iOU
+            Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
+        increment_iOU
+            iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
 
         Returns
         -------
-            mAP@low_iOU:high_iOU
-                mAP averaged over the given iOU range with the given increment.
-            mAP_by_iOU
-                mAP calculated for each increment iOU in the range.
-            low_iOU
-                Bottom of iOU range (inclusive).
-            high_iOU:
-                Top of iOU range (inclusive).
-            increment_iOU:
-                iOU increments at which to calculate mAP.
+        mAP
+            mAP averaged over the given iOU range with the given increment.
+        mAP_by_iOU
+            mAP calculated for each increment iOU in the range.
+        low_iOU
+            Bottom of iOU range (inclusive).
+        high_iOU
+            Top of iOU range (inclusive).
+        increment_iOU
+            iOU increments at which to calculate mAP.
         """
         low_iOU = low_iOU if low_iOU is not None else self.mAP_default_low_iOU
         high_iOU = high_iOU if high_iOU is not None else self.mAP_default_high_iOU
@@ -149,12 +149,17 @@ class mAPEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            low_iOU:
-                Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
-            high_iOU:
-                Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
-            increment_iOU:
-                iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
+        low_iOU
+            Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
+        high_iOU
+            Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
+        increment_iOU
+            iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
+
+        Returns
+        -------
+        mAP
+            mAP averaged over the given iOU range.
         """
         return self.get_mAP(low_iOU, high_iOU, increment_iOU)[0]
 
@@ -169,12 +174,17 @@ class mAPEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            low_iOU:
-                Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
-            high_iOU:
-                Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
-            increment_iOU:
-                iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
+        low_iOU
+            Bottom of iOU range (inclusive). Default is self.mAP_default_low_iOU
+        high_iOU
+            Top of iOU range (inclusive). Default is self.mAP_default_high_iOU
+        increment_iOU
+            iOU increments at which to calculate mAP. Default is self.mAP_default_increment_iOU
+
+        Returns
+        -------
+        formatted_mAP
+            Formatted mAP string.
         """
         mAP, _, low_iOU, high_iOU, increment_iOU = self.get_mAP(
             low_iOU, high_iOU, increment_iOU
@@ -209,28 +219,28 @@ class DetectionEvaluator(mAPEvaluator):
         """
         Parameters
         ----------
-            image_height:
-                Model input image height.
-            image_width:
-                Model input image width.
-            nms_iou_threshold:
-                If set, class-dependent non-maximum-suppression is applied
-                to the model's output boxes with this iou threshold.
-            score_threshold:
-                If set, all detections below the given score are discarded.
-            mAP_default_low_iOU:
-                The default low iOU (inclusive) of the range for which average mAP should be calculated.
-            mAP_default_high_iOU:
-                The default high iOU (inclusive) of the range for which average mAP should be calculated.
-            mAP_default_increment_iOU:
-                The default iOU increment for which average mAP should be calculated.
+        image_height
+            Model input image height.
+        image_width
+            Model input image width.
+        nms_iou_threshold
+            If set, class-dependent non-maximum-suppression is applied
+            to the model's output boxes with this iou threshold.
+        score_threshold
+            If set, all detections below the given score are discarded.
+        mAP_default_low_iOU
+            The default low iOU (inclusive) of the range for which average mAP should be calculated.
+        mAP_default_high_iOU
+            The default high iOU (inclusive) of the range for which average mAP should be calculated.
+        mAP_default_increment_iOU
+            The default iOU increment for which average mAP should be calculated.
         """
         super().__init__(
             mAP_default_low_iOU, mAP_default_high_iOU, mAP_default_increment_iOU
         )
         self.reset()
-        self.scale_x = 1 / image_height
-        self.scale_y = 1 / image_width
+        self.scale_x = 1 / image_width
+        self.scale_y = 1 / image_height
         self.nms_iou_threshold = nms_iou_threshold
         self.score_threshold = score_threshold
 
@@ -238,21 +248,26 @@ class DetectionEvaluator(mAPEvaluator):
         """
         Parameters
         ----------
-            output: A tuple of tensors containing the predicted bounding boxes, scores, and class indices.
-                - bounding boxes with shape (batch_size, num_candidate_boxes, 4) - 4 order is (x1, y1, x2, y2)
-                - scores with shape (batch_size, num_candidate_boxes)
-                - class predictions with shape (batch_size, num_candidate_boxes)
-
-            gt: A tuple of tensors containing the ground truth bounding boxes and other metadata.
-                - image_ids of shape (batch_size,)
-                - image heights of shape (batch_size,)
-                - image widths of shape (batch_size,)
-                - bounding boxes of shape (batch_size, max_boxes, 4) - 4 order is (x1, y1, x2, y2)
-                - classes of shape (batch_size, max_boxes)
-                - num nonzero boxes for each sample of shape (batch_size,)
-
-        Note:
-            The `output` and `gt` tensors should be of the same length, i.e., the same batch size.
+        output
+            pred_boxes
+                Shape (batch_size, num_candidate_boxes, 4) where 4 order is (x1, y1, x2, y2).
+            pred_scores
+                Shape (batch_size, num_candidate_boxes).
+            pred_class_idx
+                Shape (batch_size, num_candidate_boxes).
+        gt
+            image_ids
+                Shape (batch_size,).
+            image_heights
+                Shape (batch_size,).
+            image_widths
+                Shape (batch_size,).
+            bounding_boxes
+                Shape (batch_size, max_boxes, 4) where 4 order is (x1, y1, x2, y2).
+            classes
+                Shape (batch_size, max_boxes).
+            num_boxes
+                Number of nonzero boxes for each sample, shape (batch_size,).
         """
         image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
         pred_boxes, pred_scores, pred_class_idx = output

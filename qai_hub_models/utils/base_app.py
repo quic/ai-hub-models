@@ -49,16 +49,22 @@ class CollectionAppProtocol(Protocol):
 
         Parameters
         ----------
-            model: The model for which to get calibration data.
-            calibration_dataset_name: Dataset name to use for calibration.
-            num_samples: Number of data samples to use. If not specified, uses
-                default specified on dataset.
-            input_spec: The input spec of the model. Used to ensure the returned
-                dataset's names match the input names of the model.
-            collection_model: It is required when using app-based calibration.
+        model
+            The model for which to get calibration data.
+        calibration_dataset_name
+            Dataset name to use for calibration.
+        num_samples
+            Number of data samples to use. If not specified, uses
+            default specified on dataset.
+        input_spec
+            The input spec of the model. Used to ensure the returned
+            dataset's names match the input names of the model.
+        collection_model
+            It is required when using app-based calibration.
 
         Returns
         -------
+        DatasetEntries
             Dataset compatible with the format expected by AI Hub Workbench.
         """
         ...

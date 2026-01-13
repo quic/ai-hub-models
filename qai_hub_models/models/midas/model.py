@@ -144,8 +144,13 @@ class Midas(DepthEstimationModel):
             image = normalize_image_torchvision(image)
         return self.model(image)
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
+        return options + " --range_scheme min_max"
 
     @staticmethod
     def eval_datasets() -> list[str]:

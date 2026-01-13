@@ -33,17 +33,30 @@ class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Model predictions containing:
-                - heatmaps_result: Tensor[float], [batch, 17, 33, 17]
-                - offsets_result: Tensor[float], [batch, 34, 33, 17]
-                - displacement_fwd_result: Tensor[float], [batch, 32, 33, 17]
-                - displacement_bwd_result: Tensor[float], [batch, 32, 33, 17]
-                - max_vals: Tensor[float], [batch, 17, 33, 17]
-            gt: Ground truth data containing:
-                - image_ids: Tensor[int], [batch]
-                - category_ids: Tensor[int], [batch]
-                - centers: Tensor[float], [batch, 2]
-                - scale: Tensor[float], [batch, 2]
+        output
+            Model predictions containing:
+
+            heatmaps_result
+                Tensor (float), [batch, 17, 33, 17].
+            offsets_result
+                Tensor (float), [batch, 34, 33, 17].
+            displacement_fwd_result
+                Tensor (float), [batch, 32, 33, 17].
+            displacement_bwd_result
+                Tensor (float), [batch, 32, 33, 17].
+            max_vals
+                Tensor (float), [batch, 17, 33, 17].
+        gt
+            Ground truth data containing:
+
+            image_ids
+                Tensor (int), [batch].
+            category_ids
+                Tensor (int), [batch].
+            centers
+                Tensor (float), [batch, 2].
+            scale
+                Tensor (float), [batch, 2].
         """
         heatmaps, offsets, disp_fwd, disp_bwd, max_vals = output
         img_ids, cat_ids, centers, scales = gt

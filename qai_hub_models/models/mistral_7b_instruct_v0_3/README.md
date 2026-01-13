@@ -4,7 +4,7 @@ Mistral AI's first open source dense model released September 2023. Mistral-7B-I
 
 This is based on the implementation of Mistral-7B-Instruct-v0.3 found [here](https://github.com/mistralai/mistral-inference). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -19,7 +19,6 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of Mistral-7B-Instruct-v0.3 can be found
   [here](https://github.com/mistralai/mistral-inference/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

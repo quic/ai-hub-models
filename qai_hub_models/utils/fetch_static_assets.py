@@ -47,27 +47,29 @@ def fetch_static_assets(
 
     Parameters
     ----------
-        model_id:
-            Model ID to fetch
-        runtime:
-            Target Runtime to fetch
-        precision:
-            Precision to fetch
-        device:
-            Device for which assets should be fetched. Ignored if runtime is not compiled for a specific device.
-        components:
-            Components to fetch. If None, returns all components.
-        qaihm_version_tag:
-            QAIHM version tag to fetch (ex. "v0.33.0"). If None, gets the assets from the currently installed QAIHM version.
-        output_folder:
-            If set, downloads all assets to this folder. If not set, only file URLs are returned. THe paths list will be empty.
-        asset_config:
-            QAIHM asset config.
+    model_id
+        Model ID to fetch.
+    runtime
+        Target Runtime to fetch.
+    precision
+        Precision to fetch.
+    device
+        Device for which assets should be fetched. Ignored if runtime is not compiled for a specific device.
+    components
+        Components to fetch. If None, returns all components.
+    qaihm_version_tag
+        QAIHM version tag to fetch (ex. "v0.33.0"). If None, gets the assets from the currently installed QAIHM version.
+    output_folder
+        If set, downloads all assets to this folder. If not set, only file URLs are returned. The paths list will be empty.
+    asset_config
+        QAIHM asset config.
 
     Returns
     -------
-        - A list of downloaded model file paths in order of the components list, if output_folder is set. Empty list if output_folder is None.
-        - Model file URLs, in order of the model list
+    paths
+        A list of downloaded model file paths in order of the components list, if output_folder is set. Empty list if output_folder is None.
+    urls
+        Model file URLs, in order of the model list.
     """
     if runtime.is_aot_compiled and device is None:
         raise ValueError(

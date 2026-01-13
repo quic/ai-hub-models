@@ -139,11 +139,17 @@ def get_deterministic_sample(
 
     Parameters
     ----------
-        dataset_name: Name of the dataset. Dataset must be registered in
-            qai_hub_models.datasets.__init__.py
-        num_samples: Number of samples to sample from the full dataset.
-        samples_per_job: The batch size for the dataloader. If not set, all samples
-            will be in the first batch.
+    dataset
+        Dataset to sample from.
+    num_samples
+        Number of samples to sample from the full dataset.
+    samples_per_job
+        The batch size for the dataloader. If not set, all samples will be in the first batch.
+
+    Returns
+    -------
+    dataloader
+        Dataloader with sampled data.
     """
     samples_per_job = samples_per_job or num_samples
     if num_samples < len(dataset) and num_samples != -1:
@@ -166,10 +172,17 @@ def get_torch_val_dataloader(
 
     Parameters
     ----------
-        dataset_name: Name of the dataset. Dataset must be registered in
-            qai_hub_models.datasets.__init__.py
-        num_samples: Number of samples to sample from the full dataset.
-        input_spec: Input spec of the model requesting data.
+    dataset_name
+        Name of the dataset. Dataset must be registered in qai_hub_models.datasets.__init__.py
+    num_samples
+        Number of samples to sample from the full dataset.
+    input_spec
+        Input spec of the model requesting data.
+
+    Returns
+    -------
+    dataloader
+        Dataloader with validation data.
     """
     torch_val_dataset = get_dataset_from_name(
         dataset_name, DatasetSplit.VAL, input_spec
@@ -183,6 +196,16 @@ def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
     Extracts the qdq model from the source quantize job.
 
     If the model was not ultimately from a quantize job, returns None.
+
+    Parameters
+    ----------
+    model
+        Hub model to extract from.
+
+    Returns
+    -------
+    qdq_model
+        QDQ model, or None if not from a quantize job.
     """
     if isinstance(model.producer, hub.QuantizeJob):
         return model
@@ -197,9 +220,21 @@ def get_qdq_onnx(model: hub.Model) -> hub.Model | None:
 
 def _load_quant_cpu_onnx(model: hub.Model) -> OnnxModelTorchWrapper:
     """
-    Creates an onnx runtime session with the qdq onnx model that was used to produce
-    this hub.Model. Assumes the model was produced by a compile job, and the source
+    Creates an onnx runtime session with the qdq onnx model.
+
+    Uses the qdq onnx model that was used to produce this hub.Model.
+    Assumes the model was produced by a compile job, and the source
     model for the compile job was from a quantize job. Throws an exception otherwise.
+
+    Parameters
+    ----------
+    model
+        Hub model to load from.
+
+    Returns
+    -------
+    wrapper
+        ONNX model wrapper for CPU inference.
     """
     qdq_model = get_qdq_onnx(model)
     assert qdq_model is not None, "Model must be from a quantize job."
@@ -298,12 +333,16 @@ def _populate_data_cache(
 
     Parameters
     ----------
-        dataset_from_name_args: Args to instantiate the pyTorch dataset (if it is not cached) by calling get_dataset_from_name.
-        samples_per_job: The maximum size of each hub.Dataset.
-        seed: The random seed used to create the splits.
-        input_names: The input names of the model.
-        channel_last_input:
-            Comma separated list of input names to have channel transposed.
+    dataset_from_name_args
+        Args to instantiate the pyTorch dataset (if it is not cached) by calling get_dataset_from_name.
+    samples_per_job
+        The maximum size of each hub.Dataset.
+    seed
+        The random seed used to create the splits.
+    input_names
+        The input names of the model.
+    channel_last_input
+        Comma separated list of input names to have channel transposed.
     """
     dataset_name = dataset_from_name_args[0]
     folder_name = get_folder_name(dataset_name, dataset_from_name_args[2])
@@ -357,12 +396,16 @@ def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Datase
 
     Parameters
     ----------
-        dataset: Original dataset with all data.
-        num_samples: Number of samples in dataset subset.
-        seed: Random seed to use when choosing the subsample.
+    dataset
+        Original dataset with all data.
+    num_samples
+        Number of samples in dataset subset.
+    seed
+        Random seed to use when choosing the subsample.
 
     Returns
     -------
+    sampled_dataset
         Sampled dataset.
     """
     assert isinstance(dataset, Sized), "Dataset must implement __len__."
@@ -378,11 +421,20 @@ def sample_dataset(dataset: Dataset, num_samples: int, seed: int = 42) -> Datase
 
 class DatasetFromIOTuples(Dataset):
     """
-    Dataset that takes batched inputs and gts as tuples:
+    Dataset that takes batched inputs and gts as tuples.
+
+    Takes tuples of the form:
         tuple(Input of shape [ B, *dims ], Second Input of shape [B, *dims ], ...)
         tuple(GT of shape [ B, *dims ], Second GT of shape [B, *dims ], ...)
 
-    and converts each to regular tensors (if the tuple has 1 element) when getting a dataset item.
+    Converts each to regular tensors (if the tuple has 1 element) when getting a dataset item.
+
+    Parameters
+    ----------
+    inputs
+        Tuple of input tensors with batch dimension.
+    gt
+        Tuple of ground truth tensors with batch dimension.
     """
 
     def __init__(self, inputs: tuple[torch.Tensor, ...], gt: tuple[torch.Tensor, ...]):
@@ -408,10 +460,23 @@ class DatasetFromIOTuples(Dataset):
 
 class HubDataset(Dataset):
     """
-    Class the behaves like a PyTorch dataset except it is populated with hub datasets.
+    Class that behaves like a PyTorch dataset except it is populated with hub datasets.
 
     Each returned batch corresponds to the data in a hub dataset
-        that has been downloaded locally.
+    that has been downloaded locally.
+
+    Parameters
+    ----------
+    dataset_name
+        Name of the dataset.
+    num_samples
+        Number of samples to include.
+    input_names
+        Names of the input tensors.
+    channel_last_input
+        List of input names that should be channel-last.
+    input_spec
+        Input specification for the model.
     """
 
     def __init__(
@@ -462,15 +527,21 @@ class HubDataset(Dataset):
     def __len__(self) -> int:
         return self.num_hub_datasets * self.samples_per_hub_dataset
 
-    def load_hub_dataset_for_sample(self, sample_index) -> DatasetFromIOTuples:
+    def load_hub_dataset_for_sample(self, sample_index: int) -> DatasetFromIOTuples:
         """
-        Fetches the AI Hub Workbench dataset that stores the sample at the given index,
-        and stores it in memory.
+        Fetches the AI Hub Workbench dataset that stores the sample at the given index.
 
-        Returns a tuple of:
-            input batch (torch.Tensor) containing this index
-            ground truth batch (torch.Tensor) containing this index
-            sample index within the returned batch
+        Stores the dataset in memory.
+
+        Parameters
+        ----------
+        sample_index
+            Index of the sample to load.
+
+        Returns
+        -------
+        dataset
+            Dataset containing the input batch and ground truth batch for this index.
         """
         h5_idx = math.floor(sample_index / self.samples_per_hub_dataset)
         if self.curr_h5_idx != h5_idx or self.curr_dataset is None:
@@ -538,34 +609,27 @@ def evaluate(
 
     Parameters
     ----------
-        dataloader:
-            batched data loader
-
-        evaluator_func:
-            Function that returns a new evaluator instance to use for eval.
-
-        models:
-            dict[model identifier, model class]
-            Models to evaluate.
-
-        model_batch_size:
-            If set, models will always execute with this batch size.
-            If None, all models run with the dataloader batch size.
-
-            Generally this is set to 1 because most models compile to a batch size of 1.
-            We typically use a batch size of 1 locally because:
-                * It's not slower than multi-batch inference on CPU.
-                * It's usually required to run compiled models with fixed input shapes.
-
-            The dataloader may have a different batch size to accomodate
-            caching of Hub Datasets.
-
-        verbose:
-            If true, prints evaluation scores.
+    dataloader
+        Batched data loader.
+    evaluator_func
+        Function that returns a new evaluator instance to use for eval.
+    models
+        Models to evaluate, keyed by model identifier.
+    model_batch_size
+        If set, models will always execute with this batch size.
+        If None, all models run with the dataloader batch size.
+        Generally this is set to 1 because most models compile to a batch size of 1.
+        We typically use a batch size of 1 locally because:
+        * It's not slower than multi-batch inference on CPU.
+        * It's usually required to run compiled models with fixed input shapes.
+        The dataloader may have a different batch size to accommodate caching of Hub Datasets.
+    verbose
+        If true, prints evaluation scores.
 
     Returns
     -------
-        dict[model identifier, eval result]
+    evaluators
+        Evaluator results, keyed by model identifier.
     """
     ai_hub_inference_models = {
         n: m for n, m in models.items() if isinstance(m, AsyncOnDeviceModel)
@@ -709,56 +773,39 @@ def evaluate_on_dataset(
     ----------
     dataset_name
         The name of the dataset to use for evaluation.
-
-    evaluator_func:
+    evaluator_func
         Function that returns a new evaluator instance to use for eval.
-
     input_spec
         If set, uses this as the desired model input spec.
         Input types are unused; only the shapes and order are considered.
-        The input spec should _always_ be in channel first format.
-
-        If None...
-            1. Extracts the input_spec from the compiled model if provided, or...
-            2. Extracts the input_spec from the quantized model if provided, or...
-            3. Extracts the input_spec from torch_model if provided.
-
+        The input spec should always be in channel first format.
+        If None, extracts the input_spec from the compiled model if provided,
+        or from the quantized model if provided, or from torch_model if provided.
     torch_model
         The torch model to evaluate locally to compare accuracy.
         If None, torch accuracy is skipped.
-
     compiled_model
         A hub.Model object pointing to compiled model on AI Hub Workbench.
         This is what will be used to compute accuracy on device.
         If None, on-device accuracy is skipped.
-
     quantized_model
         A quantized hub.Model object. This can point to any model that is downstream of
         an AI Hub Workbench Quantize Job. This function will find the appropriate
-        upstream ONNX asset to use.
-
-        This is used to compute quantized accuracy on your local CPU.
+        upstream ONNX asset to use. This is used to compute quantized accuracy on your local CPU.
         If this is set to None, this CPU-based accuracy step is skipped.
-
     hub_device
         Which device to use for on device measurement.
         If None, on-device accuracy is skipped.
-
     samples_per_job
         Limit on the number of samples to submit in a single inference job.
         If not specified, uses the default value set on the dataset.
-
     num_samples
         The number of samples to use for evaluation.
-        If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
-
+        If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES.
     seed
         The random seed to use when subsampling the dataset. If not set, creates a deterministic subset.
-
     profile_options
-        Options to set when running inference on device.
-        For example, which compute unit to use.
-
+        Options to set when running inference on device. For example, which compute unit to use.
     use_cache
         If set, will upload the full dataset to hub and store a local copy.
         This prevents re-uploading data to hub for each evaluation, with the
@@ -766,9 +813,9 @@ def evaluate_on_dataset(
 
     Returns
     -------
-    EvaluateResult
-        Contains (torch accuracy, quant cpu accuracy, on device accuracy), all as float.
-        quant cpu accuracy is the accuracy from running the quantized ONNX on the CPU.
+    result
+        Contains torch accuracy, quant cpu accuracy, and on device accuracy.
+        Quant cpu accuracy is the accuracy from running the quantized ONNX on the CPU.
         If any accuracy was not computed, its value will be None.
     """
     on_device_model: AsyncOnDeviceModel | None = None
@@ -923,15 +970,22 @@ def evaluate_session_on_dataset(
 
     Parameters
     ----------
-        session: ONNX session to evaluate.
-        torch_model: The torch model to evaluate locally to compare accuracy.
-        dataset_name: The name of the dataset to use for evaluation.
-        num_samples: The number of samples to use for evaluation.
-            If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES
+    session
+        ONNX session to evaluate.
+    torch_model
+        The torch model to evaluate locally to compare accuracy.
+    dataset_name
+        The name of the dataset to use for evaluation.
+    num_samples
+        The number of samples to use for evaluation.
+        If not set, uses the minimum of the samples_per_job and DEFAULT_NUM_EVAL_SAMPLES.
 
     Returns
     -------
-        Tuple of accuracy(in float), formatted accuracy (as a string)
+    accuracy
+        Accuracy score as a float.
+    formatted_accuracy
+        Formatted accuracy as a string.
     """
     assert isinstance(torch_model, BaseModel), (
         "Evaluation is not yet supported for CollectionModels."

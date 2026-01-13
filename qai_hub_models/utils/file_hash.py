@@ -14,7 +14,7 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 def hash_file(
     path: str | os.PathLike,
     hasher: hashlib._Hash | None = None,
-    read_chunk_size=DEFAULT_CHUNK_SIZE,
+    read_chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> hashlib._Hash:
     """
     Updated the given hash with the data in the given file.
@@ -33,7 +33,7 @@ def hash_file(
 
     Returns
     -------
-    hasher
+    updated_hasher
         Updated hasher object.
     """
     hasher = hasher or hashlib.md5()
@@ -49,7 +49,7 @@ def hash_file(
 def file_hashes_are_identical(
     path1: str | os.PathLike,
     path2: str | os.PathLike,
-    read_chunk_size=DEFAULT_CHUNK_SIZE,
+    read_chunk_size: int = DEFAULT_CHUNK_SIZE,
 ) -> bool:
     """
     Compare the MD5 hashes of two model files.
@@ -68,7 +68,7 @@ def file_hashes_are_identical(
 
     Returns
     -------
-    bool
+    are_identical
         True if the MD5 hashes of the two model files are the same, False otherwise.
     """
     return (

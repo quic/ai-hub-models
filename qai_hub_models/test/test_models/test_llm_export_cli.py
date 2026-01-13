@@ -54,14 +54,29 @@ class DummyMockModel(LLM_AIMETOnnx):
 
         Parameters
         ----------
-            sequence_length:
-                The sequence length of the LLM.
-            context_length:
-                The context length of the LLM.
-            llm_config:
-                The LLM config, or None for the default config.
-            model_mock_side_effects:
-                Additional (function name, side effect) pairs to mock on the model object beyond the standard mocks.
+        host_device
+            The device to run the model on.
+        sequence_length
+            The sequence length of the LLM.
+        context_length
+            The context length of the LLM.
+        precision
+            The precision to use for the model.
+        fp_model
+            The floating point model to use.
+        checkpoint
+            Path to model checkpoint.
+        _skip_quantsim_creation
+            Whether to skip quantsim creation.
+        llm_config
+            The LLM config, or None for the default config.
+        model_mock_side_effects
+            Additional (function name, side effect) pairs to mock on the model object beyond the standard mocks.
+
+        Returns
+        -------
+        model
+            A mocked instance of the LLM_AIMETOnnx class.
         """
         model = mock.Mock(DummyMockModel)
         model.llm_config = mock.MagicMock()

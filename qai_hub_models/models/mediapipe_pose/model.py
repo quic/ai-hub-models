@@ -164,8 +164,13 @@ class PoseDetector(BaseModel):
     def get_output_names() -> list[str]:
         return ["box_coords_1", "box_coords_2", "box_scores_1", "box_scores_2"]
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
+        return options + " --range_scheme min_max"
 
     @staticmethod
     def calibration_dataset_name() -> str:
@@ -265,8 +270,13 @@ class PoseLandmarkDetector(BaseModel):
     def calibration_dataset_name() -> str:
         return "human_poses"
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
+        return options + " --range_scheme min_max"
 
 
 @CollectionModel.add_component(PoseDetector)

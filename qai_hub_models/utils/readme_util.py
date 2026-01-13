@@ -63,17 +63,14 @@ def _get_references(
 """
 
 
-def _get_licenses(
-    model_name: str, license_url: str | None, deploy_license_url: str | None
-):
-    if deploy_license_url is None and license_url is None:
+def _get_licenses(model_name: str, license_url: str | None):
+    if license_url is None:
         return ""
     license_url = license_url if license_url is not None else NO_LICENSE
     return f"""
 ## License
 * The license for the original implementation of {model_name} can be found
   [here]({license_url}).
-* The license for the compiled assets for on-device deployment can be found [here]({deploy_license_url})
 
 """
 

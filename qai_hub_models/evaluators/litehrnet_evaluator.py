@@ -17,7 +17,7 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
     def add_batch(
         self,
         output: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        gt: list[torch.Tensor],
+        gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ) -> None:
         """
         Processes LiteHRNet outputs (keypoints, scores, heatmaps) and converts them to
@@ -25,15 +25,24 @@ class LiteHRNetPoseEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Tuple containing:
-                   - keypoints: Tensor[float] of predicted keypoints [batch, 17, 2]
-                   - pred_scores:Tensor[float] of confidence scores [batch, 17, 1]
-                   - heatmaps: Tensor[float] of heatmaps [batch, 17, 64 , 48]
-            gt: Ground truth data containing:
-                - image_ids: Tensor[int] of COCO image IDs [batch]
-                - category_ids: Tensor[int] of category IDs [batch]
-                - scale: Tensor[float] of scale factors [batch, 2]
-                - bboxes: Tensor[float] of bounding boxes [batch, 4] in (x1,y1,x2,y2) format
+        output
+            keypoints
+                Tensor (float) of predicted keypoints [batch, 17, 2].
+            pred_scores
+                Tensor (float) of confidence scores [batch, 17, 1].
+            heatmaps
+                Tensor (float) of heatmaps [batch, 17, 64, 48].
+        gt
+            List of ground truth tensors:
+
+            image_ids
+                Tensor (int) of COCO image IDs [batch].
+            category_ids
+                Tensor (int) of category IDs [batch].
+            scale
+                Tensor (float) of scale factors [batch, 2].
+            bboxes
+                Tensor (float) of bounding boxes [batch, 4] in (x1, y1, x2, y2) format.
         """
         image_ids, category_ids, scale, bboxes = gt
         keypoints, pred_scores, heatmaps = output

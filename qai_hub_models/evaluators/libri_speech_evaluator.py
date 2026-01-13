@@ -19,7 +19,8 @@ class LibriSpeechEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            target_sample_rate: Sample rate to resample audio to (Hz)
+        target_sample_rate
+            Sample rate to resample audio to (Hz).
         """
         self.target_sample_rate = target_sample_rate
         self.processor = get_processor()
@@ -33,8 +34,10 @@ class LibriSpeechEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            output: List of logits [(batch_size, seq_len, vocab_size)] from model
-            target: Tensor of shape [max_text_length] containing ASCII character codes for the transcription, padded with zeros if needed.
+        output
+            Tensor of logits [(batch_size, seq_len, vocab_size)] from model.
+        target
+            Tensor of shape [max_text_length] containing ASCII character codes for the transcription, padded with zeros if needed.
         """
         output = output[0]
 
@@ -60,11 +63,11 @@ class LibriSpeechEvaluator(BaseEvaluator):
         self.references = []
 
     def get_accuracy_score(self) -> float:
-        """Return WER as the accuracy score"""
+        """Return WER as the accuracy score."""
         return jiwer.wer(self.references, self.predictions) * 100
 
     def formatted_accuracy(self) -> str:
-        """Return formatted WER score"""
+        """Return formatted WER score."""
         wer_score = self.get_accuracy_score()
         return f"Word Error Rate: {wer_score:.3f}"
 

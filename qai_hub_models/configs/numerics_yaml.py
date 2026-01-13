@@ -47,12 +47,15 @@ class QAIHMModelNumerics(BaseQAIHMConfig):
             ],
         ] = Field(default_factory=dict)
 
-    metrics: list[MetricDetails]
+    metrics: list[MetricDetails] = Field(default_factory=list)
 
     def to_model_yaml(self, model_id: str) -> Path:
         path = get_numerics_yaml_path(model_id)
         self.to_yaml(path)
         return path
+
+    def is_empty(self) -> bool:
+        return len(self.metrics) == 0
 
     @classmethod
     def from_model(

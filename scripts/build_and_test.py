@@ -571,6 +571,22 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Generate release-assets.yaml files.")
+    @depends(["install_deps"])
+    def create_release_assets(
+        self, plan: Plan, step_id: str = "create_release_assets"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            RunCommandsWithVenvTask(
+                group_name=None,
+                venv=self.venv_path,
+                commands=[
+                    "python qai_hub_models/scripts/collect_scorecard_assets_results.py"
+                ],
+            ),
+        )
+
     def _make_hub_scorecard_task(
         self,
         mypy: bool = False,
@@ -578,6 +594,8 @@ class TaskLibrary:
         enable_compile: bool = False,
         enable_profile: bool = False,
         enable_inference: bool = False,
+        enable_compute_device_accuracy: bool = False,
+        enable_export_end2end: bool = False,
     ) -> PyTestModelsTask:
         all_models = get_all_models()
         return PyTestModelsTask(
@@ -592,6 +610,8 @@ class TaskLibrary:
             run_export_compile=enable_compile,
             run_export_profile=enable_profile,
             run_export_inference=enable_inference,
+            run_compute_device_accuracy=enable_compute_device_accuracy,
+            run_full_export=enable_export_end2end,
             # Scorecards don't verify compile jobs.
             # Instead they wait on-demand.
             verify_compile_jobs_success=False,
@@ -645,30 +665,24 @@ class TaskLibrary:
     ) -> str:
         return plan.add_step(step_id, self._make_hub_scorecard_task(quantize=True))
 
-    @public_task("Verify all export scripts work e2e.")
+    @public_task(
+        "Compute accuracy metrics using output of cached inference jobs submitted by `test_inference_all_models`"
+    )
     @depends(["model_test_setup"])
-    def test_all_export_scripts(
-        self, plan: Plan, step_id: str = "test_all_export_scripts"
+    def compute_device_accuracy_metrics(
+        self, plan: Plan, step_id: str = "compute_device_accuracy_metrics"
     ) -> str:
-        all_models = get_all_models()
         return plan.add_step(
-            step_id,
-            PyTestModelsTask(
-                self.python_executable,
-                all_models,
-                all_models,
-                self.venv_path,
-                venv_for_each_model=False,
-                use_shared_cache=True,
-                run_general=False,
-                run_export_compile=False,
-                run_export_profile=False,
-                run_full_export=True,
-                # "Profile" tests fail only if there is something fundamentally wrong with the code, not if a single profile job fails.
-                exit_after_single_model_failure=False,
-                test_trace=False,
-                qaihm_wheel_dir=get_test_venv_wheel_dir(),
-            ),
+            step_id, self._make_hub_scorecard_task(enable_compute_device_accuracy=True)
+        )
+
+    @public_task("Verify all export scripts work end-to-end.")
+    @depends(["model_test_setup"])
+    def test_export_scripts(
+        self, plan: Plan, step_id: str = "test_export_scripts"
+    ) -> str:
+        return plan.add_step(
+            step_id, self._make_hub_scorecard_task(enable_export_end2end=True)
         )
 
     @public_task("Run tests for all models in Model Zoo.")

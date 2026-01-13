@@ -232,7 +232,7 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
         }
 
         for profile_path in ScorecardProfilePath:
-            if profile_path.include_in_perf_yaml:
+            if profile_path.is_public:
                 out.scorecard_path_to_website_runtime[profile_path] = (
                     profile_path.runtime.inference_engine
                 )
@@ -287,10 +287,10 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
 
         Returns
         -------
-        str
+        device_name
             Device Name
 
-        DeviceDetailsYaml
+        device_details
             Device Details
         """
         device_name, chipset = get_device_and_chipset_name(device)

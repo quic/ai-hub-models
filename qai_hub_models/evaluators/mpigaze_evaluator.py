@@ -26,8 +26,10 @@ class MPIIGazeEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            output: Predicted gaze angles [batch, 2] (pitch, yaw in radians)
-            target: Ground truth gaze angles [batch, 2] (pitch, yaw in radians)
+        output
+            Predicted gaze angles [batch, 2] (pitch, yaw in radians).
+        target
+            Ground truth gaze angles [batch, 2] (pitch, yaw in radians).
         """
         if isinstance(output, tuple):
             output = output[-1]
@@ -43,7 +45,7 @@ class MPIIGazeEvaluator(BaseEvaluator):
         self.targets: list[np.ndarray] = []
 
     def _compute_metrics(self) -> float:
-        """Compute mean angular error"""
+        """Compute mean angular error."""
         if not self.predictions:
             return 0.0
         predictions = np.array(self.predictions)

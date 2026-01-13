@@ -16,11 +16,11 @@ supported_devices:
 - Samsung Galaxy S21 Ultra
 - Samsung Galaxy S21+
 - Snapdragon X Plus 8-Core CRD
+- QCS8275 (Proxy)
 - QCS8550 (Proxy)
 - SA8775P ADP
 - SA8650 (Proxy)
 - SA8255 (Proxy)
-- QCS8275 (Proxy)
 - QCS8450 (Proxy)
 - XR2 Gen 2 (Proxy)
 - QCS9075 (Proxy)
@@ -31,22 +31,22 @@ supported_devices:
 - Samsung Galaxy S25+
 - Snapdragon 8 Elite Gen 5 QRD
 supported_chipsets:
+- qualcomm-snapdragon-8-elite
 - qualcomm-snapdragon-x-elite
 - qualcomm-snapdragon-8gen3
 - qualcomm-snapdragon-8gen2
 - qualcomm-snapdragon-8gen1
 - qualcomm-snapdragon-888
 - qualcomm-snapdragon-x-plus-8-core
+- qualcomm-qcs8275-proxy
 - qualcomm-qcs8550-proxy
 - qualcomm-sa8775p
 - qualcomm-sa8650p-proxy
 - qualcomm-sa8255p-proxy
-- qualcomm-qcs8275-proxy
 - qualcomm-qcs8450-proxy
 - qualcomm-qcs9075-proxy
 - qualcomm-sa7255p
 - qualcomm-sa8295p
-- qualcomm-snapdragon-8-elite-for-galaxy
 - qualcomm-snapdragon-8-elite-gen5
 precisions:
   float:
@@ -54,23 +54,23 @@ precisions:
       HuggingFace-WavLM-Base-Plus:
         universal_assets:
           tflite:
-            model_id: mnoo9l5kn
+            model_id: mqypv38vq
             tool_versions:
               tflite: 2.17.0
           onnx:
-            model_id: mqe2ge6kq
+            model_id: mqypv3rvq
             tool_versions:
               qairt: 2.37.1.250807093845_124904
               onnx_runtime: 1.23.0
         performance_metrics:
           QCS8275 (Proxy):
             tflite:
-              job_id: jp2lqemrg
+              job_id: j5mzxordp
               job_status: Passed
-              inference_time_milliseconds: 2847.928
+              inference_time_milliseconds: 2850.168
               estimated_peak_memory_range_mb:
                 min: 125
-                max: 908
+                max: 967
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -79,12 +79,12 @@ precisions:
                 tflite: 2.17.0
           QCS8450 (Proxy):
             tflite:
-              job_id: jgl39lkjg
+              job_id: jp2myk265
               job_status: Passed
-              inference_time_milliseconds: 2452.462
+              inference_time_milliseconds: 2337.235
               estimated_peak_memory_range_mb:
-                min: 125
-                max: 1358
+                min: 0
+                max: 1268
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -93,12 +93,12 @@ precisions:
                 tflite: 2.17.0
           QCS8550 (Proxy):
             tflite:
-              job_id: j5q3xv2np
+              job_id: jpry3vzkg
               job_status: Passed
-              inference_time_milliseconds: 1621.496
+              inference_time_milliseconds: 1560.836
               estimated_peak_memory_range_mb:
                 min: 125
-                max: 191
+                max: 128
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -106,12 +106,12 @@ precisions:
               tool_versions:
                 tflite: 2.17.0
             onnx:
-              job_id: jp4v63x1p
+              job_id: jp87yq9q5
               job_status: Passed
-              inference_time_milliseconds: 290.065
+              inference_time_milliseconds: 289.504
               estimated_peak_memory_range_mb:
-                min: 1
-                max: 48
+                min: 0
+                max: 227
               primary_compute_unit: NPU
               layer_counts:
                 total: 683
@@ -121,12 +121,12 @@ precisions:
                 onnx_runtime: 1.23.0
           QCS9075 (Proxy):
             tflite:
-              job_id: jgk3w8yw5
+              job_id: jgnev6jjg
               job_status: Passed
-              inference_time_milliseconds: 2254.766
+              inference_time_milliseconds: 2262.782
               estimated_peak_memory_range_mb:
-                min: 125
-                max: 907
+                min: 126
+                max: 968
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -135,12 +135,12 @@ precisions:
                 tflite: 2.17.0
           SA7255P ADP:
             tflite:
-              job_id: jp2lqemrg
+              job_id: j5mzxordp
               job_status: Passed
-              inference_time_milliseconds: 2847.928
+              inference_time_milliseconds: 2850.168
               estimated_peak_memory_range_mb:
                 min: 125
-                max: 908
+                max: 967
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -149,9 +149,37 @@ precisions:
                 tflite: 2.17.0
           SA8255 (Proxy):
             tflite:
-              job_id: jpy6kmd85
+              job_id: jp4wrlz2g
               job_status: Passed
-              inference_time_milliseconds: 1750.923
+              inference_time_milliseconds: 1568.407
+              estimated_peak_memory_range_mb:
+                min: 125
+                max: 191
+              primary_compute_unit: CPU
+              layer_counts:
+                total: 873
+                cpu: 873
+              tool_versions:
+                tflite: 2.17.0
+          SA8295P ADP:
+            tflite:
+              job_id: jpx1okw8g
+              job_status: Passed
+              inference_time_milliseconds: 2075.065
+              estimated_peak_memory_range_mb:
+                min: 125
+                max: 1067
+              primary_compute_unit: CPU
+              layer_counts:
+                total: 873
+                cpu: 873
+              tool_versions:
+                tflite: 2.17.0
+          SA8650 (Proxy):
+            tflite:
+              job_id: j5mzxnj7p
+              job_status: Passed
+              inference_time_milliseconds: 1529.588
               estimated_peak_memory_range_mb:
                 min: 125
                 max: 129
@@ -161,42 +189,14 @@ precisions:
                 cpu: 873
               tool_versions:
                 tflite: 2.17.0
-          SA8295P ADP:
-            tflite:
-              job_id: jp0l86r9p
-              job_status: Passed
-              inference_time_milliseconds: 1989.042
-              estimated_peak_memory_range_mb:
-                min: 124
-                max: 1052
-              primary_compute_unit: CPU
-              layer_counts:
-                total: 873
-                cpu: 873
-              tool_versions:
-                tflite: 2.17.0
-          SA8650 (Proxy):
-            tflite:
-              job_id: jp8zd17kp
-              job_status: Passed
-              inference_time_milliseconds: 1576.959
-              estimated_peak_memory_range_mb:
-                min: 125
-                max: 130
-              primary_compute_unit: CPU
-              layer_counts:
-                total: 873
-                cpu: 873
-              tool_versions:
-                tflite: 2.17.0
           SA8775P ADP:
             tflite:
-              job_id: jgk3w8yw5
+              job_id: jgnev6jjg
               job_status: Passed
-              inference_time_milliseconds: 2254.766
+              inference_time_milliseconds: 2262.782
               estimated_peak_memory_range_mb:
-                min: 125
-                max: 907
+                min: 126
+                max: 968
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -205,12 +205,12 @@ precisions:
                 tflite: 2.17.0
           Samsung Galaxy S24:
             tflite:
-              job_id: j5m318zdg
+              job_id: jg94nl6m5
               job_status: Passed
-              inference_time_milliseconds: 1458.456
+              inference_time_milliseconds: 1380.118
               estimated_peak_memory_range_mb:
-                min: 114
-                max: 1162
+                min: 117
+                max: 1244
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -218,12 +218,12 @@ precisions:
               tool_versions:
                 tflite: 2.17.0
             onnx:
-              job_id: jg9w7d38p
+              job_id: jpry3vkkg
               job_status: Passed
-              inference_time_milliseconds: 218.835
+              inference_time_milliseconds: 216.184
               estimated_peak_memory_range_mb:
                 min: 0
-                max: 855
+                max: 1403
               primary_compute_unit: NPU
               layer_counts:
                 total: 683
@@ -233,12 +233,12 @@ precisions:
                 onnx_runtime: 1.23.0
           Samsung Galaxy S25:
             tflite:
-              job_id: jgn3dkek5
+              job_id: jp18z4rng
               job_status: Passed
-              inference_time_milliseconds: 1092.305
+              inference_time_milliseconds: 1024.104
               estimated_peak_memory_range_mb:
                 min: 125
-                max: 908
+                max: 833
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -246,12 +246,12 @@ precisions:
               tool_versions:
                 tflite: 2.17.0
             onnx:
-              job_id: jp1ek6d7g
+              job_id: jp2myk865
               job_status: Passed
-              inference_time_milliseconds: 189.459
+              inference_time_milliseconds: 189.5
               estimated_peak_memory_range_mb:
-                min: 0
-                max: 663
+                min: 1
+                max: 1008
               primary_compute_unit: NPU
               layer_counts:
                 total: 683
@@ -261,12 +261,12 @@ precisions:
                 onnx_runtime: 1.23.0
           Snapdragon 8 Elite Gen 5 QRD:
             tflite:
-              job_id: jpremwy05
+              job_id: jgdv1xj6g
               job_status: Passed
-              inference_time_milliseconds: 877.898
+              inference_time_milliseconds: 923.379
               estimated_peak_memory_range_mb:
-                min: 123
-                max: 901
+                min: 101
+                max: 1107
               primary_compute_unit: CPU
               layer_counts:
                 total: 873
@@ -274,12 +274,12 @@ precisions:
               tool_versions:
                 tflite: 2.17.0
             onnx:
-              job_id: jgdoy2rzp
+              job_id: jpyd31e0p
               job_status: Passed
-              inference_time_milliseconds: 155.058
+              inference_time_milliseconds: 154.769
               estimated_peak_memory_range_mb:
-                min: 0
-                max: 729
+                min: 1
+                max: 1053
               primary_compute_unit: NPU
               layer_counts:
                 total: 683
@@ -289,9 +289,9 @@ precisions:
                 onnx_runtime: 1.23.0
           Snapdragon X Elite CRD:
             onnx:
-              job_id: j57x19j9g
+              job_id: jp0r0zq0p
               job_status: Passed
-              inference_time_milliseconds: 295.23
+              inference_time_milliseconds: 295.114
               estimated_peak_memory_range_mb:
                 min: 202
                 max: 202

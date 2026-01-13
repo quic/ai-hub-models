@@ -8,7 +8,9 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import os
+import shutil
 import struct
+import tempfile
 import warnings
 from collections.abc import Collection
 from dataclasses import dataclass
@@ -18,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import onnx
 import onnxruntime
+import qai_hub as hub
 import torch
 from onnx.helper import (
     get_all_tensor_dtypes,
@@ -67,16 +70,35 @@ class ONNXBundle:
         return self.bundle_path / self.aimet_encodings_name
 
     @staticmethod
-    def from_bundle_path(bundle_path: str | os.PathLike) -> ONNXBundle:
+    def from_bundle_path(
+        bundle_path: str | os.PathLike, model_name: str | None = None
+    ) -> ONNXBundle:
+        """
+        Creates an ONNX bundle object from the given path.
+
+        Parameters
+        ----------
+        bundle_path
+            The folder in which the ONNX files exst.
+        model_name
+            The name of each bundle file: {model_name}.onnx, optional {model_name}.data, optional {model_name}.encodings
+            If None, this method will glob the folder to find the file names and raise if more than 1 file is found.
+
+        Returns
+        -------
+        onnx_bundle
+            ONNX Bundle object.
+        """
+        model_name_grep = model_name or "*"
         onnx_folder_path = Path(bundle_path)
-        weights_files = list(onnx_folder_path.glob("*.data"))
+        weights_files = list(onnx_folder_path.glob(f"{model_name_grep}.data"))
 
         if len(weights_files) > 1:
             raise ValueError(
                 f"Found more than 1 ONNX weight file in {bundle_path}: {' '.join(x.name for x in weights_files)} "
             )
 
-        encodings_files = list(onnx_folder_path.glob("*.encodings"))
+        encodings_files = list(onnx_folder_path.glob(f"{model_name_grep}.encodings"))
         if len(encodings_files) > 1:
             raise ValueError(
                 f"Found more than 1 AIMET encodings file in {bundle_path}: {' '.join(x.name for x in encodings_files)} "
@@ -84,10 +106,119 @@ class ONNXBundle:
 
         return ONNXBundle(
             bundle_path=onnx_folder_path,
-            onnx_graph_name=next(onnx_folder_path.glob("*.onnx")).name,
+            onnx_graph_name=next(onnx_folder_path.glob(f"{model_name_grep}.onnx")).name,
             onnx_weights_name=weights_files[0].name if weights_files else None,
             aimet_encodings_name=encodings_files[0].name if encodings_files else None,
         )
+
+    def move(
+        self, dst_folder: str | os.PathLike, dst_model_name: str, copy: bool = False
+    ) -> ONNXBundle:
+        """
+        Moves the ONNX file, external weights, and AIMET encodings in this ONNX bundle to a new location.
+
+        Parameters
+        ----------
+        dst_folder
+            Base folder path in which to store the moved ONNX files.
+        dst_model_name
+            The name of each moved file: {dst_model_name}.onnx, {dst_model_name}.data, {dst_model_name}.encodings
+        copy
+            If False, bundle files are moved to the destination path. `self` will modified in-place to reflect the new bundle location.
+            If True, bundle files are copied to the destination path. `self` will be un-changed.
+
+        Returns
+        -------
+        moved_bundle
+            `Self` is modified in-place and returned if `copy` is False (default behavior). If `copy` is True, returns a new bundle and does not modify `Self`.
+        """
+        dst = ONNXBundle(
+            Path(dst_folder),
+            f"{dst_model_name}.onnx",
+            f"{dst_model_name}.data" if self.onnx_weights_name else None,
+            f"{dst_model_name}.encodings" if self.aimet_encodings_name else None,
+        )
+
+        os.makedirs(dst_folder, exist_ok=True)
+        copy_or_move = shutil.copyfile if copy else shutil.move
+        copy_or_move(self.onnx_graph_path, dst.onnx_graph_path)
+
+        if self.onnx_weights_path and dst.onnx_weights_path and dst.onnx_weights_name:
+            copy_or_move(self.onnx_weights_path, dst.onnx_weights_path)
+
+            # Only change the ONNX model references to external weights if the external weights path changed.
+            if self.onnx_weights_name != dst.onnx_weights_name:
+                onnx_model = onnx.load(dst.onnx_graph_path, load_external_data=False)
+                for initializer in onnx_model.graph.initializer:
+                    if initializer.data_location == onnx.TensorProto.EXTERNAL:
+                        for entry in initializer.external_data:
+                            if entry.key == "location":
+                                entry.value = dst.onnx_weights_name
+                onnx.save(onnx_model, dst.onnx_graph_path)
+
+        if self.aimet_encodings_path and dst.aimet_encodings_path:
+            copy_or_move(self.aimet_encodings_path, dst.aimet_encodings_path)
+
+        if copy:
+            return dst
+
+        self.bundle_path = dst.bundle_path
+        self.onnx_graph_name = dst.onnx_graph_name
+        self.onnx_weights_name = dst.onnx_weights_name
+        self.aimet_encodings_name = dst.aimet_encodings_name
+        return self
+
+
+def download_and_unzip_workbench_onnx_model(
+    model: hub.Model, dst_folder: str | os.PathLike, model_name: str | None = None
+) -> ONNXBundle:
+    """
+    Downloads, unzips, and renames an AI Hub Workbench ONNX model.
+
+    Parameters
+    ----------
+    model
+        The AI Hub Workbench model object.
+    dst_folder
+        Path to the folder in which the downloaded bundle files should live.
+    model_name
+        The name to use for each downloaded bundle file: {model_name}.onnx, optional {model_name}.data, optional {model_name}.encodings
+        If None, uses the name defined by the AI Hub workbench model object.
+
+    Returns
+    -------
+    onnx_bundle
+        ONNX Bundle object created from the downloaded workbench model.
+    """
+    if model.model_type not in [
+        hub.SourceModelType.ONNX,
+        hub.SourceModelType.AIMET_ONNX,
+    ]:
+        raise ValueError(
+            f"An ONNX bundle must be created from an ONNX model. The AI Hub Workbench Model is a {model.model_type.name} model."
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        model_path = model.download(tmpdir)
+        if model_path.endswith(".zip"):
+            shutil.unpack_archive(model_path, tmpdir)
+            os.remove(path=model_path)
+            archive_contents = os.listdir(tmpdir)
+            if len(archive_contents) == 0:
+                raise ValueError("Empty model archive.")
+            if len(archive_contents) == 1 and os.path.isdir(
+                os.path.join(tmpdir, archive_contents[0])
+            ):
+                bundle_folder = os.path.join(tmpdir, archive_contents[0])
+            else:
+                bundle_folder = tmpdir
+        else:
+            bundle_folder = tmpdir
+
+        bundle = ONNXBundle.from_bundle_path(bundle_folder)
+        bundle.move(dst_folder, model_name or model.name)
+
+    return bundle
 
 
 # Maps type strings returned by onnxruntime.InferenceSession.get_inputs() to numpy types.
@@ -206,15 +337,15 @@ def extract_io_types_from_onnx_model(
 
     Parameters
     ----------
-    onnx.ModelProto | onnxruntime.InferenceSession
+    onnx_model
         ONNX model protobuf, or ONNX inference session.
 
     Returns
     -------
-    dict[str, ModelIODetails]
+    model_input_details
         Model Input Details
 
-    dict[str, ModelIODetails]
+    model_output_details
         Model Output Details
     """
     inputs: dict[str, ModelIODetails]
@@ -308,7 +439,7 @@ def onnx_model_is_precompiled_qairt(onnx_model: onnx.ModelProto) -> bool:
 
     Returns
     -------
-    bool
+    is_precompiled
         True if a model is pre-compiled.
 
     Notes

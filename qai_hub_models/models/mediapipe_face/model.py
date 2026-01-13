@@ -261,8 +261,13 @@ class FaceDetector(BaseModel):
     ) -> SampleInputsType:
         return {"image": [load_numpy(FACE_DETECTOR_SAMPLE_INPUTS_ADDRESS)]}
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
+        return options + " --range_scheme min_max"
 
     @staticmethod
     def calibration_dataset_name() -> str:

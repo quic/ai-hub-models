@@ -19,18 +19,15 @@ from qai_hub_models.models._shared.llm.model import (
 import copy
 import json
 import os
-from enum import Enum
+from enum import Enum, unique
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import onnx
 import torch
 
-from qai_hub_models.utils.base_model import Precision
-
 if TYPE_CHECKING:
     from aimet_onnx.quantsim import QuantizationSimModel
-
 
 import qai_hub as hub
 import transformers
@@ -50,6 +47,7 @@ from qai_hub_models.models._shared.llm.model import (
     Embedding,
     PositionProcessorBase,
 )
+from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 
 MODEL_ID = __name__.split(".")[-2]
@@ -77,6 +75,7 @@ DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
 DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
 
 
+@unique
 class Llama3_Optimizations(str, Enum):  # Inherit from str and Enum
     SHA_ATTENTION = "sha_attention"
     RMS_NORM_4_RANK = "rank4_rms_norm"

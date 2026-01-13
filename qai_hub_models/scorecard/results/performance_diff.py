@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from prettytable import PrettyTable
 
 from qai_hub_models.configs.devices_and_chipsets_yaml import ScorecardDevice
@@ -25,6 +27,17 @@ InferenceInfo = tuple[
     str,  # New Profile Job ID
     str,  # Previous Profile Job ID
 ]
+
+
+class NPUNotPrimaryCUInfo(NamedTuple):
+    model_id: str  # Model ID
+    precision: Precision
+    component: str  # Component Name (same as Model ID if model does not have multiple components)
+    path: ScorecardProfilePath
+    cpu_count: int  # cpu compute unit count
+    gpu_count: int  # gpu compute unit count
+    npu_count: int  # npu compute unit count
+    same_as_last_week: str  # True if last week's run also had non-NPU as primary CU, N/A if no run from last week.
 
 
 class PerformanceDiff:
@@ -81,6 +94,9 @@ class PerformanceDiff:
             x: [] for x in self.perf_buckets
         }
 
+        # Map<Info -> # of devices affected>
+        self.npu_not_primary_cu: dict[NPUNotPrimaryCUInfo, int] = {}
+
     @staticmethod
     def _format_speedup(num: float | None) -> str | float:
         if not num:
@@ -124,23 +140,44 @@ class PerformanceDiff:
             if diff >= key:
                 bucket = key
                 break
-        if not bucket:
-            # not a meaningful change
-            return
-        append_to[bucket].append(
-            (
+        if bucket is not None:
+            append_to[bucket].append(
+                (
+                    model_id,
+                    precision,
+                    component,
+                    device,
+                    path,
+                    prev_inference_time or float("-inf"),
+                    new_inference_time or float("-inf"),
+                    diff,
+                    new_results.job_id or "null",
+                    prev_results.job_id or "null",
+                )
+            )
+
+        if (
+            new_results.primary_compute_unit
+            and new_results.primary_compute_unit != "NPU"
+        ):
+            # If another device as the same results, group the two devices in 1 entry to reduce noise.
+            # Otherwise, add a new entry to npu_not_primary_cu.
+            info = NPUNotPrimaryCUInfo(
                 model_id,
                 precision,
                 component,
-                device,
                 path,
-                prev_inference_time or float("-inf"),
-                new_inference_time or float("-inf"),
-                diff,
-                new_results.job_id or "null",
-                prev_results.job_id or "null",
+                new_results.layer_counts.cpu if new_results.layer_counts else 0,
+                new_results.layer_counts.gpu if new_results.layer_counts else 0,
+                new_results.layer_counts.npu if new_results.layer_counts else 0,
+                "N/A"
+                if not prev_results.primary_compute_unit
+                else str(prev_results.primary_compute_unit != "NPU"),
             )
-        )
+            if count := self.npu_not_primary_cu.get(info):
+                self.npu_not_primary_cu[info] = count + 1
+            else:
+                self.npu_not_primary_cu[info] = 1
 
     def _update_summary_for_device(
         self,
@@ -278,13 +315,21 @@ class PerformanceDiff:
                     model_id, precision, previous_report, new_report
                 )
 
-    def _get_summary_table(self, bucket_id, get_progressions=True):
+    def _get_summary_table(self, bucket_id: float | str, get_progressions: bool = True):
         """
-        Returns Summary Table for given bucket
+        Returns Summary Table for given bucket.
 
         Parameters
         ----------
-            bucket_id : bucket_id from perf_buckets
+        bucket_id
+            Bucket ID from perf_buckets.
+        get_progressions
+            If True, returns progressions table. If False, returns regressions table.
+
+        Returns
+        -------
+        table
+            Summary table for the given bucket.
         """
         table = PrettyTable(
             [
@@ -352,6 +397,26 @@ class PerformanceDiff:
                         sf.write(str(self._get_summary_table(bucket)))
             else:
                 sf.write("\nNo significant changes observed.")
+
+            if len(self.npu_not_primary_cu) > 0:
+                sf.write(
+                    "\n----------------- NPU is not Primary Compute Unit -----------------\n"
+                )
+                table = PrettyTable(
+                    [
+                        "Model ID",
+                        "Precision",
+                        "Component",
+                        "Runtime",
+                        "CPU Layers",
+                        "GPU Layers",
+                        "NPU Layers",
+                        "Same as last week?",
+                        "# of Devices",
+                    ]
+                )
+                table.add_rows([(*x, y) for x, y in self.npu_not_primary_cu.items()])
+                sf.write(str(table))
 
             if len(self.missing_models) > 0:
                 sf.write("\n----------------- Missing Models -----------------\n")

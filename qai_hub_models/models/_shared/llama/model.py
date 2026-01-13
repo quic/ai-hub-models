@@ -54,7 +54,7 @@ def get_past_key_names(
     past_key_val_name = []
 
     if bundled_kvcache:
-        # Key and Values are concatanated on batch dimension
+        # Key and Values are concatenated on batch dimension
         for i in range(start, end):
             past_key_val_name += [
                 f"past_key_{i}{suffix}",
@@ -153,7 +153,7 @@ def get_past_keyval_with_shift(
     """Clip past key value to feed next iteration"""
     tg_inputs = {}
     if bundled_kvcache:
-        # Key and Values are concatanated on batch dimension
+        # Key and Values are concatenated on batch dimension
         for i in range(0, len(past_key_vals), 2):
             l_num = i // 2
             past_key_num = l_num + past_key_start
@@ -249,7 +249,7 @@ class RopeEmbedding:
         self.cos, self.sin = self.precompute_freqs_cis(head_dim, max_length * 2)
 
     def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
-        """Precompute embeeding matrix"""
+        """Precompute embedding matrix"""
         freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         t = torch.arange(end)
         freqs = torch.outer(t, freqs).float()

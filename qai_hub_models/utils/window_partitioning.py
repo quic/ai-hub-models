@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn.functional as F
 
@@ -22,13 +24,17 @@ def window_partition_5d(
 
     Parameters
     ----------
-        x (tensor): input tokens with [B, H, W, C].
-        window_size (int): window size.
+    x
+        Input tokens with [B, H, W, C].
+    window_size
+        Window size.
 
     Returns
     -------
-        windows: windows after partition with [B * num_windows, window_size, window_size, C].
-        (Hp, Wp): padded height and width before partition
+    windows
+        Windows after partition with [B * num_windows, window_size, window_size, C].
+    padded_hw
+        Padded height and width before partition (Hp, Wp).
     """
     B, H, W, C = x.shape
 
@@ -63,14 +69,19 @@ def window_unpartition_5d(
 
     Parameters
     ----------
-        windows (tensor): input tokens with [B * num_windows, window_size, window_size, C].
-        window_size (int): window size.
-        pad_hw (Tuple): padded height and width (Hp, Wp).
-        hw (Tuple): original height and width (H, W) before padding.
+    windows
+        Input tokens with [B * num_windows, window_size, window_size, C].
+    window_size
+        Window size.
+    pad_hw
+        Padded height and width (Hp, Wp).
+    hw
+        Original height and width (H, W) before padding.
 
     Returns
     -------
-        x: unpartitioned sequences with [B, H, W, C].
+    x
+        Unpartitioned sequences with [B, H, W, C].
     """
     Hp, Wp = pad_hw
     H, W = hw
@@ -87,18 +98,28 @@ def window_unpartition_5d(
 
 
 def window_reverse_optimized(
-    self, windows: torch.Tensor, H: int, W: int
+    self: Any, windows: torch.Tensor, H: int, W: int
 ) -> torch.Tensor:
     """
+    Reverse window partition to original image.
+
     Parameters
     ----------
-        windows: (num_windows*B, window_size, window_size, C)
-        H (int): Height of image
-        W (int): Width of image
-    Returns:
-        windows: (B, H, W, C)
+    self
+        The instance of the class containing window_size attribute.
+    windows
+        Windows of shape (num_windows*B, window_size, window_size, C).
+    H
+        Height of image.
+    W
+        Width of image.
+
+    Returns
+    -------
+    output
+        Output tensor of shape (B, H, W, C).
     """
-    window_size = self.window_size
+    window_size: int = self.window_size
     # optimization
     B = int(windows.shape[0] / (H * W / window_size / window_size))
     x = windows.view(
@@ -112,18 +133,24 @@ def window_reverse_optimized(
     return windows.permute(0, 2, 1, 3).contiguous().view(-1, H, W, num_channels)
 
 
-def window_partition_optimized(self, x: torch.Tensor) -> torch.Tensor:
+def window_partition_optimized(self: Any, x: torch.Tensor) -> torch.Tensor:
     """
+    Partition image into windows.
+
     Parameters
     ----------
-        x: (B, H, W, C)
+    self
+        The instance of the class containing window_size attribute.
+    x
+        Input tensor of shape (B, H, W, C).
 
     Returns
     -------
-        windows: (num_windows*B, window_size, window_size, C)
+    windows
+        Windows of shape (num_windows*B, window_size, window_size, C).
     """
     B, H, W, C = x.shape
-    window_size = self.window_size
+    window_size: int = self.window_size
     # optimization
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous()
@@ -138,18 +165,27 @@ def window_partition_optimized(self, x: torch.Tensor) -> torch.Tensor:
 
 
 def WindowMSA_forward_optimized(
-    self, x: torch.Tensor, mask: torch.Tensor | None = None
+    self: Any, x: torch.Tensor, mask: torch.Tensor | None = None
 ) -> torch.Tensor:
     """
+    Optimized forward pass for Window Multi-head Self-Attention.
+
     Parameters
     ----------
-        x (tensor): input features with shape of (num_windows*B, N, C)
-        mask (tensor | None, Optional): mask with shape of (num_windows,
-            Wh*Ww, Wh*Ww), value should be between (-inf, 0].
+    self
+        The instance of the class containing window_size, num_heads, qkv, scale,
+        relative_position_bias_table, relative_position_index, softmax, attn_drop,
+        proj, and proj_drop attributes.
+    x
+        Input features with shape of (num_windows*B, N, C).
+    mask
+        Mask with shape of (num_windows, Wh*Ww, Wh*Ww), value should be
+        between (-inf, 0].
 
     Returns
     -------
-        x (tensor): output with shape of (num_windows*B, N, C)
+    output
+        Output with shape of (num_windows*B, N, C).
     """
     B, N, C = x.shape
 

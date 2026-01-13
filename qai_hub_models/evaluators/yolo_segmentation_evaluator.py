@@ -34,20 +34,28 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
 
     def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
         """
-        Gt should be a tuple of tensors with the following tensors:
-            - mask of shape (batch_size, max_boxes, height, width)
-              - The 4 should be normalized (x, y, w, h)
-            - classes of shape (batch_size, max_boxes)
-            - num nonzero boxes for each sample of shape (batch_size,)
+        Add a batch of predictions and ground truth for evaluation.
 
-        output should be a tuple of tensors with the following tensors:
-            - bounding boxes with shape (batch_size, num_preds, 4)
-              - The 4 should be normalized (x, y, w, h)
-            - scores with shape (batch_size, num_preds)
-            - class predictions with shape (batch_size, num_preds)
-            - masks with shape [batch_size, num_preds, 32]
-            - protos: with shape[batch_size, 32, mask_h, mask_w]
-              - multiply masks and protos to generate output masks.
+        Parameters
+        ----------
+        output
+            pred_boxes
+                Shape (batch_size, num_preds, 4) in normalized (x, y, w, h) format.
+            pred_scores
+                Shape (batch_size, num_preds).
+            pred_masks
+                Shape [batch_size, num_preds, 32].
+            pred_class_idx
+                Shape (batch_size, num_preds).
+            protos
+                Shape [batch_size, 32, mask_h, mask_w]. Multiply masks and protos to generate output masks.
+        gt
+            gt_mask
+                Shape (batch_size, max_boxes, height, width).
+            gt_classes
+                Shape (batch_size, max_boxes).
+            num_boxes
+                Number of nonzero boxes for each sample, shape (batch_size,).
         """
         pred_boxes, pred_scores, pred_masks, pred_class_idx, proto = output
         gt_mask, gt_label, num_box = gt

@@ -36,8 +36,7 @@ def export_without_hub_access(
     output_path: str | Path,
     target_runtime: TargetRuntime,
     precision: Precision,
-    compile_options: str,
-    profile_options: str,
+    all_options: str = "",
     components: list[str] | None = None,
     qaihm_version_tag: str | None = None,
 ) -> list[str]:
@@ -61,9 +60,9 @@ def export_without_hub_access(
     print_with_box(ls_msg)
     print()
 
-    if compile_options or profile_options:
+    if all_options:
         raise RuntimeError(
-            f"Jobs with `compile_options` or `profile_options` can only be run with {_AIHUB_NAME} access."
+            f"Running export with hub options ({all_options}) requires {_AIHUB_NAME} access."
         )
 
     parsed_perf = None

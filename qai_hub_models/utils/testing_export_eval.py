@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import itertools
 import math
+import os
+import tempfile
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext, suppress
 from typing import Any, Literal, cast
@@ -20,18 +22,23 @@ from typing_extensions import assert_never
 from qai_hub_models.configs.code_gen_yaml import QAIHMModelCodeGen
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.datasets import DATASET_NAME_MAP
-from qai_hub_models.models.common import ExportResult, Precision
+from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard import (
     ScorecardCompilePath,
     ScorecardDevice,
     ScorecardProfilePath,
 )
 from qai_hub_models.scorecard.device import cs_universal
-from qai_hub_models.scorecard.envvars import IgnoreDeviceJobCacheEnvvar
+from qai_hub_models.scorecard.envvars import (
+    IgnoreDeviceJobCacheEnvvar,
+    S3ArtifactsDirEnvvar,
+)
 from qai_hub_models.scorecard.results.yaml import (
     INFERENCE_YAML_BASE,
     INTERMEDIATES_DIR,
     PROFILE_YAML_BASE,
+    QAIHMModelReleaseAssets,
+    ScorecardAssetYaml,
     ToolVersionsByPathYaml,
 )
 from qai_hub_models.utils.asset_loaders import load_yaml
@@ -41,11 +48,13 @@ from qai_hub_models.utils.evaluate import (
     evaluate_on_dataset,
     get_torch_val_dataloader,
 )
+from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.hub_clients import get_default_hub_deployment
 from qai_hub_models.utils.inference import AsyncOnDeviceModel
 from qai_hub_models.utils.testing import (
     get_and_sync_datasets_cache_dir,
     get_hub_val_dataset,
+    get_profile_job_ids_file,
     mock_get_calibration_data,
     mock_on_device_model_call,
     mock_tabulate_fn,
@@ -62,19 +71,29 @@ from qai_hub_models.utils.testing_async_utils import (
     get_compile_jobs_are_identical_cache_file,
     get_cpu_accuracy_file,
     get_dataset_ids_file,
+    get_release_assets_file,
     is_hub_testing_async,
     str_with_async_test_metadata,
     write_accuracy,
 )
 
-ExportFunc = (
-    Callable[..., ExportResult | list[str]] | Callable[..., Mapping | list[str]]
-)
+try:
+    from qai_hub_models.utils._internal.aws import (
+        QAIHM_PRIVATE_S3_BUCKET,
+        get_qaihm_s3,
+        s3_multipart_upload,
+    )
+except ImportError:
+    get_qaihm_s3 = None  # type: ignore[assignment]
+    s3_multipart_upload = None  # type: ignore[assignment]
+    QAIHM_PRIVATE_S3_BUCKET = None  # type: ignore[assignment]
+
+ExportFunc = Callable[..., ExportResult | CollectionExportResult]
 
 
 def _parse_export_result(
-    result: Mapping | ExportResult | list[str],
-) -> Mapping[str | None, ExportResult]:
+    result: CollectionExportResult | ExportResult,
+) -> dict[str | None, ExportResult]:
     """
     Converts the result of an export script (export_model) to a consistent type.
 
@@ -90,9 +109,8 @@ def _parse_export_result(
     if isinstance(result, ExportResult):
         # Map: <Component Name: Component>
         # Use "None" since there are no components.
-        result = {None: result}
-    assert isinstance(result, Mapping)
-    return result
+        return {None: result}
+    return cast(dict[str | None, ExportResult], result.components)
 
 
 def _invalid_job_submission(*args, **kwargs) -> None:
@@ -140,42 +158,51 @@ def patch_hub_with_cached_jobs(
 
     Parameters
     ----------
-        model_id: str
-            Model ID
-
-        path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        precision: Precision
-            Model precision
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
-
-        patch_quantization: bool
-            Whether to patch previously cached quantization jobs.
-
-        patch_compile: bool
-            Whether to patch previously cached compile jobs.
-
-        patch_profile: bool
-            Whether to patch previously cached profile jobs.
-
-        patch_inference: bool
-            Whether to patch previously cached inference jobs.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
+    patch_quantization
+        Whether to patch previously cached quantization jobs. Default is False.
+    patch_compile
+        Whether to patch previously cached compile jobs. Default is False.
+    patch_profile
+        Whether to patch previously cached profile jobs. Default is False.
+    patch_inference
+        Whether to patch previously cached inference jobs. Default is False.
 
     Returns
     -------
-        For each "type" of job, returns a patch.
-        If the associated "patch_job_type" param is False, the corresponding patch will do nothing.
-        If cached jobs of a specific type aren't found, the corresponding patch will do nothing.
+    device_patch
+        Patch for device selection.
+    calibration_data_patch
+        Patch for calibration data retrieval.
+    quantize_job_patch
+        Patch for quantization jobs.
+    compile_job_patch
+        Patch for compilation jobs.
+    profile_job_patch
+        Patch for profiling jobs.
+    inference_job_patch
+        Patch for inference jobs.
+
+    Notes
+    -----
+    For each "type" of job, returns a patch.
+    If the associated "patch_job_type" param is False, the corresponding patch will do nothing.
+    If cached jobs of a specific type aren't found, the corresponding patch will do nothing.
 
     Raises
     ------
-        ValueError if jobs are will running or if any job failed.
+    ValueError
+        If jobs are still running or if any job failed.
     """
     device_patch = mock.patch(
         "qai_hub.get_devices", return_value=[device.reference_device]
@@ -357,17 +384,15 @@ def quantize_via_export(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Export script function
+    export_model
+        Export script function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    device
+        Scorecard device.
 
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        device: ScorecardDevice | None
-            Scorecard device
     """
     # Patch calibration data to use cached datasets
     _, calibration_data_patch, _, _, _, _ = patch_hub_with_cached_jobs(
@@ -426,23 +451,26 @@ def compile_via_export(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Export script function
+    export_model
+        Export script function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
+    skip_compile_options
+        Whether to skip compile options. Default is False.
+    extra_model_arguments
+        Additional model arguments to pass to export. Default is None.
+    skip_downloading
+        Whether to skip downloading. Default is True.
 
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
     """
     # Patch previous jobs
     (
@@ -477,7 +505,7 @@ def compile_via_export(
                 skip_inferencing=True,
                 skip_summary=True,
                 compile_options=(
-                    scorecard_path.get_compile_options(precision)
+                    scorecard_path.get_compile_options()
                     if not skip_compile_options
                     else ""
                 ),
@@ -508,15 +536,24 @@ def fetch_cached_jobs_if_compile_jobs_are_identical(
 
     Parameters
     ----------
-        model_id (str): Model ID
-        precision (Precision): Model precision
-        scorecard_path (ScorecardProfilePath): Scorecard path
-        device (ScorecardDevice): Scorecard device
-        component_names (list[str] | None, optional): Name of all model components (if applicable), or None of there are no components. Defaults to None.
+    job_type_to_fetch_from_cache
+        Type of job to fetch from cache (PROFILE or INFERENCE).
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
 
     Returns
     -------
-        Mapping[str | ExportResult]: The cached ExportResult, or None if no cached job is found.
+    cached_result
+        The cached ExportResult, or None if no cached job is found.
     """
     # Check if the QAIRT version matches the API version and if the override flag is set.
     # Previous scorecard QAIRT version is stored at /scorecard/intermediates/environment.env dump.
@@ -613,23 +650,20 @@ def profile_via_export(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Export script function
+    export_model
+        Export script function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
 
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
     """
     if export_result := fetch_cached_jobs_if_compile_jobs_are_identical(
         hub.JobType.PROFILE,
@@ -726,23 +760,20 @@ def inference_via_export(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Export script function
+    export_model
+        Export script function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
 
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
     """
     # TODO(#15111): Reenable caching for Inference Jobs. Inference jobs also must check that input datasets are the same, not just the compiled assets.
     # Patch previous compile jobs
@@ -811,24 +842,27 @@ def export_test_e2e(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Export script function
+    export_model
+        Export script function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
 
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
     """
+    # Some scorecards will run without the profiling step.
+    has_cached_profile_jobs = (
+        os.path.exists(get_profile_job_ids_file())
+        and os.stat(get_profile_job_ids_file()).st_size > 0
+    )
+
     # Patch previous jobs
     (
         device_patch,
@@ -845,7 +879,7 @@ def export_test_e2e(
         component_names,
         patch_quantization=not QAIHMModelCodeGen.from_model(model_id).is_aimet,
         patch_compile=True,
-        patch_profile=True,
+        patch_profile=has_cached_profile_jobs,
         patch_inference=False,
     )
 
@@ -856,14 +890,65 @@ def export_test_e2e(
         quantize_job_patch,
         compile_job_patch,
         profile_job_patch,
+        tempfile.TemporaryDirectory() as tmpdir,
     ):
-        export_model(
+        skip_upload_to_s3 = (
+            get_qaihm_s3 is None
+            or s3_multipart_upload is None
+            or QAIHM_PRIVATE_S3_BUCKET is None
+            or S3ArtifactsDirEnvvar.is_default()
+        )
+
+        result = export_model(
             device=device.execution_device,
             precision=precision,
-            skip_downloading=True,
-            compile_options=scorecard_path.compile_path.get_compile_options(),
             target_runtime=scorecard_path.runtime,
+            compile_options=scorecard_path.compile_path.get_compile_options(),
+            profile_options=scorecard_path.get_profile_options(),
+            skip_downloading=skip_upload_to_s3,
+            skip_profiling=not has_cached_profile_jobs,
+            skip_inferencing=True,
+            output_dir=tmpdir,
+            zip_assets=True,
         )
+
+        if result.download_path is not None:
+            assert s3_multipart_upload is not None
+            assert get_qaihm_s3 is not None
+            assert QAIHM_PRIVATE_S3_BUCKET is not None
+
+            assets_cache_path = get_release_assets_file()
+            assets_cache = ScorecardAssetYaml.from_yaml(
+                assets_cache_path, create_empty_if_no_file=True
+            )
+            if assets_cache.get_asset(
+                model_id,
+                precision,
+                device if scorecard_path.runtime.is_aot_compiled else cs_universal,
+                scorecard_path,
+            ):
+                # Asset for this runtime (device agnostic) or runtime + chipset exists already.
+                return
+
+            s3_bucket = get_qaihm_s3(QAIHM_PRIVATE_S3_BUCKET)[0]
+            s3_key = str(S3ArtifactsDirEnvvar.get() / result.download_path.name)
+
+            s3_multipart_upload(
+                bucket=s3_bucket,
+                key=s3_key,
+                local_file_path=result.download_path,
+            )
+
+            assets_cache.add_asset(
+                QAIHMModelReleaseAssets.AssetDetails(
+                    s3_key=s3_key, tool_versions=result.tool_versions
+                ),
+                model_id,
+                precision,
+                device if scorecard_path.runtime.is_aot_compiled else cs_universal,
+                scorecard_path,
+            )
+            assets_cache.to_yaml(assets_cache_path)
 
 
 def on_device_inference_for_accuracy_validation(
@@ -880,23 +965,19 @@ def on_device_inference_for_accuracy_validation(
 
     Parameters
     ----------
-        model:
-            Model class to run inference on.
+    model
+        Model class to run inference on.
+    dataset_name
+        Name of the dataset to use for evaluation.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
 
-        dataset_name:
-            Name of the dataset to use for evaluation.
-
-        model_id:
-            Model ID
-
-        precision:
-            Model precision
-
-        scorecard_path:
-            Scorecard path
-
-        device:
-            Scorecard device
     """
     compile_jobs = fetch_async_test_jobs(
         hub.JobType.COMPILE,
@@ -946,14 +1027,13 @@ def torch_inference_for_accuracy_validation(
 
     Parameters
     ----------
-        model:
-            Model instance to run inference on.
+    model
+        Model instance to run inference on.
+    dataset_name
+        Name of the dataset to use for evaluation.
+    model_id
+        Model ID.
 
-        dataset_name:
-            Name of the dataset to use for evaluation.
-
-        model_id:
-            Model ID
     """
     assert isinstance(model, BaseModel), (
         "This function is not yet supported for CollectionModel."
@@ -1008,11 +1088,12 @@ def torch_inference_for_accuracy_validation_outputs(model_id: str) -> list[np.nd
 
     Parameters
     ----------
-        model_id: str
-            Model ID
+    model_id
+        Model ID.
 
     Returns
     -------
+    inference_outputs
         List of results, in order of output from the torch model.
         [ output_0_array, output_1_array, ... ]
     """
@@ -1039,11 +1120,12 @@ def split_and_group_accuracy_validation_output_batches(
 
     Parameters
     ----------
-        torch_inference_outputs: list[np.ndarray]
-            Return value of torch_inference_for_accuracy_validation_outputs
+    torch_inference_outputs
+        Return value of torch_inference_for_accuracy_validation_outputs.
 
     Returns
     -------
+    batched_outputs
         If torch_inference_outputs is length 1:
             [output_0::batch_0, output_0::batch_1, ...]
 
@@ -1084,26 +1166,20 @@ def accuracy_on_sample_inputs_via_export(
 
     Parameters
     ----------
-        export_model: ExportFunc
-            Code-generated export function from export.py.
+    export_model
+        Code-generated export function from export.py.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None of there are no components.
+        Default is None.
 
-        model: BaseModel
-            Model instance to run inference on.
-
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        scorecard_path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
     """
     # Patch previous jobs
     (
@@ -1179,6 +1255,16 @@ def get_num_eval_samples(dataset_name: str) -> int:
     Resolve how many samples to evaluate for a given dataset.
 
     This needs to be set in multiple callsites and for both num_samples and samples_per_job.
+
+    Parameters
+    ----------
+    dataset_name
+        Name of the dataset.
+
+    Returns
+    -------
+    num_samples
+        Number of samples to evaluate.
     """
     return min(
         DATASET_NAME_MAP[dataset_name].default_samples_per_job(),
@@ -1203,26 +1289,25 @@ def accuracy_on_dataset_via_evaluate_and_export(
 
     Parameters
     ----------
-        export_model:
-            Code-generated export function from export.py.
+    export_model
+        Code-generated export function from export.py.
+    model
+        Model instance to run inference on.
+    dataset_name
+        Name of the dataset to use for evaluation.
+    torch_val_outputs
+        Torch validation outputs.
+    torch_evaluate_mock_outputs
+        The outputs of the torch forward passes in the format expected by the evaluate function.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    scorecard_path
+        Scorecard path.
+    device
+        Scorecard device.
 
-        model:
-            Model instance to run inference on.
-
-        dataset_name:
-            Name of the dataset to use for evaluation.
-
-        model_id:
-            Model ID
-
-        precision:
-            Model precision
-
-        scorecard_path:
-            Scorecard path
-
-        device:
-            Scorecard device
     """
     cache_path_patch = _get_dataset_cache_patch(
         dataset_name, scorecard_path, model.__class__
@@ -1405,18 +1490,16 @@ def torch_accuracy_on_dataset(
 
     Parameters
     ----------
-        model:
-            Model instance to run inference on.
+    model
+        Model instance to run inference on.
+    dataset_name
+        Name of the dataset to use for evaluation.
+    torch_evaluate_mock_outputs
+        The outputs of the torch forward passes in the format
+        expected by the evaluate function.
+    model_id
+        Model ID.
 
-        dataset_name:
-            Name of the dataset to use for evaluation.
-
-        torch_evaluate_mock_outputs:
-            The outputs of the torch forward passes in the format
-            expected by the evaluate function.
-
-        model_id:
-            Model ID
     """
     torch_call_patch = mock.patch(
         "qai_hub_models.utils.evaluate.BaseModel.__call__",
@@ -1455,17 +1538,15 @@ def sim_accuracy_on_dataset(
 
     Parameters
     ----------
-        model:
-            Model instance to run inference on.
+    model
+        Model instance to run inference on.
+    dataset_name
+        Name of the dataset to use for evaluation.
+    model_id
+        Model ID.
+    precision
+        Model precision.
 
-        dataset_name:
-            Name of the dataset to use for evaluation.
-
-        model_id:
-            Model ID
-
-        precision:
-            Model precision
     """
     if precision == Precision.float:
         return

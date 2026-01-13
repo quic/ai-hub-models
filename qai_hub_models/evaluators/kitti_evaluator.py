@@ -66,28 +66,32 @@ class KittiEvaluator(BaseEvaluator):
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ):
         """
-        Output : tuple of following tensor
-            hm (torch.Tensor): Heatmap with the shape of
-                [B, num_classes, H//4, W//4].
-            dep (torch.Tensor): depth value with the
-                shape of [B, 1, H//4, W//4].
-            rot (torch.Tensor): Rotation value with the
-                shape of [B, 8, H//4, W//4].
-            dim (torch.Tensor): Size value with the shape
-                of [B, 3, H//4, W//4].
-            wh (torch.Tensor): Width/Height value with the
-                shape of [B, 2, H//4, W//4].
-            reg (torch.Tensor): 2D regression value with the
-                shape of [B, 2, H//4, W//4].
-        gt : tuple of following tensor
-            img_id (torch.Tensor): Image id tensor with the
-                shape of [B,].
-            c (torch.Tensor): Center of bbox with the shape of
-                [B, 2].
-            s (torch.Tensor): Scale of bbox with the shape of
-                [B, 2].
-            calib (torch.Tensor): Calibration matrix with the
-                shape of [B, 3, 4].
+        Add a batch of predictions and ground truth for evaluation.
+
+        Parameters
+        ----------
+        output
+            hm
+                Heatmap with the shape of [B, num_classes, H//4, W//4].
+            dep
+                Depth value with the shape of [B, 1, H//4, W//4].
+            rot
+                Rotation value with the shape of [B, 8, H//4, W//4].
+            dim
+                Size value with the shape of [B, 3, H//4, W//4].
+            wh
+                Width/Height value with the shape of [B, 2, H//4, W//4].
+            reg
+                2D regression value with the shape of [B, 2, H//4, W//4].
+        gt
+            img_id
+                Image ID tensor with the shape of [B,].
+            c
+                Center of bbox with the shape of [B, 2].
+            s
+                Scale of bbox with the shape of [B, 2].
+            calib
+                Calibration matrix with the shape of [B, 3, 4].
         """
         hm, dep, rot, dim, wh, reg = output
         img_id, c, s, calib = gt

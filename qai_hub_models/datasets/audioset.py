@@ -62,7 +62,7 @@ class AudioSetDataset(BaseDataset):
 
         Returns
         -------
-        bool
+        is_valid
             True if data is valid and loaded successfully, False otherwise
         """
         self.audio_files: list = []
@@ -100,7 +100,7 @@ class AudioSetDataset(BaseDataset):
             Peprocessed audio tensor of shape (96, 64)
 
         label_and_sample
-            label_tensor:
+            label_tensor
                 Multi-hot encoded labels tensor of shape (num_classes,)
             sample_id
                 Original sample ID from the dataset

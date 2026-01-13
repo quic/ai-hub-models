@@ -8,6 +8,7 @@ import qai_hub as hub
 from qai_hub.client import JobType
 from qai_hub.public_rest_api import get_job_results
 
+import qai_hub_models._version as pkg_version
 from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 from qai_hub_models.utils.base_config import BaseQAIHMConfig
 from qai_hub_models.utils.qai_hub_helpers import extract_job_options
@@ -28,10 +29,12 @@ class ToolVersions(BaseQAIHMConfig):
     onnx: str | None = None
     onnx_runtime: str | None = None
     tflite: str | None = None
+    ai_hub_models: str | None = None
 
     @staticmethod
     def from_compiled_model(
         model: hub.Model,
+        add_aihm_version: bool = False,
     ) -> "ToolVersions":
         """
         Get the versions of tools used to compile this model.
@@ -40,6 +43,9 @@ class ToolVersions(BaseQAIHMConfig):
         ----------
         model
             AI Hub Workbench model. Must be compiled by AI Hub Workbench.
+
+        add_aihm_version
+            If set, adds the current QAIHM version to the returned ToolVersions.
 
         Returns
         -------
@@ -81,11 +87,14 @@ class ToolVersions(BaseQAIHMConfig):
 
                 if tool_version.name == "TensorFlow Lite":
                     out.tflite = tool_version.version
-
+        if add_aihm_version:
+            out.ai_hub_models = pkg_version.__version__
         return out
 
     @staticmethod
-    def from_job(job: hub.Job, parse_version_tags: bool = False) -> "ToolVersions":
+    def from_job(
+        job: hub.Job, parse_version_tags: bool = False, add_aihm_version: bool = False
+    ) -> "ToolVersions":
         """
         Get the tool versions used for this job.
         For compile jobs, this is the toolchains used to compile the model.
@@ -108,6 +117,9 @@ class ToolVersions(BaseQAIHMConfig):
             as the QAIRT version represented by this tag may have changed since the job was submitted. Generally you
             should use this only if the job is recent enough that you know the current tags on AI Hub Workbench map to the same
             QAIRT versions when the job was submitted.
+
+        add_aihm_version
+            If set, adds the current QAIHM version to the returned ToolVersions.
 
         Returns
         -------
@@ -141,7 +153,9 @@ class ToolVersions(BaseQAIHMConfig):
                 models = cast(hub.LinkJob, job).models
                 for model in models:
                     if model.producer is not None:
-                        return ToolVersions.from_compiled_model(model)
+                        return ToolVersions.from_compiled_model(
+                            model, add_aihm_version=add_aihm_version
+                        )
                 # None of the source models came from us, so we can't detect what QAIRT version to use.
                 return ToolVersions()
 
@@ -177,7 +191,8 @@ class ToolVersions(BaseQAIHMConfig):
 
         if job._job_type in {JobType.COMPILE, JobType.LINK}:
             return ToolVersions.from_compiled_model(
-                cast(hub.Model, cast(hub.CompileJob, job).get_target_model())
+                cast(hub.Model, cast(hub.CompileJob, job).get_target_model()),
+                add_aihm_version=add_aihm_version,
             )
 
         result = get_job_results(job._owner.config, job.job_id)
@@ -200,5 +215,6 @@ class ToolVersions(BaseQAIHMConfig):
 
             if tool_version.name == "TensorFlow Lite":
                 out.tflite = tool_version.version
-
+        if add_aihm_version:
+            out.ai_hub_models = pkg_version.__version__
         return out

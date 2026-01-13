@@ -26,20 +26,30 @@ class FootTrackNetEvaluator(mAPEvaluator):
 
     def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
         """
-        Gt should be a tuple of tensors with the following tensors:
-            - image_ids of shape (batch_size,)
-            - image heights of shape (batch_size,)
-            - image widths of shape (batch_size,)
-            - bounding boxes of shape (batch_size, max_boxes, 4)
-              - The 4 should be normalized (x, y, w, h)
-            - classes of shape (batch_size, max_boxes)
-            - num nonzero boxes for each sample of shape (batch_size,)
+        Add a batch of predictions and ground truth for evaluation.
 
-        output should be a tuple of tensors with the following tensors:
-            - bounding boxes with shape (batch_size, num_candidate_boxes, 4)
-              - The 4 should be normalized (x, y, w, h)
-            - scores with shape (batch_size, num_candidate_boxes)
-            - class predictions with shape (batch_size, num_candidate_boxes)
+        Parameters
+        ----------
+        output
+            pred_boxes
+                Shape (batch_size, num_candidate_boxes, 4) in normalized (x, y, w, h) format.
+            pred_scores
+                Shape (batch_size, num_candidate_boxes).
+            pred_class_idx
+                Shape (batch_size, num_candidate_boxes).
+        gt
+            image_ids
+                Shape (batch_size,).
+            image_heights
+                Shape (batch_size,).
+            image_widths
+                Shape (batch_size,).
+            bounding_boxes
+                Shape (batch_size, max_boxes, 4) in normalized (x, y, w, h) format.
+            classes
+                Shape (batch_size, max_boxes).
+            num_boxes
+                Number of nonzero boxes for each sample, shape (batch_size,).
         """
         image_ids, _, _, all_bboxes, all_classes, all_num_boxes = gt
         output = list(output)

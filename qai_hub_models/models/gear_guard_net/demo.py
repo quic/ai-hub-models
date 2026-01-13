@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-from copy import deepcopy
+from collections.abc import Callable
 
 import numpy as np
 from PIL import Image
@@ -21,62 +21,69 @@ from qai_hub_models.utils.args import (
     validate_on_device_demo_args,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.display import display_or_save_image
-from qai_hub_models.utils.draw import draw_box_from_corners
 
 INPUT_IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
     MODEL_ID, MODEL_ASSET_VERSION, "test_image.jpg"
 )
 
 
-def plot_result(img: np.ndarray, result: np.ndarray):
-    """
-    Plot detection result.
-
-    Inputs:
-        img: np.ndarray
-            Input image.
-        result: np.ndarray
-            Detection result.
-    """
-    box_color = ((255, 0, 0), (0, 255, 0))
-    for r in result:
-        corners = np.array(
-            [[r[1], r[2]], [r[1], r[4]], [r[3], r[2]], [r[3], r[4]]]
-        ).astype(int)
-        draw_box_from_corners(img, corners, box_color[int(r[0])])
-    return img
-
-
-def main(is_test: bool = False) -> None:
-    parser = get_model_cli_parser(GearGuardNet)
+# The demo will display an image with the predicted gear guard bounding boxes.
+def gear_guard_demo(
+    model_type: type[BaseModel],
+    model_id: str,
+    app_type: Callable[..., BodyDetectionApp],
+    is_test: bool = False,
+):
+    # Demo parameters
+    parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
+    image_help = "image file path or URL."
     parser.add_argument(
-        "--image",
-        type=str,
-        default=INPUT_IMAGE_ADDRESS,
-        help="image file path or URL",
+        "--image", type=str, default=INPUT_IMAGE_ADDRESS, help=image_help
     )
     parser.add_argument(
-        "--confidence",
+        "--score-threshold",
         type=float,
         default=0.9,
-        help="Detection confidence",
+        help="Score threshold for NonMaximumSuppression",
+    )
+    parser.add_argument(
+        "--iou-threshold",
+        type=float,
+        default=0.5,
+        help="Intersection over Union (IoU) threshold for NonMaximumSuppression",
     )
     args = parser.parse_args([] if is_test else None)
-    model = demo_model_from_cli_args(GearGuardNet, MODEL_ID, args)
-    validate_on_device_demo_args(args, MODEL_ID)
 
-    (_, _, height, width) = model.get_input_spec()["image"][0]
-    app = BodyDetectionApp(model)  # type: ignore[arg-type]
-    result = app.detect(args.image, height, width, args.confidence)
+    validate_on_device_demo_args(args, model_id)
 
+    model = demo_model_from_cli_args(model_type, model_id, args)
+
+    app = app_type(
+        model,
+        args.score_threshold,
+        args.iou_threshold,
+        args.include_postprocessing,
+    )
+
+    print("Model Loaded")
+    image = load_image(args.image)
+    pred_images = app.predict_boxes_from_image(image)
+    assert isinstance(pred_images[0], np.ndarray)
+    out = Image.fromarray(pred_images[0])
     if not is_test:
-        img = np.array(load_image(args.image))
-        image_annotated = plot_result(deepcopy(img), result)
-        display_or_save_image(
-            Image.fromarray(image_annotated), args.output_dir, "result.jpg"
-        )
+        display_or_save_image(out, args.output_dir, "gear_guard_demo_output.png")
+
+
+def main(is_test=False):
+    gear_guard_demo(
+        model_type=GearGuardNet,
+        model_id=MODEL_ID,
+        app_type=BodyDetectionApp,
+        is_test=is_test,
+    )
 
 
 if __name__ == "__main__":

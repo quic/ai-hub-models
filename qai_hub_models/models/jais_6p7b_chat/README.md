@@ -4,7 +4,7 @@ JAIS 6.7B is a bilingual large language model (LLM) for both Arabic and English 
 
 This is based on the implementation of JAIS-6p7b-Chat found [here](https://huggingface.co/inceptionai/jais-family-6p7b). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/jais_6p7b_chat).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/jais_6p7b_chat).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 

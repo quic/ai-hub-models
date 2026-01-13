@@ -60,8 +60,9 @@ class NuscenesBevDataset(NuscenesDataset):
         self._load_bev_labels()
 
     def _load_bev_labels(self):
-        """Load BEV label paths from JSON files in the BEV labels directory."""
+        """Load BEV and Visibility label paths from JSON files in the BEV and Visibility labels directory."""
         self.bev_labels = {}
+        self.visibility_labels = {}
         labels_path = Path(self.bev_labels_dir)
         for scene_file in labels_path.glob("scene-*.json"):
             with open(scene_file) as f:
@@ -75,10 +76,23 @@ class NuscenesBevDataset(NuscenesDataset):
                         self.bev_labels[sample["token"]] = (
                             bev_image_path if os.path.exists(bev_image_path) else None
                         )
+                    visibility_path = sample.get("visibility", None)
+                    if visibility_path is not None:
+                        visibility_image_path = os.path.join(
+                            self.bev_labels_dir, sample["scene"], visibility_path
+                        )
+                        self.visibility_labels[sample["token"]] = (
+                            visibility_image_path
+                            if os.path.exists(visibility_image_path)
+                            else None
+                        )
 
     def __getitem__(
         self, idx: int
-    ) -> tuple[tuple[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]:
+    ) -> tuple[
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor],
+    ]:
         """
         Get item from infos according to the given index.
         Returns a tuple of input tensors and ground truth data.
@@ -90,19 +104,23 @@ class NuscenesBevDataset(NuscenesDataset):
 
         Returns
         -------
-        input_data : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-            - images : torch.Tensor, shape [S, 3, H, W], float32
+        input_data
+            images
+                Shape [S, 3, H, W], float32.
                 Preprocessed RGB images from S=6 cameras, normalized to [0, 1], size 224x480.
             intrinsics
-                torch.Tensor of shape [S, 3, 3] as float32
+                Shape [S, 3, 3] as float32.
                 Camera intrinsic matrices, adjusted for resize and crop.
             extrinsics
-                torch.Tensor of shape [S, 4, 4] as float32
+                Shape [S, 4, 4] as float32.
                 Matrices transforming camera sensor to global frame, aligned with LiDAR.
         gt_data
             gt_bev
                 torch.Tensor of shape [H_bev, W_bev, 12] as float32
                 Binary BEV segmentation map with 12 classes.
+            visibility
+                torch.Tensor of shape [H_bev, W_bev] as uint8
+                in range [1-255], higher value = more visible
         """
         info = self.data_infos[idx]
         token = info.token
@@ -118,6 +136,13 @@ class NuscenesBevDataset(NuscenesDataset):
         bev_path = self.bev_labels.get(token)
         assert bev_path is not None, f"BEV label not found for token: {token}"
         bev_image = Image.open(bev_path)
+
+        visibility_path = self.visibility_labels.get(token)
+        assert visibility_path is not None, (
+            f"visibility_path not found for token: {token}"
+        )
+        visibility_image = Image.open(visibility_path)
+        visibility = torch.tensor(np.array(visibility_image, dtype=np.uint8))
 
         # The CVT labels are bit-packed: each pixel stores 12 class flags in 12 bits
         # Unpack using bitwise shift + mask to get one-hot per class
@@ -170,15 +195,19 @@ class NuscenesBevDataset(NuscenesDataset):
                 sensor2ego = transform_to_matrix(
                     translation=cast(list[float], cam_info["sensor2ego_translation"]),
                     rotation=cast(list[float], cam_info["sensor2ego_rotation"]),
-                    inv=False,
-                )
-                ego2global_inv = transform_to_matrix(
-                    translation=cast(list[float], info.ego2global_translation),
-                    rotation=cast(list[float], info.ego2global_rotation),
                     inv=True,
                 )
-                world_from_egolidarflat = np.eye(4, dtype=np.float32)
-                extrinsic = sensor2ego @ ego2global_inv @ world_from_egolidarflat
+                ego2global = transform_to_matrix(
+                    translation=cast(list[float], cam_info["ego2global_translation"]),
+                    rotation=cast(list[float], cam_info["ego2global_rotation"]),
+                    inv=True,
+                )
+                world_from_egolidarflat = transform_to_matrix(
+                    translation=cast(list[float], info.ego2global_translation),
+                    rotation=cast(list[float], info.ego2global_rotation),
+                    flat=True,
+                )
+                extrinsic = sensor2ego @ ego2global @ world_from_egolidarflat
                 extrinsics.append(torch.tensor(extrinsic, dtype=torch.float32))
 
         # Stack lists into tensors
@@ -186,4 +215,64 @@ class NuscenesBevDataset(NuscenesDataset):
         intrinsics_tensor = torch.stack(intrinsics)
         extrinsics_tensor = torch.stack(extrinsics)
 
-        return (images_tensor, intrinsics_tensor, extrinsics_tensor), gt_bev
+        return (
+            images_tensor,
+            intrinsics_tensor,
+            extrinsics_tensor,
+        ), (gt_bev, visibility)
+
+
+class NuscenesBevGKTDataset(NuscenesBevDataset):
+    """Wrapper around nuScenes BEV dataset for GKT model."""
+
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor],
+    ]:
+        (images_tensor, intrinsics_tensor, extrinsics_tensor), (gt_bev, visibility) = (
+            super().__getitem__(idx)
+        )
+        return (
+            images_tensor,
+            intrinsics_tensor,
+            extrinsics_tensor,
+            torch.inverse(intrinsics_tensor),
+            torch.inverse(extrinsics_tensor),
+        ), (gt_bev, visibility)
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        """
+        Name for the dataset,
+            which by default is set to the filename where the class is defined.
+        """
+        return "nuscenes_bev_gkt"
+
+
+class NuscenesBevCVTDataset(NuscenesBevDataset):
+    """Wrapper around nuScenes BEV dataset for CVT model."""
+
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[
+        tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor],
+    ]:
+        (images_tensor, intrinsics_tensor, extrinsics_tensor), (gt_bev, visibility) = (
+            super().__getitem__(idx)
+        )
+        return (
+            images_tensor,
+            torch.inverse(intrinsics_tensor),
+            torch.inverse(extrinsics_tensor),
+        ), (gt_bev, visibility)
+
+    @classmethod
+    def dataset_name(cls) -> str:
+        """
+        Name for the dataset,
+            which by default is set to the filename where the class is defined.
+        """
+        return "nuscenes_bev_cvt"

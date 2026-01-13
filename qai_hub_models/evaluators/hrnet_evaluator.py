@@ -23,13 +23,19 @@ class HRNetPoseEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Model predictions which can be :
-                   - A tuple containing (heatmaps,) [batch, joints, H, W]
-            gt: Ground truth data containing:
-                - image_ids: Tensor[int] of COCO image IDs [batch]
-                - category_ids: Tensor[int] of category IDs [batch]
-                - centers: Tensor[float] of bounding box centers [batch, 2]
-                - scale: Tensor[float] of scale factors [batch, 2]
+        output
+            Model predictions which can be a tuple containing (heatmaps,) [batch, joints, H, W].
+        gt
+            Ground truth data containing:
+
+            image_ids
+                Tensor (int) of COCO image IDs [batch].
+            category_ids
+                Tensor (int) of category IDs [batch].
+            centers
+                Tensor (float) of bounding box centers [batch, 2].
+            scale
+                Tensor (float) of scale factors [batch, 2].
         """
         output = output[0] if isinstance(output, tuple) else output
         image_ids, category_ids, center, scale = gt

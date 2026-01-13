@@ -15,6 +15,9 @@ import ruamel.yaml
 from pydantic import Field
 from typing_extensions import Self
 
+from qai_hub_models.configs._internal.release_assets_yaml import (
+    QAIHMModelReleaseAssets,
+)
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import Precision
 from qai_hub_models.scorecard.device import ScorecardDevice, cs_universal
@@ -51,6 +54,7 @@ PROFILE_YAML_BASE = INTERMEDIATES_DIR / "profile-jobs.yaml"
 INFERENCE_YAML_BASE = INTERMEDIATES_DIR / "inference-jobs.yaml"
 TOOL_VERSIONS_BASE = INTERMEDIATES_DIR / DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
 ACCURACY_CSV_BASE = INTERMEDIATES_DIR / "accuracy.csv"
+RELEASE_CSV_BASE = INTERMEDIATES_DIR / "release-assets.yaml"
 DATASETS_BASE = INTERMEDIATES_DIR / "dataset-ids.yaml"
 ScorecardJobYamlTypeVar = TypeVar("ScorecardJobYamlTypeVar", bound="ScorecardJobYaml")
 
@@ -153,10 +157,21 @@ class ScorecardJobYaml(
 
         Parameters
         ----------
-            path: Applicable scorecard path
-            model_id: The ID of the QAIHM model being tested
-            device: The targeted device
-            component: The name of the model component being tested, if applicable
+        path
+            Applicable scorecard path
+        model_id
+            The ID of the QAIHM model being tested
+        device
+            The targeted device
+        precision
+            The precision in which this model is running
+        component
+            The name of the model component being tested, if applicable
+
+        Returns
+        -------
+        job_id
+            The job ID if found, None otherwise.
         """
         return self.job_id_mapping.get(
             get_async_job_cache_name(
@@ -170,7 +185,7 @@ class ScorecardJobYaml(
 
     def set_job_id(
         self,
-        job_id,
+        job_id: str,
         path: ScorecardPathOrNoneTypeVar,
         model_id: str,
         device: ScorecardDevice,
@@ -182,11 +197,18 @@ class ScorecardJobYaml(
 
         Parameters
         ----------
-            job_id: Job ID to associate with the other parameters in the YAML
-            path: Applicable scorecard path
-            model_id: The ID of the QAIHM model being tested
-            device: The targeted device
-            component: The name of the model component being tested, if applicable
+        job_id
+            Job ID to associate with the other parameters in the YAML
+        path
+            Applicable scorecard path
+        model_id
+            The ID of the QAIHM model being tested
+        device
+            The targeted device
+        precision
+            The precision in which this model is running
+        component
+            The name of the model component being tested, if applicable
         """
         self.job_id_mapping[
             get_async_job_cache_name(path, model_id, device, precision, component)
@@ -215,13 +237,25 @@ class ScorecardJobYaml(
 
         Parameters
         ----------
-            path: Applicable scorecard path
-            model_id: The ID of the QAIHM model being tested
-            device: The targeted device
-            wait_for_job:  If false, running jobs are treated like they were "skipped"
-            wait_job_secs: Wait a set number of seconds for a job to finish
-            wait_for_max_job_duration: Allow the job this many seconds after creation to complete
-            component: The name of the model component being tested, if applicable
+        path
+            Applicable scorecard path
+        model_id
+            The ID of the QAIHM model being tested
+        device
+            The targeted device
+        precision
+            The precision in which this model is running
+        component
+            The name of the model component being tested, if applicable
+        wait_for_job
+            If false, running jobs are treated like they were "skipped"
+        wait_for_max_job_duration
+            Allow the job this many seconds after creation to complete
+
+        Returns
+        -------
+        job
+            The scorecard job matching these parameters.
         """
         job_id = self.get_job_id(
             path,
@@ -375,10 +409,21 @@ class CompileScorecardJobYaml(
 
         Parameters
         ----------
-            path: Applicable scorecard path
-            model_id: The ID of the QAIHM model being tested
-            device: The targeted device
-            component: The name of the model component being tested, if applicable
+        path
+            Applicable scorecard path
+        model_id
+            The ID of the QAIHM model being tested
+        device
+            The targeted device
+        precision
+            The precision in which this model is running
+        component
+            The name of the model component being tested, if applicable
+
+        Returns
+        -------
+        job_id
+            The job ID if found, None otherwise.
         """
         if isinstance(path, ScorecardProfilePath):
             # Get the compile job used with this profile path.
@@ -509,3 +554,30 @@ def get_scorecard_job_yaml_from_job(
     job: hub.Job, path: str | Path | None = None
 ) -> ScorecardJobYaml:
     return get_scorecard_job_yaml(job._job_type, path)
+
+
+class ScorecardAssetYaml(BaseQAIHMConfig):
+    models: dict[str, QAIHMModelReleaseAssets] = Field(default_factory=dict)
+
+    def add_asset(
+        self,
+        details: QAIHMModelReleaseAssets.AssetDetails,
+        model_id: str,
+        precision: Precision,
+        device: ScorecardDevice,
+        path: ScorecardProfilePath,
+    ):
+        if model_id not in self.models:
+            self.models[model_id] = QAIHMModelReleaseAssets()
+        self.models[model_id].add_asset(details, precision, device, path)
+
+    def get_asset(
+        self,
+        model_id: str,
+        precision: Precision,
+        device: ScorecardDevice,
+        path: ScorecardProfilePath,
+    ) -> QAIHMModelReleaseAssets.AssetDetails | None:
+        if model_id not in self.models:
+            return None
+        return self.models[model_id].get_asset(precision, device, path)

@@ -1,0 +1,33 @@
+name: GKT
+# id must match with the model dir name in qai_hub_models
+id: gkt
+status: public
+headline: Construct a bird’s eye view from sensors mounted on a vehicle.
+domain: Computer Vision
+use_case: Driver Assistance
+tags: []
+description: Geometry-guided Kernel Transformer is a machine learning model for generating a birds eye view represenation from the sensors(cameras) mounted on a vehicle.
+research_paper: https://arxiv.org/abs/2206.04584
+research_paper_title: "Efficient and Robust 2D-to-BEV Representation Learning via Geometry-guided Kernel Transformer"
+source_repo: https://github.com/hustvl/GKT/
+  https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf
+license: https://github.com/hustvl/GKT/blob/main/LICENSE
+technical_details:
+  Model checkpoint: map_segmentation_gkt_7x1_conv_setting2.ckpt
+  Input resolution: 1 x 6 x 3 x 224 x 480
+  Number of parameters: 1.18M
+  Model size: 4.66 MB
+applicable_scenarios:
+  - Object Detection
+related_models:
+  - simple_bev_cam
+form_factors:
+  - Phone
+  - Tablet
+  - IoT
+  - Auto
+has_static_banner: true
+has_animated_banner: true
+license_type: mit
+dataset:
+  - nuscene

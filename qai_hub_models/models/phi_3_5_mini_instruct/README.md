@@ -4,7 +4,7 @@ Phi-3.5-mini is a lightweight, state-of-the-art open model built upon datasets u
 
 This is based on the implementation of Phi-3.5-Mini-Instruct found [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -19,7 +19,6 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of Phi-3.5-Mini-Instruct can be found
   [here](https://huggingface.co/microsoft/Phi-3.5-mini-instruct/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

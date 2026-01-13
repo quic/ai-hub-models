@@ -41,12 +41,14 @@ def suppress_warnings():
 class Conv2dLinear(torch.nn.Module):
     """
     A class to convert a Linear layer to a Conv2D layer with a 1x1 kernel.
+
     This allows the linear transformation to be applied to the channel dimension
     at each spatial location in the input tensor.
 
     Parameters
     ----------
-        linear (nn.Linear): The original linear layer to be converted.
+    linear
+        The original linear layer to be converted.
     """
 
     def __init__(self, linear: torch.nn.Linear):
@@ -77,10 +79,12 @@ class Conv2dLinear(torch.nn.Module):
 
         Parameters
         ----------
-            x (torch.Tensor): The input tensor in NCHW format.
+        x
+            The input tensor in NCHW format.
 
         Returns
         -------
-            torch.Tensor: The output tensor after applying the Conv2D transformation.
+        output_tensor
+            The output tensor after applying the Conv2D transformation.
         """
         return self.conv(x)

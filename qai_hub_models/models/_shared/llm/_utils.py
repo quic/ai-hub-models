@@ -6,6 +6,13 @@
 from __future__ import annotations
 
 import onnx
+from aimet_onnx.common.defs import (
+    QuantizationDataType,
+)
+from aimet_onnx.qc_quantize_op import (
+    GroupedBlockQuantizeDequantize,
+    QcQuantizeOp,
+)
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 
@@ -39,6 +46,52 @@ def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):
     )
     for out_tensor in out_tensors:
         _set_tensor_to_8_bit_symmetric(quantsim_model, out_tensor)
+
+
+def _set_4bit_weights_to_lpbq(quantsim_model: QuantSimOnnx):
+    # This is largely a copy-paste of
+    # set_grouped_blockwise_quantization_for_weights, except adds an op
+    # selection criterion based on all ops that already have the target
+    # bitwidth. Can be simplified once that function accepts a function
+    # argument.
+    block_size = 64
+    decompressed_bw = 8
+    strict = False
+    bitwidth = 4
+    for op in quantsim_model.connected_graph.ordered_ops:
+        _, _, param_quantizers = quantsim_model.get_op_quantizers(op)
+
+        weight_quantizer: QcQuantizeOp = param_quantizers.get("weight")
+        bias_quantizer: QcQuantizeOp = param_quantizers.get("bias")
+
+        if not weight_quantizer:
+            continue
+
+        if weight_quantizer.bitwidth != bitwidth:
+            continue
+
+        try:
+            grouped_quantizer = GroupedBlockQuantizeDequantize(
+                weight_quantizer.quant_info,
+                bitwidth,
+                decompressed_bw,
+                block_size,
+                weight_quantizer.quant_scheme,
+                weight_quantizer.op_mode,
+                weight_quantizer.tensor_quantizer_params,
+            )
+        except ValueError:
+            if strict:
+                raise
+        else:
+            if bias_quantizer:
+                bias_quantizer.enable_per_channel_quantization()
+                bias_quantizer.use_symmetric_encodings = True
+                bias_quantizer.data_type = QuantizationDataType.int
+
+            for name, quantizer in quantsim_model.qc_quantize_op_dict.items():
+                if quantizer is weight_quantizer:
+                    quantsim_model.qc_quantize_op_dict[name] = grouped_quantizer
 
 
 def _set_tensor_to_8_bit_symmetric(quantsim_model: QuantSimOnnx, tensor_name: str):

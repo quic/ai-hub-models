@@ -199,7 +199,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
                 v["name"]: v for v in encodings["param_encodings"]
             }
 
-        # See _shard/llama3/model.py for why this is needed.
+        # See _shared/llama3/model.py for why this is needed.
         embed_a_name = "/model_embed_tokens_Gather/Gather_output_0"
         embed_w_name = "model_embed_tokens_Gather.weight"
         encodings["activation_encodings"][embed_a_name] = encodings["param_encodings"][

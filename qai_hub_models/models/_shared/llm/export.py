@@ -9,10 +9,10 @@ from __future__ import annotations
 import argparse
 import atexit
 import os
+import shutil
 import tempfile
 import textwrap
 import warnings
-from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -28,14 +28,23 @@ from qai_hub_models.models._shared.llm.model import (
     PositionProcessorBase,
 )
 from qai_hub_models.models._shared.llm.split_onnx_utils import utils
-from qai_hub_models.models.common import ExportResult, Precision, TargetRuntime
+from qai_hub_models.models.common import (
+    Precision,
+    TargetRuntime,
+)
 from qai_hub_models.utils.args import get_input_spec_kwargs, get_model_kwargs
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_result import (
+    CollectionExportResult,
+    ExportResult,
+)
 from qai_hub_models.utils.model_cache import CacheMode, get_or_create_cached_model
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
+from qai_hub_models.utils.path_helpers import get_model_directory_for_download
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
+    print_tool_versions,
 )
 
 if TYPE_CHECKING:
@@ -143,8 +152,9 @@ def export_model(
     synchronous: bool = False,
     model_cache_mode: CacheMode = CacheMode.DISABLE,
     onnx_export_dir: str = "",
+    zip_assets: bool = False,
     **additional_model_kwargs,
-) -> Mapping[str, ExportResult]:
+) -> CollectionExportResult:
     """
     Export the given LLM class for use with Genie or ONNX Runtime GenAI.
 
@@ -218,7 +228,14 @@ def export_model(
         attributes=device.attributes,
         os=device.os,
     )
+    if len(hub_devices) == 0:
+        raise ValueError(
+            f"No device found compatible with the supplied name ({device.name}), os ({device.os}), and attributes ({device.attributes})."
+        )
+
     device = hub_devices[-1]
+    chipset_attr = next((attr for attr in device.attributes if "chipset" in attr), None)
+    chipset = chipset_attr.split(":")[-1] if chipset_attr else None
 
     # Throw a warning if weight sharing is not supported.
     if "htp-supports-weight-sharing:true" not in device.attributes:
@@ -506,14 +523,17 @@ def export_model(
 
     # 5. Download the model assets to a local file
     target_model_list = []
+    output_path = get_model_directory_for_download(
+        target_runtime, precision, chipset, output_path, model_name
+    )
     if not skip_downloading:
-        os.makedirs(output_path, exist_ok=True)
+        output_path.mkdir(parents=True, exist_ok=True)
         for component_name, link_job in link_jobs.items():
             target_model = link_job.get_target_model()
             assert target_model is not None
             target_model_filename = f"{model_name}_{component_name}.bin"
             target_model_list.append(target_model_filename)
-            target_model.download(str(output_path / target_model_filename))
+            target_model.download(output_path / target_model_filename)
 
     # 6. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:
@@ -535,6 +555,7 @@ def export_model(
                 torch_out,
             )
     # Prepare Genie bundle if applicable
+    tool_versions = None
     if not skip_downloading:
         link_job = next(iter(link_jobs.values()))
         hub_model = link_job.get_target_model()
@@ -598,20 +619,36 @@ def export_model(
             """
             print(textwrap.dedent(raw_message))
 
-    return {
-        sub_component_name: ExportResult(
-            compile_job=compile_jobs[sub_component_name],
-            link_job=link_jobs[component_name],
-            profile_job=profile_jobs.get(sub_component_name),
-            inference_job=inference_jobs.get(sub_component_name),
+    # Print versions of frameworks used for compilation/profiling
+    if not skip_summary:
+        print_tool_versions(tool_versions)
+
+    # Zip the contents of output_path if requested
+    if zip_assets:
+        shutil.make_archive(
+            str(output_path),
+            "zip",
+            root_dir=str(output_path.parent),
+            base_dir=output_path.name,
         )
-        for component_name in link_jobs
-        for sub_component_name in [
-            x
-            for x, y in component_from_sub_component_names.items()
-            if y == component_name
-        ]
-    }
+        shutil.rmtree(output_path)
+
+    return CollectionExportResult(
+        components={
+            sub_component_name: ExportResult(
+                compile_job=compile_jobs[sub_component_name],
+                link_job=link_jobs[component_name],
+                profile_job=profile_jobs.get(sub_component_name),
+                inference_job=inference_jobs.get(sub_component_name),
+            )
+            for component_name in link_jobs
+            for sub_component_name in [
+                x
+                for x, y in component_from_sub_component_names.items()
+                if y == component_name
+            ]
+        }
+    )
 
 
 def _add_skip_inferencing_arg(parser: argparse.ArgumentParser) -> None:
@@ -655,6 +692,9 @@ def get_llm_parser(
     )
     parser.add_argument("--quantize", help=argparse.SUPPRESS)
     parser.add_argument("--precision", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--zip-assets", action="store_true", help="If set, zip assets on download."
+    )
     suppress_help_arguments = [
         "host_device",
         "fp_model",

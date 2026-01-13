@@ -1,0 +1,30 @@
+diff --git a/cross_view_transformer/data/augmentations.py b/cross_view_transformer/data/augmentations.py
+index 9c6665d..647715c 100644
+--- a/cross_view_transformer/data/augmentations.py
++++ b/cross_view_transformer/data/augmentations.py
+@@ -1,7 +1,9 @@
+ """
+ https://github.com/eriklindernoren/PyTorch-YOLOv3/blob/master/pytorchyolo/utils/transforms.py
+ """
+-import imgaug.augmenters as iaa
++# Remove imgaug reference, and imgaug does not support numpy 2.x
++# AI Hub Models does not use this file.
++# import imgaug.augmenters as iaa
+ import torchvision
+ import numpy as np
+ 
+diff --git a/cross_view_transformer/model/encoder.py b/cross_view_transformer/model/encoder.py
+index 1229302..5788d60 100644
+--- a/cross_view_transformer/model/encoder.py
++++ b/cross_view_transformer/model/encoder.py
+@@ -320,8 +320,8 @@ class Encoder(nn.Module):
+         b, n, _, _, _ = batch['image'].shape
+ 
+         image = batch['image'].flatten(0, 1)            # b n c h w
+-        I_inv = batch['intrinsics'].inverse()           # b n 3 3
+-        E_inv = batch['extrinsics'].inverse()           # b n 4 4
++        I_inv = batch['intrinsics']           # b n 3 3
++        E_inv = batch['extrinsics']           # b n 4 4
+ 
+         features = [self.down(y) for y in self.backbone(self.norm(image))]
+ 

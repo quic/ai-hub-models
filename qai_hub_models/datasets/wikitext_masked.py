@@ -72,13 +72,15 @@ class WikiTextMasked(BaseDataset):
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            - A tuple of:
-                - input_ids: tokenized input with one [MASK]
-                - attention_mask: binary mask (1 for real tokens)
-                - mask_position: scalar index of the [MASK] token
-            - label: Ground-truth token ID that was replaced by [MASK]
+        inputs
+            input_ids
+                Tokenized input with one [MASK] token.
+            attention_mask
+                Binary mask where 1 indicates real tokens.
+            mask_position
+                Scalar index of the [MASK] token.
+        label
+            Ground-truth token ID that was replaced by [MASK].
         """
         start = idx * self.block_size
         end = start + self.block_size - 2

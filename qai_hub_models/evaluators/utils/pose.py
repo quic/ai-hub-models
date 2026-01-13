@@ -153,21 +153,23 @@ def get_final_preds(
     """
     Get final prediction after post process and transform over several batch.
 
-    Inputs:
-        batch_heatmaps: numpy.ndarray
-            heatmap from the prediction,
-            the shape is [batch_size, num_keypoints, height, width]
-        center: numpy.ndarray
-            center for each image, the shape is [batch_size, 2]
-        scale: numpy.ndarray
-            scale for each image, the shape is [batch_size, 2]
+    Parameters
+    ----------
+    batch_heatmaps
+        Heatmap from the prediction,
+        the shape is [batch_size, num_keypoints, height, width].
+    center
+        Center for each image, the shape is [batch_size, 2].
+    scale
+        Scale for each image, the shape is [batch_size, 2].
 
-    Outputs:
-        preds: numpy.ndarray
-            final prediction based on keypoints after post process and transform,
-            the shape is [batch_size, num_keypoints, 2]
-        maxval: numpy.ndarray
-            score for each prediction, the shape is [batch_size, num_keypoints, 1]
+    Returns
+    -------
+    preds
+        Final prediction based on keypoints after post process and transform,
+        the shape is [batch_size, num_keypoints, 2].
+    maxval
+        Score for each prediction, the shape is [batch_size, num_keypoints, 1].
     """
     coords, maxvals = get_max_preds(batch_heatmaps)
 
@@ -207,17 +209,19 @@ def get_max_preds(batch_heatmaps: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     Get predictions from score maps over several batch.
 
-    Inputs:
-        batch_heatmaps: numpy.ndarray
-            [batch_size, num_keypoints, height, width])
+    Parameters
+    ----------
+    batch_heatmaps
+        Heatmap array with shape [batch_size, num_keypoints, height, width].
 
-    Outputs:
-        preds: numpy.ndarray
-            final prediction based on keypoints,
-            the shape is [batch_size, num_keypoints, 2]
-        maxval: numpy.ndarray
-            score for each prediction,
-            the shape is [batch_size, num_keypoints, 1]
+    Returns
+    -------
+    preds
+        Final prediction based on keypoints,
+        the shape is [batch_size, num_keypoints, 2].
+    maxval
+        Score for each prediction,
+        the shape is [batch_size, num_keypoints, 1].
     """
     assert isinstance(batch_heatmaps, np.ndarray), (
         "batch_heatmaps should be numpy.ndarray"

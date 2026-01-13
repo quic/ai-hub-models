@@ -17,20 +17,23 @@ from qai_hub.public_api_pb2 import (
     ToolVersion,
 )
 
+import qai_hub_models._version as pkg_version
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 
 RESULTS_PATCH_TARGET = "qai_hub_models.configs.tool_versions.get_job_results"
 
 
-def test_extract_tool_versions_from_compiled_model():
+def test_extract_tool_versions_from_compiled_model(monkeypatch):
+    monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
     m = MagicMock(
         spec=hub.Model,
         metadata={hub.ModelMetadataKey.QAIRT_SDK_VERSION: "2.28"},
         producer=MagicMock(spec=hub.CompileJob, _job_type=JobType.COMPILE),
     )
-    assert ToolVersions.from_compiled_model(m) == ToolVersions(
-        qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
+    assert ToolVersions.from_compiled_model(m, add_aihm_version=True) == ToolVersions(
+        qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     m = MagicMock(
@@ -38,8 +41,9 @@ def test_extract_tool_versions_from_compiled_model():
         metadata={hub.ModelMetadataKey.QNN_SDK_VERSION: "2.25.1234"},
         producer=MagicMock(spec=hub.CompileJob, _job_type=JobType.COMPILE),
     )
-    assert ToolVersions.from_compiled_model(m) == ToolVersions(
-        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+    assert ToolVersions.from_compiled_model(m, add_aihm_version=True) == ToolVersions(
+        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     m = MagicMock(
@@ -54,7 +58,9 @@ def test_extract_tool_versions_from_compiled_model():
         ToolVersions.from_compiled_model(m)
 
 
-def test_extract_tool_versions_from_compile_job():
+def test_extract_tool_versions_from_compile_job(monkeypatch):
+    monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
+
     def _make_results(versions: list[ToolVersion]):
         return JobResult(
             compile_job_result=CompileJobResult(
@@ -74,8 +80,9 @@ def test_extract_tool_versions_from_compile_job():
         producer=j,
     )
     j.get_target_model = lambda: m
-    assert ToolVersions.from_job(j) == ToolVersions(
-        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     # Compile job: Success with explicit qairt version in options
@@ -91,8 +98,9 @@ def test_extract_tool_versions_from_compile_job():
         producer=j,
     )
     j.get_target_model = lambda: m
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     # Compile job: Failed with no options
@@ -102,7 +110,7 @@ def test_extract_tool_versions_from_compile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="",
     )
-    assert ToolVersions.from_job(j) == ToolVersions()
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions()
     assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions()
 
     # Compile job: Failed
@@ -114,15 +122,18 @@ def test_extract_tool_versions_from_compile_job():
             options=rt.aihub_target_runtime_flag,
         )
         if rt.qairt_version_changes_compilation:
-            assert ToolVersions.from_job(j) == ToolVersions(
+            assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
                 qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
             )
-            assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-                qairt=QAIRTVersion.default()
-            )
+            assert ToolVersions.from_job(
+                j, add_aihm_version=True, parse_version_tags=True
+            ) == ToolVersions(qairt=QAIRTVersion.default())
         else:
             assert ToolVersions.from_job(j) == ToolVersions()
-            assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions()
+            assert (
+                ToolVersions.from_job(j, add_aihm_version=True, parse_version_tags=True)
+                == ToolVersions()
+            )
 
     # Compile job: Failed with qairt version in options
     j = MagicMock(
@@ -131,12 +142,12 @@ def test_extract_tool_versions_from_compile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=2.28",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(job=j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
-    )
+    assert ToolVersions.from_job(
+        job=j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False))
 
     # Compile job: Failed with explicit qairt version tag in options
     j = MagicMock(
@@ -145,12 +156,12 @@ def test_extract_tool_versions_from_compile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=latest",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("latest", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion.latest()
-    )
+    assert ToolVersions.from_job(
+        j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion.latest())
 
     # Compile job: Not QAIRT asset
     j = MagicMock(
@@ -166,10 +177,13 @@ def test_extract_tool_versions_from_compile_job():
         RESULTS_PATCH_TARGET,
         lambda *_: _make_results([ToolVersion(name="ONNX", version="1.22.1")]),
     ):
-        assert ToolVersions.from_job(j) == ToolVersions(onnx="1.22.1")
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+            onnx="1.22.1", ai_hub_models="1.2.3"
+        )
 
 
-def test_extract_tool_versions_from_link_job():
+def test_extract_tool_versions_from_link_job(monkeypatch):
+    monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
     # LINK job: Success
     j = MagicMock(
         spec=hub.LinkJob,
@@ -182,8 +196,9 @@ def test_extract_tool_versions_from_link_job():
         producer=j,
     )
     j.get_target_model = lambda: m
-    assert ToolVersions.from_job(j) == ToolVersions(
-        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+        qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     # LINK job: Failed
@@ -205,8 +220,9 @@ def test_extract_tool_versions_from_link_job():
         options="",
         models=[m, m],
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+        ai_hub_models="1.2.3",
     )
 
     # Link job: Failed, but source model was not created by AI Hub
@@ -222,10 +238,12 @@ def test_extract_tool_versions_from_link_job():
         options="",
         models=[m, m],
     )
-    assert ToolVersions.from_job(j) == ToolVersions()
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions()
 
 
-def test_extract_tool_versions_from_profile_job():
+def test_extract_tool_versions_from_profile_job(monkeypatch):
+    monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
+
     def _make_results(versions: list[ToolVersion]):
         return JobResult(
             profile_job_result=ProfileJobResult(
@@ -245,8 +263,9 @@ def test_extract_tool_versions_from_profile_job():
         RESULTS_PATCH_TARGET,
         lambda *_: _make_results([ToolVersion(name="QAIRT", version="2.25.1234")]),
     ):
-        assert ToolVersions.from_job(j) == ToolVersions(
-            qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+            qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+            ai_hub_models="1.2.3",
         )
 
     # Profile Job: Success (QNN instead of QAIRT)
@@ -266,9 +285,10 @@ def test_extract_tool_versions_from_profile_job():
             ]
         ),
     ):
-        assert ToolVersions.from_job(j) == ToolVersions(
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
             qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
             onnx_runtime="1.22.1",
+            ai_hub_models="1.2.3",
         )
 
     # Profile Job: Success (no QAIRT version in job results)
@@ -280,7 +300,9 @@ def test_extract_tool_versions_from_profile_job():
         get_status=lambda: JobStatus(JobStatus.State.SUCCESS),
     )
     with patch(RESULTS_PATCH_TARGET, lambda *_: _make_results([])):
-        assert ToolVersions.from_job(j) == ToolVersions()
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+            ai_hub_models="1.2.3"
+        )
 
     # Profile job: Failed with no options
     j = MagicMock(
@@ -289,12 +311,12 @@ def test_extract_tool_versions_from_profile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion.default()
-    )
+    assert ToolVersions.from_job(
+        j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion.default())
 
     # Profile job: Failed with qairt version in options
     j = MagicMock(
@@ -303,12 +325,12 @@ def test_extract_tool_versions_from_profile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=2.28",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(job=j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
-    )
+    assert ToolVersions.from_job(
+        job=j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False))
 
     # Profile job: Failed with explicit qairt version tag in options
     j = MagicMock(
@@ -317,15 +339,17 @@ def test_extract_tool_versions_from_profile_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=latest",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion.latest()
-    )
+    assert ToolVersions.from_job(
+        j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion.latest())
 
 
-def test_extract_tool_versions_from_inference_job():
+def test_extract_tool_versions_from_inference_job(monkeypatch):
+    monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
+
     def _make_results(versions: list[ToolVersion]):
         return JobResult(
             inference_job_result=InferenceJobResult(
@@ -345,8 +369,9 @@ def test_extract_tool_versions_from_inference_job():
         RESULTS_PATCH_TARGET,
         lambda *_: _make_results([ToolVersion(name="QAIRT", version="2.25.1234")]),
     ):
-        assert ToolVersions.from_job(j) == ToolVersions(
-            qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False)
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+            qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
+            ai_hub_models="1.2.3",
         )
 
     # Inference job: Success (QNN instead of QAIRT)
@@ -366,9 +391,10 @@ def test_extract_tool_versions_from_inference_job():
             ]
         ),
     ):
-        assert ToolVersions.from_job(j) == ToolVersions(
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
             qairt=QAIRTVersion("2.25.1234", validate_exists_on_ai_hub=False),
             tflite="1.22.1",
+            ai_hub_models="1.2.3",
         )
 
     # Inference job: Success (no QAIRT version in job results)
@@ -380,7 +406,9 @@ def test_extract_tool_versions_from_inference_job():
         get_status=lambda: JobStatus(JobStatus.State.SUCCESS),
     )
     with patch(RESULTS_PATCH_TARGET, lambda *_: _make_results([])):
-        assert ToolVersions.from_job(j) == ToolVersions()
+        assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
+            ai_hub_models="1.2.3"
+        )
 
     # Inference job: Failed with no options
     j = MagicMock(
@@ -389,12 +417,12 @@ def test_extract_tool_versions_from_inference_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion.default()
-    )
+    assert ToolVersions.from_job(
+        j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion.default())
 
     # Inference job: Failed with qairt version in options
     j = MagicMock(
@@ -403,12 +431,12 @@ def test_extract_tool_versions_from_inference_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=2.28",
     )
-    assert ToolVersions.from_job(job=j) == ToolVersions(
+    assert ToolVersions.from_job(job=j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(job=j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False)
-    )
+    assert ToolVersions.from_job(
+        job=j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion("2.28", validate_exists_on_ai_hub=False))
 
     # Inference job: Failed with explicit qairt version tag in options
     j = MagicMock(
@@ -417,9 +445,9 @@ def test_extract_tool_versions_from_inference_job():
         get_status=lambda: JobStatus(JobStatus.State.FAILED),
         options="--qairt_version=latest",
     )
-    assert ToolVersions.from_job(j) == ToolVersions(
+    assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions(
         qairt=QAIRTVersion("default", validate_exists_on_ai_hub=False)
     )
-    assert ToolVersions.from_job(j, parse_version_tags=True) == ToolVersions(
-        qairt=QAIRTVersion.latest()
-    )
+    assert ToolVersions.from_job(
+        j, add_aihm_version=True, parse_version_tags=True
+    ) == ToolVersions(qairt=QAIRTVersion.latest())

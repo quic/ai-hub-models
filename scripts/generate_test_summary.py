@@ -32,12 +32,17 @@ def extract_file_and_line(
 
     Parameters
     ----------
-        stack_trace: The stack trace text
-        message: The error message
+    stack_trace
+        The stack trace text.
+    message
+        The error message.
 
     Returns
     -------
-        Tuple of (file_path, line_number)
+    file_path
+        The file path from the stack trace, or None.
+    line_number
+        The line number from the stack trace, or None.
     """
     # No stack trace to analyze
     if not stack_trace:
@@ -73,19 +78,23 @@ def extract_file_and_line(
 
 def extract_relevant_stack_trace(stack_trace: str | None, message: str) -> str | None:
     """
-    Extract the most relevant part of a stack trace, i.e. the end of the stack trace
-    where file and line number along with error is captured.
+    Extract the most relevant part of a stack trace.
+
+    Extracts the end of the stack trace where file and line number along with
+    error is captured. This assumes the error is near the end of the stack trace,
+    which is often but not always true, refer to junit xml for ground truth.
 
     Parameters
     ----------
-        stack_trace: The full stack trace
-        message: The error message
+    stack_trace
+        The full stack trace.
+    message
+        The error message.
 
     Returns
     -------
-        The most relevant part of the stack trace
-
-    This assumes the error is near the end of the stack trace, which is often but not always true, refer to junit xml for ground truth.
+    relevant_trace
+        The most relevant part of the stack trace.
     """
     if not stack_trace:
         return None
@@ -122,11 +131,13 @@ def collect_test_statistics(root: ET.Element) -> dict[str, int | float]:
 
     Parameters
     ----------
-        root: The root element of the JUnit XML
+    root
+        The root element of the JUnit XML.
 
     Returns
     -------
-        Dictionary of test statistics
+    stats
+        Dictionary of test statistics.
     """
     stats: dict[str, int | float] = {
         "total": 0,
@@ -162,12 +173,15 @@ def parse_junit_xml(
 
     Parameters
     ----------
-        xml_path: Path to the JUnit XML file
+    xml_path
+        Path to the JUnit XML file.
 
     Returns
     -------
-        Tuple of (failures, stats) where failures is a list of dictionaries containing failure information
-        and stats is a dictionary of test statistics
+    failures
+        List of dictionaries containing failure information.
+    stats
+        Dictionary of test statistics.
     """
     if not os.path.exists(xml_path):
         print(f"No test results file found at {xml_path}")
@@ -254,15 +268,21 @@ def parse_junit_xml(
 def generate_markdown_table(failures: list[dict[str, Any]]) -> tuple[str, str]:
     """
     Generate a Markdown table from a list of test failures using pandas.
-    Also, creates a pull down stack trace right underneath the table for convenience of viewing.
+
+    Also creates a pull down stack trace right underneath the table for
+    convenience of viewing.
 
     Parameters
     ----------
-        failures: List of dictionaries containing failure information
+    failures
+        List of dictionaries containing failure information.
 
     Returns
     -------
-        Tuple of (markdown_table, stack_traces_section)
+    markdown_table
+        Markdown formatted table of test failures.
+    stack_traces_section
+        Section containing detailed stack traces.
     """
     if not failures:
         return "No test failures found.", ""
@@ -309,11 +329,13 @@ def generate_stats_summary(stats: dict[str, int | float]) -> str:
 
     Parameters
     ----------
-        stats: Dictionary containing test statistics
+    stats
+        Dictionary containing test statistics.
 
     Returns
     -------
-        Markdown formatted test statistics
+    summary
+        Markdown formatted test statistics.
     """
     # Convert time from seconds to minutes
     time_minutes = stats["time"] / 60.0
@@ -346,7 +368,8 @@ def write_to_github_summary(content: str) -> None:
 
     Parameters
     ----------
-        content: Content to write to the summary
+    content
+        Content to write to the summary.
     """
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     print(f"GITHUB_STEP_SUMMARY environment variable: {summary_path}")
@@ -366,12 +389,15 @@ def find_junit_xml_files(directory: str, pattern: str) -> list[str]:
 
     Parameters
     ----------
-        directory: Directory to search in
-        pattern: Pattern to match (e.g., "models-junit*.xml")
+    directory
+        Directory to search in.
+    pattern
+        Pattern to match (e.g., "models-junit*.xml").
 
     Returns
     -------
-        List of file paths
+    file_paths
+        List of file paths.
     """
     if not directory or not os.path.exists(directory):
         return []
@@ -392,11 +418,15 @@ def combine_junit_results(
 
     Parameters
     ----------
-        file_paths: List of file paths to JUnit XML files
+    file_paths
+        List of file paths to JUnit XML files.
 
     Returns
     -------
-        Combined failures and stats
+    failures
+        Combined list of failures from all test files.
+    stats
+        Combined test statistics.
     """
     all_failures = []
     combined_stats: dict[str, int | float] = {
@@ -434,10 +464,14 @@ def process_test_results(
 
     Parameters
     ----------
-        test_type: Type of tests (e.g., "QAIHM", "Model")
-        failures: List of test failures
-        stats: Dictionary of test statistics
-        summary_sections: List to append summary sections to
+    test_type
+        Type of tests (e.g., "QAIHM", "Model").
+    failures
+        List of test failures.
+    stats
+        Dictionary of test statistics.
+    summary_sections
+        List to append summary sections to.
     """
     summary_sections.append(f"### {test_type} Tests\n")
 
@@ -474,12 +508,17 @@ def get_test_results(
 
     Parameters
     ----------
-        xml_path_or_dir: Path to XML file or directory
-        file_pattern: Pattern to match files in directory
+    xml_path_or_dir
+        Path to XML file or directory.
+    file_pattern
+        Pattern to match files in directory.
 
     Returns
     -------
-        Tuple of (failures, stats)
+    failures
+        List of test failures.
+    stats
+        Test statistics.
     """
     if os.path.isdir(xml_path_or_dir) and file_pattern:
         # Find all matching XML files in directory
@@ -496,8 +535,10 @@ def write_summary(summary_text: str, output_path: str | None = None) -> None:
 
     Parameters
     ----------
-        summary_text: Summary text to write
-        output_path: Path to output file (optional)
+    summary_text
+        Summary text to write.
+    output_path
+        Path to output file (optional).
     """
     if output_path:
         with open(output_path, "w") as f:

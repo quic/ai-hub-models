@@ -56,15 +56,22 @@ class NuscenesAnnotation:
 
     Attributes
     ----------
-        sample_token (str): Unique identifier for the sample (image/frame) this
-                            annotation belongs to.
-        translation (list[float]): Bounding box center coordinates [x, y, z] in meters.
-        size (list[float]): Bounding box dimensions [width, length, height] in meters.
-        rotation (list[float]): Quaternion rotation [w, x, y, z].
-        velocity (list[float]): Object velocity [vx, vy, vz] in meters/second.
-        detection_name (str): The class name of the detected object (e.g., 'car', 'pedestrian').
-        detection_score (float): Confidence score of the detection.
-        attribute_name (str): Additional attribute associated with the object (e.g., 'cycle.with_rider').
+    sample_token
+        Unique identifier for the sample (image/frame) this annotation belongs to.
+    translation
+        Bounding box center coordinates [x, y, z] in meters.
+    size
+        Bounding box dimensions [width, length, height] in meters.
+    rotation
+        Quaternion rotation [w, x, y, z].
+    velocity
+        Object velocity [vx, vy, vz] in meters/second.
+    detection_name
+        The class name of the detected object (e.g., 'car', 'pedestrian').
+    detection_score
+        Confidence score of the detection.
+    attribute_name
+        Additional attribute associated with the object (e.g., 'cycle.with_rider').
     """
 
     sample_token: str
@@ -136,26 +143,26 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            output: A tuple of tensors containing the predicted bounding boxes, scores, and class indices.
-                reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H, W].
-                height (torch.Tensor): Height value with the
-                    shape of [B, 1, H, W].
-                dim (torch.Tensor): Size value with the shape
-                    of [B, 3, H, W].
-                rot (torch.Tensor): Rotation value with the
-                    shape of [B, 2, H, W].
-                vel (torch.Tensor): Velocity value with the
-                    shape of [B, 2, H, W].
-                heatmap (torch.Tensor): Heatmap with the shape of
-                    [B, N, H, W].
-            gt: A tuple of tensors containing
-                id (torch.Tensor): Unique sample ID
-                    shape of [B]
-                trans (torch.Tensor): ego2global Translation with the
-                    shape of [B, 3].
-                rots (torch.Tensor): ego2global Rotation with the
-                    shape of [B, 4].
+        output
+            reg
+                2D regression value with the shape of [B, 2, H, W].
+            height
+                Height value with the shape of [B, 1, H, W].
+            dim
+                Size value with the shape of [B, 3, H, W].
+            rot
+                Rotation value with the shape of [B, 2, H, W].
+            vel
+                Velocity value with the shape of [B, 2, H, W].
+            heatmap
+                Heatmap with the shape of [B, N, H, W].
+        gt
+            id
+                Unique sample ID with shape of [B]
+            trans
+                ego2global Translation with the shape of [B, 3].
+            rots
+                ego2global Rotation with the shape of [B, 4].
         """
         ids, trans, rots = gt
         reg, height, dim, rot, vel, heatmap = output
@@ -220,28 +227,33 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            reg (torch.Tensor): 2D regression value with the
-                shape of [B, 2, H, W].
-            height (torch.Tensor): Height value with the
-                shape of [B, 1, H, W].
-            dim (torch.Tensor): Size value with the shape
-                of [B, 3, H, W].
-            rot (torch.Tensor): Rotation value with the
-                shape of [B, 2, H, W].
-            vel (torch.Tensor): Velocity value with the
-                shape of [B, 2, H, W].
-            heatmap (torch.Tensor): Heatmap with the shape of
-                [B, N, H, W].
+        reg
+            2D regression value with the shape of [B, 2, H, W].
+        height
+            Height value with the shape of [B, 1, H, W].
+        dim
+            Size value with the shape of [B, 3, H, W].
+        rot
+            Rotation value with the shape of [B, 2, H, W].
+        vel
+            Velocity value with the shape of [B, 2, H, W].
+        heatmap
+            Heatmap with the shape of [B, N, H, W].
 
         Returns
         -------
-            ret list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-                Decoded bbox with shape (Num_pred, 9):
-                    (x, y, z, w, l, h, yaw, vx, vy),
-                    where x, y, z, w, l, h are in meters,
-                    yaw in radian and vx, vy in m/s.
-                scores with shape (Num_pred,) and
-                labels with shape (Num_pred,) after nms.
+        list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+            List of tuples, one per batch element. Each tuple contains:
+
+            bboxes
+                Decoded bounding boxes with shape (Num_pred, 9):
+                (x, y, z, w, l, h, yaw, vx, vy),
+                where x, y, z, w, l, h are in meters,
+                yaw in radian and vx, vy in m/s.
+            scores
+                Confidence scores with shape (Num_pred,).
+            labels
+                Class labels with shape (Num_pred,).
         """
         # Decode bboxes from the given inputs
         # https://github.com/HuangJunJie2017/BEVDet/blob/26144be7c11c2972a8930d6ddd6471b8ea900d13/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py#L117
@@ -277,11 +289,16 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
             ret.append((bboxes, scores, labels))
         return ret
 
-    def evaluate(self) -> tuple[DetectionMetrics, DetectionMetricDataList]:
+    def evaluate(self) -> tuple[float, float]:
         """
         Performs the actual evaluation.
 
-        return: A tuple of high-level and the raw metric data.
+        Returns
+        -------
+        mAP
+            Mean Average Precision value.
+        NDS
+            NuScenes Detection Score.
         """
         cfg = config_factory("detection_cvpr_2019")
         max_boxes_per_sample = cfg.max_boxes_per_sample

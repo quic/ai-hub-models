@@ -51,7 +51,27 @@ def prepare_compile_zoo_model_to_hub(
     """
     Parameters
     ----------
-    - (source_model_format, target_runtime):  One of the followings
+    model
+        Model to compile.
+    source_model_format
+        Format of the source model (ONNX or TORCHSCRIPT).
+    target_runtime
+        Target runtime for compilation (QNN or TFLITE).
+    output_path
+        Path where the model will be exported.
+    input_spec
+        Input specification for the model.
+    check_trace
+        Whether to check the trace during conversion.
+    external_onnx_weights
+        Whether to use external weights for ONNX export.
+    output_names
+        List of output names for the model.
+
+    Notes
+    -----
+    (source_model_format, target_runtime)
+        One of the followings
 
         (1) (ONNX, QNN)
 
@@ -151,17 +171,21 @@ def compile_model_from_args(
     """
     Parameters
     ----------
-    - model_id: e.g., yolov7_quantized, stable_diffusion_v1_5_ao_quantized
+    model_id
+        e.g., yolov7_quantized, stable_diffusion_v1_5_ao_quantized
+    cli_args
+        CLI arguments. We will use cli_args.chipset, .device,
+        .target_runtime.
+    model_kwargs
+        kwargs pertaining to model's .from_pretrained.
+    component
+        For qai_hub_models.utils.base_model.CollectionModel, set
+        component to compile a specific components. None (default) to compile all
+        components.
 
-    - cli_args: CLI arguments. We will use cli_args.chipset, .device,
-    .target_runtime.
-
-    - model_kwargs: kwargs pertaining to model's .from_pretrained.
-
-    - component: For qai_hub_models.utils.base_model.CollectionModel, set
-    component to compile a specific components. None (default) to compile all
-    components.
-
+    Returns
+    -------
+    The compiled hub.Model object.
     """
     model_kwargs_dict = dict(model_kwargs)
     cli_str = ""
@@ -171,14 +195,20 @@ def compile_model_from_args(
 
     export_file = f"qai_hub_models.models.{model_id}.export"
     export_module = import_module(export_file)
-    if hasattr(cli_args, "num_calibration_samples"):
+    if getattr(cli_args, "num_calibration_samples", None):
         model_kwargs_dict["num_calibration_samples"] = cli_args.num_calibration_samples
         cli_str += f"--num-calibration-samples {cli_args.num_calibration_samples} "
+    if getattr(cli_args, "compile_options", ""):
+        model_kwargs_dict["compile_options"] = cli_args.compile_options
+        cli_str += f'--compile-options="{cli_args.compile_options}" '
+    if getattr(cli_args, "quantize_options", ""):
+        model_kwargs_dict["quantize_options"] = cli_args.quantize_options
+        cli_str += f'--quantize-options="{cli_args.quantize_options}" '
     if cli_args.device is not None:
         if cli_args.chipset:
             cli_str += f"--chipset {cli_args.chipset} "
         if cli_args.device.name:
-            cli_str += f"--device {cli_args.device.name} "
+            cli_str += f'--device "{cli_args.device.name}" '
     model_name = model_id + (f".{component}" if component else "")
     print(f"Compiling on-device model asset for {model_name}.")
     print(
@@ -213,7 +243,7 @@ def compile_model_from_args(
 
 
 def dataset_entries_from_batch(
-    batch,
+    batch: Any,
     input_names: list[str],
     channel_last_input: list[str] | None,
 ) -> tuple[DatasetEntries, DatasetEntries]:
@@ -226,7 +256,21 @@ def dataset_entries_from_batch(
 
     GT data will be left as-is (1 tensor with a batch dim of size N), as it's not passed to the model.
 
-    Return a tuple of DatasetEntries for inputs and gt that can be uploaded to hub.
+    Parameters
+    ----------
+    batch
+        A batch from a torch dataloader in (inputs, gt) format.
+    input_names
+        Names of the input tensors for the model.
+    channel_last_input
+        List of input names that should be converted to channel-last format.
+
+    Returns
+    -------
+    input_entries
+        Dataset entries for inputs that can be uploaded to hub.
+    gt_entries
+        Dataset entries for ground truth that can be uploaded to hub.
     """
     model_inputs: torch.Tensor | list[torch.Tensor] | tuple[torch.Tensor]
     model_inputs, ground_truth_values, *_ = batch
@@ -324,20 +368,9 @@ class AsyncOnDeviceResult:
 class AsyncOnDeviceModel:
     """
     Class that behaves like a pytorch model except when called, it runs an
-        inference job on hub and returns an AsyncOnDeviceResult. Calling
-        AsyncOnDeviceResult.wait() will return a torch result in the same format
-        as the PyTorch model.
-
-    Parameters
-    ----------
-        input_names: List of input names to the model.
-        device: Device on which to execute inference.
-        hub_model_id: ID of Model stored in hub that will be used to run inference.
-        model: If hub_model_id is absent, this model is compiled and used for inference.
-
-    Returns
-    -------
-        AsyncOnDeviceResult that mimics the I/O of a torch model and evaluates inference on device.
+    inference job on hub and returns an AsyncOnDeviceResult. Calling
+    AsyncOnDeviceResult.wait() will return a torch result in the same format
+    as the PyTorch model.
     """
 
     def __init__(
@@ -348,6 +381,20 @@ class AsyncOnDeviceModel:
         inference_options: str = "",
         output_names: list[str] | None = None,
     ):
+        """
+        Parameters
+        ----------
+        model
+            Model stored in hub that will be used to run inference.
+        input_names
+            List of input names to the model.
+        device
+            Device on which to execute inference.
+        inference_options
+            Options to pass to the inference job.
+        output_names
+            List of output names from the model.
+        """
         self.model = model
         self.input_names = input_names or []
         self.device = device
@@ -436,20 +483,9 @@ class AsyncOnDeviceModel:
 class OnDeviceModel(ExecutableModelProtocol):
     """
     Class that behaves like a pytorch model except when called, it runs an
-        inference job on hub and returns a torch output.
+    inference job on hub and returns a torch output.
 
     Intended to be passed as in input to app.py to run an app on-device.
-
-    Parameters
-    ----------
-        input_names: List of input names to the model.
-        device: Device on which to execute inference.
-        hub_model_id: ID of Model stored in hub that will be used to run inference.
-        model: If hub_model_id is absent, this model is compiled and used for inference.
-
-    Returns
-    -------
-        Callable that mimics the I/O of a torch model and evaluates inference on device.
     """
 
     def __init__(
@@ -460,6 +496,20 @@ class OnDeviceModel(ExecutableModelProtocol):
         inference_options: str = "",
         output_names: list[str] | None = None,
     ):
+        """
+        Parameters
+        ----------
+        model
+            Model stored in hub that will be used to run inference.
+        input_names
+            List of input names to the model.
+        device
+            Device on which to execute inference.
+        inference_options
+            Options to pass to the inference job.
+        output_names
+            List of output names from the model.
+        """
         self.async_model = AsyncOnDeviceModel(
             model,
             input_names,

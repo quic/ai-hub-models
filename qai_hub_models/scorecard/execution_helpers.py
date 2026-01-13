@@ -90,8 +90,10 @@ def get_enabled_test_precisions() -> tuple[
 
     Returns
     -------
-        special_precision_setting: Any special precision setting with which the run was configured.
-        extra_enabled_precisions: Precisions that should be enabled beyond the defaults, if a model supports quantize job.
+    special_precision_setting
+        Any special precision setting with which the run was configured.
+    extra_enabled_precisions
+        Precisions that should be enabled beyond the defaults, if a model supports quantize job.
     """
     precisions_set = EnabledPrecisionsEnvvar.get()
     precisions_special_settings = [
@@ -131,17 +133,18 @@ def get_model_test_precisions(
 
     Parameters
     ----------
-        model_supported_precisions:
-            The set of Precisions that this model can support.
-
-        can_use_quanitze_job:
-            Whether a model can use quantize job.
-            If true, extra precisions set in parameter `enabled_test_precisions` will be included.
+    model_id
+        The model ID.
+    model_supported_precisions
+        The set of Precisions that this model can support.
+    can_use_quantize_job
+        Whether a model can use quantize job.
+        If true, extra precisions set in parameter `enabled_test_precisions` will be included.
 
     Returns
     -------
-        model_test_precisions:
-            The list of precisions to test for this model.
+    model_test_precisions
+        The list of precisions to test for this model.
     """
     enabled_test_precisions = get_enabled_test_precisions()
     special_precision_setting, extra_enabled_precisions = enabled_test_precisions
@@ -210,52 +213,44 @@ def get_model_test_parameterizations(
 
     Parameters
     ----------
-        model_id:
-            model_id of the relevant model.
-
-        supported_paths:
-            The list of (Precision, Runtime) pairs that this model can support.
-
-        timeout_paths:
-            The list of (Precision, Runtime) pairs that time out. These will never run regardless of scorecard settings.
-
-        path_type:
-            The type of scorecard path to return (Compile or Profile)
-
-        can_use_quanitze_job:
-            Whether this model can be quantized with QuantizeJob.
-            If true, extra precisions set in parameter `enabled_test_precisions` will be included.
-
-        devices:
-            The list of devices to include. If None, all enabled devices are included.
-
-        include_unsupported_paths:
-            If true, all enabled paths will be included, instead of the ones compatible with
-            parameter supported_paths.
-
-        requires_aot_prepare:
-            If True, only AOT (compilation to context binary on Hub) paths are included.
-            If False, only JIT (compilation to context binary on-device) paths are included.
+    model_id
+        model_id of the relevant model.
+    supported_paths
+        The list of (Precision, Runtime) pairs that this model can support.
+    timeout_paths
+        The list of (Precision, Runtime) pairs that time out. These will never run regardless of scorecard settings.
+    path_type
+        The type of scorecard path to return (Compile or Profile)
+    can_use_quantize_job
+        Whether this model can be quantized with QuantizeJob.
+        If true, extra precisions set in parameter `enabled_test_precisions` will be included.
+    devices
+        The list of devices to include. If None, all enabled devices are included.
+    include_unsupported_paths
+        If true, all enabled paths will be included, instead of the ones compatible with
+        parameter supported_paths.
+    requires_aot_prepare
+        If True, only AOT (compilation to context binary on Hub) paths are included.
+        If False, only JIT (compilation to context binary on-device) paths are included.
+    only_include_genai_paths
+        If True, only GenAI paths are included.
 
     Returns
     -------
-        enabled_test_paths:
-            A list of (Precision, ScorecardPath, Device) pairs to test.
-
-            Each (Precision, ScorecardPath, Device) pair will:
-            * Only include items enabled in this environment via env variables
-                (each arg is a comma separated list)
-                - QAIHM_TEST_PRECISIONS (enabled precisions, default is DEFAULT (only include precisions supported by each model)
-                - QAIHM_TEST_PATHS (enabled runtimes, default is ALL)
-                - QAIHM_TEST_DEVICES (enabled devices, default is ALL)
-
-            * Be compatible with each other:
-                - The ScorecardPath will be compatible with the Precision.
-                - The ScorecardPath will be applicable to the Device.
-                - The Precision can run on the Device's NPU.
-
-            * Be compatible with the model:
-                - See parameter documentation for details.
+    enabled_test_paths
+        A list of (Precision, ScorecardPath, Device) pairs to test.
+        Each (Precision, ScorecardPath, Device) pair will:
+        * Only include items enabled in this environment via env variables
+            (each arg is a comma separated list)
+            - QAIHM_TEST_PRECISIONS (enabled precisions, default is DEFAULT (only include precisions supported by each model)
+            - QAIHM_TEST_PATHS (enabled runtimes, default is ALL)
+            - QAIHM_TEST_DEVICES (enabled devices, default is ALL)
+        * Be compatible with each other:
+            - The ScorecardPath will be compatible with the Precision.
+            - The ScorecardPath will be applicable to the Device.
+            - The Precision can run on the Device's NPU.
+        * Be compatible with the model:
+            - See parameter documentation for details.
     """
     ret: list[tuple[Precision, ScorecardPathTypeVar, ScorecardDevice]] = []
     if include_unsupported_paths is None:
@@ -391,21 +386,38 @@ def get_profile_parameterized_pytest_config(
     )
 
 
-def get_evaluation_parameterized_pytest_config(
+def get_export_parameterized_pytest_config(
     model_id: str,
+    device: ScorecardDevice,
     supported_paths: dict[Precision, list[TargetRuntime]],
     timeout_paths: dict[Precision, list[TargetRuntime]],
     can_use_quantize_job: bool = True,
-    device: ScorecardDevice = cs_universal,
     requires_aot_prepare: bool = False,
 ) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
     """Get a pytest parameterization list of all enabled (device, profile path) pairs."""
-    # If only 1 device is set for the scorecard, run evaluation on that device
-    enabled_devices = [
-        device
-        for device in ScorecardDevice.all_devices(enabled=True)
-        if device != cs_universal
-    ]
+    return get_model_test_parameterizations(
+        model_id,
+        supported_paths,
+        timeout_paths,
+        ScorecardProfilePath,
+        can_use_quantize_job,
+        ScorecardDevice.all_devices(enabled=True, include_universal=False)
+        if requires_aot_prepare
+        else [device],
+        requires_aot_prepare=requires_aot_prepare,
+    )
+
+
+def get_evaluation_parameterized_pytest_config(
+    model_id: str,
+    device: ScorecardDevice,
+    supported_paths: dict[Precision, list[TargetRuntime]],
+    timeout_paths: dict[Precision, list[TargetRuntime]],
+    can_use_quantize_job: bool = True,
+    requires_aot_prepare: bool = False,
+) -> list[tuple[Precision, ScorecardProfilePath, ScorecardDevice]]:
+    """Get a pytest parameterization list of all enabled (device, profile path) pairs."""
+    enabled_devices = ScorecardDevice.all_devices(enabled=True, include_universal=False)
     if device not in enabled_devices:
         if len(enabled_devices) == 1:
             device = enabled_devices[0]
@@ -413,6 +425,7 @@ def get_evaluation_parameterized_pytest_config(
             raise ValueError(
                 f"When running numerical evaluation, must specify exactly one device or have {device} as part of the device list."
             )
+
     return get_model_test_parameterizations(
         model_id,
         supported_paths,
@@ -436,11 +449,21 @@ def get_async_job_cache_name(
 
     Parameters
     ----------
-        path: Applicable scorecard path
-        model_id: The ID of the QAIHM model being tested
-        device: The targeted device
-        precision: The precision in which this model is running
-        component: The name of the model component being tested, if applicable
+    path
+        Applicable scorecard path
+    model_id
+        The ID of the QAIHM model being tested
+    device
+        The targeted device
+    precision
+        The precision in which this model is running
+    component
+        The name of the model component being tested, if applicable
+
+    Returns
+    -------
+    cache_key
+        The cache key for this job.
     """
     return (
         f"{model_id}"

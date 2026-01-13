@@ -91,11 +91,14 @@ def get_artifacts_dir_opt() -> Path:
     return ArtifactsDirEnvvar.get()
 
 
-def get_artifact_filepath(filename, artifacts_dir: os.PathLike | str | None = None):
+def get_artifact_filepath(
+    filename, artifacts_dir: os.PathLike | str | None = None, create: bool = True
+):
     artifacts_dir = Path(artifacts_dir or get_artifacts_dir_opt())
     os.makedirs(artifacts_dir, exist_ok=True)
     path = artifacts_dir / filename
-    path.touch()
+    if create:
+        path.touch()
     return path
 
 
@@ -129,12 +132,22 @@ def get_cpu_accuracy_file(artifacts_dir: os.PathLike | str | None = None) -> Pat
     return get_artifact_filepath("cpu-accuracy.yaml", artifacts_dir)
 
 
-def get_tool_versions_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath(DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME, artifacts_dir)
+def get_tool_versions_file(
+    artifacts_dir: os.PathLike | str | None = None, create: bool = True
+) -> Path:
+    return get_artifact_filepath(
+        DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME, artifacts_dir, create
+    )
 
 
-def get_environment_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
-    return get_artifact_filepath("environment.env", artifacts_dir)
+def get_environment_file(
+    artifacts_dir: os.PathLike | str | None = None, create: bool = True
+) -> Path:
+    return get_artifact_filepath("environment.env", artifacts_dir, create)
+
+
+def get_release_assets_file(artifacts_dir: os.PathLike | str | None = None) -> Path:
+    return get_artifact_filepath("release-assets.yaml", artifacts_dir)
 
 
 def get_accuracy_metadata_columns() -> list[str]:
@@ -330,38 +343,34 @@ def fetch_async_test_job(
     """
     Get the successful async test job that corresponds to the given parameters.
 
-    Parameters;
-        job_type: hub.JobType
-            Type of job to fetch.
-
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        path: ScorecardCompilePath | ScorecardProfilePath | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component: str | None = None
-            Name of model com
-
-        cache_path: os.PathLike | str | None = None
-            Path to the cache file. If None, uses the default cache path.
-
-        raise_if_not_successful: bool = False
-            Raise a ValueError if any job is not successful.
+    Parameters
+    ----------
+    job_type
+        Type of job to fetch.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    path
+        Scorecard path.
+    device
+        Scorecard device.
+    component
+        Name of model component. Default is None.
+    cache_path
+        Path to the cache file. If None, uses the default cache path. Default is None.
+    raise_if_not_successful
+        Raise a ValueError if any job is not successful. Default is False.
 
     Returns
     -------
+    cached_job
         A successful Hub job, or None if this job type was not found in the cache.
 
     Raises
     ------
-        ValueError if the job is cached but failed or is still running.
+    ValueError
+        If the job is cached but failed or is still running.
     """
     scorecard_job: ScorecardJob = get_scorecard_job_yaml(
         job_type, cache_path or get_async_test_job_cache_path(job_type)
@@ -474,51 +483,37 @@ def fetch_async_test_jobs(
     """
     Get the async test jobs that correspond to the given parameters.
 
-    Parameters;
-        job_type: hub.JobType
-            Type of hub job to fetch.
-
-        model_id: str
-            Model ID
-
-        precision: Precision
-            Model precision
-
-        path: ScorecardCompilePath | ScorecardProfilePath | None
-            Scorecard path
-
-        device: ScorecardDevice | None
-            Scorecard device
-
-        component_names: list[str] | None = None
-            Name of all model components (if applicable), or None of there are no components
-
-        cache_path: os.PathLike | str | None = None
-            Path to the cache file. If None, uses the default cache path.
-
-        raise_if_not_successful: bool = False
-            Raise a ValueError if any job is not successful.
+    Parameters
+    ----------
+    job_type
+        Type of hub job to fetch.
+    model_id
+        Model ID.
+    precision
+        Model precision.
+    path
+        Scorecard path.
+    device
+        Scorecard device.
+    component_names
+        Name of all model components (if applicable), or None if there are no components.
+        Default is None.
+    cache_path
+        Path to the cache file. If None, uses the default cache path. Default is None.
+    raise_if_not_successful
+        Raise a ValueError if any job is not successful. Default is False.
 
     Returns
     -------
-        dict
-            For models WITHOUT components, returns:
-                { None: Job }
-
-            For models WITH components, returns:
-                {
-                    'component_1_name: Job,
-                    ...
-                }
-
-        OR
-
-        None if one or more components do not have a cached job of the given type.
+    component_jobs
+        For models WITHOUT components, returns a dict: { None: Job }.
+        For models WITH components, returns a dict: { 'component_1_name': Job, ... }.
+        Returns None if one or more components do not have a cached job of the given type.
 
     Raises
     ------
-        ValueError if:
-            raise_if_not_successful is True and any cached job failed / is still running
+    ValueError
+        If raise_if_not_successful is True and any cached job failed or is still running.
     """
     component_jobs: dict[str | None, hub.Job | None] = {}
     for component in component_names or [None]:  # type: ignore[list-item]
@@ -739,13 +734,15 @@ class CompileJobsAreIdenticalCache(BaseQAIHMConfig):
 
         Parameters
         ----------
-            current_compile_job (hub.CompileJob): The current compile job.
-            previous_compile_job (hub.CompileJob): The previous compile job.
-            yaml_base (str | None): The base path of the YAML file.
+        current_compile_job
+            The current compile job.
+        previous_compile_job
+            The previous compile job.
 
         Returns
         -------
-            bool: True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
+        jobs_are_same
+            True if the MD5 hashes of the compiled models for the two jobs are the same, False otherwise.
         """
         if previous_compile_job.get_status().failure:
             return False

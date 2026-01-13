@@ -30,30 +30,39 @@ def compute_statistics_jit(
 
     Parameters
     ----------
-        overlaps (np.ndarray):
-            IoU matrix of shape [num_dets, num_gts] between detections and ground truths.
-        gt_datas (np.ndarray):
-            Ground truth boxes, shape [num_gts, 5] in format [x1, y1, x2, y2, alpha].
-        dt_datas (np.ndarray):
-            Detection boxes, shape [num_dets, 6] in format [x1, y1, x2, y2, alpha, score].
-        ignored_gt (np.ndarray):
-            Array indicating which GT boxes to ignore (-1, 0, 1), of shape (num_gts,).
-        ignored_det (np.ndarray):
-            Array indicating which DET boxes to ignore (-1, 0, 1), of shape (num_gts,).
-        dc_bboxes (np.ndarray):
-            Don't care regions (ignored in FP count), shape [K, 4].
-        metric (int): 0 for bbox IoU, 1 for BEV IoU.
-        min_overlap (float): Minimum IoU threshold to consider a match.
-        thresh (float): Score threshold to filter detections.
-        compute_fp (bool): Whether to compute false positives and AOS (True for final eval).
+    overlaps
+        IoU matrix of shape [num_dets, num_gts] between detections and ground truths.
+    gt_datas
+        Ground truth boxes with shape [num_gts, 5] in format [x1, y1, x2, y2, alpha].
+    dt_datas
+        Detection boxes with shape [num_dets, 6] in format [x1, y1, x2, y2, alpha, score].
+    ignored_gt
+        Array indicating which GT boxes to ignore (-1, 0, 1), of shape (num_gts,).
+    ignored_det
+        Array indicating which DET boxes to ignore (-1, 0, 1), of shape (num_gts,).
+    dc_bboxes
+        Don't care regions (ignored in FP count) with shape [K, 4].
+    metric
+        0 for bbox IoU, 1 for BEV IoU.
+    min_overlap
+        Minimum IoU threshold to consider a match.
+    thresh
+        Score threshold to filter detections.
+    compute_fp
+        Whether to compute false positives and AOS (True for final eval).
 
     Returns
     -------
-        tp (int): Number of true positives.
-        fp (int): Number of false positives.
-        fn (int): Number of false negatives.
-        similarity (float): Orientation similarity (AOS), or -1 if no matches.
-        thresholds (np.ndarray): Score thresholds for matched true positives, of shape (num_matched_tps,).
+    tp
+        Number of true positives.
+    fp
+        Number of false positives.
+    fn
+        Number of false negatives.
+    similarity
+        Orientation similarity (AOS), or -1 if no matches.
+    thresholds
+        Score thresholds for matched true positives with shape (num_matched_tps,).
     """
     det_size = dt_datas.shape[0]
     gt_size = gt_datas.shape[0]
@@ -179,21 +188,29 @@ def _prepare_data(
 
     Parameters
     ----------
-        gt_annos (list[dict]): list of GT annotations.
-        dt_annos (list[dict]): list of DT annotations.
-        difficulty (int): Difficulty level.
+    gt_annos
+        List of GT annotations.
+    dt_annos
+        List of DT annotations.
+    difficulty
+        Difficulty level.
 
     Returns
     -------
-        gt_datas_list (list[np.ndarray]):
-            List of concatenated GT bboxes and alpha, each element of shape (N_i, 5).
-        dt_datas_list (list[np.ndarray]):
-            List of concatenated DT bboxes, alpha, and score, each element of shape (M_i, 6).
-        ignored_gts (list[np.ndarray]): List of GT ignore flags per frame, each element of shape (N_i,).
-        ignored_dets (list[np.ndarray]): List of DT ignore flags per frame, each element of shape (M_i,).
-        dontcares (list[np.ndarray]): List of Don't Care bboxes per frame, each element of shape (K_i, 4).
-        total_dc_num (np.ndarray): Count of don't-care objects per frame, of shape (num_frames,).
-        total_num_valid_gt (int): Total number of valid GTs across all frames.
+    gt_datas_list
+        List of concatenated GT bboxes and alpha, each element of shape (N_i, 5).
+    dt_datas_list
+        List of concatenated DT bboxes, alpha, and score, each element of shape (M_i, 6).
+    ignored_gts
+        List of GT ignore flags per frame, each element of shape (N_i,).
+    ignored_dets
+        List of DT ignore flags per frame, each element of shape (M_i,).
+    dontcares
+        List of Don't Care bboxes per frame, each element of shape (K_i, 4).
+    dc_bboxes_num
+        Count of don't-care objects per frame with shape (num_frames,).
+    total_num_valid_gt
+        Total number of valid GTs across all frames.
     """
     MIN_HEIGHT = [40, 25, 25]
     MAX_OCCLUSION = [0, 1, 2]
@@ -280,13 +297,17 @@ def get_thresholds(
 
     Parameters
     ----------
-        scores (np.ndarray): Detection scores, of shape (N,).
-        num_gt (int): Number of valid GT objects.
-        num_sample_pts (int): Number of precision samples.
+    scores
+        Detection scores with shape (N,).
+    num_gt
+        Number of valid GT objects.
+    num_sample_pts
+        Number of precision samples.
 
     Returns
     -------
-        list[float]: list of score thresholds.
+    thresholds
+        List of score thresholds.
     """
     scores = np.sort(scores)[::-1]
     thresholds, cur_recall = [], 0.0
@@ -312,40 +333,34 @@ def eval_class(
 
     Parameters
     ----------
-        gt_annos (list[dict]):
-            List of ground truth annotations per sample (frame). Each dict has keys like:
-                'bbox' (np.ndarray),
-                'alpha' (np.ndarray),
-                'name' (list[str]),
-                'occluded' (np.ndarray),
-                'truncated' (np.ndarray),
-                'location' (np.ndarray),
-                'dimensions' (np.ndarray),
-                'rotation_y' (np.ndarray).
-        dt_annos (list[dict]):
-            List of detection results per sample (frame). Each dict has keys like:
-                'bbox' (np.ndarray),
-                'alpha' (np.ndarray),
-                'score' (np.ndarray),
-                'name' (list[str]),
-                'location' (np.ndarray),
-                'dimensions' (np.ndarray),
-                'rotation_y' (np.ndarray).
-        difficultys (list[int]): Difficulty levels to evaluate [0, 1, 2] for easy, moderate, hard.
-        z_axis (int): Axis representing height (default is 1 for KITTI).
-        num_parts (int): Number of chunks to split data for large eval sets.
+    gt_annos
+        List of ground truth annotations per sample (frame). Each dict has keys:
+        'bbox' (np.ndarray), 'alpha' (np.ndarray), 'name' (list[str]),
+        'occluded' (np.ndarray), 'truncated' (np.ndarray), 'location' (np.ndarray),
+        'dimensions' (np.ndarray), 'rotation_y' (np.ndarray).
+    dt_annos
+        List of detection results per sample (frame). Each dict has keys:
+        'bbox' (np.ndarray), 'alpha' (np.ndarray), 'score' (np.ndarray),
+        'name' (list[str]), 'location' (np.ndarray), 'dimensions' (np.ndarray),
+        'rotation_y' (np.ndarray).
+    difficultys
+        Difficulty levels to evaluate [0, 1, 2] for easy, moderate, hard.
+    z_axis
+        Axis representing height (default is 1 for KITTI).
+    num_parts
+        Number of chunks to split data for large eval sets.
 
     Returns
     -------
-        bbox (np.ndarray):
-            Average precision (AP) for 'Car' class based on 2D bounding box IoU,
-            with shape of (len(difficultys),).
-        aos (np.ndarray):
-            Average orientation similarity (AOS) for 'Car' class,
-            with shape of (len(difficultys),).
-        bev (np.ndarray):
-            Average precision (AP) for 'Car' class based on Bird's Eye View IoU,
-            with shape of (len(difficultys),).
+    bbox_ap
+        Average precision (AP) for 'Car' class based on 2D bounding box IoU
+        with shape of (len(difficultys),).
+    aos
+        Average orientation similarity (AOS) for 'Car' class
+        with shape of (len(difficultys),).
+    bev_ap
+        Average precision (AP) for 'Car' class based on Bird's Eye View IoU
+        with shape of (len(difficultys),).
     """
     assert len(gt_annos) == len(dt_annos)
     same_part = len(gt_annos) // num_parts
@@ -481,11 +496,13 @@ def get_mAP(prec: np.ndarray) -> np.ndarray:
 
     Parameters
     ----------
-        prec (np.ndarray): Interpolated precision values, with shape (num_difficulties, num_sample_pts).
+    prec
+        Interpolated precision values with shape (num_difficulties, num_sample_pts).
 
     Returns
     -------
-        np.ndarray: mAP score for each difficulty level, of shape (num_difficulties,).
+    mAP_scores
+        mAP score for each difficulty level with shape (num_difficulties,).
     """
     sums = np.array([0.0] * prec.shape[0])
     for i in range(0, prec.shape[-1], 4):

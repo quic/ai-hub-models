@@ -40,11 +40,16 @@ def hf_glob_patch(
 
     Parameters
     ----------
-        file_exists:
-            Whether the model should exist on Hugging Face.
-        component_glob_result:
-            When getting all components, glob will search for all component names via .*.
-            This is the list of component names. The glob will return 1 file path per component.
+    file_exists
+        Whether the model should exist on Hugging Face.
+    component_glob_result
+        When getting all components, glob will search for all component names via .*.
+        This is the list of component names. The glob will return 1 file path per component.
+
+    Returns
+    -------
+    patch
+        Test patch for Hugging Face glob search.
     """
     if component_glob_result is None:
         component_glob_result = [""]
@@ -98,12 +103,11 @@ def download_file_patch(
     ----------
     file_contents
         A list of file contents to save. Call idx i of download_file() will return a path to a file with the contents of this list at index i.
-
         If the file contents are 'None', raises a ValueError to simulate a download failure.
 
     Returns
     -------
-    mock._patch
+    patch
         Test Patch
     """
     files_iter = iter(file_contents)

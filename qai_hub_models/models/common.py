@@ -384,7 +384,7 @@ class InferenceEngine(Enum):
     @property
     def default_qairt_version(self: InferenceEngine) -> QAIRTVersion:
         """Default QAIRT version used by this inference engine."""
-        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.40"
+        qairt_version = "2.37" if self == InferenceEngine.ONNX else "2.41"
 
         try:
             return QAIRTVersion(qairt_version)
@@ -837,12 +837,3 @@ class SourceModelFormat(Enum):
 
 
 SampleInputsType = dict[str, list[np.ndarray]]
-
-
-@dataclass
-class ExportResult:
-    compile_job: hub.CompileJob | None = None
-    quantize_job: hub.QuantizeJob | None = None
-    profile_job: hub.ProfileJob | None = None
-    inference_job: hub.InferenceJob | None = None
-    link_job: hub.LinkJob | None = None

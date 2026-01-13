@@ -52,7 +52,7 @@ def batched_nms(
             Output boxes. This is list of tensors--one tensor per batch.
             Each tensor is shape [S, 4], where S == number of selected boxes, and 4 == (x1, x2, y1, y2)
 
-        boxes_out
+        scores_out
             Output scores. This is list of tensors--one tensor per batch.
             Each tensor is shape [S], where S == number of selected boxes.
 
@@ -62,7 +62,7 @@ def batched_nms(
                 Each tensor is shape [S], where S == number of selected boxes.
                 The list will be empty if class_indices was not set.
 
-        *args
+        *args_out
             "Gathered" additional arguments, if provided.
     """
     scores_out: list[torch.Tensor] = []
@@ -153,7 +153,7 @@ def compute_box_corners_with_rotation(
             Rotation of box (in radians). Shape is [ Batch ]
 
     Outputs:
-        corners: torch.Tensor
+        corners
             Computed corners. Shape is (B x 4 x 2),
             where 2 == (x, y)
     """
@@ -201,7 +201,7 @@ def compute_box_affine_crop_resize_matrix(
             Size of image to which the box should be resized and cropped.
 
     Outputs:
-        affines: list[np.ndarray]
+        affines
             Computed affine transform matrices. Shape is (2 x 3)
     """
     # Define coordinates for translated image
@@ -234,13 +234,14 @@ def box_xywh_to_xyxy(box_cwh: torch.Tensor, flat_boxes: bool = False) -> torch.T
                 Shape is [..., 2, 2]
                 [[xc, yc], [w, h]] * Batch
 
-    Outputs: torch.Tensor
-        If flat_boxes:
-            Output shape is [..., 4]
-            Output box layout is [x0, y0, x1, y1]
-        else:
-            Output shape is [..., 2, 2]
-            Output box layout is [[x0, y0], [x1, y1]]
+    Outputs:
+        box_xyxy
+            If flat_boxes:
+                Output shape is [..., 4]
+                Output box layout is [x0, y0, x1, y1]
+            else:
+                Output shape is [..., 2, 2]
+                Output box layout is [[x0, y0], [x1, y1]]
     """
     if flat_boxes:
         cx = box_cwh[..., 0]
@@ -315,9 +316,9 @@ def box_xywh_to_cs(
             factor to apply additional padding to the scale. Defaults to 1.0
 
     Outputs:
-        center: np.ndarray
+        center
             center for bbox. Shape is [2,]
-        scale: np.ndarray
+        scale
             scale for bbox. Shape is [2,]
     """
     x, y, w, h = box_cwh
@@ -386,17 +387,22 @@ def get_iou(boxA: np.ndarray, boxB: np.ndarray) -> float:
 def get_bbox_iou_matrix(
     boxes: np.ndarray, query_boxes: np.ndarray, criterion: int = -1
 ) -> np.ndarray:
-    """Calculate axis-aligned 2D IoU between sets of bounding boxes.
+    """
+    Calculate axis-aligned 2D IoU between sets of bounding boxes.
 
     Parameters
     ----------
-        boxes (np.ndarray): Predicted boxes in format [x1, y1, x2, y2], of shape (N, 4).
-        query_boxes (np.ndarray): Ground truth boxes in format [x1, y1, x2, y2], of shape (K, 4).
-        criterion (int): If 0, use area of box only; otherwise standard IoU.
+    boxes
+        Predicted boxes in format [x1, y1, x2, y2], of shape (N, 4).
+    query_boxes
+        Ground truth boxes in format [x1, y1, x2, y2], of shape (K, 4).
+    criterion
+        If 0, use area of box only; otherwise standard IoU. Defaults to -1.
 
     Returns
     -------
-        np.ndarray: IoU matrix of shape (N, K).
+    iou_matrix
+        IoU matrix of shape (N, K).
     """
     N, K = boxes.shape[0], query_boxes.shape[0]
     overlaps = np.zeros((N, K), dtype=np.float32)

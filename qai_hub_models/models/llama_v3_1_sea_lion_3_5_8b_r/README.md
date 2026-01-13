@@ -4,7 +4,7 @@ SEA-LION is a collection of Large Language Models (LLMs) which have been pretrai
 
 This is based on the implementation of Llama-SEA-LION-v3.5-8B-R found [here](https://github.com/aisingapore/sealion/blob/main/models/sea-lion-v3.5/llama-sea-lion-v3.5-8B.md). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v3_1_sea_lion_3_5_8b_r).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v3_1_sea_lion_3_5_8b_r).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -67,7 +67,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Llama-SEA-LION-v3.5-8B-R can be found
   [here](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct/blob/main/LICENSE)
 
 
 ## References

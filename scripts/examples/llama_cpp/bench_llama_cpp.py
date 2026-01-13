@@ -42,9 +42,9 @@ def approx_prompt(token_target: int, word: str = "hello") -> str:
 
     Parameters
     ----------
-    token_target : int
+    token_target
         Approximate number of tokens to target in the prompt.
-    word : str, optional
+    word
         The word to repeat, by default "hello".
 
     Returns
@@ -75,18 +75,20 @@ def run_llama_and_measure(
 
     Parameters
     ----------
-    model_path : str
+    model_path
         Path to the model file.
-    prompt_file : str
+    prompt_file
         Path to the input prompt text file.
-    ctx_size : int, optional
+    ctx_size
         Context window size. Defaults to DEFAULT_MAX_CONTEXT_LENGTH.
-    n_predict : int, optional
+    n_predict
         Number of tokens to generate. Defaults to DEFAULT_NUM_TOKENS_PREDICT.
-    device : {"cpu", "gpu", "htp"}, optional
-        Device to run on. 'cpu' forces CPU-only; 'gpu' uses GPU acceleration. Currently, "htp" option is only available on Android devices.
-    use_adb : bool, optional
-        Whether to use ADB to run on a connected Android device. Make sure llama_cpp is already present at /data/local/tmp/llama_cpp, by default False.
+    device
+        Device to run on. 'cpu' forces CPU-only; 'gpu' uses GPU acceleration.
+        Currently, "htp" option is only available on Android devices.
+    use_adb
+        Whether to use ADB to run on a connected Android device.
+        Make sure llama_cpp is already present at /data/local/tmp/llama_cpp.
 
     Returns
     -------

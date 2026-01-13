@@ -25,12 +25,6 @@ def log_evaluate_test_result(
     """
     Logs the result of a model evaluation to a CSV file.
 
-    Parameters
-    ----------
-        model_name (str): Name of the model being evaluated.
-        checkpoint (str): Checkpoint identifier for the model.
-        metric (str): Name of the evaluation metric.
-        value (float): Value of the evaluation metric.
     The function appends a row to 'test_evaluate.csv' with the following columns:
         - Model Name
         - Checkpoint
@@ -38,6 +32,17 @@ def log_evaluate_test_result(
         - Value
     If the file does not exist, a header row is written first.
     The file is locked during writing to prevent concurrent access.
+
+    Parameters
+    ----------
+    model_name
+        Name of the model being evaluated.
+    checkpoint
+        Checkpoint identifier for the model.
+    metric
+        Name of the evaluation metric.
+    value
+        Value of the evaluation metric.
     """
     log_file = Path("test_evaluate.csv")
     lock_file = log_file.with_suffix(".lock")
@@ -57,14 +62,20 @@ def log_perf_on_device_result(
     """
     Logs the performance results of a model running on a specific device to a CSV file.
 
+    The results are appended to 'test_perf_on_device.csv' in the current directory.
+
     Parameters
     ----------
-        model_name (str): Name of the model being evaluated.
-        precision (str): Precision mode used for inference (e.g., 'fp32', 'int8').
-        device (str): Device on which the model was run (e.g., 'Snapdragon X Elite', 'Snapdragon 8 Elite').
-        tps (float): Tokens per second, measuring throughput (unit: tokens/sec).
-        ttft (float): Time to first token, measuring latency (unit: microseconds).
-    The results are appended to 'test_perf_on_device.csv' in the current directory.
+    model_name
+        Name of the model being evaluated.
+    precision
+        Precision mode used for inference (e.g., 'fp32', 'int8').
+    device
+        Device on which the model was run (e.g., 'Snapdragon X Elite', 'Snapdragon 8 Elite').
+    tps
+        Tokens per second, measuring throughput (unit: tokens/sec).
+    ttft
+        Time to first token, measuring latency (unit: microseconds).
     """
     log_file = Path("test_perf_on_device.csv")
     lock_file = log_file.with_suffix(".lock")

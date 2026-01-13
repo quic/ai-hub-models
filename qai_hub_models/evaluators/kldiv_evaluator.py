@@ -39,10 +39,12 @@ class KLDivEvaluator(BaseEvaluator):
         context_length: int,
         device: torch.device,
         tokenizer: PreTrainedTokenizer | None = None,
+        verbose: bool = False,
     ):
         self.context_length = context_length
         self.device = device
         self.tokenizer = tokenizer
+        self.verbose = verbose
         self.reset()
 
     @property
@@ -56,7 +58,7 @@ class KLDivEvaluator(BaseEvaluator):
     ):
         """
         output: This is the output of an LLM_Generator, which produces a
-            CauslLMOutputWithPast instance.
+            CausalLMOutputWithPast instance.
         gt: Ground truth (gt) tensor, or optionally (gt, target) tuple
             gt: float[1, input_length]
                 A single tensor assumed to be the "correct answer".
@@ -90,12 +92,6 @@ class KLDivEvaluator(BaseEvaluator):
 
         p_logsoft = F.log_softmax(logits_p, dim=-1)
 
-        if self.tokenizer is not None:
-            top_token = self.tokenizer.decode(q_logsoft[-1].argmax())
-            top_token_fp = self.tokenizer.decode(p_logsoft[-1].argmax())
-
-            self.flips += int(top_token != top_token_fp)
-
         # KL divergence over entire vocabulary size
         kl_scale = math.log(logits.shape[-1])
         kldiv = (
@@ -118,6 +114,19 @@ class KLDivEvaluator(BaseEvaluator):
         self.last_kldiv += float(kldiv[-1])
         self.last_rev_kldiv += float(rev_kldiv[-1])
 
+        if self.tokenizer is not None:
+            top_token_id = q_logsoft[-1].argmax()
+            top_token_fp_id = p_logsoft[-1].argmax()
+
+            self.flips += int(top_token_id != top_token_fp_id)
+
+            if self.verbose:
+                top_token = self.tokenizer.decode(top_token_id)
+                top_token_fp = self.tokenizer.decode(top_token_fp_id)
+                self.verbose_prints.append(
+                    f"Top token Q: {top_token!r:7s}  FP: {top_token_fp!r:7s}   KL: {kldiv[-1]:6.3f}  rev-KL: {rev_kldiv[-1]:6.3f}"
+                )
+
     def reset(self):
         # Distances
         self.kldiv = 0.0
@@ -127,6 +136,8 @@ class KLDivEvaluator(BaseEvaluator):
         self.flips = 0
 
         self.batch_index = 0
+
+        self.verbose_prints = []
 
     def get_accuracy_score(self) -> float:
         return self.get_avg_last_kldiv()
@@ -155,7 +166,11 @@ class KLDivEvaluator(BaseEvaluator):
             """
             ).lstrip()
             if self.tokenizer is not None:
-                ret += f"\nFlips: {self.flips / self.batch_index:.1%}\n"
+                ret += f"\nTop token flips: {self.flips / self.batch_index:.1%}\n"
+            if self.verbose_prints:
+                ret += "\nSample-by-sample information:\n"
+                for line in self.verbose_prints:
+                    ret += line + "\n"
             return ret
         return "KL Divergence: Nothing collected."
 

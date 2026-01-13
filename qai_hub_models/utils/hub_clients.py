@@ -9,6 +9,7 @@ from __future__ import annotations
 import configparser
 import os
 import threading
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
@@ -37,7 +38,16 @@ def deployment_is_prod(deployment: str):
 
 
 def _get_global_client() -> tuple[str, HubClient] | None:
-    """Returns [global client Hub deployment name], [global client]"""
+    """
+    Get the global Hub client and its deployment name.
+
+    Returns
+    -------
+    deployment_name
+        Global client Hub deployment name.
+    client
+        Global client.
+    """
     try:
         global_client = hub.hub._global_client
         # The deployment name is the subdomain of AIHub that is used by the config.
@@ -194,9 +204,12 @@ def set_default_hub_client(
 
     Parameters
     ----------
-        client: Hub client to make the default.
-        hub_attr_overrides: If set, uses these values to override `hub.submit_...`, instead of setting the value to `client.submit_...`
-        hhub_hub_attr_overrides: If set, uses these values to override `hub.hub.submit_...`, instead of setting the value to `client.submit_...`
+    client
+        Hub client to make the default.
+    hub_attr_overrides
+        If set, uses these values to override `hub.submit_...`, instead of setting the value to `client.submit_...`
+    hub_hub_attr_overrides
+        If set, uses these values to override `hub.hub.submit_...`, instead of setting the value to `client.submit_...`
     """
     if hub_hub_attr_overrides is None:
         hub_hub_attr_overrides = {}
@@ -223,12 +236,24 @@ def set_default_hub_client(
 
 
 @contextmanager
-def default_hub_client_as(client: hub.client.Client):
+def default_hub_client_as(
+    client: hub.client.Client,
+) -> Generator[hub.client.Client, None, None]:
     """
     Within this context, the default Hub client is replaced by the given client.
 
     To prevent unexpected behavior, only 1 thread can use this context at a time.
     Contexts can be nested in the call stack so long as they live on the same thread.
+
+    Parameters
+    ----------
+    client
+        Hub client to use as default within this context.
+
+    Yields
+    ------
+    hub.client.Client
+        The client that is now set as the default.
     """
     prev_client = hub.hub._global_client
 

@@ -13,7 +13,7 @@ from typing import Any, Generic
 import ruamel.yaml
 from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
-from pydantic_yaml import parse_yaml_file_as, to_yaml_file
+from pydantic_yaml import parse_yaml_file_as, to_yaml_file, to_yaml_str
 from ruamel.yaml.representer import RoundTripRepresenter
 from typing_extensions import Self, TypeVar
 
@@ -33,6 +33,13 @@ class BaseQAIHMConfig(BaseModel):
     # Default behavior should be to forbid unknown keys in parsed YAML / JSON files.
     model_config = ConfigDict(extra="forbid")
 
+    def __str__(self) -> str:
+        return to_yaml_str(
+            self,
+            exclude_defaults=True,
+            exclude_none=True,
+        )
+
     def to_yaml(
         self,
         path: str | Path,
@@ -45,22 +52,25 @@ class BaseQAIHMConfig(BaseModel):
 
         Parameters
         ----------
-            path : str | Path
-                Path to save the file.
+        path
+            Path to save the file.
+        write_if_empty
+            If False, the YAML file will not be written to disk if the dictionary to be saved is empty.
+        delete_if_empty
+            If True, an existing YAML file at the given path will be deleted if the dictionary to be saved is empty.
+        **kwargs
+            Additional args (used by overrides).
 
-            write_if_empty : bool
-                If False, the YAML file will not be written to disk if the dictionary to be saved is empty.
+        Returns
+        -------
+        written
+            True if the file was written, False if it was empty and not written/deleted.
 
-            delete_if_empty: bool
-                If True, an existing YAML file at the given path will be deleted if the dictionary to be saved is empty.
-
-            **kwargs
-                Additional args (used by overrides).
-
-        discussion:
-            Generally, the dictionary to be saved to YAML is empty only if:
-             * all dataclass fields have default values
-             * every field in this dataclass instance is set to its default value
+        Notes
+        -----
+        Generally, the dictionary to be saved to YAML is empty only if:
+         * all dataclass fields have default values
+         * every field in this dataclass instance is set to its default value
         """
         yaml = ruamel.yaml.YAML()
 

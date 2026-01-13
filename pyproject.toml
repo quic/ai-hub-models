@@ -120,6 +120,7 @@ skip-checking-raises = true
 allow-init-docstring = true
 check-return-types = false
 check-style-mismatch = true
+exclude = 'qai_hub_models/utils/qdc/qdc_api\.py|qai_hub_models/extern/.*'
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["INP", "PERF"]
@@ -201,6 +202,10 @@ module = "qai_hub_models.models._shared.qwen2.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+module = "qai_hub_models.models._shared.phi.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 module = "qai_hub_models/models/llama_v2_7b_chat.*"
 ignore_errors = true
 
@@ -250,6 +255,14 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "qai_hub_models/models/qwen2_5_7b_instruct_recipe.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/phi_3_5_mini_instruct_recipe.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "qai_hub_models/models/phi_4_mini_instruct.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]

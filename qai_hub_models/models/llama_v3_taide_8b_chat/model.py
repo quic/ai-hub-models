@@ -26,7 +26,7 @@ from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 3
+MODEL_ASSET_VERSION = 5
 
 NUM_LAYERS = 32
 NUM_SPLITS = 5
@@ -35,7 +35,6 @@ HIDDEN_SIZE = 4096
 NUM_KEY_VALUE_HEADS = 8
 NUM_ATTN_HEADS = 32
 
-
 # Hugging face repo name and url
 HF_REPO_NAME = "taide/Llama3-TAIDE-LX-8B-Chat-Alpha1"
 HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
@@ -43,6 +42,8 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 150
 
+DEFAULT_PROMPT_CONTEXT = "你是一個來自台灣的 AI 助理，你的名字是 TAIDE，樂於以台灣人的立場幫助使用者，會用繁體中文回答問題"  # noqa: RUF001
+DEFAULT_USER_PROMPT = "介紹台灣特色"
 DEFAULT_PRECISION = Precision.w4a16
 SUPPORTED_PRECISIONS = [Precision.w4a16]
 DEFAULT_CHECKPOINT = {Precision.w4a16: "llama_v3_taide_8b_chat_ckpt_w4a16"}
@@ -72,6 +73,17 @@ class Llama3_TAIDE(Llama3Base):
             and self.llm_config.num_key_value_heads == NUM_KEY_VALUE_HEADS
         ):
             raise ValueError("Model config is not compatible with our implementation.")
+
+    # Only changes the defaults
+    @staticmethod
+    def get_input_prompt_with_tags(
+        user_input_prompt: str = DEFAULT_USER_PROMPT,
+        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
+    ) -> str:
+        return Llama3Base.get_input_prompt_with_tags(
+            user_input_prompt=user_input_prompt,
+            system_context_prompt=system_context_prompt,
+        )
 
     @classmethod
     def from_pretrained(

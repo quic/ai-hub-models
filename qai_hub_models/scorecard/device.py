@@ -94,6 +94,7 @@ class ScorecardDevice:
         supports_profile_path: ScorecardProfilePath | None = None,
         form_factors: list[ScorecardDevice.FormFactor] | None = None,
         is_mirror: bool | None = None,
+        include_universal: bool = True,
         check_available_in_hub: bool = True,
     ):
         """
@@ -105,6 +106,7 @@ class ScorecardDevice:
             for device in cls._registry.values()
             if (
                 (enabled is None or enabled == device.enabled)
+                and (include_universal or device != cs_universal)
                 and (
                     not check_available_in_hub
                     # Ignore availability check if AI Hub Workbench is not accessible
@@ -174,28 +176,31 @@ class ScorecardDevice:
         """
         Parameters
         ----------
-            name: Name of this device for scorecard use.
-
-            reference_device_name: The name of the "reference" device used by the scorecard for metadata when collating results.
-
-            execution_device_name: The name of the device to be used by associated Hub jobs.
-                                   If not provided, jobs will be submitted with the chipset of the reference device.
-                                   Hub will decide what device to use depending on availability.
-
-            compile_paths: The set of compile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
-
-            profile_paths: The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
-
-            mirror_device: If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
-
-            npu_count: How many NPUs this device has. If undefined, uses the NPU count of the mirror device or defaults to 1.
-
-            public: Whether this device is publicly available on AI Hub Workbench.
-                NOTE: Private devices are not included when "all" devices are selected. They must be explicitly included in the list of devices to test.
-
-            register: Whether to register this device in the list of all devices.
-
-            is_default: Whether this device represents the user choosing the default device.
+        name
+            Name of this device for scorecard use.
+        reference_device_name
+            The name of the "reference" device used by the scorecard for metadata when collating results.
+        execution_device_name
+            The name of the device to be used by associated Hub jobs.
+            If not provided, jobs will be submitted with the chipset of the reference device.
+            Hub will decide what device to use depending on availability.
+        disabled_models
+            List of model IDs that should be disabled for this device.
+        compile_paths
+            The set of compile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
+        profile_paths
+            The set of profile paths valid for this device. If unset, will use the default set of paths for this device's form factor.
+        mirror_device
+            If set, jobs are not run on this device. Instead, results for this will "mirror" of the given device.
+        npu_count
+            How many NPUs this device has. If undefined, uses the NPU count of the mirror device or defaults to 1.
+        public
+            Whether this device is publicly available on AI Hub Workbench.
+            NOTE: Private devices are not included when "all" devices are selected. They must be explicitly included in the list of devices to test.
+        register
+            Whether to register this device in the list of all devices.
+        is_default
+            Whether this device represents the user choosing the default device.
         """
         if register and name in ScorecardDevice._registry:
             raise ValueError("Device " + name + "already registered.")
@@ -609,6 +614,11 @@ cs_auto_lemans_8775 = ScorecardDevice(
 cs_6490 = ScorecardDevice(
     name="cs_6490",
     reference_device_name="Dragonwing RB3 Gen 2 Vision Kit",
+)
+
+cs_6690 = ScorecardDevice(
+    name="cs_6690",
+    reference_device_name="Dragonwing Q-6690 MTP",
 )
 
 cs_8250 = ScorecardDevice(

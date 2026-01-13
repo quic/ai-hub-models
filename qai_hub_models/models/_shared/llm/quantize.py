@@ -73,7 +73,7 @@ def quantize(
     if use_seq_mse:
         print()
         print(
-            "WARNING: Sequential MSE takes about 4.5 for model with 3B parameters and about 8 hours for model with 8B parameters."
+            "WARNING: Sequential MSE takes about 4.5 hours for model with 3B parameters and about 8 hours for model with 8B parameters."
         )
 
     model_quant.quantize(

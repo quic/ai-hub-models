@@ -25,7 +25,8 @@ class ValentiniEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            target_sample_rate: Sample rate to resample audio to (Hz)
+        target_sample_rate
+            Sample rate to resample audio to (Hz).
         """
         self.target_sample_rate = target_sample_rate
         self.reset()
@@ -38,8 +39,10 @@ class ValentiniEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            output: Enhanced audio waveforms [batch, samples]
-            target: Clean reference waveforms [batch, samples]
+        output
+            Enhanced audio waveforms [batch, samples].
+        target
+            Clean reference waveforms [batch, samples].
         """
         for enhanced, clean in zip(output, target, strict=False):
             enhanced = enhanced.squeeze()
@@ -54,7 +57,7 @@ class ValentiniEvaluator(BaseEvaluator):
         self.clean = []
 
     def _compute_metrics(self) -> tuple[float, float]:
-        """Compute PESQ and STOI metrics"""
+        """Compute PESQ and STOI metrics."""
         pesq_scores = []
         stoi_scores = []
 
@@ -76,7 +79,7 @@ class ValentiniEvaluator(BaseEvaluator):
         enhanced: np.ndarray,
         sample_rate: int,
     ) -> tuple[float, float]:
-        """Compute metrics for a single audio pair"""
+        """Compute metrics for a single audio pair."""
         pesq_score = 0
         stoi_score = 0
 

@@ -316,9 +316,11 @@ class SHAQwen2Attention(Qwen2Attention):
 
 class QCQwen2MLP(Qwen2MLP):
     def prepare_conv(self):
-        self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
+        # TODO (https://github.com/qcom-ai-hub/tetracode/issues/17113)
+        # Temporarily commented out due to AISW-148745.
+        # self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
         self.down_proj = ConvInplaceLinear(self.down_proj)  # type: ignore[has-type]
-        self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
+        # self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
 
 
 class QCQwen2ForCausalLM(Qwen2ForCausalLM):

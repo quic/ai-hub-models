@@ -284,26 +284,33 @@ class FromPretrainedMixin(Generic[T]):
         torch_to_onnx_options: dict | None = None,
     ) -> tuple[onnx.ModelProto, str | None]:
         """
-        Load the checkpoint into ONNX, possibly with AIMET encodings
-        if the checkpoint is already quantized.
+        Load the checkpoint into ONNX, possibly with AIMET encodings if the checkpoint is already quantized.
 
         Parameters
         ----------
-          checkpoint:
-
+        checkpoint
+            Checkpoint to load. Options:
             - "DEFAULT": load pre-calibrated model + encodings
-
             - "DEFAULT_UNQUANTIZED": load public pretrained model WITHOUT encodings
-
             - Path to HF checkpoint (checkpoint/{config.yaml,model.safetensor}):
               load weights but NO encodings (must quantize before export/run)
-
             - Path to Aimet-ONNX checkpoint (checkpoint/{model.onnx,model.encodings}):
               load both model + encodings
+        subfolder
+            Subfolder within the checkpoint directory to load from.
+            If empty, uses cls.default_subfolder or cls.default_subfolder_hf.
+        host_device
+            Device to load the model on (e.g., "cpu" or "cuda").
+        torch_to_onnx_options
+            Additional options to pass to torch.onnx.export when converting
+            a PyTorch model to ONNX. Only used when checkpoint is not already in ONNX format.
 
         Returns
         -------
-        - onnx_model, aimet_encodings_path
+        onnx_model
+            The loaded ONNX model.
+        aimet_encodings_path
+            Path to AIMET encodings if available, otherwise None.
         """
         subfolder_hf = subfolder or cls.default_subfolder_hf
         subfolder_local = subfolder or cls.default_subfolder
@@ -384,5 +391,4 @@ class FromPretrainedMixin(Generic[T]):
 
     @classmethod
     def get_calibrated_aimet_model(cls) -> tuple[str, str]:
-        # Returns .onnx and .encodings paths
         raise NotImplementedError()

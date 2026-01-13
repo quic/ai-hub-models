@@ -32,24 +32,24 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        output : torch.Tensor
-            Range [0, 1], shape (N, M), probability output from the `face_attrib_net` model
-                N: batch_size
-                M: number of attributes (5)
+        output
+            Probability output from the `face_attrib_net` model with range [0, 1], shape (N, M) where
+            N is batch_size and M is number of attributes (5).
             5 attributes below in order are included:
-                - openness of the left eye.
-                - openness of the right eye.
-                - presence of eyeglasses.
-                - presence of a face mask.
-                - presence of sunglasses.
 
-        gt : torch.Tensor
+            - openness of the left eye.
+            - openness of the right eye.
+            - presence of eyeglasses.
+            - presence of a face mask.
+            - presence of sunglasses.
+        gt
             A tensor of shape (N, M) containing ground truth labels from `FaceAttribDataset`.
             Attributes follow the same order as `output`.
             Value meanings:
-                - 0: Closed / Absent
-                - 1: Opened / Present
-                - -1: Not available
+
+            - 0: Closed / Absent
+            - 1: Opened / Present
+            - -1: Not available
         """
         assert output.shape == gt.shape
 
@@ -71,7 +71,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
         Returns
         -------
-        float
+        accuracy_score
             Accuracy score in the range [0, 1].
         """
         return (
@@ -84,7 +84,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
 
         Returns
         -------
-        str
+        formatted_string
             formatted string of accuracy report
         """
         return f"Accuracy: {self.get_accuracy_score():.3f}"

@@ -4,7 +4,7 @@ The Qwen2.5-1.5B-Instruct is a state-of-the-art multilingual language model with
 
 This is based on the implementation of Qwen2.5-1.5B-Instruct found [here](https://github.com/QwenLM/Qwen2.5). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/qwen2_5_1_5b_instruct).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/qwen2_5_1_5b_instruct).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -19,7 +19,6 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of Qwen2.5-1.5B-Instruct can be found
   [here](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

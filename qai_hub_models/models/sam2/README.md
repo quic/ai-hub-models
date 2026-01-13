@@ -4,7 +4,7 @@ SAM 2, the successor to Meta's Segment Anything Model (SAM), is a cutting-edge t
 
 This is based on the implementation of Segment-Anything-Model-2 found [here](https://github.com/facebookresearch/sam2). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/sam2).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/sam2).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Segment-Anything-Model-2 can be found
   [here](https://github.com/facebookresearch/sam2/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

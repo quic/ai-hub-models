@@ -87,7 +87,7 @@ class GPUPyTestModelsTask(CompositeTask):
         run_compile: bool = True,
         run_qdc: bool = True,
         run_demo: bool = True,
-        raise_on_failure: bool = False,
+        raise_on_failure: bool = True,
     ):
         home_dir = "/local/mnt2/workspace2/qaihm_bot"
         junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
@@ -100,7 +100,7 @@ class GPUPyTestModelsTask(CompositeTask):
                 os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "info.yaml")
             ):
                 model_names.add(model_name)
-        model_names.add("llama_v2_7b_chat")
+
         for model_name in list(model_names):
             if is_quantized_llm_model(model_name) or model_name == "llama_v2_7b_chat":
                 models_to_test.append(model_name)
@@ -121,6 +121,9 @@ class GPUPyTestModelsTask(CompositeTask):
                 test_suites.append("qdc")
             if run_demo:
                 test_suites.append("demo")
+            # Special case: llama_v2_7b_chat only has compile_ram_intensive tests.
+            if model_name == "llama_v2_7b_chat":
+                test_suites = ["compile_ram_intensive"]
 
             for test_suite in test_suites:
                 model_filename = (
@@ -136,6 +139,9 @@ class GPUPyTestModelsTask(CompositeTask):
                             commands=[
                                 f"{common_command} && pip install -r qai_hub_models/models/{model_name}/requirements.txt",
                             ],
+                            raise_on_failure=False,
+                            # Ignore "no tests collected" return code
+                            ignore_return_codes=[5],
                         )
                     )
                 tasks.append(
@@ -145,6 +151,9 @@ class GPUPyTestModelsTask(CompositeTask):
                         commands=[
                             f"{common_command} && pytest qai_hub_models/models/{model_name}/test.py {options}",
                         ],
+                        raise_on_failure=False,
+                        # Ignore "no tests collected" return code
+                        ignore_return_codes=[5],
                     )
                 )
 
@@ -155,7 +164,6 @@ class GPUPyTestModelsTask(CompositeTask):
             list(tasks),
             continue_after_single_task_failure=True,
             raise_on_failure=raise_on_failure,
-            show_subtasks_in_failure_message=False,
         )
 
 
@@ -176,6 +184,7 @@ class PyTestModelTask(CompositeTask):
         run_compile: bool = True,
         run_profile: bool = False,
         run_inference: bool = False,
+        run_compute_device_accuracy: bool = False,
         run_export: bool = False,
         run_trace: bool = True,
         install_deps: bool = True,
@@ -268,6 +277,8 @@ class PyTestModelTask(CompositeTask):
                     test_flags.append("quantize")
                 if run_trace:
                     test_flags.append("trace")
+                if run_compute_device_accuracy:
+                    test_flags.append("compute_device_accuracy")
                 if run_export:
                     test_flags.append("export")
                 if test_flags:
@@ -355,6 +366,7 @@ class PyTestModelsTask(CompositeTask):
         run_export_compile: bool = True,
         run_export_profile: bool = False,
         run_export_inference: bool = False,
+        run_compute_device_accuracy: bool = False,
         run_full_export: bool = False,
         verify_compile_jobs_success: bool = True,
         exit_after_single_model_failure=False,
@@ -467,6 +479,8 @@ class PyTestModelsTask(CompositeTask):
                     run_compile=run_export_compile and model_name in export_models,
                     run_profile=run_export_profile and model_name in export_models,
                     run_inference=run_export_inference and model_name in export_models,
+                    run_compute_device_accuracy=run_compute_device_accuracy
+                    and model_name in export_models,
                     run_export=run_full_export and model_name in export_models,
                     # Do not raise on failure; let PyTestModelsTask::run_tasks handle this
                     raise_on_failure=False,
@@ -550,8 +564,10 @@ class GenerateTestSummaryTask(RunCommandsTask):
 
         Parameters
         ----------
-            results_dir: Directory containing JUnit XML files
-            output_path: Path to output file (defaults to GitHub step summary)
+        results_dir
+            Directory containing JUnit XML files.
+        output_path
+            Path to output file (defaults to GitHub step summary).
         """
         command = (
             f'python3 scripts/generate_test_summary.py --results-dir="{results_dir}"'

@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 ParsedT = TypeVar("ParsedT")
 
@@ -37,8 +37,19 @@ class QAIHMEnvvar(Generic[ParsedT]):
     def get(cls, default: ParsedT | None = None) -> ParsedT:
         """
         Get the value of this environment variable.
+
         If the envvar is unset, returns the default value.
-        If the default value is none, returns cls.default()
+        If the default value is None, returns cls.default().
+
+        Parameters
+        ----------
+        default
+            Default value to return if the envvar is unset.
+
+        Returns
+        -------
+        value
+            The parsed environment variable value, or the default.
         """
         envvar = os.environ.get(cls.VARNAME)
         if envvar is not None:
@@ -51,8 +62,14 @@ class QAIHMEnvvar(Generic[ParsedT]):
     def set(cls, value: ParsedT | str | None):
         """
         Set the value of this envvar.
+
         If value is type ParsedT, it will be serialized to string first.
         If value is None, the envvar will be deleted.
+
+        Parameters
+        ----------
+        value
+            The value to set. If None, the envvar will be deleted.
         """
         if value is None:
             if cls.VARNAME in os.environ:
@@ -63,13 +80,20 @@ class QAIHMEnvvar(Generic[ParsedT]):
             )
 
     @classmethod
-    def patchenv(cls, monkeypatch, value: ParsedT | str | None):
+    def patchenv(cls, monkeypatch: Any, value: ParsedT | str | None):
         """
-        Patch the value of this envvar for the direction of this test,
-        using the provided monkeypatch pytest fixture.
+        Patch the value of this envvar for the duration of this test.
 
+        Uses the provided monkeypatch pytest fixture.
         If value is type ParsedT, it will be serialized to string first.
         If value is None, the envvar will be deleted.
+
+        Parameters
+        ----------
+        monkeypatch
+            The pytest monkeypatch fixture.
+        value
+            The value to set. If None, the envvar will be deleted.
         """
         if value is None:
             if cls.VARNAME in os.environ:
@@ -89,6 +113,16 @@ class QAIHMEnvvar(Generic[ParsedT]):
         Returns whether the given value is the default.
 
         If value is None, returns whether the current value of this envvar is the default.
+
+        Parameters
+        ----------
+        value
+            Value to check, or None to check the current envvar value.
+
+        Returns
+        -------
+        is_default
+            True if the value equals the default.
         """
         return (value or cls.get()) == cls.default()
 
@@ -133,25 +167,22 @@ class QAIHMEnvvar(Generic[ParsedT]):
         """
         Adds an argument to the given parser or arg group for this envvar.
 
+        See cls.CLI_ARGNAMES and cls.CLI_HELP_MESSAGE for more details.
+
+        Note: Argparse will parse the envvar for you to ParsedT. For example,
+        if I define QAIHMEnvvar[MyClass], then parser.parse_args().myclass would
+        result in a parsed MyClass object, not a string.
+
         Parameters
         ----------
-            parser:
-                Argument parser or group.
-
-            default:
-                The default for the argument will be the value of the envvar.
-                If the envvar is unset, the default for the argument will be the this value.
-                If the envvar is unset and this value is None, the default will be cls.default()
-
-            setenv:
-                If true, the argument parser will set this environment variable with passed-in CLI value.
-
-        Discussion:
-            See cls.CLI_ARGNAMES and cls.CLI_HELP_MESSAGE for more details.
-
-            Note: Argparse will parse the envvar for you to ParsedT. For example,
-            if I define QAIHMEnvvar[MyClass], then parser.parse_args().myclass would
-            result in a parsed MyClass object, not a string.
+        parser
+            Argument parser or group.
+        default
+            The default for the argument will be the value of the envvar.
+            If the envvar is unset, the default for the argument will be this value.
+            If the envvar is unset and this value is None, the default will be cls.default().
+        setenv
+            If true, the argument parser will set this environment variable with passed-in CLI value.
         """
         parser.add_argument(
             *cls.CLI_ARGNAMES,
@@ -167,11 +198,17 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
 
     If the envvar is set to any value in TRUTHY_BOOLEAN_VALUES, it will be considered True.
 
-    For example:
-        Envvar value of "true" -> parsed to True
-        Envvar value of "1" -> parsed to True
-        Envvar value of "false" -> parsed to False
-        Envvar value of "asdf" -> parsed to False
+    Attributes
+    ----------
+    TRUTHY_BOOLEAN_VALUES
+        Set of string values that are considered truthy.
+
+    Examples
+    --------
+    Envvar value of "true" -> parsed to True
+    Envvar value of "1" -> parsed to True
+    Envvar value of "false" -> parsed to False
+    Envvar value of "asdf" -> parsed to False
     """
 
     TRUTHY_BOOLEAN_VALUES = {"true", "1", "on", "yes"}
@@ -214,25 +251,35 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
         Adds an argument to the given parser or arg group for this envvar.
 
         CLI arguments are passed with no value to flip the boolean.
-        For example:
-            Say we have a bool envvar with CLI_ARGS = ['--set-bool].
-            If param 'default' is false:
-                `parser.parse_args([]).set_bool == false`
-                `parser.parse_args([`--set-bool`]).set_bool == true`
-            If param 'default' is true:
-                `parser.parse_args([]).set_bool == true`
-                `parser.parse_args([`--set-bool`]).set_bool == false`
 
         If the current envvar is set to the opposite of param 'default', then
         `--no-` will be added to the beginning of the argname.
-        For example:
-            Say we have a bool envvar with CLI_ARGS = ['--set-bool].
-            If param 'default' is false, but os.environ[cls.VARNAME] == True
-                `parser.parse_args([]).set_bool == false`
-                `parser.parse_args([`--no-set-bool`]).set_bool == true`
-            If param 'default' is true, but os.environ[cls.VARNAME] == False
-                `parser.parse_args([]).set_bool == true`
-                `parser.parse_args([`--no-set-bool`]).set_bool == false`
+
+        Parameters
+        ----------
+        parser
+            Argument parser or group.
+        default
+            Default value for the argument.
+        setenv
+            If true, the argument parser will set this environment variable with passed-in CLI value.
+
+        Examples
+        --------
+        Say we have a bool envvar with CLI_ARGS = ['--set-bool].
+        If param 'default' is false:
+            `parser.parse_args([]).set_bool == false`
+            `parser.parse_args([`--set-bool`]).set_bool == true`
+        If param 'default' is true:
+            `parser.parse_args([]).set_bool == true`
+            `parser.parse_args([`--set-bool`]).set_bool == false`
+
+        If param 'default' is false, but os.environ[cls.VARNAME] == True
+            `parser.parse_args([]).set_bool == false`
+            `parser.parse_args([`--no-set-bool`]).set_bool == true`
+        If param 'default' is true, but os.environ[cls.VARNAME] == False
+            `parser.parse_args([]).set_bool == true`
+            `parser.parse_args([`--no-set-bool`]).set_bool == false`
         """
         default = cls.default() if default is None else default
         if cls.VARNAME in os.environ and cls.get(default) != default:
@@ -283,8 +330,9 @@ class QAIHMStringListEnvvar(QAIHMEnvvar[list[str]]):
     """
     Comma-separated string list environment variable.
 
-    Example:
-        Envvar value of "a , b,c,d" -> parsed to ['a','b','c','d']
+    Examples
+    --------
+    Envvar value of "a , b,c,d" -> parsed to ['a','b','c','d']
     """
 
     @classmethod
@@ -306,17 +354,23 @@ class QAIHMStrSetWithEnumEnvvar(QAIHMEnvvar[set[str | EnumT]], Generic[EnumT]):
     The set may contain enum values. Any string that matches the value of
     an enum element will be parsed to that enum.
 
-    Example:
-        class MyEnum(Enum):
-            one = "one"
-            two = "two"
+    Attributes
+    ----------
+    SPECIAL_SETTING_ENUM
+        The enum type to use for parsing special values.
 
-        class MyEnumListEnvvar(QAIHMStrSetWithEnumEnvvar[MyEnum]):
-            SPECIAL_SETTING_ENUM = MyEnum
-            ...
+    Examples
+    --------
+    >>> class MyEnum(Enum):
+    ...     one = "one"
+    ...     two = "two"
+    >>>
+    >>> class MyEnumListEnvvar(QAIHMStrSetWithEnumEnvvar[MyEnum]):
+    ...     SPECIAL_SETTING_ENUM = MyEnum
+    ...     ...
 
-        This envvar would parse:
-            "one, two, three,four ,four" -> {MyEnum.one, MyEnum.two, 'three', 'four'}
+    This envvar would parse:
+        "one, two, three,four ,four" -> {MyEnum.one, MyEnum.two, 'three', 'four'}
     """
 
     SPECIAL_SETTING_ENUM: type[EnumT]
@@ -394,7 +448,9 @@ class QAIHMDateFormatEnvvar:
         cls.DATE_FORMAT_ENVVAR.set(dformat)
 
     @classmethod
-    def patchenv(cls, monkeypatch, date: datetime | str | None, dformat: str | None):
+    def patchenv(
+        cls, monkeypatch: Any, date: datetime | str | None, dformat: str | None
+    ):
         if isinstance(date, datetime):
             date = cls.serialize(date, dformat or cls.DATE_FORMAT_ENVVAR.get())
         cls.DATE_ENVVAR.patchenv(monkeypatch, date)
@@ -418,8 +474,20 @@ class QAIHMDateFormatEnvvar:
     ):
         """
         Adds an argument group with 2 args for parsing dates.
+
         Note that, unlike other envvars, date and format are both returned in un-parsed (string) format.
         Users must use QAIHMDateFormatEnvvar.parse(args.date, args.date_format) to get a datetime object.
+
+        Parameters
+        ----------
+        parser
+            Argument parser.
+        default_date
+            Default datetime value.
+        default_format
+            Default date format string.
+        setenv
+            If true, sets the environment variables with passed-in CLI values.
         """
         group = parser.add_argument_group(cls.CLI_DATE_GROUP_NAME)
         cls.DATE_ENVVAR.add_arg(

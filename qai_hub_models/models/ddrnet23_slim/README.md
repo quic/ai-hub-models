@@ -4,7 +4,7 @@ DDRNet23Slim is a machine learning model that segments an image into semantic cl
 
 This is based on the implementation of DDRNet23-Slim found [here](https://github.com/chenjun2hao/DDRNet.pytorch). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/ddrnet23_slim).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/ddrnet23_slim).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of DDRNet23-Slim can be found
   [here](https://github.com/chenjun2hao/DDRNet.pytorch/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

@@ -454,11 +454,19 @@ class NumericsDiff:
         ],
     ):
         """
-        Returns Summary Table for given bucket
+        Returns Summary Table for given bucket.
 
         Parameters
         ----------
-            bucket_id : bucket_id from perf_buckets
+        data
+            List of tuples containing model id, dataset name, metric name, device,
+            precision, path, FP accuracy, device accuracy, previous FP accuracy,
+            and previous device accuracy.
+
+        Returns
+        -------
+        table
+            Summary table for the given data.
         """
         table = PrettyTable(
             [

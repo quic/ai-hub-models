@@ -92,11 +92,11 @@ class CocoFaceDataset(CocoBodyDataset):
             RGB, range [0-1] network input image.
 
         ground_truth
-            imageId : int
+            imageId
                 The ID of the image.
-            category_id : int
+            category_id
                 The ground truth category ID
-            bbox : torch.Tensor
+            bbox
                 The ground truth face bounding box in xyxy format.
                 This box is in pixel space.
         """

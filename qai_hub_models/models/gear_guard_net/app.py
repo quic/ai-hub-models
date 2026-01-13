@@ -3,154 +3,231 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
-
 from collections.abc import Callable
 
 import numpy as np
 import torch
+from PIL import Image
 
-from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.bounding_box_processing import batched_nms, box_xywh_to_xyxy
-from qai_hub_models.utils.image_processing import preprocess_PIL_image, resize_pad
+from qai_hub_models.models._shared.yolo.utils import detect_postprocess
+from qai_hub_models.utils.bounding_box_processing import batched_nms
+from qai_hub_models.utils.draw import draw_box_from_xyxy
+from qai_hub_models.utils.image_processing import (
+    app_to_net_image_inputs,
+    resize_pad,
+)
 
-
-def decode(output: list[torch.Tensor], thr: float) -> np.ndarray:
-    """
-    Decode model output to bounding boxes, class indices and scores.
-
-    Inputs:
-        output: list[torch.Tensor]
-            Model output.
-        thr: float
-            Detection threshold. Predictions lower than the thresholds will be discarded.
-    Outputs: np.ndarray
-        Detection results. Shape is (N, 6). N is the number of detected objects. Each object is
-        represented by (class, x1, y1, x2, y2, score)
-    """
-    anchors = [
-        [[10, 13], [16, 30], [33, 23]],
-        [[30, 61], [62, 45], [59, 119]],
-        [[116, 90], [156, 198], [373, 326]],
-    ]
-    strides = (8, 16, 32)
-    result = []
-    for s, out in enumerate(output):
-        b, h, w, c = out.shape
-        out = out.reshape(b, h, w, 3, -1)
-        _, ny, nx, na = out.shape[:-1]
-        for y in torch.arange(ny):
-            for x in torch.arange(nx):
-                for a in np.arange(na):
-                    pred = out[0, y, x, a]
-                    obj_score = pred[4].sigmoid()
-                    cls_score = pred[5:].max().sigmoid()
-                    score = obj_score * cls_score
-                    if score < thr:
-                        continue
-                    c = int(np.argmax(pred[5:]))
-                    bx = (pred[0].sigmoid() * 2 - 0.5 + x) * strides[s]
-                    by = (pred[1].sigmoid() * 2 - 0.5 + y) * strides[s]
-                    bw = 4 * pred[2].sigmoid() ** 2 * anchors[s][a][0]
-                    bh = 4 * pred[3].sigmoid() ** 2 * anchors[s][a][1]
-
-                    boxes = box_xywh_to_xyxy(
-                        torch.from_numpy(np.array([[[bx, by], [bw, bh]]]))
-                    )
-                    x1 = boxes[0][0][0].round()
-                    y1 = boxes[0][0][1].round()
-                    x2 = boxes[0][1][0].round()
-                    y2 = boxes[0][1][1].round()
-                    result.append([c, x1, y1, x2, y2, score])
-    return np.array(result, dtype=np.float32)
-
-
-def postprocess(
-    output: list[torch.Tensor],
-    scale: float,
-    pad: tuple[int, int],
-    conf_thr: float,
-    iou_thr: float,
-) -> np.ndarray:
-    """
-    Post process model output.
-    Inputs:
-        output: list[torch.Tensor]
-            Multi-scale model output.
-        scale: float
-            Scaling factor from input image and model input.
-        pad: list[int]
-            Padding sizes from input image and model input.
-        conf_thr: float
-            Confidence threshold of detections.
-        iou_thr: float
-            IoU threshold for non maximum suppression.
-    Outputs: np.ndarray
-        Detected object. Shape is (N, 6). N is the number of detected objects. Each object is
-        represented by (class, x1, y1, x2, y2, score)
-    """
-    result = decode(output, conf_thr)
-
-    if result.ndim == 1:  # No detections
-        return np.empty((0, 6))
-    result_final = []
-    for c in [0, 1]:
-        idx = result[:, 0] == c
-        boxes, scores = batched_nms(
-            iou_thr,
-            0,
-            torch.from_numpy(result[idx, 1:5]).unsqueeze_(0),
-            torch.from_numpy(result[idx, -1]).unsqueeze_(0),
-        )
-        scores[0].unsqueeze_(-1)
-        result_final.append(
-            torch.concat([torch.zeros_like(scores[0]) + c, boxes[0], scores[0]], 1)
-        )
-    result_final_arr = torch.concat(result_final).numpy()
-    result_final_arr[:, 1:5] = (
-        (result_final_arr[:, 1:5] - np.array([pad[0], pad[1], pad[0], pad[1]])) / scale
-    ).round()
-    return result_final_arr
+# Define color map for gear guard classes
+GEAR_GUARD_COLOR_MAP = {0: (255, 0, 0), 1: (0, 255, 0), -1: (255, 255, 255)}
 
 
 class BodyDetectionApp:
-    """Body detection application"""
+    """
+    This class consists of light-weight "app code" that is required to perform end to end inference
+    with gear_guard_net object detection models.
 
-    def __init__(self, model: Callable[[torch.Tensor], list[torch.Tensor]]) -> None:
+    For a given image input, the app will:
+        * pre-process the image (convert to range[0, 1])
+        * resize and pad image to match model input size
+        * Run model inference
+        * if requested, post-process model output using non maximum suppression
+        * if requested, draw the predicted bounding boxes on the input image
+    """
+
+    def __init__(
+        self,
+        model: Callable[
+            [torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        ],
+        nms_score_threshold: float = 0.45,
+        nms_iou_threshold: float = 0.7,
+        model_includes_postprocessing: bool = True,
+    ):
         """
-        Initialize BodyDetectionApp.
+        Initialize a BodyDetectionApp application.
 
         Parameters
         ----------
         model
-            Detection model.
+            gear_guard_net object detection model.
+
+        nms_score_threshold
+            Score threshold for non maximum suppression.
+
+        nms_iou_threshold
+            Intersection over Union threshold for non maximum suppression.
+
+        model_includes_postprocessing
+            Whether the model includes postprocessing steps beyond the detector.
         """
         self.model = model
+        self.nms_score_threshold = nms_score_threshold
+        self.nms_iou_threshold = nms_iou_threshold
+        self.model_includes_postprocessing = model_includes_postprocessing
 
-    def detect(
-        self, imgfile: str, height: int, width: int, conf: float = 0.9
-    ) -> np.ndarray:
+    def predict(self, *args, **kwargs):
+        # See predict_boxes_from_image.
+        return self.predict_boxes_from_image(*args, **kwargs)
+
+    def predict_boxes_from_image(
+        self,
+        pixel_values_or_image: (torch.Tensor | np.ndarray | Image.Image),
+        raw_output: bool = False,
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[np.ndarray]
+    ):
         """
-        Detect objects from input images.
+        From the provided image or tensor, predict the bounding boxes & classes of objects detected within.
 
         Parameters
         ----------
-        imgfile
-            Input image file
-        height
-            Model input height.
-        width
-            Model input width.
-        conf
-            Detection threshold.
+        pixel_values_or_image
+            either one of below:
+            - pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+            - numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            - PIL image
+
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-        np.ndarray
-            Detection result. Shape is (N, 6). N is the number of detected objects. Each object is represented by
-            (cls_id, x1, y1, x2, y2, score)
+        If raw_output is true, returns:
+            boxes : list[torch.Tensor]
+                Bounding box coordinates (x1, y1, x2, y2) per batch.
+                List element shape (num_preds, 4)
+                List length = N
+            scores : list[torch.Tensor]
+                Class scores per batch multiplied by confidence, range [0, 1].
+                List element shape (num_preds, num_classes)
+                List length = N
+            class_idx : list[torch.tensor]
+                Indices of the most probable class of the prediction.
+                List element shape (num_preds)
+                List length = N
+
+        Otherwise, returns:
+            images: list[np.ndarray]
+                A list of predicted RGB, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
+                List length = N
         """
-        img = preprocess_PIL_image(load_image(imgfile))
-        x, scale, pad = resize_pad(img, (height, width))
-        output = self.model(x)
-        output = [tensor.permute(0, 2, 3, 1).detach() for tensor in output]
-        return postprocess(output, scale, pad, conf, 0.5)
+        # Input Prep
+        NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
+            pixel_values_or_image
+        )
+
+        # Resize to fit model input
+        # Check if model has get_input_spec method (TorchScript models don't)
+        if hasattr(self.model, "get_input_spec"):
+            input_spec = self.model.get_input_spec()
+            target_h, target_w = input_spec["image"][0][2:]
+        else:
+            # Use default values for GearGuardNet
+            target_h, target_w = 320, 192
+        NCHW_fp32_torch_resized_frames, scale, pad = resize_pad(
+            NCHW_fp32_torch_frames, (target_h, target_w)
+        )
+
+        # Run prediction
+        if self.model_includes_postprocessing:
+            pred_boxes, pred_scores, pred_class_idx = self.model(
+                NCHW_fp32_torch_resized_frames
+            )
+        else:
+            model_output: torch.Tensor = self.model(NCHW_fp32_torch_resized_frames)  # type: ignore[assignment]
+            assert isinstance(model_output, torch.Tensor)
+            pred_boxes, pred_scores, pred_class_idx = detect_postprocess(model_output)
+
+        # Non Maximum Suppression on each batch
+        pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx = (
+            batched_nms(
+                self.nms_iou_threshold,
+                self.nms_score_threshold,
+                pred_boxes,
+                pred_scores,
+                pred_class_idx,
+            )
+        )
+
+        # Return raw output if requested
+        if raw_output or isinstance(pixel_values_or_image, torch.Tensor):
+            return (pred_post_nms_boxes, pred_post_nms_scores, pred_post_nms_class_idx)
+
+        # Add boxes to each batch with colors based on object type
+        for batch_idx in range(len(pred_post_nms_boxes)):
+            pred_boxes_batch = pred_post_nms_boxes[batch_idx]
+            pred_class_idx_batch = pred_post_nms_class_idx[batch_idx]
+
+            # Transform bounding boxes back to original image size
+            pred_boxes_batch = self._transform_boxes_to_original_size(
+                pred_boxes_batch,
+                pad,
+                scale,
+                NCHW_fp32_torch_frames.shape[2],  # height
+                NCHW_fp32_torch_frames.shape[3],  # width
+            )
+
+            for i, box in enumerate(pred_boxes_batch):
+                class_idx = int(pred_class_idx_batch[i].item())
+                _color = GEAR_GUARD_COLOR_MAP.get(class_idx, GEAR_GUARD_COLOR_MAP[-1])
+
+                draw_box_from_xyxy(
+                    NHWC_int_numpy_frames[batch_idx],
+                    box[0:2].int(),
+                    box[2:4].int(),
+                    color=_color,
+                    size=2,
+                )
+
+        return NHWC_int_numpy_frames
+
+    @staticmethod
+    def _transform_boxes_to_original_size(
+        boxes: torch.Tensor,
+        pad: tuple[int, int],
+        scale: float,
+        original_height: int,
+        original_width: int,
+    ) -> torch.Tensor:
+        """
+        Transform bounding boxes back to original image size.
+
+        Parameters
+        ----------
+        boxes
+            Bounding boxes tensors, shape (num_detections, 4).
+            Each box represented by (x1, y1, x2, y2) coordinates.
+
+        pad
+            Padding applied during resizing (x_pad, y_pad).
+
+        scale
+            Scale factor applied during resizing.
+
+        original_height
+            Original image height.
+
+        original_width
+            Original image width.
+
+        Returns
+        -------
+        boxes
+            Bounding boxes tensors, shape (num_detections, 4).
+            Each box represented by (x1, y1, x2, y2) coordinates.
+        """
+        if len(boxes) > 0:
+            # Adjust for padding (subtract padding) and scale
+            boxes[:, 0] = (boxes[:, 0] - pad[0]) / scale  # x1
+            boxes[:, 1] = (boxes[:, 1] - pad[1]) / scale  # y1
+            boxes[:, 2] = (boxes[:, 2] - pad[0]) / scale  # x2
+            boxes[:, 3] = (boxes[:, 3] - pad[1]) / scale  # y2
+
+            # Ensure boxes are within image boundaries
+            boxes[:, 0] = torch.clamp(boxes[:, 0], min=0)
+            boxes[:, 1] = torch.clamp(boxes[:, 1], min=0)
+            boxes[:, 2] = torch.clamp(boxes[:, 2], max=original_width)
+            boxes[:, 3] = torch.clamp(boxes[:, 3], max=original_height)
+
+        return boxes

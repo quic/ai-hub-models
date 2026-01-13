@@ -212,7 +212,9 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         """Source model format preferred for conversion on AI Hub Workbench."""
         ...
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
         """AI Hub Workbench quantize options recommended for the model."""
         ...
 

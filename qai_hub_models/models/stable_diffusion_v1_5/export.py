@@ -8,15 +8,17 @@
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 import warnings
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
 import qai_hub as hub
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.models.common import ExportResult, SampleInputsType
+from qai_hub_models.configs.tool_versions import ToolVersions
+from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.stable_diffusion_v1_5 import MODEL_ID, Model
 from qai_hub_models.utils.args import (
     export_parser,
@@ -25,10 +27,17 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
+from qai_hub_models.utils.onnx.helpers import download_and_unzip_workbench_onnx_model
+from qai_hub_models.utils.path_helpers import (
+    get_model_directory_for_download,
+    get_next_free_path,
+)
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
     print_profile_metrics_from_job,
+    print_tool_versions,
 )
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
@@ -118,14 +127,47 @@ def inference_model(
 
 
 def download_model(
-    output_path: Path,
+    output_dir: os.PathLike | str,
+    tool_versions: ToolVersions,
     compile_jobs: dict[str, hub.client.CompileJob],
-) -> None:
-    os.makedirs(output_path, exist_ok=True)
+    zip_assets: bool,
+) -> Path:
+    output_folder_name = os.path.basename(output_dir)
+    output_path = get_next_free_path(output_dir)
+
+    target_models: dict[str, hub.Model] = {}
     for component_name, compile_job in compile_jobs.items():
         target_model = compile_job.get_target_model()
-        assert target_model is not None
-        target_model.download(str(output_path / component_name))
+        assert target_model, f"Compile Job Failed:\n{compile_job}"
+        target_models[component_name] = target_model
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dst_path = Path(tmpdir) / output_folder_name
+        dst_path.mkdir()
+
+        for component_name, target_model in target_models.items():
+            if target_model.model_type == hub.SourceModelType.ONNX:
+                download_and_unzip_workbench_onnx_model(
+                    target_model, dst_path, component_name
+                )
+            else:
+                target_model.download(os.path.join(dst_path, component_name))
+
+        tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+
+        if zip_assets:
+            output_path = Path(
+                shutil.make_archive(
+                    str(output_path),
+                    "zip",
+                    root_dir=tmpdir,
+                    base_dir=output_folder_name,
+                )
+            )
+        else:
+            shutil.move(dst_path, output_path)
+
+    return output_path
 
 
 def export_model(
@@ -137,12 +179,13 @@ def export_model(
     skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: str | None = None,
-    target_runtime: TargetRuntime = TargetRuntime.PRECOMPILED_QNN_ONNX,
+    target_runtime: TargetRuntime = TargetRuntime.QNN_CONTEXT_BINARY,
     compile_options: str = "",
     profile_options: str = "",
     fetch_static_assets: str | None = None,
+    zip_assets: bool = False,
     **additional_model_kwargs,
-) -> Mapping[str, ExportResult] | list[str]:
+) -> CollectionExportResult:
     """
     This function executes the following recipe:
 
@@ -150,10 +193,11 @@ def export_model(
         2. Compiles the model to an asset that can be run on device
         3. Profiles the model performance on a real device
         4. Inferences the model on sample inputs
-        5. Downloads the model asset to the local directory
-        6. Summarizes the results from profiling and inference
+        5. Extracts relevant tool (eg. SDK) versions used to compile and profile this model
+        6. Downloads the model asset to the local directory
+        7. Summarizes the results from profiling and inference
 
-    Each of the last 4 steps can be optionally skipped using the input options.
+    Each of the last 5 steps can be optionally skipped using the input options.
 
     Parameters
     ----------
@@ -178,7 +222,7 @@ def export_model(
         from profiling and inference.
     output_dir
         Directory to store generated assets (e.g. compiled model).
-        Defaults to `<cwd>/build/<model_name>`.
+        Defaults to `<cwd>/export_assets`.
     target_runtime
         Which on-device runtime to target. Default is TFLite.
     compile_options
@@ -187,21 +231,26 @@ def export_model(
         Additional options to pass when submitting the profile job.
     fetch_static_assets
         If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
-    additional_model_kwargs
+    zip_assets
+        If set, zip the assets after downloading.
+    **additional_model_kwargs
         Additional optional kwargs used to customize
         `model_cls.from_pretrained`
 
     Returns
     -------
-    A Mapping from component_name to a struct of:
-        * A CompileJob object containing metadata about the compile job submitted to hub.
-        * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
-        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+    CollectionExportResult
+        A Mapping from component_name to:
+            * A CompileJob object containing metadata about the compile job submitted to hub.
+            * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * The path to the downloaded model folder (or zip), or None if one or more of: skip_downloading is True, fetch_static_assets is set, or AI Hub Workbench is not accessible
     """
     model_name = get_export_model_name(
         Model, MODEL_ID, precision, additional_model_kwargs
     )
-    output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+
+    output_path = Path(output_dir or Path.cwd() / "export_assets")
     assert precision in [
         Precision.w8a16,
     ], f"Precision {precision!s} is not supported by {model_name}"
@@ -211,7 +260,7 @@ def export_model(
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        return export_without_hub_access(
+        export_without_hub_access(
             MODEL_ID,
             "Stable-Diffusion-v1.5",
             device,
@@ -222,11 +271,21 @@ def export_model(
             output_path,
             target_runtime,
             precision,
-            compile_options,
-            profile_options,
+            compile_options + profile_options,
             component_arg,
             qaihm_version_tag=fetch_static_assets,
         )
+        return CollectionExportResult(
+            components={component_name: ExportResult() for component_name in components}
+        )
+
+    hub_device = hub.get_devices(
+        name=device.name, attributes=device.attributes, os=device.os
+    )[-1]
+    chipset_attr = next(
+        (attr for attr in hub_device.attributes if "chipset" in attr), None
+    )
+    chipset = chipset_attr.split(":")[-1] if chipset_attr else None
 
     # 1. Instantiates a PyTorch model and converts it to a traced TorchScript format
     model = Model.from_pretrained(
@@ -269,11 +328,33 @@ def export_model(
             compile_jobs,
         )
 
-    # 5. Downloads the model asset to the local directory
-    if not skip_downloading:
-        download_model(output_path, compile_jobs)
+    # 5. Extracts relevant tool (eg. SDK) versions used to compile and profile this model
+    tool_versions: ToolVersions | None = None
+    tool_versions_are_from_device_job = False
+    if not skip_summary or not skip_downloading:
+        profile_job = next(iter(profile_jobs.values())) if profile_jobs else None
+        inference_job = next(iter(inference_jobs.values())) if inference_jobs else None
+        compile_job = next(iter(compile_jobs.values())) if compile_jobs else None
+        if profile_job is not None and profile_job.wait():
+            tool_versions = ToolVersions.from_job(profile_job)
+            tool_versions_are_from_device_job = True
+        elif inference_job is not None and inference_job.wait():
+            tool_versions = ToolVersions.from_job(inference_job)
+            tool_versions_are_from_device_job = True
+        elif compile_job and compile_job.wait():
+            tool_versions = ToolVersions.from_job(compile_job)
 
-    # 6. Summarizes the results from profiling and inference
+    # 6. Downloads the model asset to the local directory
+    downloaded_model_path: Path | None = None
+    if not skip_downloading and tool_versions is not None:
+        model_directory = get_model_directory_for_download(
+            target_runtime, precision, chipset, output_path, MODEL_ID
+        )
+        downloaded_model_path = download_model(
+            model_directory, tool_versions, compile_jobs, zip_assets
+        )
+
+    # 7. Summarizes the results from profiling and inference
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
@@ -295,25 +376,35 @@ def export_model(
             assert inference_job.wait().success, "Job failed: " + inference_job.url
             inference_result = inference_job.download_output_data()
             assert inference_result is not None
-
             print_inference_metrics(
                 inference_job, inference_result, torch_out, component.get_output_names()
             )
 
-    return {
-        component_name: ExportResult(
-            compile_job=compile_jobs[component_name],
-            inference_job=inference_jobs.get(component_name, None),
-            profile_job=profile_jobs.get(component_name, None),
-        )
-        for component_name in components
-    }
+    if not skip_summary:
+        print_tool_versions(tool_versions, tool_versions_are_from_device_job)
+
+    if downloaded_model_path:
+        print(f"{model_name} was saved to {downloaded_model_path}\n")
+
+    return CollectionExportResult(
+        components={
+            component_name: ExportResult(
+                compile_job=compile_jobs[component_name],
+                inference_job=inference_jobs.get(component_name, None),
+                profile_job=profile_jobs.get(component_name, None),
+            )
+            for component_name in components
+        },
+        download_path=downloaded_model_path,
+        tool_versions=tool_versions,
+    )
 
 
 def main():
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w8a16: [
+            TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.PRECOMPILED_QNN_ONNX,
         ],
     }

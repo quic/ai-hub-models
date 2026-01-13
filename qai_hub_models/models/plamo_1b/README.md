@@ -4,7 +4,7 @@ PLaMo-1B is the first small language model (SLM) in the PLaMo™ Lite series fro
 
 This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/plamo_1b).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/plamo_1b).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 

@@ -174,7 +174,7 @@ class Plan:
 
                 if not result:
                     raise caught or ValueError(
-                        f"Task {task.group_name} failed (returned {result})"
+                        f"Task {step_id} failed (returned {result})"
                     )
 
             return result

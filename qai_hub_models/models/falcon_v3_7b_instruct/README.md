@@ -4,7 +4,7 @@ Falcon3 family of Open Foundation Models is a set of pretrained and instruct LLM
 
 This is based on the implementation of Falcon3-7B-Instruct found [here](https://huggingface.co/tiiuae/Falcon3-7B-Instruct). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/falcon_v3_7b_instruct).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/falcon_v3_7b_instruct).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -67,7 +67,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Falcon3-7B-Instruct can be found
   [here](https://falconllm.tii.ae/falcon-terms-and-conditions.html).
-* The license for the compiled assets for on-device deployment can be found [here](https://falconllm.tii.ae/falcon-terms-and-conditions.html)
 
 
 ## References

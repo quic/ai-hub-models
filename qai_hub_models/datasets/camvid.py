@@ -139,7 +139,7 @@ class CamVidSegmentationDataset(BaseDataset):
 
         Returns
         -------
-        np.ndarray
+        semantic_map
             Class indices array (H,W) where each pixel contains:
             - 0 for Void/unlabeled
             - 1-N for valid classes

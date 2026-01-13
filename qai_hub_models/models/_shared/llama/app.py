@@ -228,8 +228,8 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
 
 class ChatApp:
     """
-    This class is demonstration of how once can use Llama model to build a basic ChatApp.
-    This App use two models
+    This class is a demonstration of how one can use Llama model to build a basic ChatApp.
+    This App uses two models
         * Prompt Processor
             - Processes user input prompt to generate first token and KV-cache
         * Token Generator

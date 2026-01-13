@@ -21,11 +21,12 @@ from qai_hub_models.utils.printing import suppress_stdout
 class CocoBodyPoseEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
-    def __init__(self, in_vis_thre=0.2):
+    def __init__(self, in_vis_thre: float = 0.2):
         """
         Parameters
         ----------
-            coco_gt: COCO ground truth dataset.
+        in_vis_thre
+            Visibility threshold for keypoints.
         """
         self.reset()
         self.in_vis_thre = in_vis_thre
@@ -53,15 +54,18 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            preds: Array of predicted keypoints in image coordinates
-                Shape: [batch_size, num_joints, 2] where last dim is (x,y)
-            maxvals: Array of confidence scores for each keypoint
-                    Shape: [batch_size, num_joints, 1]
-            image_ids: Tensor containing COCO image_id for each prediction
-                    Shape: [batch_size]
-            category_ids: Tensor containing COCO category IDs (typically all 1 for person)
-                        Shape: [batch_size]
-
+        preds
+            Array of predicted keypoints in image coordinates.
+            Shape: [batch_size, num_joints, 2] where last dim is (x,y)
+        maxvals
+            Array of confidence scores for each keypoint.
+            Shape: [batch_size, num_joints, 1]
+        image_ids
+            Tensor containing COCO image_id for each prediction.
+            Shape: [batch_size]
+        category_ids
+            Tensor containing COCO category IDs (typically all 1 for person).
+            Shape: [batch_size]
         """
         for idx in range(preds.shape[0]):
             image_id = int(image_ids[idx])
@@ -104,6 +108,7 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 
         Returns
         -------
+        metrics
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         pred_image_ids = [p["image_id"] for p in self.predictions]

@@ -4,7 +4,7 @@ Llama 2 is a family of LLMs. The "Chat" at the end indicates that the model is o
 
 This is based on the implementation of Llama-v2-7B-Chat found [here](https://huggingface.co/meta-llama/Llama-2-7b-chat-hf). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v2_7b_chat).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/llama_v2_7b_chat).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -51,7 +51,6 @@ print(fibonacci(5))
 ## License
 * The license for the original implementation of Llama-v2-7B-Chat can be found
   [here](https://github.com/facebookresearch/llama/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://github.com/facebookresearch/llama/blob/main/LICENSE)
 
 
 ## References

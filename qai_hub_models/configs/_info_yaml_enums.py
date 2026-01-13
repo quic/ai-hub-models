@@ -142,16 +142,6 @@ class MODEL_LICENSE(Enum):
         ]
 
     @property
-    def deploy_license(self) -> MODEL_LICENSE | None:
-        # For a given model source license (self), get the associated model deployment license.
-        # If None is returned, this model cannot be published with any license.
-        if self.is_copyleft:
-            return self
-        if self.is_non_commerical:
-            return None
-        return MODEL_LICENSE.AI_HUB_MODELS_LICENSE
-
-    @property
     def huggingface_name(self) -> str:
         hf_str = None
         if self == MODEL_LICENSE.CC_BY_NON_COMMERCIAL_4_0:

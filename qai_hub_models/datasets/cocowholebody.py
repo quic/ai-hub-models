@@ -65,10 +65,10 @@ class CocoWholeBodyDataset(CocoBodyDataset):
                 Image ID within the original dataset
             category_id
                 Ground truth prediction category ID.
-            center
-                The center coordinates of the bounding box, with shape(2,) -- (x. y).
             scale
                 Bounding box scaling factor, with shape(2,) -- (x, y).
+            bbox
+                Bounding box coordinates (xyxy format)
         """
         (
             file_name,

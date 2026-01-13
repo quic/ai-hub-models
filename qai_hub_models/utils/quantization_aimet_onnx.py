@@ -142,18 +142,36 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         num_samples: int | None = None,
     ) -> DatasetEntries | None:
         """
+        Get calibration data for quantization.
+
         Parameters
         ----------
-        num_samples: None to use all. Specify `num_samples` to use fewer. If
-        `num_samples` are more than available, use all available (same
-        behavior as None)
+        input_spec
+            The input specification for the model.
+        num_samples
+            None to use all. Specify `num_samples` to use fewer. If
+            `num_samples` are more than available, use all available (same
+            behavior as None).
 
+        Returns
+        -------
+        calibration_data
+            The calibration dataset entries, or None if not available.
         """
         return None
 
     @classmethod
     def get_calibrated_aimet_model(cls) -> tuple[str, str]:
-        """Returns .onnx and .encodings paths"""
+        """
+        Get the calibrated AIMET model paths.
+
+        Returns
+        -------
+        onnx_path
+            Path to .onnx file.
+        encodings_path
+            Path to .encodings file.
+        """
         if not cls.model_id or cls.model_asset_version == -1:
             raise ValueError("model_id and model_asset_version must be defined")
 
@@ -226,10 +244,22 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         use_seq_mse: bool = False,
     ) -> None:
         """
+        Quantize the model using calibration data.
+
         Parameters
         ----------
-        - data: If None, create data loader from get_calibration_data(), which
-        must be implemented.
+        data
+            If None, create data loader from get_calibration_data(), which
+            must be implemented.
+        num_samples
+            Number of samples to use for calibration. If None, uses all
+            available samples in the data loader.
+        use_seq_mse
+            Whether to apply sequential MSE optimization during quantization.
+
+        Returns
+        -------
+        None
         """
         if data is None:
             calib_data = self.get_calibration_data()
@@ -367,6 +397,8 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self.quant_sim.export(str(export_dir), "model")
         return str(export_dir)
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
         """AI Hub Workbench quantize options recommended for the model."""
-        return ""
+        return other_options or ""

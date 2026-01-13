@@ -36,8 +36,7 @@ from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.qai_hub_helpers import make_hub_dataset_entries
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 1
-
+MODEL_ASSET_VERSION = 3
 
 NUM_LAYERS = 32
 NUM_SPLITS = 5

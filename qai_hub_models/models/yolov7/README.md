@@ -4,7 +4,7 @@ YoloV7 is a machine learning model that predicts bounding boxes and classes of o
 
 This is based on the implementation of Yolo-v7 found [here](https://github.com/WongKinYiu/yolov7/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolov7).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/yolov7).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Yolo-v7 can be found
   [here](https://github.com/WongKinYiu/yolov7/blob/main/LICENSE.md).
-* The license for the compiled assets for on-device deployment can be found [here](https://github.com/WongKinYiu/yolov7/blob/main/LICENSE.md)
 
 
 ## References

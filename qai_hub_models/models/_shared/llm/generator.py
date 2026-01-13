@@ -388,7 +388,6 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         position_ids = torch.cumsum(padded_attention_mask, dim=1, dtype=torch.int32) - 1
         position_ids = position_ids.clip(0, context_length - 1)
         position_ids = position_ids[..., -sequence_length:]
-        position_ids_cos, position_ids_sin = self.embedding.get_embedding(position_ids)
 
         attention_mask_converter = AttentionMaskConverter(True)
         cm_attention_mask = attention_mask_converter.to_4d(

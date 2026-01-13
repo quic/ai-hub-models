@@ -13,7 +13,11 @@ from qai_hub_models.models.gear_guard_net.model import (
     MODEL_ID,
     GearGuardNet,
 )
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_raw_file
+from qai_hub_models.utils.asset_loaders import (
+    CachedWebModelAsset,
+    load_image,
+    load_raw_file,
+)
 from qai_hub_models.utils.bounding_box_processing import get_iou
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
@@ -27,21 +31,36 @@ GROUND_TRUTH_RESULT = CachedWebModelAsset.from_asset_store(
 
 @skip_clone_repo_check
 def test_task() -> None:
-    app = BodyDetectionApp(GearGuardNet.from_pretrained())
-    result = app.detect(INPUT_IMAGE_ADDRESS.fetch(), 320, 192, 0.9)
-    assert len(result) == 2
+    app = BodyDetectionApp(GearGuardNet.from_pretrained(), nms_score_threshold=0.9)
+    image = load_image(INPUT_IMAGE_ADDRESS.fetch())
+    boxes, _, class_idx = app.predict_boxes_from_image(image, raw_output=True)
+    boxes_pd, class_idx_pd = (
+        boxes[0][1].numpy().astype(int),
+        class_idx[0][1].numpy().astype(int),
+    )
+    gt = np.array(load_raw_file(GROUND_TRUTH_RESULT).split(), dtype=int)
+    boxes_gt, class_idx_gt = gt[1:5], gt[0]
+    assert class_idx_pd == class_idx_gt
+    assert get_iou(boxes_pd, boxes_gt) > 0.5
+    assert len(boxes[0]) == 2
 
 
 @pytest.mark.trace
 @skip_clone_repo_check
 def test_trace() -> None:
-    app = BodyDetectionApp(GearGuardNet.from_pretrained().convert_to_torchscript())
-    result = app.detect(INPUT_IMAGE_ADDRESS.fetch(), 320, 192, 0.9)
-    gt = load_raw_file(GROUND_TRUTH_RESULT)
-    expected = np.array(gt.split(), dtype=int)
-    result = result.astype(int)
-    assert result[0][0] == expected[0]
-    assert get_iou(result[0][1:5], expected[1:5]) > 0.5
+    app = BodyDetectionApp(
+        GearGuardNet.from_pretrained().convert_to_torchscript(), nms_score_threshold=0.9
+    )
+    image = load_image(INPUT_IMAGE_ADDRESS.fetch())
+    boxes, _, class_idx = app.predict_boxes_from_image(image, raw_output=True)
+    boxes_pd, class_idx_pd = (
+        boxes[0][1].numpy().astype(int),
+        class_idx[0][1].numpy().astype(int),
+    )
+    gt = np.array(load_raw_file(GROUND_TRUTH_RESULT).split(), dtype=int)
+    boxes_gt, class_idx_gt = gt[1:5], gt[0]
+    assert class_idx_pd == class_idx_gt
+    assert get_iou(boxes_pd, boxes_gt) > 0.5
 
 
 @skip_clone_repo_check

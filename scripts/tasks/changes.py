@@ -61,6 +61,7 @@ MANUAL_EDGES = {
     "qai_hub_models/utils/evaluate.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/onnx/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/printing.py": REPRESENTATIVE_EXPORT_FILES,
+    "qai_hub_models/utils/path_helpers.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/runtime_torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/transpose_channel.py": REPRESENTATIVE_EXPORT_FILES,
     "qai_hub_models/utils/tflite/torch_wrapper.py": REPRESENTATIVE_EXPORT_FILES,
@@ -361,7 +362,10 @@ def get_models_to_test() -> tuple[set[str], set[str]]:
 
     Returns
     -------
-        tuple[list of models to run unit tests, list of models to run compile tests]
+    unit_test_models
+        Models to run unit tests.
+    compile_test_models
+        Models to run compile tests.
     """
     # model.py changed
     model_changed_models = get_models_with_changed_definitions()

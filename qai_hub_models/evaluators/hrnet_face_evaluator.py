@@ -29,11 +29,17 @@ class HRNetFaceEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            output (tuple[torch.Tensor]): Model output containing heatmaps shape: [B,K,H,W].
-            gt (list[Any]): Ground truth data [centers, scales, landmarks].
-                - centers: [B, 2] (x,y centers).
-                - scales: [B, 2] (width, height scales).
-                - landmarks: [B, 29, 2] (x,y keypoints)
+        output
+            Model output containing heatmaps with shape [B,K,H,W].
+        gt
+            Ground truth data [centers, scales, landmarks].
+
+            centers
+                [B, 2] (x,y centers).
+            scales
+                [B, 2] (width, height scales).
+            landmarks
+                [B, 29, 2] (x,y keypoints)
         """
         heatmaps = output[0] if isinstance(output, tuple) else output
         heatmaps_np = heatmaps.detach().cpu().numpy()  # [B, K, H, W]
@@ -60,16 +66,20 @@ class HRNetFaceEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            preds (np.ndarray): Predicted keypoints, shape [N, 29, 2].
-            gts (np.ndarray): Ground truth keypoints, shape [N, 29, 2].
+        preds
+            Predicted keypoints with shape [N, 29, 2].
+        gts
+            Ground truth keypoints with shape [N, 29, 2].
 
         Returns
         -------
-            np.ndarray: NME values for each sample, normalized by inter-ocular distance.
+        nme_values
+            NME values for each sample, normalized by inter-ocular distance.
 
-        Source:
-            Adapted from HRNet-Facial-Landmark-Detection:
-            https://github.com/HRNet/HRNet-Facial-Landmark-Detection/blob/master/lib/core/evaluation.py#L36
+        Notes
+        -----
+        Adapted from HRNet-Facial-Landmark-Detection:
+        https://github.com/HRNet/HRNet-Facial-Landmark-Detection/blob/master/lib/core/evaluation.py#L36
         """
         N, L, _ = preds.shape
         nmes = np.zeros(N, dtype=np.float32)

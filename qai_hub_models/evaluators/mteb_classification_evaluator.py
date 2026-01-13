@@ -55,13 +55,13 @@ class ClassificationEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            out: torch.Tensor
-                Transformer embeddings of shape [1, 512], dtype of fp32
+        out
+            Transformer embeddings of shape [1, 512], dtype of fp32.
+        gt
+            Label with shape [1,], dtype of int [0 or 1].
 
-            gt: torch.Tensor
-                label with shape [1,], dtype of int [0 or 1]
-                0: not-counterfactual
-                1: counterfactual
+            - 0: not-counterfactual
+            - 1: counterfactual
         """
         for i in range(out.shape[0]):
             self.test_text.append(out[i].unsqueeze(0))
@@ -79,23 +79,23 @@ class ClassificationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            X: list[str]
-                List of samples text
-            y: list[int]
-                List of labels 0 or 1
-            samples_per_label: int
-                Number of samples per label to undersample to
-            idxs: np.ndarray
-                List of indices of the samples to undersample from
+        X
+            List of samples text.
+        y
+            List of labels 0 or 1.
+        samples_per_label
+            Number of samples per label to undersample to.
+        idxs
+            List of indices of the samples to undersample from.
 
         Returns
         -------
-            X_sampled: list[str]
-                List of under_sampled samples text
-            y_sampled: list[int]
-                List of under_sampled labels 0 or 1
-            idxs: np.ndarray
-                List of indices of the under_sampled samples
+        X_sampled
+            List of under_sampled samples text.
+        y_sampled
+            List of under_sampled labels 0 or 1.
+        idxs
+            Indices of the under_sampled samples.
         """
         X_sampled = []
         y_sampled = []

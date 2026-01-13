@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import os
 import warnings
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
 import qai_hub as hub
 
-from qai_hub_models.models.common import ExportResult, Precision
+from qai_hub_models.models.common import Precision
 from qai_hub_models.models.llama_v2_7b_chat import Model
 from qai_hub_models.models.llama_v2_7b_chat.model import MODEL_ASSET_VERSION, MODEL_ID
 from qai_hub_models.utils import model_cache
@@ -25,6 +24,7 @@ from qai_hub_models.utils.args import (
 )
 from qai_hub_models.utils.base_model import TargetRuntime
 from qai_hub_models.utils.compare import torch_inference
+from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
 from qai_hub_models.utils.model_cache import CacheMode
 from qai_hub_models.utils.printing import (
@@ -83,10 +83,7 @@ def export_model(
     profile_options: str = "",
     model_cache_mode: CacheMode = CacheMode.ENABLE,
     **additional_model_kwargs,
-) -> (
-    Mapping[str, tuple[hub.LinkJob, hub.ProfileJob | None, hub.InferenceJob | None]]
-    | list[str]
-):
+) -> CollectionExportResult:
     """
     This function accomplishes 6 main tasks:
 
@@ -158,6 +155,10 @@ def export_model(
         attributes=device.attributes,
         os=device.os,
     )
+    if len(hub_devices) == 0:
+        raise ValueError(
+            f"No device found compatible with the supplied name ({device.name}), os ({device.os}), and attributes ({device.attributes})."
+        )
     device = hub_devices[-1]
     model_name = BASE_NAME
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
@@ -167,7 +168,7 @@ def export_model(
         if component_name not in ALL_COMPONENTS:
             raise ValueError(f"Invalid component {component_name}.")
     if not can_access_qualcomm_ai_hub():
-        return export_without_hub_access(
+        export_without_hub_access(
             "llama_v2_7b_chat",
             "Llama-v2-7B-Chat",
             device,
@@ -178,9 +179,11 @@ def export_model(
             output_path,
             target_runtime,
             Precision.w4a16,
-            compile_options,
-            profile_options,
+            compile_options + " " + profile_options + " " + link_options,
             component_arg,
+        )
+        return CollectionExportResult(
+            components={component_name: ExportResult() for component_name in components}
         )
 
     # 1. Initialize PyTorch model
@@ -360,16 +363,18 @@ def export_model(
         "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
     )
 
-    return {
-        component_name: ExportResult(
-            compile_job=compile_jobs[sub_component_name],
-            link_job=link_jobs[component_name],
-            profile_job=profile_jobs.get(sub_component_name),
-            inference_job=inference_jobs.get(sub_component_name),
-        )
-        for component_name in components
-        for sub_component_name in ALL_SUB_COMPONENTS[component_name]
-    }
+    return CollectionExportResult(
+        components={
+            component_name: ExportResult(
+                compile_job=compile_jobs[sub_component_name],
+                link_job=link_jobs[component_name],
+                profile_job=profile_jobs.get(sub_component_name),
+                inference_job=inference_jobs.get(sub_component_name),
+            )
+            for component_name in components
+            for sub_component_name in ALL_SUB_COMPONENTS[component_name]
+        }
+    )
 
 
 def main(argv: list[str] | None = None):

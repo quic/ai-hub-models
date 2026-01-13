@@ -22,7 +22,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            num_classes: Number of AudioSet classes (default: 521).
+        num_classes
+            Number of AudioSet classes (default: 521).
         """
         self.num_classes = num_classes
         self.reset()
@@ -58,7 +59,8 @@ class AudioSetOutputEvaluator(BaseEvaluator):
 
         Returns
         -------
-            float: mAP score
+        mAP_score
+            mAP score.
         """
         aggregated_preds = []
         aggregated_targets = []

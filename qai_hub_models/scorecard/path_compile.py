@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from enum import Enum, unique
 
-import qai_hub as hub
 from typing_extensions import assert_never
 
 from qai_hub_models.models.common import Precision, TargetRuntime
@@ -113,8 +112,6 @@ class ScorecardCompilePath(Enum):
 
     def get_compile_options(
         self,
-        precision: Precision = Precision.float,
-        device: hub.Device | None = None,
         include_target_runtime: bool = False,
         include_default_qaihm_qnn_version: bool = False,
     ) -> str:

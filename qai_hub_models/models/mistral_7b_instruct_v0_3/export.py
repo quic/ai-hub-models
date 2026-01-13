@@ -9,22 +9,32 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 import warnings
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
 import qai_hub as hub
 
 from qai_hub_models import Precision, TargetRuntime
-from qai_hub_models.models.common import ExportResult, SampleInputsType
+from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.mistral_7b_instruct_v0_3 import MODEL_ID, Model
 from qai_hub_models.utils.args import (
     export_parser,
 )
+from qai_hub_models.utils.base_model import (
+    BasePrecompiledModel,
+    PrecompiledCollectionModel,
+)
+from qai_hub_models.utils.export_result import CollectionExportResult, ExportResult
 from qai_hub_models.utils.export_without_hub_access import export_without_hub_access
+from qai_hub_models.utils.path_helpers import (
+    get_model_directory_for_download,
+    get_next_free_path,
+)
 from qai_hub_models.utils.printing import (
     print_profile_metrics_from_job,
+    print_tool_versions,
 )
 from qai_hub_models.utils.qai_hub_helpers import can_access_qualcomm_ai_hub
 
@@ -51,64 +61,66 @@ def profile_model(
     return profile_jobs
 
 
-def inference_model(
-    inputs: dict[str, SampleInputsType],
-    model_name: str,
-    device: hub.Device,
+def save_model(
+    output_dir: os.PathLike | str,
+    tool_versions: ToolVersions | None,
+    model: PrecompiledCollectionModel,
     components: list[str],
-    options: dict[str, str],
-    uploaded_models: dict[str, hub.Model],
-) -> dict[str, hub.client.InferenceJob]:
-    inference_jobs: dict[str, hub.client.InferenceJob] = {}
-    for component_name in components:
-        print(
-            f"Running inference for {component_name} on a hosted device with example inputs."
-        )
-        submitted_inference_job = hub.submit_inference_job(
-            model=uploaded_models[component_name],
-            inputs=inputs[component_name],
-            device=device,
-            name=f"{model_name}_{component_name}",
-            options=options.get(component_name, ""),
-        )
-        inference_jobs[component_name] = cast(
-            hub.client.InferenceJob, submitted_inference_job
-        )
-    return inference_jobs
+    zip_assets: bool,
+) -> Path:
+    output_folder_name = os.path.basename(output_dir)
+    output_path = get_next_free_path(output_dir)
 
+    with tempfile.TemporaryDirectory() as tmpdir:
+        dst_path = Path(tmpdir) / output_folder_name
+        dst_path.mkdir()
+        for component_name in components:
+            path = cast(
+                BasePrecompiledModel, model.components[component_name]
+            ).get_target_model_path()
+            shutil.copyfile(src=path, dst=dst_path / os.path.basename(path))
 
-def download_model(
-    output_path: Path,
-    compile_jobs: dict[str, hub.client.CompileJob],
-) -> None:
-    os.makedirs(output_path, exist_ok=True)
-    for component_name, compile_job in compile_jobs.items():
-        target_model = compile_job.get_target_model()
-        assert target_model is not None
-        target_model.download(str(output_path / component_name))
+        if tool_versions:
+            tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+
+        if zip_assets:
+            output_path = Path(
+                shutil.make_archive(
+                    str(output_path),
+                    "zip",
+                    root_dir=tmpdir,
+                    base_dir=output_folder_name,
+                )
+            )
+        else:
+            shutil.move(dst_path, output_path)
+
+    return output_path
 
 
 def export_model(
     device: hub.Device,
     components: list[str] | None = None,
     skip_profiling: bool = False,
-    skip_inferencing: bool = False,
+    skip_downloading: bool = False,
     skip_summary: bool = False,
     output_dir: str | None = None,
     profile_options: str = "",
     fetch_static_assets: str | None = None,
+    zip_assets: bool = False,
     **additional_model_kwargs,
-) -> Mapping[str, ExportResult] | list[str]:
+) -> CollectionExportResult:
     """
     This function executes the following recipe:
 
         1. Initialize model
-        2. Saves the model asset to the output directory
-        3. Upload model assets to hub
-        4. Profiles the model performance on a real device
-        5. Summarizes the results from profiling
+        2. Upload model assets to hub
+        3. Profiles the model performance on a real device
+        4. Extracts relevant tool (eg. SDK) versions used to compile and profile this model
+        5. Saves the model asset to the local directory
+        6. Summarizes the results from profiling
 
-    Each of the last 3 steps can be optionally skipped using the input options.
+    Each of the last 4 steps can be optionally skipped using the input options.
 
     Parameters
     ----------
@@ -121,80 +133,85 @@ def export_model(
         Defaults to all components of the CollectionModel if not specified.
     skip_profiling
         If set, skips profiling of compiled model on real devices.
-    skip_inferencing
-        If set, skips computing on-device outputs from sample data.
+    skip_downloading
+        If set, skips downloading of compiled model.
     skip_summary
         If set, skips waiting for and summarizing results
         from profiling.
     output_dir
         Directory to store generated assets (e.g. compiled model).
-        Defaults to `<cwd>/build/<model_name>`.
+        Defaults to `<cwd>/export_assets`.
     profile_options
         Additional options to pass when submitting the profile job.
     fetch_static_assets
         If set, known assets are fetched from the given version rather than re-computing them. Can be passed as "latest" or "v<version>".
-    additional_model_kwargs
+    zip_assets
+        If set, zip the assets after downloading.
+    **additional_model_kwargs
         Additional optional kwargs used to customize
         `model_cls.from_precompiled`
 
     Returns
     -------
-    A Mapping from component_name to a struct of:
-        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+    CollectionExportResult
+        A Mapping from component_name to:
+            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * The path to the downloaded model folder (or zip), or None if one or more of: skip_downloading is True, fetch_static_assets is set, or AI Hub Workbench is not accessible
     """
-    if not skip_inferencing:
-        raise ValueError(
-            "This model does not support inferencing. Please pass --skip-inferencing"
-        )
     model_name = MODEL_ID
-    output_path = Path(output_dir or Path.cwd() / "build" / model_name)
+
+    output_path = Path(output_dir or Path.cwd() / "export_assets")
+    precision = Precision.w4a16
+    target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
+
     component_arg = components
     components = components or Model.component_class_names
     for component_name in components:
         if component_name not in Model.component_class_names:
             raise ValueError(f"Invalid component {component_name}.")
     if fetch_static_assets or not can_access_qualcomm_ai_hub():
-        return export_without_hub_access(
+        export_without_hub_access(
             MODEL_ID,
             "Mistral-7B-Instruct-v0.3",
             device,
             skip_profiling,
-            skip_inferencing,
-            False,
+            True,
+            skip_downloading,
             skip_summary,
             output_path,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-            Precision.w4a16,
-            "",
+            target_runtime,
+            precision,
             profile_options,
             component_arg,
             qaihm_version_tag=fetch_static_assets,
         )
+        return CollectionExportResult(
+            components={component_name: ExportResult() for component_name in components}
+        )
 
-    target_runtime = TargetRuntime.QNN_CONTEXT_BINARY
+    hub_device = hub.get_devices(
+        name=device.name, attributes=device.attributes, os=device.os
+    )[-1]
+    chipset_attr = next(
+        (attr for attr in hub_device.attributes if "chipset" in attr), None
+    )
+    chipset = chipset_attr.split(":")[-1] if chipset_attr else None
+
     # 1. Initialize model
     print("Initializing model class")
     model = Model.from_precompiled()
-    # 2. Saves the model asset to the output directory
-    os.makedirs(output_path, exist_ok=True)
-    for component_name in components:
-        path = model.components[component_name].get_target_model_path()
-        dst_path = output_path / os.path.basename(path)
-        shutil.copyfile(src=path, dst=dst_path)
-        print(f"The {component_name} model is saved here: {dst_path}")
 
-    # 3. Upload model assets to hub
+    # 2. Upload model assets to hub
     uploaded_models: dict[str, hub.Model] = {}
-    if not skip_profiling or not skip_inferencing:
+    if not skip_profiling:
         print("Uploading model assets on hub")
-        path_for_uploaded_models: dict[str, hub.Model] = {}
         for component_name in components:
-            path = model.components[component_name].get_target_model_path()
-            if path not in path_for_uploaded_models:
-                path_for_uploaded_models[path] = hub.upload_model(path)
-            uploaded_models[component_name] = path_for_uploaded_models[path]
+            path = cast(
+                BasePrecompiledModel, model.components[component_name]
+            ).get_target_model_path()
+            uploaded_models[component_name] = hub.upload_model(path)
 
-    # 4. Profiles the model performance on a real device
+    # 3. Profiles the model performance on a real device
     profile_jobs: dict[str, hub.client.ProfileJob] = {}
     if not skip_profiling:
         profile_jobs = profile_model(
@@ -205,7 +222,26 @@ def export_model(
             uploaded_models,
         )
 
-    # 5. Summarizes the results from profiling
+    # 4. Extracts relevant tool (eg. SDK) versions used to compile and profile this model
+    tool_versions: ToolVersions | None = None
+    tool_versions_are_from_device_job = False
+    if not skip_summary:
+        profile_job = next(iter(profile_jobs.values())) if profile_jobs else None
+        if profile_job is not None and profile_job.wait():
+            tool_versions = ToolVersions.from_job(profile_job)
+            tool_versions_are_from_device_job = True
+
+    # 5. Saves the model asset to the local directory
+    downloaded_model_path: Path | None = None
+    if not skip_downloading:
+        model_directory = get_model_directory_for_download(
+            target_runtime, precision, chipset, output_path, MODEL_ID
+        )
+        downloaded_model_path = save_model(
+            model_directory, tool_versions, model, components, zip_assets
+        )
+
+    # 6. Summarizes the results from profiling
     if not skip_summary and not skip_profiling:
         for component_name in components:
             profile_job = profile_jobs[component_name]
@@ -213,16 +249,26 @@ def export_model(
             profile_data: dict[str, Any] = profile_job.download_profile()
             print_profile_metrics_from_job(profile_job, profile_data)
 
+    if not skip_summary:
+        print_tool_versions(tool_versions, tool_versions_are_from_device_job)
+
+    if downloaded_model_path:
+        print(f"{model_name} was saved to {downloaded_model_path}\n")
+
     print(
         "These models can be deployed on-device using the Genie SDK. For a full tutorial, please follow the instructions here: https://github.com/quic/ai-hub-apps/tree/main/tutorials/llm_on_genie."
     )
 
-    return {
-        component_name: ExportResult(
-            profile_job=profile_jobs.get(component_name, None),
-        )
-        for component_name in components
-    }
+    return CollectionExportResult(
+        components={
+            component_name: ExportResult(
+                profile_job=profile_jobs.get(component_name, None),
+            )
+            for component_name in components
+        },
+        download_path=downloaded_model_path,
+        tool_versions=tool_versions,
+    )
 
 
 def main():

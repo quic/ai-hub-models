@@ -40,11 +40,16 @@ def zip_aimet_model(
 
     Parameters
     ----------
-        zip_path: output path for zipped model
-        zip_base_dir: base dir path to copy model content
-        model_file_path: model file path
-        encoding_file_path: encodings file path
-        external_data_path: external data file path
+    zip_path
+        output path for zipped model
+    zip_base_dir
+        base dir path to copy model content
+    model_file_path
+        model file path
+    encoding_file_path
+        encodings file path
+    external_data_file_path
+        external data file path
     """
     # compresslevel defines how fine compression should run
     # higher the level, heavier algorithm is used leading to more time.

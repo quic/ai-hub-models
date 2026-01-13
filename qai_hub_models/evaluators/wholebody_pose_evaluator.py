@@ -31,11 +31,16 @@ with patch_mmpose_no_build_deps():
 class WholeBodyPoseEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
-    def __init__(self, image_height: int, image_width: int, in_vis_thre=0.2):
+    def __init__(self, image_height: int, image_width: int, in_vis_thre: float = 0.2):
         """
         Parameters
         ----------
-            coco_gt: COCO ground truth dataset.
+        image_height
+            Height of the input image.
+        image_width
+            Width of the input image.
+        in_vis_thre
+            Visibility threshold for keypoints.
         """
         self.reset()
         self.in_vis_thre = in_vis_thre
@@ -145,17 +150,18 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            encoded (Tuple[np.ndarray, np.ndarray]): SimCC labels for x-axis
-                and y-axis
-            simcc_x (np.ndarray): SimCC label for x-axis
-            simcc_y (np.ndarray): SimCC label for y-axis
+        pred_x
+            SimCC label for x-axis.
+        pred_y
+            SimCC label for y-axis.
 
         Returns
         -------
-            tuple:
-            - keypoints (np.ndarray): Decoded coordinates in shape (N, K, D)
-            - socres (np.ndarray): The keypoint scores in shape (N, K).
-                It usually represents the confidence of the keypoint prediction
+        keypoints
+            Decoded coordinates in shape (N, K, D).
+        scores
+            The keypoint scores in shape (N, K).
+            It usually represents the confidence of the keypoint prediction.
         """
         keypoints, scores = get_simcc_maximum(pred_x, pred_y)
         if keypoints.ndim == 2:
@@ -171,6 +177,7 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
 
         Returns
         -------
+        mAP_results
             A dictionary with AP values (mAP, AP@0.5, etc.).
         """
         valid_image_ids = set(self.coco_gt.getImgIds())

@@ -4,7 +4,7 @@ Generates high resolution images from text prompts using a latent diffusion mode
 
 This is based on the implementation of Stable-Diffusion-v1.5 found [here](https://github.com/CompVis/stable-diffusion/tree/main). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/stable_diffusion_v1_5).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/stable_diffusion_v1_5).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -50,7 +50,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Stable-Diffusion-v1.5 can be found
   [here](https://github.com/CompVis/stable-diffusion/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://github.com/CompVis/stable-diffusion/blob/main/LICENSE)
 
 
 ## References

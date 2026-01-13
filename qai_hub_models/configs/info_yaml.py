@@ -131,14 +131,6 @@ class QAIHMModelInfo(BaseQAIHMConfig):
     # Whether the model is compatible with the IMSDK Plugin for IOT devices
     imsdk_supported: bool = False
 
-    # A link to the AIHub license, unless the license is more restrictive like GPL.
-    # In that case, this should point to the same as the model license.
-    deploy_license: str | None = None
-
-    # Should be set to `ai-hub-models-license`, unless the license is more restrictive like GPL.
-    # In that case, this should be the same as the model license.
-    deploy_license_type: MODEL_LICENSE | None = None
-
     # If set, model assets shouldn't distributed.
     restrict_model_sharing: bool = False
 
@@ -206,37 +198,16 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         model_is_accessible = not self.restrict_model_sharing
 
         # License validation
-        if not self.deploy_license and model_is_available and model_is_accessible:
-            raise ValueError("deploy_license cannot be empty")
-        if not self.deploy_license_type and model_is_available and model_is_accessible:
-            raise ValueError("deploy_license_type cannot be empty")
+        if not self.license and model_is_available and model_is_accessible:
+            raise ValueError("license cannot be empty")
         if self.license_type.url is not None and self.license != self.license_type.url:
             raise ValueError(
                 f"License {self.license_type!s} must have URL {self.license_type.url}"
             )
-        if self.license_type.deploy_license is None and model_is_available:
+        if self.license_type.is_non_commerical and model_is_available:
             raise ValueError(
                 f"Models with license {self.license_type!s} cannot be published"
             )
-        if self.deploy_license_type is not None:
-            if self.license_type.deploy_license != self.deploy_license_type:
-                raise ValueError(
-                    f"License {self.license_type!s} must be paired with a deployment license of type {self.license_type.deploy_license}"
-                )
-            if (
-                self.deploy_license_type.url is not None
-                and self.deploy_license != self.deploy_license_type.url
-            ):
-                raise ValueError(
-                    f"License {self.deploy_license_type!s} must have URL {self.deploy_license_type.url}"
-                )
-            if (
-                self.deploy_license_type == self.license_type
-                and self.deploy_license != self.license
-            ):
-                raise ValueError(
-                    "If a model's source license and deployment license types are the same, their URLs must also be the same."
-                )
 
         # Status Reason
         if self.status == MODEL_STATUS.PRIVATE and not self.status_reason:
@@ -371,8 +342,8 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         # Most models are tagged with the "other" license on HF because they use the AI Hub Models license.
         hf_metadata["license"] = (
             # 'Unlicensed' will appear only if this model is not public.
-            # All models are validated to have a deployment license if they are public.
-            self.deploy_license_type or MODEL_LICENSE.UNLICENSED
+            # All models are validated to have a license if they are public.
+            self.license_type or MODEL_LICENSE.UNLICENSED
         ).huggingface_name
         hf_metadata["tags"] = [tag.name.lower() for tag in self.tags] + ["android"]
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
@@ -394,6 +365,9 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
     def get_code_gen_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
         return self.get_package_path(root) / "code-gen.yaml"
+
+    def get_release_assets_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+        return self.get_package_path(root) / "release-assets.yaml"
 
     def get_readme_path(self, root: Path = QAIHM_PACKAGE_ROOT):
         return self.get_package_path(root) / "README.md"

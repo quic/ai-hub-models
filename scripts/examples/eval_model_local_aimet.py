@@ -16,17 +16,20 @@ import qai_hub as hub
 import torch
 from aimet_common.defs import QuantScheme
 from aimet_onnx import quant_analyzer
-from aimet_onnx.quantsim import QuantizationSimModel, compute_encodings
+from aimet_onnx.quantsim import (
+    QuantizationSimModel,
+    _apply_constraints,
+    compute_encodings,
+)
 from aimet_onnx.utils import OrtInferenceSession, make_psnr_eval_fn
 from qai_hub.client import CompileJob
 from tqdm import tqdm
 
-from qai_hub_models.datasets import DatasetSplit, get_dataset_from_name
 from qai_hub_models.models.common import Precision, TargetRuntime
+from qai_hub_models.utils import quantization
 from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.evaluate import (
     evaluate_session_on_dataset,
-    get_deterministic_sample,
 )
 from qai_hub_models.utils.input_spec import make_torch_inputs
 from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
@@ -47,9 +50,9 @@ def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
 
 
 def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader):
-    for sample in dataloader:
+    for _, sample in tqdm(enumerate(dataloader), total=len(dataloader)):
         model_inputs, _ground_truth_values, *_ = sample
-        for _j, model_input in tqdm(enumerate(model_inputs), total=len(model_inputs)):
+        for model_input in model_inputs:
             torch_input = model_input.unsqueeze(0)
             mock_torch_onnx_inference(session, torch_input)
 
@@ -81,23 +84,27 @@ def _create_aimet_quantsim(
     exec_providers: list[str],
 ):
     # Quantize
-    sim = QuantizationSimModel(
-        model,
-        quant_scheme=quant_scheme,
-        default_param_bw=param_bw,
-        default_activation_bw=activation_bw,
-        config_file="htp_v81",
-        providers=exec_providers,
-    )
+    with _apply_constraints(True):
+        sim = QuantizationSimModel(
+            model,
+            quant_scheme=quant_scheme,
+            default_param_bw=param_bw,
+            default_activation_bw=activation_bw,
+            config_file="scripts/examples/default_config.json",
+            providers=exec_providers,
+        )
 
-    with compute_encodings(sim):
-        _calibration_forward_pass(sim.session, dataloader)
+        with compute_encodings(sim):
+            _calibration_forward_pass(sim.session, dataloader)
 
-    # Export to QDQ
-    onnx_qdq_model = sim.to_onnx_qdq()
-    onnx.save(
-        onnx_qdq_model, str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx")
-    )
+        sim._adjust_weight_scales_for_int32_bias()
+
+        # Export to QDQ
+        onnx_qdq_model = sim.to_onnx_qdq()
+        onnx.save(
+            onnx_qdq_model,
+            str(RESULTS_FOLDER / f"{model_name}" / f"{model_name}_qdq.onnx"),
+        )
 
     model_bytes = onnx_qdq_model.SerializeToString()
     qdq_session = onnxruntime.InferenceSession(model_bytes, providers=exec_providers)
@@ -238,16 +245,17 @@ def debug_quant_accuracy(
     if not calibration_dataset_name:
         calibration_dataset_name = model.eval_datasets()[0]
     assert calibration_dataset_name is not None
-    model_calibration_data = get_dataset_from_name(
-        calibration_dataset_name, DatasetSplit.VAL, input_spec
-    )
-    samples_per_job = model_calibration_data.default_samples_per_job()
-    dataloader = get_deterministic_sample(model_calibration_data, 100, samples_per_job)
+
+    calibration_data = quantization.get_calibration_data(model, input_spec, 100)
+    dataloader = [
+        (torch.from_numpy(tensor), None) for tensor in calibration_data["image"]
+    ]
 
     print("Converting model to ONNX")
 
     onnx_model_path = RESULTS_FOLDER / f"{model_name}" / f"{model_name}.onnx"
     if onnx_model_path.exists():
+        print(f"Found existing ONNX model at {onnx_model_path}, loading")
         onnx_model = onnx.load(str(onnx_model_path))
     else:
         # Export model to ONNX

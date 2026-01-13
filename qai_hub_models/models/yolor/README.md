@@ -4,7 +4,7 @@ YoloR is a machine learning model that predicts bounding boxes and classes of ob
 
 This is based on the implementation of Yolo-R found [here](https://github.com/WongKinYiu/yolor.git). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/yolor).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/yolor).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of Yolo-R can be found
   [here](https://github.com/WongKinYiu/yolor/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://github.com/WongKinYiu/yolor/blob/main/LICENSE)
 
 
 ## References

@@ -307,9 +307,11 @@ class SHALlamaAttention(LlamaAttention):
 
 class QCLlamaMLP(LlamaMLP):
     def prepare_conv(self):
-        self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
+        # TODO (https://github.com/qcom-ai-hub/tetracode/issues/17113)
+        # Temporarily commented out due to AISW-148745.
+        # self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
         self.down_proj = ConvInplaceLinear(self.down_proj)  # type: ignore[has-type]
-        self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
+        # self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
 
 
 class QCLlamaForCausalLM(LlamaForCausalLM):

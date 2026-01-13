@@ -19,7 +19,7 @@ from qai_hub_models.models.llama_v3_elyza_jp_8b.model import (
     HF_REPO_URL,
     SUPPORTED_PRECISIONS,
 )
-from qai_hub_models.utils.base_model import BaseModel, TargetRuntime
+from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 
 
@@ -33,10 +33,7 @@ def llama_v3_elyza_jp_8b_demo(
     hf_repo_url: str = HF_REPO_URL,
     default_prompt: str = DEFAULT_USER_PROMPT,
     test_checkpoint: CheckpointSpec | None = None,
-    available_target_runtimes: list[TargetRuntime] | None = None,
 ):
-    if available_target_runtimes is None:
-        available_target_runtimes = [TargetRuntime.QNN_CONTEXT_BINARY]
     llm_chat_demo(
         model_cls=model_cls,
         fp_model_cls=fp_model_cls,

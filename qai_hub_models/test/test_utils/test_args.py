@@ -5,7 +5,7 @@
 import argparse
 import sys
 import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 import qai_hub as hub
@@ -23,7 +23,8 @@ from qai_hub_models.utils.args import (
     get_on_device_demo_parser,
     validate_on_device_demo_args,
 )
-from qai_hub_models.utils.inference import OnDeviceModel
+from qai_hub_models.utils.export_result import ExportResult
+from qai_hub_models.utils.inference import OnDeviceModel, compile_model_from_args
 from qai_hub_models.utils.model_cache import CacheMode
 
 
@@ -65,6 +66,7 @@ def test_parse_resnet18_export():
         "target_runtime",
         "compile_options",
         "profile_options",
+        "quantize_options",
         "weights",
         "batch_size",
         "precision",
@@ -79,6 +81,7 @@ def test_parse_resnet18_export():
         "skip_summary",
         "output_dir",
         "fetch_static_assets",
+        "zip_assets",
     }
     assert set(vars(args).keys()) == gt_set
     assert args.target_runtime == TargetRuntime.TFLITE
@@ -184,6 +187,7 @@ def test_parse_llama_export(llama_parser):
         "synchronous",
         "quantize",
         "onnx_export_dir",
+        "zip_assets",
     }
     assert args.target_runtime == TargetRuntime.GENIE
 
@@ -237,6 +241,7 @@ def test_parse_whisper_export():
         "target_runtime",
         "compile_options",
         "profile_options",
+        "quantize_options",
         "precision",
         "device",
         "device_str",
@@ -250,6 +255,7 @@ def test_parse_whisper_export():
         "output_dir",
         "fetch_static_assets",
         "components",
+        "zip_assets",
     }
     assert set(vars(args).keys()) == gt_set
 
@@ -280,11 +286,12 @@ def test_parse_baichuan_export():
         "chipset",
         "device_os",
         "skip_profiling",
-        "skip_inferencing",
+        "skip_downloading",
         "skip_summary",
         "output_dir",
         "fetch_static_assets",
         "components",
+        "zip_assets",
     }
     assert set(vars(args).keys()) == gt_set
 
@@ -300,6 +307,7 @@ def test_parse_resnet18_evaluate():
         "target_runtime",
         "compile_options",
         "profile_options",
+        "quantize_options",
         "weights",
         "batch_size",
         "precision",
@@ -334,6 +342,7 @@ def test_parse_whisper_evaluate():
         "target_runtime",
         "compile_options",
         "profile_options",
+        "quantize_options",
         "precision",
         "device",
         "chipset",
@@ -404,3 +413,42 @@ def test_demo_model_from_cli_args():
     args = parser.parse_args(["--eval-mode", "on-device"])
     with pytest.raises(ValueError, match="--device or --chipset must be specified"):
         validate_on_device_demo_args(args, RESNET_MODEL_ID)
+
+
+def test_compile_model_from_args():
+    parser = evaluate_parser(
+        model_cls=ResnetModel,
+        supported_datasets=["imagenet"],
+        supported_precision_runtimes={
+            Precision.float: [
+                TargetRuntime.TFLITE,
+            ],
+            Precision.w8a8: [
+                TargetRuntime.TFLITE,
+            ],
+        },
+    )
+    args = parser.parse_args(
+        [
+            "--chipset",
+            "qualcomm-snapdragon-8gen3",
+            "--compile-options",
+            "'--qairt_version=2.39'",
+            "--quantize-options",
+            "'--range_scheme min_max'",
+            "--precision",
+            "w8a8",
+        ]
+    )
+    with patch(
+        "qai_hub_models.models.resnet18.export.export_model"
+    ) as resnet_export_mock:
+        mock_compile_job = create_autospec(hub.CompileJob)
+        mock_compile_job._target_model = create_autospec(hub.Model)
+        resnet_export_mock.return_value = ExportResult(compile_job=mock_compile_job)
+        compile_model_from_args(RESNET_MODEL_ID, args, {})
+        kwargs = resnet_export_mock.call_args_list[0][1]
+        assert isinstance(kwargs["device"], hub.Device)
+        assert kwargs["device"].attributes == "chipset:qualcomm-snapdragon-8gen3"
+        assert kwargs["compile_options"] == "'--qairt_version=2.39'"
+        assert kwargs["quantize_options"] == "'--range_scheme min_max'"

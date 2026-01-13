@@ -258,7 +258,7 @@ class NuscenesDataset(BaseDataset):
 
         Returns
         -------
-        list[NuScenesSampleInfo]
+        sample_infos
             Information of training set or validation set
             that will be saved to the info file.
         """
@@ -348,7 +348,7 @@ class NuscenesDataset(BaseDataset):
 
         Returns
         -------
-        dict
+        sweep_info
             Transformed sweep information containing calibrated point data.
         """
         from pyquaternion import Quaternion

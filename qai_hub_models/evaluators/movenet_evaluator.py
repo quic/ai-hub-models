@@ -27,12 +27,19 @@ class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Model predictions, shape [batch, N_people, 17, 3] (x, y, confidence)
-            gt: list with the following Tensors:
-                - image_ids: Tensor[int] of image IDs [batch]
-                - category_ids: Tensor[int] of category IDs [batch]
-                - centers: Tensor[float] of bounding box centers [batch, 2]
-                - scale: Tensor[float] of scale factors [batch, 2]
+        output
+            Model predictions with shape [batch, N_people, 17, 3] (x, y, confidence).
+        gt
+            List with the following tensors:
+
+            image_ids
+                Tensor (int) of image IDs [batch].
+            category_ids
+                Tensor (int) of category IDs [batch].
+            centers
+                Tensor (float) of bounding box centers [batch, 2].
+            scale
+                Tensor (float) of scale factors [batch, 2].
         """
         if isinstance(output, tuple):
             output = output[0]

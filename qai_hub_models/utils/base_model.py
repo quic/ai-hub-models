@@ -101,15 +101,21 @@ class CollectionModel:
 
         Parameters
         ----------
-        - component_name: Name the component. By default uses
-        component_class.__name__
+        component_class
+            Component class to add to the CollectionModel.
+        component_name
+            Name the component. By default uses component_class.__name__.
+        subfolder_hf
+            By default the same as component_name. Specify this
+            only when Huggingface uses a different subfolder name than the desired
+            component_name. For example, in ControlNet the ControlNet model is not in
+            any subfolder on HF, so subfolder_hf = "" even though we want
+            to name our component "controlnet".
 
-        - subfolder_hf: By default the same as component_name. Specify this
-        only when Huggingface uses a different subfolder name than the desired
-        component_name.  (e.g., in ControlNet the ControlNet model is not in
-        any subfolder on HF, so subfolder_hf = "" even though we want
-        to name our component "controlnet")
-
+        Returns
+        -------
+        callable
+            Decorator function that registers the component on the CollectionModel subclass.
         """
 
         def decorator(subclass):
@@ -595,7 +601,9 @@ class BaseModel(
         """
         return None
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
         """
         Return the AI Hub Workbench quantize options for the given model precision.
 
@@ -605,13 +613,14 @@ class BaseModel(
         - For `w8a16` and mixed-precision profiles, the `range_scheme` is set to `min_max`.
         - For mixed-precision profiles, additional flags are included to specify the percentage and override quantization type (`int16` or `fp16`).
         """
+        all_options = other_options or ""
         if precision == Precision.w8a16:
-            return "--range_scheme min_max"
+            all_options += "--range_scheme min_max"
         if precision in {Precision.w8a8_mixed_int16, Precision.w8a16_mixed_int16}:
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
+            all_options += f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=int16"
         if precision in {Precision.w8a8_mixed_fp16, Precision.w8a16_mixed_fp16}:
-            return f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
-        return ""  # default to range_scheme mse_minimizer
+            all_options += f"--range_scheme min_max --lite_mp percentage={self.get_hub_litemp_percentage(precision)};override_qtype=fp16"
+        return all_options  # default to range_scheme mse_minimizer
 
     @staticmethod
     def get_hub_litemp_percentage(precision: Precision) -> float:

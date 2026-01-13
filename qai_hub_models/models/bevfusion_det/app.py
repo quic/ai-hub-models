@@ -213,19 +213,19 @@ class BEVFusionApp:
             pred_dicts.append([pred_dict])
 
         bboxes, scores, labels = self.decoder.heads.get_bboxes(pred_dicts)[0]
-        corners = compute_corners(bboxes)
+        corners_pt = compute_corners(bboxes)
 
         # Filter based on confidence score
         indices = torch.tensor(scores) >= self.score_threshold
-        bboxes, corners, scores, labels = (
+        bboxes, corners_pt, scores, labels = (
             bboxes[indices],
-            corners[indices],
+            corners_pt[indices],
             scores[indices],
             labels[indices],
         )
 
         bboxes = bboxes.numpy()
-        corners = corners.numpy()
+        corners = corners_pt.numpy()
 
         corners[..., 2] -= bboxes[:, None, 5] / 2
 

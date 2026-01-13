@@ -2,24 +2,33 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+import datetime
+import os
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
 from unittest import mock
 
 import numpy as np
 import onnx
 import pytest
+import qai_hub as hub
+from qai_hub.hub import _global_client
 
 from qai_hub_models.utils.onnx import helpers as onnx_helpers
 from qai_hub_models.utils.onnx.helpers import (
     ONNX_MAX_COMPATIBLE_VERSION,
     ONNX_PACKAGE_NAME,
     ONNXBundle,
+    download_and_unzip_workbench_onnx_model,
     generate_wrapper_onnx_file,
     verify_onnx_export_is_compatible_with_ai_hub,
 )
 from qai_hub_models.utils.runtime_torch_wrapper import ModelIODetails
 
 
-def test_onnx_bundle_from_path(tmp_path):
+def test_onnx_bundle_from_path(tmp_path: Path):
     onnx_graph_path = tmp_path / "model.onnx"
     onnx_weights_path = tmp_path / "model.data"
     aimet_encodings_path = tmp_path / "model_seq1_cl4096.encodings"
@@ -62,6 +71,152 @@ def test_onnx_bundle_from_path(tmp_path):
     with pytest.raises(ValueError, match="more than 1 AIMET encodings file"):
         ONNXBundle.from_bundle_path(tmp_path)
     aimet_encodings_path_2.unlink()
+
+    onnx_graph_path_2 = tmp_path / "model_2.onnx"
+    onnx_weights_path_2 = tmp_path / "model_2.data"
+    aimet_encodings_path_2 = tmp_path / "model_2.encodings"
+    onnx_graph_path_2.touch()
+    onnx_weights_path_2.touch()
+    aimet_encodings_path_2.touch()
+    bundle = ONNXBundle.from_bundle_path(tmp_path, model_name="model_2")
+    assert bundle.onnx_graph_name == "model_2.onnx"
+    assert bundle.onnx_graph_path == onnx_graph_path_2
+    assert bundle.onnx_weights_name == "model_2.data"
+    assert bundle.onnx_weights_path == onnx_weights_path_2
+    assert bundle.aimet_encodings_name == "model_2.encodings"
+    assert bundle.aimet_encodings_path == aimet_encodings_path_2
+
+
+def test_onnx_bundle_move(tmp_path: Path):
+    onnx_graph_path = tmp_path / "model.onnx"
+    onnx_weights_path = tmp_path / "model.data"
+    aimet_encodings_path = tmp_path / "model_seq1_cl4096.encodings"
+
+    dst = tmp_path / "test"
+    os.makedirs(dst)
+    onnx_graph_path.touch()
+    bundle = ONNXBundle.from_bundle_path(tmp_path)
+    out = bundle.move(dst, "model2")
+    assert bundle == out
+    assert out.onnx_graph_path == dst / "model2.onnx"
+    assert out.onnx_weights_path is None
+    assert out.aimet_encodings_path is None
+    assert not os.path.exists(onnx_graph_path)
+    assert os.path.exists(out.onnx_graph_path)
+
+    dst = tmp_path / "test2"
+    os.makedirs(dst)
+    onnx_graph_path.touch()
+    onnx_weights_path.touch()
+    aimet_encodings_path.touch()
+    bundle = ONNXBundle.from_bundle_path(tmp_path)
+    out = bundle.move(dst, "model2")
+    assert bundle == out
+    assert out.onnx_graph_path == dst / "model2.onnx"
+    assert out.onnx_weights_path == dst / "model2.data"
+    assert out.aimet_encodings_path == dst / "model2.encodings"
+    assert not os.path.exists(onnx_graph_path)
+    assert os.path.exists(out.onnx_graph_path)
+    assert not os.path.exists(onnx_weights_path)
+    assert out.onnx_weights_path and os.path.exists(out.onnx_weights_path)
+    assert not os.path.exists(aimet_encodings_path)
+    assert out.aimet_encodings_path and os.path.exists(out.aimet_encodings_path)
+
+    dst = tmp_path / "test3"
+    os.makedirs(dst)
+    onnx_graph_path.touch()
+    onnx_weights_path.touch()
+    aimet_encodings_path.touch()
+    bundle = ONNXBundle.from_bundle_path(tmp_path)
+    out = bundle.move(dst, "model2", copy=True)
+    assert out.onnx_graph_path == dst / "model2.onnx"
+    assert out.onnx_weights_path == dst / "model2.data"
+    assert out.aimet_encodings_path == dst / "model2.encodings"
+    assert os.path.exists(onnx_graph_path)
+    assert os.path.exists(out.onnx_graph_path)
+    assert os.path.exists(onnx_weights_path)
+    assert out.onnx_weights_path and os.path.exists(out.onnx_weights_path)
+    assert os.path.exists(aimet_encodings_path)
+    assert out.aimet_encodings_path and os.path.exists(out.aimet_encodings_path)
+
+
+def test_download_and_unzip_workbench_onnx_model():
+    class PatchedModel(hub.Model):
+        """Hub Model patched so download() copies a local file rather than downloading from the internet."""
+
+        def __init__(self, local_file: str | os.PathLike):
+            super().__init__(
+                _global_client,
+                "dummy_id",
+                datetime.datetime.now(),
+                hub.SourceModelType.ONNX,
+                "dummy_name",
+                {},
+                None,
+                False,
+                None,
+            )
+            self.local_file = local_file
+
+        def download(self, filename: str) -> str:
+            dst = os.path.join(filename, os.path.basename(self.local_file))
+            shutil.copyfile(self.local_file, dst)
+            return dst
+
+    #
+    # Download structure:
+    # my_zip.zip
+    #    zip_folder
+    #        model_asdf.onnx
+    #        model.data
+    #
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmppath = Path(tmpdir)
+        zippath = tmppath / "model.zip"
+        with zipfile.ZipFile(zippath, "w") as zipf:
+            zipf.writestr("model_asbsd_onnx/model_asdf.onnx", "")
+            zipf.writestr("model_asbsd_onnx/model.data", "")
+        out = download_and_unzip_workbench_onnx_model(
+            PatchedModel(zippath), tmpdir, "test_model"
+        )
+        assert out.onnx_graph_path.exists()
+        assert out.onnx_graph_path == tmppath / "test_model.onnx"
+        assert out.onnx_weights_path and out.onnx_weights_path.exists()
+        assert out.onnx_weights_path == tmppath / "test_model.data"
+        assert out.aimet_encodings_path is None
+
+    #
+    # Download structure:
+    # my_zip.zip
+    #    model.onnx
+    #    model_blah.encodings
+    #
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmppath = Path(tmpdir)
+        zippath = tmppath / "model.zip"
+        with zipfile.ZipFile(zippath, "w") as zipf:
+            zipf.writestr("model.onnx", "")
+            zipf.writestr("model_blah.encodings", "")
+        out = download_and_unzip_workbench_onnx_model(PatchedModel(zippath), tmpdir)
+        assert out.onnx_graph_path.exists()
+        assert out.onnx_graph_path == tmppath / "dummy_name.onnx"
+        assert out.onnx_weights_path is None
+        assert out.aimet_encodings_path and out.aimet_encodings_path.exists()
+        assert out.aimet_encodings_path == tmppath / "dummy_name.encodings"
+
+    #
+    # Download structure:
+    # model.onnx
+    #
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmppath = Path(tmpdir)
+        model_path = tmppath / "model.onnx"
+        model_path.touch()
+        out = download_and_unzip_workbench_onnx_model(PatchedModel(model_path), tmpdir)
+        assert out.onnx_graph_path.exists()
+        assert out.onnx_graph_path == tmppath / "dummy_name.onnx"
+        assert out.onnx_weights_path is None
+        assert out.aimet_encodings_path is None
 
 
 def test_verify_onnx_export_is_compatible_with_ai_hub():

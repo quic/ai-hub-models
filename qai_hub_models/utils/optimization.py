@@ -12,12 +12,13 @@ def optimized_cumsum(data: torch.Tensor) -> torch.Tensor:
 
     Parameters
     ----------
-        data (torch.Tensor): Input tensor with shape (b,h,w,c).
+    data
+        Input tensor with shape (b,h,w,c).
 
     Returns
     -------
-        cumsum_data (torch.Tensor): Cumsum output along b, h, w
-        with shape (b,h,w,c).
+    cumsum_output
+        Cumsum output along b, h, w with shape (b,h,w,c).
     """
     b, h, w, c = data.shape
 

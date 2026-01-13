@@ -34,11 +34,15 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
         in_vis_thre: float = 0.2,
     ):
         """
-        decode:
+        Parameters
+        ----------
+        decode
             Function to decode the raw model outputs
             into detected objects/detections and keypoints.
-        max_det (int):
+        max_dets
             Maximum number of detections per image.
+        in_vis_thre
+            Visibility threshold for keypoints.
         """
         self.decode = decode
         self.max_dets = max_dets
@@ -63,25 +67,35 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Model predictions which can be :
-                - hm (torch.Tensor): Heatmap with the shape of
-                    [B, num_classes, H//4, W//4].
-                - wh (torch.Tensor): Width/Height value with the
-                    shape of [B, 2, H//4, W//4].
-                - hps (torch.tensor): keypoint offsets relative to the object center
-                    with the shape of [B, 2* num_joints, H//4, W//4].
-                - reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H//4, W//4].
-                - hm_hp (torch.Tensor): Keypoint heatmap with the
-                    shape of [B, num_joints, H//4, W//4].
-                - hm_offset (torch.Tensor): heatmap offset with
-                    the shape of [B, 2, H//4, W//4].
-                where num_joints = 17, num_classes = 1.
-            gt: Ground truth data containing:
-                - image_ids: Tensor[int] of COCO image IDs [batch]
-                - category_ids: Tensor[int] of category IDs [batch]
-                - centers: Tensor[float] of bounding box centers [batch, 2]
-                - scale: Tensor[float] of scale factors [batch, 2]
+        output
+            Model predictions which can be:
+
+            hm
+                Heatmap with the shape of [B, num_classes, H//4, W//4].
+            wh
+                Width/Height value with the shape of [B, 2, H//4, W//4].
+            hps
+                Keypoint offsets relative to the object center
+                with the shape of [B, 2* num_joints, H//4, W//4].
+            reg
+                2D regression value with the shape of [B, 2, H//4, W//4].
+            hm_hp
+                Keypoint heatmap with the shape of [B, num_joints, H//4, W//4].
+            hm_offset
+                Heatmap offset with the shape of [B, 2, H//4, W//4].
+
+            where num_joints = 17, num_classes = 1.
+        gt
+            Ground truth data containing:
+
+            image_ids
+                Tensor (int) of COCO image IDs [batch].
+            category_ids
+                Tensor (int) of category IDs [batch].
+            centers
+                Tensor (float) of bounding box centers [batch, 2].
+            scale
+                Tensor (float) of scale factors [batch, 2].
         """
         hm, wh, hps, reg, hm_hp, hm_offset = output
         image_ids, category_ids, center, scale = gt

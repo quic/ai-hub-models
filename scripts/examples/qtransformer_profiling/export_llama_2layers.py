@@ -52,19 +52,19 @@ def init_random_llama_model(config: LlamaConfig) -> LlamaForCausalLM:
     return LlamaForCausalLM(config)
 
 
-def save_model_to_temp_dir(model: LlamaForCausalLM, tmp_dir: Path):
+def save_model_to_temp_dir(model: LlamaForCausalLM, tmp_dir: Path) -> None:
     """
-    Save the given Hugging Face model and its config to the provided directory,
-    and return the path. Also writes a minimal tokenizer_config.json to avoid
-    loader warnings. We do not need an actual tokenizer for this script.
+    Save the given Hugging Face model and its config to the provided directory.
 
-    Args:
-        model: The HF model instance to save.
-        tmp_dir: The directory where the model should be saved.
+    Also writes a minimal tokenizer_config.json to avoid loader warnings.
+    We do not need an actual tokenizer for this script.
 
-    Returns
-    -------
-        Path: The same directory, for convenience.
+    Parameters
+    ----------
+    model
+        The HF model instance to save.
+    tmp_dir
+        The directory where the model should be saved.
     """
     tmp_dir = Path(tmp_dir)
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -169,27 +169,27 @@ class _SimpleStaticCache(Cache):
         cache_kwargs: dict,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Append new KV to the cache and keep only the most recent
-        `max_len` tokens (truncate from the front if needed). No
-        cache_position is used.
+        Append new KV to the cache and keep only the most recent max_len tokens.
 
-        Args:
-            key_states (torch.Tensor):
-                New key tensor of shape
-                (batch, num_kv_heads, seq_len, head_dim).
-            value_states (torch.Tensor):
-                New value tensor of shape
-                (batch, num_kv_heads, seq_len, head_dim).
-            layer_idx (int):
-                Layer index to update.
-            cache_kwargs (dict):
-                Unused for this implementation.
+        Truncates from the front if needed. No cache_position is used.
+
+        Parameters
+        ----------
+        key_states
+            New key tensor of shape (batch, num_kv_heads, seq_len, head_dim).
+        value_states
+            New value tensor of shape (batch, num_kv_heads, seq_len, head_dim).
+        layer_idx
+            Layer index to update.
+        cache_kwargs
+            Unused for this implementation.
 
         Returns
         -------
-            tuple[torch.Tensor, torch.Tensor]:
-                Updated key and value tensors up to the current end,
-                each of shape (batch, num_kv_heads, current_len, head_dim).
+        key
+            Updated key tensor up to the current end, of shape (batch, num_kv_heads, current_len, head_dim).
+        value
+            Updated value tensor up to the current end, of shape (batch, num_kv_heads, current_len, head_dim).
         """
         # Concatenate existing cache with the new states.
         k_cat = torch.cat([self.keys[layer_idx], key_states], dim=2)
@@ -220,11 +220,10 @@ class _SimpleStaticCache(Cache):
 
         Returns
         -------
-            tuple:
-              - list of key tensors per layer, each shaped
-                (batch, num_kv_heads, seq_new, head_dim)
-              - list of value tensors per layer, each shaped
-                (batch, num_kv_heads, seq_new, head_dim)
+        keys
+            List of key tensors per layer, each shaped (batch, num_kv_heads, seq_new, head_dim).
+        values
+            List of value tensors per layer, each shaped (batch, num_kv_heads, seq_new, head_dim).
         """
         keys_out: list[torch.Tensor] = []
         values_out: list[torch.Tensor] = []
@@ -517,17 +516,17 @@ def export_qeff_prefill_onnx(wrapper: QEffPrefillLlama, onnx_path: Path) -> None
 
 def export_seq_len(model: QEffPrefillLlama, seq_len: int) -> None:
     """
-    Export the wrapper to ONNX for a given seq_len. K/V input shapes
-    and past length are derived from seq_len as MAX_SEQ_LEN - seq_len. The
-    output file is export/qeff_ar{seq_len}.onnx.
+    Export the wrapper to ONNX for a given seq_len.
 
-    Args:
-        model: QEffPrefillLlama to export (will be moved to CPU, eval).
-        seq_len: Input sequence length (1 <= seq_len <= 128).
+    K/V input shapes and past length are derived from seq_len as MAX_SEQ_LEN - seq_len.
+    The output file is export/qeff_ar{seq_len}.onnx.
 
-    Returns
-    -------
-        None
+    Parameters
+    ----------
+    model
+        QEffPrefillLlama to export (will be moved to CPU, eval).
+    seq_len
+        Input sequence length (1 <= seq_len <= 128).
     """
     assert 1 <= seq_len <= 128
 

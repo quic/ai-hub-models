@@ -1,0 +1,31 @@
+name: CVT
+id: cvt
+status: public
+headline: Construct a map view from sensors mounted on a vehicle.
+description: Cross-View Transformer generates real-time bird's-eye view maps from multiple vehicle cameras for autonomous driving.
+domain: Computer Vision
+use_case: Driver Assistance
+tags: []
+applicable_scenarios:
+- Object Detection
+related_models:
+- simple_bev_cam
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: false
+dataset:
+- nuscene
+technical_details:
+  Model checkpoint: vehicles_50k.pt
+  Inference latency: RealTime
+  Input resolution: 1x6x3x224x480
+  Number of parameters: 1.33M
+  Model size (float): 5.18 MB
+license_type: mit
+license: https://github.com/bradyz/cross_view_transformers/blob/master/LICENSE
+research_paper: https://arxiv.org/abs/2205.02833
+research_paper_title: Cross-view Transformers for real-time Map-view Semantic Segmentation
+source_repo: https://github.com/bradyz/cross_view_transformers

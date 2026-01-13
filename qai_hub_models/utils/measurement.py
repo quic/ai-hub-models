@@ -18,11 +18,24 @@ from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
     """
     Displays the given number as a string with the appropriate number of
-    significant figures. Example:
-        display_with_sig_figs(1234.2, num_sig_figs=3) -> "1230"
-    Parameters:
-        num: Number to display.
-        num_sig_figs: How many sig figs to use.
+    significant figures.
+
+    Parameters
+    ----------
+    num
+        Number to display.
+    num_sig_figs
+        How many sig figs to use. Default is 3.
+
+    Returns
+    -------
+    formatted_number
+        Number formatted as a string with the specified number of significant figures.
+
+    Examples
+    --------
+    >>> display_with_sig_figs(1234.2, num_sig_figs=3)
+    "1230"
     """
     rounded_num = float(f"{num:.{num_sig_figs}g}")
     num_digits = len(str(int(rounded_num)))
@@ -33,13 +46,26 @@ def display_with_sig_figs(num: float, num_sig_figs: int = 3) -> str:
 
 def get_formatted_size(size: float, units: list[str], unit_step_size: float) -> str:
     """
-    Formats the number according to the units provided. For example:
-    format_size(3600, units=["B", "KB", ...], unit_step_size=1024.0)
-    would return "3.6KB"
-    Parameters:
-        num: Raw count of size.
-        units: A list of increasing unit sizes (e.g. ["B", "KB", ...])
-        unit_step_size: The ratio in size between successive units.
+    Formats the number according to the units provided.
+
+    Parameters
+    ----------
+    size
+        Raw count of size.
+    units
+        A list of increasing unit sizes (e.g. ["B", "KB", ...]).
+    unit_step_size
+        The ratio in size between successive units.
+
+    Returns
+    -------
+    formatted_size
+        Formatted size string with appropriate units.
+
+    Examples
+    --------
+    >>> get_formatted_size(3600, units=["B", "KB"], unit_step_size=1024.0)
+    "3.6KB"
     """
     unit_index = 0
 
@@ -56,8 +82,15 @@ def get_checkpoint_file_size(model_path: str, as_str: bool = True) -> str | int:
 
     Parameters
     ----------
-        model_path: Path to the model checkpoint file.
-        as_str: Whether to return the result as an int or a string formatted to 2 sig figs.
+    model_path
+        Path to the model checkpoint file.
+    as_str
+        Whether to return the result as an int or a string formatted to 2 sig figs. Default is True.
+
+    Returns
+    -------
+    checkpoint_size
+        If as_str is True, returns formatted size string. Otherwise, returns size in bytes as an int.
     """
     num_bytes = os.path.getsize(model_path)
 
@@ -119,7 +152,15 @@ def get_disk_size(path: str | Path, unit: str = "byte") -> float:
 
     Parameters
     ----------
-    - unit: One of ["byte", "MB"]
+    path
+        Path to file or directory to measure.
+    unit
+        One of ["byte", "MB"].
+
+    Returns
+    -------
+    disk_size
+        Size of the file or directory in the specified unit.
     """
     if os.path.isdir(path):
         # Traverse the directory and add up the file sizes.

@@ -95,7 +95,7 @@ def create_numerics_struct(
                     continue
                 precision = Precision.parse(row.precision)
                 runtime = ScorecardProfilePath(row.runtime)
-                if not runtime.include_in_perf_yaml:
+                if not runtime.is_public:
                     continue
                 if precision not in metric_data_dict:
                     metric_data_dict[precision] = {}

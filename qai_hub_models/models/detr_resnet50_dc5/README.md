@@ -4,7 +4,7 @@ DETR is a machine learning model that can detect objects (trained on COCO datase
 
 This is based on the implementation of DETR-ResNet50-DC5 found [here](https://github.com/facebookresearch/detr). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/detr_resnet50_dc5).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/detr_resnet50_dc5).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -23,7 +23,7 @@ pip install "qai-hub-models[detr-resnet50-dc5]"
 Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
-python -m qai_hub_models.models.detr_resnet50_dc5.demo
+python -m qai_hub_models.models.detr_resnet50_dc5.demo { --quantize w8a16_mixed_int16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -36,7 +36,7 @@ This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.detr_resnet50_dc5.export
+python -m qai_hub_models.models.detr_resnet50_dc5.export { --quantize w8a16_mixed_int16 }
 ```
 Additional options are documented with the `--help` option.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of DETR-ResNet50-DC5 can be found
   [here](https://github.com/facebookresearch/detr/blob/main/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

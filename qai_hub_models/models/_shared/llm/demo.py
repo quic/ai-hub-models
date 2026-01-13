@@ -38,21 +38,7 @@ def llm_chat_demo(
     raw: bool = False,
     test_checkpoint: CheckpointSpec | None = None,
 ):
-    """
-    Shared Chat Demo App to generate output for provided input prompt
-        model_cls: Model class (of quantized models)
-        fp_model_cls: Model class (of floating point models)
-        model_id: Model ID from hub,
-        get_input_prompt_with_tags: Function to wrap input prompt with appropriate tags,
-        prepare_combined_attention_mask: Function to combine attention mask,
-        end_tokens: Set of end tokens to use for end of output generation,
-        hf_repo_name: HF repo name,
-        hf_repo_url: HF repo url,
-        default_prompt: Default prompt to set,
-        is_test: If test, no options required,
-        available_target_runtimes: Available runtimes,
-        bundled_kvcache: KV-cache for each head is concatenated.
-    """
+    """Shared Chat Demo App to generate output for provided input prompt"""
     # Demo parameters
     parser = get_model_cli_parser(
         model_cls,

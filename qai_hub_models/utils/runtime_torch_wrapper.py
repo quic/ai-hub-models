@@ -124,12 +124,11 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         Calls the model with the given args and kwargs.
         Identical behavior (I/O) to calling forward() on a pyTorch Module.
 
-        Paramaters
+        Parameters
         ----------
         *args
             Ordered model inputs of any type that can be converted to a numpy array.
             Must be in the same order as self.inputs.
-
         **kwargs
             Keyword model inputs of any type that can be converted to a numpy array.
             Order is not considered.
@@ -149,18 +148,18 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         Calls the model with the given args and kwargs.
         Identical behavior (I/O) to calling forward() on a pyTorch Module.
 
-        Paramaters
+        Parameters
         ----------
         *args
             Ordered model inputs of any type that can be converted to a numpy array.
             Must be in the same order as self.inputs.
-
         **kwargs
             Keyword model inputs of any type that can be converted to a numpy array.
             Order is not considered.
 
         Returns
         -------
+        torch.Tensor | tuple[torch.Tensor, ...]
             Model output in the same order as elements of self.outputs.
             If the model has 1 output, it will be returned as a Tensor. Otherwise this returns a tuple of Tensors.
         """
@@ -365,11 +364,9 @@ def kwargs_to_dict(argnames: Iterable[str], *args: T, **kwargs: T) -> dict[str, 
     ----------
     argnames
         Argument names, in order. Orderd arguments will be mapped to these names.
-
-    args
+    *args
         Ordered arguments
-
-    kwargs
+    **kwargs
         Keyword arguments
 
     Returns

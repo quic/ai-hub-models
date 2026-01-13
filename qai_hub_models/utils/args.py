@@ -347,17 +347,31 @@ def get_on_device_demo_parser(
     available_target_runtimes: list[TargetRuntime] | set[TargetRuntime] | None = None,
     add_output_dir: bool = False,
     default_device: str | None = None,
-):
+) -> QAIHMArgumentParser:
     """
+    Get argument parser for on-device demo scripts.
+
     Parameters
     ----------
-    - supported_eval_modes: subset of
-    EvalMode.{FP,QUANTSIM,ON_DEVICE,LOCAL_DEVICE}. Default is
-    [EvalMode.FP, EvalMode.ON_DEVICE]. The first value of supported_eval_modes
-    will be the default.
+    parser
+        Existing parser to add arguments to. If None, creates a new parser.
+    supported_eval_modes
+        Subset of EvalMode.{FP,QUANTSIM,ON_DEVICE,LOCAL_DEVICE}. Default is
+        [EvalMode.FP, EvalMode.ON_DEVICE]. The first value of supported_eval_modes
+        will be the default.
+    supported_precisions
+        Subset of {Precision.float, Precision.w8a8, Precision.w8a16}
+    available_target_runtimes
+        Available target runtimes for this model.
+    add_output_dir
+        Whether to add an output directory argument.
+    default_device
+        Default device to use for on-device execution.
 
-    - supported_precisions: subset of {Precision.float, Precision.w8a8,
-    Precision.w8a16}
+    Returns
+    -------
+    parser
+        Argument parser with all required arguments for on-device demos.
     """
     if available_target_runtimes is None:
         available_target_runtimes = set(TargetRuntime.__members__.values())
@@ -635,7 +649,17 @@ def demo_model_components_from_cli_args(
 
     Parameters
     ----------
-    - model_cls: Must have the same length as components
+    model_cls
+        Collection model class containing components.
+    model_id
+        Model ID string.
+    cli_args
+        Command line arguments namespace.
+
+    Returns
+    -------
+    components
+        Model instances for each component.
     """
     res = []
     component_classes = model_cls.component_classes
@@ -844,6 +868,7 @@ def add_export_function_args(
     export_fn: Callable,
     parser: QAIHMArgumentParser,
     force_fetch_static_assets: bool = False,
+    zip_assets: bool = False,
 ) -> None:
     """
     Extracts the relevant inputs to the export function and
@@ -879,6 +904,13 @@ def add_export_function_args(
             "    `--fetch-static-assets latest`     (get latest release assets)\n"
             "    `--fetch-static-assets v<version>` (get assets for a specific version)\n",
         )
+    if "zip_assets" in signature:
+        signature.pop("zip_assets")
+        parser.add_argument(
+            "--zip-assets",
+            action="store_true",
+            help="If set, downloaded assets are zipped.",
+        )
 
     raw_doc = inspect.getdoc(export_fn)
     assert raw_doc is not None, "Export function must have a docstring."
@@ -905,6 +937,7 @@ def export_parser(
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] | None = None,
     default_export_device: str | None = None,
     force_fetch_static_assets: bool = False,
+    zip_assets: bool = False,
 ) -> QAIHMArgumentParser:
     """
     Arg parser to be used in export scripts.
@@ -914,6 +947,8 @@ def export_parser(
     model_cls
         Class of the model to be exported. Used to add additional
         args for model instantiation.
+    export_fn
+        Export function to extract parameters from.
     components
         Only used for model with component and sub-component, such
         as Llama 2, 3, where two subcomponents (e.g.,
@@ -921,23 +956,17 @@ def export_parser(
         are classified under one component (e.g. Llama2_Part1_Quantized).
     supported_precision_runtimes
         The list of supported (precision, runtime) pairs for this model.
-    uses_quantize_job
-        Whether this model uses quantize job to quantize the model.
-    exporting_compiled_model
-        True when exporting compiled model.
-        If set, removing skip_profiling flag from export arguments.
-        Default = False.
     default_export_device
         Default device to set for export.
-    num_calibration_samples
-        How many samples to calibrate on when quantizing by default.
-        If not set, defers to the dataset to decide the number.
     force_fetch_static_assets
         If set, fetch_static_assets is always enabled and cannot be turned off.
+    zip_assets
+        Zips downloaded assets. If set, adds --zip-assets argument to the parser.
 
     Returns
     -------
-    argparse ArgumentParser object.
+    parser
+        ArgumentParser object.
     """
     if supported_precision_runtimes is None:
         supported_precision_runtimes = {
@@ -947,7 +976,7 @@ def export_parser(
         model_cls=model_cls,
         supported_precision_runtimes=supported_precision_runtimes,
     )
-    add_export_function_args(export_fn, parser, force_fetch_static_assets)
+    add_export_function_args(export_fn, parser, force_fetch_static_assets, zip_assets)
     _add_device_args(parser, default_device=default_export_device)
     if components is not None or issubclass(model_cls, CollectionModel):
         choices = (
@@ -961,6 +990,7 @@ def export_parser(
             choices=choices,
             help="Which components of the model to be exported.",
         )
+
     return parser
 
 
@@ -993,7 +1023,8 @@ def evaluate_parser(
 
     Returns
     -------
-    Arg parser object.
+    parser
+        ArgumentParser object.
     """
     if supported_precision_runtimes is None:
         supported_precision_runtimes = {Precision.float: [TargetRuntime.TFLITE]}
@@ -1013,6 +1044,13 @@ def evaluate_parser(
         default="",
         help="Additional options to pass when submitting the profile job.",
     )
+    if uses_quantize_job:
+        parser.add_argument(
+            "--quantize-options",
+            type=str,
+            default="",
+            help="Additional options to pass when submitting the quantize job.",
+        )
 
     _add_device_args(parser, default_device)
     if len(supported_datasets) == 0:

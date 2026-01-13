@@ -36,11 +36,15 @@ class SemanticKittiEvaluator(BaseEvaluator):
         """
         Parameters
         ----------
-            output (torch.Tensor): Model predictions.
-            gt_data (tuple[torch.Tensor, torch.Tensor, torch.Tensor]):
-                p_x (torch.tensor): x coordinates of lidar points with shape [max_points,]
-                p_y (torch.tensor): y coordinates of lidar points with shape [max_points,]
-                label (torch.tensor): semantic labels with shape [max_points,]
+        output
+            Model predictions.
+        gt
+            p_x
+                x coordinates of lidar points with shape [max_points,].
+            p_y
+                y coordinates of lidar points with shape [max_points,].
+            label
+                Semantic labels with shape [max_points,].
         """
         p_x, p_y, label = gt
         unproj_argmax_list = []

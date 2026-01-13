@@ -4,7 +4,7 @@ RTMDet is a highly efficient model for real-time object detection,capable of pre
 
 This is based on the implementation of RTMDet found [here](https://github.com/open-mmlab/mmdetection/tree/3.x/configs/rtmdet). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/rtmdet).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/rtmdet).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -44,7 +44,6 @@ Additional options are documented with the `--help` option.
 ## License
 * The license for the original implementation of RTMDet can be found
   [here](https://github.com/open-mmlab/mmdetection/blob/3.x/LICENSE).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

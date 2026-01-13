@@ -64,12 +64,12 @@ class FaceMap3DMMDataset(BaseDataset):
             range  - [0, 1]
             channel layout - [RGB]
 
-        ground_truth:
+        ground_truth
             image_id_tensor
                 integer value to represent image id, not used
             gt_landmarks_tensor
                 the ground truth x, y positions of facial landmarks, for evaluation only - [68,2]
-            bbox_tenso
+            bbox_tensor
                 the location of the face bounding box, represented as a tensor with shape [4] and layout [left, right, top, bottom]. It is used to crop the face from the original image, for evaluation only.
         """
         image_path = self.image_list[index]

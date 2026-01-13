@@ -153,7 +153,7 @@ def extract_onnx_zip(
         Folder to which the zip file should be unzipped.
         If None, defaults to the same folder the zip file is in.
 
-    validate
+    validate_exists
         If True, raises an error if the .onnx file can't be found.
 
     Returns

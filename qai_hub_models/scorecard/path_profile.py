@@ -147,7 +147,8 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         ]
 
     @property
-    def include_in_perf_yaml(self) -> bool:
+    def is_public(self) -> bool:
+        """Whether a path is make visible publicly (included in perf.yaml, numerics.yaml, allowed in export scripts, etc.)"""
         return self in ScorecardProfilePath.default_paths()
 
     @property

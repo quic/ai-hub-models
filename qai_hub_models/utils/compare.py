@@ -65,15 +65,18 @@ def torch_inference(
 
     Parameters
     ----------
-        model: The torch model.
-        sample_inputs: Map from input name to list of values for that input.
-        return_channel_last_output: If set, will transpose outputs to channel last
-            format. Will only transpose the outputs specified by
-            `model.get_channel_last_outputs()`.
+    model
+        The torch model to run inference on.
+    sample_inputs
+        Map from input name to list of values for that input.
+    return_channel_last_output
+        If set, will transpose outputs to channel last format. Will only
+        transpose the outputs specified by `model.get_channel_last_outputs()`.
 
     Returns
     -------
-        List of numpy array outputs,
+    outputs
+        List of numpy array outputs.
     """
     numpy_outputs = _torch_inference_impl(model, sample_inputs)
     if not return_channel_last_output:
@@ -174,14 +177,21 @@ def generate_comparison_metrics(
 
     Parameters
     ----------
-        expected: List of numpy array outputs computed from a ground truth model.
-        actual: List of numpy array outputs computed from an experimental model.
-        metrics: comma-separated metrics names, e.g., "psnr,top1,top5"
+    expected
+        List of numpy array outputs computed from a ground truth model.
+    actual
+        List of numpy array outputs computed from an experimental model.
+    names
+        Optional list of output names to use as DataFrame index. If None, uses
+        range index (0, 1, 2...).
+    metrics
+        Comma-separated metrics names, e.g., "psnr,top1,top5".
 
     Returns
     -------
-        DataFrame with range index (0, 1, 2...) and shape,  metrics as columns
-        (e.g., shape | psnr | top1 | top5.
+    df_res
+        DataFrame with output names or range index and shape, metrics as columns
+        (e.g., shape | psnr | top1 | top5).
     """
     metrics_ls = metrics.split(",")
     for m in metrics_ls:

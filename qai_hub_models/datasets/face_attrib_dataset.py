@@ -37,7 +37,7 @@ def load_annotations(file_path: Path) -> dict[str, int]:
 
     Returns
     -------
-    dict[str, int]
+    annotations
         A dictionary containing label data:
             - Key : str
                 The filename.
@@ -106,15 +106,14 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor : torch.Tensor
+        image_tensor
             A face image with shape (C, H, W), where:
                 - C: Number of channels (3 for RGB)
                 - H: Height (128 pixels)
                 - W: Width (128 pixels)
             The image is scaled and center-padded to match the model's expected input dimensions.
             Pixel values should be in the range [0, 1].
-
-        image_path : Path
+        image_path
             The file path of the retrieved image.
         """
         assert index < len(self.image_list)
@@ -140,15 +139,14 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        image_tensor : torch.Tensor
+        image_tensor
             A face image with shape (C, H, W), where:
                 - C: Number of channels (3 for RGB)
                 - H: Height (128 pixels)
                 - W: Width (128 pixels)
             The image is scaled and center-padded to match the model's expected input dimensions.
             Pixel values should be in the range [0, 1].
-
-        label_data : torch.Tensor
+        label_data
             An integer tensor of shape (5) representing the following attributes in order:
                 - left_openness
                 - right_openness
@@ -179,7 +177,7 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        int
+        num_samples
             number of samples
         """
         return len(self.image_list)
@@ -190,7 +188,7 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        bool
+        is_valid
             True: data is valid and loaded successfully
             False: otherwise
         """
@@ -261,7 +259,7 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        int
+        samples_per_job
             samples to run in each inference job.
         """
         return 500
@@ -273,7 +271,7 @@ class FaceAttribDataset(BaseDataset):
 
         Returns
         -------
-        int
+        num_calibration_samples
             number of samples to include in quantization job.
         """
         return 1000

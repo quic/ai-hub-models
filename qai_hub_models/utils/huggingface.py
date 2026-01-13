@@ -24,30 +24,31 @@ def get_huggingface_model_filename(
     precision: Precision,
     chipset: str | None = None,
     precompiled: bool = False,
-):
+) -> str:
     """
     Get the model file name (without the extension) that we upload to Hugging Face for the given parameters.
 
     Parameters
     ----------
-    model_name:
-        The NAME of the model (NOT THE MODEL ID)
+    model_name
+        The NAME of the model (NOT THE MODEL ID).
         Typically this is QAIHMModelInfo.from_model(model_id).name
-
-    component:
+    component
         Model component name.
         If this is None or the same string as parameter 'model_name',
         this function assumes the model has only 1 component.
-
-    precision:
+    precision
         Model precision.
-
-    chipset:
+    chipset
         Chipset this model is optimized for, or None if not applicable.
-
-    precompiled:
+    precompiled
         Whether or not this chipset is pre-compiled for a specific chipset.
         If set, chipset must also be provided.
+
+    Returns
+    -------
+    model_filename
+        Filename for the model on Hugging Face.
     """
     precision_ext = f"_{precision}"
     component_ext = (
@@ -119,10 +120,7 @@ def fetch_huggingface_target_model(
     return paths, urls
 
 
-def has_model_access(repo_name: str, repo_url: str | None = None):
-    # Huggingface returns GatedRepoError if model is not accessible to current User.
-    # ref: https://github.com/huggingface/huggingface_hub/blob/5ff2d150d121d04799b78bc08f2343c21b8f07a9/src/huggingface_hub/utils/_errors.py#L135
-
+def has_model_access(repo_name: str, repo_url: str | None = None) -> bool:
     if not repo_url:
         repo_url = "https://huggingface.co/" + repo_name
 
@@ -142,7 +140,7 @@ def has_model_access(repo_name: str, repo_url: str | None = None):
     return True
 
 
-def ensure_has_required_transformer(least_expected_version):
+def ensure_has_required_transformer(least_expected_version: str):
     # import transformer as part of this function
     # to avoid leaking installation globally on file import.
     # NOTE: #10761 this function should not be required once AIMET (https://pypi.org/project/aimet-torch/)

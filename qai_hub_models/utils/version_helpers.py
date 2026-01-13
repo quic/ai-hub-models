@@ -26,6 +26,7 @@ class QAIHMVersion:
 
         Returns
         -------
+        list[str]
             A list of all releases, latest first.
         """
         url = "https://pypi.org/pypi/qai_hub_models/json"

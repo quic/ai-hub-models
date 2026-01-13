@@ -46,7 +46,9 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
         self.min_score = 0.1
 
     def add_batch(
-        self, output: tuple[torch.Tensor, torch.Tensor], gt: list[torch.Tensor]
+        self,
+        output: tuple[torch.Tensor, torch.Tensor],
+        gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
     ):
         """
         Processes OpenPose outputs (PAFs and heatmaps) and converts them to
@@ -54,14 +56,22 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
 
         Parameters
         ----------
-            output: Tuple containing :
-               - paf: Tensor[float] of part affinity fields [batch, 2, H, W]
-               - heatmaps: Tensor[float] of keypoint heatmaps [batch, 19, H, W]
-            gt list[torch.Tensor]:
-            - image_ids: Tensor[int] of COCO image IDs [batch]
-            - category_ids: Tensor[int] of category IDs [batch]
-            - centers: Tensor[float] of crop centers used in preprocessing [batch, 2]
-            - scales: Tensor[float] of scale factors used in preprocessing [batch, 2]
+        output
+            paf
+                Tensor (float) of part affinity fields [batch, 2, H, W].
+            heatmaps
+                Tensor (float) of keypoint heatmaps [batch, 19, H, W].
+        gt
+            List of ground truth tensors:
+
+            image_ids
+                Tensor (int) of COCO image IDs [batch].
+            category_ids
+                Tensor (int) of category IDs [batch].
+            centers
+                Tensor (float) of crop centers used in preprocessing [batch, 2].
+            scales
+                Tensor (float) of scale factors used in preprocessing [batch, 2].
         """
         image_ids, category_ids, centers, scales = gt
         paf, heatmaps = output

@@ -33,18 +33,21 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-        output : tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+        output
             Output from the `face_attrib_net_enhanced` model, including:
-                - prob : torch.Tensor, range [0, 1], shape (N, M)
-                    N: batch_size
-                    M: number of attributes (5)
 
-                - feature_embed : torch.Tensor, shape (N, 512)
-
-        gt : tuple[Tensor, Tensor]
+            prob
+                Tensor (float) with range [0, 1], shape (N, M) where N is batch_size
+                and M is number of attributes (5).
+            feature_embed
+                Tensor (float) with shape (N, 512).
+        gt
             Ground truth labels from the `FaceAttribEnhancedDataset`, corresponding to the batch:
-                - Tensor[int] : Shape [N], each is the ID of an individual in this image.
-                - Tensor[int] : Shape [N], each is the ID of the image.
+
+            person_ids
+                Tensor (int) of shape [N], each is the ID of an individual in this image.
+            image_ids
+                Tensor (int) of shape [N], each is the ID of the image.
         """
         _, feature_embed = output
         person_names, image_ids = gt
@@ -90,7 +93,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
         Returns
         -------
-        float
+        accuracy_metric
             Accuracy metric in range [0, 1].
 
         """
@@ -129,7 +132,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
 
         Returns
         -------
-        str
+        formatted_accuracy_string
             formatted string of accuracy report
         """
         return f"{self.get_accuracy_score():.3f} Cosine Similarity"

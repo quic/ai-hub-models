@@ -154,12 +154,20 @@ def _get_model_cache_key(
     cache_name: str, additional_keys: dict[str, str] | None = None
 ) -> dict[str, str]:
     """
-    Return dictionary of key for model cache
+    Return dictionary of key for model cache.
 
     Parameters
     ----------
-        cache_name (str): name of the cache, it could be model or subcomponent name
-        additional_keys (dict[str, str], optional): Additional keys to include. Defaults to {}.
+    cache_name
+        Name of the cache, it could be model or subcomponent name.
+    additional_keys
+        Additional keys to include. Defaults to None.
+
+    Returns
+    -------
+    dict[str, str]
+        Dictionary containing cache keys including cache_name, pytorch version,
+        onnx version, hub_endpoint, and any additional keys provided.
     """
     if additional_keys is None:
         additional_keys = {}
@@ -185,17 +193,23 @@ def _get_hub_model_id(
 
     Parameters
     ----------
-        model_name (str): Model ID from AI Hub Models repo
-        model_asset_version (int): Model asset version from AI Hub Models repo
-        cache_name (str): Model name in cache
-        cache_mode (CacheMode, optional): CacheMode for current instance.
-            If CacheMode.ENABLE, looksup for cache entry and returns associated `hub_model_id`
-            Otherwise, skips cache lookup.
-        additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
+    model_name
+        Model ID from AI Hub Models repo.
+    model_asset_version
+        Model asset version from AI Hub Models repo.
+    cache_name
+        Model name in cache.
+    cache_mode
+        CacheMode for current instance.
+        If CacheMode.ENABLE, looks up for cache entry and returns associated `hub_model_id`.
+        Otherwise, skips cache lookup. Defaults to CacheMode.ENABLE.
+    additional_keys
+        Additional keys to include for cache lookup. Defaults to None.
 
     Returns
     -------
-        str | None: Returns cached `hub_model_id` for uploaded AI Hub Workbench model if found, otherwise None.
+    str | None
+        Cached `hub_model_id` for uploaded AI Hub Workbench model if found, otherwise None.
     """
     if additional_keys is None:
         additional_keys = {}
@@ -228,19 +242,29 @@ def _update_hub_model_id(
     additional_keys: dict[str, str] | None = None,
 ):
     """
-    Updates cache with `hub_model_id`
+    Updates cache with `hub_model_id`.
 
     Parameters
     ----------
-        model_name (str): Model ID from AI Hub Models repo.
-        model_asset_version (int): Model asset version from AI Hub Models repo.
-        cache_name (str): Model name in cache.
-        hub_model_id (str): AI Hub Workbench uploaded model id to set as value in cache.
-        cache_mode (CacheMode, optional): CacheMode for current instance.
-            If CacheMode.ENABLE, then writes to cache if key is not already present, otherwise raises RuntimeError.
-            If CacheMode.DISABLE, then skips updating cache.
-            If CacheMode.OVERWRITE, then overwrites cache.
-        additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
+    model_name
+        Model ID from AI Hub Models repo.
+    model_asset_version
+        Model asset version from AI Hub Models repo.
+    cache_name
+        Model name in cache.
+    hub_model_id
+        AI Hub Workbench uploaded model id to set as value in cache.
+    cache_mode
+        CacheMode for current instance.
+        If CacheMode.ENABLE, then writes to cache if key is not already present, otherwise raises RuntimeError.
+        If CacheMode.DISABLE, then skips updating cache.
+        If CacheMode.OVERWRITE, then overwrites cache. Defaults to CacheMode.ENABLE.
+    additional_keys
+        Additional keys to include for cache lookup. Defaults to None.
+
+    Returns
+    -------
+    None
     """
     if additional_keys is None:
         additional_keys = {}
@@ -273,24 +297,30 @@ def get_or_create_cached_model(
     additional_keys: dict[str, str] | None = None,
 ) -> hub.Model:
     """
-    Returns cached model for given model name and asset version
+    Returns cached model for given model name and asset version.
 
     Parameters
     ----------
-        model_name (str): Model ID from AI Hub Models repo.
-        model_asset_version (int): Model asset version from AI Hub Models repo.
-        cache_name (str): Model name in cache.
-        model_path (str): Local path to model for uploading if model is not cached.
-        cache_mode (CacheMode, optional): CacheMode for current instance.
-            If CacheMode.ENABLE, then writes to cache if key is not already present, otherwise raises RuntimeError.
-            If CacheMode.DISABLE, then skips cache lookup.
-            If CacheMode.OVERWRITE, then overwrites cache key and value.
-        additional_keys (dict[str, str], optional): Additional keys to include for cache lookup. Defaults to {}.
-
+    model_name
+        Model ID from AI Hub Models repo.
+    model_asset_version
+        Model asset version from AI Hub Models repo.
+    cache_name
+        Model name in cache.
+    model_path
+        Local path to model for uploading if model is not cached.
+    cache_mode
+        CacheMode for current instance.
+        If CacheMode.ENABLE, then writes to cache if key is not already present, otherwise raises RuntimeError.
+        If CacheMode.DISABLE, then skips cache lookup.
+        If CacheMode.OVERWRITE, then overwrites cache key and value. Defaults to CacheMode.ENABLE.
+    additional_keys
+        Additional keys to include for cache lookup. Defaults to None.
 
     Returns
     -------
-        hub.Model: Returns hub.Model either from cache or uploaded.
+    hub.Model
+        Hub.Model either from cache or uploaded.
     """
     # Check if model exists in cache
     if additional_keys is None:

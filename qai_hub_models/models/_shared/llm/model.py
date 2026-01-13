@@ -8,8 +8,8 @@ from __future__ import annotations
 # isort: off
 try:
     from qai_hub_models.utils.quantization_aimet_onnx import AIMETOnnxQuantizableMixin
-    from aimet_common.defs import QuantizationDataType
-    from aimet_common.utils import AimetLogger
+    from aimet_onnx.common.defs import QuantizationDataType
+    from aimet_onnx.common.utils import AimetLogger
 except (ImportError, ModuleNotFoundError):
     print(
         "Some quantized models require the AIMET-ONNX package, which is only supported on Linux. "
@@ -112,7 +112,7 @@ except (ImportError, ModuleNotFoundError):
 if TYPE_CHECKING:
     from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 
-MIN_TRANFORMER_VERSION = "4.45.0"
+MIN_TRANSFORMER_VERSION = "4.45.0"
 MIN_AIMET_ONNX_VERSION = "2.8.0"
 # isort: off
 
@@ -133,7 +133,7 @@ try:
 
     # TODO: 10761 remove transformer version check once AIMET
     # transformer restriction is uplifted.
-    ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
+    ensure_has_required_transformer(MIN_TRANSFORMER_VERSION)
 except ImportError:
     pass
 
@@ -334,9 +334,12 @@ def _get_evaluator(
 ) -> BaseEvaluator:
     from qai_hub_models.evaluators.mmlu_evaluator import MMLUEvaluator
     from qai_hub_models.evaluators.ppl_evaluator import PerplexityEvaluator
+    from qai_hub_models.evaluators.kldiv_evaluator import KLDivEvaluator
 
     if "wikitext" in task:
         return PerplexityEvaluator(context_length, device, tokenizer)
+    if "tricky_llm_prompts" in task:
+        return KLDivEvaluator(context_length, device, tokenizer, verbose=True)
     return MMLUEvaluator(context_length, device, tokenizer)
 
 
@@ -501,9 +504,9 @@ class LLMBase(BaseModel, LLMConfigEditor, ABC):
             Total context length (in tokens).
         load_pretrained:
             Load a pre-trained model as opposed to a randomly initialized.
-        attetion_mask_min_clip:
+        attention_mask_min_clip:
             Min clip the attention mask by this value if not None.
-        attetion_mask_multiplier:
+        attention_mask_multiplier:
             Bake in a multiplier for the attention mask into the network.
             This is useful to conform to Genie's unconfigurable -1000
             "infinity" for FP16 activations, when a network may require an even
@@ -970,7 +973,8 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             host_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         if not _skip_quantsim_creation:
-            AimetLogger.set_level_for_all_areas(logging.WARNING)
+            if AIMET_ONNX_INSTALLED:
+                AimetLogger.set_level_for_all_areas(logging.WARNING)
             onnx_path = None
             onnx_file_exists = False
             tmp_dir = tempfile.TemporaryDirectory()
@@ -1014,7 +1018,7 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                 tmp_dir.cleanup()
 
             # Two copies are needed. One for QuantSim and one for passing to
-            # quantize function for applying Sequencial MSE.
+            # quantize function for applying Sequential MSE.
             # Deepcopy causes error on GPU.
             print()
             print("Creating a QuantSim model using AIMET ONNX.")
@@ -1107,6 +1111,12 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
             config_file=default_config,
             providers=cls.get_ort_providers(host_device),
         )
+        return cls._configure_quant_sim(quant_sim, precision)
+
+    @classmethod
+    def _configure_quant_sim(
+        cls, quant_sim: QuantizationSimModel, precision: Precision
+    ) -> QuantizationSimModel:
         # Setting the LM head weights to 8-bit.
         _set_lm_head_to_8b(quant_sim)
 
@@ -1122,7 +1132,6 @@ class LLM_AIMETOnnx(AIMETOnnxQuantizableMixin, LLMConfigEditor, BaseModel, ABC):
                     qc_op.reset_encoding_stats()
                     qc_op.data_type = QuantizationDataType.float
                     qc_op.bitwidth = 16
-
         return quant_sim
 
     def save_calibrated_checkpoint(

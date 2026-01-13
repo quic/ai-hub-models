@@ -68,7 +68,7 @@ def export_torch_to_onnx_zip(
     output_names: list[str] | None = None,
     onnx_transforms: Callable[[onnx.ModelProto], onnx.ModelProto] | None = None,
     skip_zip: bool = False,
-    torch_export_kwargs=None,
+    torch_export_kwargs: dict[str, Any] | None = None,
     prefer_external_weight: bool = True,
 ) -> str:
     """
@@ -79,24 +79,34 @@ def export_torch_to_onnx_zip(
 
     Parameters
     ----------
-      torch_model: The torch.nn.Module to export.
-      f: The base filename. For models <2GB, this must end in ".onnx".
-         For models >=2GB with skip_zip True, this must NOT end in
-         ".onnx" (treated as a directory name). Otherwise, for models
-         >=2GB with skip_zip False, the final output will be f+".zip".
-      example_input: A tuple of example input tensors for the export.
-      input_names: Optional list of input names.
-      output_names: Optional list of output names.
-      onnx_transforms: If defined, run this on the exported ONNX before
-        packaging.
-      skip_zip: True to suppress zipping even for models >2GB.
-      prefer_external_weight: If True, export using external data format
-        regardless of model size.
+    torch_model
+        The torch.nn.Module to export.
+    f
+        The base filename. For models <2GB, this must end in ".onnx".
+        For models >=2GB with skip_zip True, this must NOT end in
+        ".onnx" (treated as a directory name). Otherwise, for models
+        >=2GB with skip_zip False, the final output will be f+".zip".
+    example_input
+        A tuple of example input tensors for the export.
+    input_names
+        Optional list of input names.
+    output_names
+        Optional list of output names.
+    onnx_transforms
+        If defined, run this on the exported ONNX before packaging.
+    skip_zip
+        True to suppress zipping even for models >2GB. Default is False.
+    torch_export_kwargs
+        Additional keyword arguments to pass to torch.onnx.export.
+    prefer_external_weight
+        If True, export using external data format regardless of model size.
+        Default is True.
 
     Returns
     -------
-      The path to the exported file (either a .onnx file, a .onnx.zip file,
-      or a directory if skip_zip is True and model size is >2GB).
+    exported_file_path
+        The path to the exported file (either a .onnx file, a .onnx.zip file,
+        or a directory if skip_zip is True and model size is >2GB).
     """
     f = Path(f)
     if isinstance(example_input, list):
@@ -148,10 +158,10 @@ def export_torch_to_onnx_zip(
         return str(f)
     # Export with external data using two temporary directories.
     with qaihm_temp_dir() as tmpdir1, qaihm_temp_dir() as tmpdir2:
-        tmpdir1 = Path(tmpdir1)
-        tmpdir2 = Path(tmpdir2)
+        tmpdir1_path = Path(tmpdir1)
+        tmpdir2_path = Path(tmpdir2)
         export_path = (
-            tmpdir1 / f.with_suffix(".onnx").name
+            tmpdir1_path / f.with_suffix(".onnx").name
         )  # use .onnx extension for export
 
         start_time = time.time()
@@ -177,7 +187,7 @@ def export_torch_to_onnx_zip(
 
         save_start_time = time.time()
         # .onnx and .data must have the same base name per hub requirement
-        export_path2 = tmpdir2 / "model.onnx"
+        export_path2 = tmpdir2_path / "model.onnx"
         onnx.save_model(
             onnx_model,
             str(export_path2),
@@ -207,7 +217,7 @@ def export_torch_to_onnx_zip(
         zip_start_time = time.time()
         zip_path = f.with_name(f.name + ".zip")
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for file_path in tmpdir2.iterdir():
+            for file_path in tmpdir2_path.iterdir():
                 # In the zip, files are placed under a folder named after the base name.
                 arcname = f.with_suffix("").name + "/" + file_path.name
                 zip_file.write(file_path, arcname=arcname)
@@ -253,13 +263,21 @@ def make_hub_dataset_entries(
 ) -> DatasetEntries:
     """
     Given input tensor(s) in either numpy or torch format,
-        convert to hub DatasetEntries format.
+    convert to hub DatasetEntries format.
 
     Parameters
     ----------
-        tensors: Tensor data in numpy or torch.Tensor format.
-        input_names: List of input names.
-        channel_last_input: Comma-separated list of input names to transpose channel.
+    tensors_tuple
+        Tensor data in numpy or torch.Tensor format.
+    input_names
+        List of input names.
+    channel_last_input
+        Comma-separated list of input names to transpose channel.
+
+    Returns
+    -------
+    dataset_entries
+        Dataset entries in hub DatasetEntries format.
     """
     dataset = {}
     assert len(tensors_tuple) == len(input_names), (
@@ -310,16 +328,31 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
 def extract_job_options(job: hub.Job) -> dict[str, str | bool]:
     """
     Get a dictionary of all options passed for this job.
+
     Options that are not passed explicitly in the workbench job options (that Hub will treat as defaults) are not included in the dictionary.
 
-    Example:
-        If a hub job is submitted with options "--qairt_version 2.33 --dequantize_outputs --dict_input='w=x;y=z'"
-        Then the returned dict would be:
-          {
+    Parameters
+    ----------
+    job
+        The job from which to extract options.
+
+    Returns
+    -------
+    options
+        Dictionary of all options passed for this job.
+
+    Examples
+    --------
+    If a hub job is submitted with options "--qairt_version 2.33 --dequantize_outputs --dict_input='w=x;y=z'"
+    Then the returned dict would be:
+
+    .. code-block:: python
+
+        {
             "qairt_version": "2.33",
-            "dequantize_outputs": True
+            "dequantize_outputs": True,
             "dict_input": "w=x;y=z"
-          }
+        }
     """
     out = {}
 
@@ -379,7 +412,21 @@ def download_model_in_memory(model: hub.Model) -> Any:
 
 
 def get_device_and_chipset_name(device: hub.Device) -> tuple[str | None, str | None]:
-    """Given a hub Device, return the device name and chipset name."""
+    """
+    Given a hub Device, return the device name and chipset name.
+
+    Parameters
+    ----------
+    device
+        A hub Device object.
+
+    Returns
+    -------
+    device_name
+        Device name.
+    chipset_name
+        Chipset name.
+    """
     chipset = None
     if device.attributes:
         if isinstance(device.attributes, list):

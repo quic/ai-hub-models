@@ -21,5 +21,10 @@ class EfficientNetV2s(ImagenetClassifier):
         net = tv_models.efficientnet_v2_s(weights=weights)
         return cls(net)
 
-    def get_hub_quantize_options(self, precision: Precision) -> str:
-        return "--range_scheme min_max"
+    def get_hub_quantize_options(
+        self, precision: Precision, other_options: str | None = None
+    ) -> str:
+        options = other_options or ""
+        if "--range_scheme" in options:
+            return options
+        return options + " --range_scheme min_max"

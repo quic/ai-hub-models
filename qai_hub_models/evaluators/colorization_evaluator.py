@@ -24,10 +24,10 @@ class ColorizationEvaluator(BaseEvaluator):
 
         Parameters
         ----------
-            output: torch.Tensor with shape (B, 2, 256, 256)
-                predicted out in AB format (colors)
-            gt: torch.Tensor with shape (B, 1, 256, 256)
-                ground truth image in L format (lightness)
+        output
+            Predicted output in AB format (colors) with shape (B, 2, 256, 256).
+        gt
+            Ground truth image in L format (lightness) with shape (B, 1, 256, 256).
         """
         output_np, gt_np = output.numpy(), gt.numpy()
         for i in range(output.shape[0]):

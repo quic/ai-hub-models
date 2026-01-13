@@ -40,6 +40,7 @@ from qai_hub_models.scorecard.results.performance_summary import (
     ProfileScorecardJob,
 )
 from qai_hub_models.utils.numerics_yaml import QAIHMModelNumerics
+from qai_hub_models.utils.testing_export_eval import QAIHMModelReleaseAssets
 
 # Maximum acceptable inference time (milliseconds).
 # Above this inference time, a model will not be published.
@@ -56,7 +57,7 @@ def _clean_old_failure_reasons(
     for precision in precisions:
         if reasons_by_runtime := code_gen_config.disabled_paths.data.get(precision):
             for path in ScorecardProfilePath:
-                if (not path.include_in_perf_yaml or path.enabled) and (
+                if (not path.is_public or path.enabled) and (
                     reasons := reasons_by_runtime.get(path.runtime)
                 ):
                     if clean_general:
@@ -93,6 +94,7 @@ def update_code_gen_failure_reasons(
         x
         for x in ScorecardProfilePath
         if x.enabled
+        and x.is_public
         and (
             (code_gen_config.requires_aot_prepare and x.runtime.is_aot_compiled)
             or (
@@ -231,7 +233,7 @@ def update_code_gen_accuracy_failure_reasons(
         path = disabled_path[5]
         if (
             diff_model_id != model_id
-            or not path.include_in_perf_yaml
+            or not path.is_public
             or not path.enabled
             or precision not in supported_precisions
         ):
@@ -350,8 +352,7 @@ def remove_perf_failures(
     ----------
     perf
         The perf YAML to modify.
-
-    failure_reasons
+    failure_reason
         The failure reasons to consider.
 
     Returns
@@ -421,3 +422,58 @@ def remove_perf_failures(
         supported_chipsets=sorted_chipsets(supported_chipsets),
         precisions=precisions,
     )
+
+
+def remove_asset_failures(
+    assets: QAIHMModelReleaseAssets, failure_reasons: ModelDisableReasonsMapping
+) -> QAIHMModelReleaseAssets:
+    """
+    Drop all device + runtime + precision pairs from the assets YAML for which a failure reason exists.
+
+    Parameters
+    ----------
+    assets
+        The assets YAML to modify.
+
+    failure_reasons
+        The failure reasons to consider.
+
+    Returns
+    -------
+    QAIHMModelReleaseAssets
+        New pre_release_assets.yaml with failing device + runtime + precisions pairs removed.
+    """
+    precisions: dict[Precision, QAIHMModelReleaseAssets.PrecisionDetails] = {}
+
+    for precision, precision_details in assets.precisions.items():
+        runtimes_with_failures = [
+            x
+            for x, y in (failure_reasons.data.get(precision) or {}).items()
+            if y.has_failure
+        ]
+
+        chipset_assets: dict[
+            str,
+            dict[ScorecardProfilePath, QAIHMModelReleaseAssets.AssetDetails],
+        ] = {}
+        for chipset, asset_by_path in precision_details.chipset_assets.items():
+            path_assets = {
+                path: copy.deepcopy(asset_by_path[path])
+                for path in asset_by_path
+                if path.runtime not in runtimes_with_failures
+            }
+            if path_assets:
+                chipset_assets[chipset] = path_assets
+
+        universal_assets = {
+            path: copy.deepcopy(precision_details.universal_assets[path])
+            for path in precision_details.universal_assets
+            if path.runtime not in runtimes_with_failures
+        }
+        if chipset_assets or universal_assets:
+            precisions[precision] = QAIHMModelReleaseAssets.PrecisionDetails(
+                universal_assets=universal_assets,
+                chipset_assets=chipset_assets,
+            )
+
+    return QAIHMModelReleaseAssets(precisions=precisions)

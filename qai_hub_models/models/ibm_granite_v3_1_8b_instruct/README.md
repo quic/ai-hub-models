@@ -4,7 +4,7 @@ Granite-3.1-8B-Instruct is a 8B parameter long-context instruct model finetuned 
 
 This is based on the implementation of IBM-Granite-v3.1-8B-Instruct found [here](https://huggingface.co/ibm-granite/granite-3.1-8b-instruct). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance
-accross various devices, can be found [here](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct).
+across various devices, can be found [here](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct).
 
 Qualcomm AI Hub Models uses [Qualcomm AI Hub Workbench](https://workbench.aihub.qualcomm.com) to compile, profile, and evaluate this model. [Sign up](https://myaccount.qualcomm.com/signup) to run these models on a hosted Qualcomm® device.
 
@@ -19,7 +19,6 @@ Please follow the [LLM on-device deployment](https://github.com/quic/ai-hub-apps
 ## License
 * The license for the original implementation of IBM-Granite-v3.1-8B-Instruct can be found
   [here](https://huggingface.co/datasets/choosealicense/licenses/blob/main/markdown/apache-2.0.md).
-* The license for the compiled assets for on-device deployment can be found [here](https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/Qualcomm+AI+Hub+Proprietary+License.pdf)
 
 
 ## References

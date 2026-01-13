@@ -79,7 +79,7 @@ class SaVDataset(BaseDataset):
             point_coords:
                 Point coordinates from input image for segmentation,
                 mapped to the resized image with shape [N, 2]
-            point_coords:
+            point_labels:
                 Point Labels to select/de-select given point for segmentation
 
         ground_truth:
