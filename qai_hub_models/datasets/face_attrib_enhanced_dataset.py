@@ -26,7 +26,7 @@ class FaceAttribEnhancedDataset(FaceAttribDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         """
         FaceAttribEnhancedDataset constructor
 

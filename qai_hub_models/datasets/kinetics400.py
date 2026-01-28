@@ -89,7 +89,7 @@ class Kinetics400Dataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         num_frames: int = 16,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.num_frames = num_frames
         self.split_str = split.name.lower()
         self.videos_asset = CachedWebDatasetAsset(

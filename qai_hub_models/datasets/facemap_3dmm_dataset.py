@@ -35,7 +35,7 @@ class FaceMap3DMMDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FACEMAP3DMM_DATASET_ID, FACEMAP3DMM_DATASET_VERSION, "data"
         )
@@ -74,6 +74,7 @@ class FaceMap3DMMDataset(BaseDataset):
         """
         image_path = self.image_list[index]
         image_array = cv2.imread(cast(str, image_path))
+        assert image_array is not None, f"Failed to load image: {image_path}"
 
         bbox = [-1, -1, -1, -1]
         landmark_position = np.zeros([76, 2], dtype=np.float32)
@@ -123,7 +124,7 @@ class FaceMap3DMMDataset(BaseDataset):
             torch.tensor(bbox, dtype=torch.float32),
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_list)
 
     def _validate_data(self) -> bool:

@@ -88,7 +88,7 @@ class CityscapesSegmentationApp:
         self,
         model: torch.nn.Module,
         input_specs: Mapping[str, tuple[tuple[int, ...], str]],
-    ):
+    ) -> None:
         self.model = model
         self.color_mapping = _load_cityscapes_loader().dataset.color_mapping  # type: ignore[attr-defined]
         (_, _, self.model_height, self.model_width) = input_specs["image"][0]
@@ -100,10 +100,14 @@ class CityscapesSegmentationApp:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format.
+        image
+            A PIL Image in RGB format.
+        raw_output
+            Whether to return raw output or annotated image.
 
         Returns
         -------
+        output
             If raw_output is False it will return an annotated image of the
             same size as the input image. If True, it will return raw logit
             probabilities as an numpy array of shape [1, CLASSES, HEIGHT,

@@ -24,7 +24,7 @@ from qai_hub_models.utils.inference import compile_model_from_args
 from qai_hub_models.utils.input_spec import InputSpec
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     eval_datasets = Model.eval_datasets()
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -31,10 +32,10 @@ class RepaintMaskApp:
     def __init__(
         self,
         model: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-    ):
+    ) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[Image]:
         # See paint_mask_on_image.
         return self.paint_mask_on_image(*args, **kwargs)
 
@@ -55,26 +56,24 @@ class RepaintMaskApp:
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            mask_pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-                If one mask is provided, it will be used for every input image.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout.
+        mask_pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout.
+            If one mask is provided, it will be used for every input image.
 
         Returns
         -------
-            images: list[PIL.Image]
-                A list of predicted images (one list element per batch).
+        repainted_images
+            A list of predicted images (one list element per batch).
         """
         inputs = self.preprocess_inputs(
             pixel_values_or_image, mask_pixel_values_or_image

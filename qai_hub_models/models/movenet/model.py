@@ -52,15 +52,20 @@ class Movenet(BaseModel):
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         This method performs forward inference on the Movenet_pytorch model.
-        Args :
-            -image (torch.Tensor) : Input tensor of shape (N, C, H, W) with range [0, 1] in RGB format of shape `(1, 3, 192, 192)`
-        Returns : Dictionary with the key `'kpt_with_conf'` having a tensor of shape `(N, 1, 17, 3)`,
 
+        Parameters
+        ----------
+        image
+            Input tensor of shape (N, C, H, W) with range [0, 1] in RGB format of shape `(1, 3, 192, 192)`
+
+        Returns
+        -------
+        kpt_with_conf
+            Tensor of shape `(N, 1, 17, 3)`, where:
             - `N` -> batch size
             - `1` -> Single detected person
             - `17`-> Number of keypoints detected
             - `3` -> Each keypoint consists of (x, y) coordinates and confidence score.
-
         """
         image = image * 255  # Model expects float values in the range [0.0, 255.0]
         return self.model(image)

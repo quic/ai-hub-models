@@ -63,19 +63,24 @@ class RTMDet(Yolo):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                Range: float[0, 1]
-                3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
-                scores: torch.Tensor
-                    class scores multiplied by confidence: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        If self.include_postprocessing is True, returns:
+        boxes
+            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+        scores
+            Class scores multiplied by confidence. Shape is [batch, num_preds].
+        class_idx
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+
+        If self.include_postprocessing is False, returns:
+        result_box
+            Shape [batch, num_preds, 6] containing box coordinates, class predictions, and confidence scores.
         """
         # Add a cast. model._forward is not typed correctly.
         output = cast(

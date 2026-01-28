@@ -48,7 +48,7 @@ class AudioSetDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TEST,
         target_sample_rate: int = 16000,
         max_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
-    ):
+    ) -> None:
         self.csv_path = AUDIOSET_CSV.path()
         self.audio_dir = AUDIOSET_ASSET.path(extracted=True).parent
         self.class_map_path = AUDIOSET_CLASS_MAP.path()
@@ -177,14 +177,14 @@ class AudioSetDataset(BaseDataset):
         if not self.audio_files:
             raise ValueError("No matching audio files found for CSV entries")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.audio_files)
 
-    def _download_data(self):
+    def _download_data(self) -> None:
         AUDIOSET_CLASS_MAP.fetch()
         AUDIOSET_CSV.fetch()
         AUDIOSET_ASSET.fetch(extract=True)
 
     @staticmethod
-    def default_samples_per_job():
+    def default_samples_per_job() -> int:
         return 11356

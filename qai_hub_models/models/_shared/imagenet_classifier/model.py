@@ -38,24 +38,21 @@ class ImagenetClassifier(BaseModel):
         net: torch.nn.Module,
         transform_input: bool = False,
         normalize_input: bool = True,
-    ):
+    ) -> None:
         """
         Basic initializer which takes in a pretrained classifier network.
         Subclasses can choose to implement their own __init__ and forward methods.
 
         Parameters
         ----------
-            net: torch.nn.Module
-                Imagenet classifier network.
-
-            transform_input: bool
-                If True, preprocesses the input according to the method with which it was trained on ImageNet.
-
-            normalize_input: bool
-                Normalize input of the imagenet classifier inside the network
-                instead of requiring it to be done beforehand in a preprocessing step. If set to true, the dynamic
-                range of the image input is [0, 1], which is the standard mapping for floating point images.
-
+        net
+            Imagenet classifier network.
+        transform_input
+            If True, preprocesses the input according to the method with which it was trained on ImageNet.
+        normalize_input
+            Normalize input of the imagenet classifier inside the network
+            instead of requiring it to be done beforehand in a preprocessing step. If set to true, the dynamic
+            range of the image input is [0, 1], which is the standard mapping for floating point images.
         """
         super().__init__()
         self.normalize_input = normalize_input
@@ -63,19 +60,21 @@ class ImagenetClassifier(BaseModel):
         self.net = net
 
     # Type annotation on image_tensor causes aimet onnx export failure
-    def forward(self, image_tensor):
+    def forward(self, image_tensor: torch.Tensor) -> torch.Tensor:
         """
         Predict class probabilities for an input `image`.
 
         Parameters
         ----------
-            image: A [1, 3, 224, 224] image.
-                   Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
-                   3-channel Color Space: RGB
+        image_tensor
+            A [1, 3, 224, 224] image.
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        class_log_likelihoods
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """
@@ -105,10 +104,6 @@ class ImagenetClassifier(BaseModel):
 
     @staticmethod
     def get_input_spec(batch_size: int = 1) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm® AI Hub Workbench.
-        """
         return {
             "image_tensor": ((batch_size, 3, IMAGENET_DIM, IMAGENET_DIM), "float32")
         }

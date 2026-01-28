@@ -137,17 +137,18 @@ class RTMPosebody2dApp:
 
         Parameters
         ----------
-            encoded (Tuple[np.ndarray, np.ndarray]): SimCC labels for x-axis
-                and y-axis
-            simcc_x (np.ndarray): SimCC label for x-axis
-            simcc_y (np.ndarray): SimCC label for y-axis
+        pred_x
+            SimCC label for x-axis.
+        pred_y
+            SimCC label for y-axis.
 
         Returns
         -------
-            tuple:
-            - keypoints (np.ndarray): Decoded coordinates in shape (N, K, D)
-            - socres (np.ndarray): The keypoint scores in shape (N, K).
-                It usually represents the confidence of the keypoint prediction
+        keypoints
+            Decoded coordinates in shape (N, K, D).
+        scores
+            The keypoint scores in shape (N, K).
+            It usually represents the confidence of the keypoint prediction.
         """
         keypoints, scores = get_simcc_maximum(pred_x, pred_y)
         if keypoints.ndim == 2:
@@ -160,32 +161,33 @@ class RTMPosebody2dApp:
     def predict_pose_keypoints(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
-        raw_output=False,
+        raw_output: bool = False,
     ) -> np.ndarray | list[Image]:
         """
         Predicts pose keypoints for a person in the image.
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is true, returns:
-                keypoints: np.ndarray, shape [B, N, 2]
-                    Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
+        If raw_output is True, returns:
+        keypoints
+            np.ndarray, shape [B, N, 2].
+            Numpy array of keypoints within the images. Each keypoint is an (x, y) pair of coordinates within the image.
 
-            Otherwise, returns:
-                predicted_images: list[PIL.Image]
-                    Images with keypoints drawn.
+        If raw_output is False, returns:
+        predicted_images
+            list[PIL.Image].
+            Images with keypoints drawn.
         """
         # Preprocess image to get data required for post processing
         NHWC_int_numpy_frames, _ = app_to_net_image_inputs(pixel_values_or_image)

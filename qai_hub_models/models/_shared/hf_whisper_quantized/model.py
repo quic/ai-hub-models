@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import os
 
+from typing_extensions import Self
+
 # isort: off
 # This verifies aimet is installed, and this must be included first.
 from qai_hub_models.utils.onnx.helpers import (
@@ -59,7 +61,10 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
 
         Parameters
         ----------
-            sim_model (QuantizationSimModel): The quantization simulation model.
+        config
+            The Whisper configuration.
+        sim_model
+            The quantization simulation model.
         """
         HfWhisperEncoder.__init__(self, config)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
@@ -72,17 +77,19 @@ class WhisperEncoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperEncoder)
     def from_pretrained(
         cls,
         aimet_encodings: str | os.PathLike | None = "DEFAULT",
-    ) -> WhisperEncoderQuantizableBase:
+    ) -> Self:
         """
         Creates a WhisperEncoderQuantizableBase instance from a pre-trained model.
 
         Parameters
         ----------
-            aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
+        aimet_encodings
+            The AIMET encodings. Defaults to "DEFAULT".
 
         Returns
         -------
-            WhisperEncoderQuantizableBase: The created instance.
+        Self
+            The created instance.
         """
         fp_encoder = cls.make_torch_model()
         aimet_encodings_path = aimet_encodings
@@ -166,7 +173,10 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
 
         Parameters
         ----------
-            sim_model (QuantizationSimModel): The quantization simulation model.
+        config
+            The Whisper configuration.
+        sim_model
+            The quantization simulation model.
         """
         HfWhisperDecoder.__init__(self, config)
         AIMETOnnxQuantizableMixin.__init__(self, sim_model)
@@ -179,17 +189,19 @@ class WhisperDecoderQuantizableBase(AIMETOnnxQuantizableMixin, HfWhisperDecoder)
     def from_pretrained(
         cls,
         aimet_encodings: str | os.PathLike | None = "DEFAULT",
-    ) -> WhisperDecoderQuantizableBase:
+    ) -> Self:
         """
         Creates a WhisperDecoderQuantizableBase instance from a pre-trained model.
 
         Parameters
         ----------
-            aimet_encodings (str | None, optional): The AIMET encodings. Defaults to "DEFAULT".
+        aimet_encodings
+            The AIMET encodings. Defaults to "DEFAULT".
 
         Returns
         -------
-            WhisperDecoderQuantizableBase: The created instance.
+        Self
+            The created instance.
         """
         fp_decoder = cls.make_torch_model()
         aimet_encodings_path = aimet_encodings

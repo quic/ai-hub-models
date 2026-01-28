@@ -53,7 +53,7 @@ def llama_chat_demo(
     is_test: bool = False,
     available_target_runtimes: list[TargetRuntime] | None = None,
     bundled_kvcache: bool = True,
-):
+) -> None:
     """
     Shared Chat Demo App to generate output for provided input prompt
         model_cls: Model base class (either Prompt Processor or Token Generator)

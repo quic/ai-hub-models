@@ -11,6 +11,7 @@ import torch
 
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models._shared.qwen2.model import (
@@ -41,7 +42,7 @@ MODEL_ASSET_VERSION = 3
 MIN_MEMORY_RECOMMENDED = 60
 DEFAULT_PRECISION = Precision.w4
 SUPPORTED_PRECISIONS = [Precision.w4]
-DEFAULT_CHECKPOINT = {
+DEFAULT_CHECKPOINT: dict[Precision, str] = {
     Precision.w4: "qwen2515_ckpt_w4",
 }
 
@@ -81,21 +82,33 @@ class Qwen2_5_1_5B(Qwen2Base):
         """
         Load a pre-trained Qwen 2.5 (1.5B) model via HuggingFace.
 
-        checkpoint:
+        Parameters
+        ----------
+        checkpoint
             Local path or Hugging Face name of floating point checkpoint.
-        sequence_length:
+        sequence_length
             Instantiate with this token sequence length input. A longer
             sequence length means the model is capable of processing more
             tokens at once. This can only be set to greater than one to process
             prompts, since responses are auto-regressive in nature and require
             this to be 1.
-        context_length:
+        context_length
             Total context length of model. Longer context length means the
             model is more capable of making longer connections in the input
             prompt. However, it also hurts runtime performance (both time-to-
             first-token and tokens-per-second), so this is a tradeoff that may
             depend on the use case.
-        _skip_optimizations:
+        host_device
+            Device for host (CPU) operations.
+        load_pretrained
+            Whether to load pretrained weights.
+        _skip_optimizations
+            List of optimizations to skip.
+
+        Returns
+        -------
+        model
+            Instantiated model.
         """
         # Since we multiply the attention mask for Qwen, the default value has
         # issues so we use the Genie value for the unquantized variant too.
@@ -149,19 +162,39 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         precision: Precision = DEFAULT_PRECISION,
-        fp_model: torch.nn.Module | None = None,
+        fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Qwen2_5_1_5B_AIMETOnnx:
         """
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
-        Args:
+        Parameters
+        ----------
+        checkpoint
+            Path to previously calibrated AIMET encodings and ONNX
+            models. Note that encodings are sensitive to AIMET ONNX versions.
+            If passing None, initializes without encodings.
+        host_device
+            Device for host (CPU) operations.
+        sequence_length
+            Token sequence length for model input.
+        context_length
+            Total context length of model.
+        precision
+            Precision for quantization.
+        fp_model
+            Optional floating point model to use for ONNX model generation.
+        _skip_quantsim_creation
+            Whether to skip QuantSim creation.
 
-        - checkpoint: Path to previously calibrated AIMET encodings and ONNX
-          models. Note that encodings are sensitive to AIMET ONNX versions.
-          If passing None, initializes without encodings.
+        Returns
+        -------
+        model
+            Instantiated quantized model.
         """
+        if host_device is None:
+            host_device = torch.device("cpu")
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:
@@ -208,7 +241,7 @@ class Qwen2_5_1_5B_AIMETOnnx(Qwen2Base_AIMETOnnx):
 
     @staticmethod
     def get_output_names():
-        return Qwen2_5_1_5B_AIMETOnnx._get_output_names(NUM_LAYERS)
+        return Qwen2Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(
@@ -233,6 +266,6 @@ class Qwen2_5_1_5B_QNN(Qwen2Base_QNN):
 
     @staticmethod
     def get_output_names():
-        return Qwen2_5_1_5B_QNN._get_output_names(NUM_LAYERS)
+        return Qwen2Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Qwen2_5_1_5B.get_input_spec)

@@ -113,7 +113,7 @@ def _parse_export_result(
     return cast(dict[str | None, ExportResult], result.components)
 
 
-def _invalid_job_submission(*args, **kwargs) -> None:
+def _invalid_job_submission(*args: Any, **kwargs: Any) -> None:
     raise ValueError(
         "Attempted to submit a job when a cached job should have been present."
     )
@@ -137,7 +137,14 @@ def patch_hub_with_cached_jobs(
     patch_compile: bool = False,
     patch_profile: bool = False,
     patch_inference: bool = False,
-):
+) -> tuple[
+    mock._patch,
+    mock._patch | nullcontext,
+    mock._patch | nullcontext,
+    mock._patch | nullcontext,
+    mock._patch | nullcontext,
+    mock._patch | nullcontext,
+]:
     """
     Many tests use the export scripts to submit jobs.
     However, there is no path to break the export script into pieces; eg.
@@ -209,7 +216,7 @@ def patch_hub_with_cached_jobs(
     )
 
     if not is_hub_testing_async():
-        return (device_patch, *[nullcontext() for _ in range(5)])
+        return (device_patch, *[nullcontext() for _ in range(5)])  # type: ignore[arg-type,return-value]
     calibration_datas_to_patch: list[hub.Dataset] = []
     quantize_jobs_to_patch: list[hub.QuantizeJob] = []
     compile_jobs_to_patch: list[hub.CompileJob] = []
@@ -855,7 +862,6 @@ def export_test_e2e(
     component_names
         Name of all model components (if applicable), or None of there are no components.
         Default is None.
-
     """
     # Some scorecards will run without the profiling step.
     has_cached_profile_jobs = (
@@ -893,7 +899,8 @@ def export_test_e2e(
         tempfile.TemporaryDirectory() as tmpdir,
     ):
         skip_upload_to_s3 = (
-            get_qaihm_s3 is None
+            not scorecard_path.is_public
+            or get_qaihm_s3 is None
             or s3_multipart_upload is None
             or QAIHM_PRIVATE_S3_BUCKET is None
             or S3ArtifactsDirEnvvar.is_default()
@@ -1201,9 +1208,9 @@ def accuracy_on_sample_inputs_via_export(
         patch_inference=True,
     )
 
-    psnr_values = []
+    psnr_values: list[str] = []
 
-    def _mock_tabulate_fn(df, **kwargs) -> str:
+    def _mock_tabulate_fn(df: Any, **kwargs: Any) -> str:
         new_psnr_values, tabulate_results = mock_tabulate_fn(df)
         psnr_values.extend(new_psnr_values)
         return tabulate_results
@@ -1236,7 +1243,7 @@ def _get_dataset_cache_patch(
     dataset_name: str,
     scorecard_path: ScorecardProfilePath,
     model_cls: type[BaseModel | CollectionModel],
-):
+) -> mock._patch:
     # Patch input eval dataset to use a cached dataset if it exists
     dataset_dir = get_and_sync_datasets_cache_dir(
         scorecard_path.runtime.channel_last_native_execution,
@@ -1276,7 +1283,7 @@ def accuracy_on_dataset_via_evaluate_and_export(
     export_model: ExportFunc,
     model: BaseModel,
     dataset_name: str,
-    torch_val_outputs: np.ndarray,
+    torch_val_outputs: list[np.ndarray],
     torch_evaluate_mock_outputs: list[torch.Tensor | tuple[torch.Tensor, ...]],
     model_id: str,
     precision: Precision,
@@ -1433,9 +1440,9 @@ def accuracy_on_dataset_via_evaluate_and_export(
         patch_inference=True,
     )
 
-    psnr_values = []
+    psnr_values: list[str] = []
 
-    def _mock_tabulate_fn(df, **kwargs) -> str:
+    def _mock_tabulate_fn(df: Any, **kwargs: Any) -> str:
         new_psnr_values, tabulate_results = mock_tabulate_fn(df)
         psnr_values.extend(new_psnr_values)
         return tabulate_results

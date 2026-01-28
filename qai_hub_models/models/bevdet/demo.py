@@ -50,7 +50,7 @@ INPUTS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     parser = get_model_cli_parser(BEVDet)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     args = parser.parse_args([] if is_test else None)

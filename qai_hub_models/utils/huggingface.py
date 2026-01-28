@@ -11,7 +11,6 @@ from pathlib import Path
 
 from huggingface_hub import HfApi, HfFileSystem, hf_hub_download, hf_hub_url
 from huggingface_hub.utils import GatedRepoError
-from packaging import version
 
 from qai_hub_models._version import __version__
 from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, ModelZooAssetConfig
@@ -138,17 +137,3 @@ def has_model_access(repo_name: str, repo_url: str | None = None) -> bool:
 
     # Model is accesible for current User.
     return True
-
-
-def ensure_has_required_transformer(least_expected_version: str):
-    # import transformer as part of this function
-    # to avoid leaking installation globally on file import.
-    # NOTE: #10761 this function should not be required once AIMET (https://pypi.org/project/aimet-torch/)
-    # remove tight dependency on transformers.
-    import transformers
-
-    if version.parse(transformers.__version__) < version.parse(least_expected_version):
-        raise RuntimeError(
-            f"Installed transformers version not supported. Expected >= {least_expected_version}, got {transformers.__version__!s}\n"
-            f"Please run `pip install transformers=={least_expected_version}`"
-        )

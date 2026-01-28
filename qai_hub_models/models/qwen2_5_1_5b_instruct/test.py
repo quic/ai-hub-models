@@ -56,6 +56,7 @@ from qai_hub_models.utils.testing_export_eval import compile_via_export
 DEFAULT_EVAL_SEQLEN = 2048
 
 
+@pytest.mark.nightly
 @pytest.mark.unmarked
 def test_create_genie_config():
     context_length = 1024
@@ -222,76 +223,42 @@ def test_load_encodings_to_quantsim(checkpoint):
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    ("task", "expected_metric", "num_samples"),
+    ("checkpoint", "task", "expected_metric", "num_samples"),
     [
-        ("wikitext", 10.58, 0),
-        ("mmlu", 0.554, 1000),
+        pytest.param("DEFAULT", "wikitext", 10.58, 0, marks=pytest.mark.nightly),
+        ("DEFAULT", "mmlu", 0.554, 1000),
+        ("DEFAULT_UNQUANTIZED", "wikitext", 10.324, 0),
+        ("DEFAULT_UNQUANTIZED", "tiny_mmlu", 0.61, 0),
     ],
 )
-def test_evaluate_default(
+def test_evaluate(
+    checkpoint: str,
     task: str,
     expected_metric: float,
     num_samples: int,
 ) -> None:
     cleanup()
-    checkpoint = "DEFAULT"
+    is_unquantized = checkpoint == "DEFAULT_UNQUANTIZED"
+    extra_kwargs = (
+        {"_skip_quantsim_creation": False, "fp_model": None} if is_unquantized else {}
+    )
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
-        skip_fp_model_eval=True,
+        skip_fp_model_eval=not is_unquantized,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
             context_length=DEFAULT_CONTEXT_LENGTH,
+            **extra_kwargs,
         ),
     )
     log_evaluate_test_result(
         model_name=MODEL_ID,
-        checkpoint="DEFAULT_W4",
-        metric=task,
-        value=actual_metric,
-    )
-    np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.evaluate
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-@pytest.mark.parametrize(
-    ("task", "expected_metric", "num_samples"),
-    [
-        ("wikitext", 10.324, 0),
-        ("tiny_mmlu", 0.61, 0),
-    ],
-)
-def test_evaluate_default_unquantized(
-    task: str,
-    expected_metric: float,
-    num_samples: int,
-) -> None:
-    cleanup()
-    checkpoint = "DEFAULT_UNQUANTIZED"
-    actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=FP_Model,
-        qnn_model_cls=QNN_Model,
-        num_samples=num_samples,
-        task=task,
-        kwargs=dict(
-            _skip_quantsim_creation=False,
-            checkpoint=checkpoint,
-            sequence_length=DEFAULT_EVAL_SEQLEN,
-            context_length=DEFAULT_CONTEXT_LENGTH,
-            fp_model=None,
-        ),
-    )
-    log_evaluate_test_result(
-        model_name=MODEL_ID,
-        checkpoint=checkpoint,
+        checkpoint="DEFAULT_W4" if checkpoint == "DEFAULT" else checkpoint,
         metric=task,
         value=actual_metric,
     )
@@ -330,7 +297,6 @@ def test_compile(
     device: ScorecardDevice,
 ) -> None:
     cleanup()
-    genie_bundle_path = f"genie_bundle/{MODEL_ID}/{device.name}_{precision}"
     compile_via_export(
         export_model,
         MODEL_ID,
@@ -364,11 +330,9 @@ def test_compile(
         test.GENIE_BUNDLES_ROOT,
         MODEL_ID,
     )
-    assert os.path.exists(os.path.join(genie_bundle_path, "tokenizer.json"))
-    assert os.path.exists(os.path.join(genie_bundle_path, "genie_config.json"))
-    assert os.path.exists(
-        os.path.join(genie_bundle_path, "htp_backend_ext_config.json")
-    )
+    assert (genie_bundle_path / "tokenizer.json").exists()
+    assert (genie_bundle_path / "genie_config.json").exists()
+    assert (genie_bundle_path / "htp_backend_ext_config.json").exists()
 
 
 @pytest.mark.skipif(
@@ -398,21 +362,23 @@ def test_qdc(
     )
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
-    if not os.path.exists(os.path.join(genie_bundle_path, "genie_config.json")):
+    if not (genie_bundle_path / "genie_config.json").exists():
         pytest.fail("The genie bundle does not exist.")
-    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+    from qai_hub_models.utils.qdc.genie_jobs import (
+        submit_genie_bundle_to_qdc_device,
+    )
 
     qdc_job_name = f"Genie {MODEL_ID} {precision}"
     tps, min_ttft = submit_genie_bundle_to_qdc_device(
         os.environ["QDC_API_TOKEN"],
         device.reference_device.name,
-        genie_bundle_path,
+        str(genie_bundle_path),
         job_name=qdc_job_name,
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
         model_name=MODEL_ID,
-        precision=precision,
+        precision=str(precision),
         device=device.name,
         tps=tps,
         ttft=min_ttft,

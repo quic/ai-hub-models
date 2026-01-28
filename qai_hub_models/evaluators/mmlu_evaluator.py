@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import torch
 from torch.nn import functional as F
 from tqdm import tqdm
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizerBase
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.evaluators.base_evaluators import (
@@ -36,8 +36,8 @@ class MMLUEvaluator(BaseEvaluator):
         self,
         context_length: int,
         device: torch.device,
-        tokenizer: PreTrainedTokenizer,
-    ):
+        tokenizer: PreTrainedTokenizerBase,
+    ) -> None:
         self.context_length = context_length
         self.device = device
         self.choices = self._get_choices(tokenizer)
@@ -55,9 +55,9 @@ class MMLUEvaluator(BaseEvaluator):
 
     @staticmethod
     def _get_choices(
-        tokenizer: PreTrainedTokenizer,
+        tokenizer: PreTrainedTokenizerBase,
     ) -> torch.Tensor:
-        def tokenize_letter(letter: str):
+        def tokenize_letter(letter: str) -> torch.Tensor:
             return tokenizer(letter, add_special_tokens=False, return_tensors="pt")[
                 "input_ids"
             ][0, -1:]
@@ -76,7 +76,7 @@ class MMLUEvaluator(BaseEvaluator):
         self,
         output: CausalLMOutputWithPast,
         gt: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         is_distance = isinstance(gt, tuple)
         if is_distance:
             self.kldiv_evaluator.add_batch(output, gt)
@@ -158,7 +158,7 @@ class MMLUEvaluator(BaseEvaluator):
 
             self.neg_log_likelihood_fp += float(-logsoft_fp[-1, gt])
 
-    def reset(self):
+    def reset(self) -> None:
         self.kldiv_evaluator.reset()
 
         # Competency metrics (Q)
@@ -268,18 +268,22 @@ class MMLUEvaluator(BaseEvaluator):
 
     def add_from_dataset(
         self,
-        generator: LLM_Generator,
+        model: torch.nn.Module,
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
+        from qai_hub_models.models._shared.llm.generator import LLM_Generator
+
+        assert isinstance(model, LLM_Generator), "This evaluator only works on LLMs"
+
         def _add_batch(
             _: list[torch.Tensor],
             outputs: CausalLMOutputWithPast,
             ground_truth: torch.Tensor,
-        ):
+        ) -> None:
             self.add_batch(outputs, ground_truth)
 
-        self.for_each_batch(generator, data, eval_iterations, _add_batch)
+        self.for_each_batch(model, data, eval_iterations, _add_batch)
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(

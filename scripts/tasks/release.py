@@ -35,7 +35,7 @@ class CreateReleaseVenv(CompositeTask):
         self,
         venv_path: str | os.PathLike,
         python_executable: str | None = None,
-    ):
+    ) -> None:
         tasks = []
         self.venv_path = str(venv_path)
         # Create Venv
@@ -56,7 +56,7 @@ class CreateReleaseVenv(CompositeTask):
 class BuildPublicRepositoryTask(CompositeTask):
     """Create a public version of the repository."""
 
-    def __init__(self, venv: str | None, repo_output_dir: str | os.PathLike):
+    def __init__(self, venv: str | None, repo_output_dir: str | os.PathLike) -> None:
         tasks = []
 
         # Setup output directories
@@ -84,7 +84,7 @@ class PushRepositoryTask(CompositeTask):
     If no directory is provided, assumes the release directory defined above.
     """
 
-    def __init__(self, repo_dir: str | os.PathLike):
+    def __init__(self, repo_dir: str | os.PathLike) -> None:
         tasks = []
 
         # Remote URL
@@ -170,7 +170,7 @@ class BuildWheelTask(CompositeTask):
         repo_dir: str | os.PathLike,  # Dir with setup.py
         wheel_dir: str | os.PathLike | None = None,  # Dir to build wheel
         overwrite_if_exists: bool = True,
-    ):
+    ) -> None:
         tasks = []
 
         # Build Wheel
@@ -206,7 +206,7 @@ class PublishWheelTask(CompositeTask):
     If no directory is provided, assumes the release directory defined above.
     """
 
-    def __init__(self, wheel_dir: str | os.PathLike, venv: str):
+    def __init__(self, wheel_dir: str | os.PathLike, venv: str) -> None:
         tasks = []
 
         pypi = os.environ.get(PYPI_VARNAME, None)

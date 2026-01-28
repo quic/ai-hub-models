@@ -111,28 +111,31 @@ class MediaPipeHandApp(MediaPipeApp):
 
         Parameters
         ----------
+        pixel_values_or_image
+            See parent function documentation.
+        raw_output
             See parent function documentation.
 
         Returns
         -------
-            See parent function documentation for generic return values.
+        See parent function documentation for generic return values.
 
-            If raw_output is false, returns an additional output:
+        If raw_output is false, returns an additional output:
 
-                batched_is_right_hand: list[list[bool]]]
-                    Whether each landmark represents a right (True) or left (False) hand.
-                    Organized like the following:
-                    [
-                        # Batch 0 (for Input Image 0)
-                        [
-                            True (for Selected Landmark 1)
-                            False (Selected Landmark 2)
-                            ...
-                        ]
-                        # Batch 1 (for Input Image 1)
-                        [] # (this image has no detected palm)
-                        ...
-                    ]
+        batched_is_right_hand
+            Whether each landmark represents a right (True) or left (False) hand.
+            Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                [
+                    True (for Selected Landmark 1)
+                    False (Selected Landmark 2)
+                    ...
+                ]
+                # Batch 1 (for Input Image 1)
+                [] # (this image has no detected palm)
+                ...
+            ]
         """
         return super().predict_landmarks_from_image(pixel_values_or_image, raw_output)  # type: ignore[return-value]
 

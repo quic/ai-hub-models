@@ -32,13 +32,15 @@ class DepthAnythingV2(DepthEstimationModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            depth : Shape [batch, 1, 518, 518]
+        depth_map
+            Depth map with shape [batch, 1, 518, 518].
         """
         image = normalize_image_torchvision(image)
         out = self.model(image, return_dict=False)
@@ -63,11 +65,3 @@ class DepthAnythingV2(DepthEstimationModel):
         if "--range_scheme" in options:
             return options
         return options + " --range_scheme min_max"
-
-    @staticmethod
-    def eval_datasets() -> list[str]:
-        return ["nyuv2x518"]
-
-    @staticmethod
-    def calibration_dataset_name() -> str:
-        return "nyuv2x518"

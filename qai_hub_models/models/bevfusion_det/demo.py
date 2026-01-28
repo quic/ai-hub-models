@@ -49,7 +49,7 @@ INPUTS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     # Parse arguments
     parser = get_model_cli_parser(BEVFusion)
 

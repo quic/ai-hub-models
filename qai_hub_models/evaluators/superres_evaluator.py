@@ -15,11 +15,11 @@ from qai_hub_models.utils.compare import compute_psnr
 class SuperResolutionOutputEvaluator(BaseEvaluator):
     """Evaluator for comparing a batched image output."""
 
-    def __init__(self):
-        self.psnr_list = []
+    def __init__(self) -> None:
+        self.psnr_list: list[float] = []
         self.reset()
 
-    def _rgb_to_yuv(self, img):
+    def _rgb_to_yuv(self, img: np.ndarray) -> np.ndarray:
         # Convert to YUV as this is closer to human perception,
         # so PSNR will be more meaningful
         # Source:
@@ -27,7 +27,7 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
         rgb_weights = np.array([65.481, 128.553, 24.966])
         return np.matmul(img, rgb_weights) + 16.0
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor) -> None:
         assert gt.shape == output.shape
 
         output = output.detach()
@@ -47,7 +47,7 @@ class SuperResolutionOutputEvaluator(BaseEvaluator):
             psnr = compute_psnr(pred, truth, data_range=255)
             self.psnr_list.append(psnr)
 
-    def reset(self):
+    def reset(self) -> None:
         self.psnr_list = []
 
     def compute_average_psnr(self) -> float:

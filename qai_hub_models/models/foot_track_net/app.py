@@ -48,14 +48,23 @@ def restructure_topk(scores: torch.Tensor, K: int = 20) -> tuple[torch.Tensor, .
 
     Parameters
     ----------
-        scores:  the heatmap scores in flat shape
-        K: how many top k to be kept.
-    return:
-        topk_scores: the scorse list for the top k.
-        topk_inds: the index list for the top k.
-        topk_clses: the class list for the top k.
-        topk_ys: the y coordinate list for the top k.
-        topk_xs: the x coordinate list for the top k.
+    scores
+        The heatmap scores in flat shape
+    K
+        How many top k to be kept.
+
+    Returns
+    -------
+    topk_scores
+        The scorse list for the top k.
+    topk_inds
+        The index list for the top k.
+    topk_clses
+        The class list for the top k.
+    topk_ys
+        The y coordinate list for the top k.
+    topk_xs
+        The x coordinate list for the top k.
     """
     batch, cat, height, width = scores.size()
 
@@ -89,11 +98,16 @@ class BBox_landmarks:
 
         Parameters
         ----------
-            label:str the class label
-            xyrb: 4 array or list for bbox left, top,  right bottom coordinates
-            score: the score of the detection
-            landmark: 17x2 the landmark of the joints [[x1,y1], [x2,y2]...]
-            vis: 17 the visiblity of the joints.
+        label
+            The class label
+        xyrb
+            4 array or list for bbox left, top, right bottom coordinates
+        score
+            The score of the detection
+        landmark
+            17x2 the landmark of the joints [[x1,y1], [x2,y2]...]
+        vis
+            17 the visiblity of the joints.
         """
         self.label = label
         self.score = score
@@ -182,10 +196,18 @@ def nms_bbox_landmark(
 ) -> list[BBox_landmarks]:
     """
     Nms function customized to work on the BBox_landmarks objects list.
-    parameter:
-        objs: the list of the BBox_landmarks objects.
-    return:
-        the rest of the BBox_landmarks after nms operation.
+
+    Parameters
+    ----------
+    objs
+        The list of the BBox_landmarks objects.
+    iou
+        IOU threshold for NMS.
+
+    Returns
+    -------
+    nms_result
+        The rest of the BBox_landmarks after nms operation.
     """
     if objs is None or len(objs) <= 1:
         return objs
@@ -221,16 +243,25 @@ def detect_images_multiclass_fb(
 
     Parameters
     ----------
-        output_hm: N,C,H,W the model heatmap output.
-        output_tlrb: N,12,H,W the model bbox output.
-        output_landmark: N,34,H,W the model output_landmark output.
-        vis: N,17,H,W the model visiblity output
-        threshold: 3 the threshold for each class.
-        stride: the stride of the output map comparing to input.
-        n_lmk: the landmark number.
-    return:
-        detection result: list[BBox_landmarks]
+    output_hm
+        N,C,H,W the model heatmap output.
+    output_tlrb
+        N,12,H,W the model bbox output.
+    output_landmark
+        N,34,H,W the model output_landmark output.
+    vis
+        N,17,H,W the model visiblity output
+    threshold
+        3 the threshold for each class.
+    stride
+        The stride of the output map comparing to input.
+    n_lmk
+        The landmark number.
 
+    Returns
+    -------
+    detection_result
+        Detection result.
     """
     if threshold is None:
         threshold = [0.7, 0.7, 0.7]
@@ -327,12 +358,25 @@ def postprocess(
 
     Parameters
     ----------
-        output: N,C,H,W the model heatmap/bbox/output_landmark/visiblity output.
-        threshold: 3 the threshold for each class.
-        iou_thr: 3 the iou threshold for each class.
-    return:
-        face result: list[BBox_landmarks]
-        person result: list[BBox_landmarks]
+    heatmap
+        N,C,H,W the model heatmap output.
+    bbox
+        N,C,H,W the model bbox output.
+    landmark
+        N,C,H,W the model output_landmark output.
+    landmark_visibility
+        N,C,H,W the model visiblity output.
+    threshhold
+        3 the threshold for each class.
+    iou_thr
+        3 the iou threshold for each class.
+
+    Returns
+    -------
+    objs_face
+        Face result list[BBox_landmarks]
+    objs_person
+        Person result list[BBox_landmarks]
     """
     stride = 4
     num_landmarks = 17
@@ -366,11 +410,15 @@ def undo_resize_pad_bbox(bbox: BBox_landmarks, scale: float, padding: tuple[int,
     """
     Undo the resize and pad in place of the BBox_landmarks object.
     operation in place to replace the inner coordinates
-    Parameters:
-        scale: single scale from original to target image.
-        pad: left, top padding size
-    Return:
-        None.
+
+    Parameters
+    ----------
+    bbox
+        The BBox_landmarks object to modify.
+    scale
+        Single scale from original to target image.
+    padding
+        Left, top padding size
     """
     if bbox.landmark is not None:
         for lmk in bbox.landmark:
@@ -402,12 +450,17 @@ class FootTrackNet_App:
             tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
         ],
         compiled_image_input_size: tuple[int, int] | None = None,
-        if_norm=True,
+        if_norm: bool = True,
     ):
         """
-        model: the input model
-        compiled_image_input_size: model input size (H, W)
-        if_norm: if do the image normalization
+        Parameters
+        ----------
+        model
+            The input model
+        compiled_image_input_size
+            Model input size (H, W)
+        if_norm
+            If do the image normalization
         """
         self.model = model
         self.threshhold = [0.6, 0.7, 0.7]  # threshold for each detector, 0.6 original
@@ -461,17 +514,19 @@ class FootTrackNet_App:
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
+        pixel_values_or_image
+            PIL image
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
 
         Returns
         -------
-            objs_face: a list of BBox_landmarks for face  list[BBox_landmarks]
-            objs_person: a list of BBox_landmarks for person  list[BBox_landmarks]
+        objs_face
+            A list of BBox_landmarks for face
+        objs_person
+            A list of BBox_landmarks for person
         """
         _, objs_face, objs_person = self._predict_bbox_landmarks(pixel_values_or_image)
         return objs_face, objs_person
@@ -484,15 +539,16 @@ class FootTrackNet_App:
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
+        pixel_values_or_image
+            PIL image
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both BGR channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), BGR channel layout
 
         Returns
         -------
+        annotated_image
             PIL Image with boxes & landmarks drawn.
         """
         NHWC_int_numpy_frames, objs_face, objs_person = self._predict_bbox_landmarks(

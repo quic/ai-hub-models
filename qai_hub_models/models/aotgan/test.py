@@ -19,7 +19,7 @@ OUTPUT_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 
 @skip_clone_repo_check
-def test_task():
+def test_task() -> None:
     app = RepaintMaskApp(AOTGAN.from_pretrained())
 
     img = load_image(IMAGE_ADDRESS)
@@ -38,7 +38,7 @@ def test_task():
 
 @pytest.mark.trace
 @skip_clone_repo_check
-def test_trace():
+def test_trace() -> None:
     net = AOTGAN.from_pretrained()
     input_spec = net.get_input_spec()
     trace = net.convert_to_torchscript(input_spec)
@@ -59,6 +59,6 @@ def test_trace():
 
 
 @skip_clone_repo_check
-def test_demo():
+def test_demo() -> None:
     # Run demo and verify it does not crash
     demo_main(is_test=True)

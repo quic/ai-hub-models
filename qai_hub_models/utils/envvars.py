@@ -13,5 +13,5 @@ class IsOnCIEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "If set, acts as if the script is running in CI."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False

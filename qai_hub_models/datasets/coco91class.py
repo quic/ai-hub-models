@@ -20,5 +20,5 @@ class Coco91ClassDataset(CocoDataset):
         max_boxes: int = 100,
         num_samples: int = 5000,
         use_all_classes: CocoDatasetClass = CocoDatasetClass.ALL_CLASSES,
-    ):
+    ) -> None:
         super().__init__(split, input_spec, max_boxes, num_samples, use_all_classes)

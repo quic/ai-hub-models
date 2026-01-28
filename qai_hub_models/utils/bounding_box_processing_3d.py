@@ -14,6 +14,51 @@ import torch
 from qai_hub_models.extern.numba import njit, prange
 
 
+def compute_iou_3d_rotated(box1: np.ndarray, box2: np.ndarray) -> float:
+    """
+    Computes the 3D Intersection over Union (IoU) between two rotated bounding boxes.
+
+    This simplified implementation assumes the boxes are axis-aligned and ignores rotation
+    for computational efficiency.
+
+    Parameters
+    ----------
+    box1
+        Array of shape (7,) representing a 3D bounding box:
+        [x, y, z, l, w, h, theta]
+        - x, y, z : Center coordinates
+        - l, w, h : Length, width, height
+        - theta : Rotation angle (ignored)
+    box2
+        Array of shape (7,) representing another 3D bounding box in the same format as box1.
+
+    Returns
+    -------
+    IoU
+        IoU value between 0.0 and 1.0.
+    """
+    x1, y1, z1, l1, w1, h1, _ = box1
+    x2, y2, z2, l2, w2, h2, _ = box2
+
+    # Compute min and max corners of both boxes
+    min1 = [x1 - l1 / 2, y1 - w1 / 2, z1 - h1 / 2]
+    max1 = [x1 + l1 / 2, y1 + w1 / 2, z1 + h1 / 2]
+    min2 = [x2 - l2 / 2, y2 - w2 / 2, z2 - h2 / 2]
+    max2 = [x2 + l2 / 2, y2 + w2 / 2, z2 + h2 / 2]
+
+    # Compute intersection box
+    inter_min = np.maximum(min1, min2)
+    inter_max = np.minimum(max1, max2)
+    inter_dims = np.maximum(inter_max - inter_min, 0)
+    inter_volume = np.prod(inter_dims)
+
+    # Compute volumes
+    vol1 = l1 * w1 * h1
+    vol2 = l2 * w2 * h2
+    union_volume = vol1 + vol2 - inter_volume
+    return inter_volume / union_volume if union_volume > 0 else 0.0
+
+
 def compute_box_3d(
     dim: np.ndarray, location: np.ndarray, rotation_y: float
 ) -> np.ndarray:

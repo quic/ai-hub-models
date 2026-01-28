@@ -34,7 +34,7 @@ class eg1800SegmentationDataset(BaseDataset):
         self,
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.eg1800_path = eg1880_ASSET.path(extracted=True)
 
         BaseDataset.__init__(self, self.eg1800_path, split)
@@ -70,7 +70,7 @@ class eg1800SegmentationDataset(BaseDataset):
 
         return True
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         orig_image = Image.open(self.images[index]).convert("RGB")
         orig_gt = Image.open(self.categories[index]).convert("L")
 
@@ -84,7 +84,7 @@ class eg1800SegmentationDataset(BaseDataset):
         target = torch.from_numpy((gt_array > 0).astype(np.float32))
         return img_tensor, target
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _download_data(self) -> None:

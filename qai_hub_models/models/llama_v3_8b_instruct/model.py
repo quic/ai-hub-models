@@ -19,6 +19,7 @@ from qai_hub_models.models._shared.llama3.model import (
 )
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
@@ -146,9 +147,11 @@ class Llama3_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         precision: Precision = DEFAULT_PRECISION,
-        fp_model: torch.nn.Module | None = None,
+        fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_8B_AIMETOnnx:
+        if host_device is None:
+            host_device = torch.device("cpu")
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:
@@ -220,6 +223,6 @@ class Llama3_8B_QNN(Llama3Base_QNN):
 
     @staticmethod
     def get_output_names():
-        return Llama3_8B_QNN._get_output_names(NUM_LAYERS)
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Llama3_8B.get_input_spec)

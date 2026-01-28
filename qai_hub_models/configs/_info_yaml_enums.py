@@ -229,7 +229,7 @@ class MODEL_USE_CASE(Enum):
     # LLM: 400 - 499
     TEXT_GENERATION = "Text Generation"
 
-    def map_to_hf_pipeline_tag(self):
+    def map_to_hf_pipeline_tag(self) -> str:
         """Map our usecase to pipeline-tag used by huggingface."""
         if self.name in {"IMAGE_EDITING", "SUPER_RESOLUTION"}:
             return "image-to-image"

@@ -307,34 +307,36 @@ class QAIHMModelInfo(BaseQAIHMConfig):
 
         return self
 
-    def get_package_name(self):
+    def get_package_name(self) -> str:
         return f"{QAIHM_PACKAGE_NAME}.{MODELS_PACKAGE_NAME}.{self.id}"
 
-    def get_package_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_package_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return _get_qaihm_models_root(root) / self.id
 
-    def get_model_definition_path(self):
+    def get_model_definition_path(self) -> str:
         return os.path.join(
             ASSET_CONFIG.get_qaihm_repo(self.id, relative=False), "model.py"
         )
 
-    def get_demo_path(self):
+    def get_demo_path(self) -> str:
         return os.path.join(
             ASSET_CONFIG.get_qaihm_repo(self.id, relative=False), "demo.py"
         )
 
-    def get_labels_file_path(self):
+    def get_labels_file_path(self) -> str | None:
         if self.labels_file is None:
             return None
         return ASSET_CONFIG.get_labels_file_path(self.labels_file)
 
-    def get_info_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_info_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "info.yaml"
 
-    def get_hf_pipeline_tag(self):
+    def get_hf_pipeline_tag(self) -> str:
         return self.use_case.map_to_hf_pipeline_tag()
 
-    def get_hugging_face_metadata(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_hugging_face_metadata(
+        self, root: Path = QAIHM_PACKAGE_ROOT
+    ) -> dict[str, str | list[str]]:
         # Get the metadata for huggingface model cards.
         hf_metadata: dict[str, str | list[str]] = {}
         hf_metadata["library_name"] = "pytorch"
@@ -349,7 +351,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         hf_metadata["pipeline_tag"] = self.get_hf_pipeline_tag()
         return hf_metadata
 
-    def get_model_details(self):
+    def get_model_details(self) -> str:
         # Model details.
         details = (
             "- **Model Type:** "
@@ -360,25 +362,25 @@ class QAIHMModelInfo(BaseQAIHMConfig):
             details += f"\n  - {name}: {val}"
         return details
 
-    def get_perf_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_perf_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "perf.yaml"
 
-    def get_code_gen_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_code_gen_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "code-gen.yaml"
 
-    def get_release_assets_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_release_assets_yaml_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "release-assets.yaml"
 
-    def get_readme_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_readme_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "README.md"
 
-    def get_hf_model_card_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_hf_model_card_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "HF_MODEL_CARD.md"
 
-    def get_requirements_path(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def get_requirements_path(self, root: Path = QAIHM_PACKAGE_ROOT) -> Path:
         return self.get_package_path(root) / "requirements.txt"
 
-    def has_model_requirements(self, root: Path = QAIHM_PACKAGE_ROOT):
+    def has_model_requirements(self, root: Path = QAIHM_PACKAGE_ROOT) -> bool:
         return os.path.exists(self.get_requirements_path(root))
 
     def get_web_url(self, website_url: str = ASSET_CONFIG.models_website_url) -> str:
@@ -397,7 +399,7 @@ class QAIHMModelInfo(BaseQAIHMConfig):
         info.code_gen_config = QAIHMModelCodeGen.from_model(model_id)
         return info
 
-    def to_model_yaml(self, write_code_gen=True) -> tuple[Path, Path | None]:
+    def to_model_yaml(self, write_code_gen: bool = True) -> tuple[Path, Path | None]:
         info_path = QAIHM_MODELS_ROOT / self.id / "info.yaml"
         code_gen_path = None
         self.to_yaml(

@@ -92,7 +92,7 @@ def get_python_import_expression(filepath: str) -> str:
     return rel_path.replace("/", ".")
 
 
-def _get_file_edges(filename) -> set[str]:
+def _get_file_edges(filename: str) -> set[str]:
     """Resolve which files directly import from `filename`."""
     file_import = get_python_import_expression(filename)
     grep_out = run_and_get_output(

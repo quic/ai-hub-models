@@ -10,13 +10,19 @@ Llama3.2-3b-chat
 Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import piqaro
+
+if TYPE_CHECKING:
+    import onnx
 import torch
 from transformers import PretrainedConfig
 
@@ -125,7 +131,7 @@ if __name__ == "__main__":
             cls,
             sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
             context_length: int = DEFAULT_CONTEXT_LENGTH,
-            **kwargs,  # ignore precision and other args
+            **kwargs: Any,  # ignore precision and other args
         ) -> Llama3_2_3B:
             return cls(
                 checkpoint=HF_REPO_NAME,
@@ -165,7 +171,7 @@ if __name__ == "__main__":
         ) -> str | None:
             """Convert to a AI Hub Workbench source model appropriate for the export method."""
 
-            def apply_piqaro_onnx(onnx_model):
+            def apply_piqaro_onnx(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
                 import onnxsim
 
                 onnx_model, _ = onnxsim.simplify(onnx_model)

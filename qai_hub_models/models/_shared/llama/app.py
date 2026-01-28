@@ -23,7 +23,7 @@ from qai_hub_models.utils.inference import ExecutableModelProtocol, OnDeviceMode
 from qai_hub_models.utils.model_adapters import suppress_warnings
 
 
-def _get_tokens_from_logits(output: torch.Tensor):
+def _get_tokens_from_logits(output: torch.Tensor) -> torch.Tensor:
     probs = torch.nn.functional.softmax(output[0][0], dim=-1)
     return torch.multinomial(probs, num_samples=1).squeeze(1)
 
@@ -38,7 +38,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
         model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
-    ):
+    ) -> None:
         self.num_splits = num_splits
         self.is_token_generator = is_token_generator
         self.num_past_key_val_heads = num_past_key_val_heads
@@ -60,7 +60,7 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-    ):
+    ) -> tuple[torch.Tensor, ...]:
         out = None
         past_key_values = []
         for i in range(1, self.num_splits + 1):
@@ -87,8 +87,8 @@ class LlamaModelPipelineBase(CollectionModel, ExecutableModelProtocol):
         attention_mask: torch.Tensor,
         position_ids_cos: torch.Tensor,
         position_ids_sin: torch.Tensor,
-        *past_key_values,
-    ):
+        *past_key_values: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         past_key_values_new = []
         start_past_key_offset = 0
         out = None
@@ -161,7 +161,7 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
         model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
-    ):
+    ) -> None:
         super().__init__(
             len(hub_model_ids),
             num_past_key_val_heads,
@@ -186,7 +186,7 @@ class OnDeviceLlamaModelPipeline(LlamaModelPipelineBase):
             )
             self.models.append(hub_model)
 
-    def load_model_part(self, model_part: int):
+    def load_model_part(self, model_part: int) -> OnDeviceModel:
         model_index = model_part - 1
         if model_index < 0 or model_index > len(self.models):
             raise RuntimeError(
@@ -206,7 +206,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
         model_split_map: dict[int, tuple[int, int]],
         is_token_generator: bool = False,
         is_bundled_kvcache: bool = True,
-    ):
+    ) -> None:
         self.models = models
         self.num_splits = num_splits
         self.model_type = "TokenGenerator" if is_token_generator else "PromptProcessor"
@@ -218,7 +218,7 @@ class LlamaModelPipeline(LlamaModelPipelineBase):
             is_bundled_kvcache=is_bundled_kvcache,
         )
 
-    def load_model_part(self, model_part: int):
+    def load_model_part(self, model_part: int) -> BaseModel:
         if model_part < 1 or model_part > self.num_splits:
             raise RuntimeError(
                 f"ModelLlamaModelPipeline does not have requested model_part {model_part}."
@@ -246,7 +246,7 @@ class ChatApp:
         tokenizer: Any,
         end_tokens: set[str],
         num_past_key_val_heads: int,
-    ):
+    ) -> None:
         """
         Base ChatApp that generates one response for given input token.
 
@@ -272,7 +272,7 @@ class ChatApp:
         max_seq_len: int,
         max_output_tokens: int,
         bundled_kvcache: bool = True,
-    ):
+    ) -> None:
         input_prompt_processed = self.get_input_prompt_with_tags(
             user_input_prompt=input_prompt
         )

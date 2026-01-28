@@ -81,17 +81,17 @@ class CVT(BaseModel):
 
         Parameters
         ----------
-        image : torch.Tensor, shape [1, 6, 3, H, W]
-            Input image tensor for 6 cameras, with 3 color channels.
-        inv_intrinsics : torch.Tensor, shape [1, 6, 3, 3]
-            Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays.
-        inv_extrinsics : torch.Tensor, shape [1, 6, 4, 4]
-            Inverse extrinsics tensor mapping world coordinates to camera coordinates.
+        image
+            Input image tensor for 6 cameras, with 3 color channels, shape [1, 6, 3, H, W].
+        inv_intrinsics
+            Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays, shape [1, 6, 3, 3].
+        inv_extrinsics
+            Inverse extrinsics tensor mapping world coordinates to camera coordinates, shape [1, 6, 4, 4].
 
         Returns
         -------
-        torch.Tensor, shape [1, 1, 200, 200]
-            BEV heatmap tensor with predictions.
+        bev
+            BEV heatmap tensor with predictions, shape [1, 1, 200, 200].
         """
         out = self.model(
             {"image": image, "intrinsics": inv_intrinsics, "extrinsics": inv_extrinsics}

@@ -70,21 +70,19 @@ class RTMPosebody2d(BaseModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                    Range: float[0, 1]
-                    3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            -tuple[torch.Tensor, torch.Tensor]: A tuple containg:
-                -output 1: SimCC x- axis predictions with shaoe (N, 17, 384), where :
-                    N = batch size ,
-                    133 = Number of keypoints,
-                    384 = SimCC X-axis resolution.
-                -Output 2: Simcc Y-axis predictions with shape (N, 17, 512), where:
-                    N = batch size ,
-                    133 = Number of keypoints,
-                    512 = SimCC Y-axis resolution.
+        simcc_x
+            SimCC x-axis predictions with shape (N, 17, 384), where N = batch size,
+            17 = number of keypoints, and 384 = SimCC X-axis resolution.
+        simcc_y
+            SimCC Y-axis predictions with shape (N, 17, 512), where N = batch size,
+            17 = number of keypoints, and 512 = SimCC Y-axis resolution.
         """
         x = image[:, [2, 1, 0], ...]  # RGB -> BGR
         x = (x - self.pre_processor.mean) / self.pre_processor.std

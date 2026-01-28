@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import gc
+from typing import Any
 
 import torch
 
@@ -31,7 +32,7 @@ def quantize(
     checkpoint: str | None = None,
     use_seq_mse: bool = False,
     allow_cpu_to_quantize: bool = False,
-):
+) -> None:
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     if device.type != "cuda":
         if not allow_cpu_to_quantize:
@@ -44,14 +45,14 @@ def quantize(
             )
 
     # Create the floating point model
-    extra = dict(
+    extra: dict[str, Any] = dict(
         sequence_length=seq_len,
         context_length=context_length,
     )
     if checkpoint:
-        extra["checkpoint"] = checkpoint  # type: ignore[assignment]
+        extra["checkpoint"] = checkpoint
 
-    fp_model = fp_model_cls.from_pretrained(**extra).to(torch.device("cpu")).eval()  # type: ignore[arg-type]
+    fp_model = fp_model_cls.from_pretrained(**extra).to(torch.device("cpu")).eval()
     torch.cuda.empty_cache()
 
     model_quant = quantized_model_cls.from_pretrained(
@@ -94,7 +95,7 @@ def llm_quantize(
     model_id: str,
     supported_precisions: list[Precision],
     allow_cpu_to_quantize: bool = False,
-):
+) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--context-length",

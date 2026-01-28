@@ -26,6 +26,7 @@ from qai_hub.public_rest_api import DatasetEntries
 from qai_hub.util.dataset_entries_converters import dataset_entries_to_h5
 from torch.utils.data import DataLoader, Dataset, Sampler, random_split
 from tqdm import tqdm
+from typing_extensions import Self
 
 from qai_hub_models.datasets import (
     DATASET_NAME_MAP,
@@ -117,7 +118,7 @@ def write_entries_to_file(
 class EveryNSampler(Sampler):
     """Samples every N samples deterministically from a torch dataset."""
 
-    def __init__(self, n: int, num_samples: int):
+    def __init__(self, n: int, num_samples: int) -> None:
         self.n = n
         self.num_samples = num_samples
 
@@ -437,16 +438,18 @@ class DatasetFromIOTuples(Dataset):
         Tuple of ground truth tensors with batch dimension.
     """
 
-    def __init__(self, inputs: tuple[torch.Tensor, ...], gt: tuple[torch.Tensor, ...]):
+    def __init__(
+        self, inputs: tuple[torch.Tensor, ...], gt: tuple[torch.Tensor, ...]
+    ) -> None:
         self.curr_input = inputs
         self.curr_gt = gt
         super().__init__()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.curr_input[0].shape[0]
 
     def __getitem__(
-        self, index
+        self, index: int
     ) -> tuple[
         tuple[torch.Tensor, ...] | torch.Tensor, tuple[torch.Tensor, ...] | torch.Tensor
     ]:
@@ -486,7 +489,7 @@ class HubDataset(Dataset):
         input_names: list[str],
         channel_last_input: list[str] | None,
         input_spec: InputSpec,
-    ):
+    ) -> None:
         self.input_names = input_names
         folder_name = get_folder_name(dataset_name, input_spec)
         self.cache_path = get_dataset_cache_filepath(folder_name)
@@ -943,10 +946,10 @@ class EvalMode(Enum):
     ON_DEVICE = ("on-device", "physical device via AI Hub Workbench (slow)")
     LOCAL_DEVICE = ("local-device", "running on local device like X Elite")
 
-    def __new__(cls, value: str, description: str):
+    def __new__(cls, value: str, description: str) -> Self:
         # object.__new__ so we bypass Enum.__init__ machinery
         obj = object.__new__(cls)
-        obj._value_ = value  # this is the “real” .value
+        obj._value_ = value  # this is the "real" .value
         obj.description = description  # store your help-text
         return obj
 
@@ -955,7 +958,7 @@ class EvalMode(Enum):
         key = string.replace("-", "_").upper()
         return EvalMode[key]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.value
 
 

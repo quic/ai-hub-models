@@ -27,7 +27,7 @@ def detr_demo(
     default_weights: str,
     default_image: str | CachedWebAsset,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

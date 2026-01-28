@@ -133,32 +133,32 @@ class HRNetPoseApp:
     def predict_pose_keypoints(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
-        raw_output=False,
+        raw_output: bool = False,
     ) -> np.ndarray | list[Image]:
         """
         Predicts pose keypoints for a person in the image.
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is true, returns:
-                keypoints: np.ndarray, shape [B, N, 2]
-                    Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
+        If raw_output is True, returns:
+        keypoints
+            Numpy array of keypoints with shape [B, N, 2].
+            Each keypoint is an (x, y) pair of coordinates within the image.
 
-            Otherwise, returns:
-                predicted_images: list[PIL.Image]
-                    Images with keypoints drawn.
+        If raw_output is False, returns:
+        predicted_images
+            Images with keypoints drawn.
         """
         (NHWC_int_numpy_frames, proc_inputs, x) = self.preprocess_input(
             pixel_values_or_image

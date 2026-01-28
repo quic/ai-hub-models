@@ -45,11 +45,28 @@ def stable_diffusion_demo(
     use_controlnet: bool = False,
     default_prompt: str = DEFAULT_PROMPT,
     default_image: str | None = None,
-):
+) -> None:
     """
+    Run Stable Diffusion demo for generating images from text prompts.
+
     Parameters
     ----------
-        default_image is only used if use_controlnet is True
+    model_id
+        Identifier for the model.
+    model_cls
+        The StableDiffusion model class.
+    is_test
+        If True, run in test mode.
+    default_guidance_scale
+        Default guidance scale for generation.
+    default_num_steps
+        Default number of diffusion steps.
+    use_controlnet
+        Whether to use ControlNet for conditional generation.
+    default_prompt
+        Default text prompt for image generation.
+    default_image
+        Default image path (only used if use_controlnet is True).
     """
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(

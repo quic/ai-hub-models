@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import torch
-from transformers import PreTrainedTokenizerBase
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from qai_hub_models.datasets.common import BaseDataset, DatasetSplit
 
@@ -40,7 +40,7 @@ class BaseTrickyLLMPrompts(BaseDataset):
         context_length: int = 4096,
         split: DatasetSplit = DatasetSplit.TEST,
         num_samples: int = 0,
-    ):
+    ) -> None:
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
@@ -81,7 +81,7 @@ class BaseTrickyLLMPrompts(BaseDataset):
         num = self.num_samples if self.num_samples != 0 else max_num
         return min(num, max_num)
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         """
         Returns a dictionary of tokenized LLM inputs with common prompts.
 
@@ -120,11 +120,14 @@ class TrickyLLMPromptsPhi35(BaseTrickyLLMPrompts):
     def raw_prompts(self) -> list[str]:
         from qai_hub_models.models.phi_3_5_mini_instruct_recipe import Model
 
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+
         return [
             (
                 Model.get_input_prompt_with_tags(
                     user_input_prompt="What is Gravity?",
                     system_context_prompt="You are a helpful AI assistant.",
+                    tokenizer=tokenizer,
                 )
                 + "Gravity is a fundamental force of nature that attracts two bodies with mass towards each other. It is described by Isaac Newton'"
             ),
@@ -132,6 +135,7 @@ class TrickyLLMPromptsPhi35(BaseTrickyLLMPrompts):
                 Model.get_input_prompt_with_tags(
                     user_input_prompt="What is Gravity?",
                     system_context_prompt="You are a helpful AI assistant.",
+                    tokenizer=tokenizer,
                 )
                 + "Gravity is a fundamental force of nature that attracts two bodies with mass towards each other. It is described by Isaac Newton's theory in the 17th century and is a key component in Albert Einstein'"
             ),

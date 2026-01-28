@@ -24,12 +24,13 @@ def recognize_action_kinetics_400(prediction: torch.Tensor) -> list[str]:
 
     Parameters
     ----------
-        prediction: Get the probability for all classes.
+    prediction
+        Get the probability for all classes.
 
     Returns
     -------
-        classnames: List of class ids from Kinetics-400 dataset is returned.
-
+    class_names
+        List of class ids from Kinetics-400 dataset is returned.
     """
     # Get top 5 class probabilities
     prediction = torch.topk(prediction.flatten(), 5).indices
@@ -49,7 +50,7 @@ class KineticsClassifierApp:
         * Return the probability of each class.
     """
 
-    def __init__(self, model: KineticsClassifier, num_frames: int = 16):
+    def __init__(self, model: KineticsClassifier, num_frames: int = 16) -> None:
         self.model = model
         self.num_frames = num_frames
 
@@ -63,11 +64,13 @@ class KineticsClassifierApp:
 
         Parameters
         ----------
-            path: Path to the raw video
+        path
+            Path to the raw video.
 
         Returns
         -------
-            prediction: list[str] with top 5 most probable classes for a given video.
+        predicted_classes
+            Top 5 most probable classes for a given video.
         """
         # Reads the video via provided path
         input_video = read_video_per_second(str(path))

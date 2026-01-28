@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -49,14 +49,19 @@ class FastSAMApp:
         iou_threshold: float = 0.7,
         retina_masks: bool = True,
         model_image_input_shape: tuple[int, int] = (640, 640),
-    ):
+    ) -> None:
         self.model = fastsam_model
         self.confidence = confidence
         self.iou_threshold = iou_threshold
         self.retina_masks = retina_masks
         self.model_image_input_shape = model_image_input_shape
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[Image.Image]
+    ):
         # See upscale_image.
         return self.segment_image(*args, **kwargs)
 
@@ -75,26 +80,29 @@ class FastSAMApp:
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                Input PIL image (before pre-processing) or pyTorch tensor (after image pre-processing).
+        pixel_values_or_image
+            Input PIL image (before pre-processing) or pyTorch tensor (after image pre-processing).
+        raw_output
+            Whether to return raw output or annotated images.
 
         Returns
         -------
-            if raw_output is False:
-                images: list[PIL.Image.Image]
-                    A list of images with masks / boxes/ confidences drawn.
-            if raw_output is True:
-                boxes
-                    List of each batch of predicted bounding boxes.
-                    Each tensor is shape [N, 4], where N is the number of boxes
-                    and 4 == [x1, y1, x2, y2] (box coordinates in pixel space)
-                scores:
-                    List of each batch of predicted box scores.
-                    Each tensor is shape [B], where N is the number of boxes.
-                masks:
-                    List of each batch of predicted masks.
-                    Each tensor is shape [N, H, W], where N is the number of boxes,
-                    and (H, W) is the network image input shape.
+        If raw_output is False, returns:
+        images
+            A list of images with masks / boxes/ confidences drawn.
+
+        If raw_output is True, returns:
+        boxes
+            List of each batch of predicted bounding boxes.
+            Each tensor is shape [N, 4], where N is the number of boxes
+            and 4 == [x1, y1, x2, y2] (box coordinates in pixel space).
+        scores
+            List of each batch of predicted box scores.
+            Each tensor is shape [B], where N is the number of boxes.
+        masks
+            List of each batch of predicted masks.
+            Each tensor is shape [N, H, W], where N is the number of boxes,
+            and (H, W) is the network image input shape.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(

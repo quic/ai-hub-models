@@ -69,6 +69,7 @@ select = [
     "PIE",  # Prevents outdated python syntax
     "PYI",  # Makes sure advanced typings (eg. generic classes) are implemented correctly
     "TID251", # Banned imports
+    "ANN", # Enforces that all functions have type annotations
 ]
 ignore = [
     "E501", # line too long
@@ -110,6 +111,7 @@ ignore = [
     "TRY300", # Consider moving return statement to an `else` block
     "RUF009", # don't use function in dataclass defaults
     "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
+    "ANN401", # Do not using 'any' for typing
 ]
 
 [tool.pydoclint]
@@ -120,13 +122,201 @@ skip-checking-raises = true
 allow-init-docstring = true
 check-return-types = false
 check-style-mismatch = true
-exclude = 'qai_hub_models/utils/qdc/qdc_api\.py|qai_hub_models/extern/.*'
+exclude = 'qai_hub_models/utils/qdc/qdc_api\.py|qai_hub_models/extern/.*|qai_hub_models/models/_internal/*|qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py'
 
 [tool.ruff.lint.per-file-ignores]
 "scripts/*" = ["INP", "PERF"]
-"qai_hub_models/models/_internal/*" = ["INP", "PL"]
+"qai_hub_models/models/_internal/*" = ["INP", "PL", "ANN"]
 "qai_hub_models/models/llama_v2_7b_chat/modeling_llama.py" = ["D"] # Transformers does some odd docstring validation that this breaks.
-"qai_hub_models/extern/*" = ["PGH004", "TID251"]
+"qai_hub_models/extern/*" = ["PGH004", "TID251", "ANN"] # these files are copied from other packages
+"qai_hub_models/utils/qdc/qdc_api.py" = ["ANN"] # this file is copied from another package
+"qai_hub_models/models/bisenet/*" = ["ANN"]
+"qai_hub_models/models/baichuan2_7b/*" = ["ANN"]
+"qai_hub_models/models/bgnet/*" = ["ANN"]
+"qai_hub_models/models/cavaface/*" = ["ANN"]
+"qai_hub_models/models/centernet_2d/*" = ["ANN"]
+"qai_hub_models/models/centernet_3d/*" = ["ANN"]
+"qai_hub_models/models/centernet_pose/*" = ["ANN"]
+"qai_hub_models/models/centerpoint/*" = ["ANN"]
+"qai_hub_models/models/conditional_detr_resnet50/*" = ["ANN"]
+"qai_hub_models/models/controlnet_canny/*" = ["ANN"]
+"qai_hub_models/models/convnext_base/*" = ["ANN"]
+"qai_hub_models/models/convnext_tiny/*" = ["ANN"]
+"qai_hub_models/models/cvt/*" = ["ANN"]
+"qai_hub_models/models/ddcolor/*" = ["ANN"]
+"qai_hub_models/models/ddrnet23_slim/*" = ["ANN"]
+"qai_hub_models/models/deepbox/*" = ["ANN"]
+"qai_hub_models/models/deeplabv3_plus_mobilenet/*" = ["ANN"]
+"qai_hub_models/models/deeplabv3_resnet50/*" = ["ANN"]
+"qai_hub_models/models/deeplab_xception/*" = ["ANN"]
+"qai_hub_models/models/deformable_detr/*" = ["ANN"]
+"qai_hub_models/models/densenet121/*" = ["ANN"]
+"qai_hub_models/models/depth_anything/*" = ["ANN"]
+"qai_hub_models/models/depth_anything_v2/*" = ["ANN"]
+"qai_hub_models/models/depth_anything_v3/*" = ["ANN"]
+"qai_hub_models/models/detectron2_detection/*" = ["ANN"]
+"qai_hub_models/models/detr_resnet101/*" = ["ANN"]
+"qai_hub_models/models/detr_resnet101_dc5/*" = ["ANN"]
+"qai_hub_models/models/detr_resnet50/*" = ["ANN"]
+"qai_hub_models/models/detr_resnet50_dc5/*" = ["ANN"]
+"qai_hub_models/models/distil_bert_base_uncased_hf/*" = ["ANN"]
+"qai_hub_models/models/dla102x/*" = ["ANN"]
+"qai_hub_models/models/easyocr/*" = ["ANN"]
+"qai_hub_models/models/efficientformer/*" = ["ANN"]
+"qai_hub_models/models/efficientnet_b0/*" = ["ANN"]
+"qai_hub_models/models/efficientnet_b4/*" = ["ANN"]
+"qai_hub_models/models/efficientnet_v2_s/*" = ["ANN"]
+"qai_hub_models/models/efficientvit_b2_cls/*" = ["ANN"]
+"qai_hub_models/models/efficientvit_l2_cls/*" = ["ANN"]
+"qai_hub_models/models/efficientvit_l2_seg/*" = ["ANN"]
+"qai_hub_models/models/electra_bert_base_discrim_google/*" = ["ANN"]
+"qai_hub_models/models/esrgan/*" = ["ANN"]
+"qai_hub_models/models/eyegaze/*" = ["ANN"]
+"qai_hub_models/models/face_attrib_net/*" = ["ANN"]
+"qai_hub_models/models/face_attrib_net_enhanced/*" = ["ANN"]
+"qai_hub_models/models/facebook_denoiser/*" = ["ANN"]
+"qai_hub_models/models/face_det_lite/*" = ["ANN"]
+"qai_hub_models/models/facemap_3dmm/*" = ["ANN"]
+"qai_hub_models/models/falcon_v3_7b_instruct/*" = ["ANN"]
+"qai_hub_models/models/fastsam_s/*" = ["ANN"]
+"qai_hub_models/models/fastsam_x/*" = ["ANN"]
+"qai_hub_models/models/fcn_resnet50/*" = ["ANN"]
+"qai_hub_models/models/ffnet_122ns_lowres/*" = ["ANN"]
+"qai_hub_models/models/ffnet_40s/*" = ["ANN"]
+"qai_hub_models/models/ffnet_54s/*" = ["ANN"]
+"qai_hub_models/models/ffnet_78s/*" = ["ANN"]
+"qai_hub_models/models/ffnet_78s_lowres/*" = ["ANN"]
+"qai_hub_models/models/fomm/*" = ["ANN"]
+"qai_hub_models/models/foot_track_net/*" = ["ANN"]
+"qai_hub_models/models/gear_guard_net/*" = ["ANN"]
+"qai_hub_models/models/gemma_3n_e2b_it/*" = ["ANN"]
+"qai_hub_models/models/gkt/*" = ["ANN"]
+"qai_hub_models/models/googlenet/*" = ["ANN"]
+"qai_hub_models/models/gpunet/*" = ["ANN"]
+"qai_hub_models/models/hrnet_face/*" = ["ANN"]
+"qai_hub_models/models/hrnet_pose/*" = ["ANN"]
+"qai_hub_models/models/hrnet_w48_ocr/*" = ["ANN"]
+"qai_hub_models/models/huggingface_wavlm_base_plus/*" = ["ANN"]
+"qai_hub_models/models/ibm_granite_v3_1_8b_instruct/*" = ["ANN"]
+"qai_hub_models/models/img2pose/*" = ["ANN"]
+"qai_hub_models/models/inception_v3/*" = ["ANN"]
+"qai_hub_models/models/indus_1b/*" = ["ANN"]
+"qai_hub_models/models/internimage/*" = ["ANN"]
+"qai_hub_models/models/jais_6p7b_chat/*" = ["ANN"]
+"qai_hub_models/models/lama_dilated/*" = ["ANN"]
+"qai_hub_models/models/levit/*" = ["ANN"]
+"qai_hub_models/models/litehrnet/*" = ["ANN"]
+"qai_hub_models/models/llama_v2_7b_chat/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_1_8b_instruct/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_1_sea_lion_3_5_8b_r/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_2_1b_instruct/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_2_3b_instruct/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_8b_instruct/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_elyza_jp_8b/*" = ["ANN"]
+"qai_hub_models/models/llama_v3_taide_8b_chat/*" = ["ANN"]
+"qai_hub_models/models/mask2former/*" = ["ANN"]
+"qai_hub_models/models/mediapipe_face/*" = ["ANN"]
+"qai_hub_models/models/mediapipe_hand/*" = ["ANN"]
+"qai_hub_models/models/mediapipe_hand_gesture/*" = ["ANN"]
+"qai_hub_models/models/mediapipe_pose/*" = ["ANN"]
+"qai_hub_models/models/mediapipe_selfie/*" = ["ANN"]
+"qai_hub_models/models/midas/*" = ["ANN"]
+"qai_hub_models/models/ministral_3b/*" = ["ANN"]
+"qai_hub_models/models/mistral_3b/*" = ["ANN"]
+"qai_hub_models/models/mistral_7b_instruct_v0_3/*" = ["ANN"]
+"qai_hub_models/models/mnasnet05/*" = ["ANN"]
+"qai_hub_models/models/mobile_bert_uncased_google/*" = ["ANN"]
+"qai_hub_models/models/mobilenet_v2/*" = ["ANN"]
+"qai_hub_models/models/mobilenet_v3_large/*" = ["ANN"]
+"qai_hub_models/models/mobilenet_v3_small/*" = ["ANN"]
+"qai_hub_models/models/mobilesam/*" = ["ANN"]
+"qai_hub_models/models/mobile_vit/*" = ["ANN"]
+"qai_hub_models/models/movenet/*" = ["ANN"]
+"qai_hub_models/models/nasnet/*" = ["ANN"]
+"qai_hub_models/models/nomic_embed_text/*" = ["ANN"]
+"qai_hub_models/models/openai_clip/*" = ["ANN"]
+"qai_hub_models/models/openpose/*" = ["ANN"]
+"qai_hub_models/models/opus_mt_en_es/*" = ["ANN"]
+"qai_hub_models/models/opus_mt_en_zh/*" = ["ANN"]
+"qai_hub_models/models/opus_mt_es_en/*" = ["ANN"]
+"qai_hub_models/models/opus_mt_zh_en/*" = ["ANN"]
+"qai_hub_models/models/phi_3_5_mini_instruct/*" = ["ANN"]
+"qai_hub_models/models/phi_3_5_mini_instruct_recipe/*" = ["ANN"]
+"qai_hub_models/models/phi_4_mini_instruct/*" = ["ANN"]
+"qai_hub_models/models/pi05/*" = ["ANN"]
+"qai_hub_models/models/pidnet/*" = ["ANN"]
+"qai_hub_models/models/plamo_1b/*" = ["ANN"]
+"qai_hub_models/models/pointnet/*" = ["ANN"]
+"qai_hub_models/models/posenet_mobilenet/*" = ["ANN"]
+"qai_hub_models/models/pspnet/*" = ["ANN"]
+"qai_hub_models/models/quicksrnetlarge/*" = ["ANN"]
+"qai_hub_models/models/quicksrnetmedium/*" = ["ANN"]
+"qai_hub_models/models/quicksrnetsmall/*" = ["ANN"]
+"qai_hub_models/models/qwen2_5_1_5b_instruct/*" = ["ANN"]
+"qai_hub_models/models/qwen2_5_3b_instruct/*" = ["ANN"]
+"qai_hub_models/models/qwen2_5_7b_instruct/*" = ["ANN"]
+"qai_hub_models/models/qwen2_5_7b_instruct_recipe/*" = ["ANN"]
+"qai_hub_models/models/qwen2_7b_instruct/*" = ["ANN"]
+"qai_hub_models/models/qwen3_0_6b/*" = ["ANN"]
+"qai_hub_models/models/real_esrgan_general_x4v3/*" = ["ANN"]
+"qai_hub_models/models/real_esrgan_x4plus/*" = ["ANN"]
+"qai_hub_models/models/regnet/*" = ["ANN"]
+"qai_hub_models/models/regnet_y_800mf/*" = ["ANN"]
+"qai_hub_models/models/resnet101/*" = ["ANN"]
+"qai_hub_models/models/resnet18/*" = ["ANN"]
+"qai_hub_models/models/resnet_2plus1d/*" = ["ANN"]
+"qai_hub_models/models/resnet_3d/*" = ["ANN"]
+"qai_hub_models/models/resnet50/*" = ["ANN"]
+"qai_hub_models/models/resnet_mixed/*" = ["ANN"]
+"qai_hub_models/models/resnext101/*" = ["ANN"]
+"qai_hub_models/models/resnext50/*" = ["ANN"]
+"qai_hub_models/models/rf_detr/*" = ["ANN"]
+"qai_hub_models/models/rtmdet/*" = ["ANN"]
+"qai_hub_models/models/rtmpose_body2d/*" = ["ANN"]
+"qai_hub_models/models/salsanext/*" = ["ANN"]
+"qai_hub_models/models/sam/*" = ["ANN"]
+"qai_hub_models/models/sam2/*" = ["ANN"]
+"qai_hub_models/models/segformer_base/*" = ["ANN"]
+"qai_hub_models/models/sequencer2d/*" = ["ANN"]
+"qai_hub_models/models/sesr_m5/*" = ["ANN"]
+"qai_hub_models/models/shufflenet_v2/*" = ["ANN"]
+"qai_hub_models/models/simple_bev_cam/*" = ["ANN"]
+"qai_hub_models/models/sinet/*" = ["ANN"]
+"qai_hub_models/models/squeezenet1_1/*" = ["ANN"]
+"qai_hub_models/models/stable_diffusion_turbo/*" = ["ANN"]
+"qai_hub_models/models/stable_diffusion_v1_5/*" = ["ANN"]
+"qai_hub_models/models/stable_diffusion_v2_1/*" = ["ANN"]
+"qai_hub_models/models/statetransformer/*" = ["ANN"]
+"qai_hub_models/models/swin_base/*" = ["ANN"]
+"qai_hub_models/models/swin_small/*" = ["ANN"]
+"qai_hub_models/models/swin_tiny/*" = ["ANN"]
+"qai_hub_models/models/swinv2_base/*" = ["ANN"]
+"qai_hub_models/models/track_anything/*" = ["ANN"]
+"qai_hub_models/models/trocr/*" = ["ANN"]
+"qai_hub_models/models/unet_segmentation/*" = ["ANN"]
+"qai_hub_models/models/video_mae/*" = ["ANN"]
+"qai_hub_models/models/vit/*" = ["ANN"]
+"qai_hub_models/models/whisper_base/*" = ["ANN"]
+"qai_hub_models/models/whisper_large_v3_turbo/*" = ["ANN"]
+"qai_hub_models/models/whisper_small/*" = ["ANN"]
+"qai_hub_models/models/whisper_small_quantized/*" = ["ANN"]
+"qai_hub_models/models/whisper_tiny/*" = ["ANN"]
+"qai_hub_models/models/wideresnet50/*" = ["ANN"]
+"qai_hub_models/models/xlsr/*" = ["ANN"]
+"qai_hub_models/models/yamnet/*" = ["ANN"]
+"qai_hub_models/models/yolonas/*" = ["ANN"]
+"qai_hub_models/models/yolor/*" = ["ANN"]
+"qai_hub_models/models/yolov10_det/*" = ["ANN"]
+"qai_hub_models/models/yolov11_det/*" = ["ANN"]
+"qai_hub_models/models/yolov11_seg/*" = ["ANN"]
+"qai_hub_models/models/yolov3/*" = ["ANN"]
+"qai_hub_models/models/yolov5/*" = ["ANN"]
+"qai_hub_models/models/yolov6/*" = ["ANN"]
+"qai_hub_models/models/yolov7/*" = ["ANN"]
+"qai_hub_models/models/yolov8_det/*" = ["ANN"]
+"qai_hub_models/models/yolov8_seg/*" = ["ANN"]
+"qai_hub_models/models/yolox/*" = ["ANN"]
+"qai_hub_models/models/zipformer/*" = ["ANN"]
 
 [tool.ruff.lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true
@@ -183,6 +373,8 @@ markers = [
     "inference: marks tests that run inference jobs",
     "export: marks tests that run full export scripts",
     "unmarked: default marker added to any job with no markers",
+    "nightly: marks tests to run as part of nightly GPU test suite",
+    "compute_device_accuracy: marks tests to run as on-device accuracy suite",
 ]
 
 [[tool.mypy.overrides]]
@@ -190,81 +382,13 @@ module = "qai_hub_models.models._internal.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "qai_hub_models.models._shared.llm.*"
+module = "qai_hub_models.models.*.conftest"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "qai_hub_models.models._shared.llama3.*"
+module = "qai_hub_models.utils.qdc.qdc_api"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "qai_hub_models.models._shared.qwen2.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models.models._shared.phi.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v2_7b_chat.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/falcon_v3_7b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_8b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_1_8b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_2_3b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_2_1b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_1_sea_lion_3_5_8b_r.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_elyza_jp_8b.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/llama_v3_taide_8b_chat.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/qwen2_5_1_5b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/qwen2_5_3b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/qwen2_5_7b_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/qwen2_5_7b_instruct_recipe.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/phi_3_5_mini_instruct_recipe.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/phi_4_mini_instruct.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "qai_hub_models/models/gemma_3n_e2b_it.*"
+module = "qai_hub_models.models._shared.llm.sha_dynamic_kvcache"
 ignore_errors = true

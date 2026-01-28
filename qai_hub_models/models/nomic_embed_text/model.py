@@ -82,12 +82,16 @@ class NomicEmbedText(BaseModel):
 
         Parameters
         ----------
-            model_version: str
-                Version of the Nomic model (1 or 1.5)
+        model_version
+            Version of the Nomic model (1 or 1.5)
+        sequence_length
+            Model max sequence length
+            (When compiled for device, the sequence must be padded to this size.)
 
-            sequence_length: int
-                Model max sequence length
-                (When compiled for device, the sequence must be padded to this size.)
+        Returns
+        -------
+        model
+            Instance of NomicEmbedText model.
         """
         with mock.patch(
             "transformers.dynamic_module_utils.get_class_in_module",
@@ -111,18 +115,17 @@ class NomicEmbedText(BaseModel):
 
         Parameters
         ----------
-            input_ids: torch.Tensor
-                Tokenized inputs of shape (1, sequence_length), dtype of int32
-
-            attention_mask: torch.Tensor
-                Attention mask of shape (1, sequence_length), dtype of int32
+        input_ids
+            Tokenized inputs of shape (1, sequence_length), dtype of int32
+        attention_mask
+            Attention mask of shape (1, sequence_length), dtype of int32
 
             Where the default value of sequence_length is 128.
 
         Returns
         -------
-            token_embeddings: torch.Tensor
-                Transformer embeddings of shape [1, 512], dtype of fp32
+        token_embeddings
+            Transformer embeddings of shape [1, 512], dtype of fp32
         """
         last_hidden_state = self.model(input_ids, attention_mask=attention_mask)[0]
         token_embeddings = NomicEmbedText._mean_pooling(

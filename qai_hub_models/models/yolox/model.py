@@ -156,47 +156,38 @@ class YoloX(Yolo):
             scores,
         )
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor):
         """
         Run YoloX on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float
-                   3-channel Color Space: RGB [0-1]
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float
+            3-channel Color Space: RGB [0-1]
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations. Shape [batch, num preds, 4] where 4 == (topleft_x, topleft_y, bottomright_x, bottomright_y)
-                scores: torch.Tensor
-                    Confidence score that the given box is the predicted class: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        If self.include_postprocessing is True, returns:
+        boxes
+            Bounding box locations. Shape [batch, num preds, 4] where 4 == (topleft_x, topleft_y, bottomright_x, bottomright_y).
+        scores
+            Confidence score that the given box is the predicted class. Shape is [batch, num_preds].
+        class_idx
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-            else if self.split_output:
-                output_xy: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [x_center, y_center] (box_coordinates)
+        If self.include_postprocessing is False and self.split_output is True, returns:
+        boxes_xy
+            Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
+        boxes_wh
+            Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
+        scores
+            Shape is [batch, num_preds, 81] where 81 is structured as follows: [0] -> confidence there is an object in the box, [1:81] -> confidence that the detected object is each class (80 classes).
 
-                output_wh: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [width, height] (box_size)
-
-                output_scores: torch.Tensor
-                    Shape is [batch, num_preds, j]
-                        where j[0] is [confidence that there is an object in the box]
-                        and j[1:81] is [confidence that the detected object is each class]
-
-            else:
-                detector_output: torch.Tensor
-                    Shape is [batch, num_preds, 85]
-                        where 85 is structured as follows:
-                            [0:4] -> [x_center, y_center, w, h] box_coordinates
-                            [5] -> confidence there is an object in the box (1)
-                            [6:85] -> confidence that the detected object is each class (80 -- the number of classes)
+        If self.include_postprocessing is False and self.split_output is False, returns:
+        detector_output
+            Shape is [batch, num_preds, 85] where 85 is structured as follows: [0:4] -> [x_center, y_center, w, h] box_coordinates, [4] -> confidence there is an object in the box (1), [5:85] -> confidence that the detected object is each class (80 -- the number of classes).
         """
         # Scale the image pixel values from [0, 1] to [0, 255] as per yolox requirement
         image = image * 255

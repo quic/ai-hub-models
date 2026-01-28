@@ -21,10 +21,10 @@ from qai_hub_models.utils.display import display_or_save_image
 # The demo will display a heatmap of the estimated depth at each point in the image.
 def depth_estimation_demo(
     model_cls: type[BaseModel],
-    model_id,
+    model_id: str,
     default_image: CachedWebModelAsset,
     is_test: bool = False,
-):
+) -> None:
     parser = get_model_cli_parser(model_cls)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
     parser.add_argument(

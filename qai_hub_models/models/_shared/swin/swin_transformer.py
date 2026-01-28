@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import math
+from typing import cast
 
 import torch
 from torch import Tensor
@@ -13,7 +14,9 @@ from torch.nn import functional as F
 from torchvision.models.swin_transformer import ShiftedWindowAttention
 
 
-def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Tensor:
+def split_linear_input(
+    x: Tensor, weight: Tensor, bias: Tensor | None, max_channel: int
+) -> Tensor:
     num_chunks = int(-(-x.size(-1) // max_channel))  # Ceiling division
     if num_chunks == 1:
         return F.linear(x, weight, bias)
@@ -27,13 +30,13 @@ def split_linear_input(x, weight: Tensor, bias: Tensor, max_channel: int) -> Ten
     )
     if bias is not None:
         output += bias
-    return output
+    return cast(torch.Tensor, output)
 
 
 def split_linear(
-    x: Tensor, weight: Tensor, bias: Tensor, max_channel: int = 512
+    x: Tensor, weight: Tensor, bias: Tensor | None, max_channel: int = 512
 ) -> Tensor:
-    """Split linear input and output channels to have no more than `max_channel`"""
+    """Split linear input and output channels to have no more than `max_channel`."""
     num_chunks = int(-(-weight.size(0) // max_channel))  # Ceiling division
     if num_chunks == 1:
         return split_linear_input(x, weight, bias, max_channel)
@@ -52,7 +55,7 @@ def split_linear(
 
 
 class ShiftedWindowAttentionInf(torch.nn.Module):
-    def __init__(self, model: ShiftedWindowAttention):
+    def __init__(self, model: ShiftedWindowAttention) -> None:
         """
         Optimize for inference. See `shifted_window_attention_inf` for details.
 
@@ -60,6 +63,11 @@ class ShiftedWindowAttentionInf(torch.nn.Module):
         `torchvision.models.swin_transformer.shifted_window_attention` so that we can
         test numerical parity between ShiftedWindowAttentionInf and
         ShiftedWindowAttention
+
+        Parameters
+        ----------
+        model
+            ShiftedWindowAttention model to wrap.
         """
         super().__init__()
         self.model = model
@@ -68,11 +76,13 @@ class ShiftedWindowAttentionInf(torch.nn.Module):
         """
         Parameters
         ----------
-            x (Tensor): Tensor with layout of [B, H, W, C]
+        x
+            Tensor with layout of [B, H, W, C].
 
         Returns
         -------
-            Tensor with same layout as input, i.e. [B, H, W, C]
+        output
+            Tensor with same layout as input, i.e. [B, H, W, C].
         """
         relative_position_bias = self.model.get_relative_position_bias()
         return shifted_window_attention_inf(
@@ -110,8 +120,46 @@ def shifted_window_attention_inf(
     training: bool = True,
 ) -> Tensor:
     """
+    Shifted window attention optimized for inference.
+
     Updated from
     https://github.com/pytorch/vision/blob/0d75d9e5516f446c9c0ef93bd4ed9fea13992d06/torchvision/models/swin_transformer.py#L116
+
+    Fixes view from rank-6 to rank-5 for SwinTransformer.
+
+    Parameters
+    ----------
+    x
+        Input tensor.
+    qkv_weight
+        QKV projection weight.
+    proj_weight
+        Output projection weight.
+    relative_position_bias
+        Relative position bias.
+    window_size
+        Window size for attention.
+    num_heads
+        Number of attention heads.
+    shift_size
+        Shift size for shifted window attention.
+    attention_dropout
+        Attention dropout rate. Default is 0.0.
+    dropout
+        Dropout rate. Default is 0.0.
+    qkv_bias
+        QKV projection bias. Default is None.
+    proj_bias
+        Output projection bias. Default is None.
+    logit_scale
+        Logit scale for cosine attention. Default is None.
+    training
+        Whether in training mode. Default is True.
+
+    Returns
+    -------
+    Tensor
+        Output tensor with same shape as input.
     """
     B, H, W, C = x.shape
     # pad feature maps to multiples of window size
@@ -251,13 +299,13 @@ def shifted_window_attention_inf(
 
 
 class AutoSplitLinear(torch.nn.Module):
-    def __init__(self, model: torch.nn.Linear):
+    def __init__(self, model: torch.nn.Linear) -> None:
         super().__init__()
         self.linear = model
         self.weight = model.weight
         self.bias = model.bias
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tensor:
         if self.linear.in_features > 512 or self.linear.out_features > 512:
             x = split_linear(x, self.linear.weight, self.linear.bias, max_channel=512)
         else:

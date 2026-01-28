@@ -34,7 +34,7 @@ def zip_aimet_model(
     model_file_path: str,
     encoding_file_path: str,
     external_data_file_path: str = "",
-):
+) -> None:
     """
     Package and zip .aimet model
 
@@ -78,7 +78,7 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
       - Export Torch model to ONNX and load pre-computed encodings
     """
 
-    def __init__(self, model: torch.nn.Module, aimet_encodings: str):
+    def __init__(self, model: torch.nn.Module, aimet_encodings: str) -> None:
         super().__init__()
         self.model = model
         self.aimet_encodings = aimet_encodings
@@ -88,8 +88,8 @@ class AimetEncodingLoaderMixin(PretrainedHubModelProtocol, QuantizableModelProto
         data: _DataLoader,
         num_samples: int | None = None,
         device: str = "cpu",
-        requantize_model_weights=False,
-        data_has_gt=False,
+        requantize_model_weights: bool = False,
+        data_has_gt: bool = False,
     ) -> None:
         raise RuntimeError(
             "AimetEncodingLoaderMixin does not support model quantization."

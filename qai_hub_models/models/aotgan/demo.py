@@ -15,7 +15,7 @@ MASK_ADDRESS = CachedWebModelAsset.from_asset_store(
 )
 
 
-def main(is_test: bool = False):
+def main(is_test: bool = False) -> None:
     repaint_demo(AOTGAN, MODEL_ID, IMAGE_ADDRESS, MASK_ADDRESS, is_test=is_test)
 
 

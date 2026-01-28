@@ -35,7 +35,7 @@ class KittiEvaluator(BaseEvaluator):
         ],
         max_dets: int = 100,
         peak_thresh: float = 0.2,
-    ):
+    ) -> None:
         """
         decode:
             Function to decode the raw model outputs
@@ -49,9 +49,9 @@ class KittiEvaluator(BaseEvaluator):
         self.data_path = KittiDataset().data_path
         self.reset()
 
-    def reset(self):
-        self.dt_annos = []
-        self.gt_annos = []
+    def reset(self) -> None:
+        self.dt_annos: list[dict[str, np.ndarray]] = []
+        self.gt_annos: list[dict[str, np.ndarray]] = []
 
     def add_batch(
         self,
@@ -64,7 +64,7 @@ class KittiEvaluator(BaseEvaluator):
             torch.Tensor,
         ],
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """
         Add a batch of predictions and ground truth for evaluation.
 

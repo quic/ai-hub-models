@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.facemap_3dmm_evaluator import FaceMap3DMMEvaluator
@@ -36,7 +37,7 @@ class FaceMap_3DMM(BaseModel):
         self.model = model
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls) -> Self:
         resnet_model = resnet18_wd2(pretrained=False)
 
         checkpoint_path = CachedWebModelAsset.from_asset_store(
@@ -48,18 +49,20 @@ class FaceMap_3DMM(BaseModel):
 
         return cls(resnet_model)
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run ResNet18_0.5 3Ch on `image`, and produce 265 outputs
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        parameters_3dmm
             3DMM model parameters for facial landmark reconstruction: Shape [batch, 265]
         """
         return self.model(image * 255)

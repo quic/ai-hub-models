@@ -6,10 +6,11 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from contextlib import nullcontext
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 import torch
 from qai_hub.client import Device
@@ -39,6 +40,8 @@ from qai_hub_models.utils.input_spec import (
 )
 from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
+CollectionModelT = TypeVar("CollectionModelT", bound="CollectionModel")
+
 
 class CollectionModel:
     """
@@ -50,13 +53,13 @@ class CollectionModel:
     component_classes: list[type[BaseModel]] = []
     component_class_names: list[str] = []
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
         # Make copies of the list for each subclass so they don't share state
         cls.component_classes = list(cls.component_classes)
         cls.component_class_names = list(cls.component_class_names)
 
-    def __init__(self, *args):
+    def __init__(self, *args: BaseModel | BasePrecompiledModel) -> None:
         component_names = type(self).component_class_names
         components: dict[
             str, BaseModel | BasePrecompiledModel
@@ -85,12 +88,13 @@ class CollectionModel:
 
         self.components = components
 
-    @staticmethod
+    @classmethod
     def add_component(
+        cls,
         component_class: type,
         component_name: str | None = None,
         subfolder_hf: str | None = None,
-    ):
+    ) -> Callable[[type[CollectionModelT]], type[CollectionModelT]]:
         """
         Decorator to add a component (a subclass of BaseModel or
         BasePrecompiledModel) to a CollectionModel.  The component is
@@ -118,7 +122,7 @@ class CollectionModel:
             Decorator function that registers the component on the CollectionModel subclass.
         """
 
-        def decorator(subclass):
+        def decorator(subclass: type[CollectionModelT]) -> type[CollectionModelT]:
             name = component_name or component_class.__name__
             if name in subclass.component_class_names:
                 raise ValueError(f"Component with name {name} already registered")
@@ -141,7 +145,7 @@ class CollectionModel:
         return decorator
 
     @staticmethod
-    def reset_components():
+    def reset_components() -> Callable[[type[CollectionModel]], type[CollectionModel]]:
         """
         Decorator to erase all components set on a CollectionModel.
         Useful when subclassing a CollectionModel and overriding component classes.
@@ -149,7 +153,7 @@ class CollectionModel:
         See test_base_model.py for usage examples.
         """
 
-        def decorator(subclass):
+        def decorator(subclass: type[CollectionModel]) -> type[CollectionModel]:
             subclass.component_classes = []
             subclass.component_class_names = []
             return subclass
@@ -198,21 +202,21 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
         cls,
         checkpoint: CheckpointSpec = "DEFAULT",
         host_device: torch.device | str = torch.device("cpu"),
-        **kwargs,  # any extra you might want to forward
+        **kwargs: Any,  # any extra you might want to forward
     ) -> Self:
         """
         Instantiate the collection by delegating to each component_cls.from_pretrained,
         but only passing it the arguments it actually declares.
         """
         # common kwargs we'd like to pass
-        base_kwargs = {
+        base_kwargs: dict[str, Any] = {
             "checkpoint": checkpoint,
             "host_device": host_device,
             **kwargs,
         }
 
         # helper to call any fn with only the supported subset of base_kwargs
-        def _call_with_supported(fn, all_kwargs):
+        def _call_with_supported(fn: Callable, all_kwargs: dict[str, Any]) -> Any:
             sig = inspect.signature(fn)
             params = sig.parameters.values()
 
@@ -233,12 +237,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
             cls.component_class_names, cls.component_classes, strict=False
         ):
             # call component_cls.from_pretrained but only with the args it accepts
-            try:
-                comp = _call_with_supported(component_cls.from_pretrained, base_kwargs)
-            except Exception as e:
-                raise AttributeError(
-                    f"Component '{component_cls.__name__}' does not have a callable from_pretrained method. {e}"
-                ) from None
+            comp = _call_with_supported(component_cls.from_pretrained, base_kwargs)
             components.append(comp)
 
         # now build and return your collection model however CollectionModel expects
@@ -247,7 +246,7 @@ class PretrainedCollectionModel(CollectionModel, FromPretrainedProtocol):
 
 class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
     @classmethod
-    def from_precompiled(cls):
+    def from_precompiled(cls) -> Self:
         """
         Instantiate the CollectionModel by instantiating all registered components
         using their own from_precompiled() methods.
@@ -268,7 +267,7 @@ class PrecompiledCollectionModel(CollectionModel, FromPrecompiledProtocol):
 class HubModel(HubModelProtocol):
     """Base interface for AI Hub Workbench models."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # If a child class implements _get_input_spec_for_instance(),
         # then calling `get_input_spec` on the instance will redirect to it.
         if self._get_input_spec_for_instance.__module__ != __name__:
@@ -280,7 +279,7 @@ class HubModel(HubModelProtocol):
         if self._get_channel_last_outputs_for_instance.__module__ != __name__:
             self.get_channel_last_outputs = self._get_channel_last_outputs_for_instance
 
-    def _get_input_spec_for_instance(self, *args, **kwargs) -> InputSpec:
+    def _get_input_spec_for_instance(self, *args: Any, **kwargs: Any) -> InputSpec:
         """
         Get the input specifications for an instance of this model.
 
@@ -293,7 +292,7 @@ class HubModel(HubModelProtocol):
         """
         raise NotImplementedError
 
-    def _get_output_names_for_instance(self, *args, **kwargs) -> list[str]:
+    def _get_output_names_for_instance(self, *args: Any, **kwargs: Any) -> list[str]:
         """
         Get the output names for an instance of this model.
 
@@ -303,7 +302,9 @@ class HubModel(HubModelProtocol):
         """
         raise NotImplementedError
 
-    def _get_channel_last_inputs_for_instance(self, *args, **kwargs) -> list[str]:
+    def _get_channel_last_inputs_for_instance(
+        self, *args: Any, **kwargs: Any
+    ) -> list[str]:
         """
         Get the channel last input names for an instance of this model.
 
@@ -313,7 +314,9 @@ class HubModel(HubModelProtocol):
         """
         raise NotImplementedError
 
-    def _get_channel_last_outputs_for_instance(self, *args, **kwargs) -> list[str]:
+    def _get_channel_last_outputs_for_instance(
+        self, *args: Any, **kwargs: Any
+    ) -> list[str]:
         """
         Get the channel last output names for an instance of this model.
 
@@ -327,7 +330,7 @@ class HubModel(HubModelProtocol):
         self,
         input_spec: InputSpec | None = None,
         use_channel_last_format: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> SampleInputsType:
         """
         Returns a set of sample inputs for the model.
@@ -352,7 +355,7 @@ class HubModel(HubModelProtocol):
         return sample_inputs
 
     def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
+        self, input_spec: InputSpec | None = None, **kwargs: Any
     ) -> SampleInputsType:
         """
         This is a default implementation that returns a single random data array
@@ -434,7 +437,7 @@ class BaseModel(
 ):
     """A pre-trained PyTorch model with helpers for submission to AI Hub Workbench."""
 
-    def __init__(self, model: torch.nn.Module | None = None):
+    def __init__(self, model: torch.nn.Module | None = None) -> None:
         torch.nn.Module.__init__(self)  # Initialize Torch Module
         HubModel.__init__(self)  # Initialize Hub Model
         self.eval()
@@ -451,7 +454,7 @@ class BaseModel(
             value.eval()
         torch.nn.Module.__setattr__(self, name, value)
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
         """
         If a model is in eval mode (which equates to self.training == False),
             we don't want to compute gradients when doing the forward pass.
@@ -642,7 +645,7 @@ class BasePrecompiledModel(HubModel, FromPrecompiledProtocol):
     Model PyTorch source is not available, but compiled assets are available.
     """
 
-    def __init__(self, target_model_path: str):
+    def __init__(self, target_model_path: str) -> None:
         self.target_model_path = target_model_path
 
     def get_target_model_path(self) -> str:

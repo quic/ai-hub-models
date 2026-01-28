@@ -21,7 +21,7 @@ from qai_hub_models.utils.printing import suppress_stdout
 class CocoBodyPoseEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
-    def __init__(self, in_vis_thre: float = 0.2):
+    def __init__(self, in_vis_thre: float = 0.2) -> None:
         """
         Parameters
         ----------
@@ -32,9 +32,9 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         self.in_vis_thre = in_vis_thre
         self.coco_gt = CocoBodyDataset().cocoGt
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the collected predictions."""
-        self.predictions = []
+        self.predictions: list[dict[str, Any]] = []
 
     def add_batch(
         self, output: tuple[torch.Tensor] | torch.Tensor, gt: list[torch.Tensor]
@@ -48,7 +48,7 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
         maxvals: np.ndarray,
         image_ids: torch.Tensor | list[int],
         category_ids: torch.Tensor | list[int],
-    ):
+    ) -> None:
         """
         Store pose predictions in COCO evaluation format.
 
@@ -147,10 +147,10 @@ class CocoBodyPoseEvaluator(BaseEvaluator):
 class MPIIPoseEvaluator(BaseEvaluator):
     """Evaluator for tracking accuracy of a Pose Estimation Model using MPII."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
-    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
+    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]) -> None:
         gt_keypoints, headboxes, joint_missing, center, scale = gt
 
         preds, _ = get_final_preds(output.numpy(), center.numpy(), scale.numpy())
@@ -159,11 +159,11 @@ class MPIIPoseEvaluator(BaseEvaluator):
         self.headboxes.append(headboxes)
         self.joint_missing.append(joint_missing)
 
-    def reset(self):
-        self.preds = []
-        self.gt_keypoints = []
-        self.headboxes = []
-        self.joint_missing = []
+    def reset(self) -> None:
+        self.preds: list[np.ndarray] = []
+        self.gt_keypoints: list[torch.Tensor] = []
+        self.headboxes: list[torch.Tensor] = []
+        self.joint_missing: list[torch.Tensor] = []
 
     def get_accuracy_score(self) -> float:
         joint_missing = np.transpose(np.concatenate(self.joint_missing), (1, 0))

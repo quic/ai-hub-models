@@ -11,7 +11,7 @@ from qai_hub_models.utils.transpose_channel import (
 )
 
 
-def test_transpose_case1():
+def test_transpose_case1() -> None:
     array = np.random.default_rng().random((4, 3, 2))
     inp = dict(a=[array])
     result = transpose_channel_first_to_last(["a"], inp)
@@ -22,7 +22,7 @@ def test_transpose_case1():
     assert np.allclose(inp["a"][0], result["a"][0])
 
 
-def test_transpose_case2():
+def test_transpose_case2() -> None:
     array = np.random.default_rng().random((4, 3, 2, 5))
     inp = dict(a=[array])
     result = transpose_channel_first_to_last(["a"], inp)
@@ -33,7 +33,7 @@ def test_transpose_case2():
     assert np.allclose(inp["a"][0], result["a"][0])
 
 
-def test_transpose_case3():
+def test_transpose_case3() -> None:
     array = np.random.default_rng().random((4, 3, 2, 5, 6))
     inp = dict(a=[array])
     result = transpose_channel_first_to_last(["a"], inp)

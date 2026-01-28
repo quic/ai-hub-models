@@ -37,7 +37,7 @@ class BSD300Dataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
         scaling_factor: int = 4,
-    ):
+    ) -> None:
         self.bsd_path = BSD300_ASSET.path(extracted=True)
 
         # bsd300 doesn't have a val split, so use the test split for this purpose
@@ -61,7 +61,7 @@ class BSD300Dataset(BaseDataset):
         expected_num_images = len(self)
         return len(images) == expected_num_images
 
-    def _prepare_data(self):
+    def _prepare_data(self) -> None:
         """Convert jpg to png."""
         train_path = self.bsd_path / "images" / "train"
         test_path = self.bsd_path / "images" / "test"
@@ -72,10 +72,10 @@ class BSD300Dataset(BaseDataset):
                 # delete the old image
                 os.remove(filepath)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return NUM_TRAIN_IMAGES if self.split_str == "train" else NUM_TEST_IMAGES
 
-    def __getitem__(self, item) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, item: int) -> tuple[torch.Tensor, torch.Tensor]:
         # We use the super resolution GT-and-test image preparation from AIMET zoo:
         # https://github.com/quic/aimet-model-zoo/blob/d09d2b0404d10f71a7640a87e9d5e5257b028802/aimet_zoo_torch/quicksrnet/dataloader/utils.py#L51
         img = Image.open(os.path.join(self.images_path, self.image_files[item]))

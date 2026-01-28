@@ -15,7 +15,7 @@ from qai_hub_models.models.huggingface_wavlm_base_plus.app import get_processor
 class LibriSpeechEvaluator(BaseEvaluator):
     """Evaluator for transcription-based WER metric on LibriSpeech test-clean dataset."""
 
-    def __init__(self, target_sample_rate: int = 16000):
+    def __init__(self, target_sample_rate: int = 16000) -> None:
         """
         Parameters
         ----------
@@ -30,7 +30,7 @@ class LibriSpeechEvaluator(BaseEvaluator):
         self,
         output: torch.Tensor,
         target: torch.Tensor,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -57,10 +57,10 @@ class LibriSpeechEvaluator(BaseEvaluator):
                 clean_target[: len(transcription)]
             )  # Trim extras based on the predictions
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset stored predictions and references"""
-        self.predictions = []
-        self.references = []
+        self.predictions: list[str] = []
+        self.references: list[str] = []
 
     def get_accuracy_score(self) -> float:
         """Return WER as the accuracy score."""

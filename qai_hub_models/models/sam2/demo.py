@@ -46,9 +46,12 @@ def main(is_test: bool = False) -> None:
 
     Parameters
     ----------
-        is_test (bool, optional): If True, skips displaying the image and storing results.
-                                  Useful for automated testing. Defaults to False.
+    is_test
+        If True, skips displaying the image and storing results.
+        Useful for automated testing. Defaults to False.
 
+    Notes
+    -----
     Workflow:
         1. Parses CLI arguments for model type, image path, and point coordinates.
         2. Loads the SAM2 model and initializes the segmentation application.

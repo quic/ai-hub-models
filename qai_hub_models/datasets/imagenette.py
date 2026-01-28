@@ -54,8 +54,10 @@ class ImagenetteDataset(BaseDataset, ImageNet):
     """
 
     def __init__(
-        self, split: DatasetSplit = DatasetSplit.TRAIN, transform=IMAGENET_TRANSFORM
-    ):
+        self,
+        split: DatasetSplit = DatasetSplit.TRAIN,
+        transform: object = IMAGENET_TRANSFORM,
+    ) -> None:
         BaseDataset.__init__(
             self, str(IMAGENETTE_ASSET.path(extracted=True)), split=split
         )

@@ -26,7 +26,7 @@ def cached_from_pretrained():
             if model:
                 return model
             non_none_model = from_pretrained(*args, **kwargs)
-            pretrained_cache[cache_key] = non_none_model  # type: ignore[assignment]
+            pretrained_cache[cache_key] = non_none_model
             return non_none_model
 
         _cached_from_pretrained.__signature__ = sig  # type: ignore[attr-defined]

@@ -73,7 +73,7 @@ class FFNet(CityscapesSegmentor):
         return cls(model)
 
 
-def _load_ffnet_source_model(variant_name) -> torch.nn.Module:
+def _load_ffnet_source_model(variant_name: str) -> torch.nn.Module:
     subpath, src_name, dst_name = FFNET_SUBPATH_NAME_LOOKUP[variant_name]
 
     weights_path = CachedWebModelAsset(

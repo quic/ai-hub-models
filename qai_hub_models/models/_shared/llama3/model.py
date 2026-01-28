@@ -71,9 +71,6 @@ USER_ID = "user"
 EOT_ID = "<|eot_id|>"
 END_TOKENS = {"<|eot_id|>", "<|end_of_text|>"}
 
-DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
-DEFAULT_USER_PROMPT = "What do llamas eat? Keep the answer under ten words."
-
 
 @unique
 class Llama3_Optimizations(str, Enum):  # Inherit from str and Enum
@@ -100,7 +97,7 @@ class RopeEmbedding(Embedding):
     def precompute(
         self, head_dim: int, max_length: int, config: LlamaConfig
     ) -> list[torch.Tensor]:
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "config": config,
         }
         if Version(transformers.__version__) < Version("4.48"):
@@ -114,9 +111,9 @@ class RopeEmbedding(Embedding):
             config.rope_scaling = None
 
         rope = modeling_llama.LlamaRotaryEmbedding(**kwargs)
-        dummy_x = torch.Tensor([1.0])
+        dummy_x = torch.tensor([1.0])
         position_ids = torch.arange(max_length).view(1, -1)
-        if hasattr(rope, "_original_forward"):
+        if hasattr(rope, "_original_forward") and callable(rope._original_forward):
             embeddings = rope._original_forward(dummy_x, position_ids)
         else:
             embeddings = rope.forward(dummy_x, position_ids)
@@ -148,13 +145,15 @@ class LlamaPositionProcessor(PositionProcessorBase):
     def __init__(
         self,
         context_length: int,
-        config: PretrainedConfig,
+        config: LlamaConfig,
     ) -> None:
         super().__init__(context_length, config=config)
         self.context_len = context_length
         self.rope_embedding = RopeEmbedding(max_length=self.context_len, config=config)
 
-    def forward(self, attention_mask_before_processor, position_ids):
+    def forward(
+        self, attention_mask_before_processor: torch.Tensor, position_ids: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
             position_ids
         )
@@ -173,21 +172,9 @@ class Llama3Base(LLMBase):
     LMClass = QCLlamaForCausalLM
     EmbeddingClass = RopeEmbedding
 
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        """Get prompt to set context and initialize prompt-processor"""
-        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
-
-{system_context_prompt}
-{START_HEADER}{USER_ID}{END_HEADER}
-
-{user_input_prompt}{EOT_ID}{START_HEADER}{ASSISTANT_ID}{END_HEADER}
-
-
-"""
+    # Default prompts for demos
+    default_user_prompt = "What do llamas eat? Keep the answer under ten words."
+    default_system_prompt = "You are a helpful AI assistant"
 
     @staticmethod
     def monkey_patch(
@@ -201,20 +188,28 @@ class Llama3Base(LLMBase):
         elif hasattr(modeling_llama, "LLAMA_ATTENTION_CLASSES"):
             modeling_llama.LLAMA_ATTENTION_CLASSES["eager"] = SHALlamaAttention
         else:
-            modeling_llama.LlamaAttention = SHALlamaAttention
+            modeling_llama.LlamaAttention = SHALlamaAttention  # type: ignore[misc, unused-ignore]
 
-        def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
+        def bypass_RotaryEmbedding(
+            self: modeling_llama.LlamaRotaryEmbedding,
+            x: torch.Tensor,
+            position_ids: torch.Tensor,
+            *args: Any,
+            **kwargs: Any,
+        ) -> torch.Tensor:
             return position_ids
 
         # Bypass rotary_emb module
         if not hasattr(modeling_llama.LlamaRotaryEmbedding, "_original_forward"):
-            modeling_llama.LlamaRotaryEmbedding._original_forward = (  # pyright: ignore [reportAttributeAccessIssue]
+            modeling_llama.LlamaRotaryEmbedding._original_forward = (  # type: ignore[attr-defined, unused-ignore]
                 modeling_llama.LlamaRotaryEmbedding.forward
             )
             modeling_llama.LlamaRotaryEmbedding.forward = bypass_RotaryEmbedding
         modeling_llama.apply_rotary_pos_emb = QcLlama_apply_rotary_pos_emb
 
-        def LlamaRMSNorm_forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        def LlamaRMSNorm_forward(
+            self: modeling_llama.LlamaRMSNorm, hidden_states: torch.Tensor
+        ) -> torch.Tensor:
             # Raise to rank 4
             hidden_states = hidden_states.unsqueeze(0)
             variance = hidden_states.pow(2).mean(-1, keepdim=True)
@@ -231,13 +226,14 @@ class Llama3Base(LLMBase):
         else:
             modeling_llama.LlamaRMSNorm.forward = LlamaRMSNorm_forward
 
-        modeling_llama.LlamaMLP = QCLlamaMLP
-        modeling_llama.LlamaForCausalLM = QCLlamaForCausalLM
+        modeling_llama.LlamaMLP = QCLlamaMLP  # type: ignore[misc, unused-ignore]
+        modeling_llama.LlamaForCausalLM = QCLlamaForCausalLM  # type: ignore[misc, unused-ignore]
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         if (
             not (
-                self.llm_config.architectures[0] == "LlamaForCausalLM"
+                self.llm_config.architectures
+                and self.llm_config.architectures[0] == "LlamaForCausalLM"
                 and self.llm_config.model_type == "llama"
             )
             and self.llm_config.rope_scaling is not None
@@ -263,7 +259,7 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         attention_mask_min_clip: float | None = None,
         attention_mask_multiplier: float = 1.0,
-    ):
+    ) -> None:
         super().__init__(
             quant_sim=quant_sim,
             checkpoint=checkpoint,
@@ -275,22 +271,6 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             attention_mask_min_clip=attention_mask_min_clip,
             attention_mask_multiplier=attention_mask_multiplier,
         )
-
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        """Get prompt to set context and initialize prompt-processor"""
-        return f"""{BEGIN_TEXT}{START_HEADER}{SYSTEM_ID}{END_HEADER}
-
-{system_context_prompt}
-{START_HEADER}{USER_ID}{END_HEADER}
-
-{user_input_prompt}{EOT_ID}{START_HEADER}{ASSISTANT_ID}{END_HEADER}
-
-
-"""
 
     @classmethod
     def prepare_genie_assets(
@@ -306,6 +286,8 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
         input_specs: dict[str, Any],
         output_specs: dict[str, Any],
     ) -> None:
+        from transformers import AutoTokenizer
+
         super().prepare_genie_assets(
             hub_device,
             checkpoint,
@@ -319,16 +301,13 @@ class Llama3Base_AIMETOnnx(LLM_AIMETOnnx):
             output_specs,
         )
 
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+        sample_prompt = cls.get_input_prompt_with_tags(tokenizer=tokenizer)
         with open(output_path / "sample_prompt.txt", "w") as f:
-            f.write(
-                Llama3Base_AIMETOnnx.get_input_prompt_with_tags(
-                    user_input_prompt="What is gravity?",
-                    system_context_prompt="You are a helpful AI assistant. Be concise.",
-                )
-            )
+            f.write(sample_prompt)
 
     @staticmethod
-    def _get_output_names(num_hidden_layers: int):
+    def _get_output_names(num_hidden_layers: int) -> list[str]:
         output_names = ["logits"]
         for layer in range(num_hidden_layers):
             output_names.append(f"past_key_{layer}_out")
@@ -446,5 +425,3 @@ class Llama3Base_QNN(LLM_QNN):
     FPModel = Llama3Base
     EmbeddingClass = RopeEmbedding
     num_layers_per_split: int
-
-    get_input_prompt_with_tags = Llama3Base.get_input_prompt_with_tags

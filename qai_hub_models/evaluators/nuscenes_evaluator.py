@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import numpy as np
 import torch
@@ -93,7 +94,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
         nms_threshold: float = 4.0,
         nms_post_max_size: int = 500,
         movement_threshold: float = 0.2,
-    ):
+    ) -> None:
         self.reset()
         self.bbox_coder = bbox_coder
         self.nusc = NuscenesDataset().nusc
@@ -125,8 +126,8 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
             "traffic_cone": NuScenesAttribute.NO_ATTRIBUTE,
         }
 
-    def reset(self):
-        self.nusc_annos = {}
+    def reset(self) -> None:
+        self.nusc_annos: dict[torch.Tensor, list[dict[str, Any]]] = {}
 
     def add_batch(
         self,
@@ -139,7 +140,7 @@ class NuscenesObjectDetectionEvaluator(BaseEvaluator):
             torch.Tensor,
         ],
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """
         Parameters
         ----------

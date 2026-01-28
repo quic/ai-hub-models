@@ -20,12 +20,12 @@ from qai_hub_models.scorecard.execution_helpers import (
 
 
 @pytest.fixture(autouse=True)
-def set_env(monkeypatch):
+def set_env(monkeypatch: pytest.MonkeyPatch) -> None:
     IgnoreKnownFailuresEnvvar.patchenv(monkeypatch, True)
     EnableAsyncTestingEnvvar.patchenv(monkeypatch, True)
 
 
-def test_get_quantize_precisions(monkeypatch):
+def test_get_quantize_precisions(monkeypatch: pytest.MonkeyPatch) -> None:
     EnabledPrecisionsEnvvar.patchenv(monkeypatch, {SpecialPrecisionSetting.DEFAULT})
     quantize_precisions = get_quantize_parameterized_pytest_config(
         "", {k: [] for k in [Precision.float, Precision.w8a8, Precision.w8a16]}
@@ -62,7 +62,7 @@ def test_get_quantize_precisions(monkeypatch):
     assert set(quantize_precisions) == {Precision.w8a8}
 
 
-def test_get_compile_precisions(monkeypatch):
+def test_get_compile_precisions(monkeypatch: pytest.MonkeyPatch) -> None:
     EnabledPathsEnvvar.patchenv(monkeypatch, {"onnx"})
     EnabledPrecisionsEnvvar.patchenv(monkeypatch, {SpecialPrecisionSetting.DEFAULT})
     compile_paths = get_compile_parameterized_pytest_config(

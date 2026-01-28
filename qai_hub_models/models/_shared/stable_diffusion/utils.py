@@ -39,13 +39,17 @@ def clip_extreme_values(
 
     Parameters
     ----------
-    model: The ONNX model to process.
-    extreme_value_threshold: The threshold below which values will be clipped. Default is -1e15.
-    clip_value: The value to which extreme values will be clipped. Default is -1e4.
+    model
+        The ONNX model to process.
+    extreme_value_threshold
+        The threshold below which values will be clipped. Default is -1e15.
+    clip_value
+        The value to which extreme values will be clipped. Default is -1e4.
 
     Returns
     -------
-    onnx.ModelProto: The modified ONNX model with extreme values clipped.
+    modified_model
+        The modified ONNX model with extreme values clipped.
     """
     extreme_value_threshold_np = np.float32(extreme_value_threshold)
     clip_value_np = np.float32(clip_value)
@@ -88,11 +92,11 @@ def clip_extreme_values(
 def make_calib_data(
     export_path_unet: str | os.PathLike,
     export_path_vae: str | os.PathLike,
-    prompt_path: str,
+    prompt_path: str | os.PathLike,
     tokenizer: CLIPTokenizer,
     text_encoder_hf: ExecutableModelProtocol,
     unet_hf: ExecutableModelProtocol,
-    scheduler: diffusers.DPMSolverMultistepScheduler,
+    scheduler: diffusers.SchedulerMixin,
     num_steps: int = 20,
     num_samples: int = 100,
     guidance_scale: float = 7.5,
@@ -105,13 +109,33 @@ def make_calib_data(
 
     Parameters
     ----------
-    - export_path_*: must end with .pt
-
-    - prompt_path: txt file where each line is a prompt
-
-    - image_cond_path: .pth file which is a list of canny images in NCHW
-    torch.Tensor. Required for controlnet. Must have the same length as
-    prompts in prompt_path
+    export_path_unet
+        Path to save unet calibration data. Must end with .pt.
+    export_path_vae
+        Path to save vae calibration data. Must end with .pt.
+    prompt_path
+        Text file where each line is a prompt.
+    tokenizer
+        CLIP tokenizer instance.
+    text_encoder_hf
+        Text encoder model.
+    unet_hf
+        UNet model.
+    scheduler
+        Diffusion scheduler.
+    num_steps
+        Number of diffusion steps.
+    num_samples
+        Number of samples to generate.
+    guidance_scale
+        Classifier-free guidance scale.
+    controlnet_hf
+        Optional controlnet model.
+    export_path_controlnet
+        Path to save controlnet calibration data. Must end with .pt.
+    image_cond_path
+        Path to .pth file containing a list of canny images in NCHW format.
+        Required for controlnet. Must have the same length as prompts.
     """
     for path in [export_path_unet, export_path_vae, export_path_controlnet]:
         assert str(path).endswith(".pt") or str(path) == ""
@@ -168,18 +192,30 @@ def make_calib_data(
 
 
 def load_calib_tokens(
-    path: str,
+    path: str | os.PathLike,
     tokenizer: CLIPTokenizer,
     num_samples: int | None = None,
 ) -> tuple[list[torch.Tensor], torch.Tensor]:
     """
+    Load calibration tokens from a prompts file.
+
+    Parameters
+    ----------
+    path
+        Path to the text file containing prompts.
+    tokenizer
+        CLIP tokenizer instance.
+    num_samples
+        Number of samples to load. If None, loads 500 prompts.
+
     Returns
     -------
-    - tokens: List of length `num_samples` (500 if None) of
-    torch.Tensor(int32) representing conditional tokens.
-
-    - uncond_tokens: torch.Tensor(int32) of shape (1, 77) to represent
-    unconditional tokens (padding).
+    tokens
+        List of length `num_samples` (500 if None) of torch.Tensor(int32)
+        representing conditional tokens.
+    uncond_tokens
+        torch.Tensor(int32) of shape (1, 77) representing unconditional
+        tokens (padding).
     """
     with open(path) as f:
         prompts = f.readlines()
@@ -192,7 +228,7 @@ def load_calib_tokens(
 
 
 def load_unet_calib_dataset_entries(
-    path: str, num_samples: int | None = None
+    path: str | os.PathLike, num_samples: int | None = None
 ) -> DatasetEntries:
     """
     Load calib data. If uncond_emb is present, duplicate the other inputs
@@ -224,7 +260,7 @@ def load_unet_calib_dataset_entries(
 
 
 def load_calib_dataset_entries(
-    path: str, num_samples: int | None = None
+    path: str | os.PathLike, num_samples: int | None = None
 ) -> DatasetEntries:
     """
     Use this for vae and controlnet data where we don't need to duplicate
@@ -248,8 +284,23 @@ def run_tokenizer(
     tokenizer: CLIPTokenizer, prompt: str
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Returns: cond and uncond token ids, each a int32 torch.Tensor of
-    shape [1, tokenizer.model_max_length=77]
+    Tokenize a prompt into conditional and unconditional token ids.
+
+    Parameters
+    ----------
+    tokenizer
+        CLIP tokenizer instance.
+    prompt
+        Text prompt to tokenize.
+
+    Returns
+    -------
+    cond_tokens
+        Conditional token ids as int32 torch.Tensor of shape
+        [1, tokenizer.model_max_length].
+    uncond_tokens
+        Unconditional token ids as int32 torch.Tensor of shape
+        [1, tokenizer.model_max_length].
     """
     with torch.no_grad():
         text_input = tokenizer(
@@ -279,14 +330,14 @@ def count_op_type(model: onnx.ModelProto, op_type: str) -> int:
 
     Parameters
     ----------
-    model : onnx.ModelProto
+    model
         The loaded ONNX model to inspect.
-    op_type : str
+    op_type
         The operator type to count (e.g., "Conv", "Relu", "MatMul").
 
     Returns
     -------
-    int
+    count
         The number of nodes in the model whose op_type matches the given string.
     """
     return sum(1 for node in model.graph.node if node.op_type == op_type)

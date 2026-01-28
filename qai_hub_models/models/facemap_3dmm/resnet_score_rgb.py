@@ -5,55 +5,58 @@
 
 
 import os
+from collections.abc import Callable
 
+import torch
 from torch import nn
 from torch.nn import init
 
 
 class ConvBlock(nn.Module):
-    """
-    Standard convolution block with Batch normalization and activation.
-
-    Parameters
-    ----------
-    in_channels : int
-        Number of input channels.
-    out_channels : int
-        Number of output channels.
-    kernel_size : int or tuple/list of 2 int
-        Convolution window size.
-    stride : int or tuple/list of 2 int
-        Strides of the convolution.
-    padding : int, or tuple/list of 2 int, or tuple/list of 4 int
-        Padding value for convolution layer.
-    dilation : int or tuple/list of 2 int, default 1
-        Dilation value for convolution layer.
-    groups : int, default 1
-        Number of groups.
-    bias : bool, default False
-        Whether the layer uses a bias vector.
-    use_bn : bool, default True
-        Whether to use BatchNorm layer.
-    bn_eps : float, default 1e-5
-        Small float added to variance in Batch norm.
-    activation : function or str or None, default nn.ReLU(inplace=True)
-        Activation function or name of activation function.
-    """
+    """Standard convolution block with Batch normalization and activation."""
 
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        kernel_size,
-        stride,
-        padding,
-        dilation=1,
-        groups=1,
-        bias=False,
-        use_bn=True,
-        bn_eps=1e-5,
-        activation=(lambda: nn.ReLU(inplace=True)),
-    ):
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int,
+        padding: int,
+        dilation: int = 1,
+        groups: int = 1,
+        bias: bool = False,
+        use_bn: bool = True,
+        bn_eps: float = 1e-5,
+        activation: Callable[[], nn.Module] | None = (lambda: nn.ReLU(inplace=True)),
+    ) -> None:
+        """
+        Initialize a ConvBlock.
+
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        kernel_size
+            Convolution window size.
+        stride
+            Strides of the convolution.
+        padding
+            Padding value for convolution layer.
+        dilation
+            Dilation value for convolution layer.
+        groups
+            Number of groups.
+        bias
+            Whether the layer uses a bias vector.
+        use_bn
+            Whether to use BatchNorm layer.
+        bn_eps
+            Small float added to variance in Batch norm.
+        activation
+            Activation function or name of activation function.
+        """
         super().__init__()
         self.activate = activation is not None
         self.use_bn = use_bn
@@ -77,7 +80,7 @@ class ConvBlock(nn.Module):
         if self.activate:
             self.activ = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.use_pad:
             x = self.pad(x)
         x = self.conv(x)
@@ -89,39 +92,44 @@ class ConvBlock(nn.Module):
 
 
 def conv1x1_block(
-    in_channels,
-    out_channels,
-    stride=1,
-    padding=0,
-    groups=1,
-    bias=False,
-    use_bn=True,
-    bn_eps=1e-5,
-    activation=(lambda: nn.ReLU(inplace=True)),
-):
+    in_channels: int,
+    out_channels: int,
+    stride: int = 1,
+    padding: int = 0,
+    groups: int = 1,
+    bias: bool = False,
+    use_bn: bool = True,
+    bn_eps: float = 1e-5,
+    activation: Callable[[], nn.Module] | None = (lambda: nn.ReLU(inplace=True)),
+) -> ConvBlock:
     """
     1x1 version of the standard convolution block.
 
     Parameters
     ----------
-    in_channels : int
+    in_channels
         Number of input channels.
-    out_channels : int
+    out_channels
         Number of output channels.
-    stride : int or tuple/list of 2 int, default 1
+    stride
         Strides of the convolution.
-    padding : int, or tuple/list of 2 int, or tuple/list of 4 int, default 0
+    padding
         Padding value for convolution layer.
-    groups : int, default 1
+    groups
         Number of groups.
-    bias : bool, default False
+    bias
         Whether the layer uses a bias vector.
-    use_bn : bool, default True
+    use_bn
         Whether to use BatchNorm layer.
-    bn_eps : float, default 1e-5
+    bn_eps
         Small float added to variance in Batch norm.
-    activation : function or str or None, default nn.ReLU(inplace=True)
+    activation
         Activation function or name of activation function.
+
+    Returns
+    -------
+    ConvBlock
+        The 1x1 convolution block.
     """
     return ConvBlock(
         in_channels=in_channels,
@@ -138,42 +146,47 @@ def conv1x1_block(
 
 
 def conv3x3_block(
-    in_channels,
-    out_channels,
-    stride=1,
-    padding=1,
-    dilation=1,
-    groups=1,
-    bias=False,
-    use_bn=True,
-    bn_eps=1e-5,
-    activation=(lambda: nn.ReLU(inplace=True)),
-):
+    in_channels: int,
+    out_channels: int,
+    stride: int = 1,
+    padding: int = 1,
+    dilation: int = 1,
+    groups: int = 1,
+    bias: bool = False,
+    use_bn: bool = True,
+    bn_eps: float = 1e-5,
+    activation: Callable[[], nn.Module] | None = (lambda: nn.ReLU(inplace=True)),
+) -> ConvBlock:
     """
     3x3 version of the standard convolution block.
 
     Parameters
     ----------
-    in_channels : int
+    in_channels
         Number of input channels.
-    out_channels : int
+    out_channels
         Number of output channels.
-    stride : int or tuple/list of 2 int, default 1
+    stride
         Strides of the convolution.
-    padding : int, or tuple/list of 2 int, or tuple/list of 4 int, default 1
+    padding
         Padding value for convolution layer.
-    dilation : int or tuple/list of 2 int, default 1
+    dilation
         Dilation value for convolution layer.
-    groups : int, default 1
+    groups
         Number of groups.
-    bias : bool, default False
+    bias
         Whether the layer uses a bias vector.
-    use_bn : bool, default True
+    use_bn
         Whether to use BatchNorm layer.
-    bn_eps : float, default 1e-5
+    bn_eps
         Small float added to variance in Batch norm.
-    activation : function or str or None, default nn.ReLU(inplace=True)
+    activation
         Activation function or name of activation function.
+
+    Returns
+    -------
+    ConvBlock
+        The 3x3 convolution block.
     """
     return ConvBlock(
         in_channels=in_channels,
@@ -191,33 +204,38 @@ def conv3x3_block(
 
 
 def conv7x7_block(
-    in_channels,
-    out_channels,
-    stride=1,
-    padding=3,
-    bias=False,
-    use_bn=True,
-    activation=(lambda: nn.ReLU(inplace=True)),
-):
+    in_channels: int,
+    out_channels: int,
+    stride: int = 1,
+    padding: int = 3,
+    bias: bool = False,
+    use_bn: bool = True,
+    activation: Callable[[], nn.Module] | None = (lambda: nn.ReLU(inplace=True)),
+) -> ConvBlock:
     """
     7x7 version of the standard convolution block.
 
     Parameters
     ----------
-    in_channels : int
+    in_channels
         Number of input channels.
-    out_channels : int
+    out_channels
         Number of output channels.
-    padding : int, or tuple/list of 2 int, or tuple/list of 4 int, default 1
+    stride
         Strides of the convolution.
-    padding : int or tuple/list of 2 int, default 3
+    padding
         Padding value for convolution layer.
-    bias : bool, default False
+    bias
         Whether the layer uses a bias vector.
-    use_bn : bool, default True
+    use_bn
         Whether to use BatchNorm layer.
-    activation : function or str or None, default nn.ReLU(inplace=True)
+    activation
         Activation function or name of activation function.
+
+    Returns
+    -------
+    ConvBlock
+        The 7x7 convolution block.
     """
     return ConvBlock(
         in_channels=in_channels,
@@ -232,24 +250,32 @@ def conv7x7_block(
 
 
 class ResBlock(nn.Module):
-    """
-    Simple ResNet block for residual path in ResNet unit.
+    """Simple ResNet block for residual path in ResNet unit."""
 
-    Parameters
-    ----------
-    in_channels : int
-        Number of input channels.
-    out_channels : int
-        Number of output channels.
-    stride : int or tuple/list of 2 int
-        Strides of the convolution.
-    bias : bool, default False
-        Whether the layer uses a bias vector.
-    use_bn : bool, default True
-        Whether to use BatchNorm layer.
-    """
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: int,
+        bias: bool = False,
+        use_bn: bool = True,
+    ) -> None:
+        """
+        Initialize a ResBlock.
 
-    def __init__(self, in_channels, out_channels, stride, bias=False, use_bn=True):
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        stride
+            Strides of the convolution.
+        bias
+            Whether the layer uses a bias vector.
+        use_bn
+            Whether to use BatchNorm layer.
+        """
         super().__init__()
         self.conv1 = conv3x3_block(
             in_channels=in_channels,
@@ -266,43 +292,44 @@ class ResBlock(nn.Module):
             activation=None,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv1(x)
         return self.conv2(x)
 
 
 class ResBottleneck(nn.Module):
-    """
-    ResNet bottleneck block for residual path in ResNet unit.
-
-    Parameters
-    ----------
-    in_channels : int
-        Number of input channels.
-    out_channels : int
-        Number of output channels.
-    stride : int or tuple/list of 2 int
-        Strides of the convolution.
-    padding : int or tuple/list of 2 int, default 1
-        Padding value for the second convolution layer.
-    dilation : int or tuple/list of 2 int, default 1
-        Dilation value for the second convolution layer.
-    conv1_stride : bool, default False
-        Whether to use stride in the first or the second convolution layer of the block.
-    bottleneck_factor : int, default 4
-        Bottleneck factor.
-    """
+    """ResNet bottleneck block for residual path in ResNet unit."""
 
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        stride,
-        padding=1,
-        dilation=1,
-        conv1_stride=False,
-        bottleneck_factor=4,
-    ):
+        in_channels: int,
+        out_channels: int,
+        stride: int,
+        padding: int = 1,
+        dilation: int = 1,
+        conv1_stride: bool = False,
+        bottleneck_factor: int = 4,
+    ) -> None:
+        """
+        Initialize a ResBottleneck.
+
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        stride
+            Strides of the convolution.
+        padding
+            Padding value for the second convolution layer.
+        dilation
+            Dilation value for the second convolution layer.
+        conv1_stride
+            Whether to use stride in the first or the second convolution layer of the block.
+        bottleneck_factor
+            Bottleneck factor.
+        """
         super().__init__()
         mid_channels = out_channels // bottleneck_factor
 
@@ -322,50 +349,51 @@ class ResBottleneck(nn.Module):
             in_channels=mid_channels, out_channels=out_channels, activation=None
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv1(x)
         x = self.conv2(x)
         return self.conv3(x)
 
 
 class ResUnit(nn.Module):
-    """
-    ResNet unit with residual connection.
-
-    Parameters
-    ----------
-    in_channels : int
-        Number of input channels.
-    out_channels : int
-        Number of output channels.
-    stride : int or tuple/list of 2 int
-        Strides of the convolution.
-    padding : int or tuple/list of 2 int, default 1
-        Padding value for the second convolution layer in bottleneck.
-    dilation : int or tuple/list of 2 int, default 1
-        Dilation value for the second convolution layer in bottleneck.
-    bias : bool, default False
-        Whether the layer uses a bias vector.
-    use_bn : bool, default True
-        Whether to use BatchNorm layer.
-    bottleneck : bool, default True
-        Whether to use a bottleneck or simple block in units.
-    conv1_stride : bool, default False
-        Whether to use stride in the first or the second convolution layer of the block.
-    """
+    """ResNet unit with residual connection."""
 
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        stride,
-        padding=1,
-        dilation=1,
-        bias=False,
-        use_bn=True,
-        bottleneck=True,
-        conv1_stride=False,
-    ):
+        in_channels: int,
+        out_channels: int,
+        stride: int,
+        padding: int = 1,
+        dilation: int = 1,
+        bias: bool = False,
+        use_bn: bool = True,
+        bottleneck: bool = True,
+        conv1_stride: bool = False,
+    ) -> None:
+        """
+        Initialize a ResUnit.
+
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        stride
+            Strides of the convolution.
+        padding
+            Padding value for the second convolution layer in bottleneck.
+        dilation
+            Dilation value for the second convolution layer in bottleneck.
+        bias
+            Whether the layer uses a bias vector.
+        use_bn
+            Whether to use BatchNorm layer.
+        bottleneck
+            Whether to use a bottleneck or simple block in units.
+        conv1_stride
+            Whether to use stride in the first or the second convolution layer of the block.
+        """
         super().__init__()
         self.resize_identity = (in_channels != out_channels) or (stride != 1)
         self.body: nn.Module
@@ -397,7 +425,7 @@ class ResUnit(nn.Module):
             )
         self.activ = nn.ReLU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = self.identity_conv(x) if self.resize_identity else x
         x = self.body(x)
         x = x + identity
@@ -405,18 +433,19 @@ class ResUnit(nn.Module):
 
 
 class ResInitBlock(nn.Module):
-    """
-    ResNet specific initial block.
+    """ResNet specific initial block."""
 
-    Parameters
-    ----------
-    in_channels : int
-        Number of input channels.
-    out_channels : int
-        Number of output channels.
-    """
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        """
+        Initialize a ResInitBlock.
 
-    def __init__(self, in_channels, out_channels):
+        Parameters
+        ----------
+        in_channels
+            Number of input channels.
+        out_channels
+            Number of output channels.
+        """
         super().__init__()
         self.conv = conv7x7_block(
             in_channels=in_channels, out_channels=out_channels, stride=2
@@ -424,43 +453,44 @@ class ResInitBlock(nn.Module):
 
         self.pool = nn.Sequential(nn.ZeroPad2d((0, 1, 0, 1)), nn.MaxPool2d(3, 2))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.conv(x)
         return self.pool(x)
 
 
 class ResNet(nn.Module):
-    """
-    ResNet model from 'Deep Residual Learning for Image Recognition,' https://arxiv.org/abs/1512.03385.
-
-    Parameters
-    ----------
-    channels : list of list of int
-        Number of output channels for each unit.
-    init_block_channels : int
-        Number of output channels for the initial unit.
-    bottleneck : bool
-        Whether to use a bottleneck or simple block in units.
-    conv1_stride : bool
-        Whether to use stride in the first or the second convolution layer in units.
-    in_channels : int, default 3
-        Number of input channels.
-    in_size : tuple of two ints, default (224, 224)
-        Spatial size of the expected input image.
-    num_classes : int, default 1000
-        Number of classification classes.
-    """
+    """ResNet model from 'Deep Residual Learning for Image Recognition,' https://arxiv.org/abs/1512.03385."""
 
     def __init__(
         self,
-        channels,
-        init_block_channels,
-        bottleneck,
-        conv1_stride,
-        in_channels=3,
-        in_size=(128, 128),
-        num_classes=265,
-    ):
+        channels: list[list[int]],
+        init_block_channels: int,
+        bottleneck: bool,
+        conv1_stride: bool,
+        in_channels: int = 3,
+        in_size: tuple[int, int] = (128, 128),
+        num_classes: int = 265,
+    ) -> None:
+        """
+        Initialize a ResNet.
+
+        Parameters
+        ----------
+        channels
+            Number of output channels for each unit.
+        init_block_channels
+            Number of output channels for the initial unit.
+        bottleneck
+            Whether to use a bottleneck or simple block in units.
+        conv1_stride
+            Whether to use stride in the first or the second convolution layer in units.
+        in_channels
+            Number of input channels.
+        in_size
+            Spatial size of the expected input image.
+        num_classes
+            Number of classification classes.
+        """
         super().__init__()
         self.in_size = in_size
         self.num_classes = num_classes
@@ -505,14 +535,14 @@ class ResNet(nn.Module):
 
         self._init_params()
 
-    def _init_params(self):
+    def _init_params(self) -> None:
         for _name, module in self.named_modules():
             if isinstance(module, nn.Conv2d):
                 init.kaiming_uniform_(module.weight)
                 if module.bias is not None:
                     init.constant_(module.bias, 0)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.rgb2gray_block(x)
         x = self.features(x)
         feature = x.view(x.size(0), -1)
@@ -520,34 +550,41 @@ class ResNet(nn.Module):
 
 
 def get_resnet(
-    blocks,
-    bottleneck=None,
-    conv1_stride=True,
-    width_scale=1.0,
-    model_name=None,
-    pretrained=False,
-    root=os.path.join("~", ".torch", "models"),
+    blocks: int,
+    bottleneck: bool | None = None,
+    conv1_stride: bool = True,
+    width_scale: float = 1.0,
+    model_name: str | None = None,
+    pretrained: bool = False,
+    root: str = os.path.join("~", ".torch", "models"),
     **kwargs,
-):
+) -> ResNet:
     """
     Create ResNet model with specific parameters.
 
     Parameters
     ----------
-    blocks : int
+    blocks
         Number of blocks.
-    bottleneck : bool, default None
+    bottleneck
         Whether to use a bottleneck or simple block in units.
-    conv1_stride : bool, default True
+    conv1_stride
         Whether to use stride in the first or the second convolution layer in units.
-    width_scale : float, default 1.0
+    width_scale
         Scale factor for width of layers.
-    model_name : str or None, default None
+    model_name
         Model name for loading pretrained model.
-    pretrained : bool, default False
+    pretrained
         Whether to load the pretrained weights for model.
-    root : str, default '~/.torch/models'
+    root
         Location for keeping the model parameters.
+    **kwargs
+        Additional keyword arguments for ResNet constructor.
+
+    Returns
+    -------
+    ResNet
+        The ResNet model instance.
     """
     if bottleneck is None:
         bottleneck = blocks >= 50
@@ -633,16 +670,21 @@ def get_resnet(
     return net
 
 
-def resnet18_wd2(**kwargs):
+def resnet18_wd2(**kwargs: bool | str | None) -> ResNet:
     """
     ResNet-18 model with 0.5 width scale from 'Deep Residual Learning for Image Recognition,'
     https://arxiv.org/abs/1512.03385. It's an experimental model.
 
     Parameters
     ----------
-    pretrained : bool, default False
-        Whether to load the pretrained weights for model.
-    root : str, default '~/.torch/models'
-        Location for keeping the model parameters.
+    **kwargs
+        Additional keyword arguments passed to get_resnet, including:
+        - pretrained: Whether to load the pretrained weights for model.
+        - root: Location for keeping the model parameters.
+
+    Returns
+    -------
+    ResNet
+        The ResNet-18 model with 0.5 width scale.
     """
-    return get_resnet(blocks=18, width_scale=0.5, model_name="resnet18_wd2", **kwargs)
+    return get_resnet(blocks=18, width_scale=0.5, model_name="resnet18_wd2", **kwargs)  # type: ignore[arg-type]

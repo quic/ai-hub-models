@@ -8,7 +8,7 @@ import numpy as np
 from qai_hub_models.utils.compare import compute_top_k_accuracy
 
 
-def test_compute_top_k_accuracy():
+def test_compute_top_k_accuracy() -> None:
     expected = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
     actual = np.array([0.5, 0.4, 0.3, 0.2, 0.1])
 

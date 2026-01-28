@@ -5,13 +5,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 
 
 def KernelAttention_forward(
-    self,
+    self: Any,
     q: torch.Tensor,
     k: torch.Tensor,
     v: torch.Tensor,
@@ -26,26 +28,28 @@ def KernelAttention_forward(
     - Replaced torch.einsum with explicit multiplication and sum operations
     - Changed mask fill value from -10^9 to -1000 to improve PSNR
 
+    Dimension notation: b=batch size, n=number of cameras, d=feature dimension,
+    HW=flattened spatial dimensions (height * width), g=number of grid points.
+
     Parameters
     ----------
-    b: batch size, n: number of cameras, d: feature dimension,
-    HW: flattened spatial dimensions (height * width),
-    k: number of query points, g- number of grid points
-    q : torch.Tensor
-        Query tensor with shape (b, n, HW, d)
-    k : torch.Tensor
-        Key tensor with shape (b*n, k, g, d)
-    v : torch.Tensor
-        Value tensor with shape (b*n, k, g, d)
-    skip : Optional[torch.Tensor]
-        Skip connection tensor with shape (1, HW, d). Default: None
-    mask : Optional[torch.Tensor]
-        Attention mask with shape (b, n, k, 1). Default: None
+    self
+        Module instance.
+    q
+        Query tensor with shape (b, n, HW, d).
+    k
+        Key tensor with shape (b*n, k, g, d).
+    v
+        Value tensor with shape (b*n, k, g, d).
+    skip
+        Skip connection tensor with shape (1, HW, d). Default: None.
+    mask
+        Attention mask with shape (b, n, k, 1). Default: None.
 
     Returns
     -------
-    torch.Tensor
-        Output tensor with shape (b, HW, d)
+    output
+        Output tensor with shape (b, HW, d).
     """
     b, n, HW, d = q.shape
     num_points = k.shape[-2]
@@ -121,26 +125,28 @@ def bev2image_sampling(
     """
     Project BEV (Bird's Eye View) points to image coordinates.
 
+    Dimension notation: b=batch size, n=number of cameras, k=number of points.
+
     Parameters
     ----------
-    b: batch size, n: number of cameras, k: number of points
-    points : torch.Tensor
-        BEV points with shape (k, 3) where each point has (x, y, z) coordinates
-    I : torch.Tensor
-        Camera intrinsic matrices with shape (b, n, 3, 3)
-    E : torch.Tensor
-        Camera extrinsic matrices with shape (b, n, 4, 4)
-    height : float
-        Image height for normalization
-    width : float
-        Image width for normalization
+    points
+        BEV points with shape (k, 3) where each point has (x, y, z) coordinates.
+    I
+        Camera intrinsic matrices with shape (b, n, 3, 3).
+    E
+        Camera extrinsic matrices with shape (b, n, 4, 4).
+    height
+        Image height for normalization.
+    width
+        Image width for normalization.
 
     Returns
     -------
-    tuple[torch.Tensor, torch.Tensor]
-        - sample_points: Normalized 2D image coordinates with shape (b*n, k, 1, 2)
-        - mask: Visibility mask with shape (b, n, k, 1) indicating which points
-          are visible in each camera view
+    sample_points
+        Normalized 2D image coordinates with shape (b*n, k, 1, 2).
+    mask
+        Visibility mask with shape (b, n, k, 1) indicating which points
+        are visible in each camera view.
     """
     # Convert 3D points to homogeneous coordinates (k, 3) -> (k, 4)
     k = points.shape[0]
@@ -186,7 +192,7 @@ def bev2image_sampling(
 
 
 def IndexBEVProjector_forward(
-    self,
+    self: Any,
     bev_grids: torch.Tensor,
     images: torch.Tensor,
     I: torch.Tensor,
@@ -195,26 +201,29 @@ def IndexBEVProjector_forward(
     """
     Optimized forward pass for IndexBEVProjector module.
 
+    Dimension notation: b=batch size, n=number of cameras, c=number of feature
+    channels, h/w=feature map spatial dimensions, H/W=BEV spatial dimensions,
+    k=number of BEV points (H*W), num_grid_points=number of grid points.
+
     Parameters
     ----------
-    b: batch size, n: number of cameras, c: number of feature channels,
-    h, w: feature map spatial dimensions, H, W: BEV spatial dimensions,
-    k: number of BEV points (H*W), num_grid_points: number of grid points
-
-    bev_grids : torch.Tensor
-        BEV grid coordinates with shape (3, H, W)
-    images : torch.Tensor
-        Image feature maps with shape (b*n, c, h, w)
-    I : torch.Tensor
-        Camera intrinsic matrices with shape (b, n, 3, 3)
-    E : torch.Tensor
-        Camera extrinsic matrices with shape (b, n, 4, 4)
+    self
+        Module instance.
+    bev_grids
+        BEV grid coordinates with shape (3, H, W).
+    images
+        Image feature maps with shape (b*n, c, h, w).
+    I
+        Camera intrinsic matrices with shape (b, n, 3, 3).
+    E
+        Camera extrinsic matrices with shape (b, n, 4, 4).
 
     Returns
     -------
-    tuple[torch.Tensor, torch.Tensor]
-        - sample_feats: Sampled features with shape (b*n, k, num_grid_points, c)
-        - sample_mask: Visibility mask with shape (b, n, k, 1)
+    sample_feats
+        Sampled features with shape (b*n, k, num_grid_points, c).
+    sample_mask
+        Visibility mask with shape (b, n, k, 1).
     """
     b, n = I.shape[:2]
     _, c, h, w = images.shape
@@ -267,7 +276,7 @@ def IndexBEVProjector_forward(
 
 
 def GeometryKernelAttention_forward(
-    self,
+    self: Any,
     x: torch.Tensor,
     bev_grid: torch.Tensor,
     feature_flat: torch.Tensor,
@@ -279,30 +288,33 @@ def GeometryKernelAttention_forward(
     """
     Optimized forward pass for GeometryKernelAttention module.
 
+    Dimension notation: b=batch size, n=number of cameras, d=feature dimension,
+    dim_in=input feature dimension, H/W=BEV spatial dimensions,
+    h/w=feature map spatial dimensions.
+
     Parameters
     ----------
-    b: batch size, n: number of cameras, d: feature dimension,
-    dim_in: input feature dimension
-    H, W: BEV spatial dimensions, h, w: feature map spatial dimensions,
-    x : torch.Tensor
-        BEV feature tensor with shape (d, H, W)
-    bev_grid : torch.Tensor
-        BEV grid coordinates
-    feature : torch.Tensor
-        Multi-camera image features with shape (b*n, dim_in, h, w)
-    I_inv : torch.Tensor
-        Inverse camera intrinsic matrices with shape (b, n, 3, 3)
-    E_inv : torch.Tensor
-        Inverse camera extrinsic matrices with shape (b, n, 4, 4)
-    I_ : torch.Tensor
-        Camera intrinsic matrices with shape (b, n, 3, 3)
-    E_ : torch.Tensor
-        Camera extrinsic matrices with shape (b, n, 4, 4)
+    self
+        Module instance.
+    x
+        BEV feature tensor with shape (d, H, W).
+    bev_grid
+        BEV grid coordinates.
+    feature_flat
+        Multi-camera image features with shape (b*n, dim_in, h, w).
+    I_inv
+        Inverse camera intrinsic matrices with shape (b, n, 3, 3).
+    E_inv
+        Inverse camera extrinsic matrices with shape (b, n, 4, 4).
+    I_
+        Camera intrinsic matrices with shape (b, n, 3, 3).
+    E_
+        Camera extrinsic matrices with shape (b, n, 4, 4).
 
     Returns
     -------
-    torch.Tensor
-        Output BEV features with shape (b, d, H, W)
+    bev_features
+        Output BEV features with shape (b, d, H, W).
     """
     b, n = I_.shape[:2]
 

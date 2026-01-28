@@ -20,7 +20,7 @@ from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
 
 MODEL_ID = __name__.split(".")[-2]
-MODEL_ASSET_VERSION = 2
+MODEL_ASSET_VERSION = 3
 
 
 TRACKANYTHING_SOURCE_REPOSITORY = "https://github.com/gaomingqi/Track-Anything.git"
@@ -74,20 +74,19 @@ class TrackAnythingEncodeKeyWithShrinkage(TrackAnything):
 
         Parameters
         ----------
-            image: torch.Tensor of shape [1, 3, height, width]
-                image with value range of [0, 1], RGB channel layout.
+        image
+            torch.Tensor of shape [1, 3, height, width], image with value range of [0, 1], RGB channel layout.
 
         Returns
         -------
-            key: torch.Tensor of shape [1, 64, height//16, width//16]
-                encoded key
-            shrinkage: torch.Tensor of shape [1, 1, height//16, width//16]
-                shrinkage key
-            selection: torch.Tensor of shape [1, 64, height//16, width//16]
-                selection mask
-            f16: torch.Tensor of shape [1, 1024, height//16, width//16]
-                image features
-
+        key
+            torch.Tensor of shape [1, 64, height//16, width//16], encoded key
+        shrinkage
+            torch.Tensor of shape [1, 1, height//16, width//16], shrinkage key
+        selection
+            torch.Tensor of shape [1, 64, height//16, width//16], selection mask
+        f16
+            torch.Tensor of shape [1, 1024, height//16, width//16], image features
         """
         image = normalize_image_torchvision(image)
 
@@ -131,22 +130,23 @@ class TrackAnythingEncodeValue(TrackAnything):
 
         Parameters
         ----------
-            image: torch.Tensor of shape [1, 3, height, width]
-                image with value range of [0, 1], RGB channel layout.
-            masks: torch.Tensor of shape [1, height, width]
-                mask for first frame
-            f16: torch.Tensor of shape [1, 1024, height//16, width//16]
-                image feature
-            hidden_state: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
+        image
+            torch.Tensor of shape [1, 3, height, width], image with value range of [0, 1], RGB channel layout.
+        mask
+            torch.Tensor of shape [1, height, width], mask for first frame
+        f16
+            torch.Tensor of shape [1, 1024, height//16, width//16], image feature
+        hidden_state
+            torch.Tensor of shape [1, num_label, 64, height//16, width//16]
 
         Returns
         -------
-            prob: torch.Tensor of shape [2, height, width]
-                predicted probabilities
-            value: torch.Tensor of shape [1, num_label, 512, height//16, width//16]
-                encoded value
-            hidden: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
-
+        prob
+            torch.Tensor of shape [2, height, width], predicted probabilities
+        value
+            torch.Tensor of shape [1, num_label, 512, height//16, width//16], encoded value
+        hidden
+            torch.Tensor of shape [1, num_label, 64, height//16, width//16]
         """
         image = normalize_image_torchvision(image)
 
@@ -194,21 +194,21 @@ class TrackAnythingEncodeKeyWithoutShrinkage(TrackAnything):
 
         Parameters
         ----------
-            image: torch.Tensor of shape [1, 3, height, width]
-                image with value range of [0, 1], RGB channel layout.
+        image
+            torch.Tensor of shape [1, 3, height, width], image with value range of [0, 1], RGB channel layout.
 
         Returns
         -------
-            key: torch.Tensor of shape [1, 64, height//16, width//16]
-                encoded key
-            selection: torch.Tensor of shape [1, 64, height//16, width//16]
-                selection mask
-            f16: torch.Tensor of shape [1, 1024, height//16, width//16]
-                image features
-            f8: torch.Tensor of shape [1, 512, height//8, width//8]
-                image features
-            f4: torch.Tensor of shape [1, 256, height//4, width//4]
-                image features
+        key
+            torch.Tensor of shape [1, 64, height//16, width//16], encoded key
+        selection
+            torch.Tensor of shape [1, 64, height//16, width//16], selection mask
+        f16
+            torch.Tensor of shape [1, 1024, height//16, width//16], image features
+        f8
+            torch.Tensor of shape [1, 512, height//8, width//8], image features
+        f4
+            torch.Tensor of shape [1, 256, height//4, width//4], image features
         """
         image = normalize_image_torchvision(image)
 
@@ -252,22 +252,23 @@ class TrackAnythingSegment(TrackAnything):
 
         Parameters
         ----------
-            f16: torch.Tensor of shape [1, 1024, height//16, width//16]
-                image features
-            f8: torch.Tensor of shape [1, 512, height//8, width//8]
-                image features
-            f4: torch.Tensor of shape [1, 256, height//4, width//4]
-                image features
-            memory_readout: torch.Tensor of shape [1, num_label, 512, height//16, width//16]
-                memory matched with current key and selection
-            hidden_state: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
+        f16
+            torch.Tensor of shape [1, 1024, height//16, width//16], image features
+        f8
+            torch.Tensor of shape [1, 512, height//8, width//8], image features
+        f4
+            torch.Tensor of shape [1, 256, height//4, width//4], image features
+        memory_readout
+            torch.Tensor of shape [1, num_label, 512, height//16, width//16], memory matched with current key and selection
+        hidden_state
+            torch.Tensor of shape [1, num_label, 64, height//16, width//16]
 
         Returns
         -------
-            prob: torch.Tensor of shape [2, height, width]
-                predicted probabilities
-            hidden: torch.Tensor of shape [1, num_label, 64, height//16, width//16]
-
+        prob
+            torch.Tensor of shape [2, height, width], predicted probabilities
+        hidden
+            torch.Tensor of shape [1, num_label, 64, height//16, width//16]
         """
         multi_scale_features = (f16, f8, f4)
 

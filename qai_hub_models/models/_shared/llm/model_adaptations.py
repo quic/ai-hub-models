@@ -47,7 +47,7 @@ def _apply_rope_single(
 
 
 class ConvInplaceLinear(torch.nn.Conv2d):
-    def __init__(self, module):
+    def __init__(self, module: torch.nn.Linear) -> None:
         assert isinstance(module, torch.nn.Linear)
         weight, bias = module.weight, module.bias
         self.out_features, self.in_features = weight.shape
@@ -65,7 +65,7 @@ class ConvInplaceLinear(torch.nn.Conv2d):
             self.bias.data.copy_(bias.data)
         self.to(module.weight.data.device)
 
-    def forward(self, x: torch.Tensor, scale: float = 1.0):
+    def forward(self, x: torch.Tensor, scale: float = 1.0) -> torch.Tensor:
         ndim = x.ndim
         if ndim == 2:
             x = (

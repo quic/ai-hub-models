@@ -17,13 +17,9 @@ supported_devices:
 - Samsung Galaxy S21+
 - Snapdragon X Plus 8-Core CRD
 - Dragonwing RB3 Gen 2 Vision Kit
-- QCS8250 (Proxy)
-- RB5 (Proxy)
 - QCS8275 (Proxy)
 - QCS8550 (Proxy)
 - SA8775P ADP
-- SA8650 (Proxy)
-- SA8255 (Proxy)
 - Dragonwing Q-6690 MTP
 - QCS8450 (Proxy)
 - XR2 Gen 2 (Proxy)
@@ -44,12 +40,9 @@ supported_chipsets:
 - qualcomm-snapdragon-888
 - qualcomm-snapdragon-x-plus-8-core
 - qualcomm-qcs6490
-- qualcomm-qcs8250-proxy
 - qualcomm-qcs8275-proxy
 - qualcomm-qcs8550-proxy
 - qualcomm-sa8775p
-- qualcomm-sa8650p-proxy
-- qualcomm-sa8255p-proxy
 - qualcomm-qcm6690
 - qualcomm-qcs8450-proxy
 - qualcomm-qcs9075-proxy
@@ -231,34 +224,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8255 (Proxy):
-            tflite:
-              job_id: jp4wrdq1g
-              job_status: Passed
-              inference_time_milliseconds: 2.555
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 86
-                npu: 86
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-                tflite: 2.17.0
-            qnn_dlc:
-              job_id: jglkm2zmp
-              job_status: Passed
-              inference_time_milliseconds: 2.527
-              estimated_peak_memory_range_mb:
-                min: 1
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8295P ADP:
             tflite:
               job_id: jpx1o6vlg
@@ -287,34 +252,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8650 (Proxy):
-            tflite:
-              job_id: j5mzx6r9p
-              job_status: Passed
-              inference_time_milliseconds: 2.551
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 2
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 86
-                npu: 86
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-                tflite: 2.17.0
-            qnn_dlc:
-              job_id: jp3m013ng
-              job_status: Passed
-              inference_time_milliseconds: 2.523
-              estimated_peak_memory_range_mb:
-                min: 1
-                max: 4
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8775P ADP:
             tflite:
               job_id: jgnevm2qg
@@ -635,20 +572,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          RB5 (Proxy):
-            onnx:
-              job_id: jgjlnen1p
-              job_status: Passed
-              inference_time_milliseconds: 35.453
-              estimated_peak_memory_range_mb:
-                min: 24
-                max: 27
-              primary_compute_unit: CPU
-              layer_counts:
-                total: 362
-                cpu: 362
-              tool_versions:
-                onnx_runtime: 1.23.0
           SA7255P ADP:
             qnn_dlc:
               job_id: j5q2qroe5
@@ -663,20 +586,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8255 (Proxy):
-            qnn_dlc:
-              job_id: jglkm2r2p
-              job_status: Passed
-              inference_time_milliseconds: 1.712
-              estimated_peak_memory_range_mb:
-                min: 1
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8295P ADP:
             qnn_dlc:
               job_id: j5614zlnp
@@ -691,20 +600,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8650 (Proxy):
-            qnn_dlc:
-              job_id: jp3m012mg
-              job_status: Passed
-              inference_time_milliseconds: 1.692
-              estimated_peak_memory_range_mb:
-                min: 1
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8775P ADP:
             qnn_dlc:
               job_id: jgov6nq15
@@ -1085,33 +980,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          RB5 (Proxy):
-            tflite:
-              job_id: jp2myly65
-              job_status: Passed
-              inference_time_milliseconds: 10.454
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 9
-              primary_compute_unit: GPU
-              layer_counts:
-                total: 90
-                gpu: 90
-              tool_versions:
-                tflite: 2.17.0
-            onnx:
-              job_id: j5w96qw4p
-              job_status: Passed
-              inference_time_milliseconds: 10.102
-              estimated_peak_memory_range_mb:
-                min: 11
-                max: 15
-              primary_compute_unit: CPU
-              layer_counts:
-                total: 91
-                cpu: 91
-              tool_versions:
-                onnx_runtime: 1.23.0
           SA7255P ADP:
             tflite:
               job_id: jgdv1o16g
@@ -1140,34 +1008,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8255 (Proxy):
-            tflite:
-              job_id: j57drxrn5
-              job_status: Passed
-              inference_time_milliseconds: 0.416
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 90
-                npu: 90
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-                tflite: 2.17.0
-            qnn_dlc:
-              job_id: jgov63215
-              job_status: Passed
-              inference_time_milliseconds: 0.416
-              estimated_peak_memory_range_mb:
-                min: 2
-                max: 4
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8295P ADP:
             tflite:
               job_id: jp4wrvr2g
@@ -1196,34 +1036,6 @@ precisions:
                 npu: 127
               tool_versions:
                 qairt: 2.41.0.251128145156_191518-auto
-          SA8650 (Proxy):
-            tflite:
-              job_id: jpx1oyo8g
-              job_status: Passed
-              inference_time_milliseconds: 0.417
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 90
-                npu: 90
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
-                tflite: 2.17.0
-            qnn_dlc:
-              job_id: jgjlnev1p
-              job_status: Passed
-              inference_time_milliseconds: 0.417
-              estimated_peak_memory_range_mb:
-                min: 0
-                max: 3
-              primary_compute_unit: NPU
-              layer_counts:
-                total: 127
-                npu: 127
-              tool_versions:
-                qairt: 2.41.0.251128145156_191518
           SA8775P ADP:
             tflite:
               job_id: j5mzx3x7p

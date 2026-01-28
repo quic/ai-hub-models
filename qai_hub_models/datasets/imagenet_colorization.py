@@ -26,7 +26,7 @@ class ImagenetColorizationDataset(ImagenetDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         height: int = 256,
         width: int = 256,
-    ):
+    ) -> None:
         ImagenetDataset.__init__(self, split, TRANSFORM)
         self.height = height
         self.width = width

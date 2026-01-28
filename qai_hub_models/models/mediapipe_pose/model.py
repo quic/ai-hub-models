@@ -118,21 +118,21 @@ class PoseDetector(BaseModel):
 
         Parameters
         ----------
-            image:
-                RGB, range [0 - 1] image.
+        image
+            RGB, range [0 - 1] image.
 
         Returns
         -------
-            tuple containing:
-                - box_coords_1: torch.Tensor, shape (batch_size, num_anchors, num_coordinates)
-                    Layout: (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y).
-                    Coordinates are in normalized [0-1] space (fraction of input image height/width).
-                - box_coords_2: torch.Tensor, shape (batch_size, num_anchors, num_coordinates)
-                    Same layout as box_coords_1.
-                - box_scores_1: torch.Tensor, shape (batch_size, num_anchors)
-                    Scores for box_coords_1 bounding boxes.
-                - box_scores_2: torch.Tensor, shape (batch_size, num_anchors)
-                    Scores for box_coords_2 bounding boxes.
+        box_coords_1
+            Shape (batch_size, num_anchors, num_coordinates).
+            Layout: (box_center_x, box_center_y, box_w, box_h, keypoint_0_x, keypoint_0_y, ..., keypoint_maxKey_x, keypoint_maxKey_y).
+            Coordinates are in normalized [0-1] space (fraction of input image height/width).
+        box_coords_2
+            Shape (batch_size, num_anchors, num_coordinates). Same layout as box_coords_1.
+        box_scores_1
+            Shape (batch_size, num_anchors). Scores for box_coords_1 bounding boxes.
+        box_scores_2
+            Shape (batch_size, num_anchors). Scores for box_coords_2 bounding boxes.
         """
         return self.detector(image)
 
@@ -214,16 +214,16 @@ class PoseLandmarkDetector(BaseModel):
 
         Parameters
         ----------
-            image:
-                RGB, range [0 - 1] image. This should be the cropped output of the PoseDetector model.
+        image
+            RGB, range [0 - 1] image. This should be the cropped output of the PoseDetector model.
 
         Returns
         -------
-            ld_scores: torch.Tensor
-                Landmark score. Shape [B]
-            landmarks:
-                Landmark points. Shape is [b, # of landmark points, 2]
-                    where 2 == (x, y) and coordinates are normalized [0 - 1] (fraction of the input image height / width)
+        ld_scores
+            Landmark score. Shape [B]
+        landmarks
+            Landmark points. Shape is [b, # of landmark points, 2]
+            where 2 == (x, y) and coordinates are normalized [0 - 1] (fraction of the input image height / width)
         """
         output = self.detector(image)
         ld_scores = output[0]

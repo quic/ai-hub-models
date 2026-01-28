@@ -25,11 +25,13 @@ def preprocess_image(image: Image) -> torch.Tensor:
 
     Parameters
     ----------
-        image: Input image to be run through the classifier model.
+    image
+        Input image to be run through the classifier model.
 
     Returns
     -------
-        torch tensor to be directly passed to the model.
+    input_tensor
+        Torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = transforms.ToTensor()(image)
     return out_tensor.unsqueeze(0)
@@ -55,16 +57,20 @@ class FCN_ResNet50App:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format.
+        image
+            A PIL Image in RGB format.
+        raw_output
+            If true, returns raw prediction masks. Otherwise returns segmented image.
 
         Returns
         -------
+        output
             If raw_output is true, returns:
                 masks: np.ndarray
                     A list of predicted masks.
 
             Otherwise, returns:
-                segmented_images: list[PIL.Image]
+                segmented_image: PIL.Image
                     Images with segmentation map overlaid with an alpha of 0.5.
         """
         input_tensor = preprocess_image(image)

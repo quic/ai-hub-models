@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -38,13 +39,13 @@ class SegmentationApp:
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
         normalize_input: bool = True,
-    ):
+    ) -> None:
         self.model = model
         self.normalize_transform = (
             normalize_image_transform() if normalize_input else lambda x: x
         )
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[Image.Image] | np.ndarray:
         # See segment_image.
         return self.segment_image(*args, **kwargs)
 
@@ -63,25 +64,24 @@ class SegmentationApp:
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout.
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is true, returns:
-                masks: np.ndarray
-                    A list of predicted masks.
+        If raw_output is False, returns:
+        segmented_images
+            Images with segmentation map overlaid with an alpha of 0.5.
 
-            Otherwise, returns:
-                segmented_images: list[PIL.Image]
-                    Images with segmentation map overlaid with an alpha of 0.5.
+        If raw_output is True, returns:
+        masks
+            A list of predicted masks.
         """
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
             pixel_values_or_image
@@ -112,7 +112,7 @@ class SegmentationApp:
 
         # Overlay the segmentation mask on the image. alpha=1 is mask only,
         # alpha=0 is image only.
-        color_map = create_color_map(pred_mask_img.max().item() + 1)
+        color_map = create_color_map(int(pred_mask_img.max().item()) + 1)
         out = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
             out.append(

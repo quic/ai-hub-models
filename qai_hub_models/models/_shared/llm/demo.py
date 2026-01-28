@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from functools import partial
+
 from qai_hub_models.models._shared.llm.app import ChatApp as App
 from qai_hub_models.models._shared.llm.model import (
     LLM_QNN,
@@ -33,11 +35,12 @@ def llm_chat_demo(
     end_tokens: set[str],
     hf_repo_name: str,
     hf_repo_url: str,
-    default_prompt: str,
     supported_precisions: list[Precision],
+    default_prompt: str | None = None,
     raw: bool = False,
     test_checkpoint: CheckpointSpec | None = None,
-):
+    supports_thinking: bool = False,
+) -> None:
     """Shared Chat Demo App to generate output for provided input prompt"""
     # Demo parameters
     parser = get_model_cli_parser(
@@ -73,6 +76,20 @@ def llm_chat_demo(
         default=42,
         help="random seed.",
     )
+    if supports_thinking:
+        parser.add_argument(
+            "--thinking",
+            action="store_true",
+            dest="thinking",
+            default=True,
+            help="Enable thinking mode (default).",
+        )
+        parser.add_argument(
+            "--no-thinking",
+            action="store_false",
+            dest="thinking",
+            help="Disable thinking mode by adding empty thinking tags.",
+        )
 
     args = parser.parse_args([] if test_checkpoint is not None else None)
     checkpoint = args.checkpoint if test_checkpoint is None else test_checkpoint
@@ -84,24 +101,16 @@ def llm_chat_demo(
             prompt = f.read()
     elif args.prompt:
         prompt = args.prompt
-    else:
+    elif default_prompt is not None:
         prompt = default_prompt
+    else:
+        prompt = fp_model_cls.default_user_prompt
 
     # Make sure that we can pass "\n" (0x0A) as part of the prompt, since that
     # is often a common feature of prompt formats. If this gets interpreted as
     # "\\n" (0x5C 0x6E), the LLM can react poorly (quantized models have been
     # observed to be particularly sensitive to this).
     prompt = prompt.replace("\\n", "\n")
-
-    if args.raw or raw:
-
-        def preprocess_prompt_fn(
-            user_input_prompt: str = "",
-            system_context_prompt: str = "",
-        ):
-            return user_input_prompt
-    else:
-        preprocess_prompt_fn = fp_model_cls.get_input_prompt_with_tags
 
     assert checkpoint is not None
     checkpoint_type = CheckpointType.from_checkpoint(checkpoint)
@@ -111,6 +120,25 @@ def llm_chat_demo(
     else:
         has_model_access(hf_repo_name, hf_repo_url)
         tokenizer = get_tokenizer(hf_repo_name)
+
+    # Build the prompt formatting function
+    if args.raw or raw:
+
+        def preprocess_prompt_fn(
+            user_input_prompt: str = "",
+            system_context_prompt: str = "",
+        ) -> str:
+            return user_input_prompt
+    elif supports_thinking:
+        preprocess_prompt_fn = partial(
+            fp_model_cls.get_input_prompt_with_tags,
+            tokenizer=tokenizer,
+            enable_thinking=args.thinking,
+        )
+    else:
+        preprocess_prompt_fn = partial(
+            fp_model_cls.get_input_prompt_with_tags, tokenizer=tokenizer
+        )
 
     if test_checkpoint is None:
         print(f"\n{'-' * 85}")
@@ -127,14 +155,18 @@ def llm_chat_demo(
         print()
         print("Prompt:", prompt)
         print("Raw (prompt will be passed in unchanged):", args.raw)
+        if supports_thinking:
+            print("Thinking mode:", "enabled" if args.thinking else "disabled")
         print("Max number of output tokens to generate:", args.max_output_tokens)
         print()
         print(f"{'-' * 85}\n")
 
     extra = {}
 
+    final_model_cls: type[LLMBase | LLM_AIMETOnnx | LLM_QNN]
+
     if checkpoint_type == CheckpointType.GENIE_BUNDLE:
-        model = qnn_model_cls
+        final_model_cls = qnn_model_cls
 
     elif checkpoint_type.is_aimet_onnx():
         if is_default and checkpoint != "DEFAULT_UNQUANTIZED":
@@ -142,12 +174,12 @@ def llm_chat_demo(
                 sequence_length=args.sequence_length,
                 context_length=args.context_length,
             )
-        model = model_cls
+        final_model_cls = model_cls
     else:
-        model = fp_model_cls
+        final_model_cls = fp_model_cls
 
     app = App(
-        model,
+        final_model_cls,
         get_input_prompt_with_tags=preprocess_prompt_fn,
         tokenizer=tokenizer,
         end_tokens=end_tokens,

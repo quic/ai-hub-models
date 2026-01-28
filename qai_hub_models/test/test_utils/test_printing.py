@@ -6,7 +6,7 @@
 from qai_hub_models.utils.printing import print_file_tree_changes
 
 
-def test_print_file_tree_changes():
+def test_print_file_tree_changes() -> None:
     out = print_file_tree_changes(
         "/test",
         ["/test/unmodified.txt", "/test/a_test_subdir/unmodified2.txt"],

@@ -69,7 +69,7 @@ def deep_update(original: dict[str, Any], update: dict[str, Any]) -> dict[str, A
 
     Returns
     -------
-    dict
+    updated_dict
         The updated dictionary after applying the deep merge.
     """
     for key, value in update.items():
@@ -121,32 +121,31 @@ class StateTransformerApp:
 
         Parameters
         ----------
-        model_path : Path
+        model_path
             Path to the trained model checkpoint directory.
             Example structure:
                 |-> checkpoint-66000/
                     |-> model weights and config files
-
-        data_path : Path
+        data_path
             Path to NuPlan scenario data directory.
             Example structure:
                 |-> nuplan-v1.1_test/
                     |-> *.db files containing scenario logs
-
-        map_path : Path
+        map_path
             Path to map assets directory.
             Example structure:
                 |-> maps/
                     |-> *.gpkg files for different regions
                     |-> nuplan-maps-v1.0.json metadata
 
-
         Returns
         -------
-            A tuple containing:
-                - High-resolution raster input.
-                - Low-resolution raster input.
-                - Temporal context actions.
+        high_res_raster
+            High-resolution raster input.
+        low_res_raster
+            Low-resolution raster input.
+        context_actions
+            Temporal context actions.
         """
         if isinstance(model_path, CachedWebModelAsset):
             model_path = model_path.fetch(extract=True).joinpath("checkpoint-66000")
@@ -332,7 +331,7 @@ class StateTransformerApp:
 
         Returns
         -------
-        Image
+        visualization
             A PIL Image object representing the high-resolution raster with predicted
             trajectory and key points overlaid.
         """
@@ -366,24 +365,22 @@ class StateTransformerApp:
 
         Parameters
         ----------
-        high_res_raster : torch.Tensor
+        high_res_raster
             High-resolution BEV raster image of the scene.
             Shape: (batch_size, 224, 224, 58)
             Dtype: float32
-
-        low_res_raster : torch.Tensor
+        low_res_raster
             Low-resolution BEV raster image covering a larger spatial range.
             Shape: (batch_size, 224, 224, 58)
             Dtype: float32
-
-        context_actions : torch.Tensor
+        context_actions
             Past ego motion states or control context.
             Shape: (batch_size, 4, 7)
             Dtype: float32
 
         Returns
         -------
-        Image
+        visualization
             A PIL Image object representing the high-resolution raster with predicted
             trajectory and key points overlaid.
         """

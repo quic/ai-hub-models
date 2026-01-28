@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from enum import Enum, unique
+from typing import Any
 
 from pydantic import model_validator
 
@@ -40,7 +41,7 @@ class LLMDetails(BaseQAIHMConfig):
         None
     )
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         val_dict = kwargs
         dict_to_parse = val_dict
         if "devices" not in dict_to_parse:

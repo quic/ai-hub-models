@@ -252,7 +252,7 @@ def run_llama_and_measure(
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Measure TTFT and Response Rate with llama-cli."
     )

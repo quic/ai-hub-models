@@ -123,16 +123,20 @@ def transform_landmark_coordinates(
     bbox: tuple[int, int, int, int],
     resized_height: int,
     resized_width: int,
-):
+) -> None:
     """
     Transforms landmark coordinates from resized image space to original image space.
 
     Parameters
     ----------
-        landmark: The landmark coordinates in the resized image space.
-        bbox: The bounding box coordinates (x0, y0, x1, y1).
-        resized_height: The height of the resized image.
-        resized_width: The width of the resized image.
+    landmark
+        The landmark coordinates in the resized image space.
+    bbox
+        The bounding box coordinates (x0, y0, x1, y1).
+    resized_height
+        The height of the resized image.
+    resized_width
+        The width of the resized image.
     """
     x0, y0, x1, y1 = bbox
     height = y1 - y0 + 1

@@ -9,6 +9,7 @@ import os
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.foot_track_evaluator import FootTrackNetEvaluator
@@ -41,25 +42,29 @@ class FootTrackNet(BaseModel):
         strict: bool = False,
         n_lmk: int = 17,
     ):
-        super().__init__()
         """
         FootTrackNet multi task human detector model for person, face detection plus head and feet landmark detection.
         Draw the given points on the frame.
         It takes RGB (uint8) as input directly.
-        Parameters:
-            wide: the channel size of bandwith of the intermediate layers
-            has_ext: if add extension layer in the head module.
-            upmode: upsampling mode.
-            act: activation function.
-            RGB: if the input is a 3 channel RGB
-            acb_mode: the ACBlock mode.
-            stand_conv: if use the standard convolution.
-            strict: if load the model weights in a strict way
-            n_lmk: the number of landmarks for detection.
 
-        Returns:
-            FootTrackNet model instance.
+        Parameters
+        ----------
+        wide
+            The channel size of bandwith of the intermediate layers
+        has_ext
+            If add extension layer in the head module.
+        upmode
+            Upsampling mode.
+        act
+            Activation function.
+        RGB
+            If the input is a 3 channel RGB
+        strict
+            If load the model weights in a strict way
+        n_lmk
+            The number of landmarks for detection.
         """
+        super().__init__()
         self.use_rgb = RGB
         self.strict = strict
 
@@ -116,15 +121,21 @@ class FootTrackNet(BaseModel):
         """
         Forward computation of FootTrackNet.
 
-        Inputs:
-            image: torch.Tensor
-                Input image. RGB, range [0 - 1], shape [N, C, H, W]
+        Parameters
+        ----------
+        x
+            Input image. RGB, range [0 - 1], shape [N, C, H, W].
 
-        Outputs: List[torch.Tensor]
-            heatmap: N,C,H,W the heatmap for the person/face detection.
-            bbox: N,C*4, H,W the bounding box coordinate as a map.
-            landmark: N,C*34,H,W the coordinates of landmarks as a map.
-            landmark_visibility: N,C*17,H,W the visibility of the landmark as a map.
+        Returns
+        -------
+        heatmap
+            N,C,H,W the heatmap for the person/face detection.
+        bbox
+            N,C*4, H,W the bounding box coordinate as a map.
+        landmark
+            N,C*34,H,W the coordinates of landmarks as a map.
+        landmark_visibility
+            N,C*17,H,W the visibility of the landmark as a map.
         """
         x = x * 255.0
         x = self.conv_layer(x * 1.0)  # conv to float
@@ -184,17 +195,21 @@ class FootTrackNet(BaseModel):
     @classmethod
     def from_pretrained(  # pyright: ignore[reportIncompatibleMethodOverride]
         cls, checkpoint_path: str | None = None
-    ) -> FootTrackNet:
+    ) -> Self:
         """
         Load model from pretrained weights.
 
-        Inputs:
-            checkpoint_path: str
-                Checkpoint path of pretrained weights.
-        Output: nn.Module
+        Parameters
+        ----------
+        checkpoint_path
+            Checkpoint path of pretrained weights.
+
+        Returns
+        -------
+        model
             FootTrackNet model.
         """
-        model = FootTrackNet()
+        model = cls()
         checkpoint_to_load = (
             checkpoint_path
             if checkpoint_path is not None

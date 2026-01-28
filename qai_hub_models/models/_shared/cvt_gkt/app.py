@@ -49,36 +49,44 @@ class CVT_GKTApp:
 
         Parameters
         ----------
-        images : list[Image.Image]
+        images
             List of 6 PIL images in RGB format, ordered as: CAM_FRONT_LEFT, CAM_FRONT,
             CAM_FRONT_RIGHT, CAM_BACK_LEFT, CAM_BACK, CAM_BACK_RIGHT.
-        cam_metadata : dict[str, dict]
+        cam_metadata
             Dictionary mapping camera names to camera parameter dictionaries.
             Each camera dictionary contains:
-                - intrins : np.ndarray, shape (3, 3)
-                    Camera intrinsics matrix.
-                - sensor2ego_translation : np.ndarray, shape (3,)
-                    Translation vector [x, y, z] in meters from sensor to ego frame.
-                - sensor2ego_rotation : np.ndarray, shape (4,)
-                    Quaternion [w, x, y, z] for rotation from sensor to ego frame.
-                - ego2global_translation : np.ndarray, shape (3,)
-                    Translation vector [x, y, z] in meters from ego to global frame.
-                - ego2global_rotation : np.ndarray, shape (4,)
-                    Quaternion [w, x, y, z] for rotation from ego to global frame.
+
+            intrins
+                Camera intrinsics matrix, shape (3, 3).
+            sensor2ego_translation
+                Translation vector [x, y, z] in meters from sensor to ego frame,
+                shape (3,).
+            sensor2ego_rotation
+                Quaternion [w, x, y, z] for rotation from sensor to ego frame,
+                shape (4,).
+            ego2global_translation
+                Translation vector [x, y, z] in meters from ego to global frame,
+                shape (3,).
+            ego2global_rotation
+                Quaternion [w, x, y, z] for rotation from ego to global frame,
+                shape (4,).
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-            - images_tensor : torch.Tensor, shape [1, 6, 3, H, W]
-                Pre-processed image tensor.
-            - intrinsics_tensor : torch.Tensor, shape [1, 6, 3, 3]
-                intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays.
-            - extrinsics_tensor : torch.Tensor, shape [1, 6, 4, 4]
-                extrinsics tensor mapping world coordinates to camera coordinates.
-            - inv_intrinsics_tensor : torch.Tensor, shape [1, 6, 3, 3]
-                Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays.
-            - inv_extrinsics_tensor : torch.Tensor, shape [1, 6, 4, 4]
-                Inverse extrinsics tensor mapping world coordinates to camera coordinates.
+        images_tensor
+            Pre-processed image tensor, shape [1, 6, 3, H, W].
+        intrinsics_tensor
+            Intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays,
+            shape [1, 6, 3, 3].
+        extrinsics_tensor
+            Extrinsics tensor mapping world coordinates to camera coordinates,
+            shape [1, 6, 4, 4].
+        inv_intrinsics_tensor
+            Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space
+            rays, shape [1, 6, 3, 3].
+        inv_extrinsics_tensor
+            Inverse extrinsics tensor mapping world coordinates to camera coordinates,
+            shape [1, 6, 4, 4].
         """
         intrins_list = [
             np.array(cam_metadata[cam]["intrins"], dtype=np.float32)
@@ -170,20 +178,19 @@ class CVT_GKTApp:
 
         Parameters
         ----------
-        x : np.ndarray
+        x
             Input heatmap array.
-        t1 : float, optional
+        t1
             Threshold for heatmap. Default is 0.6.
-        c : list[int], optional
+        c
             Color for heatmap visualization as [R, G, B]. If None, uses default color.
 
         Returns
         -------
-        tuple[np.ndarray, np.ndarray]
-            - x_viz : np.ndarray
-                Visualized heatmap with applied color.
-            - opacity : np.ndarray
-                Opacity mask for the heatmap.
+        x_viz
+            Visualized heatmap with applied color.
+        opacity
+            Opacity mask for the heatmap.
         """
         c = self.color if c is None else c
         c_array = np.array(c, dtype=np.float32)[None, None]
@@ -206,20 +213,20 @@ class CVT_GKTApp:
 
         Parameters
         ----------
-        h : int, optional
+        h
             Height of the output image. Default is 200.
-        w : int, optional
+        w
             Width of the output image. Default is 200.
-        h_meters : float, optional
+        h_meters
             Height in meters for the BEV map. Default is 100.0.
-        w_meters : float, optional
+        w_meters
             Width in meters for the BEV map. Default is 100.0.
-        offset : float, optional
+        offset
             Offset for the BEV map. Default is 0.0.
 
         Returns
         -------
-        np.ndarray, shape (3, 3)
+        view_matrix
             3x3 view matrix for transforming coordinates.
         """
         sh = h / h_meters
@@ -233,12 +240,12 @@ class CVT_GKTApp:
 
         Parameters
         ----------
-        bev : torch.Tensor, shape [B, 1, H, W]
-            BEV tensor with predictions.
+        bev
+            BEV tensor with predictions, shape [B, 1, H, W].
 
         Returns
         -------
-        list[Image.Image]
+        images
             List of PIL Images (RGB) with heatmap and ego polygon.
         """
         bev = bev.detach().cpu()

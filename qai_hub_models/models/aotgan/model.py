@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.inpaint_evaluator import InpaintEvaluator
@@ -38,7 +39,7 @@ class AOTGAN(RepaintModel):
     """Exportable AOTGAN for Image inpainting"""
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
+    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:
         if ckpt_name not in SUPPORTED_PRETRAINED_MODELS:
             raise ValueError(
                 "Unsupported pre_trained model requested. Please provide either 'celeabhq' or 'places2'."
@@ -67,7 +68,7 @@ class AOTGAN(RepaintModel):
             #  - block_num: default value 8
             # creating dummy class with default values to set the same
             class InpaintArgs:
-                def __init__(self):
+                def __init__(self) -> None:
                     self.rates = [1, 2, 4, 8]
                     self.block_num = 8
 
@@ -80,22 +81,25 @@ class AOTGAN(RepaintModel):
             )
             return cls(model)
 
-    def forward(self, image: torch.Tensor, mask: torch.Tensor):
+    def forward(self, image: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         Run AOTGAN Inpaint Generator on `image` with given `mask`
         and generates new high-resolution in-painted image.
 
         Parameters
         ----------
-            image: Image to which the mask should be applied. [N, C, H, W]
-                    Range: float[0, 1]
-                    3-channel color Space: RGB
-            mask: Pixel values pre-processed to have have mask values either 0. or 1.
-                    Range: float[0, 1] and only values of 0. or 1.
-                    1-channel binary image.
+        image
+            Image to which the mask should be applied. [N, C, H, W]
+            Range: float[0, 1]
+            3-channel color Space: RGB
+        mask
+            Pixel values pre-processed to have have mask values either 0. or 1.
+            Range: float[0, 1] and only values of 0. or 1.
+            1-channel binary image.
 
         Returns
         -------
+        inpainted_image
             In-painted image for given image and mask of shape [N, C, H, W]
             Range: float[0, 1]
             3-channel color space: RGB

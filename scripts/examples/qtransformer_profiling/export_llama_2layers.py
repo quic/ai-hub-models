@@ -279,7 +279,7 @@ class QEffPrefillLlama(torch.nn.Module):
         the length of input_ids.
     """
 
-    def __init__(self, qeff: "QEFFAutoModelForCausalLM"):  # noqa: F821
+    def __init__(self, qeff: "QEFFAutoModelForCausalLM") -> None:  # noqa: F821
         super().__init__()
         if not hasattr(qeff, "model"):
             raise RuntimeError("QEff wrapper must expose `.model`")

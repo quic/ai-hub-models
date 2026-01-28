@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
 
 @contextmanager
-def set_temp_env(key_values: dict[str, str | None]):
+def set_temp_env(key_values: dict[str, str | None]) -> Generator[None, None, None]:
     """Temporarily sets environment variables."""
     old_values: dict[str, Any] = {k: os.environ.get(k, None) for k in key_values}
     for k, v in key_values.items():

@@ -20,7 +20,7 @@ from qai_hub_models.evaluators.base_evaluators import (
 )
 
 if TYPE_CHECKING:
-    from transformers import PreTrainedTokenizer
+    from transformers import PreTrainedTokenizerBase
     from transformers.modeling_outputs import CausalLMOutputWithPast
 
     from qai_hub_models.models._shared.llm.generator import LLM_Generator
@@ -36,15 +36,15 @@ class PerplexityEvaluator(BaseEvaluator):
         self,
         context_length: int,
         device: torch.device,
-        tokenizer: PreTrainedTokenizer,
-    ):
+        tokenizer: PreTrainedTokenizerBase,
+    ) -> None:
         self.context_length = context_length
         self.device = device
         self.tokenizer = tokenizer
 
         self.reset()
 
-    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.Tensor):
+    def add_batch(self, output: CausalLMOutputWithPast, gt: torch.Tensor) -> None:
         self.batch_index += 1
         logits = output.logits
         assert logits is not None
@@ -59,7 +59,7 @@ class PerplexityEvaluator(BaseEvaluator):
         ).item()
         self.loss += loss_value
 
-    def reset(self):
+    def reset(self) -> None:
         self.loss = 0.0
         self.batch_index = 0
 
@@ -101,18 +101,22 @@ class PerplexityEvaluator(BaseEvaluator):
 
     def add_from_dataset(
         self,
-        generator: LLM_Generator,
+        model: torch.nn.Module,
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
+        from qai_hub_models.models._shared.llm.generator import LLM_Generator
+
+        assert isinstance(model, LLM_Generator), "This evaluator only works on LLMs"
+
         def _add_batch(
             _: list[torch.Tensor],
             outputs: CausalLMOutputWithPast,
             ground_truth: torch.Tensor,
-        ):
+        ) -> None:
             self.add_batch(outputs, ground_truth)
 
-        self.for_each_batch(generator, data, eval_iterations, _add_batch)
+        self.for_each_batch(model, data, eval_iterations, _add_batch)
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(

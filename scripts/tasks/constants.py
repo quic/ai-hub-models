@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 
-def process_output(command):
+def process_output(command: subprocess.CompletedProcess[bytes]) -> str:
     return command.stdout.decode("utf-8").strip()
 
 
@@ -17,7 +17,7 @@ DEFAULT_PYTHON = "python3.10"
 BASH_EXECUTABLE = shutil.which("bash")
 
 
-def run_and_get_output(command, check=True):
+def run_and_get_output(command: str, check: bool = True) -> str:
     return process_output(
         subprocess.run(
             command,
@@ -65,3 +65,9 @@ PUBLIC_BENCH_MODELS = os.path.join(
 
 # Requirements Path
 GLOBAL_REQUIREMENTS_PATH = os.path.join(PY_PACKAGE_SRC_ROOT, "global_requirements.txt")
+
+# Llama.CPP GGUF model URLs
+LLAMA_CPP_MODEL_URLS: dict[str, str] = {
+    "Qwen3-0.6B": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
+    "GPT-OSS-20B": "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-mxfp4.gguf",
+}

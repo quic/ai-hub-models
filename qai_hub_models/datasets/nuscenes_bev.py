@@ -39,7 +39,7 @@ class NuscenesBevDataset(NuscenesDataset):
         input_spec: InputSpec | None = None,
         top_crop: int | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
-    ):
+    ) -> None:
         input_spec = input_spec or {"image": ((1, 6, 3, 224, 480), "")}
         super().__init__(
             source_dataset_file=dataset_file,
@@ -59,7 +59,7 @@ class NuscenesBevDataset(NuscenesDataset):
 
         self._load_bev_labels()
 
-    def _load_bev_labels(self):
+    def _load_bev_labels(self) -> None:
         """Load BEV and Visibility label paths from JSON files in the BEV and Visibility labels directory."""
         self.bev_labels = {}
         self.visibility_labels = {}

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 
@@ -38,7 +40,7 @@ OPENPOSE_TO_COCO = [
 class OpenPoseEvaluator(CocoBodyPoseEvaluator):
     """Evaluator for OpenPose models on COCO-Body dataset"""
 
-    def __init__(self, height, width, *args, **kwargs):
+    def __init__(self, height: int, width: int, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.input_height = height
         self.input_width = width
@@ -49,7 +51,7 @@ class OpenPoseEvaluator(CocoBodyPoseEvaluator):
         self,
         output: tuple[torch.Tensor, torch.Tensor],
         gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """
         Processes OpenPose outputs (PAFs and heatmaps) and converts them to
         COCO-format keypoint predictions

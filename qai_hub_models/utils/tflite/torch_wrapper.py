@@ -39,7 +39,7 @@ class TFLiteInterpreterTorchWrapper(RuntimeTorchWrapper[TFLiteModelIODetails]):
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
-    ):
+    ) -> None:
         """
         Create a wrapper for an TF Lite interpreter that uses torch-like I/O for the forward call.
 
@@ -120,7 +120,7 @@ class TFLiteModelTorchWrapper(TFLiteInterpreterTorchWrapper):
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
         num_threads: int | None = None,
-    ):
+    ) -> None:
         """
         Create a wrapper for a TF Lite model that uses torch-like I/O for the forward call.
 

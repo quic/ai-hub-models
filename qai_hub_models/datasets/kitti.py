@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import numpy as np
 import torch
@@ -52,7 +53,7 @@ class KittiDataset(BaseDataset):
         input_calibs_zip: str | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.input_images_zip = input_images_zip
         self.input_labels_zip = input_labels_zip
         self.input_calibs_zip = input_calibs_zip
@@ -72,7 +73,7 @@ class KittiDataset(BaseDataset):
         ) as image_set_f:
             image_set = image_set_f.readlines()
 
-        self.sample = []
+        self.sample: list[dict[str, Any]] = []
 
         for line in image_set:
             if line[-1] == "\n":
@@ -111,10 +112,10 @@ class KittiDataset(BaseDataset):
             calib
                 camera calibration matrix with shape (3, 4)
         """
-        image_path = self.sample[index]["img_path"]
-        img_id = self.sample[index]["img_id"]
+        image_path: str = self.sample[index]["img_path"]
+        img_id: int = self.sample[index]["img_id"]
 
-        calib_path = self.sample[index]["calib_path"]
+        calib_path: str = self.sample[index]["calib_path"]
         with open(calib_path) as calib_f:
             calib_str = calib_f.readlines()[2][:-1]
         calib = np.array(calib_str.split(" ")[1:], dtype=np.float32)
@@ -131,7 +132,7 @@ class KittiDataset(BaseDataset):
 
         return image_tensor, (img_id, c, s, calib)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.sample)
 
     def _download_data(self) -> None:

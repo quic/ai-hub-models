@@ -9,7 +9,7 @@ import os
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast, overload
+from typing import Any, Literal, cast, overload
 
 import qai_hub as hub
 from pydantic import Field
@@ -69,7 +69,7 @@ def callable_side_effect(side_effects: Iterator) -> Callable:
         f("boop") # raises error (out of values to iterate over)
     """
 
-    def f(*args, **kwargs):
+    def f(*args: Any, **kwargs: Any) -> object:
         result = next(side_effects)
         if callable(result):
             return result(*args, **kwargs)
@@ -92,8 +92,8 @@ def get_artifacts_dir_opt() -> Path:
 
 
 def get_artifact_filepath(
-    filename, artifacts_dir: os.PathLike | str | None = None, create: bool = True
-):
+    filename: str, artifacts_dir: os.PathLike | str | None = None, create: bool = True
+) -> Path:
     artifacts_dir = Path(artifacts_dir or get_artifacts_dir_opt())
     os.makedirs(artifacts_dir, exist_ok=True)
     path = artifacts_dir / filename
@@ -214,7 +214,7 @@ def str_with_async_test_metadata(
     path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None,
     device: ScorecardDevice | None,
     component: str | None = None,
-):
+) -> str:
     """
     Generate a string (generally used for printing) that includes the scorecard run metadata with the value.
     Prints : {model_name::model_component} | {path} | {device} | val
@@ -246,7 +246,7 @@ def assert_success_or_cache_job(
     path: ScorecardCompilePath | ScorecardProfilePath | TargetRuntime | None,
     device: ScorecardDevice = cs_universal,
     component: str | None = None,
-):
+) -> None:
     assert job is not None
     if is_hub_testing_async():
         cache_path = get_async_test_job_cache_path(job._job_type)
@@ -532,7 +532,7 @@ def fetch_async_test_jobs(
     return component_jobs if has_jobs else None  # type: ignore[return-value]
 
 
-def cache_dataset(model_id: str, dataset_name: str, dataset: hub.Dataset):
+def cache_dataset(model_id: str, dataset_name: str, dataset: hub.Dataset) -> None:
     append_line_to_file(
         get_dataset_ids_file(),
         f"{model_id}_{dataset_name}: {dataset.dataset_id}",

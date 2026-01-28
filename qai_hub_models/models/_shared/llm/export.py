@@ -91,7 +91,7 @@ def _infer_output_specs(
     intermediate_type = "float16" if precision == Precision.w4 else "uint16"
     for instantiation_name, seq_len in instantiations:
         for i in range(num_splits):
-            specs: tuple[tuple[int, ...], str] = {}
+            specs: dict[str, tuple[tuple[int, ...], str]] = {}
             if i == num_splits - 1:
                 specs["logits"] = (
                     (1, seq_len, llm_config.vocab_size),
@@ -153,7 +153,7 @@ def export_model(
     model_cache_mode: CacheMode = CacheMode.DISABLE,
     onnx_export_dir: str = "",
     zip_assets: bool = False,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> CollectionExportResult:
     """
     Export the given LLM class for use with Genie or ONNX Runtime GenAI.
@@ -170,17 +170,13 @@ def export_model(
         Number of times to split the model for compatibility with HTP high bandwidth memory.
     num_layers_per_split
         How many layers to include in each model part.
-    components
-        List of sub-components of the model that will be exported.
-        Each component is compiled and profiled separately.
-        Defaults to ALL_COMPONENTS if not specified.
-    sub_components
-        Dictionary of strings pointing to lists of strings,
-        where each sub-component will be grouped using weight sharing with
-        other sub-components to form a component.
+    precision
+        Precision to use for model export.
     device
         Device for which to export the model (e.g. hub.Device("Samsung Galaxy S25")).
         Full list of available devices can be found by running `hub.get_devices()`.
+    position_processor_cls
+        Position processor class to use for the model.
     skip_profiling
         If set, skips profiling of compiled model on real devices.
     skip_inferencing
@@ -209,16 +205,18 @@ def export_model(
         If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub Workbench model instead.
     onnx_export_dir
         If set, save intermediate ONNX file under this directory.
-    additional_model_kwargs
-        Additional optional kwargs used to customize
-        `model_cls.from_pretrained`
+    zip_assets
+        If set, zip assets on download.
+    **additional_model_kwargs
+        Additional optional kwargs used to customize `model_cls.from_pretrained`.
 
     Returns
     -------
-    A Mapping from sub-component name to a 3-tuple of:
-        * A LinkJob object containing metadata about the link job submitted to hub.
-        * A ProfileJob containing metadata about the profile job (None if profiling skipped).
-        * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
+    CollectionExportResult
+        A Mapping from component_name to:
+            * A LinkJob object containing metadata about the link job submitted to hub
+            * A ProfileJob containing metadata about the profile job (None if profiling skipped).
+        * The path to the downloaded model folder (or zip), or None if one or more of: skip_downloading is True, fetch_static_assets is set, or AI Hub Workbench is not accessible
     """
     output_path = Path(output_dir or Path.cwd() / "build" / model_name)
 
@@ -422,6 +420,7 @@ def export_model(
     for sub_component_name, cjob in compile_jobs.items():
         cjob.wait()  # make sure target_shapes materializes
         input_specs[sub_component_name] = cjob.target_shapes
+    assert llm_config is not None
     output_specs = _infer_output_specs(
         instantiations, num_splits, input_specs, llm_config, precision
     )
@@ -433,7 +432,7 @@ def export_model(
         model_link_options = model.get_hub_link_options(target_runtime, link_options)
 
         link_job = hub.submit_link_job(
-            models,  # type: ignore[arg-type]
+            models,
             name=full_name,
             options=model_link_options,
         )
@@ -533,7 +532,7 @@ def export_model(
             assert target_model is not None
             target_model_filename = f"{model_name}_{component_name}.bin"
             target_model_list.append(target_model_filename)
-            target_model.download(output_path / target_model_filename)
+            target_model.download(str(output_path / target_model_filename))
 
     # 6. Summarize the results from profiling and inference
     if not skip_summary and not skip_profiling:
@@ -593,6 +592,7 @@ def export_model(
             and hasattr(model, "checkpoint")
             and model.checkpoint is not None
         ):
+            assert input_encodings_path is not None
             model.prepare_genie_assets(
                 hub_device=device,
                 checkpoint=model.checkpoint,
@@ -727,7 +727,7 @@ def export_main(
     default_export_device: str,
     default_precision: Precision,
     constrained_device_max_context_length: int | None = None,
-):
+) -> None:
     warnings.filterwarnings("ignore")
     parser = get_llm_parser(
         supported_precision_runtimes,
@@ -747,7 +747,7 @@ def export_main(
     if isinstance(
         additional_model_kwargs["checkpoint"], str
     ) and additional_model_kwargs["checkpoint"].startswith("DEFAULT"):
-        additional_model_kwargs["fp_model"] = fp_model_cls.from_pretrained(  # type: ignore[index]
+        additional_model_kwargs["fp_model"] = fp_model_cls.from_pretrained(
             **fp_model_params
         )
         additional_model_kwargs["precision"] = (

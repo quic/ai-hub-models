@@ -9,7 +9,7 @@ from pathlib import Path
 
 from qai_hub_models._version import __version__
 from qai_hub_models.models.common import Precision, TargetRuntime
-from qai_hub_models.utils.asset_loaders import load_yaml
+from qai_hub_models.utils.asset_loaders import ASSET_CONFIG, load_yaml
 
 MODELS_PACKAGE_NAME = "models"
 QAIHM_PACKAGE_NAME = "qai_hub_models"
@@ -23,8 +23,10 @@ def _get_qaihm_models_root(package_root: Path = QAIHM_PACKAGE_ROOT) -> Path:
 QAIHM_MODELS_ROOT = _get_qaihm_models_root()
 
 
-def _get_all_models(public_only: bool = False, models_root: Path = QAIHM_MODELS_ROOT):
-    all_models = []
+def _get_all_models(
+    public_only: bool = False, models_root: Path = QAIHM_MODELS_ROOT
+) -> list[str]:
+    all_models: list[str] = []
     for subdir in models_root.iterdir():
         if not subdir.is_dir():
             continue
@@ -69,10 +71,17 @@ def get_model_directory_for_download(
     Path
         Path to the directory where the model should be downloaded.
     """
-    output_path = Path(output_path)
-    if not target_runtime.is_aot_compiled or chipset is None:
-        return output_path / f"{model_name}-{target_runtime.value}-{precision}"
-    return output_path / f"{model_name}-{target_runtime.value}-{precision}-{chipset}"
+    return (
+        Path(output_path)
+        / os.path.splitext(
+            ASSET_CONFIG.get_release_asset_filename(
+                model_id=model_name,
+                runtime=target_runtime,
+                precision=precision,
+                chipset_with_underscores=chipset,
+            )
+        )[0]
+    )
 
 
 def get_next_free_path(path: str | os.PathLike, delim: str = "-") -> Path:
@@ -88,7 +97,7 @@ def get_next_free_path(path: str | os.PathLike, delim: str = "-") -> Path:
     return Path(path)
 
 
-def get_git_branch():
+def get_git_branch() -> str:
     try:
         res = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],

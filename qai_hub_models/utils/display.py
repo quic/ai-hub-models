@@ -15,7 +15,7 @@ from PIL.ImageShow import IPythonViewer, _viewers  # type: ignore[attr-defined]
 ALWAYS_DISPLAY_VAR = "QAIHM_ALWAYS_DISPLAY_OUTPUT"
 
 
-def is_running_in_notebook():
+def is_running_in_notebook() -> bool:
     try:
         from IPython import get_ipython
 
@@ -28,7 +28,7 @@ def is_running_in_notebook():
     return True
 
 
-def save_image(image: Image, base_dir: str, filename: str, desc: str):
+def save_image(image: Image, base_dir: str, filename: str, desc: str) -> None:
     os.makedirs(base_dir, exist_ok=True)
     filename = os.path.join(base_dir, filename)
     image.save(filename)

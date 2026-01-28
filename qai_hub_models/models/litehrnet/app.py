@@ -50,28 +50,28 @@ class LiteHRNetApp:
     def predict_pose_keypoints(
         self,
         pixel_values_or_image: torch.Tensor | np.ndarray | Image | list[Image],
-        raw_output=False,
+        raw_output: bool = False,
     ) -> np.ndarray | list[Image]:
         """
         Predicts pose keypoints for a person in the image.
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout.
+        raw_output
+            If True, returns raw keypoints array. If False, returns images with keypoints drawn.
 
         Returns
         -------
+        keypoints or predicted_images
             If raw_output is true, returns:
                 keypoints: np.ndarray, shape [B, N, 2]
-                    Numpy array of keypoints within the images Each keypoint is an (x, y) pair of coordinates within the image.
+                    Numpy array of keypoints within the images. Each keypoint is an (x, y) pair of coordinates within the image.
 
             Otherwise, returns:
                 predicted_images: list[PIL.Image]
@@ -115,33 +115,38 @@ def refine_and_transform_keypoints(
     heatmaps: torch.Tensor,
     bbox: torch.Tensor,
     scale: torch.Tensor,
-    input_size=(192, 256),
+    input_size: tuple[int, int] = (192, 256),
 ) -> np.ndarray:
     """
-    Keypoint refinement and coordinate transformation
+    Keypoint refinement and coordinate transformation.
 
     Parameters
     ----------
-        keypoints: Raw keypoints [batch, 17, 2]
-        heatmaps: Heatmaps [batch, 17, 64, 48]
-        bboxes: Bounding boxes [batch, 4] in (x1,y1,x2,y2)
-        scales: Scale factors [batch, 2]
-        input_size: Model input size (width, height)
-        scale_factor: Output stride scaling factor
+    predictions
+        Raw keypoints [batch, 17, 2].
+    heatmaps
+        Heatmaps [batch, 17, 64, 48].
+    bbox
+        Bounding boxes [batch, 4] in (x1, y1, x2, y2).
+    scale
+        Scale factors [batch, 2].
+    input_size
+        Model input size (width, height).
 
     Returns
     -------
-        refined_keypoints [batch, 17, 2]
+    keypoints
+        Refined keypoints [batch, 17, 2].
     """
     predictions_np = np.asarray(predictions)
     heatmaps_np = np.asarray(heatmaps)
     bbox_np = np.asarray(bbox)
     scale_np = np.asarray(scale)
 
-    input_size = np.array(input_size)
+    input_size_arr = np.array(input_size)
 
     keypoints = refine_keypoints(predictions_np, heatmaps_np.squeeze(0))
     scale_factor = np.array(object=[4.0, 4.0])
     keypoints = keypoints * scale_factor
     center = [(bbox_np[0] + bbox_np[2]) / 2, (bbox_np[1] + bbox_np[3]) / 2]
-    return keypoints / input_size * scale_np + center - 0.5 * scale_np
+    return keypoints / input_size_arr * scale_np + center - 0.5 * scale_np

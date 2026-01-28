@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 
+import torch
 import torchaudio
 from torch.nn import functional as F
 
@@ -34,7 +35,7 @@ class ValentiniDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TEST,
         target_sample_rate: int = 16000,
         max_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
-    ):
+    ) -> None:
         BaseDataset.__init__(self, VALENTINI_CLEAN_ASSET.path().parent, split)
 
         self.noisy_dir = VALENTINI_NOISY_ASSET.path() / "noisy_testset_wav"
@@ -52,7 +53,7 @@ class ValentiniDataset(BaseDataset):
         if not self.file_pairs:
             raise ValueError("No valid noisy/clean audio pairs found")
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         noisy_file, clean_file = self.file_pairs[index]
 
         # Load audio files
@@ -83,7 +84,7 @@ class ValentiniDataset(BaseDataset):
 
         return noisy, clean
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.file_pairs)
 
     def _download_data(self) -> None:

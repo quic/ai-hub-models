@@ -40,29 +40,39 @@ def QcQwen2_apply_rotary_pos_emb(
 class SHAQwen2Attention(Qwen2Attention):
     """Split-Head Attention version of Qwen2Attention (with Convs)"""
 
-    def prepare_conv(self):
+    def prepare_conv(self) -> None:
         if not hasattr(self, "forward_no_conv"):
+            # Ensure config attributes are properly typed
+            assert isinstance(self.hidden_size, int)
+            assert isinstance(self.num_heads, int)
+            assert isinstance(self.num_key_value_heads, int)
+            assert isinstance(self.head_dim, int)
+            hidden_size = self.hidden_size
+            num_heads = self.num_heads
+            num_key_value_heads = self.num_key_value_heads
+            head_dim = self.head_dim
+
             self.q_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_heads * self.head_dim,
+                hidden_size,
+                num_heads * head_dim,
                 1,
                 bias=self.q_proj.bias is not None,
             )
             self.k_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                hidden_size,
+                num_key_value_heads * head_dim,
                 1,
                 bias=self.k_proj.bias is not None,
             )
             self.v_proj_conv = nn.Conv2d(
-                self.hidden_size,
-                self.num_key_value_heads * self.head_dim,
+                hidden_size,
+                num_key_value_heads * head_dim,
                 1,
                 bias=self.v_proj.bias is not None,
             )
             self.o_proj_conv = nn.Conv2d(
-                self.num_heads * self.head_dim,
-                self.hidden_size,
+                num_heads * head_dim,
+                hidden_size,
                 1,
                 bias=self.o_proj.bias is not None,
             )
@@ -90,7 +100,7 @@ class SHAQwen2Attention(Qwen2Attention):
             del self.v_proj
             del self.o_proj
 
-    def prepare_sha(self):
+    def prepare_sha(self) -> None:
         # Ensure conv preparation is done first
         if not (
             hasattr(self, "q_proj_conv")
@@ -103,37 +113,47 @@ class SHAQwen2Attention(Qwen2Attention):
             )
 
         if not hasattr(self, "forward_mha"):
+            # Ensure config attributes are properly typed
+            assert isinstance(self.hidden_size, int)
+            assert isinstance(self.num_heads, int)
+            assert isinstance(self.num_key_value_heads, int)
+            assert isinstance(self.head_dim, int)
+            hidden_size = self.hidden_size
+            num_heads = self.num_heads
+            num_key_value_heads = self.num_key_value_heads
+            head_dim = self.head_dim
+
             self.q_proj_sha = nn.ModuleList(
                 [
                     nn.Conv2d(
-                        self.hidden_size,
-                        self.head_dim,
+                        hidden_size,
+                        head_dim,
                         1,
                         bias=self.q_proj_conv.bias is not None,
                     )
-                    for _ in range(self.num_heads)
+                    for _ in range(num_heads)
                 ]
             )
             self.k_proj_sha = nn.ModuleList(
                 [
                     nn.Conv2d(
-                        self.hidden_size,
-                        self.head_dim,
+                        hidden_size,
+                        head_dim,
                         1,
                         bias=self.k_proj_conv.bias is not None,
                     )
-                    for _ in range(self.num_key_value_heads)
+                    for _ in range(num_key_value_heads)
                 ]
             )
             self.v_proj_sha = nn.ModuleList(
                 [
                     nn.Conv2d(
-                        self.hidden_size,
-                        self.head_dim,
+                        hidden_size,
+                        head_dim,
                         1,
                         bias=self.v_proj_conv.bias is not None,
                     )
-                    for _ in range(self.num_key_value_heads)
+                    for _ in range(num_key_value_heads)
                 ]
             )
 
@@ -153,39 +173,41 @@ class SHAQwen2Attention(Qwen2Attention):
                         torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None
                     ],
                 ],
-                self.forward,  # type: ignore[has-type]
+                self.forward,  # type: ignore[has-type, unused-ignore]
             )
             # pyright doesn't like that self.forward_sha doesn't take kwargs
-            self.forward = self.forward_sha  # pyright: ignore[reportAttributeAccessIssue]
+            self.forward = self.forward_sha  # type: ignore[assignment, unused-ignore]  # pyright: ignore[reportAttributeAccessIssue]
 
-        for i in range(self.num_heads):
-            start_idx = i * self.head_dim
-            end_idx = (i + 1) * self.head_dim
-            self.q_proj_sha[i].weight.data.copy_(
-                self.q_proj_conv.weight[start_idx:end_idx, :]
-            )
-            if self.q_proj_conv.bias is not None:
-                self.q_proj_sha[i].bias.data.copy_(
-                    self.q_proj_conv.bias[start_idx:end_idx]
-                )
+        # Use local typed variables for range loops
+        assert isinstance(self.num_heads, int)
+        assert isinstance(self.num_key_value_heads, int)
+        assert isinstance(self.head_dim, int)
+        num_heads = self.num_heads
+        num_key_value_heads = self.num_key_value_heads
+        head_dim = self.head_dim
 
-        for i in range(self.num_key_value_heads):
-            start_idx = i * self.head_dim
-            end_idx = (i + 1) * self.head_dim
-            self.k_proj_sha[i].weight.data.copy_(
-                self.k_proj_conv.weight[start_idx:end_idx, :]
-            )
-            self.v_proj_sha[i].weight.data.copy_(
-                self.v_proj_conv.weight[start_idx:end_idx, :]
-            )
-            if self.k_proj_conv.bias is not None:
-                self.k_proj_sha[i].bias.data.copy_(
-                    self.k_proj_conv.bias[start_idx:end_idx]
-                )
-            if self.v_proj_conv.bias is not None:
-                self.v_proj_sha[i].bias.data.copy_(
-                    self.v_proj_conv.bias[start_idx:end_idx]
-                )
+        for i in range(num_heads):
+            start_idx = i * head_dim
+            end_idx = (i + 1) * head_dim
+            q_proj = self.q_proj_sha[i]
+            assert isinstance(q_proj, (nn.Linear, nn.Conv2d))
+            q_proj.weight.data.copy_(self.q_proj_conv.weight[start_idx:end_idx, :])
+            if self.q_proj_conv.bias is not None and q_proj.bias is not None:
+                q_proj.bias.data.copy_(self.q_proj_conv.bias[start_idx:end_idx])
+
+        for i in range(num_key_value_heads):
+            start_idx = i * head_dim
+            end_idx = (i + 1) * head_dim
+            k_proj = self.k_proj_sha[i]
+            v_proj = self.v_proj_sha[i]
+            assert isinstance(k_proj, (nn.Linear, nn.Conv2d))
+            assert isinstance(v_proj, (nn.Linear, nn.Conv2d))
+            k_proj.weight.data.copy_(self.k_proj_conv.weight[start_idx:end_idx, :])
+            v_proj.weight.data.copy_(self.v_proj_conv.weight[start_idx:end_idx, :])
+            if self.k_proj_conv.bias is not None and k_proj.bias is not None:
+                k_proj.bias.data.copy_(self.k_proj_conv.bias[start_idx:end_idx])
+            if self.v_proj_conv.bias is not None and v_proj.bias is not None:
+                v_proj.bias.data.copy_(self.v_proj_conv.bias[start_idx:end_idx])
 
         del self.q_proj_conv
         del self.k_proj_conv
@@ -205,7 +227,9 @@ class SHAQwen2Attention(Qwen2Attention):
     ) -> tuple[torch.Tensor, list[torch.Tensor] | None, Cache | None]:
         bsz, q_len, _ = hidden_states.size()
 
-        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, self.hidden_size))
+        assert isinstance(self.hidden_size, int)
+        hidden_size = self.hidden_size
+        hidden_states = torch.reshape(hidden_states, (bsz, -1, 1, hidden_size))
         hidden_states = hidden_states.transpose(1, 3)
 
         query_states = [
@@ -220,7 +244,7 @@ class SHAQwen2Attention(Qwen2Attention):
 
         kv_seq_len = value_states[0].shape[-2]
         if past_key_value is not None:
-            kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
+            kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]  # type: ignore[attr-defined, unused-ignore]
 
         assert position_embeddings is not None
         query_states = [
@@ -230,8 +254,8 @@ class SHAQwen2Attention(Qwen2Attention):
 
         if past_key_value is not None:
             # reuse k, v, self_attention
-            past_key = past_key_value.key_cache[self.layer_idx]
-            past_value = past_key_value.value_cache[self.layer_idx]
+            past_key = past_key_value.key_cache[self.layer_idx]  # type: ignore[attr-defined, unused-ignore]
+            past_value = past_key_value.value_cache[self.layer_idx]  # type: ignore[attr-defined, unused-ignore]
 
             transposed_key_states = [
                 key_state.transpose(2, 3) for key_state in key_states
@@ -242,8 +266,8 @@ class SHAQwen2Attention(Qwen2Attention):
             # Technically, this isn't what Cache expects. It stores tensors, not lists
             # of tensors.
             past_key_value.update(
-                transposed_key_states,
-                value_states,
+                transposed_key_states,  # type: ignore[arg-type, unused-ignore]
+                value_states,  # type: ignore[arg-type, unused-ignore]
                 self.layer_idx,
                 cache_kwargs,  # pyright: ignore[reportArgumentType]
             )
@@ -297,9 +321,11 @@ class SHAQwen2Attention(Qwen2Attention):
             for aw, v in zip(attn_weights, value_states, strict=False)
         ]
 
-        if attn_output[0].size() != (bsz, 1, q_len, self.head_dim):
+        assert isinstance(self.head_dim, int)
+        head_dim = self.head_dim
+        if attn_output[0].size() != (bsz, 1, q_len, head_dim):
             raise ValueError(
-                f"`attn_output` should be of size {(bsz, 1, q_len, self.head_dim)}, but is"
+                f"`attn_output` should be of size {(bsz, 1, q_len, head_dim)}, but is"
                 f" {attn_output[0].size()}"
             )
 
@@ -307,7 +333,7 @@ class SHAQwen2Attention(Qwen2Attention):
         attn_output_return = attn_output_return.permute(0, 3, 1, 2)
         attn_output_return = self.o_proj_conv(attn_output_return)
         attn_output_return = attn_output_return.transpose(1, 3)
-        attn_output_return = attn_output_return.reshape(bsz, q_len, self.hidden_size)
+        attn_output_return = attn_output_return.reshape(bsz, q_len, hidden_size)
 
         attn_weights_return = attn_weights if output_attentions else None
 
@@ -315,14 +341,14 @@ class SHAQwen2Attention(Qwen2Attention):
 
 
 class QCQwen2MLP(Qwen2MLP):
-    def prepare_conv(self):
+    def prepare_conv(self) -> None:
         # TODO (https://github.com/qcom-ai-hub/tetracode/issues/17113)
         # Temporarily commented out due to AISW-148745.
-        # self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
-        self.down_proj = ConvInplaceLinear(self.down_proj)  # type: ignore[has-type]
-        # self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
+        # self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type, unused-ignore]
+        self.down_proj = ConvInplaceLinear(self.down_proj)  # type: ignore[has-type, unused-ignore]
+        # self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type, unused-ignore]
 
 
 class QCQwen2ForCausalLM(Qwen2ForCausalLM):
-    def prepare_conv(self):
-        self.lm_head = ConvInplaceLinear(self.lm_head)  # type: ignore[has-type]
+    def prepare_conv(self) -> None:
+        self.lm_head = ConvInplaceLinear(self.lm_head)  # type: ignore[has-type, unused-ignore]

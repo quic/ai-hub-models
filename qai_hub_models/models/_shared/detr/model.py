@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from transformers import DetrForObjectDetection
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
@@ -33,24 +34,37 @@ class DETR(BaseModel):
 
         The DetectionEvaluator class is used to compute the mean average precision (mAP) of the model's predictions.
 
-        :return: An instance of the DetectionEvaluator class
+        Returns
+        -------
+        BaseEvaluator
+            An instance of the DetectionEvaluator class
         """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return DetectionEvaluator(image_height, image_width, score_threshold=0.5)
 
-    def detr_postprocess(self, logits, boxes, image_shape):
+    def detr_postprocess(
+        self, logits: torch.Tensor, boxes: torch.Tensor, image_shape: tuple
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Postprocess the output of the DETR model.
 
         Parameters
         ----------
-            logits (torch.Tensor): The classification logits.
-            boxes (torch.Tensor): The bounding box coordinates.
-            image_shape (tuple): The shape of the input image.
+        logits
+            Shape (B, 100, # of Classes) classification logits
+        boxes
+            Shape (B, 100, 4) bounding box coordinates of shape (x, y, w, h)
+        image_shape
+            The shape of the input image -- (x, y)
 
         Returns
         -------
-            tuple: A tuple containing the processed boxes, scores, and labels.
+        boxes
+            Shape (B, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
+        scores
+            Shape (B, 100) representing the confidence scores.
+        labels
+            Shape (B, 100) representing the class labels.
         """
         _, _, h, w = image_shape
 
@@ -75,7 +89,7 @@ class DETR(BaseModel):
         return boxes, scores, labels
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str):
+    def from_pretrained(cls, ckpt_name: str) -> Self:
         model = DetrForObjectDetection.from_pretrained(ckpt_name)
         return cls(model)
 
@@ -87,15 +101,17 @@ class DETR(BaseModel):
 
         Parameters
         ----------
-            image: Image tensor to run detection on. RGB, Range[0-1].
-            threshold: Prediction score threshold.
+        image
+            Image tensor to run detection on. RGB, Range[0-1].
 
         Returns
         -------
-            A tuple of three tensors:
-                - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
-                - scores: torch.Tensor of shape (1, 100) representing the confidence scores
-                - labels: torch.Tensor of shape (1, 100) representing the class labels
+        boxes
+            Shape (B, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
+        scores
+            Shape (B, 100) representing the confidence scores.
+        labels
+            Shape (B, 100) representing the class labels.
         """
         image_array = normalize_image_torchvision(image)
         # boxes: (center_x, center_y, w, h)

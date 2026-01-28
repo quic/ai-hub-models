@@ -22,16 +22,16 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
         self,
         image_height: int,
         image_width: int,
-    ):
+    ) -> None:
         self.reset()
         self.image_height = image_height
         self.image_width = image_width
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the collected predictions."""
-        self.results = []
+        self.results: list[float] = []
 
-    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
+    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]) -> None:
         """
         Gt should be a list of tensors with the following tensors:
             - image_ids of shape (batch_size,)
@@ -65,11 +65,11 @@ class FaceMap3DMMEvaluator(BaseEvaluator):
             nme = np.mean(error) / eye_length
             self.results.append(nme)
 
-    def get_mean_nme(self):
+    def get_mean_nme(self) -> float:
         self.results = [nme for nme in self.results if nme < 0.1]
-        return np.mean(self.results)
+        return float(np.mean(self.results))
 
-    def get_accuracy_score(self):
+    def get_accuracy_score(self) -> float:
         return self.get_mean_nme()
 
     def formatted_accuracy(self) -> str:

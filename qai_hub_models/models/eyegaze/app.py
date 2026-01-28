@@ -35,12 +35,17 @@ class EyeGazeApp:
 
         Parameters
         ----------
-            eye_img (str | np.ndarray): Path to grayscale eye image (PNG/JPG) or numpy array.
-            side (str): Either 'left' or 'right' eye. Default is 'left'.
+        eye_img
+            Path to grayscale eye image (PNG/JPG) or numpy array.
+        side
+            Either 'left' or 'right' eye. Default is 'left'.
+        raw_output
+            If True, return raw gaze output array. If False, return PIL Image with visualization.
 
         Returns
         -------
-            Image.Image: PIL Image with red gaze arrow visualization.
+        output_image_or_gaze
+            PIL Image with red gaze arrow visualization, or raw gaze output array if raw_output is True.
         """
         # Load image if path is provided
         if isinstance(eye_img, str):
@@ -77,12 +82,15 @@ def preprocess_eye_crop(img: np.ndarray, side: str) -> np.ndarray:
 
     Parameters
     ----------
-        img (np.ndarray): Input eye image as a numpy array.
-        side (str): Either 'left' or 'right' eye.
+    img
+        Input eye image as a numpy array.
+    side
+        Either 'left' or 'right' eye.
 
     Returns
     -------
-        np.ndarray: Preprocessed image (grayscale, 160x96, normalized).
+    preprocessed_image
+        Preprocessed image (grayscale, 160x96, normalized).
     """
     img = cv2.resize(img, (160, 96))
     img = cv2.equalizeHist(img)
@@ -109,16 +117,23 @@ def draw_gaze(
 
     Parameters
     ----------
-        image_in (np.ndarray): Input image (grayscale or BGR).
-        eye_pos (np.ndarray): Eye position coordinates [x, y].
-        pitchyaw (np.ndarray): Gaze angles [pitch, yaw].
-        length (float | None): Length of the gaze arrow. If None, computed as 0.35 * min(H, W).
-        thickness (int): Thickness of the gaze arrow.
-        color (tuple): Color of the gaze arrow in RGB format.
+    image_in
+        Input image (grayscale or BGR).
+    eye_pos
+        Eye position coordinates [x, y].
+    pitchyaw
+        Gaze angles [pitch, yaw].
+    length
+        Length of the gaze arrow. If None, computed as 0.35 * min(H, W).
+    thickness
+        Thickness of the gaze arrow.
+    color
+        Color of the gaze arrow in RGB format.
 
     Returns
     -------
-        np.ndarray: Image with gaze arrow drawn.
+    output_image
+        Image with gaze arrow drawn.
     """
     image_out = image_in
     if len(image_out.shape) == 2 or image_out.shape[2] == 1:

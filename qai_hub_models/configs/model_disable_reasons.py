@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import Field, model_serializer, model_validator
@@ -83,10 +84,10 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
 
     def __setitem__(
         self, key: Precision, val: dict[TargetRuntime, ModelDisableReasons]
-    ):
+    ) -> None:
         self.data[key] = val
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         # If the input is a dictionary, treat it as the value for 'data'
         if len(kwargs) == 0:
             kwargs = {"data": {}}
@@ -112,7 +113,9 @@ class ModelDisableReasonsMapping(BaseQAIHMConfig):
         return precision_mapping[runtime]
 
     @model_serializer(mode="wrap")
-    def serialize_model(self, handler):
+    def serialize_model(
+        self, handler: Callable[[ModelDisableReasonsMapping], dict]
+    ) -> dict:
         # Skip serialization of dict items that don't have failure reasons set
         out: dict[Precision, dict[TargetRuntime, ModelDisableReasons]] = {}
         for precision, runtimes in self.data.items():

@@ -61,16 +61,21 @@ class CenterNetPoseApp:
         max_dets: int = 100,
     ) -> None:
         """
-        Initialize CenterNetPoseApp
+        Initialize CenterNetPoseApp.
 
-        Inputs:
-            model:
-                CenterNetPose Model.
-            decode:
-                Function to decode the raw model outputs
-                into detected objects/detections and keypoints.
-            max_det (int):
-                Maximum number of detections per image.
+        Parameters
+        ----------
+        model
+            CenterNetPose Model.
+        decode
+            Function to decode the raw model outputs
+            into detected objects/detections and keypoints.
+        height
+            Input height for the model.
+        width
+            Input width for the model.
+        max_dets
+            Maximum number of detections per image.
         """
         self.model = model
         self.decode = decode
@@ -109,19 +114,20 @@ class CenterNetPoseApp:
         raw_output: bool = False,
     ) -> np.ndarray | Image.Image:
         """
-        Run the CenterNetPose model and predict 3d bounding boxes.
+        Run the CenterNetPose model and predict 2D bounding boxes with keypoints.
 
         Parameters
         ----------
-            image: PIL images in RGB format.
+        image
+            PIL image in RGB format.
+        raw_output
+            If True, returns raw detections array. If False, returns annotated image.
 
         Returns
         -------
-            if raw_output is true, returns
-                dets : np.ndarray
-                    sets with shape (max_det, 40)
-            otherwise, returns
-                output_images: pil images with 2d bounding boxes and keypoints.
+        result
+            If raw_output is True, returns dets array with shape (max_det, 40).
+            Otherwise, returns PIL image with 2D bounding boxes and keypoints drawn.
         """
         image_array = np.array(image)
         height, width = image_array.shape[0:2]

@@ -41,3 +41,11 @@ class DepthEstimationModel(BaseModel):
 
     def get_evaluator(self) -> BaseEvaluator:
         return DepthEvaluator()
+
+    @staticmethod
+    def eval_datasets() -> list[str]:
+        return ["nyuv2"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "nyuv2"

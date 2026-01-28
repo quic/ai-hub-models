@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import Any
+
 import pytest
 
 from qai_hub_models.utils.base_model import (
@@ -13,18 +15,18 @@ from qai_hub_models.utils.base_model import (
 
 
 class SimpleBaseModel(BaseModel):
-    def get_input_spec(*args, **kwargs):
+    def get_input_spec(*args: Any, **kwargs: Any) -> None:
         return None
 
-    def get_output_names(*args, **kwargs):
+    def get_output_names(*args: Any, **kwargs: Any) -> None:
         return None
 
     @classmethod
-    def from_pretrained(cls):
+    def from_pretrained(cls) -> "SimpleBaseModel":
         return cls()
 
 
-def test_collection_model_demo():
+def test_collection_model_demo() -> None:
     """Demo on how to use CollectionModel"""
 
     class Component1(SimpleBaseModel):
@@ -76,7 +78,7 @@ def test_collection_model_demo():
     assert model3.components["Component2"] is comp2_instance
 
 
-def test_missing_from_pretrained():
+def test_missing_from_pretrained() -> None:
     """
     Raise Attribute error if any component classes misses from_pretrained or
     from_precompiled method
@@ -90,8 +92,6 @@ def test_missing_from_pretrained():
     class BrokenCollection(PretrainedCollectionModel):
         pass
 
-    error_msg = (
-        "Component 'BrokenComponent' does not have a callable from_pretrained method"
-    )
-    with pytest.raises(AttributeError, match=error_msg):
+    error_msg = "None is not a callable object"
+    with pytest.raises(TypeError, match=error_msg):
         BrokenCollection.from_pretrained()

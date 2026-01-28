@@ -60,18 +60,23 @@ class CenterNet2DApp:
         """
         Initialize CenterNet2DApp
 
-        Inputs:
-            model:
-                CenterNet2D Model.
-            decode:
-                Function to decode the raw model outputs
-                into detected objects/detections.
-            cat_spec_wh (bool):
-                If True, indicates that the `wh` tensoris category-specific
-                (i.e., its channel dimension is `2 * num_classes`). If False,
-                `wh` is not category-specific. Defaults to False.
-            max_det (int):
-                Maximum number of detections per image.
+        Parameters
+        ----------
+        model
+            CenterNet2D Model.
+        decode
+            Function to decode the raw model outputs
+            into detected objects/detections.
+        height
+            Input image height.
+        width
+            Input image width.
+        max_dets
+            Maximum number of detections per image.
+        cat_spec_wh
+            If True, indicates that the `wh` tensor is category-specific
+            (i.e., its channel dimension is `2 * num_classes`). If False,
+            `wh` is not category-specific. Defaults to False.
         """
         self.model = model
         self.decode = decode
@@ -96,15 +101,18 @@ class CenterNet2DApp:
 
         Parameters
         ----------
-            image: PIL images in RGB format.
+        image
+            PIL images in RGB format.
+        raw_output
+            If True, returns raw detection output.
 
         Returns
         -------
-            if raw_output is true, returns
-                dets : np.ndarray
-                    dets with shape (max_dets, 6)
-            otherwise, returns
-                output_images: pil images with 2d bounding boxes.
+        detections_or_image
+            If raw_output is True:
+                dets with shape (max_dets, 6)
+            Otherwise:
+                PIL image with 2d bounding boxes drawn.
         """
         image_array = np.array(image)
         height, width = image_array.shape[0:2]

@@ -282,7 +282,7 @@ def resize_pad(
     def _split_padding(
         float_img_in_frame: Literal["center", "left", "right", "top", "bottom"],
         pad_size: int,
-    ):
+    ) -> tuple[int, int]:
         """
         Split padding into (Left, Rright), or (Top, Bottom)
         splits based on where the image should float in the frame.

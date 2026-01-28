@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 from collections.abc import Iterator
-from typing import Generic, TypeVar, overload
+from typing import Any, Generic, TypeVar, overload
 
 import torch
 from torch import nn
@@ -26,8 +26,8 @@ class TypedModuleList(nn.ModuleList, Generic[T]):
     @overload
     def __getitem__(self, idx: int) -> T: ...
 
-    def __getitem__(self, idx):
-        return super().__getitem__(idx)
+    def __getitem__(self, idx: int | slice) -> T | "TypedModuleList[T]":
+        return super().__getitem__(idx)  # type: ignore[return-value]
 
     def __setitem__(self, idx: int, module: T) -> None:
         super().__setitem__(idx, module)
@@ -36,7 +36,7 @@ class TypedModuleList(nn.ModuleList, Generic[T]):
 class Conv2DWithBias(nn.Conv2d):
     """Identical to nn.Conv2D, but bias is strongly typed as non-None."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         if "bias" in kwargs:
             assert kwargs["bias"]
         else:

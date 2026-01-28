@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 from datasets import IterableDataset, load_dataset
 from transformers import PreTrainedTokenizerBase
@@ -23,7 +25,7 @@ class MMLU(BaseDataset):
         fewshot_split: str = "dev",
         num_samples: int = 0,
         seed: int = 42,
-    ):
+    ) -> None:
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
@@ -63,7 +65,7 @@ class MMLU(BaseDataset):
         fewshot_split = load_dataset("cais/mmlu", name="all", split=self.fewshot_split)
         grouped_fewshot_questions: dict[str, list[str]] = {}
 
-        def group_fewshot_questions(sample):
+        def group_fewshot_questions(sample: dict[str, Any]) -> None:
             question = sample["question"]
             choices = sample["choices"]
             subject = sample["subject"]
@@ -86,7 +88,7 @@ class MMLU(BaseDataset):
                     f"Not enough samples available in split {fewshot_split} to satisfy {self.num_fewshot} fewshot samples."
                 )
 
-        def combine_questions(questions):
+        def combine_questions(questions: list[str]) -> str:
             formatted_string = ""
             for question in questions:
                 formatted_string += question
@@ -98,10 +100,10 @@ class MMLU(BaseDataset):
             for subject, questions in grouped_fewshot_questions.items()
         }
 
-    def preprocess_dataset(self):
+    def preprocess_dataset(self) -> None:
         fewshot_subject_headers = self.load_fewshot()
 
-        def tokenize(sample):
+        def tokenize(sample: dict[str, Any]) -> dict[str, Any]:
             question = sample["question"]
             choices = sample["choices"]
             subject = sample["subject"]
@@ -166,7 +168,7 @@ class MMLU(BaseDataset):
             **(map_kwargs if not isinstance(self.dataset, IterableDataset) else {}),
         )
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         return {
             key: torch.Tensor(value).to(dtype=torch.int)
             for key, value in self.dataset[idx].items()

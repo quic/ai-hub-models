@@ -28,6 +28,7 @@ from qai_hub_models.models._shared.llama3.model import (
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
 from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
@@ -52,8 +53,6 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 150
 
-DEFAULT_PROMPT_CONTEXT = "あなたは誠実で優秀な日本人のアシスタントです。特に指示が無い場合は、常に日本語で回答してください。"
-DEFAULT_USER_PROMPT = "仕事の熱意を取り戻すためのアイデアを5つ挙げてください。"
 DEFAULT_PRECISION = Precision.w4a16
 SUPPORTED_PRECISIONS = [Precision.w4a16]
 DEFAULT_CHECKPOINT = {Precision.w4a16: "llama3_8b_elyza_ckpt_w4a16"}
@@ -62,6 +61,10 @@ DEFAULT_CHECKPOINT = {Precision.w4a16: "llama3_8b_elyza_ckpt_w4a16"}
 class Llama3_Elyza_JP_8B(Llama3Base):
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
 
+    # Default prompts for demos (Japanese)
+    default_user_prompt = "仕事の熱意を取り戻すためのアイデアを5つ挙げてください。"
+    default_system_prompt = "あなたは誠実で優秀な日本人のアシスタントです。特に指示が無い場合は、常に日本語で回答してください。"
+
     def __init__(
         self,
         checkpoint: str | os.PathLike | Path = HF_REPO_NAME,
@@ -69,7 +72,7 @@ class Llama3_Elyza_JP_8B(Llama3Base):
         **kwargs,
     ):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
+            checkpoint=checkpoint,  # type: ignore[misc, unused-ignore]
             *args,  # noqa: B026
             **kwargs,
         )
@@ -83,17 +86,6 @@ class Llama3_Elyza_JP_8B(Llama3Base):
             and self.llm_config.num_key_value_heads == NUM_KEY_VALUE_HEADS
         ):
             raise ValueError("Model config is not compatible with our implementation.")
-
-    # Only changes the defaults
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        return Llama3Base.get_input_prompt_with_tags(
-            user_input_prompt=user_input_prompt,
-            system_context_prompt=system_context_prompt,
-        )
 
     @classmethod
     def from_pretrained(
@@ -157,7 +149,7 @@ class Llama3_Elyza_JP_8B(Llama3Base):
 class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
     def __init__(self, checkpoint: str | os.PathLike | Path | None, *args, **kwargs):
         super().__init__(
-            checkpoint=checkpoint,  # type: ignore[misc]
+            checkpoint=checkpoint,  # type: ignore[misc, unused-ignore]
             *args,  # noqa: B026
             **kwargs,
         )
@@ -170,7 +162,7 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         precision: Precision = DEFAULT_PRECISION,
-        fp_model: torch.nn.Module | None = None,
+        fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_Elyza_JP_8B_AIMETOnnx:
         """
@@ -179,10 +171,30 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
 
         Parameters
         ----------
-        - checkpoint: Path to previously calibrated AIMET encodings and ONNX
-          models. Note that encodings are sensitive to AIMET ONNX versions.
-          If passing None, initializes without encodings.
+        checkpoint
+            Path to previously calibrated AIMET encodings and ONNX
+            models. Note that encodings are sensitive to AIMET ONNX versions.
+            If passing None, initializes without encodings.
+        host_device
+            Device on which to load the model.
+        sequence_length
+            Sequence length for the model.
+        context_length
+            Context length for the model.
+        precision
+            Precision for quantization.
+        fp_model
+            Optional floating point model.
+        _skip_quantsim_creation
+            Internal parameter to skip quantsim creation. This helps export on platforms where aimet onnx is not available.
+
+        Returns
+        -------
+        model
+            Instance of the quantized model.
         """
+        if host_device is None:
+            host_device = torch.device("cpu")
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:
@@ -304,7 +316,8 @@ class Llama3_Elyza_JP_8B_AIMETOnnx(Llama3Base_AIMETOnnx):
 
         assert self.EmbeddingClass is not None
         rope_embeddings = self.EmbeddingClass(
-            max_length=self.context_length, config=self.llm_config
+            max_length=self.context_length,
+            config=self.llm_config,  # type: ignore[arg-type, unused-ignore]
         )
         generator = LLM_Generator([self], self.tokenizer, rope_embeddings)
 
@@ -325,6 +338,6 @@ class Llama3_Elyza_JP_8B_QNN(Llama3Base_QNN):
 
     @staticmethod
     def get_output_names():
-        return Llama3_Elyza_JP_8B_QNN._get_output_names(NUM_LAYERS)
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Llama3_Elyza_JP_8B.get_input_spec)

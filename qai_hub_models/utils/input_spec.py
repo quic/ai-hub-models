@@ -16,7 +16,7 @@ from qai_hub_models.models.common import SampleInputsType
 InputSpec = dict[str, tuple[tuple[int, ...], str]]
 
 
-def str_to_torch_dtype(s):
+def str_to_torch_dtype(s: str) -> torch.dtype:
     return dict(
         int32=torch.int32,
         int64=torch.int64,
@@ -34,7 +34,7 @@ def make_torch_inputs(spec: InputSpec, seed: int | None = 42) -> list[torch.Tens
     for sp in spec.values():
         torch_dtype = str_to_torch_dtype(sp[1])
         if sp[1] in {"int32", "int64"}:
-            t = torch.randint(10, sp[0], generator=generator).to(torch_dtype)
+            t = torch.randint(2, sp[0], generator=generator).to(torch_dtype)
         else:
             t = torch.rand(sp[0], generator=generator).to(torch_dtype)
         torch_input.append(t)

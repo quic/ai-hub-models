@@ -31,7 +31,7 @@ def main():
     )
     args = parser.parse_args()
     export_model(
-        model_cls=Model,
+        model_cls=Model,  # type: ignore[arg-type]
         model_name=MODEL_ID,
         model_asset_version=MODEL_ASSET_VERSION,
         num_splits=NUM_SPLITS,

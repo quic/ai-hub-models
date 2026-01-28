@@ -52,7 +52,7 @@ def _clean_old_failure_reasons(
     code_gen_config: QAIHMModelCodeGen,
     clean_general: bool,
     clean_accuracy: bool,
-):
+) -> None:
     """In the code gen config, delete failure reasons for all enabled runtimes + given precision pairs."""
     for precision in precisions:
         if reasons_by_runtime := code_gen_config.disabled_paths.data.get(precision):
@@ -75,7 +75,7 @@ def update_code_gen_failure_reasons(
     compile_summary: ModelCompileSummary,
     profile_summary: ModelPerfSummary,
     code_gen_config: QAIHMModelCodeGen,
-):
+) -> None:
     """
     Updates the provided model_info.code_gen_config to reflect job failures in the provided summaries.
     <path>_scorecard_failure will be set if certain jobs fail, and will be unset if no failing jobs are found.
@@ -96,10 +96,16 @@ def update_code_gen_failure_reasons(
         if x.enabled
         and x.is_public
         and (
-            (code_gen_config.requires_aot_prepare and x.runtime.is_aot_compiled)
+            (x.runtime in code_gen_config.supported_genai_runtimes)
             or (
-                not code_gen_config.requires_aot_prepare
-                and not x.runtime.is_aot_compiled
+                not x.runtime.is_exclusively_for_genai
+                and (
+                    (code_gen_config.requires_aot_prepare and x.runtime.is_aot_compiled)
+                    or (
+                        not code_gen_config.requires_aot_prepare
+                        and not x.runtime.is_aot_compiled
+                    )
+                )
             )
         )
     ]
@@ -123,7 +129,7 @@ def update_code_gen_failure_reasons(
 
     def process_model(
         precision: Precision, path: ScorecardProfilePath, device: ScorecardDevice
-    ):
+    ) -> None:
         for component_id in components or [model_id]:
             # Skip model if it can't compile for any canary device.
             compile_job = compile_summary.get_run(
@@ -213,7 +219,7 @@ def update_code_gen_failure_reasons(
 
 def update_code_gen_accuracy_failure_reasons(
     model_id: str, code_gen_config: QAIHMModelCodeGen, model_diff: NumericsDiff
-):
+) -> None:
     supported_precisions = get_model_test_precisions(
         model_id,
         set(code_gen_config.supported_precisions),

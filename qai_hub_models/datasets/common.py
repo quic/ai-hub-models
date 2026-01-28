@@ -14,7 +14,7 @@ from copy import copy
 from enum import Enum, unique
 from functools import cached_property
 from pathlib import Path
-from typing import Any, NamedTuple, final
+from typing import NamedTuple, final
 
 from torch.utils.data import Dataset, default_collate
 
@@ -42,17 +42,17 @@ class AugmentedLabelDataset(Dataset):
     already present).
     """
 
-    def __init__(self, base_dataset, extra_data):
+    def __init__(self, base_dataset: Dataset, extra_data: Sized) -> None:
         self.base_dataset = base_dataset
         self.extra_data = extra_data
         self.extra_len = len(extra_data)
 
-    def __len__(self):
-        return len(self.base_dataset)
+    def __len__(self) -> int:
+        return len(self.base_dataset)  # type: ignore[arg-type]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict[str, object]:
         item = copy(self.base_dataset[idx])
-        extra_item = self.extra_data[idx % self.extra_len]
+        extra_item = self.extra_data[idx % self.extra_len]  # type: ignore[index]
         if "label" in item:
             item["label"] = (item["label"], extra_item)
         else:
@@ -95,7 +95,7 @@ class BaseDataset(Dataset, Sized, ABC):
         dataset_path: str | Path,
         split: DatasetSplit,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.dataset_path = Path(dataset_path)
         self.split = split
         self.split_str = split.name.lower()
@@ -103,7 +103,7 @@ class BaseDataset(Dataset, Sized, ABC):
         self.download_data()
 
     @staticmethod
-    def collate_fn(batch: Any) -> Any:
+    def collate_fn(batch: list[object]) -> list[object]:
         """To be passed into DataLoader(..., collate_fn=...)."""
         return default_collate(batch)
 
@@ -160,7 +160,7 @@ class BaseDataset(Dataset, Sized, ABC):
         raise NotImplementedError()
 
 
-def setup_fiftyone_env():
+def setup_fiftyone_env() -> None:
     """
     FiftyOne is an external library that provides utilities for downloading and storing
     datasets. We want all of its operations to be done within the ai-hub-models cache

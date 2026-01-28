@@ -18,7 +18,7 @@ from qai_hub_models.models.mask2former.app import Mask2FormerApp as app
 class PanopticSegmentationEvaluator(BaseEvaluator):
     """Evaluator for panoptic segmentation metrics (PQ, SQ, RQ)."""
 
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int) -> None:
         super().__init__()
         self.num_classes = num_classes
         self.dataset = CocoPanopticSegmentationDataset()

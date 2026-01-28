@@ -4,7 +4,9 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -21,17 +23,19 @@ from qai_hub_models.utils.base_config import BaseQAIHMConfig
 
 
 class ConfigurationPropertyMock(mock.Mock):
-    def __get__(self, obj, obj_type=None, *args, **kwargs):
+    def __get__(
+        self, obj: object, obj_type: type | None = None, *args: Any, **kwargs: Any
+    ) -> mock.Mock:
         return self(obj, *args, **kwargs)
 
 
 @contextmanager
 def reset_hub_frameworks_patches(
-    frameworks,
+    frameworks: list[Framework],
     default_qaihm_version: str | None = None,
     default_engine_versions: dict[InferenceEngine, str] | None = None,
     api_url: str | None = None,
-):
+) -> Generator[None, None, None]:
     def get_default_qairt_version(engine: InferenceEngine) -> QAIRTVersion:
         if default_engine_versions is not None and (
             version := default_engine_versions.get(engine)
@@ -67,7 +71,7 @@ def reset_hub_frameworks_patches(
         yield
 
 
-def test_precision_has_float():
+def test_precision_has_float() -> None:
     assert not Precision.float.has_quantized_activations
     assert Precision.float.has_float_activations
     assert Precision.float.has_float_weights
@@ -88,7 +92,7 @@ def test_precision_has_float():
     assert Precision.w8a16_mixed_fp16.has_quantized_activations
 
 
-def test_precision_eq():
+def test_precision_eq() -> None:
     assert Precision.float == Precision.float
     assert Precision.float == Precision(None, None)
     assert Precision.float != Precision.w8a8
@@ -106,7 +110,7 @@ def test_precision_eq():
     assert Precision.w8a16_mixed_int16 != Precision.w8a16
 
 
-def test_precision_parse_serialize():
+def test_precision_parse_serialize() -> None:
     assert str(Precision.float) == "float"
     assert str(Precision.w8a8) == "w8a8"
     assert str(Precision.w8a16) == "w8a16"
@@ -153,7 +157,7 @@ def test_precision_parse_serialize():
         Precision(QuantizeDtype.INT8, QuantizeDtype.INT8, QuantizeDtype.INT8)
 
 
-def test_qairt_version():
+def test_qairt_version() -> None:
     # Patch frameworks so this test continues to work regardless of AI Hub Workbench version changes.
     frameworks = [
         Framework(
@@ -291,7 +295,7 @@ def test_qairt_version():
         assert default_backup.is_default
 
 
-def test_qairt_version_without_aihub_access():
+def test_qairt_version_without_aihub_access() -> None:
     # Patch frameworks so this test continues to work regardless of AI Hub Workbench version changes.
     with reset_hub_frameworks_patches([], api_url=""):
         # Get default from tag
@@ -327,7 +331,7 @@ def test_qairt_version_without_aihub_access():
         assert QAIRTVersion.all() == []
 
 
-def test_qairt_version_pydantic_roundtrip():
+def test_qairt_version_pydantic_roundtrip() -> None:
     """
     Verifies that QAIRT versions are roundtripped to and from config files as-is,
     and aren't auto-resolved to current AI Hub Workbench QAIRT versions.

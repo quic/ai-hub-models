@@ -35,7 +35,7 @@ class CocoSegDataset(CocoDataset):
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
         label_types: list[Literal["detections", "segmentations"]] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             split,
             input_spec,

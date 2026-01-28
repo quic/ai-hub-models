@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import collections
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
+from typing import Any
 
 import onnx
 from onnx.external_data_helper import uses_external_data
 
 
 class OnnxSplitter:
-    def __init__(self, onnxmodel: onnx.ModelProto, verbose=False):
+    def __init__(self, onnxmodel: onnx.ModelProto, verbose: bool = False) -> None:
         self.model = onnxmodel
         self.verbose = verbose
         self.graph_inputs = {i.name for i in self.model.graph.input}
@@ -32,7 +33,7 @@ class OnnxSplitter:
         name: str,  # name of the ONNX graph
         output_tensors: Iterable[str],  # list of new output tensors to include
         additional_input_tensors: Iterable[str] | None = None,
-    ):
+    ) -> onnx.ModelProto:
         """
         Partition a graph with input and output tensors
         - Captures all nodes that required to compute the given output_tensors
@@ -164,7 +165,9 @@ class OnnxSplitter:
         yield lastgraph
 
     @classmethod
-    def get_all_tensors(cls, graph: onnx.GraphProto):
+    def get_all_tensors(
+        cls, graph: onnx.GraphProto
+    ) -> Generator[onnx.TensorProto, None, None]:
         yield from graph.initializer
         for node in graph.node:
             for attribute in node.attribute:
@@ -178,15 +181,19 @@ class OnnxSplitter:
                 yield from attribute.tensors
 
     @classmethod
-    def is_using_external_data(cls, onnxmodel: onnx.ModelProto):
+    def is_using_external_data(cls, onnxmodel: onnx.ModelProto) -> bool:
         for tensor in cls.get_all_tensors(onnxmodel.graph):
             if uses_external_data(tensor):
                 return True
         return False
 
 
-def save_model(model, newonnxfile, using_external_data=False):
-    kwargs = {}
+def save_model(
+    model: onnx.ModelProto,
+    newonnxfile: str | os.PathLike,
+    using_external_data: bool = False,
+) -> None:
+    kwargs: dict[str, Any] = {}
     if using_external_data or model.ByteSize() > onnx.checker.MAXIMUM_PROTOBUF:
         dirname = os.path.dirname(newonnxfile)
         location = os.path.basename(newonnxfile).replace(".onnx", ".data")
@@ -204,6 +211,6 @@ def save_model(model, newonnxfile, using_external_data=False):
     old_cwd = os.getcwd()
     try:
         os.chdir(os.path.dirname(newonnxfile))
-        onnx.save(model, os.path.basename(newonnxfile), **kwargs)  # type: ignore[arg-type]
+        onnx.save(model, os.path.basename(newonnxfile), **kwargs)
     finally:
         os.chdir(old_cwd)

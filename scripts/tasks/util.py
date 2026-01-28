@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from .constants import (
     BASH_EXECUTABLE,
@@ -30,7 +31,7 @@ class Colors:
 
 
 @contextlib.contextmanager
-def new_cd(x):
+def new_cd(x: str | os.PathLike[str]) -> contextlib.AbstractContextManager[None]:
     d = os.getcwd()
 
     # This could raise an exception, but it's probably
@@ -108,7 +109,7 @@ def can_support_aimet(platform: str = sys.platform) -> bool:
     )
 
 
-def get_is_hub_quantized(model_name) -> bool:
+def get_is_hub_quantized(model_name: str) -> bool:
     return not check_code_gen_field(
         model_name, "is_precompiled"
     ) and not check_code_gen_field(model_name, "is_aimet")
@@ -163,7 +164,7 @@ def default_parallelism() -> int:
 
 
 # Convenience function for printing to stdout without buffering.
-def echo(value, **args):
+def echo(value: object, **args: Any) -> None:
     print(value, flush=True, **args)
 
 
@@ -171,19 +172,21 @@ def have_root() -> bool:
     return os.geteuid() == 0
 
 
-def on_linux():
+def on_linux() -> bool:
     return platform.uname().system == "Linux"
 
 
-def on_mac():
+def on_mac() -> bool:
     return platform.uname().system == "Darwin"
 
 
-def run(command):
+def run(command: str) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(command, shell=True, check=True, executable=BASH_EXECUTABLE)
 
 
-def run_with_venv(venv, command, env=None):
+def run_with_venv(
+    venv: str | None, command: str, env: dict[str, str] | None = None
+) -> None:
     if venv is not None:
         subprocess.run(
             f"source {venv}/bin/activate && {command}",
@@ -196,7 +199,7 @@ def run_with_venv(venv, command, env=None):
         run(command)
 
 
-def run_with_venv_and_get_output(venv, command):
+def run_with_venv_and_get_output(venv: str | None, command: str) -> str:
     if venv is not None:
         return process_output(
             subprocess.run(

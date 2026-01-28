@@ -25,14 +25,16 @@ class FaceDetLiteEvaluator(mAPEvaluator):
         image_width: int,
         nms_iou_threshold: float = 0.2,
         score_threshold: float = 0.55,
-    ):
+    ) -> None:
         super().__init__()
         self.nms_iou_threshold = nms_iou_threshold
         self.score_threshold = score_threshold
         self.image_height = image_height
         self.image_width = image_width
 
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+    def add_batch(
+        self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]
+    ) -> None:
         """
         This function handles model prediction result then calculate the performance with provided ground truth data.
         output is the model inference output - (heatmap, bbox, landmard)

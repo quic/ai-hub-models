@@ -31,12 +31,17 @@ class ElectraBertApp:
         """
         Preprocess text for BERT model input.
 
-        Args:
-            text: Input text string for processing.
+        Parameters
+        ----------
+        text
+            Input text string for processing.
 
         Returns
         -------
-            Tuple of (input_tokens, attention_masks) tensors.
+        input_tokens
+            Tokenized input tensor.
+        attention_masks
+            Attention mask tensor.
         """
         encoded = self.tokenizer(
             text,
@@ -53,11 +58,14 @@ class ElectraBertApp:
         """
         Detect first replaced token in discriminator task.
 
-        Args:
-            text: Input text string.
+        Parameters
+        ----------
+        text
+            Input text string.
 
         Returns
         -------
+        replaced_token
             First replaced token or "None" if none detected.
         """
         input_ids, attention_mask = self.preprocess_text(text)

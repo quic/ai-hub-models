@@ -26,7 +26,7 @@ class Detectron2App:
         boxes_score_threshold: float = 0.8,
         max_det_pre_nms: int = 6000,
         max_det_post_nms: int = 200,
-    ):
+    ) -> None:
         self.model_image_height = model_image_height
         self.model_image_width = model_image_width
         self.proposal_iou_threshold = proposal_iou_threshold
@@ -43,18 +43,18 @@ class Detectron2App:
 
         Parameters
         ----------
-            proposals:
-                List of tensors containing bounding box coordinates
-                with shape [batch_size, num_proposals, 4]
-            objectness_logits:
-                List of tensors containing objectness scores with shape
-                [batch_size, num_proposals]
+        proposals
+            List of tensors containing bounding box coordinates
+            with shape [batch_size, num_proposals, 4]
+        objectness_logits
+            List of tensors containing objectness scores with shape
+            [batch_size, num_proposals]
 
         Returns
         -------
-            padded_proposals:
-                List of padded tensors containing filtered proposals
-                with shape [batch_size, max_det_post_nms, 4]
+        filtered_proposals
+            List of padded tensors containing filtered proposals
+            with shape [batch_size, max_det_post_nms, 4]
         """
         padded_proposals = []
         for pred_proposals, pred_objectness_logits in zip(

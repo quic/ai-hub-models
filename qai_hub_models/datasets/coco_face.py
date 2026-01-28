@@ -38,9 +38,9 @@ class CocoFaceDataset(CocoBodyDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
         num_samples: int = -1,
-    ):
+    ) -> None:
         super().__init__(split, input_spec, num_samples)
-        self.kpt_db: list[tuple[Path, int, int, torch.Tensor]]
+        self.kpt_db: list[tuple[Path, int, int, torch.Tensor]]  # type: ignore[assignment]
 
     def _load_kpt_db(self) -> list[tuple[Path, int, int, torch.Tensor]]:
         kpt_db: list[tuple[Path, int, int, torch.Tensor]] = []
@@ -105,7 +105,7 @@ class CocoFaceDataset(CocoBodyDataset):
 
         x0, y0, x1, y1 = bbox
         image_array = cv2.imread(cast(str, img_path))
-
+        assert image_array is not None, f"Failed to read image {img_path}"
         image_array = cv2.resize(
             image_array[int(y0) : int(y1 + 1), int(x0) : int(x1 + 1)],
             (self.target_h, self.target_w),

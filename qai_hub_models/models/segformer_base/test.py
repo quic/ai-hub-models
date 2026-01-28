@@ -3,9 +3,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 import pytest
 import torch
+from PIL.Image import Image
 from transformers import SegformerForSemanticSegmentation
 
 from qai_hub_models.models._shared.segmentation.app import SegmentationApp
@@ -52,12 +55,12 @@ def test_trace():
     (_, _, height, width) = SegformerBase.get_input_spec()["image"][0]
     img_resized = img.resize((height, width))
     app = SegmentationApp(trace, normalize_input=False)
-    out_imgs = app.predict(img_resized)
-    out_imgs = out_imgs[0].resize(img.size)
+    out_imgs = cast(list[Image], app.predict(img_resized))
+    out_img = out_imgs[0].resize(img.size)
 
     expected_out = load_image(OUTPUT_IMAGE_ADDRESS)
     assert_most_close(
-        np.asarray(out_imgs, dtype=np.float32),
+        np.asarray(out_img, dtype=np.float32),
         np.asarray(expected_out, dtype=np.float32),
         0.005,
         rtol=0.02,

@@ -105,10 +105,6 @@ def export_model(
         Model name.
     model_asset_version
         Identifier used as a cache key to store the model asset.
-    model_name
-        Unique name for the model
-    model_id
-        Integer version of the model
     components
         List of sub-components of the model that will be exported.
         Each component is compiled and profiled separately.
@@ -138,13 +134,14 @@ def export_model(
         If enable, caches uploaded model (i.e. re-uses uploaded AI Hub Workbench model from cache).
         If disable, disables caching i.e. no reading from and write to cache.
         If overwrite, ignores and overwrites previous cache with newly uploaded AI Hub Workbench model instead.
-    additional_model_kwargs
+    **additional_model_kwargs
         Additional optional kwargs used to customize
         `model_cls.from_pretrained`
 
     Returns
     -------
-    A Mapping from component_name to a 3-tuple of:
+    result
+        A Mapping from component_name to a 3-tuple of:
         * A LinkJob object containing metadata about the link job submitted to hub.
         * A ProfileJob containing metadata about the profile job (None if profiling skipped).
         * An InferenceJob containing metadata about the inference job (None if inferencing skipped).
@@ -228,7 +225,7 @@ def export_model(
             if target_runtime == TargetRuntime.TFLITE:
                 quant_calibration_data = None
             else:
-                quant_calibration_data = component.get_calibration_data(
+                quant_calibration_data = component.get_calibration_data(  # type: ignore[operator, unused-ignore]
                     input_spec=input_spec
                 )
 

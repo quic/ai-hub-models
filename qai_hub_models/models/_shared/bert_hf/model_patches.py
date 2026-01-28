@@ -22,15 +22,15 @@ def patch_get_extended_attention_mask(
 
     Parameters
     ----------
-    mask : torch.Tensor
+    mask
         Original attention mask with shape [batch_size, seq_len]
         where 1 indicates positions to attend and 0 indicates padding.
-    input_shape : tuple[int, int]
+    input_shape
         Expected input shape (batch_size, seq_len) for validation.
 
     Returns
     -------
-    torch.Tensor
+    extended_attention_mask
         Extended attention mask with shape [batch_size, 1, 1, seq_len]
         where 0.0 = attend and -10.0 = mask.
     """

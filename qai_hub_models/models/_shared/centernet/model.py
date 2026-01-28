@@ -11,7 +11,9 @@ from functools import partial
 from typing import cast
 
 import torch
+from qai_hub.client import Device
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.centernet.model_patches import custom_dcn_forward
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
@@ -28,13 +30,11 @@ CenterNetAsRoot = partial(
 
 
 class CenterNet(BaseModel):
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__()
 
     @classmethod
-    def from_pretrained(cls, ckpt_path: str, heads: dict) -> CenterNet:
+    def from_pretrained(cls, ckpt_path: str, heads: dict) -> Self:
         with CenterNetAsRoot() as repo_path:
             sys.path.insert(0, os.path.join(repo_path, "src", "lib"))
             # Removed cuda ops dependencies
@@ -54,7 +54,7 @@ class CenterNet(BaseModel):
                 heads=heads,
                 head_conv=256,
             )
-            model = cast(CenterNet, load_model(model, ckpt_path))
+            model = cast(Self, load_model(model, ckpt_path))
             model.eval()
         return model
 
@@ -63,7 +63,7 @@ class CenterNet(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device=None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device

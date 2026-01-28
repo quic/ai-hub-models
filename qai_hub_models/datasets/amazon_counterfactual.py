@@ -18,7 +18,7 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
         seq_len: int = 128,
-    ):
+    ) -> None:
         if split == DatasetSplit.TRAIN:
             self.ds = load_dataset("mteb/amazon_counterfactual", "en", split="train")
         else:
@@ -69,7 +69,7 @@ class AmazonCounterfactualClassificationDataset(BaseDataset):
             )
         return (input_ids, attention_mask), label
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.ds)
 
     def _validate_data(self) -> bool:

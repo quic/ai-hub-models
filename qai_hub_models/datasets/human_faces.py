@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 
+import torch
 from torchvision.datasets import ImageFolder
 
 from qai_hub_models.datasets.common import (
@@ -36,7 +37,7 @@ class HumanFacesDataset(BaseDataset):
         input_data_zip: str | None = None,
         width: int = 256,
         height: int = 256,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             DATASET_ID, DATASET_VERSION, "data"
         )
@@ -50,13 +51,13 @@ class HumanFacesDataset(BaseDataset):
         BaseDataset.__init__(self, self.data_path, split=split)
         self.dataset = ImageFolder(str(self.data_path))
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         image, _ = self.dataset[index]
         image = image.resize((self.img_width, self.img_height))
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
         return image_tensor, 0
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.dataset)
 
     def _validate_data(self) -> bool:
@@ -87,7 +88,7 @@ class HumanFaces192Dataset(HumanFacesDataset):
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
-    ):
+    ) -> None:
         super().__init__(split, input_data_zip, 192, 192)
 
     @classmethod

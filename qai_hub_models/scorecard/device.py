@@ -42,7 +42,9 @@ class ScorecardDevice:
     _registry: dict[str, ScorecardDevice] = {}
 
     @classmethod
-    def get(cls, device_name: str, return_unregistered=False) -> ScorecardDevice:
+    def get(
+        cls, device_name: str, return_unregistered: bool = False
+    ) -> ScorecardDevice:
         if device_name == "default":
             for device in cls._registry.values():
                 if device.is_default:
@@ -78,7 +80,7 @@ class ScorecardDevice:
         raise ValueError(f"Unknown Scorecard Device {device_name}")
 
     @classmethod
-    def parse(cls, obj: Any) -> ScorecardDevice:
+    def parse(cls, obj: str | ScorecardDevice) -> ScorecardDevice:
         if isinstance(obj, str):
             return cls.get(obj, return_unregistered=True)
         if isinstance(obj, ScorecardDevice):
@@ -96,7 +98,7 @@ class ScorecardDevice:
         is_mirror: bool | None = None,
         include_universal: bool = True,
         check_available_in_hub: bool = True,
-    ):
+    ) -> list[ScorecardDevice]:
         """
         Get all devices that match the given attributes.
         If an attribute is None, it is ignored when filtering devices.
@@ -156,7 +158,7 @@ class ScorecardDevice:
         ostype: ScorecardDevice.OperatingSystemType
         version: str
 
-        def __str__(self):
+        def __str__(self) -> str:
             return f"{self.ostype.name} {self.version}"
 
     def __init__(
@@ -172,7 +174,7 @@ class ScorecardDevice:
         public: bool = True,
         register: bool = True,
         is_default: bool = False,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -235,13 +237,13 @@ class ScorecardDevice:
         if register:
             ScorecardDevice._registry[name] = self
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.reference_device_name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.name.lower()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, ScorecardDevice):
             return False
         return (
@@ -250,7 +252,7 @@ class ScorecardDevice:
             and self.execution_device_name == other.execution_device_name
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return (
             hash(self.name)
             + hash(self.reference_device_name)
@@ -259,7 +261,7 @@ class ScorecardDevice:
 
     @classmethod
     def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: GetCoreSchemaHandler
+        cls, source_type: type, handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
         return core_schema.with_info_after_validator_function(
             lambda obj, _: cls.parse(obj),
@@ -587,18 +589,9 @@ cs_auto_monaco_7255 = ScorecardDevice(
     reference_device_name="SA7255P ADP",
 )
 
-cs_auto_lemans_8255 = ScorecardDevice(
-    name="cs_auto_lemans_8255", reference_device_name="SA8255 (Proxy)"
-)
-
 cs_auto_makena_8295 = ScorecardDevice(
     name="cs_auto_makena_8295",
     reference_device_name="SA8295P ADP",
-)
-
-cs_auto_lemans_8650 = ScorecardDevice(
-    name="cs_auto_lemans_8650",
-    reference_device_name="SA8650 (Proxy)",
 )
 
 cs_auto_lemans_8775 = ScorecardDevice(
@@ -619,11 +612,6 @@ cs_6490 = ScorecardDevice(
 cs_6690 = ScorecardDevice(
     name="cs_6690",
     reference_device_name="Dragonwing Q-6690 MTP",
-)
-
-cs_8250 = ScorecardDevice(
-    name="cs_8250",
-    reference_device_name="RB5 (Proxy)",
 )
 
 cs_8275 = ScorecardDevice(

@@ -8,7 +8,7 @@ from __future__ import annotations
 import contextlib
 import shutil
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -59,7 +59,7 @@ from qai_hub_models.utils.testing_async_utils import (  # noqa: F401
 )
 
 
-def skip_clone_repo_check(func):
+def skip_clone_repo_check(func: Callable) -> Callable:
     """
     When running QAI Hub Models functions, the user sometimes needs to type "y"
     before the repo is cloned. When testing in CI, we want to skip this check.
@@ -71,7 +71,7 @@ def skip_clone_repo_check(func):
         ...
     """
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         with always_answer_prompts(True):
             return func(*args, **kwargs)
 
@@ -79,7 +79,7 @@ def skip_clone_repo_check(func):
 
 
 @pytest.fixture
-def skip_clone_repo_check_fixture():
+def skip_clone_repo_check_fixture() -> Generator[None, None, None]:
     with always_answer_prompts(True):
         yield
 
@@ -159,7 +159,7 @@ def assert_most_close(
 
 
 def mock_on_device_model_call(inference_job: hub.InferenceJob) -> Callable:
-    def mock_call(self, *args):
+    def mock_call(self: Any, *args: Any) -> AsyncOnDeviceResult:
         return AsyncOnDeviceResult(
             inference_job,
             self.target_runtime,
@@ -194,7 +194,7 @@ def verify_io_names(model_cls: type[BaseModel]) -> None:
         assert "-" not in input_name, "input name cannot contain `-`"
 
 
-def mock_tabulate_fn(df: pd.DataFrame, **kwargs) -> tuple[list[str], str]:
+def mock_tabulate_fn(df: pd.DataFrame, **kwargs: Any) -> tuple[list[str], str]:
     psnr_values = []
     for _, value in df.iterrows():
         psnr_values.append(str(value.psnr))
@@ -435,7 +435,9 @@ def get_hub_val_dataset(
 
 
 @contextlib.contextmanager
-def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
+def patch_qai_hub(
+    model_type: SourceModelType = SourceModelType.ONNX,
+) -> Generator[SimpleNamespace, None, None]:
     """
     Generic AI Hub Workbench patch with assertable mocks. Example::
 
@@ -449,7 +451,7 @@ def patch_qai_hub(model_type: SourceModelType = SourceModelType.ONNX):
     model.model_type = model_type
     model.metadata = defaultdict(lambda: "2.33")
 
-    def _store_device(mock_obj, *args, **kwargs):
+    def _store_device(mock_obj: mock.Mock, *args: Any, **kwargs: Any) -> mock.Mock:
         if "device" in kwargs:
             mock_obj.device = kwargs["device"]
         return mock_obj
@@ -567,7 +569,7 @@ def _skip_if_unsupported_reason(
     model_cls: type[BaseModel | BasePrecompiledModel],
     runtime: TargetRuntime,
     device: ScorecardDevice,
-):
+) -> None:
     if not has_get_unsupported_reason(model_cls, [BaseModel, BasePrecompiledModel]):
         return
     # check get_unsupported_reason

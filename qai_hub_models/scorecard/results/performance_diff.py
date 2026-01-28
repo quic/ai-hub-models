@@ -112,7 +112,7 @@ class PerformanceDiff:
         path: ScorecardProfilePath,
         previous_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
         new_report: dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
-    ):
+    ) -> None:
         prev_results = previous_report.get(path, QAIHMModelPerf.PerformanceDetails())
         prev_inference_time = prev_results.inference_time_milliseconds
 
@@ -193,7 +193,7 @@ class PerformanceDiff:
             ScorecardDevice,
             dict[ScorecardProfilePath, QAIHMModelPerf.PerformanceDetails],
         ],
-    ):
+    ) -> None:
         if device not in previous_report and device not in new_report:
             return
         if device in previous_report and device not in new_report:
@@ -224,7 +224,7 @@ class PerformanceDiff:
         component: str,
         previous_report: QAIHMModelPerf.PrecisionDetails,
         new_report: QAIHMModelPerf.PrecisionDetails,
-    ):
+    ) -> None:
         if (
             component not in previous_report.components
             and component not in new_report.components
@@ -264,7 +264,7 @@ class PerformanceDiff:
         precision: Precision,
         previous_report: QAIHMModelPerf,
         new_report: QAIHMModelPerf,
-    ):
+    ) -> None:
         if (
             precision in previous_report.precisions
             and precision not in new_report.precisions
@@ -295,7 +295,7 @@ class PerformanceDiff:
         model_id: str,
         previous_report: QAIHMModelPerf | None,
         new_report: QAIHMModelPerf | None,
-    ):
+    ) -> None:
         if not new_report and not previous_report:
             return
         if new_report and not previous_report:
@@ -315,7 +315,9 @@ class PerformanceDiff:
                     model_id, precision, previous_report, new_report
                 )
 
-    def _get_summary_table(self, bucket_id: float | str, get_progressions: bool = True):
+    def _get_summary_table(
+        self, bucket_id: float | str, get_progressions: bool = True
+    ) -> PrettyTable:
         """
         Returns Summary Table for given bucket.
 
@@ -351,9 +353,9 @@ class PerformanceDiff:
         table.add_rows(rows)
         return table
 
-    def _has_perf_changes(self):
+    def _has_perf_changes(self) -> bool:
         """Returns True if there are perf changes"""
-        return (
+        return bool(
             self.new_components
             or self.missing_components
             or self.new_devices
@@ -366,7 +368,7 @@ class PerformanceDiff:
             or self.regressions
         )
 
-    def dump_summary(self, summary_file_path: str):
+    def dump_summary(self, summary_file_path: str) -> None:
         """Dumps Perf change summary captured so far to the provided path."""
         with open(summary_file_path, "w") as sf:
             sf.write("================= Perf Change Summary =================")

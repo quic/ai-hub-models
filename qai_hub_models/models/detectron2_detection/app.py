@@ -54,7 +54,33 @@ class Detectron2DetectionApp(Detectron2App):
         max_det_pre_nms: int = 6000,
         max_det_post_nms: int = 200,
         max_vis_boxes: int = 100,
-    ):
+    ) -> None:
+        """
+        Initialize Detectron2DetectionApp.
+
+        Parameters
+        ----------
+        proposal_generator
+            Callable that generates proposals from image tensor.
+        roi_head
+            Callable that processes ROI features and proposals.
+        model_image_height
+            Height of model input images.
+        model_image_width
+            Width of model input images.
+        proposal_iou_threshold
+            IOU threshold for proposal filtering.
+        boxes_iou_threshold
+            IOU threshold for NMS on boxes.
+        boxes_score_threshold
+            Score threshold for filtering boxes.
+        max_det_pre_nms
+            Maximum detections before NMS.
+        max_det_post_nms
+            Maximum detections after NMS.
+        max_vis_boxes
+            Maximum boxes to visualize.
+        """
         super().__init__(
             model_image_height,
             model_image_width,
@@ -82,25 +108,29 @@ class Detectron2DetectionApp(Detectron2App):
 
         Parameters
         ----------
-            images:
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-            raw_output:
-                If true, returns:
-                    boxes: list[torch.Tensor]
-                        Bounding box locations per batch. List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2)
-                    scores: list[torch.Tensor]
-                        class scores per batch multiplied by confidence: List element shape is [num_preds, # of classes (typically 80)]
-                    class_idx: list[torch.tensor]
-                        Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
-                Otherwise, returns list[PIL.Image] with the corresponding predictions.
+        images
+            PIL image, numpy array (N H W C x uint8) or (H W C x uint8) with RGB channel layout,
+            or pyTorch tensor (N C H W x fp32, value range is [0, 1]) with RGB channel layout.
+        raw_output
+            If true, returns raw detection outputs (boxes, scores, class indices).
+            Otherwise, returns annotated images.
 
         Returns
         -------
-            See raw_output parameter description.
+        If raw_output is True, returns:
+        boxes
+            List of bounding box tensors per batch. Each tensor has shape [num preds, 4]
+            where 4 represents (x1, y1, x2, y2).
+        scores
+            List of class score tensors per batch multiplied by confidence.
+            Each tensor has shape [num_preds, num_classes].
+        class_idx
+            List of class index tensors. Each tensor has shape [num_preds] with values
+            indicating the most probable class.
+
+        If raw_output is False, returns:
+        images
+            List of PIL images with detected objects drawn and labeled.
         """
         NHWC_int_numpy_frames, image_tensor = app_to_net_image_inputs(images)
 

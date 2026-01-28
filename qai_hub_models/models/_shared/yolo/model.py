@@ -25,28 +25,28 @@ DEFAULT_YOLO_IMAGE_INPUT_HW = 640
 def yolo_detect_postprocess(
     boxes: torch.Tensor,
     scores: torch.Tensor,
-):
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Post processing to break newer ultralytics yolo models (e.g. Yolov8, Yolo11) detector output into multiple, consumable tensors (eg. for NMS).
         such as bounding boxes, scores and classes.
 
     Parameters
     ----------
-        boxes: torch.Tensor
-            Shape is [batch, 4, num_preds] where 4 == [x_center, y_center, w, h]
-        scores: torch.Tensor
-            Shape is [batch, num_classes, num_preds]
-            Each element represents the probability that a given box is
-                an instance of a given class.
+    boxes
+        Shape is [batch, 4, num_preds] where 4 == [x_center, y_center, w, h]
+    scores
+        Shape is [batch, num_classes, num_preds]
+        Each element represents the probability that a given box is
+            an instance of a given class.
 
     Returns
     -------
-        boxes: torch.Tensor
-            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-        scores: torch.Tensor
-            class scores multiplied by confidence: Shape is [batch, num_preds]
-        class_idx: torch.tensor
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+    boxes
+        Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+    scores
+        Class scores multiplied by confidence. Shape is [batch, num_preds].
+    class_idx
+        Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
     """
     # Break output into parts
     boxes = torch.permute(boxes, [0, 2, 1])
@@ -66,32 +66,34 @@ def yolo_detect_postprocess(
     return boxes, scores, class_idx.to(torch.uint8)
 
 
-def yolo_segment_postprocess(detector_output: torch.Tensor, num_classes: int):
+def yolo_segment_postprocess(
+    detector_output: torch.Tensor, num_classes: int
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Post processing to break Yolo Segmentation output into multiple, consumable tensors (eg. for NMS).
         such as bounding boxes, scores, masks and classes.
 
     Parameters
     ----------
-        detector_output: torch.Tensor
-            The output of Yolo Detection model
-            Shape is [batch, k, num_preds]
-                where, k = # of classes + 4
-                k is structured as follows [boxes (4) : # of classes]
-                and boxes are co-ordinates [x_center, y_center, w, h]
-        num_classes: int
-            number of classes
+    detector_output
+        The output of Yolo Detection model
+        Shape is [batch, k, num_preds]
+            where, k = # of classes + 4
+            k is structured as follows [boxes (4) : # of classes]
+            and boxes are co-ordinates [x_center, y_center, w, h]
+    num_classes
+        number of classes
 
     Returns
     -------
-        boxes: torch.Tensor
-            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-        scores: torch.Tensor
-            Class scores multiplied by confidence: Shape is [batch, num_preds]
-        masks: torch.Tensor
-            Predicted masks: Shape is [batch, num_preds, 32]
-        class_idx: torch.Tensor
-            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+    boxes
+        Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+    scores
+        Class scores multiplied by confidence. Shape is [batch, num_preds].
+    masks
+        Predicted masks. Shape is [batch, num_preds, 32].
+    class_idx
+        Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
     """
     # Break output into parts
     detector_output = torch.permute(detector_output, [0, 2, 1])
@@ -129,10 +131,6 @@ class Yolo(BaseModel):
         height: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
         width: int = DEFAULT_YOLO_IMAGE_INPUT_HW,
     ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub Workbench.
-        """
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     def _sample_inputs_impl(

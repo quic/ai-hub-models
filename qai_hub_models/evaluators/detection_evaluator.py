@@ -28,7 +28,7 @@ class mAPEvaluator(BaseEvaluator):
         mAP_default_low_iOU: float | None = None,
         mAP_default_high_iOU: float | None = None,
         mAP_default_increment_iOU: float | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -56,13 +56,13 @@ class mAPEvaluator(BaseEvaluator):
         )
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.gt_bbox: list[BoundingBox] = []
         self.pred_bbox: list[BoundingBox] = []
 
     def store_bboxes_for_eval(
         self, gt_bbox: list[BoundingBox], pred_bbox: list[BoundingBox]
-    ):
+    ) -> None:
         """
         Save the given bounding boxes for evaluation (mAP calculation) to be completed later.
         The boxes will be used when a user calls get_mAP().
@@ -79,7 +79,7 @@ class mAPEvaluator(BaseEvaluator):
         self.gt_bbox += gt_bbox
         self.pred_bbox += pred_bbox
 
-    def get_mAP_for_iOU(self, iOU: float):
+    def get_mAP_for_iOU(self, iOU: float) -> float:
         return MetricPerClass.mAP(
             get_pascal_voc_metrics(self.gt_bbox, self.pred_bbox, iOU)
         )
@@ -215,7 +215,7 @@ class DetectionEvaluator(mAPEvaluator):
         mAP_default_low_iOU: float | None = None,
         mAP_default_high_iOU: float | None = None,
         mAP_default_increment_iOU: float | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -244,7 +244,9 @@ class DetectionEvaluator(mAPEvaluator):
         self.nms_iou_threshold = nms_iou_threshold
         self.score_threshold = score_threshold
 
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+    def add_batch(
+        self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]
+    ) -> None:
         """
         Parameters
         ----------

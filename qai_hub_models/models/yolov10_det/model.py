@@ -57,35 +57,36 @@ class YoloV10Detector(Yolo):
             split_output,
         )
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor):
         """
         Run YoloV10 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                    Range: float[0, 1]
-                    3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-                scores: torch.Tensor
-                    class scores multiplied by confidence: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
-            Elif self.split_output:
-                boxes: torch.Tensor
-                    Bounding box predictions in xywh format. Shape [batch, 4, num_preds].
-                scores: torch.Tensor
-                    Full score distribution over all classes for each box.
-                    Shape [batch, num_classes, num_preds].
-            Else:
-                predictions: torch.Tensor
-                Same as previous case but with boxes and scores concatenated into a single tensor.
-                Shape [batch, 4 + num_classes, num_preds]
+        If self.include_postprocessing is True, returns:
+        boxes
+            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+        scores
+            Class scores multiplied by confidence. Shape is [batch, num_preds].
+        classes
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+
+        If self.include_postprocessing is False and self.split_output is True, returns:
+        boxes
+            Bounding box predictions in xywh format. Shape [batch, 4, num_preds].
+        scores
+            Full score distribution over all classes for each box. Shape [batch, num_classes, num_preds].
+
+        If self.include_postprocessing is False and self.split_output is False, returns:
+        detector_output
+            Boxes and scores concatenated into a single tensor. Shape [batch, 4 + num_classes, num_preds].
         """
         boxes, scores = self.model(image)
         if not self.include_postprocessing:

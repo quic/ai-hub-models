@@ -500,7 +500,7 @@ class OnnxSessionTorchWrapper(RuntimeTorchWrapper[ModelIODetails]):
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
-    ):
+    ) -> None:
         """
         Create a wrapper for an ONNX session that uses torch-like I/O for the forward call.
 
@@ -594,7 +594,7 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
-    ):
+    ) -> None:
         """
         Create a wrapper for an ONNX model that uses torch-like I/O for the forward call.
 
@@ -790,7 +790,7 @@ class OnnxModelTorchWrapper(OnnxSessionTorchWrapper):
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
-    ):
+    ) -> OnnxModelTorchWrapper:
         """
         Create an executable ONNX model that runs on the CPU.
 

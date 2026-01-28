@@ -125,19 +125,21 @@ class Midas(DepthEstimationModel):
     ) -> InputSpec:
         return {"image": ((batch_size, 3, height, width), "float32")}
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Runs the model on an image tensor and returns a tensor of depth estimates
 
         Parameters
         ----------
-            image: A [1, 3, H, W] image.
-                   Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
-                   3-channel Color Space: RGB
+        image
+            A [1, 3, H, W] image.
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1] if self.normalize_input, else ~[-2.5, 2.5]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        depth_estimates
             Tensor of depth estimates of size [1, H, W].
         """
         if self.normalize_input:
@@ -151,11 +153,3 @@ class Midas(DepthEstimationModel):
         if "--range_scheme" in options:
             return options
         return options + " --range_scheme min_max"
-
-    @staticmethod
-    def eval_datasets() -> list[str]:
-        return ["nyuv2"]
-
-    @staticmethod
-    def calibration_dataset_name() -> str:
-        return "nyuv2"

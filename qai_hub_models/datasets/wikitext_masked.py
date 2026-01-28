@@ -23,7 +23,7 @@ class WikiTextMasked(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         num_samples: int = 0,
         seed: int = 42,
-    ):
+    ) -> None:
         # Do not call BaseDataset.__init__ since we fetch via HF datasets
         self.block_size = block_size
         self.tokenizer = tokenizer
@@ -43,7 +43,9 @@ class WikiTextMasked(BaseDataset):
 
         random.seed(self.seed)
         # Load raw WikiText-2
-        raw = load_dataset("wikitext", "wikitext-2-raw-v1", split=self.split_str)
+        raw = load_dataset(
+            "Salesforce/wikitext", "wikitext-2-raw-v1", split=self.split_str
+        )
         concatenated_text = "\n\n".join(raw["text"])
 
         self.tokens = self.tokenizer(

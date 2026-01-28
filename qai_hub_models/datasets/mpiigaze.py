@@ -35,7 +35,7 @@ class MPIIGazeDataset(BaseDataset):
         self,
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         """Initialize the MPIIGaze dataset."""
         self.mpii_path = MPII_GAZE_ASSET.path(extracted=True).parent / "MPIIGaze"
         BaseDataset.__init__(self, self.mpii_path, split)
@@ -44,7 +44,7 @@ class MPIIGazeDataset(BaseDataset):
         self.input_height = input_spec["image"][0][1]
         self.input_width = input_spec["image"][0][2]
 
-    def _load_eval_entries(self):
+    def _load_eval_entries(self) -> None:
         """
         Load metadata for evaluation subset images from text files.
 
@@ -125,7 +125,7 @@ class MPIIGazeDataset(BaseDataset):
         self._load_eval_entries()
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.entries)
 
     def _download_data(self) -> None:

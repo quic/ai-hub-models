@@ -23,7 +23,7 @@ pip install "qai-hub-models[video-mae]"
 Once installed, run the following simple CLI demo on the host machine:
 
 ```bash
-python -m qai_hub_models.models.video_mae.demo
+python -m qai_hub_models.models.video_mae.demo { --quantize w8a16 }
 ```
 More details on the CLI tool can be found with the `--help` option. See
 [demo.py](demo.py) for sample usage of the model including pre/post processing
@@ -36,7 +36,7 @@ This package contains export scripts that produce a model optimized for
 on-device deployment. This can be run as follows:
 
 ```bash
-python -m qai_hub_models.models.video_mae.export
+python -m qai_hub_models.models.video_mae.export { --quantize w8a16 }
 ```
 Additional options are documented with the `--help` option.
 

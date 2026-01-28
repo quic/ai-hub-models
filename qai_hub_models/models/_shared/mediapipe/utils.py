@@ -4,7 +4,7 @@
 # ---------------------------------------------------------------------
 
 from functools import partial
-from typing import Any
+from typing import cast
 
 import torch
 
@@ -27,7 +27,7 @@ def trace_mediapipe(
     box_detector: torch.nn.Module,
     landmark_input_spec: InputSpec,
     landmark_detector: torch.nn.Module,
-) -> tuple[Any, Any]:
+) -> tuple[torch.ScriptModule, torch.ScriptModule]:
     # Convert the models to pytorch traces. Traces can be saved & loaded from disk.
     # With Qualcomm® AI Hub, a pytorch trace can be exported to run efficiently on mobile devices!
     #
@@ -43,12 +43,14 @@ def trace_mediapipe(
         landmark_detector, [torch.rand(landmark_detector_input_shape)]
     )
 
-    return box_detector_trace, landmark_detector_trace
+    return cast(torch.ScriptModule, box_detector_trace), cast(
+        torch.ScriptModule, landmark_detector_trace
+    )
 
 
 def decode_preds_from_anchors(
     box_coords: torch.Tensor, img_size: tuple[int, int], anchors: torch.Tensor
-):
+) -> None:
     """
     Decode predictions using the provided anchors.
 
@@ -111,3 +113,47 @@ def decode_preds_from_anchors(
     box_coords[..., 2:, 1] = box_coords[..., 2:, 1] / h_size * anchors_h.view(
         expanded_anchors_shape
     ) + anchors_y.view(expanded_anchors_shape)
+
+
+def preprocess_hand_x64(
+    pts: torch.Tensor, handedness: torch.Tensor, mirror: bool = False
+) -> torch.Tensor:
+    """
+    Normalize hand landmarks, flatten (63), and concatenate handedness (1) → x64.
+
+    pts: (N, 21, 3), handedness: (N, 1) , mirror: (True/False)
+    Returns: x64 tensor of shape (N, 64)
+
+    Notes
+    -----
+    - This preprocessing is performed outside the model due to w8a8 quantization accuracy
+    """
+    if mirror:
+        x_mirror = torch.tensor([-1.0, 1.0, 1.0]).view(1, 1, 3)
+        pts = pts * x_mirror
+        handedness = 1.0 - handedness
+    # Fixed normalization configuration
+    center_idx = torch.tensor(
+        [0, 1, 5, 9, 13, 17], dtype=torch.long
+    )  # stable anatomical anchors
+    epsilon = 1e-5  # small constant to avoid divide-by-zero
+
+    # Compute center from selected landmarks
+    center = pts[:, center_idx, :].mean(dim=1, keepdim=True)  # (N, 1, 3)
+
+    # Translate points so center is at origin
+    normed = pts - center
+
+    # Compute scale based on max range in X or Y
+    x = normed[..., 0]
+    y = normed[..., 1]
+    range_x = x.max(dim=1).values - x.min(dim=1).values
+    range_y = y.max(dim=1).values - y.min(dim=1).values
+    scale = torch.maximum(range_x, range_y).view(-1, 1, 1) + epsilon
+
+    # Normalize and flatten
+    pts_n = normed / scale
+    flat = pts_n.reshape(pts_n.shape[0], 63)
+
+    # Append handedness scalar
+    return torch.cat([flat, handedness.view(-1, 1).float()], dim=1)

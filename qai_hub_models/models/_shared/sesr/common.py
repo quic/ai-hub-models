@@ -14,7 +14,7 @@ from qai_hub_models.utils.aimet.repo import aimet_zoo_as_root
 
 
 def _load_sesr_source_model(
-    scaling_factor, num_channels, num_lblocks
+    scaling_factor: int, num_channels: int, num_lblocks: int
 ) -> torch.nn.Module:
     # Load SESR model from the source repository using the given weights.
     # Returns <source repository>.utils.super_resolution.models.SESRRelease

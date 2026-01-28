@@ -57,17 +57,18 @@ class BGNetApp:
             or
             pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-        raw_output: bool
+        raw_output
             See "returns" doc section for details.
 
         Returns
         -------
-        If raw_output is true, returns:
-            pred_mask_img
-                Numpy array of predicted RGB masks. Shape [N, C, H, W], uint8
-        Otherwise, returns:
-            segmented_images
-                List of PIL Images with segmentation map overlaid with an alpha of 0.5.
+        masks_or_images
+            If raw_output is true, returns:
+                pred_mask_img
+                    Numpy array of predicted RGB masks. Shape [N, C, H, W], uint8
+            Otherwise, returns:
+                segmented_images
+                    List of PIL Images with segmentation map overlaid with an alpha of 0.5.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -80,7 +81,7 @@ class BGNetApp:
             return pred_mask_img.numpy()
 
         # Create color map
-        color_map = create_color_map(pred_mask_img.max().item() + 1)
+        color_map = create_color_map(int(pred_mask_img.max().item()) + 1)
         out: list[Image.Image] = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
             out.append(
@@ -102,12 +103,15 @@ def postprocess_masks(
 
     Parameters
     ----------
-        pred_masks: Raw outputs [N, C, H, W]
-        input_size: Output resolution (height, width)
+    pred_masks
+        Raw outputs [N, C, H, W]
+    input_size
+        Output resolution (height, width)
 
     Returns
     -------
-        torch.Tensor: Masks [N, C, H, W], uint8
+    masks
+        Masks [N, C, H, W], uint8
     """
     # Upsample pred mask to original image size
     # Need to upsample in the probability space, not in class labels
@@ -120,8 +124,8 @@ def postprocess_masks(
     )
 
     pred_masks = pred_masks.sigmoid()
-    mask_min = pred_masks.amin((1, 2, 3))
-    mask_max = pred_masks.amax((1, 2, 3))
+    mask_min = pred_masks.amin((1, 2, 3), keepdim=True)
+    mask_max = pred_masks.amax((1, 2, 3), keepdim=True)
     pred_masks = (pred_masks - mask_min) / (mask_max - mask_min + 1e-8)
 
     # convert segmentation mask to RGB image

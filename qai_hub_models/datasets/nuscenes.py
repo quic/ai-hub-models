@@ -70,7 +70,7 @@ class NuscenesDataset(BaseDataset):
         source_dataset_file: str | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             NUSCENE_ID, NUSCENE_VERSION, "data"
         )

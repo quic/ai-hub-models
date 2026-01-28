@@ -34,7 +34,7 @@ class CamVidSegmentationDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 720,
         input_width: int = 960,
-    ):
+    ) -> None:
         self.dataset_path = CAM_VID_ASSET.path(extracted=True) / "CamVid"
 
         BaseDataset.__init__(self, str(self.dataset_path), split)
@@ -157,7 +157,7 @@ class CamVidSegmentationDataset(BaseDataset):
 
         return semantic_map
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _download_data(self) -> None:

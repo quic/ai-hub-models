@@ -21,12 +21,14 @@ def copy_configs(src: str | os.PathLike, dst: str | os.PathLike) -> None:
 
     Parameters
     ----------
-        src (str): Path to the source configuration directory.
-        dst (Path): Base path where the configuration directory should be copied.
+    src
+        Path to the source configuration directory.
+    dst
+        Base path where the configuration directory should be copied.
 
     Returns
     -------
-        None
+    None
     """
     src_path = Path(src)
     dst_path = Path(dst) / "configs" / src_path.name

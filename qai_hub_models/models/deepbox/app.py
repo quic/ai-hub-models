@@ -68,20 +68,18 @@ class DeepBoxApp:
         """
         Construct a DeepBox 3D object detection application.
 
-        Inputs:
-            bbox2D_dectector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
-                The 2D boundary box dectection model.
-                Input is an image [N C H W], channel layout is RGB [0-1], output is [pred_boxes, pred_scores, pred_class_idx].
-
-            bbox3D_dectector: Callable[[torch.Tensor], tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray], list[list]]],
-                The 3D boundary box dectection model.
-                Input is an image [N C H W], channel layout is RGB [0-1], output is [proj_matrix, orient, dim, location].
-
-            nms_score_threshold: float
-                Score threshold for when NMS is run on the detector output boxes.
-
-            nms_iou_threshold: float
-                IOU threshold for when NMS is run on the detector output boxes.
+        Parameters
+        ----------
+        bbox2D_dectector
+            The 2D boundary box detection model.
+            Input is an image [N C H W], channel layout is RGB [0-1], output is [pred_boxes, pred_scores, pred_class_idx].
+        bbox3D_dectector
+            The 3D boundary box detection model.
+            Input is an image [N C H W], channel layout is RGB [0-1], output is [proj_matrix, orient, dim, location].
+        nms_score_threshold
+            Score threshold for when NMS is run on the detector output boxes.
+        nms_iou_threshold
+            IOU threshold for when NMS is run on the detector output boxes.
         """
         self.yolo = bbox2D_dectector
         self.vgg = bbox3D_dectector
@@ -106,26 +104,30 @@ class DeepBoxApp:
         | Image.Image
     ):
         """
-        From the provided image or tensor, predict the 3d bounding boxes & classes of objects detected within.
+        From the provided image or tensor, predict the 3D bounding boxes and classes of objects detected within.
 
         Parameters
         ----------
-            image: PIL image
+        image
+            PIL image.
+        raw_output
+            If False, returns annotated image. If True, returns raw outputs.
 
         Returns
         -------
-            if raw_output is False, returns
-                image_with_3d_bounding_boxes: list[PIL.Image]
-                    Input image with predicted 3D Bounding Boxes applied
-            otherwise, return
-                proj_matrixes: list[np.array]
-                    camera to img matrix
-                orients: list[np.array]
-                    global orientations
-                dims: list[np.array]
-                    dimensions for the 3d bboxes
-                locations: list[list]
-                    centers of 3d_bboxes
+        If raw_output is False, returns:
+        image
+            PIL Image with predicted 3D Bounding Boxes applied.
+
+        If raw_output is True, returns:
+        proj_matrixes
+            Camera to img matrix.
+        orients
+            Global orientations.
+        dims
+            Dimensions for the 3D bboxes.
+        locations
+            Centers of 3D bboxes.
         """
         # Input Prep
         numpy_image = np.array(image)

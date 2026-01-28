@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import gc
 from collections.abc import Mapping
-from copy import copy
 from typing import Any
 
 import torch
@@ -16,29 +15,30 @@ from transformers.cache_utils import DynamicCache
 from qai_hub_models.datasets import get_dataset_from_name
 from qai_hub_models.datasets.common import AugmentedLabelDataset, DatasetSplit
 from qai_hub_models.models._shared.llm.generator import LLM_Generator
-from qai_hub_models.models._shared.llm.model import DEFAULT_SEQUENCE_LENGTH
+from qai_hub_models.models._shared.llm.model import (
+    DEFAULT_SEQUENCE_LENGTH,
+    LLM_QNN,
+    LLM_AIMETOnnx,
+    LLMBase,
+)
 from qai_hub_models.models.common import Precision
 from qai_hub_models.utils.args import get_model_cli_parser, get_model_kwargs
-from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.checkpoint import (
     CheckpointType,
 )
 
 
-def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
-    # Get dataset by name
-    kwargs = dict(
+def get_dataset(
+    model: torch.nn.Module, task: str, num_samples: int
+) -> DataLoader[AugmentedLabelDataset]:
+    # Load dataset.
+    dataset = get_dataset_from_name(
+        name=task,
         tokenizer=model.tokenizer,
         block_size=model.sequence_length,
         context_length=model.context_length,
         num_samples=num_samples,
         split=DatasetSplit.TEST,
-    )
-
-    # Load dataset.
-    dataset = get_dataset_from_name(
-        name=task,
-        **kwargs,
     )
     return DataLoader(
         dataset, shuffle=False, batch_size=1, collate_fn=dataset.collate_fn
@@ -46,9 +46,9 @@ def get_dataset(model: torch.nn.Module, task: str, num_samples: int):
 
 
 def evaluate(
-    quantized_model_cls: type[BaseModel],
-    fp_model_cls: type[BaseModel],
-    qnn_model_cls: type[BaseModel],
+    quantized_model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    qnn_model_cls: type[LLM_QNN],
     num_samples: int,
     task: str,
     kwargs: Mapping[str, Any],
@@ -67,12 +67,14 @@ def evaluate(
 
     is_default = str(kwargs["checkpoint"]).startswith("DEFAULT")
 
-    fp_model = fp_model_cls.from_pretrained(  # type: ignore[index]
+    fp_model = fp_model_cls.from_pretrained(
         sequence_length=kwargs["sequence_length"],
         context_length=kwargs["context_length"],
     ).to(torch.device("cpu"))
 
-    final_kwargs: dict[str, Any] = copy(kwargs)  # type: ignore[arg-type]
+    model_cls: type[LLMBase | LLM_AIMETOnnx | LLM_QNN]
+
+    final_kwargs: dict[str, Any] = dict(kwargs)
     if checkpoint_type == CheckpointType.GENIE_BUNDLE:
         model_cls = qnn_model_cls
         is_fp = False
@@ -100,6 +102,7 @@ def evaluate(
     if skip_fp_model_eval and evaluator.is_distance_metric and not is_fp:
         # If it's a distance metric, we run the FP model and attach the outputs
         # to the ground truth of the eval data loader.
+        assert fp_model_cls.EmbeddingClass is not None
         embedding = fp_model_cls.EmbeddingClass(
             max_length=final_kwargs["context_length"],
             config=fp_model.llm_config,
@@ -143,6 +146,7 @@ def evaluate(
         eval_dataloader = get_dataset(model, task, num_samples)
 
     if embedding is None:
+        assert fp_model_cls.EmbeddingClass is not None
         embedding = fp_model_cls.EmbeddingClass(
             max_length=final_kwargs["context_length"],
             config=model.llm_config,
@@ -156,7 +160,7 @@ def evaluate(
     )
 
     evaluator.add_from_dataset(
-        generator=generator,
+        model=generator,
         data=eval_dataloader,
         eval_iterations=len(eval_dataloader),
     )
@@ -166,12 +170,12 @@ def evaluate(
 
 
 def llm_evaluate(
-    quantized_model_cls: type[BaseModel],
-    fp_model_cls: type[BaseModel],
-    qnn_model_cls: type[BaseModel],
+    quantized_model_cls: type[LLM_AIMETOnnx],
+    fp_model_cls: type[LLMBase],
+    qnn_model_cls: type[LLM_QNN],
     supported_precisions: list[Precision],
     default_calibration_seqlen: int = 2048,
-):
+) -> None:
     parser = get_model_cli_parser(
         quantized_model_cls,
         suppress_help_arguments=["--host-device", "--fp-model", "--precision"],
@@ -193,7 +197,7 @@ def llm_evaluate(
     parser.set_defaults(sequence_length=default_calibration_seqlen)
     args = parser.parse_args()
 
-    kwargs = get_model_kwargs(quantized_model_cls, vars(args))
+    kwargs = dict(get_model_kwargs(quantized_model_cls, vars(args)))
 
     checkpoint_type = CheckpointType.from_checkpoint(kwargs["checkpoint"])
 

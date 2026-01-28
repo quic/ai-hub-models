@@ -55,7 +55,7 @@ class PSPNet(CityscapesSegmentor):
 
         Returns
         -------
-        PSPNet
+        model
             An instance of PSPNet initialized with pretrained weights.
         """
         with SourceAsRoot(
@@ -97,7 +97,7 @@ class PSPNet(CityscapesSegmentor):
 
         Returns
         -------
-        torch.Tensor
+        segmentation_mask
             Returns segmentation prediction mask of shape (B, C, H, W):(Batch_Size, 150, 473, 473).
             Representing the class scores for each pixel.
         """

@@ -94,7 +94,7 @@ class NumericsDiff:
             ]
         ] = []
 
-    def merge_from(self, other: NumericsDiff):
+    def merge_from(self, other: NumericsDiff) -> None:
         self.missing_models.extend(other.missing_models)
         self.new_models.extend(other.new_models)
         self.empty_models.extend(other.empty_models)
@@ -123,7 +123,7 @@ class NumericsDiff:
         previous_report: dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails]
         | None,
         new_report: dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails],
-    ):
+    ) -> None:
         prev_metric = previous_report.get(path) if previous_report else None
         new_metric = new_report.get(path)
 
@@ -240,7 +240,7 @@ class NumericsDiff:
         new_report: dict[
             Precision, dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails]
         ],
-    ):
+    ) -> None:
         previous_report_precision = (
             previous_report.get(precision) if previous_report else None
         )
@@ -306,7 +306,7 @@ class NumericsDiff:
                 Precision, dict[ScorecardProfilePath, QAIHMModelNumerics.DeviceDetails]
             ],
         ],
-    ):
+    ) -> None:
         previous_report_device = (
             previous_report.get(device) if previous_report else None
         )
@@ -357,7 +357,7 @@ class NumericsDiff:
         metric: str,
         previous_report: list[QAIHMModelNumerics.MetricDetails] | None,
         new_report: list[QAIHMModelNumerics.MetricDetails],
-    ):
+    ) -> None:
         previous_report_metric: QAIHMModelNumerics.MetricDetails | None = None
         new_report_metric: QAIHMModelNumerics.MetricDetails | None = None
 
@@ -409,7 +409,7 @@ class NumericsDiff:
         model_id: str,
         previous_report: QAIHMModelNumerics | None,
         new_report: QAIHMModelNumerics | None,
-    ):
+    ) -> None:
         if not new_report and not previous_report:
             return
         if new_report and not previous_report:
@@ -452,7 +452,7 @@ class NumericsDiff:
                 str,
             ]
         ],
-    ):
+    ) -> PrettyTable:
         """
         Returns Summary Table for given bucket.
 
@@ -486,7 +486,7 @@ class NumericsDiff:
         table.add_rows(data)
         return table
 
-    def dump_summary(self, summary_file_path: str):
+    def dump_summary(self, summary_file_path: str) -> None:
         """Dumps Perf change summary captured so far to the provided path."""
         with open(summary_file_path, "w") as sf:
             sf.write("================= Perf Change Summary =================")

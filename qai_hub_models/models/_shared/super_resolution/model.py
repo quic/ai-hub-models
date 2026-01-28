@@ -46,21 +46,23 @@ class SuperResolutionModel(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return SuperResolutionOutputEvaluator()
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
-        Run Super Resolution on `image`, and produce an upscaled image
+        Run Super Resolution on `image`, and produce an upscaled image.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for model consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for model consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            image: Pixel values
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        upscaled_image
+            Pixel values
+            Range: float[0, 1]
+            3-channel Color Space: RGB
         """
         return self.model(image)
 

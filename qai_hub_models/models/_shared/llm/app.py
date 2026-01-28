@@ -12,20 +12,23 @@ from typing import Any
 import torch
 from transformers import GenerationConfig, TextStreamer, set_seed
 
-from qai_hub_models.models._shared.llm.generator import LLM_Generator, LLM_Loader
-from qai_hub_models.models._shared.llm.model import get_llm_config
-from qai_hub_models.utils.base_model import BaseModel
+from qai_hub_models.models._shared.llm.model import (
+    LLM_QNN,
+    LLM_AIMETOnnx,
+    LLMBase,
+    get_llm_config,
+)
 from qai_hub_models.utils.checkpoint import CheckpointSpec
 
 
 class IndentedTextStreamer(TextStreamer):
-    def __init__(self, line_start, *args, **kwargs):
+    def __init__(self, line_start: str, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.terminal_width = shutil.get_terminal_size().columns
         self.printed_width = 0
         self.line_start = line_start
 
-    def on_finalized_text(self, text: str, stream_end: bool = False):
+    def on_finalized_text(self, text: str, stream_end: bool = False) -> None:
         """Prints the new text to stdout. If the stream is ending, also prints a newline."""
         if len(text) == 0:
             return
@@ -72,12 +75,12 @@ class ChatApp:
 
     def __init__(
         self,
-        model_cls: type[BaseModel],
+        model_cls: type[LLMBase | LLM_AIMETOnnx | LLM_QNN],
         get_input_prompt_with_tags: Callable,
         tokenizer: Any,
         end_tokens: set[str],
         seed: int = 42,
-    ):
+    ) -> None:
         """
         Base ChatApp that generates one response for given input token.
 
@@ -100,7 +103,12 @@ class ChatApp:
         max_output_tokens: int,
         checkpoint: CheckpointSpec | None = None,
         model_from_pretrained_extra: dict | None = None,
-    ):
+    ) -> None:
+        from qai_hub_models.models._shared.llm.generator import (
+            LLM_Generator,
+            LLM_Loader,
+        )
+
         if model_from_pretrained_extra is None:
             model_from_pretrained_extra = {}
         set_seed(self.seed)
@@ -113,6 +121,7 @@ class ChatApp:
         input_tokens = self.tokenizer(
             input_prompt_processed,
             return_tensors="pt",
+            add_special_tokens=False,
         ).to(host_device)
 
         model_params = {
@@ -124,7 +133,7 @@ class ChatApp:
         if checkpoint is not None:
             model_params["checkpoint"] = checkpoint
 
-        models = [
+        models: list[LLM_Loader | LLMBase | LLM_AIMETOnnx | LLM_QNN] = [
             LLM_Loader(self.model_cls, sequence_length, model_params, host_device)
             for sequence_length in (1, 128)
         ]
@@ -133,11 +142,16 @@ class ChatApp:
         elif checkpoint is not None:
             config = get_llm_config(checkpoint)
         else:
+            model = models[-1]
+            # This only works for loaders
+            assert isinstance(model, LLM_Loader)
             # This is expensive, so only done as last resort
-            config = models[-1].load().llm_config
-            models[-1].release()
+            config = model.load().llm_config
+            model.release()
 
         # TODO: Use instance in model already?
+        assert hasattr(self.model_cls, "EmbeddingClass")
+        assert self.model_cls.EmbeddingClass is not None
         rope_embedding = self.model_cls.EmbeddingClass(
             max_length=context_length, config=config
         )
@@ -168,7 +182,7 @@ class ChatApp:
         streamer = IndentedTextStreamer(
             tokenizer=self.tokenizer, skip_prompt=False, line_start="    + "
         )
-        inferencer.generate(
+        inferencer.generate(  # type: ignore[operator, unused-ignore]
             inputs=input_tokens["input_ids"],
             attention_mask=input_tokens["attention_mask"],
             generation_config=inferencer.generation_config,

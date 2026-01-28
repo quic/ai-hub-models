@@ -15,11 +15,11 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class DepthEvaluator(BaseEvaluator):
     """Evaluator for tracking accuracy of a Depth Estimation Model."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
-        self.out = []
+        self.out: list[torch.Tensor] = []
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor) -> None:
         output = F.interpolate(
             output,
             size=gt.shape[1:],
@@ -56,16 +56,18 @@ class DepthEvaluator(BaseEvaluator):
         p = torch.sum(err, (1, 2)) / torch.sum(mask, (1, 2))
         self.out.append(100 * torch.mean(p))
 
-    def reset(self):
+    def reset(self) -> None:
         self.out = []
 
     def get_accuracy_score(self) -> float:
-        return np.mean(self.out)
+        return float(np.mean(self.out))
 
     def formatted_accuracy(self) -> str:
         return f"{self.get_accuracy_score():.3f} δ1"
 
-    def compute_scale_and_shift(self, prediction, target, mask):
+    def compute_scale_and_shift(
+        self, prediction: torch.Tensor, target: torch.Tensor, mask: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         # system matrix: A = [[a_00, a_01], [a_10, a_11]]
         a_00 = torch.sum(mask * prediction * prediction, (1, 2))
         a_01 = torch.sum(mask * prediction, (1, 2))

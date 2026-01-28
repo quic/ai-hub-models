@@ -16,7 +16,7 @@ from qai_hub_models.test.utils.envvars import DisableCompileJobTimeoutEnvvar
 from qai_hub_models.utils.asset_loaders import load_yaml
 
 
-def test_compile_jobs_success():
+def test_compile_jobs_success() -> None:
     """
     When testing compilation in CI, synchronously waiting for each compile_job to
     finish is too slow. Instead, job ids are written to a file upon submission,

@@ -49,19 +49,21 @@ class LamaDilated(RepaintModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
-
-            mask: Pixel values pre-processed to have have mask values either 0. or 1.
-                  Range: float[0, 1] and only values of 0. or 1.
-                  1-channel binary image.
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
+        mask
+            Pixel values pre-processed to have have mask values either 0. or 1.
+            Range: float[0, 1] and only values of 0. or 1.
+            1-channel binary image.
 
         Returns
         -------
-            inpainted_image: Pixel values
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        inpainted_image
+            Pixel values
+            Range: float[0, 1]
+            3-channel Color Space: RGB
         """
         masked_img = image * (1 - mask)
 

@@ -1,0 +1,25 @@
+# encoder
+num_features: 80
+output_downsampling_factor: 2
+downsampling_factor: [1, 2, 4, 8, 2]
+num_encoder_layers: [2, 4, 3, 2, 4]
+encoder_dim: [384, 384, 384, 384, 384]
+attention_dim: [192, 192, 192, 192, 192]
+encoder_unmasked_dim: [256, 256, 256, 256, 256]
+nhead: [8, 8, 8, 8, 8]
+feedforward_dim: [1024, 1024, 1536, 1536, 1024]
+cnn_module_kernel: [31, 31, 31, 31, 31]
+num_left_chunks: 4
+short_chunk_size: 50
+decode_chunk_size: 32
+# decoder
+decoder_dim: 512
+context_size: 2
+encoder_dim_joiner: 384
+decoder_dim_joiner: 512
+joiner_dim: 512
+# general
+blank_id: 0
+vocab_size: 6254
+beam_search: false
+batch_size: 1   # this config impacts beam size if beam_search is true. pls modify it (suggest 4) once set beam_search to true.  set it to 1 once beam_search is false

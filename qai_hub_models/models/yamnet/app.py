@@ -28,12 +28,15 @@ def preprocessing_yamnet_from_source(waveform_for_torch: torch.Tensor):
     """
     Parameters
     ----------
-        waveform (torch.Tensor): Tensor of audio of dimension (..., time)
+    waveform_for_torch
+        Tensor of audio of dimension (..., time)
 
     Returns
     -------
-        patches : batched torch tsr of shape [N, C, T]
-        spectrogram :  Mel frequency spectrogram of size (..., ``n_mels``, time)
+    patches
+        batched torch tsr of shape [N, C, T]
+    spectrogram
+        Mel frequency spectrogram of size (..., ``n_mels``, time)
     """
     from torch_audioset.data.torch_input_processing import (
         WaveformToInput as TorchTransform,
@@ -65,29 +68,27 @@ def parse_category_meta():
 def chunk_and_resample_audio(
     audio: np.ndarray,
     audio_sample_rate: int,
-    model_sample_rate=SAMPLE_RATE,
-    model_chunk_seconds=CHUNK_LENGTH,
+    model_sample_rate: int = SAMPLE_RATE,
+    model_chunk_seconds: float = CHUNK_LENGTH,
 ) -> list[np.ndarray]:
     """
     Parameters
     ----------
-    audio: str
+    audio
         Raw audio numpy array of shape [# of samples]
-
-    audio_sample_rate: int
+    audio_sample_rate
         Sample rate of audio array, in samples / sec.
-
-    model_sample_rate: int
+    model_sample_rate
         Sample rate (samples / sec) required to run Yamnet. The audio file
         will be resampled to use this rate.
-
-    model_chunk_seconds: int
+    model_chunk_seconds
         Split the audio in to N sequences of this many seconds.
         The final split may be shorter than this many seconds.
 
     Returns
     -------
-    List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+    audio_chunks
+        List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
     """
     if audio_sample_rate != model_sample_rate:
         audio = resampy.resample(audio, audio_sample_rate, model_sample_rate)
@@ -116,13 +117,15 @@ def load_audiofile(path: str | Path):
 
     Parameters
     ----------
-            path: Path of the input audio.
+    path
+        Path of the input audio.
 
     Returns
     -------
-            x: Reads audio sample from path and converts to torch tensor.
-            sr : sampling rate of audio samples
-
+    x
+        Reads audio sample from path and converts to torch tensor.
+    sr
+        sampling rate of audio samples
     """
     x, sr = sf.read(path, dtype="int16", always_2d=True)
     x = x / 2**15
@@ -153,17 +156,17 @@ class YamNetApp:
 
         Parameters
         ----------
-        path: numpy array | str
+        path
             Path to audio file if a string.
-
-        audio_sample_rate: int | None
+        audio_sample_rate
             The sample rate of the provided audio, in samples / second.
             If audio is a numpy array, this must be provided.
             If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
 
         Returns
         -------
-        List of class ids from AudioSet-YouTube corpus is returned.
+        predicted_classes
+            List of class ids from AudioSet-YouTube corpus is returned.
         """
         audio, audio_sample_rate = load_audiofile(path)
 
@@ -191,11 +194,13 @@ class YamNetApp:
 
         Parameters
         ----------
-            segment: chunked audio samples
+        segment
+            chunked audio samples
 
         Returns
         -------
-            raw_prediction: class_probs for each chunk of audio samples
+        class_probabilities
+            raw_prediction, class_probs for each chunk of audio samples
         """
         patches, _ = preprocessing_yamnet_from_source(torch.tensor(segment))
         # Inference using mdoel

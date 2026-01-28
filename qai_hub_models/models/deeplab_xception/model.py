@@ -71,17 +71,19 @@ class DeeplabXception(DeepLabV3Model):
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
-        Run DeepLabV3_Plus_Mobilenet on `image`, and produce a tensor of classes for segmentation
+        Run DeepLabV3_Plus_Mobilenet on `image`, and produce a tensor of classes for segmentation.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for model consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for model consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            tensor: Bx21xHxW tensor of class logits per pixel
+        segmentation_mask
+            Bx21xHxW tensor of class logits per pixel.
         """
         mean = torch.tensor([0.5, 0.5, 0.5])
         std = torch.tensor([0.5, 0.5, 0.5])

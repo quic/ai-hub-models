@@ -59,7 +59,7 @@ class QAIHMEnvvar(Generic[ParsedT]):
         return default
 
     @classmethod
-    def set(cls, value: ParsedT | str | None):
+    def set(cls, value: ParsedT | str | None) -> None:
         """
         Set the value of this envvar.
 
@@ -80,7 +80,7 @@ class QAIHMEnvvar(Generic[ParsedT]):
             )
 
     @classmethod
-    def patchenv(cls, monkeypatch: Any, value: ParsedT | str | None):
+    def patchenv(cls, monkeypatch: Any, value: ParsedT | str | None) -> None:
         """
         Patch the value of this envvar for the duration of this test.
 
@@ -141,17 +141,23 @@ class QAIHMEnvvar(Generic[ParsedT]):
 
         def __init__(
             self,
-            option_strings,
-            dest,
+            option_strings: list[str],
+            dest: str,
             envvar: type[QAIHMEnvvar[ParsedT]],
             setenv: bool,
-            **kwargs,
-        ):
+            **kwargs: Any,
+        ) -> None:
             super().__init__(option_strings, dest, **kwargs)
             self.envvar = envvar
             self.setenv = setenv
 
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(
+            self,
+            parser: argparse.ArgumentParser,
+            namespace: argparse.Namespace,
+            values: str | None,
+            option_string: str | None = None,
+        ) -> None:
             assert isinstance(values, str)
             if self.setenv:
                 self.envvar.set(values)
@@ -163,7 +169,7 @@ class QAIHMEnvvar(Generic[ParsedT]):
         parser: argparse.ArgumentParser | argparse._ArgumentGroup,
         default: ParsedT | None = None,
         setenv: bool = False,
-    ):
+    ) -> None:
         """
         Adds an argument to the given parser or arg group for this envvar.
 
@@ -224,18 +230,24 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
     class StoreTrueFalseAction(argparse._StoreConstAction):
         def __init__(
             self,
-            option_strings,
-            dest,
+            option_strings: list[str],
+            dest: str,
             const: bool,
             envvar: type[QAIHMEnvvar[ParsedT]],
             setenv: bool,
-            **kwargs,
-        ):
+            **kwargs: Any,
+        ) -> None:
             super().__init__(option_strings, dest, const, **kwargs)
             self.envvar = envvar
             self.setenv = setenv
 
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(
+            self,
+            parser: argparse.ArgumentParser,
+            namespace: argparse.Namespace,
+            values: str | None,
+            option_string: str | None = None,
+        ) -> None:
             super().__call__(parser, namespace, values, option_string)
             if self.setenv:
                 self.envvar.set(self.const)
@@ -246,7 +258,7 @@ class QAIHMBoolEnvvar(QAIHMEnvvar[bool]):
         parser: argparse.ArgumentParser,
         default: bool | None = None,
         setenv: bool = False,
-    ):
+    ) -> None:
         """
         Adds an argument to the given parser or arg group for this envvar.
 
@@ -441,7 +453,7 @@ class QAIHMDateFormatEnvvar:
         return datetime.strptime(date, dformat)
 
     @classmethod
-    def set(cls, date: datetime | str | None, dformat: str | None):
+    def set(cls, date: datetime | str | None, dformat: str | None) -> None:
         if isinstance(date, datetime):
             date = cls.serialize(date, dformat or cls.DATE_FORMAT_ENVVAR.get())
         cls.DATE_ENVVAR.set(date)
@@ -450,7 +462,7 @@ class QAIHMDateFormatEnvvar:
     @classmethod
     def patchenv(
         cls, monkeypatch: Any, date: datetime | str | None, dformat: str | None
-    ):
+    ) -> None:
         if isinstance(date, datetime):
             date = cls.serialize(date, dformat or cls.DATE_FORMAT_ENVVAR.get())
         cls.DATE_ENVVAR.patchenv(monkeypatch, date)
@@ -471,7 +483,7 @@ class QAIHMDateFormatEnvvar:
         default_date: datetime | None = None,
         default_format: str | None = None,
         setenv: bool = False,
-    ):
+    ) -> None:
         """
         Adds an argument group with 2 args for parsing dates.
 

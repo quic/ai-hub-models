@@ -28,7 +28,7 @@ from qai_hub_models.utils.onnx.helpers import (
 from qai_hub_models.utils.runtime_torch_wrapper import ModelIODetails
 
 
-def test_onnx_bundle_from_path(tmp_path: Path):
+def test_onnx_bundle_from_path(tmp_path: Path) -> None:
     onnx_graph_path = tmp_path / "model.onnx"
     onnx_weights_path = tmp_path / "model.data"
     aimet_encodings_path = tmp_path / "model_seq1_cl4096.encodings"
@@ -87,7 +87,7 @@ def test_onnx_bundle_from_path(tmp_path: Path):
     assert bundle.aimet_encodings_path == aimet_encodings_path_2
 
 
-def test_onnx_bundle_move(tmp_path: Path):
+def test_onnx_bundle_move(tmp_path: Path) -> None:
     onnx_graph_path = tmp_path / "model.onnx"
     onnx_weights_path = tmp_path / "model.data"
     aimet_encodings_path = tmp_path / "model_seq1_cl4096.encodings"
@@ -140,11 +140,11 @@ def test_onnx_bundle_move(tmp_path: Path):
     assert out.aimet_encodings_path and os.path.exists(out.aimet_encodings_path)
 
 
-def test_download_and_unzip_workbench_onnx_model():
+def test_download_and_unzip_workbench_onnx_model() -> None:
     class PatchedModel(hub.Model):
         """Hub Model patched so download() copies a local file rather than downloading from the internet."""
 
-        def __init__(self, local_file: str | os.PathLike):
+        def __init__(self, local_file: str | os.PathLike) -> None:
             super().__init__(
                 _global_client,
                 "dummy_id",
@@ -155,6 +155,8 @@ def test_download_and_unzip_workbench_onnx_model():
                 None,
                 False,
                 None,
+                {},
+                {},
             )
             self.local_file = local_file
 
@@ -219,7 +221,7 @@ def test_download_and_unzip_workbench_onnx_model():
         assert out.aimet_encodings_path is None
 
 
-def test_verify_onnx_export_is_compatible_with_ai_hub():
+def test_verify_onnx_export_is_compatible_with_ai_hub() -> None:
     ec_patch = mock.patch("qai_hub_models.utils.onnx.helpers.ONNX_ENV_CHECKED", False)
     err_patch = mock.patch("qai_hub_models.utils.onnx.helpers.ONNX_ENV_ERROR", None)
 
@@ -268,7 +270,7 @@ def test_verify_onnx_export_is_compatible_with_ai_hub():
         assert onnx_helpers.ONNX_ENV_ERROR is None
 
 
-def test_generate_wrapper_onnx_file(tmp_path):
+def test_generate_wrapper_onnx_file(tmp_path: Path) -> None:
     """Test ONNX wrapper generation"""
     out_path = tmp_path / "wrapper.onnx"
 

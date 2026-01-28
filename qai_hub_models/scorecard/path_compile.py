@@ -32,7 +32,7 @@ class ScorecardCompilePath(Enum):
     ONNXRUNTIME_GENAI = "onnxruntime_genai"
     ONNX_FP16 = "onnx_fp16"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name.lower()
 
     @property
@@ -103,7 +103,7 @@ class ScorecardCompilePath(Enum):
         return self.runtime.supports_precision(precision)
 
     @property
-    def has_nonstandard_compile_options(self):
+    def has_nonstandard_compile_options(self) -> bool:
         """
         If this path passes additional options beyond what the underlying TargetRuntime
         passes (eg --compute_unit), then it's considered nonstandard.

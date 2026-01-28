@@ -65,7 +65,7 @@ class CocoBodyDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
         num_samples: int = -1,
-    ):
+    ) -> None:
         input_spec = input_spec or {"image": ((1, 3, 256, 192), "")}
         self.target_h = input_spec["image"][0][2]
         self.target_w = input_spec["image"][0][3]
@@ -86,7 +86,7 @@ class CocoBodyDataset(BaseDataset):
         self.img_ids: list[int] = sorted(self.cocoGt.getImgIds())
         self.kpt_db = self._load_kpt_db()
 
-    def _load_kpt_db(self):
+    def _load_kpt_db(self) -> list[tuple[str, int, int, np.ndarray, np.ndarray]]:
         kpt_db = []
         for img_id in self.img_ids:
             img_info = self.cocoGt.loadImgs(img_id)[0]
@@ -173,7 +173,7 @@ class CocoBodyDataset(BaseDataset):
 
         return image, (image_id, category_id, center, scale)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.kpt_db)
 
     def _validate_data(self) -> bool:

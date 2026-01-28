@@ -17,7 +17,7 @@ from qai_hub_models.models._shared.ultralytics.detect_patches import (
 )
 
 
-def patch_ultralytics_segmentation_head(model: SegmentationModel):
+def patch_ultralytics_segmentation_head(model: SegmentationModel) -> None:
     """
     Patches the segmentation model head for export / quantization.
 

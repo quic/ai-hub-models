@@ -21,7 +21,7 @@ IMAGENET_256TRANSFORM = transforms.Compose(
 
 
 class Imagenette_256Dataset(ImagenetteDataset):
-    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN):
+    def __init__(self, split: DatasetSplit = DatasetSplit.TRAIN) -> None:
         super().__init__(split, IMAGENET_256TRANSFORM)
 
     @staticmethod

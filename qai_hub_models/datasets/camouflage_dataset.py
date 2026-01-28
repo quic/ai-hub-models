@@ -31,7 +31,7 @@ class CamouflageDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 416,
         input_width: int = 416,
-    ):
+    ) -> None:
         if dataset_names is None:
             dataset_names = ["CAMO", "CHAMELEON", "COD10K", "NC4K"]
         self.dataset_names = dataset_names
@@ -66,7 +66,7 @@ class CamouflageDataset(BaseDataset):
         gt_array = torch.from_numpy(np.asarray(gt_image)).unsqueeze(0)
         return img_tensor, gt_array
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _validate_data(self) -> bool:

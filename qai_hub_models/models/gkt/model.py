@@ -10,6 +10,7 @@ import sys
 from typing import Any
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.nuscenes_bev_evaluator import (
@@ -51,7 +52,7 @@ class GKT(BaseModel):
         self.decoder: Any = self.model.decoder
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str | None = None) -> GKT:
+    def from_pretrained(cls, ckpt_name: str | None = None) -> Self:
         with SourceAsRoot(
             GKT_SOURCE_REPOSITORY,
             GKT_SOURCE_REPO_COMMIT,
@@ -112,21 +113,25 @@ class GKT(BaseModel):
 
         Parameters
         ----------
-        image : torch.Tensor, shape [B, N, 3, H, W]
-            Input image tensor for 6 cameras, with 3 color channels.
-        intrinsics : torch.Tensor, shape [B, N, 3, 3]
-            intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays.
-        extrinsics : torch.Tensor, shape [B, N, 4, 4]
-            extrinsics tensor mapping world coordinates to camera coordinates.
-        Inv_intrinsics : torch.Tensor, shape [B, N, 3, 3]
-            Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays.
-        Inv_extrinsics : torch.Tensor, shape [B, N, 4, 4]
-            Inverse extrinsics tensor mapping world coordinates to camera coordinates.
+        image
+            Input image tensor for 6 cameras with 3 color channels, shape [B, N, 3, H, W].
+        intrinsics
+            Intrinsics tensor mapping 2D pixel coordinates to 3D camera-space rays,
+            shape [B, N, 3, 3].
+        extrinsics
+            Extrinsics tensor mapping world coordinates to camera coordinates,
+            shape [B, N, 4, 4].
+        inv_intrinsics
+            Inverse intrinsics tensor mapping 2D pixel coordinates to 3D camera-space
+            rays, shape [B, N, 3, 3].
+        inv_extrinsics
+            Inverse extrinsics tensor mapping world coordinates to camera coordinates,
+            shape [B, N, 4, 4].
 
         Returns
         -------
-        torch.Tensor, shape [B, 1, 200, 200]
-            BEV heatmap tensor with predictions.
+        bev
+            BEV heatmap tensor with predictions, shape [B, 1, 200, 200].
         """
         image = image.flatten(0, 1)
 

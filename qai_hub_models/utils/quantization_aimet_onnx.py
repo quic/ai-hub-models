@@ -7,28 +7,32 @@
 
 from __future__ import annotations
 
+from packaging import version
+
 from qai_hub_models.utils.base_model import BaseModel
 
 try:
     import aimet_onnx
-    from aimet_common.utils import AimetLogger
+
+    if version.Version(aimet_onnx.__version__) >= version.Version("2.20.0"):
+        from aimet_onnx.common.utils import AimetLogger
+    else:
+        from aimet_common.utils import AimetLogger
     from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
     aimet_onnx_is_installed = True
 except (ImportError, ModuleNotFoundError):
     aimet_onnx_is_installed = False
 import contextlib
-import gc
 import os
 import shutil
 import sys
-from collections.abc import Collection
+from collections.abc import Collection, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 
 import torch
-from packaging import version
 from qai_hub.client import DatasetEntries
 from tqdm.autonotebook import tqdm
 
@@ -41,13 +45,12 @@ from qai_hub_models.utils.base_model import Precision
 from qai_hub_models.utils.dataset_util import DataLoader, dataset_entries_to_dataloader
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.onnx.helpers import mock_torch_onnx_inference
-from qai_hub_models.utils.onnx.torch_wrapper import OnnxSessionTorchWrapper
 from qai_hub_models.utils.runtime_torch_wrapper import kwargs_to_dict
 
 
 def ensure_aimet_onnx_installed(
     expected_version: str | None = None, model_id: str | None = None
-):
+) -> None:
     if not aimet_onnx_is_installed:
         errstr = "AIMET-ONNX is missing but must be installed. "
         if not sys.platform.startswith("linux") and sys.platform not in [
@@ -75,18 +78,22 @@ def ensure_aimet_onnx_installed(
         raise RuntimeError(errstr)
 
 
-def ensure_min_aimet_onnx_version(expected_version: str, model_id: str | None = None):
+def ensure_min_aimet_onnx_version(
+    expected_version: str, model_id: str | None = None
+) -> None:
     ensure_aimet_onnx_installed(expected_version, model_id)
-    if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
+    if version.Version(aimet_onnx.__version__) < version.Version(expected_version):
         raise RuntimeError(
             f"Installed AIMET-ONNX version not supported. Expected >= {expected_version}, got {aimet_onnx.__version__!s}\n"
             f"Please run `pip install aimet-onnx=={expected_version}`"
         )
 
 
-def ensure_max_aimet_onnx_version(expected_version: str, model_id: str | None = None):
+def ensure_max_aimet_onnx_version(
+    expected_version: str, model_id: str | None = None
+) -> None:
     ensure_aimet_onnx_installed(expected_version, model_id)
-    if version.parse(aimet_onnx.__version__) < version.parse(expected_version):
+    if version.Version(aimet_onnx.__version__) < version.Version(expected_version):
         raise RuntimeError(
             f"Installed AIMET-ONNX version not supported. Expected=<{expected_version}, got {aimet_onnx.__version__!s}\n"
             f"Please run `pip install transformers=={expected_version}`"
@@ -94,8 +101,8 @@ def ensure_max_aimet_onnx_version(expected_version: str, model_id: str | None = 
 
 
 @contextmanager
-def set_aimet_log_level(log_level: int):
-    area_log_levels = {}
+def set_aimet_log_level(log_level: int) -> Generator[None, None, None]:
+    area_log_levels: dict[AimetLogger.LogAreas, int] = {}
     for area in AimetLogger.LogAreas:
         area_log_levels[area] = AimetLogger.get_area_logger(area).level
 
@@ -120,7 +127,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
     def __init__(
         self,
         quant_sim: QuantSimOnnx | None,
-    ):
+    ) -> None:
         self.quant_sim = quant_sim
         if self.quant_sim is not None:
             self.input_names = [i.name for i in self.quant_sim.session.get_inputs()]
@@ -196,7 +203,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         ).fetch()
         return onnx_file, aimet_encodings
 
-    def _apply_seq_mse(self, data: _DataLoader, num_batches: int):
+    def _apply_seq_mse(self, data: _DataLoader, num_batches: int) -> None:
         assert self.quant_sim is not None
         ensure_min_aimet_onnx_version("2.8.0")
 
@@ -213,29 +220,23 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
 
         aimet_onnx.apply_seq_mse(self.quant_sim, onnx_data)
 
-    def _apply_calibration(self, data: DataLoader, num_batches: int):
+    def _apply_calibration(self, data: DataLoader, num_batches: int) -> None:
         assert self.quant_sim is not None
 
-        def _forward(session, _):
-            wrapper = OnnxSessionTorchWrapper(
-                session, quantize_user_input=None, dequantize_model_output=None
+        ensure_min_aimet_onnx_version("2.8.0")
+
+        input_names = [inp.name for inp in self.quant_sim.session.get_inputs()]
+
+        onnx_data = []
+        for batch in tqdm(data, total=num_batches):
+            onnx_data.append(  # noqa: PERF401
+                {
+                    k: v.cpu().detach().numpy()
+                    for k, v in kwargs_to_dict(input_names, *batch).items()
+                }
             )
-            assert data.batch_size is not None
-            for i, batch in tqdm(enumerate(data), total=num_batches):
-                if num_batches and i * data.batch_size >= num_batches:
-                    break
 
-                if isinstance(batch, torch.Tensor):
-                    batch = (batch,)
-
-                wrapper.forward(*batch)
-
-                gc.collect()
-                torch.cuda.empty_cache()
-
-        # TODO: Update AIMET-ONNX version for Stable Diffision.
-        # Updae the calibration API to not use the forward calback
-        self.quant_sim.compute_encodings(_forward, ())
+        self.quant_sim.compute_encodings(onnx_data)
 
     def quantize(
         self,
@@ -278,7 +279,7 @@ class AIMETOnnxQuantizableMixin(PretrainedHubModelProtocol):
         self._apply_calibration(data=data, num_batches=num_iterations)
 
     def _sample_inputs_impl(
-        self, input_spec: InputSpec | None = None
+        self, input_spec: InputSpec | None = None, **kwargs: Any
     ) -> SampleInputsType:
         data = self.get_calibration_data()
         if data is None:

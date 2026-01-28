@@ -41,7 +41,7 @@ class SimpleAvgPool(torch.nn.Module):
 class KineticsClassifier(BaseModel):
     """Base class for all Kinetics Classifier models within QAI Hub Models."""
 
-    def __init__(self, model: torch.nn.Module):
+    def __init__(self, model: torch.nn.Module) -> None:
         super().__init__(model)
         # TODO: rename input_mean/input_std back to mean/std when
         # #https://github.com/pytorch/pytorch/issues/168211 is fixed
@@ -52,18 +52,20 @@ class KineticsClassifier(BaseModel):
             1, 3, 1, 1, 1
         )
 
-    def forward(self, video: torch.Tensor):
+    def forward(self, video: torch.Tensor) -> torch.Tensor:
         """
         Predict class probabilities for an input `video`.
 
         Parameters
         ----------
-            video: A [B, C, Number of frames, H, W] video.
-                   Assumes video has been resized and normalized to range [0, 1]
-                   3-channel Color Space: RGB
+        video
+            A [B, C, Number of frames, H, W] video.
+            Assumes video has been resized and normalized to range [0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        class_log_likelihoods
             A [1, 400] where each value is the log-likelihood of
             the video belonging to the corresponding Kinetics class.
         """
@@ -77,6 +79,16 @@ class KineticsClassifier(BaseModel):
         """
         Returns the input specification (name -> (shape, type). This can be
         used to submit profiling job on Qualcomm AI Hub Workbench.
+
+        Parameters
+        ----------
+        num_frames
+            Number of frames in the video input.
+
+        Returns
+        -------
+        InputSpec
+            Input specification mapping input names to (shape, type) tuples.
         """
         return {
             "video": (
@@ -96,7 +108,7 @@ class KineticsClassifier(BaseModel):
         return {"video": [input_tensor.numpy()]}
 
     @staticmethod
-    def get_output_names():
+    def get_output_names() -> list[str]:
         return ["class_probs"]
 
     @staticmethod

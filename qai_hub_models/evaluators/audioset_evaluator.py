@@ -16,7 +16,7 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class AudioSetOutputEvaluator(BaseEvaluator):
     """Evaluator for AudioSet multi-label classification."""
 
-    def __init__(self, num_classes: int = 521):
+    def __init__(self, num_classes: int = 521) -> None:
         """
         Initialize evaluator for AudioSet.
 
@@ -28,11 +28,13 @@ class AudioSetOutputEvaluator(BaseEvaluator):
         self.num_classes = num_classes
         self.reset()
 
-    def reset(self):
-        self.preds = defaultdict(list)
-        self.targets = defaultdict(list)
+    def reset(self) -> None:
+        self.preds: dict[torch.Tensor, list[torch.Tensor]] = defaultdict(list)
+        self.targets: dict[torch.Tensor, list[torch.Tensor]] = defaultdict(list)
 
-    def add_batch(self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor]):
+    def add_batch(
+        self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
         """
         Add a batch of predictions and ground truth for evaluation.
 
@@ -78,7 +80,7 @@ class AudioSetOutputEvaluator(BaseEvaluator):
                 ap = average_precision_score(targets[:, i], preds[:, i])
                 if not np.isnan(ap):
                     aps.append(ap)
-        return np.mean(aps) * 100
+        return float(np.mean(aps) * 100)
 
     def get_accuracy_score(self) -> float:
         """Return mAP"""

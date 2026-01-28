@@ -38,16 +38,16 @@ def face_attrib_net_demo(
 
     Parameters
     ----------
-    app_cls : FaceAttribNetApp
+    app_cls
         The application class to be instantiated.
 
-    model_type : FaceAttribNet
+    model_type
         The model class to be instantiated.
 
-    model_id : str
+    model_id
         Model name string.
 
-    is_test : bool, optional
+    is_test
         Indicates whether the demo is being run in a test context (e.g., from test.py).
         Defaults to False.
 
@@ -87,7 +87,7 @@ def main(is_test: bool = False):
     """
     Parameters
     ----------
-    is_test : bool
+    is_test
         see `face_attrib_net_demo` for details.
     """
     face_attrib_net_demo(FaceAttribNetApp, FaceAttribNet, MODEL_ID, is_test)

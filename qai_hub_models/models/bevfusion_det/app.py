@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -56,16 +57,27 @@ class BEVFusionApp:
 
         Parameters
         ----------
-            encoder1, encoder2, encoder3, encoder4: Model encoder components.
-                For input specs, see `BEVFusionEncoder1.get_input_spec`,
-                `BEVFusionEncoder2.get_input_spec`, `BEVFusionEncoder3.get_input_spec`,
-                and `BEVFusionEncoder4.get_input_spec` in model.py.
-            decoder: Model decoder component.
-                For input spec, see `BEVFusionDecoder.get_input_spec` in model.py.
-            head: Model head component (BaseModule).
-            score_threshold (float): Score threshold, default is 0.4.
-            nms_threshold (float): NMS threshold, default is 4.0.
-            nms_post_max_size (int): Max boxes retained after NMS, default is 500.
+        encoder1
+            Model encoder component.
+            For input specs, see `BEVFusionEncoder1.get_input_spec` in model.py.
+        encoder2
+            Model encoder component.
+            For input specs, see `BEVFusionEncoder2.get_input_spec` in model.py.
+        encoder3
+            Model encoder component.
+            For input specs, see `BEVFusionEncoder3.get_input_spec` in model.py.
+        encoder4
+            Model encoder component.
+            For input specs, see `BEVFusionEncoder4.get_input_spec` in model.py.
+        decoder
+            Model decoder component.
+            For input spec, see `BEVFusionDecoder.get_input_spec` in model.py.
+        score_threshold
+            Score threshold, default is 0.4.
+        nms_threshold
+            NMS threshold, default is 4.0.
+        nms_post_max_size
+            Max boxes retained after NMS, default is 500.
         """
         self.encoder1 = encoder1
         self.encoder2 = encoder2
@@ -87,14 +99,17 @@ class BEVFusionApp:
 
         Parameters
         ----------
-            cam_paths (dict[str, str]): Dictionary mapping camera names to image file paths.
-            inputs (dict): JSON dictionary containing intrinsics and transformation data.
+        cam_paths
+            Dictionary mapping camera names to image file paths.
+        inputs
+            JSON dictionary containing intrinsics and transformation data.
 
         Returns
         -------
-            tuple[list[np.ndarray], list[np.ndarray]]:
-                - intrins_list: List of intrinsic matrices (3x3) for each camera.
-                - sensor2keyegos_list: List of sensor-to-key-ego transformation matrices (4x4) for each camera.
+        intrins_list
+            List of intrinsic matrices (3x3) for each camera.
+        sensor2keyegos_list
+            List of sensor-to-key-ego transformation matrices (4x4) for each camera.
         """
         intrins_list, sensor2keyegos_list = [], []
 
@@ -137,7 +152,7 @@ class BEVFusionApp:
 
         return intrins_list, sensor2keyegos_list
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image.Image]:
         return self.predict_3d_boxes_from_images(*args, **kwargs)
 
     def predict_3d_boxes_from_images(
@@ -152,19 +167,24 @@ class BEVFusionApp:
 
         Parameters
         ----------
-            images_list: List of PIL Images in RGB format.
-            cam_paths: Dictionary mapping camera names to image file paths.
-            inputs_json: JSON dictionary containing intrinsics and transformation data.
-            raw_output: If True, returns raw 3D bounding box corners.
+        images_list
+            List of PIL Images in RGB format.
+        cam_paths
+            Dictionary mapping camera names to image file paths.
+        inputs_json
+            JSON dictionary containing intrinsics and transformation data.
+        raw_output
+            If True, returns raw 3D bounding box corners.
 
         Returns
         -------
-            If raw_output is True:
-                corners: np.ndarray
-                    Corners of 3D bounding boxes with shape (N, 8, 3).
-            Otherwise:
-                output_images: list of PIL Images
-                    Images with 3D bounding boxes drawn.
+        If raw_output is True, returns:
+        corners
+            Corners of 3D bounding boxes with shape (N, 8, 3).
+
+        If raw_output is False, returns:
+        output_images
+            List of PIL Images with 3D bounding boxes drawn.
         """
         intrins_list, sensor2keyegos_list = self.prepare_camera_inputs(
             cam_paths, inputs_json
@@ -188,12 +208,12 @@ class BEVFusionApp:
         pred_tensor = self.decoder(x)
 
         # unpack predictions into dict
-        num_classes = self.decoder.heads.num_classes
+        num_classes = cast(list[int], self.decoder.heads.num_classes)
         pred_dicts = []
         start = 0
         head_order = ["reg", "height", "dim", "rot", "vel", "heatmap"]
         for i, nc in enumerate(num_classes):
-            task_head = self.decoder.heads.task_heads[i]
+            task_head = self.decoder.heads.task_heads[i]  # type: ignore[index]
             reg_heads = getattr(task_head, "heads", None)
             channels = []
             for key in head_order:
@@ -212,30 +232,30 @@ class BEVFusionApp:
             pred_dict = dict(zip(head_order, split_tensors, strict=False))
             pred_dicts.append([pred_dict])
 
-        bboxes, scores, labels = self.decoder.heads.get_bboxes(pred_dicts)[0]
-        corners_pt = compute_corners(bboxes)
+        bboxes, scores, labels = self.decoder.heads.get_bboxes(pred_dicts)[0]  # type: ignore[operator]
+        corners = compute_corners(bboxes)
 
         # Filter based on confidence score
         indices = torch.tensor(scores) >= self.score_threshold
-        bboxes, corners_pt, scores, labels = (
+        bboxes, corners, scores, labels = (
             bboxes[indices],
-            corners_pt[indices],
+            corners[indices],
             scores[indices],
             labels[indices],
         )
 
-        bboxes = bboxes.numpy()
-        corners = corners_pt.numpy()
+        bboxes_np = bboxes.numpy()
+        corners_np = corners.numpy()
 
-        corners[..., 2] -= bboxes[:, None, 5] / 2
+        corners_np[..., 2] -= bboxes_np[:, None, 5] / 2
 
         if raw_output:
-            return corners
+            return corners_np
 
         # Filter based on confidence score
 
         output_images = []
-        corners_keyego = corners.reshape(-1, 3)
+        corners_keyego = corners_np.reshape(-1, 3)
         corners_keyego = np.concatenate(
             [corners_keyego, np.ones([corners_keyego.shape[0], 1])], axis=1
         )
@@ -253,7 +273,9 @@ class BEVFusionApp:
 
         return output_images
 
-    def preprocess_images(self, images: list[Image.Image]):
+    def preprocess_images(
+        self, images: list[Image.Image]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Preprocess a list of camera images for BEVFusion model input.
 
@@ -262,15 +284,18 @@ class BEVFusionApp:
 
         Parameters
         ----------
-            images (list[Image.Image]): List of PIL images from multiple cameras.
+        images
+            List of PIL images from multiple cameras.
 
         Returns
         -------
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                - image_tensor (torch.Tensor): Concatenated image tensor with shape [B, S*C, H, W],
-                    where B=1 (batch size), S=number of cameras, C=3 (RGB channels), H=height, W=width.
-                - inv_post_rots (torch.Tensor): Inverse post-rotation matrices with shape [1, S, 3, 3].
-                - post_trans (torch.Tensor): Post-translation vectors with shape [1, S, 1, 3].
+        image_tensor
+            Concatenated image tensor with shape [B, S*C, H, W],
+            where B=1 (batch size), S=number of cameras, C=3 (RGB channels), H=height, W=width.
+        inv_post_rots
+            Inverse post-rotation matrices with shape [1, S, 3, 3].
+        post_trans
+            Post-translation vectors with shape [1, S, 1, 3].
         """
         images_tensor_list = []
         post_rot_list = []
@@ -317,20 +342,27 @@ class BEVFusionApp:
 
         Parameters
         ----------
-            self: Instance of BEVFusionApp class.
-            img: PIL.Image.Image - Input image to be transformed.
-            rotation: torch.Tensor - Rotation matrix of shape (3, 3) to be adjusted.
-            translation: torch.Tensor - Translation vector of shape (3,) to be adjusted.
-            resize: float - Scaling factor for resizing the image and transformations.
-            crop: tuple[int, int, int, int] - Crop coordinates (left, upper, right, lower).
-            rotate: int - Rotation angle in degrees.
+        img
+            Input image to be transformed.
+        rotation
+            Rotation matrix of shape (3, 3) to be adjusted.
+        translation
+            Translation vector of shape (3,) to be adjusted.
+        resize
+            Scaling factor for resizing the image and transformations.
+        crop
+            Crop coordinates (left, upper, right, lower).
+        rotate
+            Rotation angle in degrees.
 
         Returns
         -------
-            img: PIL.Image.Image - Transformed PIL image.
-            rotation: torch.Tensor - Adjusted rotation matrix of shape (3, 3).
-            translation: torch.Tensor - Adjusted translation vector of shape (3,).
-
+        transformed_image
+            Transformed PIL image.
+        adjusted_rotation
+            Adjusted rotation matrix of shape (3, 3).
+        adjusted_translation
+            Adjusted translation vector of shape (3,).
         """
         # Apply scaling to rotation matrix based on resize factor
         rotation *= resize
@@ -356,21 +388,26 @@ class BEVFusionApp:
         return img, rotation, translation
 
     def get_post_rot_and_tran(
-        self, resize: float, crop: tuple, rotate: int
+        self, resize: float, crop: tuple[int, int, int, int], rotate: int
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Get post rotation and post translation
 
         Parameters
         ----------
-            resize (float): Scaling factor for resizing the image and transformations.
-            crop (tuple): Tuple of (left, upper, right, lower) crop coordinates.
-            rotate (int): Rotation angle in degrees.
+        resize
+            Scaling factor for resizing the image and transformations.
+        crop
+            Tuple of (left, upper, right, lower) crop coordinates.
+        rotate
+            Rotation angle in degrees.
 
         Returns
         -------
-            post_rot (torch.Tensor): Post rotation matrix with shape [3, 3] in camera coordinate system.
-            post_tran (torch.Tensor): Post translation tensor with shape [3,] in camera coordinate system.
+        post_rot
+            Post rotation matrix with shape [3, 3] in camera coordinate system.
+        post_tran
+            Post translation tensor with shape [3,] in camera coordinate system.
         """
         post_rot = torch.eye(3)
         post_tran = torch.zeros(3)

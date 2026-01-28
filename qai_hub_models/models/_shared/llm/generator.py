@@ -9,6 +9,7 @@ import gc
 import itertools
 import math
 from collections.abc import Generator
+from typing import Any, cast
 
 import torch
 import transformers
@@ -38,22 +39,32 @@ def get_past_keyval_with_shift(
 
     if len(past_key_vals) == 0:
         for i in range(0, len(new_key_vals), 2):
-            key_shape = new_key_vals[i].shape
-            key_shape = (key_shape[0], key_shape[1], key_shape[2], 0)
+            orig_key_shape = new_key_vals[i].shape
+            key_shape = (orig_key_shape[0], orig_key_shape[1], orig_key_shape[2], 0)
             past_key_vals.append(torch.zeros(key_shape, device=device))
 
-            value_shape = new_key_vals[i + 1].shape
-            value_shape = (value_shape[0], value_shape[1], 0, value_shape[3])
+            orig_value_shape = new_key_vals[i + 1].shape
+            value_shape = (
+                orig_value_shape[0],
+                orig_value_shape[1],
+                0,
+                orig_value_shape[3],
+            )
             past_key_vals.append(torch.zeros(value_shape, device=device))
 
     if len(new_key_vals) == 0:
         for i in range(0, len(past_key_vals), 2):
-            key_shape = past_key_vals[i].shape
-            key_shape = (key_shape[0], key_shape[1], key_shape[2], 0)
+            orig_key_shape = past_key_vals[i].shape
+            key_shape = (orig_key_shape[0], orig_key_shape[1], orig_key_shape[2], 0)
             new_key_vals.append(torch.zeros(key_shape, device=device))
 
-            value_shape = past_key_vals[i + 1].shape
-            value_shape = (value_shape[0], value_shape[1], 0, value_shape[3])
+            orig_value_shape = past_key_vals[i + 1].shape
+            value_shape = (
+                orig_value_shape[0],
+                orig_value_shape[1],
+                0,
+                orig_value_shape[3],
+            )
             new_key_vals.append(torch.zeros(value_shape, device=device))
 
     # Key and Values are concatenated on batch dimension
@@ -80,18 +91,18 @@ def get_past_keyval_with_shift(
 class LLM_Loader:
     def __init__(
         self,
-        model_cls: type[LLM_AIMETOnnx],
+        model_cls: type[LLMBase | LLM_AIMETOnnx | LLM_QNN],
         sequence_length: int,
-        model_params,
+        model_params: dict[str, Any],
         host_device: torch.device,
-    ):
+    ) -> None:
         self.model_cls = model_cls
         self.sequence_length = sequence_length
         self.model_params = model_params
-        self.loaded_model = None
+        self.loaded_model: LLMBase | LLM_AIMETOnnx | LLM_QNN | None = None
         self.host_device = host_device
 
-    def load(self) -> LLM_AIMETOnnx:
+    def load(self) -> LLMBase | LLM_AIMETOnnx | LLM_QNN:
         if self.loaded_model is None:
             self.loaded_model = self.model_cls.from_pretrained(
                 sequence_length=self.sequence_length, **self.model_params
@@ -100,7 +111,13 @@ class LLM_Loader:
         assert self.loaded_model is not None
         return self.loaded_model
 
-    def release(self):
+    def release(self) -> None:
+        if self.loaded_model is not None and isinstance(
+            self.loaded_model, LLM_AIMETOnnx
+        ):
+            self.loaded_model = self.loaded_model.to("cpu")
+            if hasattr(self.loaded_model, "quant_sim"):
+                del self.loaded_model.quant_sim
         del self.loaded_model
         # Python can be in a weird state when __del__ gets called, so we
         # have to make sure these still exist.
@@ -110,7 +127,7 @@ class LLM_Loader:
             torch.cuda.empty_cache()
         self.loaded_model = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.release()
 
 
@@ -119,11 +136,11 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
 
     def __init__(
         self,
-        models: list[LLM_QNN | LLM_AIMETOnnx | LLM_Loader],
-        tokenizer: transformers.PreTrainedTokenizer,
+        models: list[LLMBase | LLM_AIMETOnnx | LLM_QNN | LLM_Loader],
+        tokenizer: transformers.PreTrainedTokenizerBase,
         embedding: Embedding,
         accumulate_logits_on_cpu: bool = False,
-    ):
+    ) -> None:
         super().__init__()
 
         self.models = models
@@ -138,20 +155,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         self.tokenizer = tokenizer
         self.embedding = embedding
         self.accumulate_logits_on_cpu = accumulate_logits_on_cpu
-        self.generation_config = None
 
-    def cleanup(self):
-        for i, model in enumerate(self.models):
+    def cleanup(self) -> None:
+        for model in self.models:
             if isinstance(model, LLM_Loader):
                 model.release()
-            if isinstance(model, LLM_AIMETOnnx):
-                self.models[i] = model.to("cpu")
-                del self.models[i].quant_sim
         if isinstance(self.selected_model, LLM_Loader):
             self.selected_model.release()
-        if isinstance(self.selected_model, LLM_AIMETOnnx):
-            self.selected_model = self.selected_model.to("cpu")
-            del self.selected_model.quant_sim
         if "gc" in globals() and gc is not None:
             gc.collect()
         if "torch" in globals() and torch is not None and torch.cuda.is_available():
@@ -170,7 +180,8 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         return self.selected_model.main_input_name
 
     @property
-    def llm_io_type(self) -> str:
+    def llm_io_type(self) -> LLMIOType:
+        assert self.selected_model is not None
         return self.selected_model.llm_io_type
 
     @property
@@ -179,10 +190,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
 
     @property
     def device(self) -> torch.device:
-        if hasattr(self.selected_model, "host_device"):
-            # Only works for models derived from LLM_AIMETOnnx
+        if isinstance(self.selected_model, LLM_AIMETOnnx):
+            assert self.selected_model.host_device is not None
             return self.selected_model.host_device
-        return self.selected_model.model.device
+
+        # Note: torch.nn.Module.device does not exist according to PyTorch
+        # documentation and mypy.
+        return next(iter(self.selected_model.parameters())).device
 
     def prepare_inputs_for_generation(
         self,
@@ -190,7 +204,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         past_key_values: DynamicCache | None = None,
         attention_mask: torch.Tensor | None = None,
         inputs_embeds: torch.FloatTensor | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, torch.Tensor | DynamicCache | None]:
         """
         Overridden prepare_inputs_for_generation function to enable Huggingface generate() on models with static
@@ -211,6 +225,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             raise ValueError(
                 "You must specify exactly one of input_ids or inputs_embeds"
             )
+        assert input_ids is not None or inputs_embeds is not None
 
         if past_key_values is None:
             num_processed_tokens = 0
@@ -222,26 +237,27 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
                 or past_key_values.value_cache[0] == []
                 else past_key_values.value_cache[0].shape[-2]
             )
-        elif past_key_values.layers and hasattr(past_key_values.layers[0], "values"):
+        elif past_key_values.layers and hasattr(past_key_values.layers[0], "values"):  # type: ignore[attr-defined, unused-ignore]
             num_processed_tokens = (
                 0
-                if past_key_values.layers[0].values is None
-                else past_key_values.layers[0].values.shape[-2]
+                if past_key_values.layers[0].values is None  # type: ignore[attr-defined, unused-ignore]
+                else past_key_values.layers[0].values.shape[-2]  # type: ignore[attr-defined, unused-ignore]
             )
         else:
             raise ValueError("Unsupported KV cache type")
 
-        inputs = (
-            {"input_ids": input_ids[:, num_processed_tokens:]}
-            if input_ids is not None
-            else {"input_embeds": inputs_embeds[:, num_processed_tokens:, :]}  # type: ignore[index]
-        )
+        inputs: dict[str, torch.Tensor | DynamicCache | None] = {}
+        if input_ids is not None:
+            inputs["input_ids"] = input_ids[:, num_processed_tokens:]
+        elif inputs_embeds is not None:
+            inputs["input_embeds"] = inputs_embeds[:, num_processed_tokens:, :]
+
         return inputs | {
             "past_key_values": past_key_values,
             "attention_mask": attention_mask,
         }
 
-    def select_model(self, num_input_tokens) -> LLM_AIMETOnnx | LLM_QNN | LLMBase:
+    def select_model(self, num_input_tokens: int) -> LLM_AIMETOnnx | LLM_QNN | LLMBase:
         # Select the model with the smallest sequence length that can fit all of num_input_tokens
         # If there is no model that can consume num_input_tokens in one inference, select the model with the largest
         # sequence length
@@ -262,7 +278,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             f"Switching from sequence_length={self.selected_model.sequence_length} to sequence_length={new_selected_model.sequence_length}"
         )
         # release the model to preserve memory
-        if hasattr(self.selected_model, "release"):
+        if isinstance(self.selected_model, (LLM_Loader, LLM_AIMETOnnx, LLM_QNN)):
             self.selected_model.release()
 
         self.selected_model = (
@@ -301,8 +317,9 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         # If primary method of accepting inputs is inputs_embeds, but input_ids are provided (ie - in generation)
         # then convert tokens to embeddings
         if self.llm_io_type == LLMIOType.genie_input_embeds and input_ids is not None:
-            inputs_embeds = self.selected_model.convert_input_ids_to_embeddings(
-                input_ids
+            inputs_embeds = cast(
+                torch.FloatTensor,
+                self.selected_model.convert_input_ids_to_embeddings(input_ids),
             )
             input_ids = None
 
@@ -420,11 +437,11 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
 
     def combine_local_and_global_outputs(
         self,
-        model: LLM_AIMETOnnx,
+        model: LLMBase | LLM_AIMETOnnx | LLM_QNN,
         num_valid_input_tokens: int,
         local_outputs: tuple[torch.Tensor, ...],
         global_outputs: dict[str, torch.Tensor | list[torch.Tensor]],
-    ):
+    ) -> None:
         device = local_outputs[0].device
         logits_device = "cpu" if self.accumulate_logits_on_cpu else device
 
@@ -438,11 +455,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         ).to(logits_device)
 
         # concatenate logits from local inference to global output
-        global_outputs["logits"] = (
-            torch.cat((global_outputs["logits"], local_logits), dim=1)
-            if "logits" in global_outputs
-            else local_logits
-        )
+        if "logits" in global_outputs:
+            assert isinstance(global_outputs["logits"], torch.Tensor)
+            global_outputs["logits"] = torch.cat(
+                [global_outputs["logits"], local_logits], dim=1
+            )
+        else:
+            global_outputs["logits"] = local_logits
 
         # strip KV cache corresponding to padding tokens
         local_past_key_values = get_past_keyval_with_shift(
@@ -452,14 +471,15 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             device=device,
         )
 
+        past_key_values_list = global_outputs["past_key_values"]
+        assert isinstance(past_key_values_list, list)
+
         # shift global KV cache, concatenate local KV cache
         current_key_value_length = (
-            global_outputs["past_key_values"][0].shape[-1]
-            if global_outputs["past_key_values"]
-            else 0
+            past_key_values_list[0].shape[-1] if past_key_values_list else 0
         )
         global_outputs["past_key_values"] = get_past_keyval_with_shift(
-            past_key_vals=global_outputs["past_key_values"],
+            past_key_vals=past_key_values_list,
             new_key_vals=local_past_key_values,
             length=min(
                 current_key_value_length + num_valid_input_tokens,
@@ -474,7 +494,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         attention_mask: torch.Tensor | None = None,
         past_key_values: DynamicCache | None = None,
         inputs_embeds: torch.FloatTensor | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> CausalLMOutputWithPast:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
@@ -509,18 +529,26 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         for input_slice, attention_mask_slice in self.slice_inputs_for_inference(
             input_tokens, attention_mask, model.sequence_length
         ):
+            past_key_values_list = global_outputs["past_key_values"]
+            assert isinstance(past_key_values_list, list)
+
             prepared_inputs = self.prepare_inputs(
                 input_ids=input_slice if input_ids is not None else None,
                 attention_mask=attention_mask_slice,
-                past_key_values=global_outputs["past_key_values"],
+                past_key_values=past_key_values_list,
                 sequence_length=model.sequence_length,
                 context_length=model.context_length,
-                inputs_embeds=input_slice if inputs_embeds is not None else None,
+                inputs_embeds=cast(torch.FloatTensor, input_slice)
+                if inputs_embeds is not None
+                else None,
             )
 
             local_outputs = model(*prepared_inputs)
             self.combine_local_and_global_outputs(
-                model, input_slice.shape[1], local_outputs, global_outputs
+                model,
+                input_slice.shape[1],
+                local_outputs,
+                global_outputs,
             )
 
         # make sure logits are on the correct device (necessary for generation)
@@ -538,7 +566,10 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
                 global_outputs["past_key_values"][layer_idx * 2 + 1],
                 layer_idx,
             )
-        return CausalLMOutputWithPast(logits=logits, past_key_values=past_key_values)
+        return CausalLMOutputWithPast(
+            logits=cast(torch.FloatTensor, logits),
+            past_key_values=past_key_values,  # type: ignore[arg-type, unused-ignore]
+        )
 
     def prefill(
         self,
@@ -546,8 +577,8 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         attention_mask: torch.Tensor | None = None,
         past_key_values: DynamicCache | None = None,
         inputs_embeds: torch.FloatTensor | None = None,
-        **kwargs,
-    ) -> Generator[tuple[torch.Tensor, ...]]:
+        **kwargs: Any,
+    ) -> Generator[tuple[torch.Tensor, ...], None, None]:
         if len(self.models) > 1:
             raise RuntimeError("Prefill should only be invoked using a single model")
 
@@ -578,14 +609,13 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         input_tokens_to_preconsume = input_tokens[:, :num_tokens_to_preconsume]
         attention_mask_to_preconsume = attention_mask[:, :num_tokens_to_preconsume]
 
+        past_key_values_list = (
+            []
+            if past_key_values is None or past_key_values.get_seq_length() == 0
+            else list(itertools.chain.from_iterable(past_key_values.to_legacy_cache()))
+        )
         preconsumed_outputs: dict[str, torch.Tensor | list[torch.Tensor]] = {
-            "past_key_values": (
-                []
-                if past_key_values is None or past_key_values.get_seq_length() == 0
-                else list(
-                    itertools.chain.from_iterable(past_key_values.to_legacy_cache())
-                )
-            )
+            "past_key_values": past_key_values_list,
         }
 
         for input_slice, attention_mask_slice in self.slice_inputs_for_inference(
@@ -596,17 +626,22 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
             prepared_inputs = self.prepare_inputs(
                 input_ids=input_slice if input_ids is not None else None,
                 attention_mask=attention_mask_slice,
-                past_key_values=preconsumed_outputs["past_key_values"],
+                past_key_values=past_key_values_list,
                 sequence_length=model.sequence_length,
                 context_length=model.context_length,
-                inputs_embeds=input_slice if inputs_embeds is not None else None,
+                inputs_embeds=cast(torch.FloatTensor, input_slice)
+                if inputs_embeds is not None
+                else None,
             )
 
             yield tuple(tensor.cpu() for tensor in prepared_inputs)
 
             local_outputs = model(*prepared_inputs)
             self.combine_local_and_global_outputs(
-                model, input_slice.shape[1], local_outputs, preconsumed_outputs
+                model,
+                input_slice.shape[1],
+                local_outputs,
+                preconsumed_outputs,
             )
 
         remaining_input_tokens = input_tokens[:, num_tokens_to_preconsume:]
@@ -614,7 +649,7 @@ class LLM_Generator(GenerationMixin, torch.nn.Module):
         prefilled_inputs = self.prepare_inputs(
             remaining_input_tokens,
             remaining_attention_mask,
-            preconsumed_outputs["past_key_values"],
+            past_key_values_list,
             model.sequence_length,
             model.context_length,
         )

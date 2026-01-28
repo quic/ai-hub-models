@@ -59,11 +59,6 @@ class StateTransformer(BaseModel):
     A wrapper class for the STR-based transformer model used in planning tasks.
     Provides methods for loading pretrained weights, running inference, and
     specifying input/output formats for deployment or profiling.
-
-    Attributes
-    ----------
-    model
-        The underlying STR-based transformer model.
     """
 
     def __init__(self, model: StateTransformer) -> None:
@@ -131,20 +126,18 @@ class StateTransformer(BaseModel):
 
         Parameters
         ----------
-        high_res_raster : torch.Tensor
+        high_res_raster
             Rasterized high-resolution BEV image of the scene.
             Shape: (batch_size, 224, 224, 58)
             Dtype: float32
             Represents a fine-grained, small-range view around the ego vehicle,
             capturing detailed road geometry, nearby agents, and traffic elements.
-
-        low_res_raster : torch.Tensor
+        low_res_raster
             Rasterized low-resolution BEV image covering a larger spatial range.
             Shape: (batch_size, 224, 224, 58)
             Dtype: float32
             Provides global context for high-speed or long-distance planning.
-
-        context_actions : torch.Tensor
+        context_actions
             Past ego motion states or control context describing the vehicle's
             recent actions.
             Shape: (batch_size, 4, 7)
@@ -154,12 +147,16 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        torch.Tensor
+        traj_logits
             Predicted trajectory tensor representing the model's future motion plan.
             Shape: (batch_size, 80, 4)
             Dtype: float32
             Each sample corresponds to an 8-second predicted trajectory consisting of
             80 timesteps and 4 features per step (e.g., x, y, yaw, speed).
+        traj_scores
+            Confidence scores for the predicted trajectories.
+            Shape: (batch_size, 1)
+            Dtype: float32
 
         Notes
         -----
@@ -200,7 +197,7 @@ class StateTransformer(BaseModel):
 
         Returns
         -------
-        dict
+        input_spec
             A dictionary mapping input names to a tuple of (shape, dtype).
         """
         return {

@@ -45,12 +45,13 @@ class YamNet(BaseModel):
 
         Parameters
         ----------
-                input: preprocessed 1x1x96x64 tensor(log mel spectrogram patches of a 1-D waveform)
+        audio
+            preprocessed 1x1x96x64 tensor(log mel spectrogram patches of a 1-D waveform)
 
         Returns
         -------
-                Scores is a matrix of (time_frames, num_classes) classifier scores
-                class_scores: Shape (1,521)
+        class_scores
+            Scores is a matrix of (time_frames, num_classes) classifier scores, class_scores of shape (1,521)
         """
         return self.model(audio)
 
@@ -84,6 +85,10 @@ class YamNet(BaseModel):
     @staticmethod
     def eval_datasets() -> list[str]:
         return ["audioset"]
+
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "audioset"
 
     def get_evaluator(self) -> BaseEvaluator:
         return AudioSetOutputEvaluator()

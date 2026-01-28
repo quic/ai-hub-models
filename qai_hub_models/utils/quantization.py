@@ -168,7 +168,7 @@ def get_calibration_data(
 
 def quantized_folder_deprecation_warning(
     deprecated_package: str, replacement_package: str, precision: Precision
-):
+) -> None:
     warnings.warn(
         f"""
 

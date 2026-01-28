@@ -68,7 +68,7 @@ class MPIIDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_spec: InputSpec | None = None,
         num_samples: int = -1,
-    ):
+    ) -> None:
         BaseDataset.__init__(
             self, str(MPII_ASSET.path().parent / "images_train_val"), split
         )
@@ -155,10 +155,12 @@ class MPIIDataset(BaseDataset):
                 scale used for image transform
         """
         image_dict = self.images_dict_list[index]
+        image_path = cast(str, image_dict["image_path"])
         data_numpy = cv2.imread(
-            cast(str, image_dict["image_path"]),
+            image_path,
             cv2.IMREAD_COLOR | cv2.IMREAD_IGNORE_ORIENTATION,
         )
+        assert data_numpy is not None, f"Failed to load image: {image_path}"
 
         data_numpy = cv2.cvtColor(data_numpy, cv2.COLOR_BGR2RGB)
 
@@ -177,7 +179,7 @@ class MPIIDataset(BaseDataset):
 
         return image, (gt_keypoints, headboxes, joint_missing, center, scale)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images_dict_list)
 
     def _download_data(self) -> None:

@@ -120,12 +120,12 @@ def create_onnxruntime_genai_assets(
             v["name"]: v for v in encodings["param_encodings"]
         }
 
-        def extract_scalar(container, key):
+        def extract_scalar(container: dict[str, list[float]], key: str) -> float:
             return container[key][0]
 
     else:
 
-        def extract_scalar(container, key):
+        def extract_scalar(container: list[dict[str, float]], key: str) -> float:  # type: ignore[misc]
             return container[0][key]
 
     act_encodings = encodings["activation_encodings"]
@@ -224,8 +224,10 @@ def create_onnxruntime_genai_assets(
             onnx_split = onnx.load(onnx_original_path)
             onnx_input_specs = {}
 
-            def prepare_onnx_specs(values):
-                onnx_specs = {}
+            def prepare_onnx_specs(
+                values: list[onnx.ValueInfoProto],
+            ) -> dict[str, tuple[tuple[int, ...], int]]:
+                onnx_specs: dict[str, tuple[tuple[int, ...], int]] = {}
                 for onnx_tensor in values:
                     name = onnx_tensor.name.replace("/", "_").replace(".", "_")
 
@@ -240,7 +242,7 @@ def create_onnxruntime_genai_assets(
                         else:
                             elem_type = onnx.TensorProto.UINT16
                     else:
-                        elem_type = orig_elem_type
+                        elem_type = orig_elem_type  # type: ignore[assignment]
 
                     shape = tuple(
                         [
@@ -280,8 +282,8 @@ def create_onnxruntime_genai_assets(
             generate_wrapper_onnx_file(
                 graph_name=graph_name,
                 onnx_output_path=onnx_output_path,
-                onnx_input_specs=onnx_input_specs,
-                onnx_output_specs=onnx_output_specs,
+                onnx_input_specs=onnx_input_specs,  # type: ignore[arg-type]
+                onnx_output_specs=onnx_output_specs,  # type: ignore[arg-type]
                 qnn_context_bin_path=qnn_bin_rel_path,
                 qairt_version=qairt_version,
             )
@@ -312,12 +314,14 @@ def create_onnxruntime_genai_assets(
 
 
 class QuantParams:
-    def __init__(self, scale: float, zero_point: float):
+    def __init__(self, scale: float, zero_point: float) -> None:
         self.scale = scale
         self.zero_point = int(zero_point)
 
 
-def quantizer(quant_params: dict[str, QuantParams]):
+def quantizer(
+    quant_params: dict[str, QuantParams],
+) -> tuple[onnx.ModelProto, list[str], list[str]]:
     inputs = []
     outputs = []
     initializers = []
@@ -444,9 +448,9 @@ def quantizer(quant_params: dict[str, QuantParams]):
     )
 
 
-def dequantizer():
-    inputs = []
-    outputs = []
+def dequantizer() -> tuple[onnx.ModelProto, list[str], list[str]]:
+    inputs: list[onnx.ValueInfoProto] = []
+    outputs: list[onnx.ValueInfoProto] = []
 
     inputs.append(
         onnx.helper.make_tensor_value_info(

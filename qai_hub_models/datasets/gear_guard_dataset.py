@@ -43,7 +43,7 @@ class GearGuardDataset(BaseDataset):
         input_height: int = 320,
         input_width: int = 192,
         max_boxes: int = 20,
-    ):
+    ) -> None:
         """Initialize the GearGuard dataset.
 
         Parameters

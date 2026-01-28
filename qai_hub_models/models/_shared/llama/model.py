@@ -39,7 +39,9 @@ class Llama2BundledModel(FromPretrainedProtocol):
     def load_model_part(self, split_part: str) -> BaseModel: ...
 
 
-def get_hidden_layer_range_from_split(split_part: int, model_split_map: dict):
+def get_hidden_layer_range_from_split(
+    split_part: int, model_split_map: dict[int, tuple[int, int]]
+) -> tuple[int, int]:
     hidden_layers_start, hidden_layers_end = model_split_map[split_part]
     return hidden_layers_start, hidden_layers_end
 
@@ -50,7 +52,7 @@ def get_past_key_names(
     num_of_past_key_heads: int = 32,
     suffix: str = "",
     bundled_kvcache: bool = True,
-):
+) -> list[str]:
     past_key_val_name = []
 
     if bundled_kvcache:
@@ -80,7 +82,7 @@ def save_input_cached_data(
     model_asset_version: VersionType,
     model_type: str = "pp",
     input_seq_len: int = DEFAULT_INPUT_SEQ_LEN,
-):
+) -> None:
     data_path = (
         f"{data_dir}/{input_seq_len}/{model_name}_{split_part}_{model_type}_inputs.pkl"
     )
@@ -149,7 +151,7 @@ def get_past_keyval_with_shift(
     num_of_past_key_heads: int = 32,
     new_key_suffix: str = "",
     bundled_kvcache: bool = True,
-):
+) -> dict[str, torch.Tensor]:
     """Clip past key value to feed next iteration"""
     tg_inputs = {}
     if bundled_kvcache:
@@ -190,7 +192,7 @@ def make_torch_compatible_past_key_values(
     past_key_val_per_layer: int,
     bundled_kvcache: bool = True,
     *past_values_flattened: torch.Tensor,
-):
+) -> tuple[Any]:
     past_key_values: list[Any] = []
     total_past_entries = len(past_values_flattened)
 
@@ -240,7 +242,7 @@ class RopeEmbedding:
     Compute RopeEmbedding outside model to simplify model quantization
     """
 
-    def __init__(self, head_dim: int = 128, max_length: int = 1024):
+    def __init__(self, head_dim: int = 128, max_length: int = 1024) -> None:
         """
         head_dim: dimension size of head
         max_length: max sequence length to expect
@@ -248,7 +250,9 @@ class RopeEmbedding:
         self.max_length = max_length
         self.cos, self.sin = self.precompute_freqs_cis(head_dim, max_length * 2)
 
-    def precompute_freqs_cis(self, dim: int, end: int, theta: float = 10000.0):
+    def precompute_freqs_cis(
+        self, dim: int, end: int, theta: float = 10000.0
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Precompute embedding matrix"""
         freqs = 1.0 / (theta ** (torch.arange(0, dim, 2)[: (dim // 2)].float() / dim))
         t = torch.arange(end)
@@ -262,10 +266,23 @@ class RopeEmbedding:
         freqs_sin = freqs_real[:, :, :, :, 1]  # extract odd elements
         return freqs_cos, freqs_sin
 
-    def get_embedding(self, position_ids: torch.Tensor):
+    def get_embedding(
+        self, position_ids: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        position_ids: [batch_size, sequence_length]
-        return [batch_size, 1, sequence_length, head_sim//2][2]
+        Get positional embeddings for the given position IDs.
+
+        Parameters
+        ----------
+        position_ids
+            Position IDs of shape [batch_size, sequence_length].
+
+        Returns
+        -------
+        cos
+            Cosine embeddings of shape [batch_size, 1, sequence_length, head_dim//2].
+        sin
+            Sine embeddings of shape [batch_size, 1, sequence_length, head_dim//2].
         """
         cos = self.cos[0, 0, :, :]  # [seq_len, dim]
         sin = self.sin[0, 0, :, :]  # [seq_len, dim]
@@ -277,7 +294,12 @@ class RopeEmbedding:
 class LlamaMixin(AimetEncodingLoaderMixin, BaseModel):
     llm_io_type: LLMIOType = LLMIOType.genie_input_ids
 
-    def __init__(self, model: torch.nn.Module, encoding_path, is_token_generator=False):
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        encoding_path: str,
+        is_token_generator: bool = False,
+    ) -> None:
         AimetEncodingLoaderMixin.__init__(self, model, encoding_path)
         BaseModel.__init__(self)
         self.model = model

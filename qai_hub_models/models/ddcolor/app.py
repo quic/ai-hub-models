@@ -4,6 +4,7 @@
 # ---------------------------------------------------------------------
 
 from collections.abc import Callable
+from typing import Any
 
 import cv2
 import numpy as np
@@ -15,28 +16,26 @@ from qai_hub_models.models.ddcolor.model import DDColor
 
 
 class DDColorApp:
-    """
-    DDColorApp wraps around a pretrained model to perform image preprocessing and postprocessing.
-
-    Args :
-        img(np.ndarray or PIL.Image) : Input RGB image.
-
-    Returns
-    -------
-        PIL.Image.Image: The final colorized image.
-
-    """
+    """Wraps DDColor model for image preprocessing and postprocessing."""
 
     def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> Image.Image:
         """
-        Wrapper method to  call the 'colorize' function.
+        Wrapper method to call the 'colorize' function.
 
-        Returns :
-            PIL.Image.Image: The colorized output image.
+        Parameters
+        ----------
+        *args
+            Positional arguments passed to colorize.
+        **kwargs
+            Keyword arguments passed to colorize.
 
+        Returns
+        -------
+        colorized_image
+            The colorized output image.
         """
         return self.colorize(*args, **kwargs)
 
@@ -44,12 +43,15 @@ class DDColorApp:
         """
         Perform image colorization using the DDColor model.
 
-        Arg :
-            img : Input image in RGB format.
+        Parameters
+        ----------
+        pil_image
+            Input image in RGB format.
 
         Returns
         -------
-            PIL.Image.Image : colorized output image.
+        colorized_image
+            Colorized output image.
         """
         img = np.array(pil_image)
         height, width = img.shape[:2]

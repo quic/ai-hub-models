@@ -54,7 +54,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         wait_for_max_job_duration: int
         | None,  # Allow the job this many seconds after creation to complete
         path: ScorecardPathOrNoneTypeVar,
-    ):
+    ) -> None:
         self.model_id = model_id
         self.precision = precision
         self.job_id = job_id
@@ -64,7 +64,7 @@ class ScorecardJob(Generic[JobTypeVar, ScorecardPathOrNoneTypeVar]):
         self.path: ScorecardPathOrNoneTypeVar = path
         self.__post_init__()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.model_id
         # Verify Job Exists
         if self.job_id and not self.wait_for_job:
@@ -176,7 +176,7 @@ class CompileScorecardJob(ScorecardJob[hub.CompileJob, ScorecardCompilePath]):
 class ProfileScorecardJob(ScorecardJob[hub.ProfileJob, ScorecardProfilePath]):
     job_type_class = hub.ProfileJob
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
         if not self.skipped and self._job_status.success:
             assert self.profile_results  # Download results immediately

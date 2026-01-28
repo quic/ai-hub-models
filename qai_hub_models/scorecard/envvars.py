@@ -39,7 +39,7 @@ class SpecialModelSetting(Enum):
     #  Models enabled for the weekly "bench" scorecard.
     BENCH = "bench"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
 
@@ -75,7 +75,7 @@ class EnabledModelsEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialModelSetting]):
     SPECIAL_SETTING_ENUM = SpecialModelSetting
 
     @classmethod
-    def default(cls):
+    def default(cls) -> set[SpecialModelSetting]:
         return {SpecialModelSetting.ALL}
 
 
@@ -95,7 +95,7 @@ class SpecialPrecisionSetting(Enum):
     # pytorch_bench_models_w8a8.txt which will also run in w8a8
     BENCH = "bench"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
 
@@ -128,7 +128,7 @@ class EnabledPrecisionsEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialPrecisionSetting]
     SPECIAL_SETTING_ENUM = SpecialPrecisionSetting
 
     @classmethod
-    def default(cls):
+    def default(cls) -> set[SpecialPrecisionSetting]:
         return {SpecialPrecisionSetting.DEFAULT}
 
 
@@ -140,7 +140,7 @@ class SpecialPathSetting(Enum):
     # Enable all profile paths.
     ALL = "all"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
 
@@ -177,7 +177,7 @@ class EnabledPathsEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialPathSetting]):
     SPECIAL_SETTING_ENUM = SpecialPathSetting
 
     @classmethod
-    def default(cls):
+    def default(cls) -> set[SpecialPathSetting]:
         return {SpecialPathSetting.DEFAULT}
 
 
@@ -189,7 +189,7 @@ class SpecialDeviceSetting(Enum):
     # "Canary" devices enabled in continuous integration.
     CANARY = "canary"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
 
@@ -222,7 +222,7 @@ class EnabledDevicesEnvvar(QAIHMStrSetWithEnumEnvvar[SpecialDeviceSetting]):
     SPECIAL_SETTING_ENUM = SpecialDeviceSetting
 
     @classmethod
-    def default(cls):
+    def default(cls) -> set[SpecialDeviceSetting]:
         return {SpecialDeviceSetting.ALL}
 
     @classmethod
@@ -255,11 +255,13 @@ class QAIRTVersionEnvvar(QAIHMStringEnvvar):
     CLI_HELP_MESSAGE = "The QAIRT version used for compile and profile jobs."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         return "qaihm_default"
 
     @classmethod
-    def get_qairt_version(cls, runtime: TargetRuntime, value: str | None = None):
+    def get_qairt_version(
+        cls, runtime: TargetRuntime, value: str | None = None
+    ) -> QAIRTVersion:
         """
         Parse this envvar value as a QAIRTVersion object.
 
@@ -296,7 +298,7 @@ class IgnoreKnownFailuresEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "If set, precision + scorecard path pairs that are 'skipped' in code-gen.yaml are included."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 
@@ -315,7 +317,7 @@ class EnableAsyncTestingEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "Enable if tests should run asynchronously--that is, compile / profile / inference jobs will be submitted in separate tests."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 
@@ -333,7 +335,7 @@ class IgnoreDeviceJobCacheEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "Force run profile jobs for compiled models that haven't changed since the last scorecard run (only applicable on PROD deployment)."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 
@@ -345,7 +347,7 @@ class ArtifactsDirEnvvar(QAIHMPathEnvvar):
     CLI_HELP_MESSAGE = "Directory in which test artifacts and results are saved."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> Path:
         return Path(os.getcwd()) / "qaihm_test_artifacts"
 
 
@@ -357,7 +359,7 @@ class StaticModelsDirEnvvar(QAIHMPathEnvvar):
     CLI_HELP_MESSAGE = "Directory in which static models can be found"
 
     @classmethod
-    def default(cls):
+    def default(cls) -> Path:
         return Path(os.path.dirname(__file__)) / "internal" / "models"
 
 
@@ -369,7 +371,7 @@ class DeploymentEnvvar(QAIHMStringEnvvar):
     CLI_HELP_MESSAGE = "AI Hub Workbench deployment to target."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         return get_default_hub_deployment() or "prod"
 
 
@@ -381,7 +383,7 @@ class DeploymentListEnvvar(QAIHMStringListEnvvar):
     CLI_HELP_MESSAGE = "AI Hub Workbench deployments to target."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> list[str]:
         return [DeploymentEnvvar.default()]
 
 
@@ -393,7 +395,7 @@ class S3ArtifactsDirEnvvar(QAIHMPathEnvvar):
     CLI_HELP_MESSAGE = "If set, `test_generated.py::test_export` for each model will download the model zip and upload it to this directory on AWS S3."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> Path:
         return Path()
 
 
@@ -406,7 +408,7 @@ class IgnoreExistingIntermediateJobsDuringCollectionEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "If set, any relevant existing job IDs under qai_hub_models/scorecard/intermediates/*yaml are ignored."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 
@@ -418,7 +420,7 @@ class BranchEnvvar(QAIHMStringEnvvar):
     )
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         return get_git_branch()
 
 
@@ -428,7 +430,7 @@ class TableauBranchNameEnvvar(QAIHMStringEnvvar):
     CLI_HELP_MESSAGE = "Overrides the branch name in the CSV ingested by Tableau. If unset, keeps the existing data in the branch column."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         return ""
 
 
@@ -439,14 +441,14 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
         VARNAME = "QAIHM_TEST_DATE_FORMAT"
 
         @classmethod
-        def default(cls):
+        def default(cls) -> str:
             return "%Y-%m-%dT%H:%M:%SZ"
 
     class DateEnvvar(QAIHMDateFormatEnvvar.DateEnvvar):
         VARNAME = "QAIHM_TEST_DATE"
 
         @classmethod
-        def default(cls):
+        def default(cls) -> str:
             return datetime.now().strftime(
                 DateFormatEnvvar.DATE_FORMAT_ENVVAR.default()
             )
@@ -471,5 +473,5 @@ class AsyncHubFailuresAsTestFailuresEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = " This is only applicable if QAIHM_TEST_HUB_ASYNC is set. If true, AI Hub Workbench job failures submitted in a previous step will cause downstream tests to fail rather than be skipped."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False

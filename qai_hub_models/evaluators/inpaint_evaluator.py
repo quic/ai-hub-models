@@ -21,20 +21,22 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class InpaintEvaluator(BaseEvaluator):
     """Evaluator for image comparison metrics (MAE, PSNR, SSIM, FID)."""
 
-    def __init__(self, metrics=("mae", "psnr", "ssim", "fid")):
+    def __init__(
+        self, metrics: tuple[str, ...] = ("mae", "psnr", "ssim", "fid")
+    ) -> None:
         self.metrics = metrics
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.results: dict = {m: [] for m in self.metrics}
-        self.real_images = []  # Store images for FID
-        self.fake_images = []
+        self.real_images: list[np.ndarray] = []  # Store images for FID
+        self.fake_images: list[np.ndarray] = []
 
-    def postprocess(self, image):
+    def postprocess(self, image: torch.Tensor) -> np.ndarray:
         image = image * 255.0
         return image.permute(0, 2, 3, 1).cpu().numpy().astype(np.uint8)
 
-    def add_batch(self, fake_images: torch.Tensor, real_images: torch.Tensor):
+    def add_batch(self, fake_images: torch.Tensor, real_images: torch.Tensor) -> None:
         """
         Compute accuracy for the real and fake images
 
@@ -55,7 +57,7 @@ class InpaintEvaluator(BaseEvaluator):
             self.fake_images.append(fake_np)
             self.real_images.append(real_np)
 
-    def _update_metrics(self, real: np.ndarray, fake: np.ndarray):
+    def _update_metrics(self, real: np.ndarray, fake: np.ndarray) -> None:
         """
         Calculate and store all metrics for one image pair.
 
@@ -123,7 +125,13 @@ class InpaintEvaluator(BaseEvaluator):
             parts.append(f"fid: {self.fid():.2f}")
         return ", ".join(parts)
 
-    def _compute_fid(self, images1, images2, batch_size=64, dims=2048):
+    def _compute_fid(
+        self,
+        images1: np.ndarray,
+        images2: np.ndarray,
+        batch_size: int = 64,
+        dims: int = 2048,
+    ) -> float:
         """Calculate FID between two image sets"""
         model = InceptionV3([InceptionV3.BLOCK_INDEX_BY_DIM[dims]]).cpu()
         model.eval()
@@ -149,7 +157,13 @@ class InpaintEvaluator(BaseEvaluator):
         tr_covmean = np.trace(covmean)
         return diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
 
-    def get_activations(self, images, model, batch_size=64, dims=2048):
+    def get_activations(
+        self,
+        images: np.ndarray,
+        model: nn.Module,
+        batch_size: int = 64,
+        dims: int = 2048,
+    ) -> np.ndarray:
         """Get Inception V3 activations."""
         images = images.transpose((0, 3, 1, 2))  # (B, 3, H, W)
         d0 = images.shape[0]
@@ -185,11 +199,11 @@ class InceptionV3(nn.Module):
 
     def __init__(
         self,
-        output_blocks=None,
-        resize_input=True,
-        normalize_input=True,
-        requires_grad=False,
-    ):
+        output_blocks: list[int] | None = None,
+        resize_input: bool = True,
+        normalize_input: bool = True,
+        requires_grad: bool = False,
+    ) -> None:
         if output_blocks is None:
             output_blocks = [self.DEFAULT_BLOCK_INDEX]
         super().__init__()
@@ -237,7 +251,7 @@ class InceptionV3(nn.Module):
         for param in self.parameters():
             param.requires_grad = requires_grad
 
-    def forward(self, inp):
+    def forward(self, inp: torch.Tensor) -> list[torch.Tensor]:
         outp = []
         x = inp
         if self.resize_input:

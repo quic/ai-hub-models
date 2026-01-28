@@ -24,7 +24,9 @@ from qai_hub_models.models.common import QAIRTVersion, TargetRuntime
 RESULTS_PATCH_TARGET = "qai_hub_models.configs.tool_versions.get_job_results"
 
 
-def test_extract_tool_versions_from_compiled_model(monkeypatch):
+def test_extract_tool_versions_from_compiled_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
     m = MagicMock(
         spec=hub.Model,
@@ -58,10 +60,12 @@ def test_extract_tool_versions_from_compiled_model(monkeypatch):
         ToolVersions.from_compiled_model(m)
 
 
-def test_extract_tool_versions_from_compile_job(monkeypatch):
+def test_extract_tool_versions_from_compile_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
 
-    def _make_results(versions: list[ToolVersion]):
+    def _make_results(versions: list[ToolVersion]) -> JobResult:
         return JobResult(
             compile_job_result=CompileJobResult(
                 compile_detail=CompileDetail(tool_versions=versions)
@@ -182,7 +186,7 @@ def test_extract_tool_versions_from_compile_job(monkeypatch):
         )
 
 
-def test_extract_tool_versions_from_link_job(monkeypatch):
+def test_extract_tool_versions_from_link_job(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
     # LINK job: Success
     j = MagicMock(
@@ -241,10 +245,12 @@ def test_extract_tool_versions_from_link_job(monkeypatch):
     assert ToolVersions.from_job(j, add_aihm_version=True) == ToolVersions()
 
 
-def test_extract_tool_versions_from_profile_job(monkeypatch):
+def test_extract_tool_versions_from_profile_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
 
-    def _make_results(versions: list[ToolVersion]):
+    def _make_results(versions: list[ToolVersion]) -> JobResult:
         return JobResult(
             profile_job_result=ProfileJobResult(
                 profile=ProfileDetail(tool_versions=versions)
@@ -347,10 +353,12 @@ def test_extract_tool_versions_from_profile_job(monkeypatch):
     ) == ToolVersions(qairt=QAIRTVersion.latest())
 
 
-def test_extract_tool_versions_from_inference_job(monkeypatch):
+def test_extract_tool_versions_from_inference_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(pkg_version, "__version__", "1.2.3")
 
-    def _make_results(versions: list[ToolVersion]):
+    def _make_results(versions: list[ToolVersion]) -> JobResult:
         return JobResult(
             inference_job_result=InferenceJobResult(
                 detail=ProfileDetail(tool_versions=versions)

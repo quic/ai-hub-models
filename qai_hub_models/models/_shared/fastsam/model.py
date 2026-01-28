@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import cast
 
+from typing_extensions import Self
 from ultralytics.models import FastSAM
 from ultralytics.nn.tasks import SegmentationModel
 
@@ -23,7 +24,7 @@ class Fast_SAM(UltralyticsSingleClassSegmentor):
     """Exportable FastSAM model, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = ""):
+    def from_pretrained(cls, ckpt_name: str = "") -> Self:
         return cls(cast(SegmentationModel, FastSAM(model=ckpt_name).model))
 
     def _sample_inputs_impl(

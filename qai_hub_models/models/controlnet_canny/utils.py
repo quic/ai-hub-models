@@ -52,15 +52,21 @@ def fetch_and_prepare(
 
     Parameters
     ----------
-        height (int): Target height of the image.
-        width (int): Target width of the image.
-        low_threshold (int): Low threshold for Canny edge detection.
-        high_threshold (int): High threshold for Canny edge detection.
+    url
+        URL of the image to fetch.
+    height
+        Target height of the image.
+    width
+        Target width of the image.
+    low_threshold
+        Low threshold for Canny edge detection.
+    high_threshold
+        High threshold for Canny edge detection.
 
     Returns
     -------
-        torch.Tensor | None: The processed image tensor (NCHW) or None
-        if loading fails.
+    torch.Tensor | None
+        The processed image tensor (NCHW) or None if loading fails.
     """
     image = download_img(url)
     if image is None:

@@ -34,19 +34,19 @@ class Detectron2ProposalGenerator(Detectron2):
         """
         Parameters
         ----------
-            image:
-                Pixel values pre-processed with shape (B, 3, H, W).
-                Range: float[0, 1]
-                3-channel Color Space: RGB
+        image
+            Pixel values pre-processed with shape (B, 3, H, W).
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            feature:
-                The "res4" feature map from backbone with shape (B, 1024, H//16, W//16)
-            proposal:
-                The proposals for image, with shape (B, num_proposals, 4) in xyxy format.
-            objectness_logits:
-                The objectness logits for image, with shape (B, num_proposals,)
+        feature
+            The "res4" feature map from backbone with shape (B, 1024, H//16, W//16)
+        proposal
+            The proposals for image, with shape (B, num_proposals, 4) in xyxy format.
+        objectness_logits
+            The objectness logits for image, with shape (B, num_proposals,)
         """
         # Detectron2 RCNN:
         # https://github.com/facebookresearch/detectron2/blob/fd27788985af0f4ca800bca563acdb700bb890e2/detectron2/modeling/meta_arch/rcnn.py#L178
@@ -109,19 +109,19 @@ class Detectron2ROIHead(Detectron2):
         """
         Parameters
         ----------
-            features:
-                The "res4" feature map from backbone with shape (1, 1024, H//16, W//16).
-            proposals_boxes:
-                The proposals for image, with shape (1, num_proposals, 4)  in xyxy format.
+        features
+            The "res4" feature map from backbone with shape (1, 1024, H//16, W//16).
+        proposals_boxes
+            The proposals for image, with shape (1, num_proposals, 4)  in xyxy format.
 
         Returns
         -------
-            boxes:
-                A tensor of shape (1, num_proposals, 4)  in xyxy format containing the predicted boxes.
-            scores:
-                A tensor of shape (1, num_proposals) containing the scores for each box.
-            classes:
-                A tensor of shape (1, num_proposals) containing the labels for each box.
+        boxes
+            A tensor of shape (1, num_proposals, 4)  in xyxy format containing the predicted boxes.
+        scores
+            A tensor of shape (1, num_proposals) containing the scores for each box.
+        classes
+            A tensor of shape (1, num_proposals) containing the labels for each box.
         """
         # Detectron2 ROI heads:
         # https://github.com/facebookresearch/detectron2/blob/fd27788985af0f4ca800bca563acdb700bb890e2/detectron2/modeling/roi_heads/roi_heads.py#L459

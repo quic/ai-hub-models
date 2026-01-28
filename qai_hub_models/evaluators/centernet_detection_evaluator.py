@@ -29,7 +29,7 @@ class CenternetDetectionEvaluator(DetectionEvaluator):
         mAP_default_low_iOU: float | None = None,
         mAP_default_high_iOU: float | None = None,
         mAP_default_increment_iOU: float | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -70,7 +70,9 @@ class CenternetDetectionEvaluator(DetectionEvaluator):
             mAP_default_increment_iOU=mAP_default_increment_iOU,
         )
 
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+    def add_batch(
+        self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]
+    ) -> None:
         """
         Add a batch of predictions and ground truth for evaluation.
 

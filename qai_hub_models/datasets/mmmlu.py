@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 from datasets import IterableDataset, load_dataset
 from transformers import PreTrainedTokenizerBase
@@ -42,7 +44,7 @@ class MMMLU(BaseDataset):
         split: DatasetSplit = DatasetSplit.TEST,
         num_samples: int = 0,
         seed: int = 42,
-    ):
+    ) -> None:
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
@@ -79,7 +81,7 @@ class MMMLU(BaseDataset):
 
         grouped_fewshot_questions: dict[str, list[str]] = {}
 
-        def group_fewshot_questions(sample):
+        def group_fewshot_questions(sample: dict[str, Any]) -> None:
             question = sample["Question"]
             choices = (sample["A"], sample["B"], sample["C"], sample["D"])
             subject = sample["Subject"]
@@ -106,10 +108,10 @@ class MMMLU(BaseDataset):
 
         return grouped_fewshot_questions
 
-    def preprocess_dataset(self):
+    def preprocess_dataset(self) -> None:
         grouped_fewshot_questions = self.load_fewshot()
 
-        def tokenize(sample):
+        def tokenize(sample: dict[str, Any]) -> dict[str, Any]:
             question = sample["Question"]
             A = sample["A"]
             B = sample["B"]
@@ -132,7 +134,7 @@ class MMMLU(BaseDataset):
                 )
             )
 
-            def assemble_fewshot_question(formatted_question, subject):
+            def assemble_fewshot_question(formatted_question: str, subject: str) -> str:
                 subject_fewshot_questions = grouped_fewshot_questions[subject]
 
                 formatted_string = ""
@@ -196,7 +198,7 @@ class MMMLU(BaseDataset):
             **(map_kwargs if not isinstance(self.dataset, IterableDataset) else {}),
         )
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         return {
             key: torch.Tensor(value).to(dtype=torch.int)
             for key, value in self.dataset[idx].items()

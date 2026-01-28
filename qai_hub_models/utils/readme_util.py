@@ -8,7 +8,7 @@ from __future__ import annotations
 NO_LICENSE = "This model's original implementation does not provide a LICENSE."
 
 
-def _get_usage_and_limitations(include_gen_ai_terms: bool):
+def _get_usage_and_limitations(include_gen_ai_terms: bool) -> str:
     return (
         """
 ## Usage and Limitations
@@ -63,7 +63,7 @@ def _get_references(
 """
 
 
-def _get_licenses(model_name: str, license_url: str | None):
+def _get_licenses(model_name: str, license_url: str | None) -> str:
     if license_url is None:
         return ""
     license_url = license_url if license_url is not None else NO_LICENSE
@@ -83,7 +83,7 @@ def _get_package_instructions(
     pip_install_flags_gpu: str | None = None,
     greater_than_or_equal_to_python_version: str | None = None,
     less_than_python_version: str | None = None,
-):
+) -> str:
     # Use dashes in model name to avoid an issue where older pip versions may not install modules correctly.
     install_pkg = "qai-hub-models" + (
         f"[{model_id.replace('_', '-')}]" if model_has_reqs else ""

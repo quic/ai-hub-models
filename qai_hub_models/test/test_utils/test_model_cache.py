@@ -26,16 +26,17 @@ dummy_model_id = "dummy_model_id"
 dummy_model_version = 1
 
 
-@pytest.fixture
-def patch_hub_model(monkeypatch):
-    class DummyModel:
-        def __init__(self, model_id: str):
-            self.model_id = model_id
+class DummyModel:
+    def __init__(self, model_id: str) -> None:
+        self.model_id = model_id
 
-    def get_model_mock(model_id: str):
+
+@pytest.fixture
+def patch_hub_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    def get_model_mock(model_id: str) -> DummyModel:
         return DummyModel(model_id)
 
-    def upload_model_mock(model_id: str):
+    def upload_model_mock(model_id: str) -> DummyModel:
         return DummyModel(model_id)
 
     monkeypatch.setattr(
@@ -56,7 +57,7 @@ def patch_hub_model(monkeypatch):
 #
 
 
-def test_adding_cache():
+def test_adding_cache() -> None:
     cache = Cache(cache=[])
 
     key = _get_model_cache_key("model_part_1")
@@ -67,7 +68,7 @@ def test_adding_cache():
     assert cache.get_item(key) == val
 
 
-def test_adding_cache_with_additional_keys():
+def test_adding_cache_with_additional_keys() -> None:
     cache = Cache(cache=[])
 
     additional_keys = {"abc": "xyz"}
@@ -82,7 +83,7 @@ def test_adding_cache_with_additional_keys():
     assert cache.cache[-1].key["abc"] == "xyz"
 
 
-def test_insert_unique_entry():
+def test_insert_unique_entry() -> None:
     cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
@@ -105,7 +106,7 @@ def test_insert_unique_entry():
     assert cache.cache[-1] == KeyValue(key=key2, val=val2)
 
 
-def test_overwrite_fails():
+def test_overwrite_fails() -> None:
     cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
@@ -122,7 +123,7 @@ def test_overwrite_fails():
         cache.insert(key2, val2)
 
 
-def test_overwrite_passes():
+def test_overwrite_passes() -> None:
     cache = Cache(cache=[])
 
     key1 = _get_model_cache_key("model_part_1")
@@ -137,7 +138,7 @@ def test_overwrite_passes():
     assert cache.get_item(key1) == val2
 
 
-def test_incorrect_schema(monkeypatch):
+def test_incorrect_schema(monkeypatch: pytest.MonkeyPatch) -> None:
     with tempfile.NamedTemporaryFile(prefix="cache", suffix=".yaml") as tmp_cache_file:
         monkeypatch.setattr(
             ASSET_CONFIG,
@@ -154,7 +155,9 @@ def test_incorrect_schema(monkeypatch):
 #
 
 
-def test_create_cache_and_return_model(monkeypatch, patch_hub_model):
+def test_create_cache_and_return_model(
+    monkeypatch: pytest.MonkeyPatch, patch_hub_model: None
+) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_file_path = str(os.path.join(tmpdir, "cache.yaml"))
         monkeypatch.setattr(
@@ -174,7 +177,9 @@ def test_create_cache_and_return_model(monkeypatch, patch_hub_model):
         assert model.model_id == uploaded_model_id
 
 
-def test_return_cached_model(monkeypatch, patch_hub_model):
+def test_return_cached_model(
+    monkeypatch: pytest.MonkeyPatch, patch_hub_model: None
+) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_file_path = str(os.path.join(tmpdir, "cache.yaml"))
         monkeypatch.setattr(
@@ -204,7 +209,9 @@ def test_return_cached_model(monkeypatch, patch_hub_model):
         assert len(cached_model.cache) == 1
 
 
-def test_cachemode_disable(monkeypatch, patch_hub_model):
+def test_cachemode_disable(
+    monkeypatch: pytest.MonkeyPatch, patch_hub_model: None
+) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_file_path = str(os.path.join(tmpdir, "cache.yaml"))
         monkeypatch.setattr(
@@ -241,7 +248,9 @@ def test_cachemode_disable(monkeypatch, patch_hub_model):
         assert cached_model.cache[-1].val[HUB_MODEL_ID_KEY] == uploaded_model_id
 
 
-def test_cachemode_overwrite(monkeypatch, patch_hub_model):
+def test_cachemode_overwrite(
+    monkeypatch: pytest.MonkeyPatch, patch_hub_model: None
+) -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_file_path = str(os.path.join(tmpdir, "cache.yaml"))
         monkeypatch.setattr(

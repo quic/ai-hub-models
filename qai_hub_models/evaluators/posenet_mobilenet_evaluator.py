@@ -16,7 +16,9 @@ from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 class PosenetMobilenetEvaluator(CocoBodyPoseEvaluator):
     """Evaluator for Posenet Mobilenet estimation models"""
 
-    def __init__(self, image_height: int, image_width: int, in_vis_thre: float = 0.2):
+    def __init__(
+        self, image_height: int, image_width: int, in_vis_thre: float = 0.2
+    ) -> None:
         super().__init__(in_vis_thre=in_vis_thre)
 
         self.input_width = image_width

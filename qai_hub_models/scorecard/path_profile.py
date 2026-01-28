@@ -53,7 +53,7 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
     ONNX_DML_GPU = "onnx_dml_gpu"
     QNN_DLC_GPU = "qnn_dlc_gpu"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name.lower()
 
     @staticmethod
@@ -202,7 +202,7 @@ class ScorecardProfilePath(Enum, metaclass=ScorecardProfilePathMeta):
         assert_never(self)
 
     @property
-    def has_nonstandard_profile_options(self):
+    def has_nonstandard_profile_options(self) -> bool:
         """
         If this path passes additional options beyond what the underlying TargetRuntime
         passes (eg --compute_unit), then it's considered nonstandard.

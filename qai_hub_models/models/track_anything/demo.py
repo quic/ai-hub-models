@@ -39,9 +39,12 @@ def generate_video_from_frames(
 
     Parameters
     ----------
-        frames (list of numpy arrays): The frames to include in the video.
-        output_path (str): The path to save the generated video.
-        fps (int, optional): The frame rate of the output video. Defaults to 30.
+    frames
+        The frames to include in the video.
+    output_path
+        The path to save the generated video.
+    fps
+        The frame rate of the output video. Defaults to 30.
     """
     height, width, _layers = frames[0].shape
     fourcc = 0x39307076  # hex code for "vp09" format
@@ -62,11 +65,13 @@ def generate_frames_from_video(video_path: str) -> list[np.ndarray]:
 
     Parameters
     ----------
-        video_path (str): The path of the input video.
+    video_path
+        The path of the input video.
 
     Returns
     -------
-        frames (list of numpy array): frames generated from a video.
+    list[np.ndarray]
+        Frames generated from a video.
     """
     frames: list[np.ndarray] = []
     cap = cv2.VideoCapture(video_path)

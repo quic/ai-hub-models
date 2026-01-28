@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 from math import floor
-from typing import cast
+from typing import Any, cast
 
 import torch
 import torch.nn.functional as F
@@ -15,12 +15,12 @@ from torch import nn
 
 
 def sam_decoder_predict_masks(
-    self,  # SAMMaskDecoder
+    self: Any,  # from segment_anything.modeling.mask_decoder import SamMaskDecoder
     image_embeddings: torch.Tensor,
     image_pe: torch.Tensor,
     sparse_prompt_embeddings: torch.Tensor,
     dense_prompt_embeddings: torch.Tensor,
-):
+) -> tuple[torch.Tensor, torch.Tensor]:
     """
     SamMaskDecoder.predict_masks modified to skip the per-image batch expansion if no expansion is required.
 
@@ -100,7 +100,7 @@ class Conv2DInplaceLinear(nn.Module):
             in_features,
             out_features,
             bias is not None,
-            mod.device if hasattr(mod, "device") else None,  # type: ignore[arg-type]
+            mod.device if hasattr(mod, "device") else None,  # type: ignore[arg-type, unused-ignore]
         )
         linear.conv2d.weight.data.copy_(weight.data[:, :, None, None])
         if bias is not None:
@@ -111,23 +111,23 @@ class Conv2DInplaceLinear(nn.Module):
 
     def __init__(
         self,
-        in_features,
-        out_features,
+        in_features: int,
+        out_features: int,
         has_bias: bool = True,
         device: torch.device | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self.conv2d = torch.nn.Conv2d(in_features, out_features, 1, bias=has_bias)
         if device:
             self.conv2d.to(device)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> nn.Module | None:
         conv2d = self._modules["conv2d"]
         if attr == "conv2d":
             return conv2d
         return getattr(conv2d, attr)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         ndim = x.ndim
         if ndim == 2:
             x = x.unsqueeze(0).unsqueeze(1)
@@ -152,7 +152,10 @@ class Conv2DInplaceLinear(nn.Module):
 class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
     """SAM MLP that uses 1x1 Conv2D in place of linear layers."""
 
-    def __init__(self, mlp):  # from segment_anything.modeling.mask_decoder import MLP
+    def __init__(
+        self,
+        mlp: Any,  # from segment_anything.modeling.mask_decoder import MLP
+    ) -> None:
         super().__init__()
         self.layers = nn.ModuleList()
         self.num_layers = mlp.num_layers
@@ -161,7 +164,7 @@ class Conv2DInplaceLinearSAMMaskDecoderMLP(nn.Module):
             assert isinstance(module, nn.Linear)
             self.layers.append(Conv2DInplaceLinear.from_linear(module))
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         for i, layer in enumerate(self.layers):
             x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         if self.sigmoid_output:
@@ -174,8 +177,8 @@ class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
 
     def __init__(
         self,
-        mlp_block,  # from segment_anything.modeling.image_encoder import MLPBlock,
-    ):
+        mlp_block: Any,  # from segment_anything.modeling.image_encoder import MLPBlock,
+    ) -> None:
         super().__init__()
         self.lin1 = Conv2DInplaceLinear.from_linear(mlp_block.lin1)
         self.lin2 = Conv2DInplaceLinear.from_linear(mlp_block.lin2)
@@ -188,8 +191,8 @@ class Conv2DInplaceLinearSAMTransformerMLPBlock(nn.Module):
 class SplitHeadSAMDecoderAttention(nn.Module):
     def __init__(
         self,
-        attention_block,  # from segment_anything.modeling.transformer import Attention
-    ):
+        attention_block: Any,  # from segment_anything.modeling.transformer import Attention
+    ) -> None:
         super().__init__()
         self.embedding_dim = attention_block.embedding_dim  # in features
         self.internal_dim = attention_block.internal_dim  # out features

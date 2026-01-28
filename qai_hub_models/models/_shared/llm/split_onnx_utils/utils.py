@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, TypeVar, cast
 
 import onnx
+from packaging.version import Version
 
 from qai_hub_models.utils.asset_loaders import PathLike
 from qai_hub_models.utils.onnx.helpers import ONNXBundle
@@ -33,7 +34,7 @@ def _target_name(
     return name
 
 
-def has_embedding_table(model: onnx.ModelProto):
+def has_embedding_table(model: onnx.ModelProto) -> bool:
     return any(node.op_type == "Gather" for node in model.graph.node)
 
 
@@ -96,7 +97,7 @@ def get_split_tensors(
             return inp
         return a
 
-    def can_visit(src, dst):
+    def can_visit(src: str, dst: str) -> bool:
         if seq[src] < seq[dst]:
             return False
         stack, visited = collections.deque([src]), set()
@@ -115,7 +116,7 @@ def get_split_tensors(
                     stack.append(name)
         return False
 
-    def is_residual_add(nodename, strict):
+    def is_residual_add(nodename: str, strict: bool) -> bool:
         if nodes[nodename].op_type != "Add":
             return False
         a, b = (producers[tensor] for tensor in nodes[nodename].input)
@@ -164,7 +165,7 @@ def get_split_tensors(
 
 def _load_model(
     onnxfile: PathLike,
-    load_external_data=False,
+    load_external_data: bool = False,
     model_cache: dict[str, onnx.ModelProto] | None = None,
 ) -> onnx.ModelProto:
     if model_cache is None:
@@ -181,22 +182,19 @@ def _load_encoding(encodingfile: PathLike | None, no_merge: bool = False) -> Any
     all_encodings = {}
     if encodingfile is not None:
         with open(encodingfile) as json_file:
-            quant_encoding_dict = json.load(json_file)
-        if isinstance(quant_encoding_dict, list):
-            activation_encodings = [
-                v for v in quant_encoding_dict if v.get("type") == "activation"
-            ]
-            param_encodings = [
-                v for v in quant_encoding_dict if v.get("type") == "param"
-            ]
-            quant_encoding_dict = {
-                "activation_encodings": {v["name"]: v for v in activation_encodings},
-                "param_encodings": {v["name"]: v for v in param_encodings},
+            encodings = json.load(json_file)
+        uses_lists = Version(encodings["version"]) >= Version("1.0.0")
+        if uses_lists:
+            encodings["activation_encodings"] = {
+                v["name"]: v for v in encodings["activation_encodings"]
+            }
+            encodings["param_encodings"] = {
+                v["name"]: v for v in encodings["param_encodings"]
             }
         if no_merge:
-            return quant_encoding_dict
-        all_encodings.update(quant_encoding_dict["activation_encodings"])
-        all_encodings.update(quant_encoding_dict["param_encodings"])
+            return encodings
+        all_encodings.update(encodings["activation_encodings"])
+        all_encodings.update(encodings["param_encodings"])
     return all_encodings
 
 
@@ -211,7 +209,7 @@ onnx_ret_t = TypeVar("onnx_ret_t", str, os.PathLike, ONNXBundle)
 def split_onnx_by_names(
     onnxfile: onnx_ret_t,
     modelname: str,
-    *list_of_output_tensors,
+    *list_of_output_tensors: str,
     output_dir: PathLike = ".",
     onnxmodel: onnx.ModelProto | None = None,
 ) -> list[onnx_ret_t]:
@@ -257,7 +255,7 @@ def split_onnx_by_names(
     splitter = OnnxSplitter(onnxmodel, verbose=False)
     using_external_data = OnnxSplitter.is_using_external_data(onnxmodel)
 
-    list_of_output_tensors = tuple([i.split(",") for i in list_of_output_tensors])
+    list_of_output_tensors = tuple([i.split(",") for i in list_of_output_tensors])  # type: ignore[misc]
     num_splits = len(list_of_output_tensors) + 1
 
     # 1. split model
@@ -408,7 +406,7 @@ def split_onnx(
     ]
     """
 
-    def _is_cache(layer, name):
+    def _is_cache(layer: int, name: str) -> bool:
         return re.search(f"past_(key|value)_{layer}_", name) is not None
 
     num_splits = int(num_splits)

@@ -34,7 +34,7 @@ def cityscapes_segmentation_demo(
     model_type: type[CityscapesSegmentor],
     model_id: str,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_model_input_spec_parser(model_type, parser)

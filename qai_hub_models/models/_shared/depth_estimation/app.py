@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,12 +37,14 @@ class DepthEstimationApp:
         model: Callable[[torch.Tensor], torch.Tensor],
         input_height: int,
         input_width: int,
-    ):
+    ) -> None:
         self.model = model
         self.input_height = input_height
         self.input_width = input_width
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> Image.Image | npt.NDArray[np.float32]:
         return self.estimate_depth(*args, **kwargs)
 
     def estimate_depth(
@@ -55,11 +57,14 @@ class DepthEstimationApp:
 
         Parameters
         ----------
-            image: PIL Image to estimate depth.
-            raw_output: If set, returns the raw depth estimates instead of a heatmap.
+        image
+            PIL Image to estimate depth.
+        raw_output
+            If set, returns the raw depth estimates instead of a heatmap.
 
         Returns
         -------
+        depth_output
             A heatmap PIL Image or an np array of depth estimates.
             np array will be shape (h, w) where h, w are the dimensions of the input.
             np array will contain raw depth estimates, while PIL image will normalize

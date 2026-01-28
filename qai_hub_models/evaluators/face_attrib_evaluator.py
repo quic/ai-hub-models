@@ -13,11 +13,11 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class FaceAttribNetEvaluator(BaseEvaluator):
     """Evaluator for comparing a batched image output."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """FaceAttribNetEvaluator constructor"""
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the evaluation result variables."""
         self.TP_count: int = 0
         self.total: int = 0
@@ -26,7 +26,7 @@ class FaceAttribNetEvaluator(BaseEvaluator):
         self,
         output: torch.Tensor,
         gt: torch.Tensor,
-    ):
+    ) -> None:
         """
         Adds a batch of model outputs and corresponding ground truth data.
 

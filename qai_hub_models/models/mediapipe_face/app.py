@@ -76,15 +76,17 @@ class MediaPipeFaceApp(MediaPipeApp):
 
             Parameters
             ----------
-                inp (torch.Tensor): Input image tensor to the face detector model
+            inp
+                Input image tensor to the face detector model.
 
             Returns
             -------
-                tuple[torch.Tensor, torch.Tensor]:
-                    - box_coords: bounding box coordinates with shape [1, 896, 12]
-                         (batch_size, num_anchors, 12_coordinates_per_anchor)
-                    - box_scores: confidence scores with shape [1, 896, 1]
-                         (batch_size, num_anchors, 1_score_per_anchor)
+            box_coords
+                Bounding box coordinates with shape [1, 896, 12]
+                (batch_size, num_anchors, 12_coordinates_per_anchor).
+            box_scores
+                Confidence scores with shape [1, 896, 1]
+                (batch_size, num_anchors, 1_score_per_anchor).
             """
             box_coords1, box_coords2, box_scores1, box_scores2 = face_detector(inp)
             box_coords = torch.cat([box_coords1, box_coords2], dim=1)

@@ -19,12 +19,14 @@ from qai_hub_models.models.foot_track_net.app import postprocess
 class FootTrackNetEvaluator(mAPEvaluator):
     """Evaluator for comparing a batched image output."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.threshhold = [0.1, 0.1, 0.1]
         self.iou_thr = [0.2, 0.5, 0.5]
 
-    def add_batch(self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]):
+    def add_batch(
+        self, output: Collection[torch.Tensor], gt: Collection[torch.Tensor]
+    ) -> None:
         """
         Add a batch of predictions and ground truth for evaluation.
 

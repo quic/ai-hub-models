@@ -17,6 +17,9 @@ from pydantic_yaml import parse_yaml_file_as, to_yaml_file, to_yaml_str
 from ruamel.yaml.representer import RoundTripRepresenter
 from typing_extensions import Self, TypeVar
 
+# Size of an 'empty' YAML serialization. When a BaseQAIHMConfig's values are all defaults, it will serialize to the below string.
+EMPTY_SERIALIZED_YAML_SIZE = len(b"{}\n")
+
 
 class BaseQAIHMConfig(BaseModel):
     """
@@ -45,7 +48,8 @@ class BaseQAIHMConfig(BaseModel):
         path: str | Path,
         write_if_empty: bool = False,
         delete_if_empty: bool = True,
-        **kwargs,
+        flow_lists: bool = False,
+        **kwargs: Any,
     ) -> bool:
         """
         Converts this class to a dict and saves that dict to a YAML file.
@@ -58,6 +62,8 @@ class BaseQAIHMConfig(BaseModel):
             If False, the YAML file will not be written to disk if the dictionary to be saved is empty.
         delete_if_empty
             If True, an existing YAML file at the given path will be deleted if the dictionary to be saved is empty.
+        flow_lists
+            If True, lists will be formatted in flow style (e.g., [1, 2, 3]) instead of block style.
         **kwargs
             Additional args (used by overrides).
 
@@ -79,12 +85,22 @@ class BaseQAIHMConfig(BaseModel):
         yaml.width = 4096
 
         # Allow strings with newlines to dump as newlines rather than \n
-        def _yaml_repr_str(dumper: RoundTripRepresenter, data: str):
+        def _yaml_repr_str(dumper: RoundTripRepresenter, data: str) -> Any:
             if "\n" in data:
                 return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
             return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
         yaml.representer.add_representer(str, _yaml_repr_str)
+
+        # Enable flow style for lists if requested
+        if flow_lists:
+
+            def _yaml_repr_list(dumper: RoundTripRepresenter, data: list) -> Any:
+                return dumper.represent_sequence(
+                    "tag:yaml.org,2002:seq", data, flow_style=True
+                )
+
+            yaml.representer.add_representer(list, _yaml_repr_list)
 
         # Dump data
         to_yaml_file(
@@ -97,7 +113,10 @@ class BaseQAIHMConfig(BaseModel):
         )
 
         # Remove file if empty
-        if (not write_if_empty or delete_if_empty) and os.path.getsize(path) == 0:
+        if (not write_if_empty or delete_if_empty) and os.path.getsize(path) in (
+            0,
+            EMPTY_SERIALIZED_YAML_SIZE,
+        ):
             os.remove(path)
             return False
 

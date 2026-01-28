@@ -37,10 +37,10 @@ class FaceAttribNetApp:
 
         Parameters
         ----------
-        model : Callable[[torch.Tensor], torch.Tensor]
+        model
             A callable object representing the FaceAttribNet model
 
-        model_input_shape : tuple[int, int]
+        model_input_shape
             model input shape (H, W)
         """
         self.model = model
@@ -60,16 +60,16 @@ class FaceAttribNetApp:
 
         Parameters
         ----------
-        pixel_values_or_image :
+        pixel_values_or_image
             see details in run_inference_on_image
 
-        model_input_shape : tuple[int, int]
+        model_input_shape
             model input shape (H, W)
 
         Returns
         -------
-        img_tensor : torch.Tensor
-            shape (N, C, H, W), value range [0, 1]
+        preprocessed_tensor
+            Shape (N, C, H, W), value range [0, 1].
         """
         img_tensor = app_to_net_image_inputs(pixel_values_or_image)[1]
         img_shape = img_tensor.shape[-2], img_tensor.shape[-1]
@@ -84,7 +84,7 @@ class FaceAttribNetApp:
 
         Parameters
         ----------
-        prob : torch.Tensor
+        prob
             Range [0, 1], shape (N, M), where:
             - N: Batch size
             - M: Number of attributes (5)
@@ -92,7 +92,7 @@ class FaceAttribNetApp:
 
         Returns
         -------
-        dict[str, float]
+        attribute_probabilities
             see details in run_inference_on_image
         """
         prob_list = [each.item() * 100.0 for each in prob[0]]
@@ -123,7 +123,7 @@ class FaceAttribNetApp:
 
         Returns
         -------
-        dict[str, float]
+        attribute_probabilities
             inference output containing probability (in percentage) of 5 attributes, the value is in range [0, 100]
         """
         img_tensor = self.preprocess(pixel_values_or_image, self.model_input_shape)

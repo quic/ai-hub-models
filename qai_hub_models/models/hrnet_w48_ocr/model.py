@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.cityscapes_segmentation.model import (
     CityscapesSegmentor,
@@ -74,7 +75,7 @@ class HRNET_W48_OCR(CityscapesSegmentor):
     """Exportable HRNET_W48_OCR Image segmentation, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, weights: str | None = None):
+    def from_pretrained(cls, weights: str | None = None) -> Self:
         """Load HRNET_W48_OCR from a weightfile created by the source repository."""
         with SourceAsRoot(
             HRNET_W48_OCR_SOURCE_REPOSITORY,
@@ -110,13 +111,15 @@ class HRNET_W48_OCR(CityscapesSegmentor):
 
         Parameters
         ----------
-            image: A [1, 3, height, width] image.
-                   RGB, range [0 - 1]
-                   Assumes image has been resized and normalized using the
-                   Cityscapes preprocesser (in cityscapes_segmentation/app.py).
+        image
+            A [1, 3, height, width] image.
+            RGB, range [0 - 1]
+            Assumes image has been resized and normalized using the
+            Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 
         Returns
         -------
+        class_logits
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

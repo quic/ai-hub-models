@@ -50,19 +50,19 @@ class FaceDetLiteApp:
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
         Returns
         -------
-            objs_face: a list of BBox for face  list[BBox]
+        face_bounding_boxes
+            A list of BBox for face.
+        annotated_image
+            Image with detected faces drawn.
         """
         assert pixel_values_or_image is not None, "pixel_values_or_image is None"
         [img_array_color], _ = app_to_net_image_inputs(pixel_values_or_image)

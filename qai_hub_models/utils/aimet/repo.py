@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from collections.abc import Generator
 from contextlib import contextmanager
 
 from qai_hub_models.utils.asset_loaders import SourceAsRoot, find_replace_in_repo
@@ -13,7 +14,7 @@ REPO_ASSET_VERSION = 1
 
 
 @contextmanager
-def aimet_zoo_as_root():
+def aimet_zoo_as_root() -> Generator[str]:
     with SourceAsRoot(
         AIMET_ZOO_SOURCE_REPOSITORY,
         AIMET_ZOO_SOURCE_REPO_COMMIT,

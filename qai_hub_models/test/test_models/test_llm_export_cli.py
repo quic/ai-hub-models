@@ -47,7 +47,7 @@ class DummyMockModel(LLM_AIMETOnnx):
         _skip_quantsim_creation: bool = False,
         llm_config: dict[str, Any] | None = None,
         model_mock_side_effects: dict[str, Any] | None = None,
-    ):
+    ) -> mock.Mock:
         """
         Get a mocked instance of the LLM_AIMETOnnx class.
         Provides real return values for methods used during export without actually instantiating an LLM.
@@ -105,7 +105,10 @@ class DummyMockModel(LLM_AIMETOnnx):
 
     @staticmethod
     def get_input_spec(
-        input_spec_arg_a: int = 1, input_spec_arg_b: int = 2, *args, **kwargs
+        input_spec_arg_a: int = 1,
+        input_spec_arg_b: int = 2,
+        *args: Any,
+        **kwargs: Any,
     ) -> InputSpec:
         return {}
 
@@ -182,7 +185,7 @@ def test_export_cli(
     profile_options: str,
     synchronous: bool,
     model_cache_mode: CacheMode,
-):
+) -> None:
     """
     Test helper for verifying cli args are:
         * parsed by the export script's main function

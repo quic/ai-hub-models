@@ -35,7 +35,7 @@ class FaceDetLiteDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
         max_boxes: int = 20,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FACEDETLITE_DATASET_ID, FACEDETLITE_DATASET_VERSION, "data"
         )
@@ -129,7 +129,7 @@ class FaceDetLiteDataset(BaseDataset):
             torch.tensor([num_boxes]),
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_list)
 
     def _validate_data(self) -> bool:

@@ -26,7 +26,7 @@ def deeplabv3_demo(
     default_image: str | CachedWebAsset,
     num_classes: int,
     is_test: bool,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

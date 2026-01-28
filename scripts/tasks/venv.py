@@ -48,11 +48,11 @@ class GenerateGlobalRequirementsTask(RunCommandsWithVenvTask):
     # and should therefore be regenerated before running any model tests.
     def __init__(
         self,
-        venv,
-        env=None,
-        raise_on_failure=True,
+        venv: str | None,
+        env: dict[str, str] | None = None,
+        raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             "Generate Global Requirements",
             venv,
@@ -66,11 +66,11 @@ class GenerateGlobalRequirementsTask(RunCommandsWithVenvTask):
 class AggregateScorecardResultsTask(RunCommandsWithVenvTask):
     def __init__(
         self,
-        venv,
-        env=None,
-        raise_on_failure=True,
+        venv: str | None,
+        env: dict[str, str] | None = None,
+        raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             "Aggregate Scorecard Results",
             venv,
@@ -85,11 +85,11 @@ class DownloadPrivateDatasetsTask(RunCommandsWithVenvTask):
     # Needed to quantize models relying on data without public download links
     def __init__(
         self,
-        venv,
-        env=None,
-        raise_on_failure=True,
+        venv: str | None,
+        env: dict[str, str] | None = None,
+        raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             "Download Private Datasets",
             venv,
@@ -104,11 +104,11 @@ class DownloadQDCWheelTask(RunCommandsWithVenvTask):
     # Needed to run tests relying on QDC (e.g. Genie exports)
     def __init__(
         self,
-        venv,
-        env=None,
-        raise_on_failure=True,
+        venv: str | None,
+        env: dict[str, str] | None = None,
+        raise_on_failure: bool = True,
         ignore_return_codes: list[int] | None = None,
-    ):
+    ) -> None:
         super().__init__(
             "Download QDC Wheel",
             venv,
@@ -120,7 +120,7 @@ class DownloadQDCWheelTask(RunCommandsWithVenvTask):
 
 
 class InstallGlobalRequirementsTask(RunCommandsWithVenvTask):
-    def __init__(self, venv_path):
+    def __init__(self, venv_path: str | None) -> None:
         super().__init__(
             group_name="Install Global Requirements",
             venv=venv_path,
@@ -177,8 +177,8 @@ class SyncModelVenvTask(SyncLocalQAIHMVenvTask):
 
     def __init__(
         self,
-        model_name,
-        venv_path,
+        model_name: str,
+        venv_path: str | None,
         include_dev_deps: bool = False,
         qaihm_wheel_dir: str | os.PathLike | None = None,
     ) -> None:
@@ -204,7 +204,9 @@ class SyncModelRequirementsVenvTask(RunCommandsWithVenvTask):
     Will not re-install QAI Hub Models. Intended for speeding up CI compared to building an entirely new env for each model.
     """
 
-    def __init__(self, model_name, venv_path, pip_force_install: bool = True) -> None:
+    def __init__(
+        self, model_name: str, venv_path: str | None, pip_force_install: bool = True
+    ) -> None:
         requirements_txt = os.path.join(
             PY_PACKAGE_MODELS_ROOT, model_name, "requirements.txt"
         )

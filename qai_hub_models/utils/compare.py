@@ -15,7 +15,7 @@ from qai_hub_models.utils.base_model import BaseModel
 from qai_hub_models.utils.transpose_channel import transpose_channel_first_to_last
 
 
-def _flatten_tuple(out_tuple):
+def _flatten_tuple(out_tuple: object) -> tuple[torch.Tensor, ...]:
     if isinstance(out_tuple, torch.Tensor):
         return (out_tuple.detach(),)
     if isinstance(out_tuple, Iterable):
@@ -25,7 +25,7 @@ def _flatten_tuple(out_tuple):
             f"Invalid type for out_tuple: {type(out_tuple)}. Expected torch.Tensor or Iterable."
         )
 
-    flattened_tuple = []
+    flattened_tuple: list[torch.Tensor] = []
     for elem in out_tuple:
         flattened_tuple.extend(_flatten_tuple(elem))
 
@@ -139,12 +139,12 @@ def compare_psnr(
     assert psnr > psnr_threshold
 
 
-def compute_top_k_accuracy(expected, actual, k):
+def compute_top_k_accuracy(expected: np.ndarray, actual: np.ndarray, k: int) -> float:
     """expected, actual: logit / softmax prediction of the same 1D shape."""
     top_k_expected = np.argpartition(expected.flatten(), -k)[-k:]
     top_k_actual = np.argpartition(actual.flatten(), -k)[-k:]
 
-    return np.mean(np.isin(top_k_expected, top_k_actual))
+    return float(np.mean(np.isin(top_k_expected, top_k_actual)))
 
 
 TOP_K_EXPLAINER = "Match rate between the top {k} classification predictions. 1 indicates perfect match"

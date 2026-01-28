@@ -53,9 +53,6 @@ MODEL_ASSET_VERSION = 1
 
 END_TOKENS = {"<|end|>"}
 
-DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant."
-DEFAULT_USER_PROMPT = "What is the capital of France? Answer in one sentence."
-
 
 @unique
 class Phi3_Optimizations(str, Enum):  # Inherit from str and Enum
@@ -115,13 +112,13 @@ class Phi3LongRoPEScaledRotaryEmbedding(Embedding):
         dummy_x = torch.Tensor([1.0])
         position_ids = torch.arange(seq_len).view(1, -1)
         if hasattr(rope, "_original_forward"):
-            embeddings = rope._original_forward(dummy_x, position_ids)
+            embeddings = rope._original_forward(dummy_x, position_ids)  # type: ignore[operator, unused-ignore]
         else:
             embeddings = rope.forward(dummy_x, position_ids)
 
         emb_size = embeddings[0].size(-1) // 2
         embeddings = [emb[:, :, :emb_size] for emb in embeddings]
-        return [emb.unsqueeze(0) for emb in embeddings]
+        return tuple(emb.unsqueeze(0) for emb in embeddings)
 
     def get_embedding(
         self,
@@ -131,12 +128,22 @@ class Phi3LongRoPEScaledRotaryEmbedding(Embedding):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Get cos and sin embeddings for given position_ids.
-        Args:
-            position_ids: [batch_size, sequence_length]
-            seq_len: Optional sequence length for dynamic computation
-            dtype: Output dtype
-        Returns:
-            tuple of [batch_size, 1, sequence_length, head_dim]
+
+        Parameters
+        ----------
+        position_ids
+            [batch_size, sequence_length]
+        seq_len
+            Optional sequence length for dynamic computation.
+        dtype
+            Output dtype.
+
+        Returns
+        -------
+        cos
+            Cosine embeddings with shape [batch_size, 1, sequence_length, head_dim].
+        sin
+            Sine embeddings with shape [batch_size, 1, sequence_length, head_dim].
         """
         cos = self.cos[0, 0, :, :].to(position_ids.device)  # [seq_len, dim]
         sin = self.sin[0, 0, :, :].to(position_ids.device)  # [seq_len, dim]
@@ -151,15 +158,18 @@ class Phi3PositionProcessor(PositionProcessorBase):
     def __init__(
         self,
         context_length: int,
-        config: PretrainedConfig,
+        config: Phi3Config,
     ) -> None:
         super().__init__(context_length, config=config)
         self.context_len = context_length
         self.rope_embedding = Phi3LongRoPEScaledRotaryEmbedding(
-            max_length=self.context_len, config=config
+            max_length=self.context_len,
+            config=config,
         )
 
-    def forward(self, attention_mask_before_processor, position_ids):
+    def forward(
+        self, attention_mask_before_processor: torch.Tensor, position_ids: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
             position_ids
         )
@@ -178,13 +188,9 @@ class Phi35Base(LLMBase):
     LMClass = QCPhi3ForCausalLM
     EmbeddingClass = Phi3LongRoPEScaledRotaryEmbedding
 
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        """Get prompt formatted for Phi 3 chat template"""
-        return f"<|system|>\n{system_context_prompt}<|end|>\n<|user|>\n{user_input_prompt}<|end|>\n<|assistant|>\n"
+    # Default prompts for demos
+    default_user_prompt = "What is the capital of France? Answer in one sentence."
+    default_system_prompt = "You are a helpful AI assistant."
 
     @staticmethod
     def eval_datasets() -> list[str]:
@@ -202,30 +208,39 @@ class Phi35Base(LLMBase):
         elif hasattr(modeling_phi3, "PHI3_ATTENTION_CLASSES"):
             modeling_phi3.PHI3_ATTENTION_CLASSES["eager"] = Phi35SHAAttention
         else:
-            modeling_phi3.Phi3Attention = Phi35SHAAttention
+            modeling_phi3.Phi3Attention = Phi35SHAAttention  # type: ignore[misc, unused-ignore]
 
-        def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
+        def bypass_RotaryEmbedding(
+            self: modeling_phi3.Phi3RotaryEmbedding,
+            x: torch.Tensor,
+            position_ids: torch.Tensor,
+            *args: Any,
+            **kwargs: Any,
+        ) -> torch.Tensor:
             return position_ids
 
         # Bypass rotary_emb module
         if hasattr(modeling_phi3, "Phi3RotaryEmbedding"):
             if not hasattr(modeling_phi3.Phi3RotaryEmbedding, "_original_forward"):
-                modeling_phi3.Phi3RotaryEmbedding._original_forward = (  # pyright: ignore [reportAttributeAccessIssue]
+                modeling_phi3.Phi3RotaryEmbedding._original_forward = (  # type: ignore[attr-defined, unused-ignore]  # pyright: ignore [reportAttributeAccessIssue]
                     modeling_phi3.Phi3RotaryEmbedding.forward
                 )
                 modeling_phi3.Phi3RotaryEmbedding.forward = bypass_RotaryEmbedding
         elif not hasattr(
-            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding, "_original_forward"
+            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding,  # type: ignore[attr-defined, unused-ignore]
+            "_original_forward",
         ):
-            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding._original_forward = (  # pyright: ignore [reportAttributeAccessIssue]
-                modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding.forward
+            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding._original_forward = (  # type: ignore[attr-defined, unused-ignore]  # pyright: ignore [reportAttributeAccessIssue]
+                modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding.forward  # type: ignore[attr-defined, unused-ignore]
             )
-            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding.forward = (
+            modeling_phi3.Phi3LongRoPEScaledRotaryEmbedding.forward = (  # type: ignore[attr-defined, unused-ignore]
                 bypass_RotaryEmbedding
             )
         modeling_phi3.apply_rotary_pos_emb = QcPhi3_apply_rotary_pos_emb
 
-        def Phi3RMSNorm_forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        def Phi3RMSNorm_forward(
+            self: modeling_phi3.Phi3RMSNorm, hidden_states: torch.Tensor
+        ) -> torch.Tensor:
             # Raise to rank 4
             hidden_states = hidden_states.unsqueeze(0)
             variance = hidden_states.pow(2).mean(-1, keepdim=True)
@@ -242,13 +257,13 @@ class Phi35Base(LLMBase):
         else:
             modeling_phi3.Phi3RMSNorm.forward = Phi3RMSNorm_forward
 
-        modeling_phi3.Phi3MLP = QCPhi3MLP
-        modeling_phi3.Phi3ForCausalLM = QCPhi3ForCausalLM
+        modeling_phi3.Phi3MLP = QCPhi3MLP  # type: ignore[misc, unused-ignore]
+        modeling_phi3.Phi3ForCausalLM = QCPhi3ForCausalLM  # type: ignore[misc, unused-ignore]
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         if (
             not (
-                self.llm_config.architectures[0] == "Phi3ForCausalLM"
+                self.llm_config.architectures[0] == "Phi3ForCausalLM"  # type: ignore[index, unused-ignore]
                 and self.llm_config.model_type == "phi3"
             )
             and self.llm_config.rope_scaling is not None
@@ -274,7 +289,7 @@ class Phi35Base_AIMETOnnx(LLM_AIMETOnnx):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         attention_mask_min_clip: float | None = None,
         attention_mask_multiplier: float = 1.0,
-    ):
+    ) -> None:
         super().__init__(
             quant_sim=quant_sim,
             checkpoint=checkpoint,
@@ -304,15 +319,7 @@ class Phi35Base_AIMETOnnx(LLM_AIMETOnnx):
         return quant_sim
 
     @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        """Get prompt formatted for Phi 3 chat template"""
-        return f"<|system|>\n{system_context_prompt}<|end|>\n<|user|>\n{user_input_prompt}<|end|>\n<|assistant|>\n"
-
-    @staticmethod
-    def _get_output_names(num_hidden_layers: int):
+    def _get_output_names(num_hidden_layers: int) -> list[str]:
         output_names = ["logits"]
         for layer in range(num_hidden_layers):
             output_names.append(f"past_key_{layer}_out")
@@ -430,5 +437,3 @@ class Phi35Base_QNN(LLM_QNN):
     FPModel = Phi35Base
     EmbeddingClass = Phi3LongRoPEScaledRotaryEmbedding
     num_layers_per_split: int
-
-    get_input_prompt_with_tags = Phi35Base.get_input_prompt_with_tags

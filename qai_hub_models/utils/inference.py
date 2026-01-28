@@ -110,7 +110,7 @@ def prepare_compile_zoo_model_to_hub(
         model, AIMETOnnxQuantizableMixin
     ):
 
-        def export_model_func():
+        def export_model_func() -> str:
             print("Exporting model to ONNX with AIMET encodings")
             return model.convert_to_onnx_and_aimet_encodings(
                 output_dir=output_path,
@@ -120,7 +120,7 @@ def prepare_compile_zoo_model_to_hub(
     elif isinstance(model, AimetEncodingLoaderMixin):
         if source_model_format == SourceModelFormat.ONNX:
 
-            def export_model_func():
+            def export_model_func() -> str:
                 print("Exporting model to ONNX with AIMET encodings")
                 return model.convert_to_onnx_and_aimet_encodings(
                     output_path,
@@ -135,7 +135,7 @@ def prepare_compile_zoo_model_to_hub(
             and target_runtime == TargetRuntime.TFLITE
         ):
 
-            def export_model_func():
+            def export_model_func() -> str:
                 print("Converting model to Torchscript")
                 traced_model = model.convert_to_torchscript(
                     input_spec=input_spec, check_trace=check_trace
@@ -150,7 +150,7 @@ def prepare_compile_zoo_model_to_hub(
 
     else:  # fp32
 
-        def export_model_func():
+        def export_model_func() -> str:
             traced_model = model.convert_to_torchscript(
                 input_spec=input_spec, check_trace=check_trace
             )
@@ -309,7 +309,7 @@ class AsyncOnDeviceResult:
         channel_last_output: list[str],
         output_names: list[str],
         num_retries: int = 1,
-    ):
+    ) -> None:
         self.inference_job = inference_job
         self.target_runtime = target_runtime
         self.channel_last_output = channel_last_output
@@ -380,7 +380,7 @@ class AsyncOnDeviceModel:
         device: hub.Device,
         inference_options: str = "",
         output_names: list[str] | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -495,7 +495,7 @@ class OnDeviceModel(ExecutableModelProtocol):
         device: hub.Device,
         inference_options: str = "",
         output_names: list[str] | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -556,7 +556,7 @@ def get_uploaded_precompiled_model(
     model_version: VersionType,
     model_component: str,
     ignore_cached_model: bool = False,
-):
+) -> hub.Model:
     """Caches pre-compiled model in default asset path to be used in sub-sequence demos."""
     asset_config = ModelZooAssetConfig.from_cfg()
     model_id_path = asset_config.get_local_store_model_path(

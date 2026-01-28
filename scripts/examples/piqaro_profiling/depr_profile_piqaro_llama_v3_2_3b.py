@@ -16,6 +16,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import onnx
 import piqaro
@@ -50,7 +51,9 @@ MODEL_NAME = "llama_v3_2_3b"
 HF_REPO_NAME = "meta-llama/Llama-3.2-3B-Instruct"
 
 
-def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
+def piqaro_onnx_large_model(
+    onnx_model: onnx.ModelProto, sample_input: tuple[torch.Tensor, ...], export_dir: str
+) -> onnx.ModelProto:
     # Convert to piQaro/PyTorch format
     torch_model = piqaro.onnx._acquire(onnx_model)
     # Without opt(torch_model), got "Exporting the operator 'aten::_to_copy'
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
 
     class Llama3_2_PiQaro(Llama3_2_3B):
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
             if truncate_model:
                 kwargs["load_pretrained"] = False  # Vocab size mismatch
             super().__init__(*args, **kwargs)
@@ -186,7 +189,7 @@ if __name__ == "__main__":
                 # Create a temporary directory that will persist until export finishes.
                 with tempfile.TemporaryDirectory() as tmpdir:
 
-                    def onnx_transforms(onnx_model):
+                    def onnx_transforms(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
                         import onnxsim
 
                         onnx_model, _ = onnxsim.simplify(onnx_model)

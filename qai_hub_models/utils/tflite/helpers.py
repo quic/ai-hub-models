@@ -20,7 +20,7 @@ else:
         Delegate = None
 
 
-def assert_litert_installed():
+def assert_litert_installed() -> None:
     """Since LiteRT is not supported on Python 3.13 and above (and not supported on Windows), we have to optionally import it and assert it is installed at runtime."""
     if Interpreter is None:
         raise ValueError(

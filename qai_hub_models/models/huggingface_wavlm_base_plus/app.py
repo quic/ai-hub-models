@@ -31,24 +31,23 @@ class HuggingFaceWavLMBasePlusApp:
         # See predict_features.
         return self.predict_features(*args, **kwargs)
 
-    def predict_features(self, x: np.ndarray, sampling_rate=16000.0) -> str:
+    def predict_features(self, x: np.ndarray, sampling_rate: float = 16000.0) -> str:
         """
         Predict a feature vector from an audio sample
 
         Parameters
         ----------
         x
-            a 1xn array representing an audio sample, where n is length.
+            A 1xn array representing an audio sample, where n is length.
             This will be clipped to the appropriate length if too long,
-            and padded if too short
-
+            and padded if too short.
         sampling_rate
-            the sampling rate of the audio - default 16kHz
+            The sampling rate of the audio - default 16kHz.
 
         Returns
         -------
-        str
-            The transcribed text from the audio input
+        transcription
+            The transcribed text from the audio input.
         """
         # preprocess audio
         input_len = int(DEFAULT_INPUT_LENGTH_SECONDS * sampling_rate)
@@ -66,14 +65,19 @@ class HuggingFaceWavLMBasePlusApp:
 
 
 def get_processor(
-    default_weights="patrickvonplaten/wavlm-libri-clean-100h-base-plus",
+    default_weights: str = "patrickvonplaten/wavlm-libri-clean-100h-base-plus",
 ) -> Wav2Vec2Processor:
     """
     Static method to get the Wav2Vec2Processor instance with default weights.
 
+    Parameters
+    ----------
+    default_weights
+        The pretrained model name to load the processor from.
+
     Returns
     -------
-    Wav2Vec2Processor
-        The initialized processor
+    processor
+        The initialized processor.
     """
     return Wav2Vec2Processor.from_pretrained(default_weights)

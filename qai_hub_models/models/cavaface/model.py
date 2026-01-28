@@ -35,12 +35,17 @@ class CavaFace(BaseModel):
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
-        Args:
-            image (torch.Tensor): RGB image of range[0, 1] and shape [batch_size, 3, H, W]
+        Forward pass for face embeddings.
+
+        Parameters
+        ----------
+        image
+            RGB image of range[0, 1] and shape [batch_size, 3, H, W].
 
         Returns
         -------
-            embeddings(torch.Tensor): Normalized face embeddings tensor of shape [batch_size, 512]
+        embeddings
+            Normalized face embeddings tensor of shape [batch_size, 512].
         """
         # Normalize input [-1, 1]
         image = (image * 255 - 127.5) / 128.0

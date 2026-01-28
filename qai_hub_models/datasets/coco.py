@@ -38,7 +38,9 @@ DATASET_ID = "coco"
 DATASET_ASSET_VERSION = 1
 
 
-def collate_fn(batch):
+def collate_fn(
+    batch: list[torch.Tensor],
+) -> list[torch.Tensor] | tuple[list[torch.Tensor], tuple[list[torch.Tensor], ...]]:
     try:
         image, gt = batch[0][0], batch[0][1]
         image_id, height, width, boxes, labels = gt
@@ -74,7 +76,7 @@ class CocoDataset(BaseDataset):
         num_samples: int = 5000,
         num_classes: CocoDatasetClass = CocoDatasetClass.SUBSET_CLASSES,
         label_types: list[Literal["detections", "segmentations"]] | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------

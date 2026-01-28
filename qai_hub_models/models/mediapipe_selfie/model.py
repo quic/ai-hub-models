@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import torch
 from tflite import Model
 from torch import nn
 
@@ -56,19 +57,19 @@ class SelfieSegmentation(BaseModel):
 
     def __init__(self, image_type: str = "square"):
         """
+        Initialize SelfieSegmentation model.
+
         Parameters
         ----------
-            image_type: str (choices: square or landscape)
-                Instance of two model variations can be created:
-                * One for square images (H=W)
-                * One for rectangle images (landscape format)
+        image_type
+            Instance of two model variations can be created (choices: square or landscape):
+            * One for square images (H=W)
+            * One for rectangle images (landscape format)
 
-        Returns
-        -------
-            graph: Based on the image type, torch.nn.Module is returned.
-                The only difference in architectures is that global average pool
-                is only present in the model trained for landscape images.
-
+        Note
+        ----
+        The only difference in architectures is that global average pool
+        is only present in the model trained for landscape images.
         """
         if image_type not in ["square", "landscape"]:
             raise ValueError(f"Unsupported image type {image_type}")
@@ -180,13 +181,14 @@ class SelfieSegmentation(BaseModel):
 
         Parameters
         ----------
-            image_type: str (choices: square or landscape)
-                Instance of two model variations can be created:
-                * One for square images (H=W)
-                * One for rectangle images (landscape format)
+        image_type
+            Instance of two model variations can be created (choices: square or landscape):
+            * One for square images (H=W)
+            * One for rectangle images (landscape format)
 
         Returns
         -------
+        model
             Torch model with pretrained weights loaded.
         """
         front_net = cls(image_type)
@@ -228,21 +230,24 @@ class SelfieSegmentation(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["mask"]
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
+        Segment person from background in the input image.
+
         Parameters
         ----------
-            image: Input image to be segmented.
-                Square: Shape [1, 3, 256, 256]
-                Landscape: Shape [1, 3, 144, 256]
-                Channel layout: RGB
+        image
+            Input image to be segmented.
+            Square: Shape [1, 3, 256, 256]
+            Landscape: Shape [1, 3, 144, 256]
+            Channel layout: RGB
 
         Returns
         -------
-            output (mask): Mask with person and the background segmented.
-                Square: Shape [1, 256, 256]
-                Landscape: Shape [1, 144, 256]
-
+        mask
+            Mask with person and the background segmented.
+            Square: Shape [1, 256, 256]
+            Landscape: Shape [1, 144, 256]
         """
         x = self.hardswish(self.conv1(image))
         x1 = x

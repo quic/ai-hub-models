@@ -19,6 +19,7 @@ from qai_hub_models.models._shared.llm.model import (
 import copy
 import json
 import os
+from collections.abc import Collection
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -64,9 +65,6 @@ ASSISTANT_ID = "assistant"
 USER_ID = "user"
 END_TOKENS = {"<|im_end|>", "<|endoftext|>"}
 
-DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
-DEFAULT_USER_PROMPT = "What is gravity? Keep the answer under ten words."
-
 
 class Qwen2_Optimizations(str, Enum):  # Inherit from str and Enum
     SHA_ATTENTION = "sha_attention"
@@ -77,18 +75,9 @@ class Qwen2Base(LLMBase):
     LMClass = modeling_qwen2.Qwen2ForCausalLM
     EmbeddingClass = RopeEmbedding
 
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        """Get prompt to set context and initialize prompt-processor"""
-        return f"""{START_HEADER}{SYSTEM_ID}
-{system_context_prompt}{END_HEADER}
-{START_HEADER}{USER_ID}
-{user_input_prompt}{END_HEADER}
-{START_HEADER}{ASSISTANT_ID}
-"""
+    # Default prompts for demos
+    default_user_prompt = "What is gravity? Keep the answer under ten words."
+    default_system_prompt = "You are a helpful AI assistant"
 
     @staticmethod
     def monkey_patch(
@@ -100,20 +89,28 @@ class Qwen2Base(LLMBase):
         ):
             print("Skip sha_attention optimization")
         else:
-            modeling_qwen2.QWEN2_ATTENTION_CLASSES["eager"] = SHAQwen2Attention
+            modeling_qwen2.QWEN2_ATTENTION_CLASSES["eager"] = SHAQwen2Attention  # type: ignore[attr-defined, unused-ignore]
 
-        def bypass_RotaryEmbedding(self, x, position_ids, *args, **kwargs):
+        def bypass_RotaryEmbedding(
+            self: modeling_qwen2.Qwen2RotaryEmbedding,
+            x: torch.Tensor,
+            position_ids: torch.Tensor,
+            *args: Any,
+            **kwargs: Any,
+        ) -> torch.Tensor:
             return position_ids
 
         # Bypass rotary_emb module
         if not hasattr(modeling_qwen2.Qwen2RotaryEmbedding, "_original_forward"):
-            modeling_qwen2.Qwen2RotaryEmbedding._original_forward = (  # pyright: ignore [reportAttributeAccessIssue]
+            modeling_qwen2.Qwen2RotaryEmbedding._original_forward = (  # type: ignore[attr-defined, unused-ignore]  # pyright: ignore [reportAttributeAccessIssue]
                 modeling_qwen2.Qwen2RotaryEmbedding.forward
             )
             modeling_qwen2.Qwen2RotaryEmbedding.forward = bypass_RotaryEmbedding
         modeling_qwen2.apply_rotary_pos_emb = QcQwen2_apply_rotary_pos_emb
 
-        def Qwen2RMSNorm_forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        def Qwen2RMSNorm_forward(
+            self: modeling_qwen2.Qwen2RMSNorm, hidden_states: torch.Tensor
+        ) -> torch.Tensor:
             # Raise to rank 4
             hidden_states = hidden_states.unsqueeze(0)
             variance = hidden_states.pow(2).mean(-1, keepdim=True)
@@ -130,13 +127,14 @@ class Qwen2Base(LLMBase):
         else:
             modeling_qwen2.Qwen2RMSNorm.forward = Qwen2RMSNorm_forward
 
-        modeling_qwen2.Qwen2MLP = QCQwen2MLP
-        modeling_qwen2.Qwen2ForCausalLM = QCQwen2ForCausalLM
+        modeling_qwen2.Qwen2MLP = QCQwen2MLP  # type: ignore[misc, unused-ignore]
+        modeling_qwen2.Qwen2ForCausalLM = QCQwen2ForCausalLM  # type: ignore[misc, unused-ignore]
 
-    def _verify_ckpt(self):
+    def _verify_ckpt(self) -> None:
         if (
             not (
-                self.llm_config.architectures[0] == "QwenForCausalLM"
+                self.llm_config.architectures
+                and self.llm_config.architectures[0] == "QwenForCausalLM"
                 and self.llm_config.model_type == "qwen2"
             )
             and self.llm_config.rope_scaling is not None
@@ -151,7 +149,7 @@ class Qwen2Base(LLMBase):
         input_tokens: torch.Tensor,
         attention_mask: torch.Tensor,
         *rest: torch.Tensor,
-    ):
+    ) -> list[torch.Tensor]:
         return super().forward(
             input_tokens,
             self.attention_mask_multiplier * attention_mask,
@@ -169,9 +167,11 @@ class QwenPositionProcessor(PositionProcessorBase):
     ) -> None:
         super().__init__(context_length, config=config)
         self.context_len = context_length
-        self.rope_embedding = RopeEmbedding(max_length=self.context_len, config=config)
+        self.rope_embedding = RopeEmbedding(max_length=self.context_len, config=config)  # type: ignore[arg-type, unused-ignore]
 
-    def forward(self, attention_mask_before_processor, position_ids):
+    def forward(
+        self, attention_mask_before_processor: torch.Tensor, position_ids: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         position_ids_cos, position_ids_sin = self.rope_embedding.get_embedding(
             position_ids
         )
@@ -190,8 +190,6 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
     EmbeddingClass = RopeEmbedding
     FPModel = Qwen2Base
 
-    get_input_prompt_with_tags = Qwen2Base.get_input_prompt_with_tags
-
     def __init__(
         self,
         quant_sim: QuantizationSimModel,
@@ -203,7 +201,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         attention_mask_min_clip: float | None = None,
         attention_mask_multiplier: float = 1.0,
-    ):
+    ) -> None:
         super().__init__(
             quant_sim=quant_sim,
             checkpoint=checkpoint,
@@ -217,7 +215,7 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         )
 
     @staticmethod
-    def _get_output_names(num_hidden_layers: int):
+    def _get_output_names(num_hidden_layers: int) -> list[str]:
         output_names = ["logits"]
         for layer in range(num_hidden_layers):
             output_names.append(f"past_key_{layer}_out")
@@ -238,6 +236,8 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
         input_specs: dict[str, Any],
         output_specs: dict[str, Any],
     ) -> None:
+        from transformers import AutoTokenizer
+
         super().prepare_genie_assets(
             hub_device,
             checkpoint,
@@ -250,20 +250,18 @@ class Qwen2Base_AIMETOnnx(LLM_AIMETOnnx):
             input_specs,
             output_specs,
         )
+
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+        sample_prompt = cls.get_input_prompt_with_tags(tokenizer=tokenizer)
         with open(output_path / "sample_prompt.txt", "w") as f:
-            f.write(
-                Qwen2Base_AIMETOnnx.get_input_prompt_with_tags(
-                    user_input_prompt="What is gravity?",
-                    system_context_prompt="You are a helpful AI assistant. Be concise.",
-                )
-            )
+            f.write(sample_prompt)
 
     def forward(
         self,
         input_tokens: torch.Tensor,
         attention_mask: torch.Tensor,
         *rest: torch.Tensor,
-    ):
+    ) -> torch.Tensor | Collection[torch.Tensor]:
         return super().forward(
             input_tokens,
             self.attention_mask_multiplier * attention_mask,
@@ -326,5 +324,3 @@ class Qwen2Base_QNN(LLM_QNN):
     FPModel = Qwen2Base
     EmbeddingClass = RopeEmbedding
     num_layers_per_split: int
-
-    get_input_prompt_with_tags = Qwen2Base.get_input_prompt_with_tags

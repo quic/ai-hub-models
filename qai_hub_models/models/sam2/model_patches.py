@@ -13,6 +13,8 @@ from sam2.modeling.backbones.hieradet import (
     MultiScaleBlock as SAMEncoderAttentionBlock,
 )
 from sam2.modeling.backbones.hieradet import do_pool
+from sam2.modeling.sam.mask_decoder import MaskDecoder
+from sam2.modeling.sam.prompt_encoder import PromptEncoder
 from torch import nn
 from torchvision.transforms import Normalize
 
@@ -146,7 +148,7 @@ class SAM2Normalize(nn.Module):
 
 
 def sam_decoder_predict_masks(
-    self,
+    self: MaskDecoder,
     image_embeddings: torch.Tensor,
     image_pe: torch.Tensor,
     sparse_prompt_embeddings: torch.Tensor,
@@ -163,20 +165,31 @@ def sam_decoder_predict_masks(
 
     Parameters
     ----------
-        image_embeddings (torch.Tensor): Image feature embeddings from the encoder.
-        image_pe (torch.Tensor): Positional encodings for the image.
-        sparse_prompt_embeddings (torch.Tensor): Sparse prompt tokens (e.g., points, boxes).
-        dense_prompt_embeddings (torch.Tensor): Dense prompt features (e.g., masks).
-        repeat_image (bool): Whether to repeat image embeddings for each prompt.
-        high_res_features (list[torch.Tensor] | None): Optional high-resolution features for refinement.
+    self
+        The SAM decoder instance.
+    image_embeddings
+        Image feature embeddings from the encoder.
+    image_pe
+        Positional encodings for the image.
+    sparse_prompt_embeddings
+        Sparse prompt tokens (e.g., points, boxes).
+    dense_prompt_embeddings
+        Dense prompt features (e.g., masks).
+    repeat_image
+        Whether to repeat image embeddings for each prompt.
+    high_res_features
+        Optional high-resolution features for refinement.
 
     Returns
     -------
-        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            - masks: Predicted segmentation masks.
-            - iou_pred: Predicted IoU scores for each mask.
-            - mask_tokens_out: Output embeddings for each mask token.
-            - object_score_logits: Object presence confidence scores.
+    masks
+        Predicted segmentation masks.
+    iou_pred
+        Predicted IoU scores for each mask.
+    mask_tokens_out
+        Output embeddings for each mask token.
+    object_score_logits
+        Object presence confidence scores.
     """
     # Concatenate output tokens
     s = 0
@@ -192,7 +205,8 @@ def sam_decoder_predict_masks(
         s = 1
     else:
         output_tokens = torch.cat(
-            [self.iou_token.weight, self.mask_tokens.weight], dim=0
+            [self.iou_token.weight, self.mask_tokens.weight],
+            dim=0,
         )
     output_tokens = output_tokens.unsqueeze(0).expand(
         sparse_prompt_embeddings.size(0), -1, -1
@@ -267,12 +281,15 @@ def mask_postprocessing(
 
     Parameters
     ----------
-        low_res_masks (torch.Tensor): A tensor of low-resolution masks, typically output from a model.
-        orig_im_size (tuple[int, int]): The original image size as (height, width) to which the masks should be resized.
+    low_res_masks
+        A tensor of low-resolution masks, typically output from a model.
+    orig_im_size
+        The original image size as (height, width) to which the masks should be resized.
 
     Returns
     -------
-        torch.Tensor: A tensor of masks resized to the original image dimensions.
+    masks
+        A tensor of masks resized to the original image dimensions.
     """
     return torch.nn.functional.interpolate(
         low_res_masks,
@@ -283,7 +300,7 @@ def mask_postprocessing(
 
 
 def sam_prompt_encoder_embed_points(
-    self,
+    self: PromptEncoder,
     points: torch.Tensor,
     labels: torch.Tensor,
     pad: bool,

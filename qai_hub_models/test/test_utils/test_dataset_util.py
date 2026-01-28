@@ -9,7 +9,7 @@ import pytest
 from qai_hub_models.utils.dataset_util import dataset_entries_to_dataloader
 
 
-def test_dataset_entries_to_dataloader():
+def test_dataset_entries_to_dataloader() -> None:
     arr1 = np.array([1, 2, 3])
     arr2 = np.array([4, 5, 6])
     arr3 = np.array([7, 8, 9])
@@ -29,7 +29,7 @@ def test_dataset_entries_to_dataloader():
             np.testing.assert_array_equal(batch[j].numpy(), expected_output[i][j])
 
 
-def test_dataset_entries_length_mismatch():
+def test_dataset_entries_length_mismatch() -> None:
     arr1 = np.array([1, 2, 3])
     arr2 = np.array([4, 5, 6])
     arr3 = np.array([7, 8, 9])

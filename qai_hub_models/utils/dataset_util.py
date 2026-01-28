@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data_entries: DatasetEntries):
+    def __init__(self, data_entries: DatasetEntries) -> None:
         # Ensure that all lists in the dictionary have the same length
         self.data_entries = data_entries
         self.length = len(
@@ -38,7 +38,9 @@ def dataset_entries_to_dataloader(
 ) -> DataLoader:
     dataset = CustomDataset(data_entries)
 
-    def custom_collate_fn(batch):
+    def custom_collate_fn(
+        batch: list[tuple[torch.Tensor, ...]],
+    ) -> tuple[torch.Tensor, ...]:
         # for batch_size=1, we extract that element directly
         return batch[0]
 

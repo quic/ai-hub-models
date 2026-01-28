@@ -22,7 +22,7 @@ class BaseBertApp:
         model: Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor],
         tokenizer: PreTrainedTokenizer,
         max_seq_length: int | None = None,
-    ):
+    ) -> None:
         self.model = model
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
@@ -31,12 +31,17 @@ class BaseBertApp:
         """
         Preprocess text input for BERT model.
 
-        Args:
-            text: Input text string with [MASK]
+        Parameters
+        ----------
+        text
+            Input text string with [MASK].
 
         Returns
         -------
-            Tuple of (input_tokens, attention_masks) tensors
+        input_tokens
+            Tokenized input tensor.
+        attention_masks
+            Attention mask tensor.
         """
         encoded = self.tokenizer(
             text,
@@ -53,11 +58,14 @@ class BaseBertApp:
         """
         Predict tokens for [MASK] in input text.
 
-        Args:
-            text: Input text string with [MASK]
+        Parameters
+        ----------
+        text
+            Input text string with [MASK].
 
         Returns
         -------
+        predicted_sequence
             Predicted sequence text.
         """
         input_ids, attention_mask = self.preprocess_text(text)

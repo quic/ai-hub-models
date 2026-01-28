@@ -5,23 +5,31 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 
 
-def ROIAlign_forward(self, inputs: torch.Tensor, rois: torch.Tensor) -> torch.Tensor:
+def ROIAlign_forward(
+    self: Any, inputs: torch.Tensor, rois: torch.Tensor
+) -> torch.Tensor:
     """
+    Forward pass for ROIAlign operation.
+
     Parameters
     ----------
-        inputs:
-            inputs tensor in NCHW format (B, C, H, W).
-        rois:
-            Region of interest boxes with shape (num_rois, 5).
-            First column is the index into N. The other 4 columns are xyxy.
+    self
+        The ROIAlign module instance.
+    inputs
+        inputs tensor in NCHW format (B, C, H, W).
+    rois
+        Region of interest boxes with shape (num_rois, 5).
+        First column is the index into N. The other 4 columns are xyxy.
 
     Returns
     -------
-        torch.Tensor
-            ROI-aligned features with shape (num_rois, C, output_H, output_W).
+    aligned_features
+        ROI-aligned features with shape (num_rois, C, output_H, output_W).
     """
     assert rois.dim() == 2 and rois.size(1) == 5
     if inputs.is_quantized:
@@ -59,24 +67,24 @@ def manual_roi_align(
 
     Parameters
     ----------
-    inputs : torch.Tensor
+    inputs
         inputs feature map tensor of shape (N, C, H, W)
-    rois : torch.Tensor
+    rois
         ROIs (region of interests) with shape (num_rois, 5).
         Format is (batch_index, x1, y1, x2, y2)
-    output_size : tuple
+    output_size
         Size of the output (out_h, out_w)
-    spatial_scale : float
+    spatial_scale
         Scale factor to map ROI coordinates from their inputs scale to the scale used when pooling
-    sampling_ratio : int
+    sampling_ratio
         Number of sampling points in each bin (hardcoded to 1 to fix memory issues).
-    aligned : bool
+    aligned
         If False, use the legacy implementation. If True, pixel shift the ROI boxes by -0.5
         for a better alignment with the two neighboring pixel indices.
 
     Returns
     -------
-    torch.Tensor
+    aligned_features
         ROI Aligned features with shape (num_rois, C, output_size[0], output_size[1])
     """
     device = inputs.device

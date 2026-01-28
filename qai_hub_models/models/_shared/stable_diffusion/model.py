@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
+
+from tokenizers import Tokenizer
+from typing_extensions import Self
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
@@ -49,7 +52,7 @@ from qai_hub_models.utils.checkpoint import (
     hf_repo_exists,
 )
 from qai_hub_models.utils.input_spec import InputSpec
-from qai_hub_models.utils.qai_hub_helpers import ensure_v73_or_later
+from qai_hub_models.utils.qai_hub_helpers import ensure_hexagon_version
 
 
 class TextEncoderBase(BaseModel, FromPretrainedMixin):
@@ -62,16 +65,16 @@ class TextEncoderBase(BaseModel, FromPretrainedMixin):
         class TextEncoderWrapper(torch.nn.Module):
             """Return only the first output (cond and uncond embedding)"""
 
-            def __init__(self, model: torch.nn.Module):
+            def __init__(self, model: torch.nn.Module) -> None:
                 super().__init__()
                 self.model = model
 
-            def forward(self, *args, **kwargs):
+            def forward(self, *args: Any, **kwargs: Any) -> torch.Tensor:
                 return self.model(*args, **kwargs)[0]
 
         return TextEncoderWrapper(model)
 
-    def forward(self, tokens) -> torch.Tensor:
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         return self.model(tokens)
 
     @classmethod
@@ -107,7 +110,10 @@ class TextEncoderQuantizableBase(AIMETOnnxQuantizableMixin, TextEncoderBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> TextEncoderBase:
+        torch_from_pretrained_kwargs: dict[str, Any] | None = None,
+        cls_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -174,11 +180,16 @@ class UnetBase(BaseModel, FromPretrainedMixin):
         class UNet2DConditionModelWrapper(torch.nn.Module):
             """Call with return_dict=false and unpack the output tuple"""
 
-            def __init__(self, model: UNet2DConditionModel):
+            def __init__(self, model: UNet2DConditionModel) -> None:
                 super().__init__()
                 self.model = model
 
-            def forward(self, latent, timestep, text_emb):
+            def forward(
+                self,
+                latent: torch.Tensor,
+                timestep: torch.Tensor,
+                text_emb: torch.Tensor,
+            ) -> torch.Tensor:
                 return self.model(latent, timestep, text_emb, return_dict=False)[0]  # type: ignore[operator]
 
         return UNet2DConditionModelWrapper(model)
@@ -240,7 +251,10 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> UnetQuantizableBase:
+        torch_from_pretrained_kwargs: dict[str, Any] | None = None,
+        cls_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -280,7 +294,7 @@ class UnetQuantizableBase(AIMETOnnxQuantizableMixin, UnetBase):
 
 
 class VaeDecoderBase(BaseModel, FromPretrainedMixin):
-    def forward(self, latent) -> torch.Tensor:
+    def forward(self, latent: torch.Tensor) -> torch.Tensor:
         return self.model(latent)
 
     @classmethod
@@ -288,11 +302,11 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
         model.config.return_dict = False  # type: ignore[attr-defined]
 
         class AutoencoderKLDecoder(torch.nn.Module):
-            def __init__(self, model: AutoencoderKL):
+            def __init__(self, model: AutoencoderKL) -> None:
                 super().__init__()
                 self.model = model
 
-            def forward(self, z):
+            def forward(self, z: torch.Tensor) -> torch.Tensor:
                 z = z / self.model.config.scaling_factor  # type: ignore[attr-defined]
                 z = self.model.post_quant_conv(z)  # type: ignore[attr-defined]
                 image = self.model.decoder(z)  # type: ignore[attr-defined]
@@ -323,7 +337,7 @@ class VaeDecoderBase(BaseModel, FromPretrainedMixin):
 
 
 class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
-    """Exportable Unet that can be quantized by AIMET-ONNX."""
+    """Exportable VaeDecoder that can be quantized by AIMET-ONNX."""
 
     def __init__(
         self,
@@ -340,7 +354,10 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> VaeDecoderQuantizableBase:
+        torch_from_pretrained_kwargs: dict[str, Any] | None = None,
+        cls_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -379,7 +396,12 @@ class VaeDecoderQuantizableBase(AIMETOnnxQuantizableMixin, VaeDecoderBase):
     def get_unsupported_reason(
         self, target_runtime: TargetRuntime, device: Device
     ) -> None | str:
-        return ensure_v73_or_later(target_runtime, device)
+        return ensure_hexagon_version(
+            min_version=73,
+            target_runtime=target_runtime,
+            device=device,
+            model_name="Stable Diffusion VaeDecoder",
+        )
 
     @staticmethod
     def calibration_dataset_name() -> str:
@@ -390,19 +412,23 @@ def make_scheduler(
     checkpoint: CheckpointSpec,
     subfolder: str,
     revision: str | None = None,
-):
+) -> diffusers.SchedulerMixin:
     """
     Load and instantiate the scheduler from a Hugging Face repo or a local path.
 
     Parameters
     ----------
-      checkpoint: Hugging Face repo ID or local path.
-      subfolder: Subdirectory where scheduler_config.json is located.
-      revision: Git branch, tag, or commit (only used for HF repos).
+    checkpoint
+        Hugging Face repo ID or local path.
+    subfolder
+        Subdirectory where scheduler_config.json is located.
+    revision
+        Git branch, tag, or commit (only used for HF repos).
 
     Returns
     -------
-      A scheduler instance (subclass of SchedulerMixin).
+    scheduler
+        A scheduler instance (subclass of SchedulerMixin).
     """
     if hf_repo_exists(str(checkpoint)):
         config_path = hf_hub_download(
@@ -433,11 +459,13 @@ class StableDiffusionBase(PretrainedCollectionModel):
     hf_repo_id: str = ""
 
     @staticmethod
-    def make_tokenizer():
+    def make_tokenizer() -> Tokenizer:
         raise NotImplementedError()
 
     @classmethod
-    def make_scheduler(cls, checkpoint: CheckpointSpec, subfolder: str = "scheduler"):
+    def make_scheduler(
+        cls, checkpoint: CheckpointSpec, subfolder: str = "scheduler"
+    ) -> diffusers.SchedulerMixin:
         checkpoint = cls.handle_default_checkpoint(checkpoint)
         return make_scheduler(checkpoint, subfolder)
 

@@ -8,10 +8,12 @@ import functools
 import re
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import TypeVar
 
 from .task import Task
 from .util import echo
+
+F = TypeVar("F", bound=Callable[..., object])
 
 ALL_TASKS: list[str] = []
 PUBLIC_TASKS: list[str] = []
@@ -20,13 +22,13 @@ TASK_DESCRIPTIONS: dict[str, str] = {}
 SUMMARIZERS: list[str] = []
 
 
-def task(func):
+def task(func: F) -> F:
     ALL_TASKS.append(func.__name__)
     return func
 
 
-def public_task(description: str):
-    def add_task(func):
+def public_task(description: str) -> Callable[[F], F]:
+    def add_task(func: F) -> F:
         PUBLIC_TASKS.append(func.__name__)
         TASK_DESCRIPTIONS[func.__name__] = description
         task(func)
@@ -35,8 +37,8 @@ def public_task(description: str):
     return add_task
 
 
-def depends(deps: list[str]):
-    def add_dep(func):
+def depends(deps: list[str]) -> Callable[[F], F]:
+    def add_dep(func: F) -> F:
         TASK_DEPENDENCIES[func.__name__] = deps
         return func
 
@@ -44,8 +46,8 @@ def depends(deps: list[str]):
 
 
 def depends_if(
-    obj: Any, eq: list[tuple[Any, list[str]]], default: list[str] | None = None
-):
+    obj: object, eq: list[tuple[object, list[str]]], default: list[str] | None = None
+) -> Callable[[F], F]:
     if default is None:
         default = []
     deps = default
@@ -54,14 +56,14 @@ def depends_if(
             deps = deps_candidate
             break
 
-    def add_dep(func):
+    def add_dep(func: F) -> F:
         TASK_DEPENDENCIES[func.__name__] = deps
         return func
 
     return add_dep
 
 
-def summarizer(func):
+def summarizer(func: F) -> F:
     SUMMARIZERS.append(func.__name__)
     return func
 
@@ -69,7 +71,7 @@ def summarizer(func):
 class Step:
     """A named Task within a Plan."""
 
-    def __init__(self, step_id: str, task: Task):
+    def __init__(self, step_id: str, task: Task) -> None:
         self._step_id = step_id
         self._task = task
 

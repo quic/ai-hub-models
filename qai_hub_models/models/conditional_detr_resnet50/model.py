@@ -24,12 +24,5 @@ class ConditionalDETRResNet50(DETR):
         return cls(ConditionalDetrForObjectDetection.from_pretrained(ckpt_name))
 
     def get_evaluator(self) -> BaseEvaluator:
-        """
-        Returns an instance of the DetectionEvaluator class, which is used to evaluate the performance of the DETR model.
-
-        The DetectionEvaluator class is used to compute the mean average precision (mAP) of the model's predictions.
-
-        :return: An instance of the DetectionEvaluator class
-        """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return DetectionEvaluator(image_height, image_width, score_threshold=0.4)

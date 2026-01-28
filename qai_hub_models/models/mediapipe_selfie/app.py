@@ -35,11 +35,13 @@ class SelfieSegmentationApp:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format.
+        image
+            A PIL Image in RGB format.
 
         Returns
         -------
-            mask: Segmented mask as np.array.
+        mask
+            Segmented mask as np.array.
         """
         image_tensor = preprocess_PIL_image(image.resize(RESIZE_SHAPE))
         output = self.model(image_tensor)

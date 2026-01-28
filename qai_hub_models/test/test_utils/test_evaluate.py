@@ -29,7 +29,7 @@ class VariableIODummyModel(BaseModel):
         num_inputs: int = 1,
         num_outputs: int = 1,
         shape: tuple[int, ...] = DEFAULT_IO_SHAPE,
-    ):
+    ) -> None:
         super().__init__()
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
@@ -42,7 +42,7 @@ class VariableIODummyModel(BaseModel):
         num_inputs: int = 1,
         num_outputs: int = 1,
         shape: tuple[int, ...] = DEFAULT_IO_SHAPE,
-    ):
+    ) -> VariableIODummyModel:
         return VariableIODummyModel(num_inputs, num_outputs, shape)
 
     def forward(
@@ -85,7 +85,7 @@ class VariableIODummyModel(BaseModel):
     ) -> InputSpec:
         return {f"in{i}": (shape, "float32") for i in range(num_inputs)}
 
-    def _get_input_spec_for_instance(self):
+    def _get_input_spec_for_instance(self) -> InputSpec:
         return self.__class__.get_input_spec(self.num_inputs, self.shape)
 
     @staticmethod
@@ -119,7 +119,7 @@ class VariableIODummyModel(BaseModel):
 
 
 class DummyEvaluator(BaseEvaluator):
-    def __init__(self, num_outputs: int):
+    def __init__(self, num_outputs: int) -> None:
         self.num_outputs = num_outputs
         self.dummy_metric = 0
         assert self.num_outputs > 0
@@ -139,8 +139,8 @@ class DummyEvaluator(BaseEvaluator):
 
     def add_batch(
         self,
-        output,
-        gt,
+        output: torch.Tensor | tuple[torch.Tensor, ...] | list[torch.Tensor],
+        gt: torch.Tensor | tuple[torch.Tensor, ...] | list[torch.Tensor],
     ) -> None:
         if self.num_outputs != 1:
             assert isinstance(output, (tuple, list))
@@ -160,13 +160,13 @@ class DummyEvaluator(BaseEvaluator):
 
         self.dummy_metric = self.dummy_metric + 1
 
-    def reset(self):
+    def reset(self) -> None:
         self.dummy_metric = 0
 
-    def get_accuracy_score(self):
+    def get_accuracy_score(self) -> int:
         return self.dummy_metric
 
-    def formatted_accuracy(self):
+    def formatted_accuracy(self) -> str:
         return f"batch count: {self.dummy_metric}"
 
 
@@ -178,8 +178,8 @@ class DummyDataset(BaseDataset):
         num_outputs: int,
         shape: tuple[int, ...],
         num_samples: int,
-        dtype=torch.float32,
-    ):
+        dtype: torch.dtype = torch.float32,
+    ) -> None:
         super().__init__("", split)
         assert num_samples >= self.default_samples_per_job()
         self.data = [
@@ -204,10 +204,10 @@ class DummyDataset(BaseDataset):
             torch.float32,
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.data)
 
-    def _download_data(self):
+    def _download_data(self) -> None:
         return
 
     def _validate_data(self) -> bool:
@@ -222,8 +222,10 @@ class DummyDataset(BaseDataset):
         return cls.default_samples_per_job()
 
     def __getitem__(
-        self, index
-    ) -> tuple[torch.Tensor | tuple[torch.Tensor], torch.Tensor | tuple[torch.Tensor]]:
+        self, index: int
+    ) -> tuple[
+        torch.Tensor | tuple[torch.Tensor, ...], torch.Tensor | tuple[torch.Tensor, ...]
+    ]:
         data = self.data[index]
         gt = self.gt[index]
         return data if len(data) != 1 else data[0], gt if len(gt) != 1 else gt[0]
@@ -258,7 +260,7 @@ def test_local_evaluate(
     dataloader_batch_size: int,  # batch size of data loader passed to evaluate
     model_batch_size: int,  # batch size of compiled ONNX model
     shuffle: bool,  # random dataloader shuffle on/off
-):
+) -> None:
     """Test local evaluation for PyTorch and ONNX models."""
     model = VariableIODummyModel(
         num_inputs=num_inputs,

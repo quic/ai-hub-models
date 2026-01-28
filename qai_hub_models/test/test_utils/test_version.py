@@ -8,5 +8,5 @@ from packaging.version import Version
 from qai_hub_models._version import __version__
 
 
-def test_version():
+def test_version() -> None:
     Version(__version__)

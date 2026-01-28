@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.llama3.model import (
     DEFAULT_CONTEXT_LENGTH,
@@ -19,6 +20,7 @@ from qai_hub_models.models._shared.llama3.model import (
 )
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
@@ -45,8 +47,6 @@ END_TOKENS = {END_TEXT}
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 150
 
-DEFAULT_PROMPT_CONTEXT = "You are a helpful AI assistant"
-DEFAULT_USER_PROMPT = "What do falcons eat? Keep the answer under ten words."
 DEFAULT_PRECISION = Precision.w4a16
 SUPPORTED_PRECISIONS = [Precision.w4a16]
 DEFAULT_CHECKPOINT = {Precision.w4a16: "falcon_v3_7b_instruct_ckpt_w4a16_seqmse"}
@@ -54,6 +54,10 @@ DEFAULT_CHECKPOINT = {Precision.w4a16: "falcon_v3_7b_instruct_ckpt_w4a16_seqmse"
 
 class Falcon3_7B(Llama3Base):
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
+
+    # Default prompts for demos
+    default_user_prompt = "What do falcons eat? Keep the answer under ten words."
+    default_system_prompt = "You are a helpful AI assistant"
 
     def __init__(
         self,
@@ -66,13 +70,6 @@ class Falcon3_7B(Llama3Base):
             *args,  # noqa: B026
             **kwargs,
         )
-
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        return f"<|system|>\n{system_context_prompt}\n<|user|>\n{user_input_prompt}\n<|assistant|>\n"
 
     def _verify_ckpt(self):
         super()._verify_ckpt()
@@ -93,24 +90,37 @@ class Falcon3_7B(Llama3Base):
         host_device: torch.device | None = None,
         load_pretrained: bool = True,
         _skip_optimizations: list[str] | None = None,
-    ) -> Falcon3_7B:
+    ) -> Self:
         """
         Load a pre-trained Falcon 3 (7B) model from TII via HuggingFace.
 
-        checkpoint:
+        Parameters
+        ----------
+        checkpoint
             Local path or Hugging Face name of floating point checkpoint.
-        sequence_length:
+        sequence_length
             Instantiate with this token sequence length input. A longer
             sequence length means the model is capable of processing more
             tokens at once. This can only be set to greater than one to process
             prompts, since responses are auto-regressive in nature and require
             this to be 1.
-        context_length:
+        context_length
             Total context length of model. Longer context length means the
             model is more capable of making longer connections in the input
             prompt. However, it also hurts runtime performance (both time-to-
             first-token and tokens-per-second), so this is a tradeoff that may
             depend on the use case.
+        host_device
+            Device to load the model on.
+        load_pretrained
+            Whether to load pretrained weights.
+        _skip_optimizations
+            List of optimizations to skip during model loading.
+
+        Returns
+        -------
+        Falcon3_7B
+            The loaded Falcon3_7B model instance.
         """
         return cls(
             checkpoint=checkpoint,
@@ -151,7 +161,6 @@ class Falcon3_7B_AIMETOnnx(Llama3Base_AIMETOnnx):
             **kwargs,
         )
 
-    get_input_prompt_with_tags = Falcon3_7B.get_input_prompt_with_tags
     eval_datasets = Falcon3_7B.eval_datasets
 
     @classmethod
@@ -162,19 +171,39 @@ class Falcon3_7B_AIMETOnnx(Llama3Base_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         precision: Precision = DEFAULT_PRECISION,
-        fp_model: torch.nn.Module | None = None,
+        fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
-    ) -> Falcon3_7B_AIMETOnnx:
+    ) -> Self:
         """
         Load weight from Huggingface and create Aimet-ONNX QuantSim.
         Optionally load onnx model and AIMET encodings from a checkpoint.
 
         Parameters
         ----------
-        - checkpoint: Path to previously calibrated AIMET encodings and ONNX
-          models. Note that encodings are sensitive to AIMET ONNX versions.
-          If passing None, initializes without encodings.
+        checkpoint
+            Path to previously calibrated AIMET encodings and ONNX
+            models. Note that encodings are sensitive to AIMET ONNX versions.
+            If passing None, initializes without encodings.
+        host_device
+            Device to load the model on.
+        sequence_length
+            Token sequence length for model input.
+        context_length
+            Total context length of model.
+        precision
+            Model precision for quantization.
+        fp_model
+            Floating point model to use for quantization.
+        _skip_quantsim_creation
+            Whether to skip quantization simulation creation.
+
+        Returns
+        -------
+        Falcon3_7B_AIMETOnnx
+            The loaded Falcon3_7B_AIMETOnnx model instance.
         """
+        if host_device is None:
+            host_device = torch.device("cpu")
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:
@@ -246,6 +275,6 @@ class Falcon3_7B_QNN(Llama3Base_QNN):
 
     @staticmethod
     def get_output_names():
-        return Falcon3_7B_QNN._get_output_names(NUM_LAYERS)
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Falcon3_7B.get_input_spec)

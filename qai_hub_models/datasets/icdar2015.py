@@ -41,7 +41,7 @@ class ICDAR2015Dataset(BaseDataset):
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.dataset_path = ICDAR2015_IMGS_ASSET.path(extracted=True)
         BaseDataset.__init__(self, self.dataset_path, split)
 
@@ -98,7 +98,7 @@ class ICDAR2015Dataset(BaseDataset):
 
         return img_tensor, ()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _download_data(self) -> None:

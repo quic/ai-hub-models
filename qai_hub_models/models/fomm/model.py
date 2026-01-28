@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.utils.asset_loaders import (
     CachedWebModelAsset,
@@ -18,7 +19,6 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.base_model import (
     BaseModel,
     CollectionModel,
-    PretrainedCollectionModel,
 )
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -54,23 +54,22 @@ class FOMMDetector(BaseModel):
 
     def forward(self, image: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Run FOMM keypoint detector on an image
+        Run FOMM keypoint detector on an image.
 
         Parameters
         ----------
-            image: torch.Tensor
-                   BxCxHxW
-                   RGB, range [0 - 1]
-                   Image to detect keypoints in
+        image
+            Input image tensor of shape BxCxHxW.
+            RGB, range [0 - 1].
 
         Returns
         -------
-            keypoints: torch.Tensor
-                       B x Num keypoints x 2
-                       Keypoints detected in the image
-            jacobian:  torch.Tensor
-                       B x Num keypoints x 2 x 2
-                       Jacobian matrix around each keypoint
+        keypoints
+            Keypoints detected in the image.
+            Shape: B x Num keypoints x 2.
+        jacobian
+            Jacobian matrix around each keypoint.
+            Shape: B x Num keypoints x 2 x 2.
         """
         result = self.model(image * 255)
         keypoints = result["value"]
@@ -78,8 +77,8 @@ class FOMMDetector(BaseModel):
         return keypoints, jacobian
 
     @classmethod
-    def from_pretrained(cls) -> FOMMDetector:
-        return FOMM.from_pretrained().detector
+    def from_pretrained(cls) -> Self:
+        return cls(FOMM.get_fomm_model()[1])
 
     @staticmethod
     def get_input_spec(
@@ -118,33 +117,31 @@ class FOMMGenerator(BaseModel):
         kp_norm_jacobians: torch.Tensor,
     ) -> torch.Tensor:
         """
-        Generate the new target image based on the source keypoints and target keypoints
+        Generate the new target image based on the source keypoints and target keypoints.
 
         Parameters
         ----------
-            image:            torch.Tensor
-                              BxCxHxW
-                              RGB, range [0 - 1]
-                              The source image
-            source_keypoint_values: torch.Tensor
-                                    B x num keypoints x 2
-                                    Keypoints detected in source image
-            source_keypoint_jacobians: torch.Tensor
-                                       B x num keypoints x 2 x 2
-                                       Jacobians around source keypoints
-            kp_norm_values:         torch.Tensor
-                                    B x num keypoints x 2
-                                    Normalised keypoints detected in driving image
-            kp_norm_jacobians:         torch.Tensor
-                                       B x num keypoints x 2 x 2
-                                       Jacobians around driving keypoints
-
+        image
+            The source image tensor of shape BxCxHxW.
+            RGB, range [0 - 1].
+        source_keypoint_values
+            Keypoints detected in source image.
+            Shape: B x num keypoints x 2.
+        source_keypoint_jacobians
+            Jacobians around source keypoints.
+            Shape: B x num keypoints x 2 x 2.
+        kp_norm_values
+            Normalised keypoints detected in driving image.
+            Shape: B x num keypoints x 2.
+        kp_norm_jacobians
+            Jacobians around driving keypoints.
+            Shape: B x num keypoints x 2 x 2.
 
         Returns
         -------
-            prediction: torch.Tensor
-                        BxCxHxW
-                        Predicted output image for the given driving frame keypoints
+        output_image
+            Predicted output image for the given driving frame keypoints.
+            Shape: BxCxHxW.
         """
         # run generator. The underlying model takes in dictionaries
         source_kp = dict(
@@ -157,8 +154,8 @@ class FOMMGenerator(BaseModel):
         # as this is the only part that the app uses
 
     @classmethod
-    def from_pretrained(cls) -> FOMMGenerator:
-        return FOMM.from_pretrained().generator
+    def from_pretrained(cls) -> Self:
+        return cls(FOMM.get_fomm_model()[0])
 
     @staticmethod
     def get_input_spec(
@@ -185,7 +182,7 @@ class FOMMGenerator(BaseModel):
 
 @CollectionModel.add_component(FOMMDetector)
 @CollectionModel.add_component(FOMMGenerator)
-class FOMM(PretrainedCollectionModel):
+class FOMM(CollectionModel):
     """Exportable FOMM for Image Editing"""
 
     def __init__(self, detector: FOMMDetector, generator: FOMMGenerator):
@@ -194,7 +191,9 @@ class FOMM(PretrainedCollectionModel):
         self.generator = generator
 
     @classmethod
-    def from_pretrained(cls, weights_url: str | None = None):
+    def get_fomm_model(
+        cls, weights_url: str | None = None
+    ) -> tuple[torch.nn.Module, torch.nn.Module]:
         with SourceAsRoot(
             FOMM_SOURCE_REPOSITORY,
             FOMM_SOURCE_REPO_COMMIT,
@@ -216,8 +215,11 @@ class FOMM(PretrainedCollectionModel):
                 generator, kp_detector = load_checkpoints(
                     config_path=fomm_config, checkpoint_path=weights_path, cpu=True
                 )
+            return generator, kp_detector
 
-            generator_model = FOMMGenerator(generator)
-            kp_detector_model = FOMMDetector(kp_detector)
-
-            return cls(kp_detector_model, generator_model)
+    @classmethod
+    def from_pretrained(cls, weights_url: str | None = None) -> Self:
+        generator, kp_detector = cls.get_fomm_model(weights_url=weights_url)
+        generator_model = FOMMGenerator(generator)
+        kp_detector_model = FOMMDetector(kp_detector)
+        return cls(kp_detector_model, generator_model)

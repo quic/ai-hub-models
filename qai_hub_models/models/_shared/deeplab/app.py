@@ -24,11 +24,13 @@ def preprocess_image(image: Image) -> torch.Tensor:
 
     Parameters
     ----------
-        image: Input image to be run through the classifier model.
+    image
+        Input image to be run through the classifier model.
 
     Returns
     -------
-        torch tensor to be directly passed to the model.
+    preprocessed_image
+        Torch tensor to be directly passed to the model.
     """
     out_tensor: torch.Tensor = transforms.ToTensor()(image)
     return out_tensor.unsqueeze(0)
@@ -49,7 +51,7 @@ class DeepLabV3App:
         self,
         model: Callable[[torch.Tensor], torch.Tensor],
         num_classes: int,
-    ):
+    ) -> None:
         self.model = model
         self.num_classes = num_classes
 
@@ -59,17 +61,16 @@ class DeepLabV3App:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format.
+        image
+            A PIL Image in RGB format.
+        raw_output
+            Whether to return raw output or segmented image.
 
         Returns
         -------
-            If raw_output is true, returns:
-                masks: np.ndarray
-                    A list of predicted masks.
-
-            Otherwise, returns:
-                segmented_images: list[PIL.Image]
-                    Images with segmentation map overlaid with an alpha of 0.5.
+        output
+            If raw_output is true, returns a np.ndarray with predicted masks.
+            Otherwise, returns a PIL.Image with segmentation map overlaid with an alpha of 0.5.
         """
         input_tensor = preprocess_image(image)
         output = self.model(input_tensor)

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from typing import cast
+from typing import Any, cast
 
 from qai_hub_models.utils.input_spec import InputSpec
 
@@ -20,7 +20,7 @@ DATASET_NAME_MAP: dict[str, type[BaseDataset]] = {}
 # We don't want to require a user to install requirements for all datasets just to
 # import the datasets folder. Therefore we only include the datasets that can
 # be imported.
-def _try_import_dataset(module_name: str, cls: str, name: str | None = None):
+def _try_import_dataset(module_name: str, cls: str, name: str | None = None) -> None:
     """
     Import the dataset and add it to the DATASET_NAME_MAP, or pass
     if dependencies for the dataset aren't installed.
@@ -64,6 +64,7 @@ def _try_import_dataset(module_name: str, cls: str, name: str | None = None):
         )
 
 
+_try_import_dataset(".common_voice", "CommonVoiceDataset")
 _try_import_dataset(".bsd300", "BSD300Dataset")
 _try_import_dataset(".cityscapes", "CityscapesDataset")
 _try_import_dataset(".cityscapes_lowres", "CityscapesLowResDataset")
@@ -97,7 +98,6 @@ _try_import_dataset(".nuscenes_bev", "NuscenesBevCVTDataset", name="nuscenes_bev
 _try_import_dataset(".nuscenes_bev", "NuscenesBevGKTDataset", name="nuscenes_bev_gkt")
 _try_import_dataset(".nyuv2", "NyUv2Dataset")
 _try_import_dataset(".cofw", "COFWDataset")
-_try_import_dataset(".nyuv2x518", "NyUv2x518Dataset")
 _try_import_dataset(".pascal_voc", "VOCSegmentationDataset")
 _try_import_dataset(".mpii", "MPIIDataset")
 _try_import_dataset(".cocobody", "CocoBodyDataset")
@@ -161,10 +161,18 @@ _try_import_dataset(
     ".amazon_counterfactual", "AmazonCounterfactualClassificationDataset"
 )
 _try_import_dataset(".audioset", "AudioSetDataset")
+_try_import_dataset(".hagrid", "PalmDetectorDataset", name="hagrid_palmdetector")
+_try_import_dataset(".hagrid", "HandLandmarkDataset", name="hagrid_handlandmark")
+_try_import_dataset(
+    ".hagrid", "GestureClassifierDataset", name="hagrid_gesturerecognizer"
+)
 
 
 def get_dataset_from_name(
-    name: str, split: DatasetSplit, input_spec: InputSpec | None = None, **kwargs
+    name: str,
+    split: DatasetSplit,
+    input_spec: InputSpec | None = None,
+    **kwargs: Any,
 ) -> BaseDataset:
     dataset_cls = DATASET_NAME_MAP.get(name)
     if not dataset_cls:

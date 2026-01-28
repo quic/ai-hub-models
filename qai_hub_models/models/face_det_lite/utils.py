@@ -27,10 +27,16 @@ class BBox:
 
         Parameters
         ----------
-            label:str the class label
-            xyrb: 4 list for bbox left, top,  right bottom coordinates
-            score:the score of the deteciton
-            landmark: 10x2 the landmark of the joints [[x1,y1], [x2,y2]...]
+        label
+            The class label.
+        xyrb
+            4 list for bbox left, top, right bottom coordinates.
+        score
+            The score of the detection.
+        landmark
+            10x2 the landmark of the joints [[x1,y1], [x2,y2]...].
+        rotate
+            Whether the bounding box is rotated.
         """
         self.label = label
         self.score = score
@@ -83,10 +89,18 @@ class BBox:
 def nms(objs: list[BBox], iou: float = 0.5) -> list[BBox]:
     """
     Nms function customized to work on the BBox objects list.
-    parameter:
-        objs: the list of the BBox objects.
-    return:
-        the rest of the BBox after nms operation.
+
+    Parameters
+    ----------
+    objs
+        The list of the BBox objects.
+    iou
+        Intersection over union threshold for NMS.
+
+    Returns
+    -------
+    filtered_boxes
+        The BBox objects remaining after NMS filtering.
     """
     if objs is None or len(objs) <= 1:
         return objs

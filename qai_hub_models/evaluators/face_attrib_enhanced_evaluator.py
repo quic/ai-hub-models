@@ -15,7 +15,7 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
     """Evaluator for comparing a batched image output."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # dict[person ID, dict[image ID, Feature Embedding]]
         self.id_features: dict[int, dict[int, np.ndarray]] = {}
         # total number of persons
@@ -27,7 +27,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
         self,
         output: tuple[torch.Tensor, torch.Tensor],
         gt: tuple[torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """
         Adds a batch of model outputs and corresponding ground truth data.
 
@@ -69,7 +69,7 @@ class FaceAttribNetEnhancedEvaluator(BaseEvaluator):
                 feature_embed[i].detach().numpy()
             )
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset model evaluation result variables."""
         self.id_features = {}
         self.id_total = 0

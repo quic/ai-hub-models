@@ -5,16 +5,20 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from easyocr.craft import CRAFT as CRAFTDetector
 from easyocr.DBNet.DBNet import DBNet as DBNetDetector
 from easyocr.easyocr import Reader
 from easyocr.model.model import Model as Recognizer
+from easyocr.model.modules import BidirectionalLSTM
 from easyocr.model.vgg_model import Model as VGGRecognizer
 
 from qai_hub_models.utils.base_model import BaseModel, CollectionModel
 from qai_hub_models.utils.image_processing import normalize_image_torchvision
 from qai_hub_models.utils.input_spec import InputSpec
+from qai_hub_models.utils.rnn import UnrolledLSTM
 
 MODEL_ID = __name__.split(".")[-2]
 MODEL_ASSET_VERSION = 2
@@ -32,8 +36,6 @@ class EasyOCRDetector(BaseModel):
     def from_pretrained(
         cls, lang_list: list = LANG_LIST, detect_network: str = "craft"
     ) -> EasyOCRDetector:
-        from easyocr.easyocr import Reader
-
         ocr_reader = Reader(
             lang_list,
             gpu=False,
@@ -43,7 +45,7 @@ class EasyOCRDetector(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.detector)
+        return cls(cast(CRAFTDetector | DBNetDetector, ocr_reader.detector))
 
     def forward(self, image: torch.Tensor):
         """
@@ -51,9 +53,15 @@ class EasyOCRDetector(BaseModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for detector consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for detector consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
+
+        Returns
+        -------
+        detection_results
+            Detection results containing text score map and link score map.
         """
         # Run network
         if isinstance(self.model, CRAFTDetector):
@@ -91,7 +99,10 @@ class EasyOCRRecognizer(BaseModel):
 
     @classmethod
     def from_pretrained(
-        cls, lang_list: list = LANG_LIST, recog_network: str = "standard"
+        cls,
+        lang_list: list = LANG_LIST,
+        recog_network: str = "standard",
+        unroll_lstm: bool = False,
     ) -> EasyOCRRecognizer:
         ocr_reader = Reader(
             lang_list,
@@ -102,32 +113,46 @@ class EasyOCRRecognizer(BaseModel):
             user_network_directory=USER_NETWORK_DIRECTORY,
         )
 
-        return cls(ocr_reader.recognizer)
+        recognizer = cast(VGGRecognizer | Recognizer, ocr_reader.recognizer)
 
-    def forward(self, image: torch.Tensor):
+        # Patch LSTM modules with UnrolledLSTM wrappers if needed
+        # As of early 2026, unrolled LSTM is the only path to support quantized LSTM on NPU via LiteRT.
+        if unroll_lstm:
+            for rnn in recognizer.SequenceModeling:
+                bilstm = cast(BidirectionalLSTM, rnn)
+                bilstm.rnn = UnrolledLSTM(bilstm.rnn)  # type: ignore[assignment, unused-ignore]
+
+        return cls(recognizer)
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Run recognizer on `image`, and produce a score matrix corresponding to character classes.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for detector consumption.
-                   Range: float[0, 1]
-                   1-channel Color Space: grey
+        image
+            Pixel values pre-processed for detector consumption.
+            Range: float[0, 1]
+            1-channel Color Space: grey
 
         Returns
         -------
+        character_predictions
             segmented mask per class: Shape [batch, T, classes]
         """
         return self.model((image - 0.5) / 0.5, None)
 
     @staticmethod
     def get_input_spec(
-        batch_size: int = 1,
-        height: int = 64,
-        width: int = 1000,
+        recog_batch_size: int = 1,
+        max_detection_height: int = 64,
+        max_detection_width: int = 800,
     ) -> InputSpec:
         return {
-            "image": ((batch_size, 1, height, width), "float32"),
+            "image": (
+                (recog_batch_size, 1, max_detection_height, max_detection_width),
+                "float32",
+            ),
         }
 
     @staticmethod
@@ -147,7 +172,7 @@ class EasyOCR(CollectionModel):
         detector: EasyOCRDetector,
         recognizer: EasyOCRRecognizer,
         lang_list: list[str],
-    ):
+    ) -> None:
         super().__init__(detector, recognizer)
         self.lang_list = lang_list
         self.detector = detector
@@ -159,21 +184,32 @@ class EasyOCR(CollectionModel):
         lang_list: list[str] = LANG_LIST,
         detect_network: str = "craft",
         recog_network: str = "standard",
+        unroll_lstm: bool = False,
     ) -> EasyOCR:
         """
         Create an EasyOCR model.
 
         Parameters
         ----------
-            lang_list: list[str]
-                Language List
+        lang_list
+            Language List
+        detect_network
+            Detector network architecture
+            Valid options: craft, dbnet18
+        recog_network
+            Recognizer network architecture
+            Valid options: standard (determine based on language list), generation1, generation2
+        unroll_lstm
+            Whether to unroll LSTM layers in the recognizer.
+            As of early 2026, unrolled LSTM is the only path to support quantized LSTM on NPU via LiteRT.
 
-            detect_network: Detector network architecture
-                Valid options: craft, dbnet18
-
-            recog_network: Recognizer network architecture
-                Valid options: standard (determine based on language list), generation1, generation2
+        Returns
+        -------
+        model_instance
+            The EasyOCR model instance.
         """
         detector = EasyOCRDetector.from_pretrained(lang_list, detect_network)
-        recognizer = EasyOCRRecognizer.from_pretrained(lang_list, recog_network)
+        recognizer = EasyOCRRecognizer.from_pretrained(
+            lang_list, recog_network, unroll_lstm
+        )
         return EasyOCR(detector, recognizer, lang_list)

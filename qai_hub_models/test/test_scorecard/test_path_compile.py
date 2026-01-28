@@ -14,7 +14,7 @@ from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_pat
 from qai_hub_models.utils.set_env import set_temp_env
 
 
-def test_compile_qnn_version():
+def test_compile_qnn_version() -> None:
     """
     This verifies behavior of ScorecardCompilePath.get_compile_options() with
     different combinations of:

@@ -37,14 +37,14 @@ class ElectraBertBaseDiscrimGoogle(BaseBertModel):
         """
         Parameters
         ----------
-        input_tokens : torch.Tensor
+        input_tokens
             Input token IDs with shape [batch_size, seq_len]
-        attention_masks : torch.Tensor
+        attention_masks
             Attention masks with shape [batch_size, seq_len]
 
         Returns
         -------
-        torch.Tensor
+        predictions
             Binary output tensor with shape [batch_size, seq_len, vocab_size]
             where values are rounded to 0 or 1
         """

@@ -41,6 +41,7 @@ from tasks.task import (
     CompositeTask,
     ConditionalTask,
     ListTasksTask,
+    LlamaCppBenchmarkTask,
     NoOpTask,
     RunCommandsWithVenvTask,
     Task,
@@ -63,7 +64,7 @@ from tasks.venv import (
 )
 
 
-def parse_arguments():
+def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build and test all the things.",
         formatter_class=argparse.RawTextHelpFormatter,
@@ -74,7 +75,7 @@ def parse_arguments():
         "--tasks",
         dest="legacy_task",
         type=str,
-        help="[deprecated] Comma-separated list of tasks to run; use --task=list to list all tasks.",
+        help="[deprecated] Comma-separated list of tasks to run; use --task=list_tasks to list all tasks.",
     )
     parser.add_argument(
         "task",
@@ -181,8 +182,8 @@ class TaskLibrary:
 
     @public_task("Print a list of commonly used tasks; see also --task=list_all.")
     @depends(["list_public"])
-    def list(self, plan: Plan) -> str:
-        return plan.add_step("list", NoOpTask())
+    def list_tasks(self, plan: Plan) -> str:
+        return plan.add_step("list_tasks", NoOpTask())
 
     @task
     def list_all(self, plan: Plan) -> str:
@@ -334,6 +335,25 @@ class TaskLibrary:
             ),
         )
 
+    @public_task("Run Llama.CPP benchmarks on QDC devices")
+    @depends(["install_deps"])
+    def run_llama_cpp_benchmark(
+        self, plan: Plan, step_id: str = "run_llama_cpp_benchmark"
+    ) -> str:
+        """
+        Run Llama.CPP benchmarks. Uses environment variables:
+        - LLAMA_CPP_PATH: Path to Llama.CPP binaries
+        - QAIHM_MODELS: Comma-separated model names, or "all" (default: "all")
+        - QAIHM_DEVICES: Comma-separated list of QDC device names
+        - QDC_API_KEY: QDC API token
+
+        Model URLs are looked up from LLAMA_CPP_MODEL_URLS in tasks/constants.py
+        """
+        return plan.add_step(
+            step_id,
+            LlamaCppBenchmarkTask(venv=self.venv_path),
+        )
+
     @public_task("Model Test Setup")
     @depends(
         ["install_deps", "generate_global_requirements", "download_private_datasets"]
@@ -372,7 +392,7 @@ class TaskLibrary:
             PyTestQAIHMTask(self.venv_path),
         )
 
-    def _get_mypy_models_task(self, models) -> PyTestModelsTask:
+    def _get_mypy_models_task(self, models: list[str]) -> PyTestModelsTask:
         return PyTestModelsTask(
             self.python_executable,
             models,
@@ -402,7 +422,7 @@ class TaskLibrary:
     ) -> str:
         return plan.add_step(step_id, self._get_mypy_models_task(get_all_models()))
 
-    def _get_quantize_models_task(self, models) -> PyTestModelsTask:
+    def _get_quantize_models_task(self, models: list[str]) -> PyTestModelsTask:
         return PyTestModelsTask(
             self.python_executable,
             models,
@@ -491,11 +511,22 @@ class TaskLibrary:
             ),
         )
 
-    @public_task("Run GPU tests.")
-    def test_gpu_models(self, plan: Plan, step_id: str = "test_gpu_models") -> str:
+    @public_task("Run GPU weekly tests.")
+    def test_gpu_models_weekly(
+        self, plan: Plan, step_id: str = "test_gpu_models_weekly"
+    ) -> str:
         return plan.add_step(
             step_id,
             GPUPyTestModelsTask(venv=self.venv_path),
+        )
+
+    @public_task("Run GPU nightly tests (only tests marked with @pytest.mark.nightly).")
+    def test_gpu_models_nightly(
+        self, plan: Plan, step_id: str = "test_gpu_models_nightly"
+    ) -> str:
+        return plan.add_step(
+            step_id,
+            GPUPyTestModelsTask(venv=self.venv_path, nightly_only=True),
         )
 
     @public_task(
@@ -866,7 +897,7 @@ def plan_from_task_list(
     return plan
 
 
-def build_and_test():
+def build_and_test() -> None:
     log_format = "[%(asctime)s] [bnt] [%(levelname)s] %(message)s"
     logging.basicConfig(level=logging.DEBUG, format=log_format)
 

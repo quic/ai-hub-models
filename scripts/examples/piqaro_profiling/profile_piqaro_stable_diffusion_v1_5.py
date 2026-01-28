@@ -12,13 +12,19 @@ Install piqaro from https://github.qualcomm.com/Hexagon-Architecture/piqaro
 This is broken currently. Will fix soon.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import piqaro
+
+if TYPE_CHECKING:
+    import onnx
 import piqaro.onnx
 import qai_hub as hub
 import torch
@@ -51,7 +57,9 @@ COMPONENTS = {
 OPT_METHODS = ["no_opt", "manual", "piqaro_torch", "piqaro_onnx"]
 
 
-def piqaro_onnx_large_model(onnx_model, sample_input, export_dir):
+def piqaro_onnx_large_model(
+    onnx_model: onnx.ModelProto, sample_input: tuple[torch.Tensor, ...], export_dir: str
+) -> onnx.ModelProto:
     import onnx
     import onnxsim
 
@@ -145,7 +153,7 @@ if __name__ == "__main__":
         # Create a temporary directory that will persist until export finishes.
         with tempfile.TemporaryDirectory() as tmpdir:
 
-            def onnx_transforms(onnx_model):
+            def onnx_transforms(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
                 # import onnxsim
                 # onnx_model, _ = onnxsim.simplify(onnx_model)
 

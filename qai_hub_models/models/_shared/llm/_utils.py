@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
 import onnx
 from aimet_onnx.common.defs import (
     QuantizationDataType,
@@ -28,7 +30,7 @@ def _tie_quantizers_for_kv_cache(quantsim_model: QuantSimOnnx) -> None:
     quantsim_model.set_quantizers(quantizer_mapping)
 
 
-def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):
+def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx) -> None:
     out_tensors = []
     out_tensors.extend(
         [
@@ -48,7 +50,7 @@ def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):
         _set_tensor_to_8_bit_symmetric(quantsim_model, out_tensor)
 
 
-def _set_4bit_weights_to_lpbq(quantsim_model: QuantSimOnnx):
+def _set_4bit_weights_to_lpbq(quantsim_model: QuantSimOnnx) -> None:
     # This is largely a copy-paste of
     # set_grouped_blockwise_quantization_for_weights, except adds an op
     # selection criterion based on all ops that already have the target
@@ -94,14 +96,16 @@ def _set_4bit_weights_to_lpbq(quantsim_model: QuantSimOnnx):
                     quantsim_model.qc_quantize_op_dict[name] = grouped_quantizer
 
 
-def _set_tensor_to_8_bit_symmetric(quantsim_model: QuantSimOnnx, tensor_name: str):
+def _set_tensor_to_8_bit_symmetric(
+    quantsim_model: QuantSimOnnx, tensor_name: str
+) -> None:
     if tensor_name in quantsim_model.qc_quantize_op_dict:
         quantizer = quantsim_model.qc_quantize_op_dict[tensor_name]
         quantizer.set_bitwidth(8)
         quantizer.use_symmetric_encodings = True
 
 
-def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx):
+def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx) -> None:
     for weight in _get_lm_head_weights(quantsim_model.model.model):
         quantizer = quantsim_model.qc_quantize_op_dict[weight.name]
         quantizer.set_bitwidth(8)
@@ -110,7 +114,9 @@ def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx):
         quantizer.enable_per_channel_quantization()
 
 
-def _get_lm_head_weights(model: onnx.ModelProto):
+def _get_lm_head_weights(
+    model: onnx.ModelProto,
+) -> Generator[onnx.TensorProto, None, None]:
     vocab_size = model.graph.output[0].type.tensor_type.shape.dim[-1].dim_value
     for weight in model.graph.initializer:
         if any(dim == vocab_size for dim in weight.dims):

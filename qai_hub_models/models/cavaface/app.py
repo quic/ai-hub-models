@@ -39,16 +39,19 @@ class CavaFaceApp:
         """
         Generate a face embedding from an input image.
 
-        Args:
-            image: Input PIL Image
-            use_flip: If True, creates an ensemble by running inference on both
-                    the original image and its horizontally flipped version,
-                    then averages the resulting embeddings for better accuracy.
+        Parameters
+        ----------
+        image
+            Input PIL Image.
+        use_flip
+            If True, creates an ensemble by running inference on both
+            the original image and its horizontally flipped version,
+            then averages the resulting embeddings for better accuracy.
 
         Returns
         -------
-            np.ndarray
-                Normalized 512-dimensional face embedding
+        embedding
+            Normalized 512-dimensional face embedding.
         """
         # Preprocess
         NCHW_torch_images = app_to_net_image_inputs(image)[1]

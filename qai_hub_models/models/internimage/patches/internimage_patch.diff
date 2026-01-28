@@ -1,0 +1,54 @@
+diff --git a/classification/ops_dcnv3/functions/dcnv3_func.py b/classification/ops_dcnv3/functions/dcnv3_func.py
+index 619418c..d659cac 100644
+--- a/classification/ops_dcnv3/functions/dcnv3_func.py
++++ b/classification/ops_dcnv3/functions/dcnv3_func.py
+@@ -6,7 +6,7 @@
+ 
+ from __future__ import absolute_import, division, print_function
+ 
+-import DCNv3
++#import DCNv3
+ import pkg_resources
+ import torch
+ import torch.nn.functional as F
+@@ -14,7 +14,7 @@ from torch.autograd import Function
+ from torch.autograd.function import once_differentiable
+ from torch.cuda.amp import custom_bwd, custom_fwd
+ 
+-dcn_version = float(pkg_resources.get_distribution('DCNv3').version)
++#dcn_version = float(pkg_resources.get_distribution('DCNv3').version)
+ 
+ 
+ class DCNv3Function(Function):
+diff --git a/classification/ops_dcnv3/modules/dcnv3.py b/classification/ops_dcnv3/modules/dcnv3.py
+index d9fc1b8..8a06b61 100644
+--- a/classification/ops_dcnv3/modules/dcnv3.py
++++ b/classification/ops_dcnv3/modules/dcnv3.py
+@@ -333,6 +333,7 @@ class DCNv3(nn.Module):
+         mask = F.softmax(mask, -1)
+         mask = mask.reshape(N, H, W, -1).type(dtype)
+ 
++        '''
+         x = DCNv3Function.apply(
+             x, offset, mask,
+             self.kernel_size, self.kernel_size,
+@@ -343,7 +344,18 @@ class DCNv3(nn.Module):
+             self.offset_scale,
+             256,
+             self.remove_center)
+-
++        '''
++        x = dcnv3_core_pytorch(
++            x, offset, mask,
++            self.kernel_size, self.kernel_size,
++            self.stride, self.stride,
++            self.pad, self.pad,
++            self.dilation, self.dilation,
++            self.group, self.group_channels,
++            self.offset_scale,
++            #256,
++            self.remove_center)
++            
+         if self.center_feature_scale:
+             center_feature_scale = self.center_feature_scale_module(
+                 x1, self.center_feature_scale_proj_weight, self.center_feature_scale_proj_bias)

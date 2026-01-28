@@ -108,7 +108,7 @@ def export_model(
     profile_options: str = "",
     fetch_static_assets: str | None = None,
     zip_assets: bool = False,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> CollectionExportResult:
     """
     This function executes the following recipe:
@@ -271,7 +271,7 @@ def export_model(
     )
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.w4a16: [

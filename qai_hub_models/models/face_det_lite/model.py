@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.face_det_lite_evaluator import FaceDetLiteEvaluator
@@ -44,23 +45,28 @@ class FaceDetLite(BaseModel):
         has_se: bool = True,
         phase: str = "train",
     ):
-        super().__init__()
         """
         FaceDetLite face detector model for face and landmark detection.
         output face bounding box and 5 landmarks.
 
-        Parameters:
-            wide: the channel size of bandwith of the intermediate layers
-            has_ext: if add extension layer in the head module.
-            upmode: upsampling mode.
-            act: activation function.
-            RGB: if the input is a 3 channel RGB
-            has_se: if has the se module
-            phase: "train" or "test"
-
-        Returns:
-            FaceDetLite model instance.
+        Parameters
+        ----------
+        wide
+            The channel size of bandwith of the intermediate layers.
+        has_ext
+            If add extension layer in the head module.
+        upmode
+            Upsampling mode.
+        act
+            Activation function.
+        RGB
+            If the input is a 3 channel RGB.
+        has_se
+            If has the se module.
+        phase
+            "train" or "test".
         """
+        super().__init__()
         self.use_rgb = RGB
         self.has_landmark = True
         # define backbone
@@ -99,22 +105,31 @@ class FaceDetLite(BaseModel):
             wide * 2, wide, kernel_size=1, stride=1, padding=0, bias=False
         )
 
-    def forward(self, image):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
         """
         Run FaceDetLite on `image`, and produce a the list of face bounding box
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   1-channel gray scale image
-                   Width/height must be divisible by 32.
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            1-channel gray scale image
+            Width/height must be divisible by 32.
 
         Returns
         -------
-            heatmap: N,C,H,W the heatmap for the person/face detection.
-            bbox: N,C*4, H,W the bounding box coordinate as a map.
-            landmark: N,C*10,H,W the coordinates of landmarks as a map.
+        If has_landmark is True, returns:
+        heatmap
+            Shape is [N, C, H, W]. The heatmap for person/face detection.
+        bbox
+            Shape is [N, C*4, H, W]. The bounding box coordinates as a map.
+        landmark
+            Shape is [N, C*10, H, W]. The coordinates of landmarks as a map.
+
+        If has_landmark is False, returns None.
         """
         *_, h, w = image.shape
         if h % 32 != 0 or w % 32 != 0:
@@ -141,10 +156,10 @@ class FaceDetLite(BaseModel):
         return None
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: str | None = None):
+    def from_pretrained(cls, checkpoint_path: str | None = None) -> Self:
         """Load FaceDetLite from a weightfile created by the source FaceDetLite repository."""
         # Initialize model
-        FaceDetLite_model = FaceDetLite()
+        FaceDetLite_model = cls()
         # Determine checkpoint source: user-provided path or cached asset
         checkpoint_to_load = checkpoint_path or CachedWebModelAsset.from_asset_store(
             MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS
@@ -199,3 +214,11 @@ class FaceDetLite(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "face_det_lite"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+        The returned value is a constant 20.0.
+        """
+        return 20

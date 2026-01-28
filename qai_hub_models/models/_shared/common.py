@@ -35,14 +35,14 @@ def replace_module_recursively(
     tgt_cls: type[torch.nn.Module],
     new_cls: type[torch.nn.Module],
     parent_module: type[torch.nn.Module] | None = None,
-):
+) -> None:
     """
     Replace all instances of `tgt_cls` with `new_cls`. If `parent_module` is
     specified, `tgt_cls` instance must be an immediate member of
     `parent_module` (useful for limiting replacement scope)
     """
 
-    def apply_fn(child, pmodule, name):
+    def apply_fn(child: torch.nn.Module, pmodule: torch.nn.Module, name: str) -> None:
         setattr(pmodule, name, new_cls(child))
 
     apply_module_function_recursively(module, tgt_cls, apply_fn, parent_module)

@@ -10,7 +10,7 @@ import os
 import warnings
 from enum import Enum, unique
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import onnx
 import torch
@@ -167,10 +167,9 @@ def hf_repo_exists(repo_id: str) -> bool:
 T = TypeVar("T", bound="FromPretrainedMixin")
 
 
-class FromPretrainedMixin(Generic[T]):
+class FromPretrainedMixin:
     """
-    FromPretrainedMixin helps models quantized by AIMET loads checkpoints
-    (both fp and quantized).
+    FromPretrainedMixin helps models loads checkpoints, both fp and quantized.
 
     Mixin providing:
       - torch_from_pretrained(...)
@@ -203,8 +202,8 @@ class FromPretrainedMixin(Generic[T]):
     default_subfolder: str = ""
     default_subfolder_hf: str = ""
 
-    def __init__(self, model: torch.nn.Module):
-        self.model = model
+    def __init__(self, model: torch.nn.Module | None = None) -> None:
+        super().__init__(model)  # type: ignore[call-arg]
 
     @classmethod
     def torch_from_pretrained(
@@ -374,20 +373,27 @@ class FromPretrainedMixin(Generic[T]):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
+        torch_from_pretrained_kwargs: dict[str, Any] | None = None,
+        cls_kwargs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Self:
         """
         This assumes that the class takes a single torch.nn.Module in
         __init__. Override if not.
         """
+        if torch_from_pretrained_kwargs is None:
+            torch_from_pretrained_kwargs = {}
+        if cls_kwargs is None:
+            cls_kwargs = {}
+
         host_device = torch.device(host_device)
-        return cls(
-            cls.torch_from_pretrained(
-                checkpoint=checkpoint,
-                subfolder=subfolder,
-                host_device=host_device,
-            )
+        torch_model = cls.torch_from_pretrained(
+            checkpoint=checkpoint,
+            subfolder=subfolder,
+            host_device=host_device,
+            **torch_from_pretrained_kwargs,
         )
+        return cls(torch_model, **cls_kwargs)
 
     @classmethod
     def get_calibrated_aimet_model(cls) -> tuple[str, str]:

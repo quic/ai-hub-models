@@ -35,7 +35,8 @@ def imagenet_sample_torch() -> torch.Tensor:
     """
     Returns
     -------
-    - Preprocessed (normalized etc) image as torch.Tensor with shape [1, 3, 224, 224]
+    sample_image
+        Preprocessed (normalized etc) image as torch.Tensor with shape [1, 3, 224, 224].
     """
     img = load_image(TEST_IMAGENET_IMAGE, desc="imagenet_classifier")
     return preprocess_image(img)
@@ -55,16 +56,23 @@ def run_imagenet_classifier_test(
 
     Parameters
     ----------
-        model: The model to evaluate.
-        model_name: Identifier used to lookup the expected output file.
-        asset_version: Version of the expected output file to lookup.
-        probability_threshold: If the predicited probability for the correct class
-            is below this threshold, the method throws an error.
-        diff_tol: Float in range [0,1] representing the maximum percentage of
-            the probabilities that can differ from the ground truth while
-            still having the test pass.
-        atol: Absolute tolerance allowed for two numbers to be "close".
-        rtol: Relative tolerance allowed for two numbers to be "close".
+    model
+        The model to evaluate.
+    model_name
+        Identifier used to lookup the expected output file.
+    asset_version
+        Version of the expected output file to lookup.
+    probability_threshold
+        If the predicited probability for the correct class
+        is below this threshold, the method throws an error.
+    diff_tol
+        Float in range [0,1] representing the maximum percentage of
+        the probabilities that can differ from the ground truth while
+        still having the test pass.
+    rtol
+        Relative tolerance allowed for two numbers to be "close".
+    atol
+        Absolute tolerance allowed for two numbers to be "close".
     """
     img = load_image(TEST_IMAGENET_IMAGE)
     app = ImagenetClassifierApp(model)

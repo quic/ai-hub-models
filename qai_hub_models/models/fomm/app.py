@@ -72,13 +72,16 @@ def load_video_frames(
 
     Parameters
     ----------
-        video_filepath: Filepath to the .mp4 file.
-        sample_rate: Only return one every {sample_rate} frames.
-            By default, returns all frames.
+    video_filepath
+        Filepath to the .mp4 file.
+    sample_rate
+        Only return one every {sample_rate} frames.
+        By default, returns all frames.
 
     Returns
     -------
-        List of frames a numpy arrays.
+    frames
+        List of frames as numpy arrays.
     """
     try:
         reader = imageio.get_reader(video_filepath)
@@ -133,19 +136,21 @@ class FOMMApp:
     ) -> list[np.ndarray]:
         """
         Given a source image and a driving video, returns a new video of the
-            source image mirroring the movements in the driving video.
+        source image mirroring the movements in the driving video.
 
         Parameters
         ----------
-            source_image: numpy array (H W C x float[0 - 1], RGB)
-
-            driving_video: List of numpy array frames of the target animation.
-                List[np.ndarray]. Each array is shape (C, H, W). float[0 - 1], RGB
+        source_image
+            Numpy array (H W C x float[0 - 1], RGB).
+        driving_video
+            List of numpy array frames of the target animation.
+            Each array is shape (C, H, W). float[0 - 1], RGB.
 
         Returns
         -------
-            predictions: list[numpy array H W C x float32 [0, 1]]
-                A list of predicted images
+        predicted_images
+            A list of predicted images. Each image is a numpy array
+            (H W C x float32 [0, 1]).
         """
         # open source image
         source_image = resize_frame(source_image)

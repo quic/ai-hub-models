@@ -1,0 +1,36 @@
+name: Zipformer
+id: zipformer
+status: public
+headline: Transformer-based automatic speech recognition (ASR) model for English and Chinese language.
+domain: Audio
+description: Zipformer streaming ASR (Automatic Speech Recognition) model is a state-of-the-art system designed for transcribing spoken language into written text streamingly. This model is based on the transformer architecture and has been optimized for edge inference by replacing linear layers with convolutional (conv) layers. It exhibits robust performance in realistic, noisy environments, making it highly reliable for real-world applications. Specifically, it excels in long-form transcription, capable of accurately transcribing audios. Time to the first token is the encoder's latency, while time to each additional token is joiner's latency, where we assume a max decoded length specified below.
+use_case: Speech Recognition
+tags:
+- foundation
+applicable_scenarios:
+- Smart Home
+- Accessibility
+related_models:
+- whisper_small
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset: []
+technical_details:
+  Model checkpoint: pfluo/k2fsa-zipformer-chinese-english-mixed
+  Input resolution: 80x71 (0.71 seconds audio)
+  Max decoded sequence length: 200 tokens
+  Number of parameters (ZipformerEncoder): 63.2M
+  Model size (ZipformerEncoder) (float): 242 MB
+  Number of parameters (ZipformerDecoder): 3.47M
+  Model size (ZipformerDecoder) (float): 13.2 MB
+  Number of parameters (ZipformerJoiner): 3.21M
+  Model size (ZipformerJoiner) (float): 12.2 MB
+license_type: apache-2.0
+research_paper: https://openreview.net/forum?id=9WD9KwssyT
+research_paper_title: Zipformer A faster and better encoder for automatic speech recognition
+source_repo: https://github.com/k2-fsa/icefall
+license: https://github.com/huggingface/transformers/blob/v4.42.3/LICENSE

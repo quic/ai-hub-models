@@ -82,7 +82,7 @@ class ResultsSpreadsheet(list):
 
     def to_csv(
         self, path: str | os.PathLike, combine_model_and_component_id: bool = True
-    ):
+    ) -> None:
         # Default datetime if not set
         date: str
         if not self._datestr:
@@ -209,7 +209,7 @@ class ResultsSpreadsheet(list):
         compile_summary: ModelCompileSummary | None = None,
         profile_summary: ModelPerfSummary | None = None,
         inference_summary: ModelInferenceSummary | None = None,
-    ):
+    ) -> None:
         self.extend(
             ResultsSpreadsheet.get_model_summary_entries(
                 model_id,
@@ -232,7 +232,7 @@ class ResultsSpreadsheet(list):
         tags: list[str],
         default_quantized_precision: Precision | None,
         known_failure_reasons: ModelDisableReasonsMapping | None = None,
-    ):
+    ) -> None:
         self._model_metadata[model_id] = ResultsSpreadsheet.ModelMetadata(
             domain,
             use_case,
@@ -241,10 +241,10 @@ class ResultsSpreadsheet(list):
             default_quantized_precision,
         )
 
-    def set_date(self, date: datetime | None):
+    def set_date(self, date: datetime | None) -> None:
         self._datestr = date.strftime("%m/%d/%Y") if date else None
 
-    def set_branch(self, branch: str | None):
+    def set_branch(self, branch: str | None) -> None:
         self._branchstr = branch
 
     @staticmethod
@@ -267,7 +267,7 @@ class ResultsSpreadsheet(list):
 
         def create_entry(
             precision: Precision, path: ScorecardProfilePath, device: ScorecardDevice
-        ):
+        ) -> None:
             for component_id in components or [model_id]:
                 # Get job for this path + device + component combo
                 quantize_job = quantize_summary.get_run(

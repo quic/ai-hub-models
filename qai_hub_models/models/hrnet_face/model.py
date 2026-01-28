@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.hrnet_face_evaluator import HRNetFaceEvaluator
@@ -43,7 +44,7 @@ class HRNetFace(BaseModel):
     @classmethod
     def from_pretrained(
         cls, weights_name: str = DEFAULT_WEIGHTS, config_name: str = DEFAULT_CONFIG
-    ):
+    ) -> Self:
         weights = load_torch(weights_name)
         with SourceAsRoot(SOURCE_REPO, COMMIT_HASH, MODEL_ID, MODEL_ASSET_VERSION):
             from lib.config import config
@@ -68,13 +69,15 @@ class HRNetFace(BaseModel):
 
         Parameters
         ----------
-            image[torch.Tensor]: Input image as a torch.Tensor,
-                    shape [B, 3, H, W], Pixel values in [0, 1].
+        image
+            Input image as a torch.Tensor,
+            shape [B, 3, H, W], Pixel values in [0, 1].
 
         Returns
         -------
-            heatmaps[torch.Tensor]: Heatmaps of shape [B, 29, 64, 64], where 29 is the number of keypoints,
-                    containing probability distributions for keypoint locations.
+        heatmaps
+            Heatmaps of shape [B, 29, 64, 64], where 29 is the number of keypoints,
+            containing probability distributions for keypoint locations.
         """
         return self.model(normalize_image_torchvision(image))
 

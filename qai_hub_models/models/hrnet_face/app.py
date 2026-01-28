@@ -31,16 +31,17 @@ class HRNetFaceApp:
 
         Parameters
         ----------
-            input_image: Input image as a PIL Image.
-            raw_output: If True, returns raw keypoint coordinates.
+        input_image
+            Input image as a PIL Image.
+        raw_output
+            If True, returns raw keypoint coordinates.
 
         Returns
         -------
-            If raw_output is True:
-                - np.ndarray: Shape [B, K, 2], where B is batch size, K is number of keypoints, and 2 is (x, y)
-                  coordinates scaled to the input image dimensions.
-            If raw_output is False:
-                - list[Image]: List of PIL Images with keypoints drawn as red dots.
+        keypoints or annotated_images
+            If raw_output is True, returns np.ndarray of shape [B, K, 2], where B is batch size,
+            K is number of keypoints, and 2 is (x, y) coordinates scaled to the input image dimensions.
+            If raw_output is False, returns list of PIL Images with keypoints drawn as red dots.
         """
         # Convert inputs to list of RGB uint8 frames and a torch tensor in [0,1], NCHW.
         rgb_frames_uint8, input_tensor = app_to_net_image_inputs(input_image)
@@ -73,15 +74,18 @@ def refine_keypoints_from_heatmaps(
     """
     Extracts precise keypoint coordinates from heatmaps using argmax with sub-pixel refinement.
 
+    Adapted from HRNet-Facial-Landmark-Detection:
+    https://github.com/HRNet/HRNet-Facial-Landmark-Detection/blob/master/lib/core/evaluation.py#L67C5-L78C27
+
     Parameters
     ----------
-        heatmaps: [B, K, H, W] numpy float heatmaps
-    Returns:
-        coords: [B, K, 2] keypoints in heatmap coordinates (x,y)
-    Source:
-        Adapted from HRNet-Facial-Landmark-Detection:
-        https://github.com/HRNet/HRNet-Facial-Landmark-Detection/blob/master/lib/core/evaluation.py#L67C5-L78C27
+    heatmaps
+        [B, K, H, W] numpy float heatmaps.
 
+    Returns
+    -------
+    keypoints
+        [B, K, 2] keypoints in heatmap coordinates (x, y).
     """
     B, K, H, W = heatmaps.shape
     reshaped = heatmaps.reshape(B, K, -1)

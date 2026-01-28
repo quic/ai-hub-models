@@ -48,7 +48,7 @@ def for_each_scorecard_path_and_device(
     exclude_paths: list[ScorecardPathOrNoneTypeVar] | None = None,
     exclude_devices: list[ScorecardDevice] | None = None,
     include_mirror_devices: bool = False,
-):
+) -> None:
     if precisions is None:
         precisions = [Precision.float]
     for precision in precisions:
@@ -312,7 +312,7 @@ def get_model_test_parameterizations(
     return ret
 
 
-def pytest_device_idfn(val):
+def pytest_device_idfn(val: object) -> str | None:
     """
     Pytest generates test titles based on the parameterization of each test.
     This title can both be used as a filter during test selection and is
@@ -494,7 +494,7 @@ class ClientState:
 class ClientStateSingleton:
     _instance: ClientState | None = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         if self._instance is None:
             self._instance = ClientState(on_staging=_on_staging())
 

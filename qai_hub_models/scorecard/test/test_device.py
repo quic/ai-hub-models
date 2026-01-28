@@ -5,7 +5,7 @@
 from qai_hub_models.scorecard.device import ScorecardDevice
 
 
-def test_exactly_one_default():
+def test_exactly_one_default() -> None:
     num_defaults = 0
     for device in ScorecardDevice._registry.values():
         if device.is_default:

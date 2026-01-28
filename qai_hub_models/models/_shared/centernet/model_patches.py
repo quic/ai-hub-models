@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 import torch.nn.functional as F
 
@@ -29,7 +31,7 @@ def calculate_p0(h: int, w: int, stride_h: int, stride_w: int) -> torch.Tensor:
 
     Returns
     -------
-    torch.Tensor
+    base_grid
         Tensor of shape (1, 2, h, w) representing
         the base sampling grid coordinates (y, x) for each
         output pixel and each kernel point.
@@ -66,7 +68,7 @@ def calculate_pk(
 
     Returns
     -------
-    torch.Tensor
+    kernel_offsets
         Tensor of shape (K, 2, 1, 1) representing
         the relative offsets (y, x) for each kernel point.
         K = kernel_h * kernel_w.
@@ -98,7 +100,7 @@ def bilinear_sample(input_tensor: torch.Tensor, coords: torch.Tensor) -> torch.T
 
     Returns
     -------
-    torch.Tensor
+    sampled_features
         Sampled tensor, shape is (K, H_out, W_out, C).
     """
     _, _, H, W = input_tensor.shape
@@ -177,7 +179,7 @@ def custom_deformconv2d(
 
     Returns
     -------
-    torch.Tensor
+    output
         Output tensor of shape (B, C_out, H_out, W_out).
     """
     B, C_in, H_in, W_in = x.shape
@@ -223,18 +225,20 @@ def custom_deformconv2d(
     )
 
 
-def custom_dcn_forward(self, x: torch.Tensor) -> torch.Tensor:
+def custom_dcn_forward(self: Any, x: torch.Tensor) -> torch.Tensor:
     """
     Patched forward method for a Deformable Conv2D module with custom_deformconv2d..
 
     Parameters
     ----------
-    x:
+    self
+        The Deformable Conv2D module instance.
+    x
         Input feature map of shape (B, C_in, H_in, W_in).
 
     Returns
     -------
-    torch.Tensor
+    output_features
         Output feature map of shape (B, C_out, H_out, W_out).
     """
     out = self.conv_offset_mask(x)

@@ -38,10 +38,12 @@ from qai_hub_models.utils.qai_hub_helpers import download_model_in_memory
 
 QUANT_RESULTS_PATH = os.environ.get("QUANT_RESULTS_PATH", os.path.expanduser("~"))
 RESULTS_FOLDER = Path(QUANT_RESULTS_PATH) / "quant_debug"
-HIGHER_PRECISION_FOR_MIXED_PRECISION = "float16"
+HIGHER_PRECISION_FOR_MIXED_PRECISION = "w16a16"
 
 
-def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
+def _make_dummy_inputs(
+    input_spec: dict[str, tuple[tuple[int, ...], str]],
+) -> dict[str, torch.Tensor]:
     tensors = make_torch_inputs(input_spec)
     dummy_inputs = {}
     for index, input_name in enumerate(input_spec):
@@ -49,7 +51,9 @@ def _make_dummy_inputs(input_spec) -> dict[str, torch.Tensor]:
     return dummy_inputs
 
 
-def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader):
+def _calibration_forward_pass(
+    session: onnxruntime.InferenceSession, dataloader: list[tuple[torch.Tensor, object]]
+) -> None:
     for _, sample in tqdm(enumerate(dataloader), total=len(dataloader)):
         model_inputs, _ground_truth_values, *_ = sample
         for model_input in model_inputs:
@@ -57,7 +61,12 @@ def _calibration_forward_pass(session: onnxruntime.InferenceSession, dataloader)
             mock_torch_onnx_inference(session, torch_input)
 
 
-def _collect_inputs_and_fp_outputs(model, dataloader, num_samples, exec_providers):
+def _collect_inputs_and_fp_outputs(
+    model: onnx.ModelProto,
+    dataloader: list[tuple[torch.Tensor, object]],
+    num_samples: int,
+    exec_providers: list[str],
+) -> tuple[list[torch.Tensor], list[object], onnxruntime.InferenceSession]:
     model_bytes = model.SerializeToString()
     fp_session = onnxruntime.InferenceSession(model_bytes, providers=exec_providers)
 
@@ -80,9 +89,9 @@ def _create_aimet_quantsim(
     param_bw: int,
     activation_bw: int,
     quant_scheme: QuantScheme,
-    dataloader,
+    dataloader: list[tuple[torch.Tensor, object]],
     exec_providers: list[str],
-):
+) -> tuple[QuantizationSimModel, onnxruntime.InferenceSession]:
     # Quantize
     with _apply_constraints(True):
         sim = QuantizationSimModel(
@@ -112,7 +121,7 @@ def _create_aimet_quantsim(
     return sim, qdq_session
 
 
-def flip_one_layer_to_w16(sim, layer_name):
+def flip_one_layer_to_w16(sim: QuantizationSimModel, layer_name: str) -> None:
     cg_ops = sim.connected_graph.get_all_ops()
     op = cg_ops[layer_name]
     (
@@ -128,8 +137,11 @@ def flip_one_layer_to_w16(sim, layer_name):
 
 
 def flip_layers_to_higher_precision(
-    sim, sqnr_dict: dict, percent_to_flip: int = 10, higher_precision: str = "float"
-):
+    sim: QuantizationSimModel,
+    sqnr_dict: dict[str, float],
+    percent_to_flip: int = 10,
+    higher_precision: str = "float",
+) -> None:
     sqnr_list = sorted(sqnr_dict.items(), key=lambda item: item[1])
     sqnr_list = sqnr_list[: math.ceil(len(sqnr_list) * percent_to_flip / 100)]
     cg_ops = sim.connected_graph.get_all_ops()
@@ -154,11 +166,19 @@ def flip_layers_to_higher_precision(
                 q.enabled = False
 
 
-def to_qdq_session(qdq_model, exec_providers):
+def to_qdq_session(
+    qdq_model: onnx.ModelProto, exec_providers: list[str]
+) -> OrtInferenceSession:
     return OrtInferenceSession(qdq_model, providers=exec_providers)
 
 
-def evaluate_and_save_results(session, model, num_samples, overall_results, tag):
+def evaluate_and_save_results(
+    session: onnxruntime.InferenceSession | OrtInferenceSession,
+    model: BaseModel,
+    num_samples: int,
+    overall_results: dict[str, tuple[float, str, str]],
+    tag: str,
+) -> None:
     results = evaluate_session_on_dataset(
         session, model, model.eval_datasets()[0], num_samples=num_samples
     )
@@ -171,7 +191,13 @@ def evaluate_and_save_results(session, model, num_samples, overall_results, tag)
     )
 
 
-def run_quant_analyzer(onnx_model, sim, eval_callback, input_spec, results_dir):
+def run_quant_analyzer(
+    onnx_model: onnx.ModelProto,
+    sim: QuantizationSimModel,
+    eval_callback: object,
+    input_spec: dict[str, tuple[tuple[int, ...], str]],
+    results_dir: str,
+) -> dict[str, float]:
     # Check if we can use cached results
     if (
         Path(results_dir).is_dir()
@@ -214,9 +240,9 @@ def debug_quant_accuracy(
     percent_layers_to_flip: int = 0,
     num_samples: int = 200,
     onnx_qdq_eval: bool = False,
-    exec_providers=None,
-):
-    overall_results = {}
+    exec_providers: list[str] | None = None,
+) -> dict[str, tuple[float, str, str]]:
+    overall_results: dict[str, tuple[float, str, str]] = {}
     if exec_providers is None:
         exec_providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
@@ -247,8 +273,18 @@ def debug_quant_accuracy(
     assert calibration_dataset_name is not None
 
     calibration_data = quantization.get_calibration_data(model, input_spec, 100)
+
+    # Use the first input name from the model's input_spec instead of hardcoding
+    # the key 'image'. input_spec is an ordered dict-like mapping of input
+    # names to shapes/types; take the first key to select the correct calibration
+    # data entry.
+    input_names = list(input_spec.keys())
+    if not input_names:
+        raise ValueError("input_spec has no inputs")
+    input_name = input_names[0]
+
     dataloader = [
-        (torch.from_numpy(tensor), None) for tensor in calibration_data["image"]
+        (torch.from_numpy(tensor), None) for tensor in calibration_data[input_name]
     ]
 
     print("Converting model to ONNX")
@@ -310,7 +346,7 @@ def debug_quant_accuracy(
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
-            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs)
+            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs, None)
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,
@@ -364,7 +400,7 @@ def debug_quant_accuracy(
 
         sqnr_dict = None
         if apply_quant_analyzer or apply_mixed_precision:
-            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs)
+            psnr_fn = make_psnr_eval_fn(fp_session, sensitivity_check_inputs, None)
             sqnr_dict = run_quant_analyzer(
                 onnx_model,
                 sim,

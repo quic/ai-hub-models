@@ -34,29 +34,29 @@ def save_raster(
 
     Parameters
     ----------
-    inputs : dict
+    inputs
         A dictionary containing raster tensors and metadata. Expected keys:
         - `"high_res_raster"` : Tensor of shape `(C, H, W)`
         - `"low_res_raster"` : Tensor of shape `(C, H, W)`
         - `"context_actions"` : Tensor of shape `(T, 2)` with past ego-agent positions
         - `"trajectory_label"` : (Optional) ground truth future trajectory
-    sample_index : int
+    sample_index
         Index of the sample within the batch to visualize.
-    file_index : int, optional, default=0
+    file_index
         File numbering index used when saving multiple visualizations.
-    prediction_trajectory : ndarray or Tensor, optional
+    prediction_trajectory
         Predicted trajectory coordinates with shape `(N, 2)` in meters.
-    path_to_save : str or None, optional
+    path_to_save
         Directory path to save output rasters. If None, no saving occurs and output is returned instead.
-    high_scale : float, optional, default=4
+    high_scale
         Scaling factor applied when converting coordinate values to pixel locations for high-resolution raster.
-    low_scale : float, optional, default=0.77
+    low_scale
         Scaling factor for low-resolution raster coordinates.
-    prediction_key_point : ndarray or Tensor, optional
+    prediction_key_point
         Prediction keypoints used for visual debugging of intermediate model states.
-    prediction_key_point_by_gen : ndarray or Tensor, optional
+    prediction_key_point_by_gen
         per-generation keypoint predictions plotted in a separate color.
-    prediction_trajectory_by_gen : ndarray or Tensor, optional
+    prediction_trajectory_by_gen
         per-generation predicted trajectories used for sequence decoding visualization.
 
     Returns

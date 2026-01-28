@@ -11,12 +11,14 @@ from typing import Any
 
 import torch
 from mmengine.config import Config
-from mmengine.model import BaseModule
 from qai_hub.client import Device
+from torch import nn
 from torchpack.utils.config import configs
+from typing_extensions import Self
 
 from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
 from qai_hub_models.models.bevfusion_det.model_patch import (
+    PatchMerging,
     PatchMerging_forward_optimized,
     bev_pool,
     patched_centerhead_get_task_detections,
@@ -52,7 +54,6 @@ from qai_hub_models.utils.window_partitioning import (
 
 with patch_mmdet_no_build_deps():
     from mmdet.models.backbones.swin import ShiftWindowMSA, WindowMSA
-    from mmdet.models.layers import PatchMerging
     from mmdet.registry import MODELS
 
 MODEL_ID = __name__.split(".")[-2]
@@ -81,17 +82,16 @@ def _apply_optimizations() -> None:
 
 
 class BEVFusionEncoder1(BaseModel):
-    def __init__(self, backbone: BaseModule, neck: BaseModule) -> None:
+    def __init__(self, backbone: nn.Module, neck: nn.Module) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
 
     @classmethod
-    def from_pretrained(
-        cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())
-    ) -> BEVFusionEncoder1:
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
         _apply_optimizations()
-        return BEVFusion.from_pretrained(ckpt).encoder1
+        backbone, neck, _, _, _, _ = BEVFusion.load_model(ckpt)
+        return cls(backbone, neck)
 
     def forward(self, imgs: torch.Tensor) -> torch.Tensor:
         """
@@ -101,12 +101,14 @@ class BEVFusionEncoder1(BaseModel):
 
         Parameters
         ----------
-            imgs (torch.Tensor): Input tensor of shape (batch_size, 18, height, width) and range of [0-1],
+        imgs
+            Input tensor of shape (batch_size, 18, height, width) and range of [0-1],
             where 18 = 6 cameras * 3 channels (RGB).
 
         Returns
         -------
-            torch.Tensor: Feature tensor of shape (batch_size, 6, 256, 32, 88).
+        feature_map
+            Feature tensor of shape (batch_size, 6, 256, 32, 88).
         """
         B, NC, H, W = imgs.size()
         imgs_reshaped = imgs.reshape(B * (NC // 3), 3, H, W)
@@ -127,16 +129,15 @@ class BEVFusionEncoder1(BaseModel):
 
 
 class BEVFusionEncoder2(BaseModel):
-    def __init__(self, vtransform: BaseModule) -> None:
+    def __init__(self, vtransform: nn.Module) -> None:
         super().__init__()
         self.vtransform = vtransform
 
     @classmethod
-    def from_pretrained(
-        cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())
-    ) -> BEVFusionEncoder2:
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
         _apply_optimizations()
-        return BEVFusion.from_pretrained(ckpt).encoder2
+        _, _, vtransform, _, _, _ = BEVFusion.load_model(ckpt)
+        return cls(vtransform)
 
     def forward(
         self,
@@ -151,18 +152,25 @@ class BEVFusionEncoder2(BaseModel):
 
         Parameters
         ----------
-            x (torch.Tensor): Feature tensor of shape (batch_size, 6, 256, 32, 88).
-            intrins (torch.Tensor): Camera intrinsics of shape (batch_size, 6, 3, 3).
-            camera2lidars (torch.Tensor): Camera-to-LiDAR transformations of shape (batch_size, 6, 4, 4).
-            inv_post_rots (torch.Tensor): Inverse rotation matrices of shape (batch_size, 6, 3, 3).
-            post_trans (torch.Tensor): Post-transformation translations of shape (batch_size, 6, 1, 3).
+        x
+            Feature tensor of shape (batch_size, 6, 256, 32, 88).
+        intrins
+            Camera intrinsics of shape (batch_size, 6, 3, 3).
+        camera2lidars
+            Camera-to-LiDAR transformations of shape (batch_size, 6, 4, 4).
+        inv_post_rots
+            Inverse rotation matrices of shape (batch_size, 6, 3, 3).
+        post_trans
+            Post-transformation translations of shape (batch_size, 6, 1, 3).
 
         Returns
         -------
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-                - x (torch.Tensor): Pooled features of shape (1993728, 80).
-                - lengths (torch.Tensor): Lengths tensor of shape (59000,).
-                - geom_feats (torch.Tensor): Geometric features of shape (2, 59000).
+        pooled_features
+            Pooled features of shape (1993728, 80).
+        lengths
+            Lengths tensor of shape (59000,).
+        geom_feats
+            Geometric features of shape (2, 59000).
         """
         x, geom_feats, ranks = self.vtransform.forward(
             x, intrins, camera2lidars, inv_post_rots, post_trans
@@ -206,10 +214,8 @@ class BEVFusionEncoder3(BaseModel):
         super().__init__()
 
     @classmethod
-    def from_pretrained(
-        cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())
-    ) -> BEVFusionEncoder3:
-        return BEVFusion.from_pretrained(ckpt).encoder3
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
+        return cls()
 
     def forward(self, x: torch.Tensor, lengths: torch.Tensor) -> torch.Tensor:
         """
@@ -218,12 +224,15 @@ class BEVFusionEncoder3(BaseModel):
 
         Parameters
         ----------
-            x (torch.Tensor): Input features of shape (batch_size, 1993728, 80).
-            lengths (torch.Tensor): Input lengths tensor of shape (batch_size, 59000).
+        x
+            Input features of shape (batch_size, 1993728, 80).
+        lengths
+            Input lengths tensor of shape (batch_size, 59000).
 
         Returns
         -------
-            - x (torch.Tensor): Aggregated features of shape (59000, 80).
+        aggregated_features
+            Aggregated features of shape (59000, 80).
         """
         lengths = torch.cumsum(lengths, dim=0).long()
 
@@ -261,15 +270,14 @@ class BEVFusionEncoder3(BaseModel):
 
 
 class BEVFusionEncoder4(BaseModel):
-    def __init__(self, vtransform: BaseModule) -> None:
+    def __init__(self, vtransform: nn.Module) -> None:
         super().__init__()
         self.vtransform = vtransform
 
     @classmethod
-    def from_pretrained(
-        cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())
-    ) -> BEVFusionEncoder4:
-        return BEVFusion.from_pretrained(ckpt).encoder4
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
+        _, _, vtransform, _, _, _ = BEVFusion.load_model(ckpt)
+        return cls(vtransform)
 
     def forward(
         self, segment_sums: torch.Tensor, geom_feats: torch.Tensor
@@ -280,12 +288,15 @@ class BEVFusionEncoder4(BaseModel):
 
         Parameters
         ----------
-            segment_sums (torch.Tensor): Aggregated features of shape (1, 59000, 80).
-            geom_feats (torch.Tensor): Geometric indices of shape (1, 2, 59000).
+        segment_sums
+            Aggregated features of shape (1, 59000, 80).
+        geom_feats
+            Geometric indices of shape (1, 2, 59000).
 
         Returns
         -------
-            torch.Tensor: BEV grid features of shape (1, 80, 256, 256).
+        bev_grid
+            BEV grid features of shape (1, 80, 256, 256).
         """
         segment_sums = segment_sums.reshape(-1, 80)
         n = segment_sums.size(0)
@@ -298,7 +309,7 @@ class BEVFusionEncoder4(BaseModel):
             (ba.long(), x_pos_vals.long(), channel_vals.long()), segment_sums
         )
         x = out.permute(0, 3, 1, 2).contiguous()
-        return self.vtransform.downsample(x)
+        return self.vtransform.downsample(x)  # type: ignore[operator]
 
     @staticmethod
     def get_input_spec(
@@ -329,19 +340,16 @@ class BEVFusionEncoder4(BaseModel):
 
 
 class BEVFusionDecoder(BaseModel):
-    def __init__(
-        self, backbone: BaseModule, neck: BaseModule, heads: BaseModule
-    ) -> None:
+    def __init__(self, backbone: nn.Module, neck: nn.Module, heads: nn.Module) -> None:
         super().__init__()
         self.backbone = backbone
         self.neck = neck
         self.heads = heads
 
     @classmethod
-    def from_pretrained(
-        cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())
-    ) -> BEVFusionDecoder:
-        return BEVFusion.from_pretrained(ckpt).decoder
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
+        _, _, _, backbone, neck, heads = BEVFusion.load_model(ckpt)
+        return cls(backbone, neck, heads)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -350,13 +358,15 @@ class BEVFusionDecoder(BaseModel):
 
         Parameters
         ----------
-            x (torch.Tensor): BEV feature tensor of shape (batch_size, 80, 128, 128).
+        x
+            BEV feature tensor of shape (batch_size, 80, 128, 128).
 
         Returns
         -------
-            torch.Tensor: Concatenated tensor containing all task-specific outputs
-                      (regression, height, dimension, rotation, velocity, heatmap)
-                      with shape (batch_size, 70, 128, 128).
+        outputs
+            Concatenated tensor containing all task-specific outputs
+            (regression, height, dimension, rotation, velocity, heatmap)
+            with shape (batch_size, 70, 128, 128).
         """
         x = self.backbone(x)
         x = self.neck(x)
@@ -418,8 +428,10 @@ class BEVFusion(CollectionModel):
         self.encoder4 = encoder4
         self.decoder = decoder
 
-    @classmethod
-    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> BEVFusion:
+    @staticmethod
+    def load_model(
+        ckpt: str = str(DEFAULT_WEIGHTS.fetch()),
+    ) -> tuple[nn.Module, nn.Module, nn.Module, nn.Module, nn.Module, nn.Module]:
         _apply_optimizations()
         with SourceAsRoot(
             BEVF_SOURCE_REPOSITORY,
@@ -452,7 +464,7 @@ class BEVFusion(CollectionModel):
             cfg.model.train_cfg = None
 
             def load_state_dict(
-                module: BaseModule, state_dict: dict, prefix: str
+                module: nn.Module, state_dict: dict, prefix: str
             ) -> None:
                 module.load_state_dict(
                     {
@@ -543,15 +555,33 @@ class BEVFusion(CollectionModel):
             )
 
             load_state_dict(centerhead, state_dict, "heads.object.")
-
-            models = (
-                BEVFusionEncoder1(encoder_backbone, encoder_neck),
-                BEVFusionEncoder2(vtransform),
-                BEVFusionEncoder3(),
-                BEVFusionEncoder4(vtransform),
-                BEVFusionDecoder(decoder_backbone, decoder_neck, centerhead),
+            return (
+                encoder_backbone,
+                encoder_neck,
+                vtransform,
+                decoder_backbone,
+                decoder_neck,
+                centerhead,
             )
-            for model in models[:-1]:
-                model.eval()
 
-            return cls(*models)
+    @classmethod
+    def from_pretrained(cls, ckpt: str = str(DEFAULT_WEIGHTS.fetch())) -> Self:
+        (
+            encoder_backbone,
+            encoder_neck,
+            vtransform,
+            decoder_backbone,
+            decoder_neck,
+            centerhead,
+        ) = cls.load_model(ckpt)
+        models = (
+            BEVFusionEncoder1(encoder_backbone, encoder_neck),
+            BEVFusionEncoder2(vtransform),
+            BEVFusionEncoder3(),
+            BEVFusionEncoder4(vtransform),
+            BEVFusionDecoder(decoder_backbone, decoder_neck, centerhead),
+        )
+        for model in models[:-1]:
+            model.eval()
+
+        return cls(*models)

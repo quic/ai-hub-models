@@ -57,16 +57,16 @@ class TrackAnythingApp:
         """
         Parameters
         ----------
-            EncodeKeyWithShrinkage:
-                TrackAnything Key encoder with shrinkage. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeKeyWithShrinkage
-            EncodeValue:
-                TrackAnything Value encoder. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeValue
-            EncodeKeyWithoutShrinkage:
-                TrackAnything Key encoder without shrinkage. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeKeyWithoutShrinkage
-            Segment:
-                TrackAnything Segment. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingSegment
-            config: dict
-                TrackAnything model's config
+        EncodeKeyWithShrinkage
+            TrackAnything Key encoder with shrinkage. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeKeyWithShrinkage
+        EncodeValue
+            TrackAnything Value encoder. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeValue
+        EncodeKeyWithoutShrinkage
+            TrackAnything Key encoder without shrinkage. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingEncodeKeyWithoutShrinkage
+        Segment
+            TrackAnything Segment. Must match input and output of qai_hub_models.models.track_anything.model.TrackAnythingSegment
+        config
+            TrackAnything model's config
         """
         self.EncodeKeyWithShrinkage = EncodeKeyWithShrinkage
         self.EncodeValue = EncodeValue
@@ -89,21 +89,22 @@ class TrackAnythingApp:
 
         Parameters
         ----------
-            frames: list[numpy array] (N H W C x uint8)
-                channel layout RGB
-
-            mask: numpy array of shape [1, H, W]
-                mask for object to track
+        frames
+            list[numpy array] (N H W C x uint8) with channel layout RGB
+        mask
+            numpy array of shape [1, H, W], mask for object to track
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            if raw_output is True,
-                out_mask: list[numpy array] (N H W C x uint8)
-                    masks of object for all frames
+        If raw_output is False, returns:
+        painted_frames
+            List of painted images (N H W C x uint8) with masks applied on all frames.
 
-            otherwise,
-                painted_image: list[numpy array] (N H W C x uint8)
-                    masks applied on all frames
+        If raw_output is True, returns:
+        out_masks
+            List of masks (N H W C x uint8) of object for all frames.
         """
         painted_frames = []
         out_masks = []

@@ -51,26 +51,24 @@ class YoloV3(Yolo):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
-                scores: torch.Tensor
-                    class scores multiplied by confidence: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        If self.include_postprocessing is True, returns:
+        boxes
+            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+        scores
+            Class scores multiplied by confidence. Shape is [batch, num_preds].
+        classes
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-            else:
-                detector_output: torch.Tensor
-                    Shape is [batch, num_preds, k]
-                        where, k = # of classes + 5
-                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
-                        and box_coordinates are [x_center, y_center, w, h]
+        If self.include_postprocessing is False, returns:
+        detector_output
+            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         boxes, scores = self.model(image)
         if not self.include_postprocessing:

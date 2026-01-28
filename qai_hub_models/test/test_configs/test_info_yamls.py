@@ -61,12 +61,12 @@ HF_PIPELINE_TAGS = {
 }
 
 
-def test_model_usecase_to_hf_pipeline_tag():
+def test_model_usecase_to_hf_pipeline_tag() -> None:
     for use_case in MODEL_USE_CASE:
         assert use_case.map_to_hf_pipeline_tag() in HF_PIPELINE_TAGS
 
 
-def test_info_yaml():
+def test_info_yaml() -> None:
     for model_id in MODEL_IDS:
         try:
             info_spec = QAIHMModelInfo.from_model(model_id)

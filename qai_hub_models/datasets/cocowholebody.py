@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import cv2
 import torch
 
@@ -46,7 +44,9 @@ class CocoWholeBodyDataset(CocoBodyDataset):
         self.inference = MMPoseInferencer(DEFAULT_INFERENCER_ARCH, device="cpu")
         set_mmpose_inferencer_show_progress(self.inference, False)
 
-    def __getitem__(self, index: int) -> tuple[Any, tuple[Any, Any, Any, Any]]:
+    def __getitem__(
+        self, index: int
+    ) -> tuple[torch.Tensor, tuple[int, int, torch.Tensor, torch.Tensor]]:
         """
         Get an item in this dataset.
 

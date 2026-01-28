@@ -22,7 +22,7 @@ class DisableCompileJobTimeoutEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = "For testing, AI Hub Models enforces a 1 hour timeout on compile jobs (after submission time) by default. If True, the QAIHM-specific 1hr timeout is disabled."
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 

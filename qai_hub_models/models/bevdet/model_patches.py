@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import copy
+from typing import Any
 
 import torch
 from mmengine.model import BaseModule
@@ -32,23 +33,25 @@ def bev_pool_v2(
 
     Parameters
     ----------
-        depth (torch.Tensor): Depth tensor with shape [num_cam, d, H, W].
-        feat (torch.Tensor): Feature tensor with shape [num_cam, H, W, C].
-        ranks_bev (torch.Tensor): Rank of the voxel that a point is belong to
-            with shape (N_Points).
-        ranks_depth (torch.Tensor): Reserved index of points in the depth space
-            with shape (N_Points).
-        ranks_feat (torch.Tensor): Reserved index of points in the feature space
-            with shape (N_Points).
-            interval_starts (torch.Tensor): Interval starts.
-        bev_feat_shape (tuple[int, int, int, int]):
-            Shape of BEV feature (D, bev_H, bev_W, C)
-        interval_starts (torch.Tensor): Interval starts.
+    depth
+        Depth tensor with shape [num_cam, d, H, W].
+    feat
+        Feature tensor with shape [num_cam, H, W, C].
+    ranks_depth
+        Reserved index of points in the depth space with shape (N_Points).
+    ranks_feat
+        Reserved index of points in the feature space with shape (N_Points).
+    ranks_bev
+        Rank of the voxel that a point is belong to with shape (N_Points).
+    bev_feat_shape
+        Shape of BEV feature (D, bev_H, bev_W, C)
+    interval_starts
+        Interval starts.
 
     Returns
     -------
-        x (torch.Tensor):
-            BEV feature with shape of bev_feat_shape with shape (D, C, bev_H, bev_W)
+    bev_feature
+        BEV feature with shape of bev_feat_shape with shape (D, C, bev_H, bev_W)
     """
     _, H, W, c = feat.shape
 
@@ -95,17 +98,6 @@ class LSSViewTransformerOptimized(BaseModule):
     """
     Optimized Lift-Splat-Shoot view transformer with BEVPoolv2 implementation.
     https://github.com/HuangJunJie2017/BEVDet/blob/26144be7c11c2972a8930d6ddd6471b8ea900d13/mmdet3d/models/necks/view_transformer.py#L18
-
-    Parameters
-    ----------
-        grid_config (dict): Config of grid alone each axis in format of
-            (lower_bound, upper_bound, interval). axis in {x,y,z,depth}.
-        input_size (tuple(int,int)): Size of input images in format of (height,
-            width).
-        downsample (int): Down sample factor from the input size to the feature
-            size.
-        in_channels (int): Channels of input feature.
-        out_channels (int): Channels of transformed feature.
     """
 
     def __init__(
@@ -115,8 +107,27 @@ class LSSViewTransformerOptimized(BaseModule):
         downsample: int = 16,
         in_channels: int = 512,
         out_channels: int = 64,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize LSSViewTransformerOptimized
+
+        Parameters
+        ----------
+        grid_config
+            Config of grid alone each axis in format of
+            (lower_bound, upper_bound, interval). axis in {x,y,z,depth}.
+        input_size
+            Size of input images in format of (height, width).
+        downsample
+            Down sample factor from the input size to the feature size.
+        in_channels
+            Channels of input feature.
+        out_channels
+            Channels of transformed feature.
+        **kwargs
+            Additional keyword arguments.
+        """
         super().__init__()
         self.create_grid_infos(**grid_config)
         self.frustum = self.create_frustum(grid_config["depth"], input_size, downsample)
@@ -130,39 +141,50 @@ class LSSViewTransformerOptimized(BaseModule):
         x: tuple[float, float, float],
         y: tuple[float, float, float],
         z: tuple[float, float, float],
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Generate the grid information including the lower bound, interval,
         and size.
 
         Parameters
         ----------
-            x (tuple(float)): Config of grid alone x axis in format of
-                (lower_bound, upper_bound, interval).
-            y (tuple(float)): Config of grid alone y axis in format of
-                (lower_bound, upper_bound, interval).
-            z (tuple(float)): Config of grid alone z axis in format of
-                (lower_bound, upper_bound, interval).
+        x
+            Config of grid alone x axis in format of
+            (lower_bound, upper_bound, interval).
+        y
+            Config of grid alone y axis in format of
+            (lower_bound, upper_bound, interval).
+        z
+            Config of grid alone z axis in format of
+            (lower_bound, upper_bound, interval).
+        **kwargs
+            Additional keyword arguments.
         """
         self.grid_lower_bound = torch.tensor([cfg[0] for cfg in [x, y, z]])
         self.grid_interval = torch.tensor([cfg[2] for cfg in [x, y, z]])
         self.grid_size = torch.tensor([(cfg[1] - cfg[0]) / cfg[2] for cfg in [x, y, z]])
 
     def create_frustum(
-        self, depth_cfg: tuple[float], input_size: tuple[int, int], downsample: int
-    ):
+        self, depth_cfg: tuple[float, ...], input_size: tuple[int, int], downsample: int
+    ) -> torch.Tensor:
         """
         Generate the frustum template for each image.
 
         Parameters
         ----------
-            depth_cfg (tuple(float)): Config of grid alone depth axis in format
-                of (lower_bound, upper_bound, interval).
-            input_size (tuple(int,int)): Size of input images in format of (height,
-                width).
-            downsample (int): Down sample scale factor from the input size to
-                the feature size.
+        depth_cfg
+            Config of grid alone depth axis in format
+            of (lower_bound, upper_bound, interval).
+        input_size
+            Size of input images in format of (height, width).
+        downsample
+            Down sample scale factor from the input size to the feature size.
+
+        Returns
+        -------
+        frustum
+            Frustum template with shape (D, H, W, 3).
         """
         H_in, W_in = input_size
         H_feat, W_feat = H_in // downsample, W_in // downsample
@@ -201,21 +223,25 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Parameters
         ----------
-            sensor2keyegos: torch.Tensor of shape [B, N, 4, 4] as float32
-                transformation matix to convert from camera sensor
-                to ego-vehicle at front camera coordinate frame
-            img2cams: torch.Tensor of shape [B, N, 3, 3] as float32
-                Inverse of Camera intrinsic matrix
-                used to project 2D image coordinates to 3D points
-            inv_post_rots: torch.Tensor with shape [B, N, 3, 3] as float32
-                inverse post rotation matrix in camera coordinate system
-            post_trans: torch.Tensor with shape [B, N, 1, 3] as float32
-                post translation tensor in camera coordinate system
+        sensor2keyegos
+            Transformation matix to convert from camera sensor
+            to ego-vehicle at front camera coordinate frame.
+            Shape [B, N, 4, 4] as float32.
+        img2cams
+            Inverse of Camera intrinsic matrix
+            used to project 2D image coordinates to 3D points.
+            Shape [B, N, 3, 3] as float32.
+        inv_post_rots
+            Inverse post rotation matrix in camera coordinate system.
+            Shape [B, N, 3, 3] as float32.
+        post_trans
+            Post translation tensor in camera coordinate system.
+            Shape [B, N, 1, 3] as float32.
 
         Returns
         -------
-            List[torch.Tensor]: List of Point coordinates in shape for N_cams
-                (1, 3, D, H*W)
+        point_coordinates
+            List of Point coordinates in shape for N_cams (1, 3, D, H*W).
         """
         B, N, _, _ = sensor2keyegos.shape
         D, _H, _W, _ = self.frustum.shape
@@ -255,19 +281,21 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Parameters
         ----------
-            coor (list(torch.Tensor)): Coordinate of points in the lidar space in
-                shape (B, 3, D, HW).
-            feat (torch.Tensor): Feature tensor with shape [num_cam, C, H, W].
+        coor
+            Coordinate of points in the lidar space in shape (B, 3, D, HW).
+        feat
+            Feature tensor with shape [num_cam, C, H, W].
 
         Returns
         -------
-            ranks_bev (torch.Tensor): Rank of the voxel that a point is belong to
-            in shape (N_Points).
-            ranks_depth (torch.Tensor): Reserved index of points in the depth space
-            in shape (N_Points).
-            ranks_feat (torch.Tensor): Reserved index of points in the feature space
-            in shape (N_Points).
-            interval_starts (torch.Tensor): Interval starts.
+        ranks_bev
+            Rank of the voxel that a point belongs to in shape (N_Points).
+        ranks_depth
+            Reserved index of points in the depth space in shape (N_Points).
+        ranks_feat
+            Reserved index of points in the feature space in shape (N_Points).
+        interval_starts
+            Interval starts.
         """
         B, _, D, HW = coor[0].shape
         N = len(coor)
@@ -367,23 +395,24 @@ class LSSViewTransformerOptimized(BaseModule):
 
         Parameters
         ----------
-            xlist (list(torch.Tensor)):
-                img-view feature: torch.Tensor of shape [N, C, H, W] as float32
-                sensor2keyegos: torch.Tensor of shape [B, N, 4, 4] as float32
-                    transformation matix to convert from camera sensor
-                    to ego-vehicle at front camera coordinate frame
-                inv_intrins: torch.Tensor of shape [B, N, 3, 3] as float32
-                    Inverse of Camera intrinsic matrix
-                    used to project 2D image coordinates to 3D points
-                inv_post_rots: torch.Tensor with shape [B, N, 3, 3] as float32
-                    inverse post rotation matrix in camera coordinate system
-                post_trans: torch.Tensor with shape [B, N, 1, 3] as float32
-                    post translation tensor in camera coordinate system
+        xlist
+            List of tensors containing:
+            img-view feature: torch.Tensor of shape [N, C, H, W] as float32
+            sensor2keyegos: torch.Tensor of shape [B, N, 4, 4] as float32
+                transformation matix to convert from camera sensor
+                to ego-vehicle at front camera coordinate frame
+            inv_intrins: torch.Tensor of shape [B, N, 3, 3] as float32
+                Inverse of Camera intrinsic matrix
+                used to project 2D image coordinates to 3D points
+            inv_post_rots: torch.Tensor with shape [B, N, 3, 3] as float32
+                inverse post rotation matrix in camera coordinate system
+            post_trans: torch.Tensor with shape [B, N, 1, 3] as float32
+                post translation tensor in camera coordinate system
 
         Returns
         -------
-            bev_feat (torch.Tensor):
-                Bird-eye-view feature in shape (B, C, H_BEV, W_BEV)
+        bev_feature
+            Bird-eye-view feature in shape (B, C, H_BEV, W_BEV).
         """
         x = xlist[0]
         B = 1
@@ -431,20 +460,6 @@ class SeparateHead(BaseModule):
     """
     SeparateHead for CenterHead.
     Removed class functions that are not used by model to avoid dependency issue
-
-    Parameters
-    ----------
-        in_channels (int): Input channels for conv_layer.
-        heads (dict): Conv information.
-        head_conv (int, optional): Output channels.
-            Default: 64.
-        final_kernel (int, optional): Kernel size for the last conv layer.
-            Default: 1.
-        conv_cfg (dict, optional): Config of conv layer.
-            Default: dict(type='Conv2d')
-        norm_cfg (dict, optional): Config of norm layer.
-            Default: dict(type='BN2d').
-        bias (str, optional): Type of bias. Default: 'auto'.
     """
 
     def __init__(
@@ -457,8 +472,32 @@ class SeparateHead(BaseModule):
         norm_cfg: dict | None = None,
         bias: str = "auto",
         init_cfg: dict | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize SeparateHead.
+
+        Parameters
+        ----------
+        in_channels
+            Input channels for conv_layer.
+        heads
+            Conv information.
+        head_conv
+            Output channels. Default: 64.
+        final_kernel
+            Kernel size for the last conv layer. Default: 1.
+        conv_cfg
+            Config of conv layer. Default: dict(type='Conv2d')
+        norm_cfg
+            Config of norm layer. Default: dict(type='BN2d').
+        bias
+            Type of bias. Default: 'auto'.
+        init_cfg
+            Initialization config dict.
+        **kwargs
+            Additional keyword arguments.
+        """
         if norm_cfg is None:
             norm_cfg = dict(type="BN2d")
         if conv_cfg is None:
@@ -500,30 +539,25 @@ class SeparateHead(BaseModule):
 
             self.__setattr__(head, conv_layers)
 
-    def forward(self, x: torch.Tensor) -> dict:
+    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         """Forward function for SepHead.
 
         Parameters
         ----------
-            x (torch.Tensor): Input feature map with the shape of
-                [B, C, H, W].
+        x
+            Input feature map with the shape of [B, C, H, W].
 
         Returns
         -------
-            dict[str: torch.Tensor]: contains the following keys:
+        output_dict
+            Contains the following keys:
 
-                -reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H, W].
-                -height (torch.Tensor): Height value with the
-                    shape of [B, 1, H, W].
-                -dim (torch.Tensor): Size value with the shape
-                    of [B, 3, H, W].
-                -rot (torch.Tensor): Rotation value with the
-                    shape of [B, 2, H, W].
-                -vel (torch.Tensor): Velocity value with the
-                    shape of [B, 2, H, W].
-                -heatmap (torch.Tensor): Heatmap with the shape of
-                    [B, N, H, W].
+            -reg: 2D regression value with the shape of [B, 2, H, W].
+            -height: Height value with the shape of [B, 1, H, W].
+            -dim: Size value with the shape of [B, 3, H, W].
+            -rot: Rotation value with the shape of [B, 2, H, W].
+            -vel: Velocity value with the shape of [B, 2, H, W].
+            -heatmap: Heatmap with the shape of [B, N, H, W].
         """
         ret_dict = {}
         for head in self.heads:
@@ -542,32 +576,12 @@ class CenterHead(BaseModule):
     with the bbox_coder, the PSNR value is < 30 for bboxs amd scores in cpu,
     the topk and atan2 in bbox_coder.decode causes accuracy issue while export.
     https://github.com/HuangJunJie2017/BEVDet/blob/26144be7c11c2972a8930d6ddd6471b8ea900d13/mmdet3d/models/dense_heads/centerpoint_head.py#L244
-
-    Parameters
-    ----------
-        in_channels (list[int], optional): Channels of the input
-            feature map. Default: [128].
-        tasks (list[dict], optional): Task information including class number
-            and class names. Default: None.
-        common_heads (dict, optional): Conv information for common heads.
-            Default: dict().
-        separate_head (dict, optional): Config of separate head. Default: dict(
-            type='SeparateHead', init_bias=-2.19, final_kernel=3)
-        share_conv_channel (int, optional): Output channels for share_conv
-            layer. Default: 64.
-        num_heatmap_convs (int, optional): Number of conv layers for heatmap
-            conv layer. Default: 2.
-        conv_cfg (dict, optional): Config of conv layer.
-            Default: dict(type='Conv2d')
-        norm_cfg (dict, optional): Config of norm layer.
-            Default: dict(type='BN2d').
-        bias (str, optional): Type of bias. Default: 'auto'.
     """
 
     def __init__(
         self,
         in_channels: list[int] | None = None,
-        tasks=None,
+        tasks: list[dict] | None = None,
         common_heads: dict | None = None,
         separate_head: dict | None = None,
         share_conv_channel: int = 64,
@@ -576,8 +590,36 @@ class CenterHead(BaseModule):
         norm_cfg: dict | None = None,
         bias: str = "auto",
         init_cfg: dict | None = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
+        """
+        Initialize CenterHead.
+
+        Parameters
+        ----------
+        in_channels
+            Channels of the input feature map. Default: [128].
+        tasks
+            Task information including class number and class names. Default: None.
+        common_heads
+            Conv information for common heads. Default: dict().
+        separate_head
+            Config of separate head. Default: dict(type='SeparateHead', init_bias=-2.19, final_kernel=3)
+        share_conv_channel
+            Output channels for share_conv layer. Default: 64.
+        num_heatmap_convs
+            Number of conv layers for heatmap conv layer. Default: 2.
+        conv_cfg
+            Config of conv layer. Default: dict(type='Conv2d')
+        norm_cfg
+            Config of norm layer. Default: dict(type='BN2d').
+        bias
+            Type of bias. Default: 'auto'.
+        init_cfg
+            Initialization config dict.
+        **kwargs
+            Additional keyword arguments.
+        """
         if norm_cfg is None:
             norm_cfg = dict(type="BN2d")
         if conv_cfg is None:
@@ -593,7 +635,7 @@ class CenterHead(BaseModule):
         )
         super().__init__(init_cfg=init_cfg)
 
-        num_classes = [len(t["class_names"]) for t in tasks]
+        num_classes = [len(t["class_names"]) for t in tasks or []]
         # a shared convolution
         self.shared_conv = ConvModule(
             in_channels,
@@ -616,29 +658,24 @@ class CenterHead(BaseModule):
             separate_head.pop("type")
             self.task_heads.append(SeparateHead(**separate_head))
 
-    def forward(self, x: list[torch.Tensor]) -> list[dict]:
+    def forward(self, x: list[torch.Tensor]) -> list[dict[str, torch.Tensor]]:
         """Forward pass.
 
         Parameters
         ----------
-            x (list[torch.Tensor]): Multi-level features, e.g.,
-                features produced by FPN.
+        x
+            Multi-level features, e.g., features produced by FPN.
 
         Returns
         -------
-            list[dict]: Output results for tasks contains the following keys:
-                -reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H, W].
-                -height (torch.Tensor): Height value with the
-                    shape of [B, 1, H, W].
-                -dim (torch.Tensor): Size value with the shape
-                    of [B, 3, H, W].
-                -rot (torch.Tensor): Rotation value with the
-                    shape of [B, 2, H, W].
-                -vel (torch.Tensor): Velocity value with the
-                    shape of [B, 2, H, W].
-                -heatmap (torch.Tensor): Heatmap with the shape of
-                    [B, N, H, W].
+        task_outputs
+            Output results for tasks contains the following keys:
+            -reg: 2D regression value with the shape of [B, 2, H, W].
+            -height: Height value with the shape of [B, 1, H, W].
+            -dim: Size value with the shape of [B, 3, H, W].
+            -rot: Rotation value with the shape of [B, 2, H, W].
+            -vel: Velocity value with the shape of [B, 2, H, W].
+            -heatmap: Heatmap with the shape of [B, N, H, W].
         """
         x = self.shared_conv(x)
         return [task(x) for task in self.task_heads]

@@ -18,21 +18,21 @@ class YoloSegmentationOutputEvaluator(BaseEvaluator):
 
     def __init__(
         self,
-        image_height,
-        image_width,
+        image_height: int,
+        image_width: int,
         nms_score_threshold: float = 0.001,
         nms_iou_threshold: float = 0.7,
-    ):
+    ) -> None:
         self.image_height = image_height
         self.image_width = image_width
         self.nms_score_threshold = nms_score_threshold
         self.nms_iou_threshold = nms_iou_threshold
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.metric = MeanAveragePrecision(iou_type="segm")
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor) -> None:
         """
         Add a batch of predictions and ground truth for evaluation.
 

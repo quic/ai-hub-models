@@ -7,6 +7,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 from tempfile import TemporaryDirectory
+from typing import Any, NoReturn
 from unittest import mock
 
 import pytest
@@ -24,7 +25,7 @@ from qai_hub_models.utils.version_helpers import QAIHMVersion
 MOBILENET_NAME = "MobileNet-v2"
 
 
-def fetch_static_assets_internal_unavailable_patch():
+def fetch_static_assets_internal_unavailable_patch() -> mock._patch[None]:
     """Patches fetch_static_assets_internal so that it is not available (like in the public version of QAIHM)."""
     return mock.patch(
         "qai_hub_models.utils.fetch_static_assets.fetch_static_assets_internal", None
@@ -33,7 +34,7 @@ def fetch_static_assets_internal_unavailable_patch():
 
 def hf_glob_patch(
     file_exists: bool = True, component_glob_result: list[str] | None = None
-):
+) -> mock._patch[object]:
     """
     Patches Hugging Face glob search to either return the set of file names passed to it if the file exists,
     or return None if the file does not exist.
@@ -54,7 +55,7 @@ def hf_glob_patch(
     if component_glob_result is None:
         component_glob_result = [""]
 
-    def hf_glob(self, path: str, revision: str | None = None):
+    def hf_glob(self: object, path: str, revision: str | None = None) -> list[str]:
         if revision is not None:
             org, repo, file = path.split("/", maxsplit=2)
             path = "/".join([org, repo + f"@{revision}", file])
@@ -71,10 +72,12 @@ def hf_glob_patch(
     return mock.patch("qai_hub_models.utils.huggingface.HfFileSystem.glob", hf_glob)
 
 
-def hf_hub_download_patch():
+def hf_hub_download_patch() -> mock._patch[object]:
     """Patches hf_hub_download to return the path the given args would be downloaded to, without actually downloading anything."""
 
-    def hf_hub_download(repo_id: str, filename: str, local_dir: str, revision: str):
+    def hf_hub_download(
+        repo_id: str, filename: str, local_dir: str, revision: str
+    ) -> str:
         return os.path.join(local_dir, filename)
 
     return mock.patch(
@@ -82,10 +85,10 @@ def hf_hub_download_patch():
     )
 
 
-def ai_hub_no_access_patch():
+def ai_hub_no_access_patch() -> mock._patch[object]:
     """Patches the AI Hub Workbench client to act like the user does not have AI Hub Workbench access."""
 
-    def get_frameworks():
+    def get_frameworks() -> NoReturn:
         raise APIException("QAIHM API Access Failure Test")
 
     return mock.patch(
@@ -112,7 +115,7 @@ def download_file_patch(
     """
     files_iter = iter(file_contents)
 
-    def download_file(web_url: str, dst_path: str, *args, **kwargs):
+    def download_file(web_url: str, dst_path: str, *args: Any, **kwargs: Any) -> str:
         if not files_iter:
             raise ValueError(
                 "TESTING: Ran out of simulated file contents for download_file to return."
@@ -134,7 +137,7 @@ def download_file_patch(
     )
 
 
-def test_model_with_no_hf_assets():
+def test_model_with_no_hf_assets() -> None:
     with (
         hf_glob_patch(False),
         fetch_static_assets_internal_unavailable_patch(),
@@ -144,7 +147,7 @@ def test_model_with_no_hf_assets():
         fetch_static_assets("mobilenet_v2", TargetRuntime.ONNX, output_folder=tmpdir)
 
 
-def test_hf_model_with_single_component():
+def test_hf_model_with_single_component() -> None:
     file_names = [
         f"{MOBILENET_NAME}_{Precision.float}.{TargetRuntime.ONNX.file_extension}"
     ]
@@ -231,7 +234,7 @@ def test_hf_model_with_single_component():
             )
 
 
-def test_hf_model_with_multiple_components():
+def test_hf_model_with_multiple_components() -> None:
     component_names = ["Part1", "Part2"]
     file_names = [
         f"{MOBILENET_NAME}_Part1_{Precision.float}.{TargetRuntime.TFLITE.file_extension}",
@@ -277,7 +280,7 @@ def test_hf_model_with_multiple_components():
             assert __version__ in urls[1]
 
 
-def test_hf_model_with_device_specific_assets():
+def test_hf_model_with_device_specific_assets() -> None:
     expected_huggingface_file_names = [
         f"precompiled/qualcomm-snapdragon-x-elite/{MOBILENET_NAME}_{Precision.float}.{TargetRuntime.PRECOMPILED_QNN_ONNX.file_extension}"
     ]

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 def log_evaluate_test_result(
     model_name: str, checkpoint: str, metric: str, value: float
-):
+) -> None:
     """
     Logs the result of a model evaluation to a CSV file.
 
@@ -58,7 +58,7 @@ def log_evaluate_test_result(
 
 def log_perf_on_device_result(
     model_name: str, precision: str, device: str, tps: float, ttft: float
-):
+) -> None:
     """
     Logs the performance results of a model running on a specific device to a CSV file.
 
@@ -102,7 +102,7 @@ def create_genie_config(
     llm_config: PretrainedConfig,
     embedding_type: str,
     model_list: list[str],
-):
+) -> dict[str, Any]:
     kv_dim = getattr(
         llm_config, "head_dim", llm_config.hidden_size // llm_config.num_attention_heads
     )
@@ -190,7 +190,7 @@ def copy_qairt_files_for_genie_bundle(
     hub_device: qai_hub.Device,
     output_path: Path,
     qairt_sdk_path: Path,
-):
+) -> None:
     """Copy the QAIRT files needed to create the genie_bundle."""
     hexagon_arch, abi_name, genie_file = None, None, None
     for attr in hub_device.attributes:
@@ -226,7 +226,9 @@ def copy_qairt_files_for_genie_bundle(
         files_copied.append(path_exe)
 
 
-def save_htp_config_for_genie_bundle(hub_device: qai_hub.Device, output_path: Path):
+def save_htp_config_for_genie_bundle(
+    hub_device: qai_hub.Device, output_path: Path
+) -> None:
     """Saves the htp_backend_ext_config.json to the genie_bundle directory."""
     hexagon_arch, soc_model = None, None
     for attr in hub_device.attributes:

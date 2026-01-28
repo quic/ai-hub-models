@@ -18,9 +18,7 @@ WEBSITE_CHIPSET_ORDER = [
     "qualcomm-snapdragon-888",
     "qualcomm-snapdragon-x-plus-8-core",
     "qualcomm-qcs6490",
-    "qualcomm-qcs6490-proxy",
     "qualcomm-qcs8250",
-    "qualcomm-qcs8250-proxy",
     "qualcomm-qcs8275",
     "qualcomm-qcs8275-proxy",
     "qualcomm-qcs8265p",
@@ -28,11 +26,8 @@ WEBSITE_CHIPSET_ORDER = [
     "qualcomm-qcs8550",
     "qualcomm-qcs8550-proxy",
     "qualcomm-sa8775p",
-    "qualcomm-sa8775p-proxy",
     "qualcomm-sa8650p",
-    "qualcomm-sa8650p-proxy",
     "qualcomm-sa8255p",
-    "qualcomm-sa8255p-proxy",
     "qualcomm-qcs8450",
 ]
 

@@ -47,18 +47,20 @@ class CityscapesSegmentor(BaseModel):
     def get_evaluator(self) -> BaseEvaluator:
         return SegmentationOutputEvaluator(CITYSCAPES_NUM_CLASSES, resize_to_gt=True)
 
-    def forward(self, image: torch.Tensor):
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         """
         Predict semantic segmentation an input `image`.
 
         Parameters
         ----------
-            image: A [1, 3, height, width] RGB image, with range [0, 1].
-                   Assumes image has been resized and normalized using the
-                   Cityscapes preprocesser (in cityscapes_segmentation/app.py).
+        image
+            A [1, 3, height, width] RGB image, with range [0, 1].
+            Assumes image has been resized and normalized using the
+            Cityscapes preprocesser (in cityscapes_segmentation/app.py).
 
         Returns
         -------
+        logits
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

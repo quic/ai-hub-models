@@ -39,7 +39,7 @@ class SemanticKittiDataset(BaseDataset):
         input_height: int = 64,
         input_width: int = 2048,
         max_points: int = 150000,  # max number of points present in dataset
-    ):
+    ) -> None:
         self.input_lidars_zip = input_lidars_zip
         self.input_gt_zip = input_gt_zip
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
@@ -176,7 +176,7 @@ class SemanticKittiDataset(BaseDataset):
             unproj_labels,
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.scan_files)
 
     def _download_data(self) -> None:

@@ -8,11 +8,14 @@ from __future__ import annotations
 import os
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from typing import Any
 
 import torch
 from mmengine.config import Config
 from mmengine.model import BaseModule
 from mmengine.runner import load_checkpoint
+from qai_hub.client import Device
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.nuscenes_evaluator import (
     NuscenesObjectDetectionEvaluator,
@@ -81,13 +84,20 @@ class BEVDet(BaseModel):
 
     Parameters
     ----------
-        img_backbone (BaseModule):Image encoder backbone.
-        img_neck(BaseModule): Image encoder neck.
-        img_view_transformer (BaseModule): Image view transformer.
-        img_bev_encoder_backbone (BaseModule):  BEV encoder backbone.
-        img_bev_encoder_neck (BaseModule):  BEV encoder neck.
-        pts_bbox_head (BaseModule): 3D object detection head.
-        bboxcoder (BaseBBoxCoder): BBox coder.
+    img_backbone
+        Image encoder backbone.
+    img_neck
+        Image encoder neck.
+    img_view_transformer
+        Image view transformer.
+    img_bev_encoder_backbone
+        BEV encoder backbone.
+    img_bev_encoder_neck
+        BEV encoder neck.
+    pts_bbox_head
+        3D object detection head.
+    bbox_coder
+        BBox coder.
     """
 
     def __init__(
@@ -110,7 +120,7 @@ class BEVDet(BaseModel):
         self.bboxcoder = bbox_coder
 
     @classmethod
-    def from_pretrained(cls, ckpt: str | None = None) -> BEVDet:
+    def from_pretrained(cls, ckpt: str | None = None) -> Self:
         ckpt = str(BEVDET_CKPT.fetch()) if ckpt is None else ckpt
         with SourceAsRoot(
             BEVDET_SOURCE_REPOSITORY,
@@ -162,7 +172,7 @@ class BEVDet(BaseModel):
             pts_bbox_head = CenterHead(**cfg.model.pts_bbox_head)
             bbox_coder = CenterPointBBoxCoder(**cfg.model.pts_bbox_head.bbox_coder)
 
-            model = BEVDet(
+            model = cls(
                 img_backbone,
                 img_neck,
                 img_view_transformer,
@@ -194,36 +204,42 @@ class BEVDet(BaseModel):
         """
         Run BEVDet model and return the 3D bboxes, scores, labels
 
+        B = batch size, S = number of cameras, C = 3, H = img height, W = img width
+
         Parameters
         ----------
-            B = batch size, S = number of cameras, C = 3, H = img height, W = img width
-            image: torch.Tensor of shape [B,S*C,H,W] as float32
-                Preprocessed image with range[0-1] in RGB format.
-            sensor2keyegos: torch.Tensor of shape [B,S,4,4] as float32
-                transformation matix to convert from camera sensor
-                to ego-vehicle at front camera coordinate frame
-            inv_intrins: torch.Tensor of shape [B,S,3,3] as float32
-                Inverse of Camera intrinsic matrix
-                used to project 2D image coordinates to 3D points
-            inv_post_rots: torch.tensor with shape [B, N, 3, 3] as float32
-                inverse post rotation matrix in camera coordinate system
-            post_trans: torch.tensor with shape [B, N, 1, 3] as float32
-                post translation tensor in camera coordinate system
+        image
+            torch.Tensor of shape [B,S*C,H,W] as float32.
+            Preprocessed image with range[0-1] in RGB format.
+        sensor2keyegos
+            torch.Tensor of shape [B,S,4,4] as float32.
+            transformation matix to convert from camera sensor
+            to ego-vehicle at front camera coordinate frame
+        inv_intrins
+            torch.Tensor of shape [B,S,3,3] as float32.
+            Inverse of Camera intrinsic matrix
+            used to project 2D image coordinates to 3D points
+        inv_post_rots
+            torch.tensor with shape [B, N, 3, 3] as float32.
+            inverse post rotation matrix in camera coordinate system
+        post_trans
+            torch.tensor with shape [B, N, 1, 3] as float32.
+            post translation tensor in camera coordinate system
 
         Returns
         -------
-            reg (torch.Tensor): 2D regression value with the
-                    shape of [B, 2, H, W].
-            height (torch.Tensor): Height value with the
-                shape of [B, 1, H, W].
-            dim (torch.Tensor): Size value with the shape
-                of [B, 3, H, W].
-            rot (torch.Tensor): Rotation value with the
-                shape of [B, 2, H, W].
-            vel (torch.Tensor): Velocity value with the
-                shape of [B, 2, H, W].
-            heatmap (torch.Tensor): Heatmap with the shape of
-                [B, N, H, W].
+        reg
+            2D regression value with the shape of [B, 2, H, W].
+        height
+            Height value with the shape of [B, 1, H, W].
+        dim
+            Size value with the shape of [B, 3, H, W].
+        rot
+            Rotation value with the shape of [B, 2, H, W].
+        vel
+            Velocity value with the shape of [B, 2, H, W].
+        heatmap
+            Heatmap with the shape of [B, N, H, W].
 
         """
         mean = torch.tensor([123.675, 116.28, 103.53]) / 255.0
@@ -303,7 +319,7 @@ class BEVDet(BaseModel):
         target_runtime: TargetRuntime,
         precision: Precision,
         other_compile_options: str = "",
-        device=None,
+        device: Device | None = None,
     ) -> str:
         compile_options = super().get_hub_compile_options(
             target_runtime, precision, other_compile_options, device
@@ -337,6 +353,6 @@ class BEVDet(BaseModel):
         return "nuscenes"
 
     @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
+    def get_hub_litemp_percentage(_: Any) -> float:
         """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
         return 30

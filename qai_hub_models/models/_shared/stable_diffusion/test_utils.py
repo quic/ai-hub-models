@@ -3,10 +3,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from collections.abc import Callable
+from typing import Any
+
 from qai_hub_models.utils.asset_loaders import qaihm_temp_dir
 
 
-def export_for_component(export_model, component_name: str):
+def export_for_component(export_model: Callable[..., Any], component_name: str) -> None:
     with qaihm_temp_dir() as tmpdir:
         exported_jobs = export_model(
             # Testing text_encoder as it's smallest model in

@@ -15,14 +15,14 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class MPIIGazeEvaluator(BaseEvaluator):
     """Evaluator for gaze estimation on MPIIGaze dataset."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
     def add_batch(
         self,
         output: Collection[torch.Tensor],
         target: Collection[torch.Tensor],
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -39,7 +39,7 @@ class MPIIGazeEvaluator(BaseEvaluator):
             self.predictions.append(pred)
             self.targets.append(gt)
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset stored predictions and targets"""
         self.predictions: list[np.ndarray] = []
         self.targets: list[np.ndarray] = []

@@ -13,7 +13,9 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class SemanticKittiEvaluator(BaseEvaluator):
     """Evaluator for comparing Semantic segmentation output against ground truth."""
 
-    def __init__(self, n_classes: int, learning_map: dict, learning_ignore: dict):
+    def __init__(
+        self, n_classes: int, learning_map: dict, learning_ignore: dict
+    ) -> None:
         self.n_classes = n_classes
         self.learning_map = learning_map
         self.include = []
@@ -25,14 +27,14 @@ class SemanticKittiEvaluator(BaseEvaluator):
                 self.include.append(key)
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.conf_matrix = torch.zeros((self.n_classes, self.n_classes)).long()
-        self.ones = None
-        self.last_scan_size = None
+        self.ones: torch.Tensor | None = None
+        self.last_scan_size: int | None = None
 
     def add_batch(
         self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    ):
+    ) -> None:
         """
         Parameters
         ----------

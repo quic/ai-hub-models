@@ -49,7 +49,7 @@ def get_basic_speedup_report(
     )
 
 
-def validate_perf_diff_is_empty(perf_diff: PerformanceDiff):
+def validate_perf_diff_is_empty(perf_diff: PerformanceDiff) -> None:
     # No difference captured
     for val in perf_diff.progressions.values():
         assert len(val) == 0
@@ -61,7 +61,7 @@ def validate_perf_diff_is_empty(perf_diff: PerformanceDiff):
     assert len(perf_diff.missing_devices) == 0
 
 
-def test_model_inference_run_toggle():
+def test_model_inference_run_toggle() -> None:
     # Test model inference fail/pass toggle is captured
     prev_perf_metrics = get_basic_speedup_report(
         PREV_JOB_ID, onnx_tf_inference_time=None, onnx_ort_qnn_inference_time=10.0
@@ -92,7 +92,7 @@ def test_model_inference_run_toggle():
     ]
 
 
-def test_perf_progression_basic():
+def test_perf_progression_basic() -> None:
     prev_perf_metrics = get_basic_speedup_report(
         PREV_JOB_ID, onnx_tf_inference_time=10.0, onnx_ort_qnn_inference_time=5.123
     )
@@ -122,7 +122,7 @@ def test_perf_progression_basic():
     ]
 
 
-def test_perf_regression_basic():
+def test_perf_regression_basic() -> None:
     # Test regression in perf numbers
     prev_perf_metrics = get_basic_speedup_report(
         PREV_JOB_ID, onnx_tf_inference_time=10.0, onnx_ort_qnn_inference_time=5.123
@@ -153,7 +153,7 @@ def test_perf_regression_basic():
     ]
 
 
-def test_missing_devices():
+def test_missing_devices() -> None:
     prev_perf_metrics = get_basic_speedup_report(
         PREV_JOB_ID, onnx_tf_inference_time=1.123, onnx_ort_qnn_inference_time=5.123
     )
@@ -180,7 +180,7 @@ def test_missing_devices():
     )
 
 
-def test_empty_report():
+def test_empty_report() -> None:
     prev_perf_metrics = get_basic_speedup_report()
     new_perf_metrics = get_basic_speedup_report()
     new_perf_metrics.precisions.pop(Precision.float)

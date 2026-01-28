@@ -1,0 +1,42 @@
+name: MediaPipe-Hand-Gesture-Recognition
+id: mediapipe_hand_gesture
+status: public
+headline: Real-time hand gesture recognition optimized for mobile and edge.
+domain: Computer Vision
+description: The MediaPipe Gesture Recognizer is a real-time machine learning pipeline that detects hands, predicts 21 hand landmarks, determines handedness (left/right), and classifies gestures from a predefined set
+use_case: Object Detection
+tags:
+- real-time
+applicable_scenarios:
+- Gesture Control
+- Virtual Reality
+- Gaming
+related_models:
+- mediapipe_face
+- mediapipe_pose
+- mediapipe_selfie
+- mediapipe_hand
+form_factors:
+- Phone
+- Tablet
+- IoT
+has_static_banner: true
+has_animated_banner: true
+dataset:
+- HaGRID
+technical_details:
+  Input resolution: 256x256
+  Number of parameters (PalmDetector): 1.76M
+  Model size (PalmDetector) (w8a8): 2.05 MB
+  Number of parameters (HandLandmarkDetector): 2.72M
+  Model size (HandLandmarkDetector) (w8a8): 3.12 MB
+  Number of parameters (CannedGestureClassifier): 143K
+  Model size (CannedGestureClassifier) (w8a8): 180 KB
+  Model size (PalmDetector) (float): 6.75 MB
+  Model size (HandLandmarkDetector) (float): 10.4 MB
+  Model size (CannedGestureClassifier) (float): 577 KB
+license_type: apache-2.0
+research_paper: https://arxiv.org/abs/2006.10214
+research_paper_title: 'MediaPipe Hands: On-device Real-time Hand Tracking'
+source_repo: https://github.com/google-ai-edge/mediapipe
+license: https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE

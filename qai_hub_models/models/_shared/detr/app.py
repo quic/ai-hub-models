@@ -36,7 +36,7 @@ class DETRApp:
         model: Callable[[torch.Tensor], torch.Tensor],
         model_image_height: int | None = None,
         model_image_width: int | None = None,
-    ):
+    ) -> None:
         self.model = model
         self.model_image_height = model_image_height
         self.model_image_width = model_image_width
@@ -54,25 +54,25 @@ class DETRApp:
 
         Parameters
         ----------
-            pred_boxes: torch.Tensor
-                Predicted bounding boxes.
-            pred_scores: torch.Tensor
-                Predicted scores.
-            pred_class_idx: torch.Tensor
-                Predicted class indices.
-            NHWC_int_numpy_frames: list[npt.NDArray[np.uint8]]
-                Image in NHWC format as a list of numpy arrays.
-            threshold: float
-                Prediction score threshold.
+        pred_boxes
+            Predicted bounding boxes.
+        pred_scores
+            Predicted scores.
+        pred_class_idx
+            Predicted class indices.
+        NHWC_int_numpy_frames
+            Image in NHWC format as a list of numpy arrays.
+        threshold
+            Prediction score threshold.
 
         Returns
         -------
-            scores: torch.Tensor
-                Confidence scores for the predicted class.
-            labels: torch.Tensor
-                Labels (class number) for the predicted class.
-            boxes: torch.Tensor
-                Bounding boxes for the predicted class.
+        scores
+            Confidence scores for the predicted class.
+        labels
+            Labels (class number) for the predicted class.
+        boxes
+            Bounding boxes for the predicted class.
         """
         mask = pred_scores > threshold
         pred_boxes = torch.cat(
@@ -112,22 +112,26 @@ class DETRApp:
 
         Parameters
         ----------
-            image: Tensor[B, 3, H, W]
-                A PIL Image in NCHW, RGB format.
-            default_weights: str
-                Default weights name for the model.
-            threshold: float
-                Prediction score threshold.
+        image
+            A PIL Image in NCHW, RGB format.
+        default_weights
+            Default weights name for the model.
+        threshold
+            Prediction score threshold.
 
         Returns
         -------
-            numpy_array: Original image numpy array with the corresponding predictions.
-            label: Labels (class number) for the predicted class.
-                Shape is [Number of predictions above threshold]
-            scores: Confidence scores for the predicted class.
-                Shape is [Number of predictions above threshold]
-            boxes: Bounding boxes for the predicted class.
-                Shape is [Number of predictions above threshold, 4]
+        numpy_array
+            Original image numpy array with the corresponding predictions.
+        scores
+            Confidence scores for the predicted class.
+            Shape is [Number of predictions above threshold].
+        labels
+            Labels (class number) for the predicted class.
+            Shape is [Number of predictions above threshold].
+        boxes
+            Bounding boxes for the predicted class.
+            Shape is [Number of predictions above threshold, 4].
         """
         # The official detr demo uses resize instead of padding. There is an option
         # to do padding instead and pass a pixel mask to the model, but we opted for

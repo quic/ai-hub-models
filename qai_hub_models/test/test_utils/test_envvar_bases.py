@@ -10,6 +10,8 @@ from datetime import datetime
 from enum import Enum, unique
 from pathlib import Path
 
+import pytest
+
 from qai_hub_models.utils.envvar_bases import (
     QAIHMBoolEnvvar,
     QAIHMDateFormatEnvvar,
@@ -26,7 +28,7 @@ class DefaultTrueEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = ""
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return True
 
 
@@ -36,11 +38,11 @@ class DefaultFalseEnvvar(QAIHMBoolEnvvar):
     CLI_HELP_MESSAGE = ""
 
     @classmethod
-    def default(cls):
+    def default(cls) -> bool:
         return False
 
 
-def test_bool_envvar(monkeypatch):
+def test_bool_envvar(monkeypatch: pytest.MonkeyPatch) -> None:
     # Test value serialization
     assert DefaultTrueEnvvar.serialize(True) == "1"
     assert DefaultTrueEnvvar.serialize(False) == "0"
@@ -142,7 +144,7 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
         VARNAME = "TEST_DATE_FORMAT"
 
         @classmethod
-        def default(cls):
+        def default(cls) -> str:
             return "%Y-%m-%dT%H:%M:%SZ"
 
     class DateEnvvar(QAIHMDateFormatEnvvar.DateEnvvar):
@@ -150,7 +152,7 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
         _DEFAULT_OBJ = datetime(2025, 1, 1)
 
         @classmethod
-        def default(cls):
+        def default(cls) -> str:
             return cls._DEFAULT_OBJ.strftime(
                 DateFormatEnvvar.DATE_FORMAT_ENVVAR.default()
             )
@@ -159,7 +161,7 @@ class DateFormatEnvvar(QAIHMDateFormatEnvvar):
     DATE_FORMAT_ENVVAR = FormatEnvvar
 
 
-def test_date_format_envvar(monkeypatch):
+def test_date_format_envvar(monkeypatch: pytest.MonkeyPatch) -> None:
     # fmt: off
     # Test dates
     date = datetime(2028, 10, 12)
@@ -211,11 +213,11 @@ class ListEnvvar(QAIHMStringListEnvvar):
     CLI_HELP_MESSAGE = ""
 
     @classmethod
-    def default(cls):
+    def default(cls) -> list[str]:
         return ["1", "2", "3"]
 
 
-def test_list_envvar(monkeypatch):
+def test_list_envvar(monkeypatch: pytest.MonkeyPatch) -> None:
     list1 = ["a", "b", "c"]
     list2 = ["1", "2", "3", "3"]
     list3 = ["1"]
@@ -265,11 +267,11 @@ class PathEnvvar(QAIHMPathEnvvar):
     CLI_HELP_MESSAGE = ""
 
     @classmethod
-    def default(cls):
+    def default(cls) -> Path:
         return Path("/asdf")
 
 
-def test_path_envvar(monkeypatch):
+def test_path_envvar(monkeypatch: pytest.MonkeyPatch) -> None:
     path1 = Path("/hello")
     path2 = Path("/world")
     path3 = Path("hello_world")
@@ -317,11 +319,11 @@ class StringEnvvar(QAIHMStringEnvvar):
     CLI_HELP_MESSAGE = ""
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         return "/asdf"
 
 
-def test_string_envvar(monkeypatch):
+def test_string_envvar(monkeypatch: pytest.MonkeyPatch) -> None:
     str1 = "/hello"
     str2 = "/world"
     str3 = "hello_world"
@@ -377,11 +379,11 @@ class TestEnumEnvvarSet(QAIHMStrSetWithEnumEnvvar[SpecialEnvvarTestSetting]):
     SPECIAL_SETTING_ENUM = SpecialEnvvarTestSetting
 
     @classmethod
-    def default(cls):
+    def default(cls) -> set[str | SpecialEnvvarTestSetting]:
         return {"x", SpecialEnvvarTestSetting.x}
 
 
-def test_enum_envvar_set(monkeypatch):
+def test_enum_envvar_set(monkeypatch: pytest.MonkeyPatch) -> None:
     set1: set[str | SpecialEnvvarTestSetting] = {
         SpecialEnvvarTestSetting.y,
         "b",
@@ -436,13 +438,13 @@ class StringEnvvarWithDynamicDefault(QAIHMStringEnvvar):
     DEFAULT_TEST_INT = 0
 
     @classmethod
-    def default(cls):
+    def default(cls) -> str:
         out = cls.DEFAULT_TEST_INT
         cls.DEFAULT_TEST_INT += 1
         return str(out)
 
 
-def test_string_envvar_with_dynamic_default(monkeypatch):
+def test_string_envvar_with_dynamic_default(monkeypatch: pytest.MonkeyPatch) -> None:
     StringEnvvarWithDynamicDefault.DEFAULT_TEST_INT = 0
     StringEnvvarWithDynamicDefault.patchenv(monkeypatch, None)
     assert StringEnvvarWithDynamicDefault.get() == "0"

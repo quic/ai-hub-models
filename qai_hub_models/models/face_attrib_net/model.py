@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.face_attrib_evaluator import FaceAttribNetEvaluator
@@ -50,32 +51,32 @@ class FaceAttribNet(BaseModel):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of channels.
 
-        blks_per_layer : list[int]
+        blks_per_layer
             Number of blocks in each layer.
 
-        eye_openness_enable : bool or str
+        eye_openness_enable
             Controls eye openness output:
             - True or "both": Enables both left and right eye openness outputs.
             - False: Disables eye openness outputs.
             - "left": Enables left eye openness output only.
             - "right": Enables right eye openness output only.
 
-        eyeglasses_enable : bool
+        eyeglasses_enable
             If True, enables output for the presence of eyeglasses.
 
-        face_mask_enable : bool
+        face_mask_enable
             If True, enables output for the presence of a face mask.
 
-        sunglasses_enable : bool
+        sunglasses_enable
             If True, enables output for the presence of sunglasses.
 
-        group_size : int
+        group_size
             Size of the group.
 
-        activ_type : str
+        activ_type
             Type of activation function to use.
             one of ["prelu", "relu", "sigmoid", "none"]
         """
@@ -330,15 +331,15 @@ class FaceAttribNet(BaseModel):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of channels.
 
-        n : int
+        n
             Number of blocks included in the layer.
 
         Returns
         -------
-        nn.Sequential
+        network_blocks
             custom neural network blocks
         """
         cnn_x: list[nn.Module] = []
@@ -355,12 +356,12 @@ class FaceAttribNet(BaseModel):
 
         Parameters
         ----------
-        image : torch.Tensor
+        image
             image tensor in range [0, 1], shape (N, C, H, W)
 
         Returns
         -------
-        logit : torch.Tensor
+        logit
             Shape(N, M, B), where:
             - N: Batch size
             - M: Number of attributes (5)
@@ -377,10 +378,10 @@ class FaceAttribNet(BaseModel):
 
             may contain `NaN` entries if the corresponding attribute is disabled.
 
-        prob : torch.Tensor
+        prob
             Shape(N, M). Probabilites
 
-        fea4 : torch.Tensor
+        fea4
             Shape(N, 512, 8, 8). Feature maps.
 
         """
@@ -472,7 +473,7 @@ class FaceAttribNet(BaseModel):
 
         Parameters
         ----------
-        image : torch.Tensor
+        image
             Input face images with shape (N, C, H, W), where:
             - N: Batch size
             - C: Number of channels (3 for RGB)
@@ -482,7 +483,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        prob : torch.Tensor
+        prob
             Range [0, 1]
             Shape(N, M), where:
             - N: Batch size
@@ -499,7 +500,7 @@ class FaceAttribNet(BaseModel):
         return prob
 
     @classmethod
-    def from_pretrained(cls, checkpoint_path: str | None = None) -> FaceAttribNet:
+    def from_pretrained(cls, checkpoint_path: str | None = None) -> Self:
         """
         Load model weights from a checkpoint and return an instance of FaceAttribNet.
 
@@ -509,16 +510,16 @@ class FaceAttribNet(BaseModel):
 
         Parameters
         ----------
-        checkpoint_path : str or None, optional
+        checkpoint_path
             path to a checkpoint file.
             (Note: currently ignored; uses default asset store path.)
 
         Returns
         -------
-        FaceAttribNet
+        model
             An initialized and pre-trained model ready for inference.
         """
-        faceattribnet_model = FaceAttribNet(
+        faceattribnet_model = cls(
             64,
             [2, 6, 3],
             eye_openness_enable=True,
@@ -558,7 +559,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        list[str]
+        output_names
             each output name corresponds to one in forward function output.
         """
         return ["probability"]
@@ -570,7 +571,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        list[str]
+        channel_last_inputs
             list of name string of "channel-last" input
         """
         return ["image"]
@@ -581,7 +582,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        BaseEvaluator
+        evaluator
             evaluator class for evaluating this model.
         """
         return FaceAttribNetEvaluator()
@@ -594,7 +595,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        list[str]
+        dataset_names
             list of strings with names of all datasets on which `face_attrib_net` model can be evaluated.
         """
         return ["face_attrib_dataset"]
@@ -606,7 +607,7 @@ class FaceAttribNet(BaseModel):
 
         Returns
         -------
-        str
+        dataset_name
             name of the calibration dataset
 
         """

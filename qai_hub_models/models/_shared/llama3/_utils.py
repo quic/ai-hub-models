@@ -5,10 +5,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
+
+import onnx
 from aimet_onnx.quantsim import QuantizationSimModel as QuantSimOnnx
 
 
-def _find_node_type_with_pattern(node, node_type: str, pattern_str: str | list[str]):
+def _find_node_type_with_pattern(
+    node: onnx.NodeProto, node_type: str, pattern_str: str | list[str]
+) -> bool | None:
     if isinstance(pattern_str, str):
         return node.op_type == node_type and pattern_str in node.name
     if isinstance(pattern_str, list):
@@ -18,7 +23,7 @@ def _find_node_type_with_pattern(node, node_type: str, pattern_str: str | list[s
     return None
 
 
-def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):
+def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx) -> None:
     out_tensors = []
     out_tensors.extend(
         [
@@ -38,21 +43,25 @@ def _set_tensors_to_output_8b_sym(quantsim_model: QuantSimOnnx):
         _set_tensor_to_8_bit_symmetric(quantsim_model, out_tensor)
 
 
-def _set_tensor_to_8_bit_symmetric(quantsim_model: QuantSimOnnx, tensor_name: str):
+def _set_tensor_to_8_bit_symmetric(
+    quantsim_model: QuantSimOnnx, tensor_name: str
+) -> None:
     if tensor_name in quantsim_model.qc_quantize_op_dict:
         quantizer = quantsim_model.qc_quantize_op_dict[tensor_name]
         quantizer.set_bitwidth(8)
         quantizer.use_symmetric_encodings = True
 
 
-def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx):
+def _set_lm_head_to_8b(quantsim_model: QuantSimOnnx) -> None:
     for weight in _get_lm_head_weights(quantsim_model.model.model):
         quantizer = quantsim_model.qc_quantize_op_dict[weight.name]
         quantizer.set_bitwidth(8)
         quantizer.enable_per_channel_quantization()
 
 
-def _get_lm_head_weights(quantsim_model: QuantSimOnnx):
+def _get_lm_head_weights(
+    quantsim_model: QuantSimOnnx,
+) -> Generator[onnx.TensorProto, None, None]:
     vocab_size = quantsim_model.graph.output[0].type.tensor_type.shape.dim[-1].dim_value
     for weight in quantsim_model.graph.initializer:
         if any(dim == vocab_size for dim in weight.dims):

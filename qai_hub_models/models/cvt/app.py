@@ -30,6 +30,20 @@ class CVTApp(CVT_GKTApp):
         target_height: int = 224,
         target_width: int = 480,
     ) -> None:
+        """
+        Initialize CVTApp.
+
+        Parameters
+        ----------
+        model
+            Cross-View Transformer model accepting a dictionary input and returning a dictionary.
+        ckpt_name
+            Checkpoint name (e.g., "vehicles_50k" or "road_75k"). Default is CKPT_NAME.
+        target_height
+            Target height for input images. If None, uses model's default height.
+        target_width
+            Target width for input images. If None, uses model's default width.
+        """
         self.model = model
         super().__init__(
             ckpt_name=ckpt_name, target_height=target_height, target_width=target_width
@@ -46,10 +60,10 @@ class CVTApp(CVT_GKTApp):
 
         Parameters
         ----------
-        images : list[Image.Image]
+        images
             List of 6 RGB PIL images in order: CAM_FRONT_LEFT, CAM_FRONT, CAM_FRONT_RIGHT,
             CAM_BACK_LEFT, CAM_BACK, CAM_BACK_RIGHT.
-        cam_metadata : dict[str, dict]
+        cam_metadata
             Dictionary mapping camera names to camera parameter dictionaries.
             Each camera dictionary contains:
                 - intrins : np.ndarray, shape (3, 3)
@@ -62,13 +76,13 @@ class CVTApp(CVT_GKTApp):
                     Translation vector [x, y, z] in meters from ego to global frame.
                 - ego2global_rotation : np.ndarray, shape (4,)
                     Quaternion [w, x, y, z] for rotation from ego to global frame.
-        raw_output : bool, optional
+        raw_output
             If True, return raw BEV heatmap tensor. If False, return processed RGB images.
             Default is False.
 
         Returns
         -------
-        list[Image.Image] | torch.Tensor
+        result
             If raw_output is False, list of PIL Images (RGB) with heatmap and ego polygon.
             If raw_output is True, BEV heatmap tensor with shape [1, 1, 200, 200].
         """

@@ -40,13 +40,15 @@ class DeepLabV3Model(BaseModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for model consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for model consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-           tensor: BxHxW tensor of class indices per pixel
+        segmentation_mask
+            BxHxW tensor of class indices per pixel
         """
         if self.normalize_input:
             image = normalize_image_torchvision(image)

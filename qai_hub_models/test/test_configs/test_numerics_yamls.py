@@ -20,7 +20,7 @@ from qai_hub_models.utils.numerics_yaml import (
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 
-def test_accuracy_yaml():
+def test_accuracy_yaml() -> None:
     for model_id in MODEL_IDS:
         try:
             accuracy = QAIHMModelNumerics.from_model(model_id, not_exists_ok=True)
@@ -32,7 +32,7 @@ def test_accuracy_yaml():
             ) from None
 
 
-def test_yaml_roundtrip():
+def test_yaml_roundtrip() -> None:
     model_id = "resnet18"
     accuracy_yaml_path = get_numerics_yaml_path(model_id)
 
@@ -53,7 +53,7 @@ def test_yaml_roundtrip():
     assert original_yaml == roundtrip_dict
 
 
-def test_accuracy_yaml_creation():
+def test_accuracy_yaml_creation() -> None:
     model_id = "resnet18"
     accuracy_yaml_path = get_numerics_yaml_path(model_id)
     original_yaml = load_yaml(accuracy_yaml_path)

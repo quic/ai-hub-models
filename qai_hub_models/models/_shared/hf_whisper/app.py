@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import sounddevice as sd
 import torch
@@ -36,7 +38,7 @@ class HfWhisperApp:
         hf_model_id: str,
         sample_rate: int = SAMPLE_RATE,
         max_audio_seconds: int = CHUNK_LENGTH,
-    ):
+    ) -> None:
         self.encoder = encoder
         self.decoder = decoder
         if isinstance(self.decoder, torch.nn.Module):
@@ -59,7 +61,7 @@ class HfWhisperApp:
         self.tokenizer = get_tokenizer(hf_model_id)
         self.clip_segment_tokens = set(self.tokenizer.all_special_ids)
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> str:
         # See transcribe.
         return self.transcribe(*args, **kwargs)
 
@@ -71,18 +73,18 @@ class HfWhisperApp:
 
         Parameters
         ----------
-        audio: numpy array | str
+        audio
             Path to audio file if a string.
             Raw audio array of shape (# of samples) if a numpy array.
-
-        audio_sample_rate: int | None
+        audio_sample_rate
             The sample rate of the provided audio, in samples / second.
             If audio is a numpy array, this must be provided.
             If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
 
         Returns
         -------
-        List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+        transcribed_text
+            Transcribed text from the audio.
         """
         tokens = self.transcribe_tokens(audio, audio_sample_rate)
         return self.tokenizer.decode(tokens, skip_special_tokens=True).strip()
@@ -93,14 +95,15 @@ class HfWhisperApp:
 
         Parameters
         ----------
-        audio: numpy array
+        audio
             A numpy array of audio of shape (number of samples).
             The sample rate of this audio must be self.sample_rate.
             The maximum length of this audio must be self.max_audio_samples.
 
         Returns
         -------
-            list of token ids
+        token_ids
+            List of token ids
         """
         # feature
         input_features = self.feature_extractor(
@@ -205,20 +208,20 @@ class HfWhisperApp:
 
         return output_ids[0].tolist()
 
-    def stream(self, device=2, audio_chunk_size_seconds: int = 5) -> None:
+    def stream(self, device: int = 2, audio_chunk_size_seconds: int = 5) -> None:
         """
         Stream audio from the given audio device and transcribe in real time.
 
         Parameters
         ----------
-            device:
-                Audio device (see. sounddevice.query_devices())
-            audio_chunk_size_seconds:
-                Number of seconds to record between each transcription attempt.
+        device
+            Audio device (see. sounddevice.query_devices())
+        audio_chunk_size_seconds
+            Number of seconds to record between each transcription attempt.
         """
         tokens: list[int] = []
 
-        def callback(audio: np.ndarray, frames, time, status):
+        def callback(audio: np.ndarray, frames: int, time: Any, status: Any) -> None:
             nonlocal tokens
             curr_tokens = self.transcribe_tokens(audio.squeeze(-1), SAMPLE_RATE)
             tokens.extend(curr_tokens)
@@ -289,18 +292,18 @@ class HfWhisperApp:
 
         Parameters
         ----------
-        audio: numpy array | str
+        audio
             Path to audio file if a string.
             Raw audio array of shape (# of samples) if a numpy array.
-
-        audio_sample_rate: int | None
+        audio_sample_rate
             The sample rate of the provided audio, in samples / second.
             If audio is a numpy array, this must be provided.
             If audio is a file and audio_sample_rate is None, this is ignored and the sample rate will be derived from the audio file.
 
         Returns
         -------
-        transcribed tokens
+        transcribed_tokens
+            Transcribed tokens
         """
         if isinstance(audio, str):
             import audio2numpy as a2n  # import here, as this requires ffmpeg to be installed on host machine
@@ -326,29 +329,29 @@ class HfWhisperApp:
 def chunk_and_resample_audio(
     audio: np.ndarray,
     audio_sample_rate: int,
-    model_sample_rate=SAMPLE_RATE,
-    model_chunk_seconds=CHUNK_LENGTH,
+    model_sample_rate: int = SAMPLE_RATE,
+    model_chunk_seconds: int = CHUNK_LENGTH,
 ) -> list[np.ndarray]:
     """
+    Chunk and resample audio data for model processing.
+
     Parameters
     ----------
-    audio: str
+    audio
         Raw audio numpy array of shape [# of samples]
-
-    audio_sample_rate: int
+    audio_sample_rate
         Sample rate of audio array, in samples / sec.
-
-    model_sample_rate: int
+    model_sample_rate
         Sample rate (samples / sec) required to run Whisper. The audio file
         will be resampled to use this rate.
-
-    model_chunk_seconds: int
+    model_chunk_seconds
         Split the audio in to N sequences of this many seconds.
         The final split may be shorter than this many seconds.
 
     Returns
     -------
-    List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
+    audio_chunks
+        List of audio arrays, chunked into N arrays of model_chunk_seconds seconds.
     """
     if audio_sample_rate != model_sample_rate:
         audio = resample_poly(audio, model_sample_rate, audio_sample_rate)

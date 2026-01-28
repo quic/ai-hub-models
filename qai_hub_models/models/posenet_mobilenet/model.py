@@ -114,3 +114,14 @@ class PosenetMobilenet(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "cocobody"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+
+        For this model, the value is fixed to 10.0 based on internal experimentation
+        that showed it provides a good trade-off between accuracy and performance.
+
+        """
+        return 10

@@ -49,7 +49,9 @@ class QAIHMModelPerf(BaseQAIHMConfig):
             cpu: int = 0
 
             @staticmethod
-            def from_layers(npu: int = 0, gpu: int = 0, cpu: int = 0):
+            def from_layers(
+                npu: int = 0, gpu: int = 0, cpu: int = 0
+            ) -> QAIHMModelPerf.PerformanceDetails.LayerCounts:
                 return QAIHMModelPerf.PerformanceDetails.LayerCounts(
                     total=npu + gpu + cpu,
                     npu=npu,
@@ -58,7 +60,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
                 )
 
             @property
-            def primary_compute_unit(self):
+            def primary_compute_unit(self) -> str:
                 if self.npu == 0 and self.gpu == 0 and self.cpu == 0:
                     return "null"
                 compute_unit_for_most_layers = max(self.cpu, self.gpu, self.npu)
@@ -138,7 +140,7 @@ class QAIHMModelPerf(BaseQAIHMConfig):
     )
 
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return (
             not self.supported_chipsets
             and not self.supported_devices

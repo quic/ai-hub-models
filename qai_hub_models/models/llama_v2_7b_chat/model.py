@@ -20,19 +20,17 @@ from qai_hub_models.models._shared.llama.model import (
     make_torch_compatible_past_key_values,
     save_input_cached_data,
 )
-from qai_hub_models.models.llama_v2_7b_chat.modeling_llama import (  # type: ignore[attr-defined]
+from qai_hub_models.models.llama_v2_7b_chat.modeling_llama import (
     LlamaForCausalLM,
     LlamaModel,
 )
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import BaseModel
-from qai_hub_models.utils.huggingface import (
-    ensure_has_required_transformer,
-    has_model_access,
-)
+from qai_hub_models.utils.huggingface import has_model_access
 from qai_hub_models.utils.input_spec import InputSpec
 from qai_hub_models.utils.model_adapters import flatten, suppress_warnings
 from qai_hub_models.utils.system_info import has_recommended_memory
+from qai_hub_models.utils.version_helpers import ensure_supported_version
 
 MIN_TRANFORMER_VERSION = "4.30.1"
 
@@ -41,7 +39,7 @@ MIN_TRANFORMER_VERSION = "4.30.1"
 
 # TODO: 10761 remove transformer version check once AIMET
 # transformer restriction is uplifted.
-ensure_has_required_transformer(MIN_TRANFORMER_VERSION)
+ensure_supported_version("transformers", min_version=MIN_TRANFORMER_VERSION)
 from transformers import AutoConfig, LlamaTokenizer  # noqa: E402
 
 
@@ -432,12 +430,12 @@ class Llama2_PromptProcessor_1(LlamaMixin):
         inputs["attention_mask"] = prepare_combined_attention_mask(
             input_tokens["attention_mask"], input_tokens["attention_mask"].shape
         ).type(torch.float32)
-        position_ids = (
+        position_ids_tensor = (
             torch.Tensor(position_ids).type(torch.long).reshape(1, input_seq_len)
         )
         position_ids_cos, position_ids_sin = RopeEmbedding(
             max_length=input_seq_len
-        ).get_embedding(position_ids)
+        ).get_embedding(position_ids_tensor)
         inputs["position_ids_cos"] = position_ids_cos
         inputs["position_ids_sin"] = position_ids_sin
         save_input_cached_data(
@@ -1060,8 +1058,8 @@ class Llama2_TokenGenerator_2(LlamaMixin):
         del model
 
         inputs = Llama2_TokenGenerator_1.get_model_data(input_seq_len=input_seq_len)
-        model = Llama2_TokenGenerator_1.from_pretrained()
-        output_tg = model(*inputs.values())
+        model = Llama2_TokenGenerator_1.from_pretrained()  # type: ignore[assignment]
+        output_tg = model(*inputs.values())  # type: ignore[misc]
         del model
 
         data = {
@@ -1213,8 +1211,8 @@ class Llama2_TokenGenerator_3(LlamaMixin):
         del model
 
         inputs = Llama2_TokenGenerator_2.get_model_data(input_seq_len=input_seq_len)
-        model = Llama2_TokenGenerator_2.from_pretrained()
-        output_tg = model(*inputs.values())
+        model = Llama2_TokenGenerator_2.from_pretrained()  # type: ignore[assignment]
+        output_tg = model(*inputs.values())  # type: ignore[misc]
         del model
 
         data = {
@@ -1367,8 +1365,8 @@ class Llama2_TokenGenerator_4(LlamaMixin):
         del model
 
         inputs = Llama2_TokenGenerator_3.get_model_data(input_seq_len=input_seq_len)
-        model = Llama2_TokenGenerator_3.from_pretrained()
-        output_tg = model(*inputs.values())
+        model = Llama2_TokenGenerator_3.from_pretrained()  # type: ignore[assignment]
+        output_tg = model(*inputs.values())  # type: ignore[misc]
         del model
 
         data = {

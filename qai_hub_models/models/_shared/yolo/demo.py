@@ -35,7 +35,7 @@ def yolo_detection_demo(
     stride_multiple: int | None = None,
     is_test: bool = False,
     default_score_threshold: float = 0.45,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)
@@ -83,7 +83,7 @@ def yolo_segmentation_demo(
     default_image: str | CachedWebAsset,
     stride_multiple: int | None = None,
     is_test: bool = False,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(

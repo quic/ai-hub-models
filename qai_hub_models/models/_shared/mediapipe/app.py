@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 import cv2
 import numpy as np
@@ -78,71 +78,58 @@ class MediaPipeApp(BaseCollectionApp):
         landmark_connections: list[tuple[int, int]] | None = None,
         draw_keypoint_idx: list[int] | None = None,
         filter_oob_box: bool = True,
-    ):
+    ) -> None:
         """
         Create a MediaPipe application.
 
         Parameters
         ----------
-            detector: Callable[[torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
-                The bounding box and keypoint detector model.
-                Input is an image [N C H W], channel layout is RGB, output is [coordinates, scores].
-
-            detector_anchors: torch.Tensor
-                Detector anchors, for decoding predictions from anchor points to boxes.
-
-            landmark_detector: Callable[[torch.Tensor], tuple[torch.Tensor, ...]]
-                The landmark detector model. Input is an image [N C H W],
-                channel layout is RGB, output is [scores, landmarks].
-
-            detector_input_dims: tuple[int, int]
-                Input dimensionality (W, H) of the bounding box detector.
-
-            landmark_input_dims: tuple[int, int]
-                Input dimensionality (W, H) of the landmark detector.
-
-            keypoint_rotation_vec_start_idx: int
-                The index of a keypoint (predicted by the bounding box detector). This KP is the start
-                of the vector used to compute the angle at which the object should be rotated (before
-                being passed to the landmark detector).
-
-            keypoint_rotation_vec_end_idx: int
-                The index of a keypoint (predicted by the bounding box detector). This KP is the start
-                of the vector used to compute the angle at which the object should be rotated (before
-                being passed to the landmark detector).
-
-            detect_box_offset_xy: float
-                Move the detected bounding box in the direction of the rotation vector described above by this amount
-                before passing the box to the landmark detector.
-
-            detect_box_scale: float
-                Scale the detected bounding box's size by this amount
-                before passing the box to the landmark detector.
-
-            min_detector_box_score: float
-                Minimum detector box score for a box to be used for landmark detection.
-
-            detector_score_clipping_threshold: float
-                Clip detector box scores to [-threshold, threshold]
-
-            nms_iou_threshold: float
-                IOU threshold for when NMS is run on the detector output boxes.
-
-            min_landmark_score: float
-                Any landmark set with a score below this number will be discarded.
-
-            landmark_connections: list[tuple[int, int]] | None
-                Connections between landmark output points.
-                Format is list[tuple[Landmark Point Index 0, Landmark Point Index 1]]
-                These connections will be drawn on the output image when applicable.
-
-            draw_keypoint_idx: list[int] | None
-                If set, only the keypoints with the following indices are drawn on the image.
-                If unset, all keypoints are drawn on the image.
-
-            filter_oob_box: bool
-                If True, discards detections with coordinates outside the image bounds (negative or exceeding image dimensions).
-                If False, retains all detections regardless of their coordinates.
+        detector
+            The bounding box and keypoint detector model.
+            Input is an image [N C H W], channel layout is RGB, output is [coordinates, scores].
+        detector_anchors
+            Detector anchors, for decoding predictions from anchor points to boxes.
+        landmark_detector
+            The landmark detector model. Input is an image [N C H W],
+            channel layout is RGB, output is [scores, landmarks].
+        detector_input_dims
+            Input dimensionality (W, H) of the bounding box detector.
+        landmark_input_dims
+            Input dimensionality (W, H) of the landmark detector.
+        keypoint_rotation_vec_start_idx
+            The index of a keypoint (predicted by the bounding box detector). This KP is the start
+            of the vector used to compute the angle at which the object should be rotated (before
+            being passed to the landmark detector).
+        keypoint_rotation_vec_end_idx
+            The index of a keypoint (predicted by the bounding box detector). This KP is the start
+            of the vector used to compute the angle at which the object should be rotated (before
+            being passed to the landmark detector).
+        rotation_offset_rads
+            Rotation offset in radians.
+        detect_box_offset_xy
+            Move the detected bounding box in the direction of the rotation vector described above by this amount
+            before passing the box to the landmark detector.
+        detect_box_scale
+            Scale the detected bounding box's size by this amount
+            before passing the box to the landmark detector.
+        min_detector_box_score
+            Minimum detector box score for a box to be used for landmark detection.
+        detector_score_clipping_threshold
+            Clip detector box scores to [-threshold, threshold].
+        nms_iou_threshold
+            IOU threshold for when NMS is run on the detector output boxes.
+        min_landmark_score
+            Any landmark set with a score below this number will be discarded.
+        landmark_connections
+            Connections between landmark output points.
+            Format is list[tuple[Landmark Point Index 0, Landmark Point Index 1]]
+            These connections will be drawn on the output image when applicable.
+        draw_keypoint_idx
+            If set, only the keypoints with the following indices are drawn on the image.
+            If unset, all keypoints are drawn on the image.
+        filter_oob_box
+            If True, discards detections with coordinates outside the image bounds (negative or exceeding image dimensions).
+            If False, retains all detections regardless of their coordinates.
         """
         self.detector = detector
         self.detector_anchors = detector_anchors
@@ -162,7 +149,9 @@ class MediaPipeApp(BaseCollectionApp):
         self.draw_keypoint_idx = draw_keypoint_idx
         self.filter_oob_box = filter_oob_box
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> tuple[RUN_MODEL_RETURN_TYPE, ...] | list[np.ndarray]:
         # See predict_landmarks_from_image.
         return self.predict_landmarks_from_image(*args, **kwargs)
 
@@ -176,62 +165,61 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-
-            raw_output: bool
-                See "returns" doc section for details.
+        pixel_values_or_image
+            PIL image
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout.
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is false, returns:
-                images:
-                    A list of predicted images (one for each batch), with NHWC shape and RGB channel layout.
-                    Each image will have landmarks, roi, and bounding boxes drawn, if they are detected.
+        If raw_output is False, returns:
+        images
+            A list of predicted images (one for each batch),
+            with NHWC shape and RGB channel layout. Each image will have landmarks,
+            roi, and bounding boxes drawn, if they are detected.
 
-            Otherwise, returns several "batched" (one element per input image) lists:
-                batched_selected_boxes:
-                    Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                    Shape of each list element is [num_selected_boxes, 2, 2].
-                        Layout is
-                            [[box_x1, box_y1],
-                             [box_x2, box_y2]]
+        If raw_output is True, returns:
+        batched_selected_boxes
+            Selected object bounding box coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                     [box_x2, box_y2]]
+        batched_selected_keypoints
+            Selected object bounding box keypoints.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                     ...,
+                     [keypoint_max_x, keypoint_max_y]]
+        batched_roi_4corners
+            Selected object "region of interest" corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y).
+            The order of points is (top left point, bottom left point, top right point, bottom right point).
+        batched_selected_landmarks
+            Selected landmarks. Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
+                    ...
+                ]),
+                # Batch 1 (for Input Image 1)
+                torch.Tensor([]) # (this image has no detected object)
+                ...
+            ]
+            The shape of each inner list element is [# of landmark points, 3],
+            where 3 == (X, Y, Conf)
 
-                batched_selected_keypoints:
-                    Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                    Shape of each list element is [num_selected_boxes, # of keypoints, 2].
-                        Layout is
-                            [[keypoint_0_x, keypoint_0_y],
-                             ...,
-                             [keypoint_max_x, keypoint_max_y]]
-
-                batched_roi_4corners:
-                    Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
-                    Empty tensor if batch had no bounding boxes with a score above the threshold.
-                    Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
-                    The order of points is  (top left point, bottom left point, top right point, bottom right point)
-
-                batched_selected_landmarks:
-                    Selected landmarks. Organized like the following:
-                    [
-                        # Batch 0 (for Input Image 0)
-                        torch.Tensor([
-                            Selected Landmark 1 w/ shape (# of landmark points, 3)
-                            Selected Landmark 2 w/ shape (# of landmark points, 3)
-                            ...
-                        ]),
-                        # Batch 1 (for Input Image 1)
-                        torch.Tensor([]) # (this image has no detected object)
-                        ...
-                    ]
-                    The shape of each inner list element is [# of landmark points, 3],
-                    where 3 == (X, Y, Conf)
-
-                ... (additional outputs if necessary)
+            ... (additional outputs if necessary)
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -306,25 +294,24 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters
         ----------
-            NCHW_fp32_torch_frames: torch.Tensor
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        NCHW_fp32_torch_frames
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
         Returns
         -------
-            batched_selected_boxes:
-                Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, 2, 2].
-                    Layout is
-                        [[box_x1, box_y1],
-                            [box_x2, box_y2]]
-
-            batched_selected_keypoints:
-                Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, # of keypoints, 2].
-                    Layout is
-                        [[keypoint_0_x, keypoint_0_y],
-                            ...,
-                            [keypoint_max_x, keypoint_max_y]]
+        batched_selected_boxes
+            Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                     [box_x2, box_y2]]
+        batched_selected_keypoints
+            Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                     ...,
+                     [keypoint_max_x, keypoint_max_y]]
         """
         # Resize input frames such that they're the appropriate size for detector inference.
         box_detector_net_inputs, pd_net_input_scale, pd_net_input_pad = resize_pad(
@@ -427,28 +414,28 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters
         ----------
-            batched_selected_boxes:
-                Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, 2, 2].
-                    Layout is
-                        [[box_x1, box_y1],
-                            [box_x2, box_y2]]
+        batched_selected_boxes
+            Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                        [box_x2, box_y2]]
 
-            batched_selected_keypoints:
-                Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, # of keypoints, 2].
-                    Layout is
-                        [[keypoint_0_x, keypoint_0_y],
-                            ...,
-                            [keypoint_max_x, keypoint_max_y]]
+        batched_selected_keypoints
+            Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                        ...,
+                        [keypoint_max_x, keypoint_max_y]]
 
         Returns
         -------
-            batched_roi_4corners:
-                Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
-                Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
-                The order of points is  (top left point, bottom left point, top right point, bottom right point)
+        batched_roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y).
+            The order of points is (top left point, bottom left point, top right point, bottom right point).
         """
         batched_selected_roi: list[torch.Tensor] = []
         for boxes, keypoints in zip(
@@ -501,35 +488,35 @@ class MediaPipeApp(BaseCollectionApp):
 
         Parameters
         ----------
-            NHWC_int_numpy_frames:
-                List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
-                Length of list is # of batches (the number of input images)
+        NHWC_int_numpy_frames
+            List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
+            Length of list is # of batches (the number of input images)
 
-                batched_roi_4corners:
-                    Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
-                    Empty tensor if batch had no bounding boxes with a score above the threshold.
-                    Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
-                    The order of points is (top left point, bottom left point, top right point, bottom right point)
+        batched_roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
+            The order of points is (top left point, bottom left point, top right point, bottom right point)
 
         Returns
         -------
-                batched_selected_landmarks: list[torch.tensor]
-                    Selected landmarks. Organized like the following:
-                    [
-                        # Batch 0 (for Input Image 0)
-                        torch.Tensor([
-                            Selected Landmark 1 w/ shape (# of landmark points, 3)
-                            Selected Landmark 2 w/ shape (# of landmark points, 3)
-                            ...
-                        ]),
-                        # Batch 1 (for Input Image 1)
-                        torch.Tensor([]) # (this image has no detected object)
-                        ...
-                    ]
-                    The shape of each inner list element is [# of landmark points, 3],
-                    where 3 == (X, Y, Conf), and coordinates are in pixel space of the original input image.
+        batched_selected_landmarks
+            Selected landmarks. Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
+                    ...
+                ]),
+                # Batch 1 (for Input Image 1)
+                torch.Tensor([]) # (this image has no detected object)
+                ...
+            ]
+            The shape of each inner list element is [# of landmark points, 3],
+            where 3 == (X, Y, Conf), and coordinates are in pixel space of the original input image.
 
-                ... (additional outputs when needed by implementation)
+            ... (additional outputs when needed by implementation)
         """
         # selected landmarks for the ROI (if any)
         # list[torch.Tensor(shape=[Num Selected Landmarks, K, 3])],
@@ -593,35 +580,35 @@ class MediaPipeApp(BaseCollectionApp):
         selected_boxes: torch.Tensor,
         selected_keypoints: torch.Tensor,
         roi_4corners: torch.Tensor,
-    ):
+    ) -> None:
         """
         Draw bounding box, keypoints, and corresponding region of interest (ROI) on the provided frame
 
         Parameters
         ----------
-            NHWC_int_numpy_frame:
-                Numpy array of shape (H W C x uint8) -- RGB channel layout
+        NHWC_int_numpy_frame
+            Numpy array of shape (H W C x uint8) -- RGB channel layout
 
-            selected_boxes:
-                Selected object bounding box coordinates. Shape is [num_selected_boxes, 2, 2].
-                    Layout is
-                        [[box_x1, box_y1],
-                         [box_x2, box_y2]]
+        selected_boxes
+            Selected object bounding box coordinates. Shape is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                     [box_x2, box_y2]]
 
-            selected_keypoints:
-                Selected object bounding box keypoints. Shape is [num_selected_boxes, # of keypoints, 2].
-                    Layout is
-                        [[keypoint_0_x, keypoint_0_y],
-                         ...,
-                         [keypoint_max_x, keypoint_max_y]]
+        selected_keypoints
+            Selected object bounding box keypoints. Shape is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                     ...,
+                     [keypoint_max_x, keypoint_max_y]]
 
-            roi_4corners:
-                Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
-                Shape is [num_selected_boxes, 4, 2], where 2 == (x, y)
+        roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Shape is [num_selected_boxes, 4, 2], where 2 == (x, y)
 
-        Returns
-        -------
-            Nothing; drawing is done on input frame.
+        Notes
+        -----
+        Drawing is done on input frame.
         """
         for roi, box, kp in zip(
             roi_4corners, selected_boxes, selected_keypoints, strict=False
@@ -644,29 +631,32 @@ class MediaPipeApp(BaseCollectionApp):
         self,
         NHWC_int_numpy_frame: np.ndarray,
         selected_landmarks: torch.Tensor,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Draw landmarks on the provided frame
 
         Parameters
         ----------
-            NHWC_int_numpy_frame:
-                Numpy array of shape (H W C x uint8) -- RGB channel layout
+        NHWC_int_numpy_frame
+            Numpy array of shape (H W C x uint8) -- RGB channel layout
 
-            selected_landmarks
-                Selected landmarks. Organized like the following:
-                    torch.Tensor([
-                        Selected Landmark 1 w/ shape (# of landmark points, 3)
-                        Selected Landmark 2 w/ shape (# of landmark points, 3)
-                        ...
-                    ]),
-                    The shape of each inner list element is [# of landmark points, 3],
-                    where 3 == (X, Y, Conf)
+        selected_landmarks
+            Selected landmarks. Organized like the following:
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
+                    ...
+                ]),
+                The shape of each inner list element is [# of landmark points, 3],
+                where 3 == (X, Y, Conf)
 
-        Returns
-        -------
-            Nothing; drawing is done on input frame.
+        **kwargs
+            Additional keyword arguments.
+
+        Notes
+        -----
+        Drawing is done on input frame.
         """
         for ldm in selected_landmarks:
             # Draw landmark points
@@ -688,57 +678,60 @@ class MediaPipeApp(BaseCollectionApp):
         batched_selected_keypoints: list[torch.Tensor],
         batched_roi_4corners: list[torch.Tensor],
         batched_selected_landmarks: list[torch.Tensor],
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         Draw predictions on the provided frame
 
         Parameters
         ----------
-            NHWC_int_numpy_frames:
-                List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
-                Length of list is # of batches (the number of input images)
+        NHWC_int_numpy_frames
+            List of numpy arrays of shape (H W C x uint8) -- RGB channel layout
+            Length of list is # of batches (the number of input images)
 
-            batched_selected_boxes: list[torch.Tensor]
-                Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, 2, 2].
-                    Layout is
-                        [[box_x1, box_y1],
-                            [box_x2, box_y2]]
+        batched_selected_boxes
+            Selected object bounding box coordinates. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 2, 2].
+                Layout is
+                    [[box_x1, box_y1],
+                        [box_x2, box_y2]]
 
-            batched_selected_keypoints: list[torch.Tensor]
-                Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, # of keypoints, 2].
-                    Layout is
-                        [[keypoint_0_x, keypoint_0_y],
-                            ...,
-                            [keypoint_max_x, keypoint_max_y]]
+        batched_selected_keypoints
+            Selected object bounding box keypoints. Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, # of keypoints, 2].
+                Layout is
+                    [[keypoint_0_x, keypoint_0_y],
+                        ...,
+                        [keypoint_max_x, keypoint_max_y]]
 
-            batched_roi_4corners: list[torch.Tensor]
-                Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
-                Empty tensor if batch had no bounding boxes with a score above the threshold.
-                Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
-                The order of points is  (top left point, bottom left point, top right point, bottom right point)
+        batched_roi_4corners
+            Selected object "region of interest" (region used as input to the landmark detector) corner coordinates.
+            Empty tensor if batch had no bounding boxes with a score above the threshold.
+            Shape of each list element is [num_selected_boxes, 4, 2], where 2 == (x, y)
+            The order of points is  (top left point, bottom left point, top right point, bottom right point)
 
-            batched_selected_landmarks: list[torch.tensor]
-                Selected landmarks. Organized like the following:
-                [
-                    # Batch 0 (for Input Image 0)
-                    torch.Tensor([
-                        Selected Landmark 1 w/ shape (# of landmark points, 3)
-                        Selected Landmark 2 w/ shape (# of landmark points, 3)
-                        ...
-                    ]),
-                    # Batch 1 (for Input Image 1)
-                    torch.Tensor([]) # (this image has no detected object)
+        batched_selected_landmarks
+            Selected landmarks. Organized like the following:
+            [
+                # Batch 0 (for Input Image 0)
+                torch.Tensor([
+                    Selected Landmark 1 w/ shape (# of landmark points, 3)
+                    Selected Landmark 2 w/ shape (# of landmark points, 3)
                     ...
-                ]
-                The shape of each inner list element is [# of landmark points, 3],
-                where 3 == (X, Y, Conf)
+                ]),
+                # Batch 1 (for Input Image 1)
+                torch.Tensor([]) # (this image has no detected object)
+                ...
+            ]
+            The shape of each inner list element is [# of landmark points, 3],
+            where 3 == (X, Y, Conf)
 
-        Returns
-        -------
-            Nothing; drawing is done on input frame
+        **kwargs
+            Additional keyword arguments.
+
+        Notes
+        -----
+        Drawing is done on input frame.
         """
         for batch_idx in range(len(NHWC_int_numpy_frames)):
             image = NHWC_int_numpy_frames[batch_idx]

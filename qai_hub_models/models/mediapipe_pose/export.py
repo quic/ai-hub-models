@@ -18,6 +18,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.metadata_yaml import ModelFileMetadata, ModelMetadata
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.mediapipe_pose import MODEL_ID, App, Model
@@ -211,15 +212,31 @@ def download_model(
         dst_path = Path(tmpdir) / output_folder_name
         dst_path.mkdir()
 
+        # Download models and capture filenames, then generate metadata
+        model_file_metadata = {}
         for component_name, target_model in target_models.items():
             if target_model.model_type == hub.SourceModelType.ONNX:
-                download_and_unzip_workbench_onnx_model(
+                onnx_result = download_and_unzip_workbench_onnx_model(
                     target_model, dst_path, component_name
                 )
+                model_file_name = onnx_result.onnx_graph_name
             else:
-                target_model.download(os.path.join(dst_path, component_name))
+                downloaded_path = target_model.download(
+                    os.path.join(dst_path, component_name)
+                )
+                model_file_name = os.path.basename(downloaded_path)
+
+            # Generate metadata using the actual downloaded filename
+            model_file_metadata[model_file_name] = ModelFileMetadata.from_hub_model(
+                target_model
+            )
 
         tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+
+        # Extract and save metadata alongside downloaded model
+        metadata_path = dst_path / "metadata.yaml"
+        model_metadata = ModelMetadata(model_files=model_file_metadata)
+        model_metadata.to_yaml(metadata_path)
 
         if zip_assets:
             output_path = Path(
@@ -253,7 +270,7 @@ def export_model(
     profile_options: str = "",
     fetch_static_assets: str | None = None,
     zip_assets: bool = False,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> CollectionExportResult:
     """
     This function executes the following recipe:
@@ -497,7 +514,7 @@ def export_model(
     )
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [

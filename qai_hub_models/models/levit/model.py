@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from transformers import LevitForImageClassification
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.imagenet_classifier.model import (
     ImagenetClassifier,
@@ -22,7 +23,7 @@ class LeViT(ImagenetClassifier):
     """Exportable LeViT model, end-to-end."""
 
     @classmethod
-    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> LeViT:
+    def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS) -> Self:
         model = LevitForImageClassification.from_pretrained(ckpt_name)
         return cls(model)
 
@@ -32,13 +33,15 @@ class LeViT(ImagenetClassifier):
 
         Parameters
         ----------
-            image: A [1, 3, 224, 224] image.
-                    Pixel values pre-processed for encoder consumption.
-                    Range: float[0, 1]
-                    3-channel Color Space: RGB
+        image
+            A [1, 3, 224, 224] image.
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        class_logits
             A [1, 1000] where each value is the log-likelihood of
             the image belonging to the corresponding Imagenet class.
         """

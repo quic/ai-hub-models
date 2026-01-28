@@ -9,7 +9,7 @@ import platform
 from qai_hub_models.utils.printing import print_with_box
 
 
-def get_available_memory_in_gb():
+def get_available_memory_in_gb() -> tuple[int, int]:
     # On Windows, the swap (paging file) is defined as a range (initial to
     # max). Psutil only queries the initial (minimum), which is not relevant.
     if platform.system() == "Windows":

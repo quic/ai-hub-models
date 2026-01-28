@@ -155,6 +155,7 @@ and many more.
 | [GPUNet](https://aihub.qualcomm.com/models/gpunet) | [qai_hub_models.models.gpunet](qai_hub_models/models/gpunet/README.md) |
 | [GoogLeNet](https://aihub.qualcomm.com/models/googlenet) | [qai_hub_models.models.googlenet](qai_hub_models/models/googlenet/README.md) |
 | [Inception-v3](https://aihub.qualcomm.com/models/inception_v3) | [qai_hub_models.models.inception_v3](qai_hub_models/models/inception_v3/README.md) |
+| [InternImage](https://aihub.qualcomm.com/models/internimage) | [qai_hub_models.models.internimage](qai_hub_models/models/internimage/README.md) |
 | [LeViT](https://aihub.qualcomm.com/models/levit) | [qai_hub_models.models.levit](qai_hub_models/models/levit/README.md) |
 | [MNASNet05](https://aihub.qualcomm.com/models/mnasnet05) | [qai_hub_models.models.mnasnet05](qai_hub_models/models/mnasnet05/README.md) |
 | [Mobile-VIT](https://aihub.qualcomm.com/models/mobile_vit) | [qai_hub_models.models.mobile_vit](qai_hub_models/models/mobile_vit/README.md) |
@@ -249,6 +250,7 @@ and many more.
 | [Lightweight-Face-Detection](https://aihub.qualcomm.com/models/face_det_lite) | [qai_hub_models.models.face_det_lite](qai_hub_models/models/face_det_lite/README.md) |
 | [MediaPipe-Face-Detection](https://aihub.qualcomm.com/models/mediapipe_face) | [qai_hub_models.models.mediapipe_face](qai_hub_models/models/mediapipe_face/README.md) |
 | [MediaPipe-Hand-Detection](https://aihub.qualcomm.com/models/mediapipe_hand) | [qai_hub_models.models.mediapipe_hand](qai_hub_models/models/mediapipe_hand/README.md) |
+| [MediaPipe-Hand-Gesture-Recognition](qai_hub_models/models/mediapipe_hand_gesture/README.md) | [qai_hub_models.models.mediapipe_hand_gesture](qai_hub_models/models/mediapipe_hand_gesture/README.md) |
 | [PPE-Detection](https://aihub.qualcomm.com/models/gear_guard_net) | [qai_hub_models.models.gear_guard_net](qai_hub_models/models/gear_guard_net/README.md) |
 | [Person-Foot-Detection](https://aihub.qualcomm.com/models/foot_track_net) | [qai_hub_models.models.foot_track_net](qai_hub_models/models/foot_track_net/README.md) |
 | [RF-DETR](https://aihub.qualcomm.com/models/rf_detr) | [qai_hub_models.models.rf_detr](qai_hub_models/models/rf_detr/README.md) |
@@ -279,6 +281,7 @@ and many more.
 | **Depth Estimation**
 | [Depth-Anything](https://aihub.qualcomm.com/models/depth_anything) | [qai_hub_models.models.depth_anything](qai_hub_models/models/depth_anything/README.md) |
 | [Depth-Anything-V2](https://aihub.qualcomm.com/models/depth_anything_v2) | [qai_hub_models.models.depth_anything_v2](qai_hub_models/models/depth_anything_v2/README.md) |
+| [Depth-Anything-V3](https://aihub.qualcomm.com/models/depth_anything_v3) | [qai_hub_models.models.depth_anything_v3](qai_hub_models/models/depth_anything_v3/README.md) |
 | [Midas-V2](https://aihub.qualcomm.com/models/midas) | [qai_hub_models.models.midas](qai_hub_models/models/midas/README.md) |
 | | |
 | **Driver Assistance**
@@ -286,6 +289,7 @@ and many more.
 | [BEVFusion](https://aihub.qualcomm.com/models/bevfusion_det) | [qai_hub_models.models.bevfusion_det](qai_hub_models/models/bevfusion_det/README.md) |
 | [CVT](https://aihub.qualcomm.com/models/cvt) | [qai_hub_models.models.cvt](qai_hub_models/models/cvt/README.md) |
 | [CenterNet-3D](https://aihub.qualcomm.com/models/centernet_3d) | [qai_hub_models.models.centernet_3d](qai_hub_models/models/centernet_3d/README.md) |
+| [CenterPoint](https://aihub.qualcomm.com/models/centerpoint) | [qai_hub_models.models.centerpoint](qai_hub_models/models/centerpoint/README.md) |
 | [GKT](https://aihub.qualcomm.com/models/gkt) | [qai_hub_models.models.gkt](qai_hub_models/models/gkt/README.md) |
 | [StateTransformer](https://aihub.qualcomm.com/models/statetransformer) | [qai_hub_models.models.statetransformer](qai_hub_models/models/statetransformer/README.md) |
 
@@ -297,6 +301,10 @@ and many more.
 | [EasyOCR](https://aihub.qualcomm.com/models/easyocr) | [qai_hub_models.models.easyocr](qai_hub_models/models/easyocr/README.md) |
 | [Nomic-Embed-Text](https://aihub.qualcomm.com/models/nomic_embed_text) | [qai_hub_models.models.nomic_embed_text](qai_hub_models/models/nomic_embed_text/README.md) |
 | [OpenAI-Clip](https://aihub.qualcomm.com/models/openai_clip) | [qai_hub_models.models.openai_clip](qai_hub_models/models/openai_clip/README.md) |
+| [OpusMT-En-Es](https://aihub.qualcomm.com/models/opus_mt_en_es) | [qai_hub_models.models.opus_mt_en_es](qai_hub_models/models/opus_mt_en_es/README.md) |
+| [OpusMT-En-Zh](https://aihub.qualcomm.com/models/opus_mt_en_zh) | [qai_hub_models.models.opus_mt_en_zh](qai_hub_models/models/opus_mt_en_zh/README.md) |
+| [OpusMT-Es-En](https://aihub.qualcomm.com/models/opus_mt_es_en) | [qai_hub_models.models.opus_mt_es_en](qai_hub_models/models/opus_mt_es_en/README.md) |
+| [OpusMT-Zh-En](https://aihub.qualcomm.com/models/opus_mt_zh_en) | [qai_hub_models.models.opus_mt_zh_en](qai_hub_models/models/opus_mt_zh_en/README.md) |
 | [TrOCR](https://aihub.qualcomm.com/models/trocr) | [qai_hub_models.models.trocr](qai_hub_models/models/trocr/README.md) |
 
 ### Audio
@@ -311,6 +319,7 @@ and many more.
 | [Whisper-Small](https://aihub.qualcomm.com/models/whisper_small) | [qai_hub_models.models.whisper_small](qai_hub_models/models/whisper_small/README.md) |
 | [Whisper-Small-Quantized](https://aihub.qualcomm.com/models/whisper_small_quantized) | [qai_hub_models.models.whisper_small_quantized](qai_hub_models/models/whisper_small_quantized/README.md) |
 | [Whisper-Tiny](https://aihub.qualcomm.com/models/whisper_tiny) | [qai_hub_models.models.whisper_tiny](qai_hub_models/models/whisper_tiny/README.md) |
+| [Zipformer](https://aihub.qualcomm.com/models/zipformer) | [qai_hub_models.models.zipformer](qai_hub_models/models/zipformer/README.md) |
 | | |
 | **Audio Classification**
 | [YamNet](https://aihub.qualcomm.com/models/yamnet) | [qai_hub_models.models.yamnet](qai_hub_models/models/yamnet/README.md) |
@@ -326,7 +335,10 @@ and many more.
 | [Stable-Diffusion-v2.1](https://aihub.qualcomm.com/models/stable_diffusion_v2_1) | [qai_hub_models.models.stable_diffusion_v2_1](qai_hub_models/models/stable_diffusion_v2_1/README.md) |
 | | |
 | **Text Generation**
+| [Albert-Base-V2-Hf](https://aihub.qualcomm.com/models/albert_base_v2_hf) | [qai_hub_models.models.albert_base_v2_hf](qai_hub_models/models/albert_base_v2_hf/README.md) |
 | [Baichuan2-7B](https://aihub.qualcomm.com/models/baichuan2_7b) | [qai_hub_models.models.baichuan2_7b](qai_hub_models/models/baichuan2_7b/README.md) |
+| [Bert-Base-Uncased-Hf](https://aihub.qualcomm.com/models/bert_base_uncased_hf) | [qai_hub_models.models.bert_base_uncased_hf](qai_hub_models/models/bert_base_uncased_hf/README.md) |
+| [Distil-Bert-Base-Uncased-Hf](https://aihub.qualcomm.com/models/distil_bert_base_uncased_hf) | [qai_hub_models.models.distil_bert_base_uncased_hf](qai_hub_models/models/distil_bert_base_uncased_hf/README.md) |
 | [Electra-Bert-Base-Discrim-Google](https://aihub.qualcomm.com/models/electra_bert_base_discrim_google) | [qai_hub_models.models.electra_bert_base_discrim_google](qai_hub_models/models/electra_bert_base_discrim_google/README.md) |
 | [Falcon3-7B-Instruct](https://aihub.qualcomm.com/models/falcon_v3_7b_instruct) | [qai_hub_models.models.falcon_v3_7b_instruct](qai_hub_models/models/falcon_v3_7b_instruct/README.md) |
 | [IBM-Granite-v3.1-8B-Instruct](https://aihub.qualcomm.com/models/ibm_granite_v3_1_8b_instruct) | [qai_hub_models.models.ibm_granite_v3_1_8b_instruct](qai_hub_models/models/ibm_granite_v3_1_8b_instruct/README.md) |
@@ -341,6 +353,7 @@ and many more.
 | [Llama-v3.2-3B-Instruct](https://aihub.qualcomm.com/models/llama_v3_2_3b_instruct) | [qai_hub_models.models.llama_v3_2_3b_instruct](qai_hub_models/models/llama_v3_2_3b_instruct/README.md) |
 | [Llama3-TAIDE-LX-8B-Chat-Alpha1](https://aihub.qualcomm.com/models/llama_v3_taide_8b_chat) | [qai_hub_models.models.llama_v3_taide_8b_chat](qai_hub_models/models/llama_v3_taide_8b_chat/README.md) |
 | [Mistral-7B-Instruct-v0.3](https://aihub.qualcomm.com/models/mistral_7b_instruct_v0_3) | [qai_hub_models.models.mistral_7b_instruct_v0_3](qai_hub_models/models/mistral_7b_instruct_v0_3/README.md) |
+| [Mobile-Bert-Uncased-Google](https://aihub.qualcomm.com/models/mobile_bert_uncased_google) | [qai_hub_models.models.mobile_bert_uncased_google](qai_hub_models/models/mobile_bert_uncased_google/README.md) |
 | [PLaMo-1B](https://aihub.qualcomm.com/models/plamo_1b) | [qai_hub_models.models.plamo_1b](qai_hub_models/models/plamo_1b/README.md) |
 | [Phi-3.5-Mini-Instruct](https://aihub.qualcomm.com/models/phi_3_5_mini_instruct) | [qai_hub_models.models.phi_3_5_mini_instruct](qai_hub_models/models/phi_3_5_mini_instruct/README.md) |
 | [Qwen2-7B-Instruct](https://aihub.qualcomm.com/models/qwen2_7b_instruct) | [qai_hub_models.models.qwen2_7b_instruct](qai_hub_models/models/qwen2_7b_instruct/README.md) |

@@ -24,7 +24,7 @@ from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
-from qai_hub.client import DatasetEntries, Device, SourceModel
+from qai_hub.client import DatasetEntries, Device
 
 from qai_hub_models.evaluators.base_evaluators import _DataLoader
 from qai_hub_models.models.common import (
@@ -46,7 +46,7 @@ class HubModelProtocol(Protocol):
 
     @staticmethod
     @abstractmethod
-    def get_input_spec(*args, **kwargs) -> InputSpec:
+    def get_input_spec(*args: Any, **kwargs: Any) -> InputSpec:
         """
         Returns a map from `{input_name -> (shape, dtype)}`
         specifying the shape and dtype for each input argument.
@@ -76,7 +76,7 @@ class HubModelProtocol(Protocol):
 
     @staticmethod
     @abstractmethod
-    def get_output_names(*args, **kwargs) -> list[str]:
+    def get_output_names(*args: Any, **kwargs: Any) -> list[str]:
         """
         List of output names. If there are multiple outputs, the order of the names
             should match the order of tuple returned by the model.
@@ -93,8 +93,8 @@ class QuantizableModelProtocol(Protocol):
         data: _DataLoader,
         num_samples: int | None = None,
         device: str = "cpu",
-        requantize_model_weights=False,
-        data_has_gt=False,
+        requantize_model_weights: bool = False,
+        data_has_gt: bool = False,
     ) -> None:
         """
         Compute quantization encodings for this model with the given dataset and model evaluator.
@@ -104,30 +104,30 @@ class QuantizableModelProtocol(Protocol):
 
         Parameters
         ----------
-            data: torch DataLoader | Collection
-                Data loader for the dataset to use for evaluation.
-                    If an evaluator is __NOT__ provided (see "evaluator" parameter), the iterator must return
-                        inputs: Collection[torch.Tensor] | torch.Tensor
+        data
+            Data loader for the dataset to use for evaluation.
+                If an evaluator is __NOT__ provided (see "evaluator" parameter), the iterator must return
+                    inputs: Collection[torch.Tensor] | torch.Tensor
 
-                    otherwise, if an evaluator __IS__ provided, the iterator must return
-                        tuple(
-                          inputs: Collection[torch.Tensor] | torch.Tensor,
-                          ground_truth: Collection[torch.Tensor] | torch.Tensor]
-                        )
+                otherwise, if an evaluator __IS__ provided, the iterator must return
+                    tuple(
+                      inputs: Collection[torch.Tensor] | torch.Tensor,
+                      ground_truth: Collection[torch.Tensor] | torch.Tensor]
+                    )
 
-            num_samples: int | None
-                Number of samples to use for evaluation. One sample is one iteration from iter(data).
-                If none, defaults to the number of samples in the dataset.
+        num_samples
+            Number of samples to use for evaluation. One sample is one iteration from iter(data).
+            If none, defaults to the number of samples in the dataset.
 
-            device: str
-                Name of device on which inference should be run.
+        device
+            Name of device on which inference should be run.
 
-            requantize_model_weights: bool
-                If a weight is quantized, recompute its quantization parameters.
+        requantize_model_weights
+            If a weight is quantized, recompute its quantization parameters.
 
-            data_has_gt: bool
-                Set to true if the data loader passed in also provides ground truth data.
-                The ground truth data will be discarded for quantization.
+        data_has_gt
+            Set to true if the data loader passed in also provides ground truth data.
+            The ground truth data will be discarded for quantization.
         """
         ...
 
@@ -148,7 +148,7 @@ class ExecutableModelProtocol(Protocol, Generic[T_co]):
     """Classes follow this protocol if they are executable."""
 
     @abstractmethod
-    def __call__(self, *args, **kwargs) -> T_co:
+    def __call__(self, *args: Any, **kwargs: Any) -> T_co:
         """Execute the model and return its output."""
         ...
 
@@ -160,7 +160,7 @@ class FromPretrainedProtocol(Protocol):
     @classmethod
     @abstractmethod
     def from_pretrained(
-        cls: type[FromPretrainedTypeVar], *args, **kwargs
+        cls: type[FromPretrainedTypeVar], *args: Any, **kwargs: Any
     ) -> FromPretrainedTypeVar:
         """
         Utility function that helps users get up and running with a default
@@ -194,7 +194,7 @@ class PretrainedHubModelProtocol(HubModelProtocol, FromPretrainedProtocol, Proto
         check_trace: bool = True,
         external_onnx_weights: bool = False,
         output_names: list[str] | None = None,
-    ) -> SourceModel: ...
+    ) -> str | None: ...
 
     def get_hub_compile_options(
         self,
@@ -225,7 +225,7 @@ class FromPrecompiledProtocol(Protocol):
     @classmethod
     @abstractmethod
     def from_precompiled(
-        cls: type[FromPrecompiledTypeVar], *args, **kwargs
+        cls: type[FromPrecompiledTypeVar], *args: Any, **kwargs: Any
     ) -> FromPrecompiledTypeVar:
         """
         Utility function that helps users get up and running with a default

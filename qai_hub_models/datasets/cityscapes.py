@@ -54,7 +54,7 @@ HEIGHT = 1024
 WIDTH = 2048
 
 
-def class_map_lookup(key: int):
+def class_map_lookup(key: int) -> int:
     return CLASS_MAP.get(key, -1)
 
 
@@ -67,7 +67,7 @@ class CityscapesDataset(BaseDataset):
         input_images_zip: str | None = None,
         input_gt_zip: str | None = None,
         make_lowres: bool = False,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             CITYSCAPES_DATASET_ID, CITYSCAPES_VERSION, "data"
         )
@@ -79,7 +79,7 @@ class CityscapesDataset(BaseDataset):
         self.make_lowres = make_lowres
         BaseDataset.__init__(self, self.data_path, split=split)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         image_path = self.image_list[index]
         gt_path = self.gt_list[index]
         image = Image.open(image_path)
@@ -92,7 +92,7 @@ class CityscapesDataset(BaseDataset):
         image_tensor = app_to_net_image_inputs(image)[1].squeeze(0)
         return image_tensor, torch.tensor(gt)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_list)
 
     def _validate_data(self) -> bool:

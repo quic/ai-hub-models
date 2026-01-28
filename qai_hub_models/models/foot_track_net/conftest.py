@@ -7,6 +7,8 @@
 import gc
 import inspect
 import warnings
+from collections.abc import Generator
+from typing import Any
 
 import pytest
 import torch.jit._trace
@@ -15,7 +17,7 @@ from qai_hub_models.models.foot_track_net import Model
 from qai_hub_models.utils.testing import skip_clone_repo_check
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     # pytest is unable to figure out how to silence several PyTorch warning types from pyproject.toml settings,
     # so we apply a manual warning filter here instead.
     warnings.filterwarnings(action="ignore", category=torch.jit._trace.TracerWarning)
@@ -30,14 +32,14 @@ def pytest_configure(config):
 # Mock from_pretrained to always return the initialized model.
 # This speeds up tests and limits memory leaks.
 @pytest.fixture(scope="module", autouse=True)
-def cached_from_pretrained():
+def cached_from_pretrained() -> Generator[pytest.MonkeyPatch, None, None]:
     with pytest.MonkeyPatch.context() as mp:
         pretrained_cache: dict[str, Model] = {}
         from_pretrained = Model.from_pretrained
         sig = inspect.signature(from_pretrained)
 
         @skip_clone_repo_check
-        def _cached_from_pretrained(*args, **kwargs):
+        def _cached_from_pretrained(*args: Any, **kwargs: Any) -> Model:
             cache_key = str(args) + str(kwargs)
             model = pretrained_cache.get(cache_key)
             if model:
@@ -53,5 +55,5 @@ def cached_from_pretrained():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ensure_gc():
+def ensure_gc() -> None:
     gc.collect()

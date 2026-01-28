@@ -39,22 +39,28 @@ class OpenAIClip(BaseModel):
         self.image_preprocessor = image_preprocessor
 
     def forward(self, image: torch.Tensor, text: torch.Tensor):
-        """Forward call on Open AI CLIP model.
+        """
+        Forward call on Open AI CLIP model.
 
-        Inputs:
-            image: torch.Tensor (Shape: [1, 3, 224, 224])
-                Processed image tensor with values normalized to be between 0-1.
-                Channel Layout: RGB
-            text: torch.Tensor (Shape: [1, 77] context_length=77)
-                Processed text tensor to be tokenized.
+        Parameters
+        ----------
+        image
+            Processed image tensor with values normalized to be between 0-1.
+            Shape: [1, 3, 224, 224]
+            Channel Layout: RGB
+        text
+            Processed text tensor to be tokenized.
+            Shape: [1, 77] where context_length=77
 
-        Outputs:
-            cosine_similarities_per_image: torch.Tensor (Shape: [num_images, num_text_prompts])
-                Given a batch of images and a batch of text tokens, returns a tensor,
-                containing the cosine similarity scores corresponding to each image per text input.
-                The values are cosine similarities between the corresponding image and
-                text features, times 100. The cosine similarities of text per image can be computed
-                by doing a transpose.
+        Returns
+        -------
+        cosine_similarities_per_image
+            Given a batch of images and a batch of text tokens, returns a tensor,
+            containing the cosine similarity scores corresponding to each image per text input.
+            The values are cosine similarities between the corresponding image and
+            text features, times 100. The cosine similarities of text per image can be computed
+            by doing a transpose.
+            Shape: [num_images, num_text_prompts]
         """
         with patched_in_projection_packed():
             clipped_text = torch.clip(text, min=0, max=self.eot_token)

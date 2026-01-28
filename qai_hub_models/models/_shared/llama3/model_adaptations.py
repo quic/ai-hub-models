@@ -25,6 +25,9 @@ from qai_hub_models.models._shared.llm.model_adaptations import (
     _apply_rope_single,
     repeat_kv,
 )
+from qai_hub_models.models._shared.llm.sha_dynamic_kvcache import (
+    SHADynamicCacheNewValueOnly,
+)
 
 
 def QcLlama_apply_rotary_pos_emb(
@@ -44,24 +47,24 @@ class SHALlamaAttention(LlamaAttention):
     """Split-Head Attention version of LlamaAttention (with Convs)"""
 
     @property
-    def hidden_size_(self):
+    def hidden_size_(self) -> int:
         if hasattr(self, "hidden_size"):
-            return self.hidden_size
-        return self.config.hidden_size
+            return cast(int, self.hidden_size)
+        return cast(int, self.config.hidden_size)
 
     @property
-    def num_attention_heads_(self):
+    def num_attention_heads_(self) -> int:
         if hasattr(self, "num_heads"):
-            return self.num_heads
+            return cast(int, self.num_heads)
         return self.config.num_attention_heads
 
     @property
-    def num_key_value_heads_(self):
+    def num_key_value_heads_(self) -> int:
         if hasattr(self, "num_key_value_heads"):
-            return self.num_key_value_heads
+            return cast(int, self.num_key_value_heads)
         return self.config.num_key_value_heads
 
-    def prepare_conv(self):
+    def prepare_conv(self) -> None:
         if not hasattr(self, "forward_no_conv"):
             self.q_proj_conv = nn.Conv2d(
                 self.hidden_size_,
@@ -98,7 +101,7 @@ class SHALlamaAttention(LlamaAttention):
             del self.v_proj
             del self.o_proj
 
-    def prepare_sha(self):
+    def prepare_sha(self) -> None:
         # Ensure conv preparation is done first
         if not (
             hasattr(self, "q_proj_conv")
@@ -130,7 +133,7 @@ class SHALlamaAttention(LlamaAttention):
                 ]
             )
 
-            self.forward_mha = cast(  # type: ignore[misc]
+            self.forward_mha = cast(
                 Callable[
                     [
                         torch.Tensor,
@@ -146,20 +149,26 @@ class SHALlamaAttention(LlamaAttention):
                         torch.Tensor, torch.Tensor | None, tuple[torch.Tensor] | None
                     ],
                 ],
-                self.forward,  # type: ignore[has-type]
+                self.forward,  # type: ignore[has-type, unused-ignore]
             )
-            self.forward = self.forward_sha  # type: ignore[assignment]
+            self.forward = self.forward_sha  # type: ignore[assignment, unused-ignore]  # pyright: ignore[reportAttributeAccessIssue]
 
         for i in range(self.num_attention_heads_):
-            self.q_proj_sha[i].weight.data.copy_(
+            q_proj = self.q_proj_sha[i]
+            assert isinstance(q_proj, (nn.Linear, nn.Conv2d))
+            q_proj.weight.data.copy_(
                 self.q_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
 
         for i in range(self.num_key_value_heads_):
-            self.k_proj_sha[i].weight.data.copy_(
+            k_proj = self.k_proj_sha[i]
+            v_proj = self.v_proj_sha[i]
+            assert isinstance(k_proj, (nn.Linear, nn.Conv2d))
+            assert isinstance(v_proj, (nn.Linear, nn.Conv2d))
+            k_proj.weight.data.copy_(
                 self.k_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
-            self.v_proj_sha[i].weight.data.copy_(
+            v_proj.weight.data.copy_(
                 self.v_proj_conv.weight[i * self.head_dim : (i + 1) * self.head_dim, :]
             )
 
@@ -172,14 +181,20 @@ class SHALlamaAttention(LlamaAttention):
         hidden_states: torch.Tensor,
         attention_mask: torch.Tensor | None = None,
         position_ids: torch.LongTensor | None = None,
-        past_key_value: DynamicCache | None = None,  # transformers<4.55
-        past_key_values: DynamicCache | None = None,  # transformers>=4.55
+        past_key_value: SHADynamicCacheNewValueOnly | None = None,  # transformers<4.55
+        past_key_values: SHADynamicCacheNewValueOnly
+        | None = None,  # transformers>=4.55
         output_attentions: bool = False,
         use_cache: bool = False,
         cache_position: torch.LongTensor | None = None,
         position_embeddings: tuple[torch.Tensor, torch.Tensor]
         | None = None,  # will become mandatory in v4.45
-    ) -> tuple[torch.Tensor, list[torch.Tensor] | None, DynamicCache | None]:
+    ) -> (
+        tuple[torch.Tensor, list[torch.Tensor] | None]
+        | tuple[
+            torch.Tensor, list[torch.Tensor] | None, SHADynamicCacheNewValueOnly | None
+        ]
+    ):
         if past_key_values is not None and past_key_value is None:
             past_key_value = past_key_values
         bsz, q_len, _ = hidden_states.size()
@@ -201,10 +216,10 @@ class SHALlamaAttention(LlamaAttention):
         if past_key_value is not None:
             if hasattr(past_key_value, "value_cache"):
                 kv_seq_len += past_key_value.value_cache[self.layer_idx][0].shape[-2]
-            elif hasattr(past_key_value.layers[self.layer_idx], "values"):
-                kv_seq_len += past_key_value.layers[self.layer_idx].values[0].shape[-2]
+            elif hasattr(past_key_value.layers[self.layer_idx], "values"):  # type: ignore[attr-defined, unused-ignore]
+                kv_seq_len += past_key_value.layers[self.layer_idx].values[0].shape[-2]  # type: ignore[attr-defined, index, unused-ignore]
             else:
-                kv_seq_len += past_key_value.layers[self.layer_idx][1][0].shape[-2]
+                kv_seq_len += past_key_value.layers[self.layer_idx][1][0].shape[-2]  # type: ignore[attr-defined, index, unused-ignore]
 
         assert position_embeddings is not None
         query_states = [
@@ -221,13 +236,13 @@ class SHALlamaAttention(LlamaAttention):
             # reuse k, v, self_attention
             if hasattr(past_key_value, "key_cache"):
                 past_key = past_key_value.key_cache[self.layer_idx]
-                past_value = past_key_value.value_cache[self.layer_idx]
-            elif hasattr(past_key_value.layers[self.layer_idx], "keys"):
-                past_key = past_key_value.layers[self.layer_idx].keys
-                past_value = past_key_value.layers[self.layer_idx].values
+                past_value = past_key_value.value_cache[self.layer_idx]  # type: ignore[attr-defined, unused-ignore]
+            elif hasattr(past_key_value.layers[self.layer_idx], "keys"):  # type: ignore[attr-defined, unused-ignore]
+                past_key = past_key_value.layers[self.layer_idx].keys  # type: ignore[attr-defined, unused-ignore]
+                past_value = past_key_value.layers[self.layer_idx].values  # type: ignore[attr-defined, unused-ignore]
             else:
-                past_key = past_key_value.layers[self.layer_idx][0]
-                past_value = past_key_value.layers[self.layer_idx][1]
+                past_key = past_key_value.layers[self.layer_idx][0]  # type: ignore[attr-defined, index, unused-ignore]
+                past_value = past_key_value.layers[self.layer_idx][1]  # type: ignore[attr-defined, index, unused-ignore]
 
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
             transposed_key_states = [
@@ -239,7 +254,7 @@ class SHALlamaAttention(LlamaAttention):
                 transposed_key_states,
                 value_states,
                 self.layer_idx,
-                cache_kwargs,  # pyright: ignore[reportArgumentType]
+                cache_kwargs,
             )
 
             # Now concate the key/value states
@@ -306,14 +321,14 @@ class SHALlamaAttention(LlamaAttention):
 
 
 class QCLlamaMLP(LlamaMLP):
-    def prepare_conv(self):
+    def prepare_conv(self) -> None:
         # TODO (https://github.com/qcom-ai-hub/tetracode/issues/17113)
         # Temporarily commented out due to AISW-148745.
-        # self.up_proj = ConvInplaceLinear(self.up_proj)  # type: ignore[has-type]
-        self.down_proj = ConvInplaceLinear(self.down_proj)  # type: ignore[has-type]
-        # self.gate_proj = ConvInplaceLinear(self.gate_proj)  # type: ignore[has-type]
+        # self.up_proj = ConvInplaceLinear(cast(nn.Linear, self.up_proj))  # type: ignore[has-type, unused-ignore]
+        self.down_proj = ConvInplaceLinear(cast(nn.Linear, self.down_proj))  # type: ignore[has-type, unused-ignore]
+        # self.gate_proj = ConvInplaceLinear(cast(nn.Linear, self.gate_proj))  # type: ignore[has-type, unused-ignore]
 
 
 class QCLlamaForCausalLM(LlamaForCausalLM):
-    def prepare_conv(self):
-        self.lm_head = ConvInplaceLinear(self.lm_head)  # type: ignore[has-type]
+    def prepare_conv(self) -> None:
+        self.lm_head = ConvInplaceLinear(cast(nn.Linear, self.lm_head))  # type: ignore[has-type, unused-ignore]

@@ -125,21 +125,20 @@ class EasyOCRApp:
         """
         Resize and prepare input images (must be RGB) for detection.
 
-        Inputs:
-            NHWC_int_numpy_frames: list[np.ndarray]
-                [H', W', 3], uint8
-                Input images
+        Parameters
+        ----------
+        NHWC_int_numpy_frames
+            [H', W', 3], uint8. Input images.
 
-        Outputs:
-            detector_input_frames: torch.Tensor
-                [B, 3, H', W'], fp32, range 0-1, RGB
-                Input tensor for the detector network.
-
-            scales: list[float]
-                List of scaling factors used to resize each input image for network inference.
-
-            paddings: list[tuple[int, int]]
-                List of padding (width, height) used to resize each input image for network inference.
+        Returns
+        -------
+        detector_input_frames
+            [B, 3, H', W'], fp32, range 0-1, RGB.
+            Input tensor for the detector network.
+        scales
+            List of scaling factors used to resize each input image for network inference.
+        paddings
+            List of padding (width, height) used to resize each input image for network inference.
         """
         detector_input_frames_list, scales, paddings = [], [], []
         for frame in NHWC_int_numpy_frames:
@@ -163,27 +162,25 @@ class EasyOCRApp:
         """
         Process results of detector network.
 
-        Inputs:
-            results: torch.Tensor
-                Output of the detector network.
+        Parameters
+        ----------
+        results
+            Output of the detector network.
+        img_scale_ratios
+            List of scaling factors used to resize the input image for network inference.
+        img_paddings
+            List of padding (width, height) used to resize each input image for network inference.
 
-            img_scale_ratios: list[tuple[float, float]]
-                List of scaling factors used to resize the input image for network inference.
-
-            img_paddings:
-                List of padding (width, height) used to resize each input image for network inference.
-
-        Outputs:
-            horizontal_boxes_per_img: list[list[box_xx_yy]]
-                List of bounding boxes (absolute pixel values) in each image.
-                These boxes are always a rectangle that is parallel to the image's coordinate space.
-                Order: (xmin, xmax, ymin, ymax)
-
-            free_boxes_per_img: list[list[box_4corners]]
-                List of bounding boxes (absolute pixel values) in each image.
-                These boxes may be any parallelogram.
-                Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
-
+        Returns
+        -------
+        horizontal_boxes_per_img
+            List of bounding boxes (absolute pixel values) in each image.
+            These boxes are always a rectangle that is parallel to the image's coordinate space.
+            Order: (xmin, xmax, ymin, ymax)
+        free_boxes_per_img
+            List of bounding boxes (absolute pixel values) in each image.
+            These boxes may be any parallelogram.
+            Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
         """
         boxes_per_img: list[list[np.ndarray]] = []
         horizontal_boxes_per_img: list[list[box_xx_yy]] = []
@@ -288,16 +285,21 @@ class EasyOCRApp:
         """
         Process the detector output and prepare cutouts for recognition.
 
-        Args:
-            img_cv_grey: Grayscale input image
-            horizontal_boxes: List of horizontal bounding boxes
-            free_boxes: List of free-form bounding boxes
+        Parameters
+        ----------
+        img_cv_grey
+            Grayscale input image.
+        horizontal_boxes
+            List of horizontal bounding boxes.
+        free_boxes
+            List of free-form bounding boxes.
 
         Returns
         -------
-            tuple: (img_cutouts, cutout_frames_list)
-                - img_cutouts: List of (cutout_image, box_coords, y_min)
-                - cutout_frames_list: List of preprocessed cutout tensors for recognition
+        img_cutouts
+            List of (cutout_image, box_coords, y_min).
+        cutout_frames_list
+            List of preprocessed cutout tensors for recognition.
         """
         # If horizontal boxes and free boxes are not set, use the entire image instead
         if not horizontal_boxes and not free_boxes:
@@ -345,12 +347,15 @@ class EasyOCRApp:
         """
         Prepare cutout images for recognition by the recognizer model.
 
-        Args:
-            cutout_images: List of grayscale cutout images
+        Parameters
+        ----------
+        cutout_images
+            List of grayscale cutout images.
 
         Returns
         -------
-            List of preprocessed image tensors ready for recognition
+        preprocessed_cutouts
+            List of preprocessed image tensors ready for recognition.
         """
         cutout_frames_list = []
         for frame in cutout_images:
@@ -378,46 +383,45 @@ class EasyOCRApp:
         """
         Predict the text in the given image using the recognizer network.
 
-        Inputs:
-            img_cv_grey: np.ndarray
-                [H', W', 3], uint8
-                Input image
+        Parameters
+        ----------
+        img_cv_grey
+            [H', W', 3], uint8. Input image.
+        horizontal_boxes
+            List of bounding box corners (absolute pixel values) in each image.
+            These boxes are always a rectangle that is parallel to the image's coordinate space.
+            Order: (xmin, xmax, ymin, ymax)
+        free_boxes
+            List of bounding box corners (absolute pixel values) in each image.
+            These boxes may be any parallelogram.
+            Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
 
-            horizontal_boxes: list[box_xx_yy]
-                List of bounding box corners (absolute pixel values) in each image.
-                These boxes are always a rectangle that is parallel to the image's coordinate space.
-                Order: (xmin, xmax, ymin, ymax)
+        Returns
+        -------
+        result_box_xxyy
+            This is a list of outputs, one for each detection related to a horizontal box.
+            In this tuple:
+                box: box_xx_yy
+                    The bounding box coordinates corresponding to this prediction.
 
-            free_boxes_per_img: list[box_4corners]
-                List of bounding box corners (absolute pixel values) in each image.
-                These boxes may be any parallelogram.
-                Order: ((x1,y1), (x2,y2), (x3,y3), (x4,y4))
+                text: str
+                    The predicted text.
 
-        Outputs:
-            result_box_xxyy: list[tuple[box_xx_yy, str, np.float64]]
-                This is a list of outputs, one for each detection related to a horizontal box.
-                In this tuple:
-                    box: box_xx_yy
-                        The bounding box coordinates corresponding to this prediction.
-
-                    text: str
-                        The predicted text.
-
-                    confidence: np.float64
-                        Prediction confidence.
+                confidence: np.float64
+                    Prediction confidence.
 
 
-            result_box_4corners: list[tuple[box_4corners, str, np.float64]]]
-                This is a list of outputs, one for each detection related to a free box.
-                In this tuple:
-                    box: box_4corners
-                        The bounding box coordinates corresponding to this prediction.
+        result_box_4corners
+            This is a list of outputs, one for each detection related to a free box.
+            In this tuple:
+                box: box_4corners
+                    The bounding box coordinates corresponding to this prediction.
 
-                    text: str
-                        The predicted text.
+                text: str
+                    The predicted text.
 
-                    confidence: np.float64
-                        Prediction confidence.
+                confidence: np.float64
+                    Prediction confidence.
         """
         # Get detector output and prepare recognizer input
         img_cutouts, cutout_frames_list = self.get_detector_output(
@@ -508,21 +512,20 @@ class EasyOCRApp:
         """
         Predict the text in the given cut out frames.
 
-        Inputs:
-            cutout_frames: list[torch.Tensor]
-                list of [1, 1, H', W'], fp32
-                Input cutouts. These should be image cutouts
-                containing only the text for the recognizer to read.
+        Parameters
+        ----------
+        cutout_frames
+            List of [1, 1, H', W'], fp32. Input cutouts. These should be image cutouts
+            containing only the text for the recognizer to read.
 
-        Outputs:
-            results: list[tuple[str, np.float64]]
-                Predictions, one per input frame.
-                In this tuple:
-                    text: str
-                        The predicted text.
-
-                    confidence: np.float64
-                        Prediction confidence.
+        Returns
+        -------
+        predictions
+            Predictions, one per input frame. Each item is a tuple containing:
+            text
+                The predicted text.
+            confidence
+                The prediction confidence.
         """
         result: list[tuple[str, np.float64]] = []
         preds_list = []
@@ -590,24 +593,21 @@ class EasyOCRApp:
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
 
         Returns
         -------
-            results: list[tuple[Image.Image, list[str], list[np.float64]]]
-                Predictions for each image.
-                In this tuple:
-                    image: Image.Image
-                        Predicted image with bounding boxes drawn.
-
-                    text: list[str]
-                        The predicted texts.
-
-                    confidence: list[np.float64]
-                        Prediction confidence for each predicted text / bounding box combo.
+        predictions
+            Predictions for each image:
+            image
+                Predicted image with bounding boxes drawn.
+            text
+                The predicted texts.
+            confidence
+                Prediction confidence for each predicted text / bounding box combo.
 
         """
         # Get frames

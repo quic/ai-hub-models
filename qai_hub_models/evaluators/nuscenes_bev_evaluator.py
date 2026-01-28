@@ -18,19 +18,21 @@ class NuscenesBevSegmentationEvaluator(SegmentationOutputEvaluator):
         self,
         iou_thresholds: float = 0.5,
         min_visibility: int = 2,
-    ):
+    ) -> None:
         self.iou_thresholds = torch.tensor([iou_thresholds])
         self.vehicle_indices = VEHICLE_INDICES
         self.min_visibility = min_visibility
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset evaluation metrics."""
         self.tp = torch.zeros_like(self.iou_thresholds)
         self.fp = torch.zeros_like(self.iou_thresholds)
         self.fn = torch.zeros_like(self.iou_thresholds)
 
-    def add_batch(self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor]):
+    def add_batch(
+        self, output: torch.Tensor, gt: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
         """
         Process a batch of predicted and ground truth BEV segmentation maps.
 

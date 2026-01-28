@@ -102,13 +102,15 @@ class HandDetector(BaseModel):
         cls,
         detector_weights: str = "blazepalm.pth",
         detector_anchors: str = "anchors_palm.npy",
+        min_score_thresh: float = 0.75,
     ):
         with MediaPipePyTorchAsRoot():
             from blazepalm import BlazePalm
 
-            hand_detector = BlazePalm(back_model=True)
+            hand_detector = BlazePalm()
             hand_detector.load_weights(detector_weights)
             hand_detector.load_anchors(detector_anchors)
+            hand_detector.min_score_thresh = min_score_thresh
             return cls(hand_detector, hand_detector.anchors)
 
     @staticmethod
@@ -153,13 +155,15 @@ class HandLandmarkDetector(BaseModel):
         return self.detector(image)
 
     @classmethod
-    def from_pretrained(cls, landmark_detector_weights: str = "blazehand_landmark.pth"):
+    def from_pretrained(
+        cls, landmark_detector_weights: str = "blazehand_landmark.pth"
+    ) -> HandLandmarkDetector:
         with MediaPipePyTorchAsRoot():
             from blazehand_landmark import BlazeHandLandmark
 
             hand_regressor = BlazeHandLandmark()
             hand_regressor.load_weights(landmark_detector_weights)
-            cls(hand_regressor)
+            return cls(hand_regressor)
 
     @staticmethod
     def get_input_spec(batch_size: int = BATCH_SIZE) -> InputSpec:
@@ -205,18 +209,7 @@ class MediaPipeHand(PretrainedCollectionModel):
         detector_anchors: str = "anchors_palm.npy",
         landmark_detector_weights: str = "blazehand_landmark.pth",
     ) -> MediaPipeHand:
-        with MediaPipePyTorchAsRoot():
-            from blazehand_landmark import BlazeHandLandmark
-            from blazepalm import BlazePalm
-
-            palm_detector = BlazePalm()
-            palm_detector.load_weights(detector_weights)
-            palm_detector.load_anchors(detector_anchors)
-            palm_detector.min_score_thresh = 0.75
-            hand_regressor = BlazeHandLandmark()
-            hand_regressor.load_weights(landmark_detector_weights)
-
-            return cls(
-                HandDetector(palm_detector, palm_detector.anchors),
-                HandLandmarkDetector(hand_regressor),
-            )
+        return cls(
+            HandDetector.from_pretrained(detector_weights, detector_anchors),
+            HandLandmarkDetector.from_pretrained(landmark_detector_weights),
+        )

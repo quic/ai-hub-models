@@ -13,12 +13,18 @@ from ultralytics.nn.tasks import DetectionModel
 from ultralytics.utils.tal import make_anchors
 
 
-def patch_ultralytics_detection_head(model: DetectionModel):
+def patch_ultralytics_detection_head(model: DetectionModel) -> None:
     """
-    Patch the model's detection head for export compatibility:
-      1. Disable Ultralytics postprocessing (we add our own postprocessing for YOLO models).
-      2. Enable "export" mode.
-      3. Remove a concat that makes quantization impossible.
+    Patch the model's detection head for export compatibility.
+
+    1. Disable Ultralytics postprocessing (we add our own postprocessing for YOLO models).
+    2. Enable "export" mode.
+    3. Remove a concat that makes quantization impossible.
+
+    Parameters
+    ----------
+    model
+        DetectionModel to patch.
     """
     head = cast(Detect, model.model[-1])
 
@@ -43,20 +49,24 @@ def patched_ultryaltics_det_head_forward(
 ):
     """
     Adjusted version of Detect::forward that does not concat the bounding boxes and class probs.
+
     The boxes and probs are very different ranges (int vs [0-1]). Concatenation makes quantization impossible.
 
     Decode predicted bounding boxes and class probabilities based on multiple-level feature maps.
 
     Parameters
     ----------
-        x (list[torch.Tensor]): List of feature maps from different detection layers.
+    self
+        Detect module instance.
+    x
+        List of feature maps from different detection layers.
 
     Returns
     -------
-        tuple[
-            torch.Tensor: Bounding Boxes
-            torch.Tensor: Class probs
-        ]
+    tuple[torch.Tensor, torch.Tensor] or tuple[list[torch.Tensor], list[torch.Tensor]] or tuple[torch.Tensor, torch.Tensor, list[torch.Tensor], list[torch.Tensor]]
+        If training: (boxes, scores) where each is a list
+        If export: (yboxes, yscores) as tensors
+        Otherwise: (yboxes, yscores, boxes, scores) with yboxes/yscores as tensors and boxes/scores as lists
     """
     assert not self.end2end  # end2end mode not supported
     boxes = []
@@ -75,20 +85,26 @@ def patched_ultryaltics_det_head_inference(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Adjusted version of Detect::_inference that does not concat the bounding boxes and class probs.
+
     The boxes and probs are very different ranges (int vs [0-1]). Concatenation makes quantization impossible.
 
     Decode predicted bounding boxes and class probabilities based on multiple-level feature maps.
 
     Parameters
     ----------
-        x (list[torch.Tensor]): List of feature maps from different detection layers.
+    self
+        Detect module instance.
+    boxes
+        List of box predictions from different detection layers.
+    scores
+        List of score predictions from different detection layers.
 
     Returns
     -------
-        tuple[
-            torch.Tensor: Bounding Boxes
-            torch.Tensor: Class probls
-        ]
+    dbox
+        Decoded bounding boxes.
+    cls
+        Class probabilities after sigmoid.
     """
     shape = boxes[0].shape  # BCHW
     box = torch.cat(

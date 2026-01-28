@@ -44,32 +44,36 @@ class StableDiffusionApp:
         vae_decoder: ExecutableModelProtocol,
         unet: ExecutableModelProtocol[torch.Tensor],
         tokenizer: CLIPTokenizer | Any,
-        scheduler: diffusers.DPMSolverMultistepScheduler,
+        scheduler: diffusers.SchedulerMixin,
         channel_last_latent: bool,
         host_device: torch.device = torch.device("cpu"),
         controlnet: ExecutableModelProtocol | None = None,
-    ):
+    ) -> None:
         """
         Initializes StableDiffusionApp with required neural networks for end-to-end pipeline.
 
         Parameters
         ----------
-        text_encoder:
+        text_encoder
             Encoder input text
-        vae_decoder:
+        vae_decoder
             Decoder to decode latent space into output image
-        unet:
+        unet
             Denoises image in latent space
-        tokenizer:
+        tokenizer
             Tokenizer for input text.
             Output of Tokenizer is fed to text_encoder.
             One can experiments with different tokenizers available based on Clip-ViT.
-        scheduler:
+        scheduler
             Solver for diffusion steps.
             Updates latent space during each iteration.
-        channel_last_latent:
+        channel_last_latent
             True if unet outputs latent of shape like (1, 64, 64, 4). False
             for (1, 4, 64, 64)
+        host_device
+            Device to perform computations on.
+        controlnet
+            Optional ControlNet model for conditional generation.
         """
         self.text_encoder = text_encoder
         self.unet = unet
@@ -86,14 +90,19 @@ class StableDiffusionApp:
 
         Parameters
         ----------
-        prompt: The text prompt to encode.
+        prompt
+            The text prompt to encode.
 
         Returns
         -------
         cond_embedding
+            Conditional text embedding.
 
         uncond_embedding
+            Unconditional text embedding.
 
+        Notes
+        -----
         Note that uncond_embedding is the same for any prompt (since it's not
         conditioned on the prompt). So in deploymenet this should be
         cached instead of computed every time. We compute it here for better
@@ -139,7 +148,7 @@ class StableDiffusionApp:
                 )
             return cond_embeddings, uncond_embeddings
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> torch.Tensor:
         # See generate_image.
         return self.generate_image(*args, **kwargs)
 
@@ -160,14 +169,14 @@ class StableDiffusionApp:
 
         Parameters
         ----------
-        prompt:
+        prompt
             The text prompt to generate an image from.
-        num_steps:
+        num_steps
             The number of steps to run the diffusion process for. Higher value
             may lead to better image quality.
-        seed:
+        seed
             The seed to use for the random number generator.
-        guidance_scale:
+        guidance_scale
             Classifier-free guidance is a method that allows us to control how
             strongly the image generation is guided by the prompt. This is done
             by always processing two samples at once: an unconditional (using a
@@ -181,10 +190,12 @@ class StableDiffusionApp:
             scales are between 0 and 1, but it is common to use a scale greater
             than 1 as a method of amplifying the prompt's influence on the
             image, pushing it further away from the unconditional sample.
+        cond_image
+            Optional conditional image tensor for ControlNet.
 
         Returns
         -------
-        torch.Tensor
+        generated_image
             The generated image in RGB scaled in [0, 1] with tensor shape
             (OUT_H, OUT_W, 3). The height and the width may depend on the
             underlying Stable Diffusion version, but is typically 512x512.
@@ -192,18 +203,21 @@ class StableDiffusionApp:
         # Encode text prompt
         cond_embeddings, uncond_embeddings = self._encode_text_prompt(prompt)
 
-        latents = run_diffusion_steps_on_latents(
-            unet=self.unet,
-            scheduler=self.scheduler,
-            cond_embeddings=cond_embeddings,
-            uncond_embeddings=uncond_embeddings,
-            num_steps=num_steps,
-            seed=seed,
-            guidance_scale=guidance_scale,
-            channel_last_latent=self.channel_last_latent,
-            host_device=self.host_device,
-            controlnet=self.controlnet,
-            cond_image=cond_image,
+        latents = cast(
+            torch.Tensor,
+            run_diffusion_steps_on_latents(
+                unet=self.unet,
+                scheduler=self.scheduler,
+                cond_embeddings=cond_embeddings,
+                uncond_embeddings=uncond_embeddings,
+                num_steps=num_steps,
+                seed=seed,
+                guidance_scale=guidance_scale,
+                channel_last_latent=self.channel_last_latent,
+                host_device=self.host_device,
+                controlnet=self.controlnet,
+                cond_image=cond_image,
+            ),
         )
         # Decode generated image from latent space
         if self.channel_last_latent:
@@ -214,7 +228,7 @@ class StableDiffusionApp:
 
 def run_diffusion_steps_on_latents(
     unet: ExecutableModelProtocol[torch.Tensor],
-    scheduler: diffusers.DPMSolverMultistepScheduler,
+    scheduler: diffusers.SchedulerMixin,
     cond_embeddings: torch.Tensor,
     uncond_embeddings: torch.Tensor | None = None,
     num_steps: int = 20,
@@ -242,36 +256,36 @@ def run_diffusion_steps_on_latents(
 
     Parameters
     ----------
-    unet:
+    unet
         The denoising network.
-    scheduler:
+    scheduler
         The scheduler controlling the diffusion process.
-    cond_embeddings:
+    cond_embeddings
         Conditional text embeddings.
-    uncond_embeddings:
+    uncond_embeddings
         Unconditional text embeddings. This is required if guidance_scale != 0.
-    num_steps:
+    num_steps
         Number of diffusion steps.
-    seed:
+    seed
         Seed for random number generation.
-    guidance_scale:
+    guidance_scale
         Scale for classifier-free guidance. If nonzero, both conditional and unconditional
         noise predictions are computed.
-    channel_last_latent:
+    channel_last_latent
         True if the unet outputs latents in channel-last format.
-    return_all_steps:
+    return_all_steps
         If True, returns intermediate inputs for calibration along with final latent.
-    host_device:
+    host_device
         Device on which to perform computation.
-    cond_image:
+    controlnet
+        Optional ControlNet model.
+    cond_image
         canny image in NCHW torch.Tensor.
 
     Returns
     -------
-    torch.Tensor
-        Final latent sample.
-    tuple[torch.Tensor, dict[str, Any]]
-        Tuple of final latent and intermediates dict (only if return_all_steps is True).
+    latent_or_tuple
+        Final latent sample, or tuple of final latent and intermediates dict if return_all_steps is True.
     """
     use_controlnet = controlnet is not None
     unet_extra_input_names = []
@@ -390,9 +404,9 @@ def run_diffusion_steps_on_latents(
 
 
 # Helper method to go back and forth from channel-first to channel-last
-def _make_channel_last_torch(input_tensor):
+def _make_channel_last_torch(input_tensor: torch.Tensor) -> torch.Tensor:
     return torch.permute(input_tensor, [0, 2, 3, 1])
 
 
-def _make_channel_first_torch(input_tensor):
+def _make_channel_first_torch(input_tensor: torch.Tensor) -> torch.Tensor:
     return torch.permute(torch.Tensor(input_tensor), [0, 3, 1, 2])

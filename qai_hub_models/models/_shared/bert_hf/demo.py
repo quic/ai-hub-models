@@ -24,7 +24,7 @@ def bert_demo(
     model_id: str = MODEL_ID,
     default_text: str = INPUT_TEXT,
     is_test: bool = False,
-):
+) -> None:
     """Demo for BERT model fill-mask task."""
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=False)

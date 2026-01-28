@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import torch
 from datasets import IterableDataset, load_dataset
 from transformers import PreTrainedTokenizerBase
@@ -20,7 +22,7 @@ class TinyMMLU(BaseDataset):
         context_length: int = 4096,
         split: DatasetSplit = DatasetSplit.TEST,
         num_samples: int = 0,
-    ):
+    ) -> None:
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
@@ -51,11 +53,11 @@ class TinyMMLU(BaseDataset):
             return self.num_samples
         return len(self.dataset)
 
-    def preprocess_dataset(self):
+    def preprocess_dataset(self) -> None:
         # if a cache file storing the current computation from function can be identified, use it instead of recomputing.
         map_kwargs = {"num_proc": None, "load_from_cache_file": True}
 
-        def tokenize(sample):
+        def tokenize(sample: dict[str, Any]) -> dict[str, Any]:
             tokenized_question = self.tokenizer(
                 sample["input_formatted"],
                 return_token_type_ids=False,
@@ -93,7 +95,7 @@ class TinyMMLU(BaseDataset):
             **(map_kwargs if not isinstance(self.dataset, IterableDataset) else {}),
         )
 
-    def __getitem__(self, idx: int):
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         return {
             key: torch.Tensor(value).to(dtype=torch.int)
             for key, value in self.dataset[idx].items()

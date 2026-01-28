@@ -22,7 +22,7 @@ class WikiText(BaseDataset):
         context_length: int = 4096,
         split: DatasetSplit = DatasetSplit.TEST,
         num_samples: int = 0,
-    ):
+    ) -> None:
         self.block_size = block_size
         self.context_length = context_length
         self.tokenizer = tokenizer
@@ -80,7 +80,7 @@ class WikiText(BaseDataset):
             num = max_num
         return min(num, max_num)
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
         num_tokens = self.tokens["input_ids"].shape[-1]
         start_index = index * self.context_length
         end_index = min((index + 1) * self.context_length, num_tokens)

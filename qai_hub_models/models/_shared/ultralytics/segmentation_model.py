@@ -39,24 +39,20 @@ class UltralyticsSingleClassSegmentor(BaseModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
-        Returns:
-            Tuple of 4 tensors:
-                boxes:
-                    Shape [1, num_anchors, 4]
-                    where 4 = [x1, y1, x2, y2] (box coordinates in pixel space)
-                scores:
-                    Shape [batch_size, num_anchors]
-                    per-anchor confidence of whether the anchor box
-                    contains an object / box or does not contain an object
-                mask_coeffs:
-                    Shape [batch_size, num_anchors, num_prototype_masks]
-                    Per-anchor mask coefficients
-                mask_protos:
-                    Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size]
-                    Mask protos.
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]. 3-channel Color Space: RGB.
+
+        Returns
+        -------
+        boxes
+            Shape [1, num_anchors, 4] where 4 = [x1, y1, x2, y2] (box coordinates in pixel space).
+        scores
+            Shape [batch_size, num_anchors] per-anchor confidence of whether the anchor box contains an object.
+        mask_coeffs
+            Shape [batch_size, num_anchors, num_prototype_masks] per-anchor mask coefficients.
+        mask_protos
+            Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size] mask protos.
         """
         boxes: torch.Tensor
         scores: torch.Tensor
@@ -75,10 +71,6 @@ class UltralyticsSingleClassSegmentor(BaseModel):
         height: int = DEFAULT_ULTRALYTICS_IMAGE_INPUT_HW,
         width: int = DEFAULT_ULTRALYTICS_IMAGE_INPUT_HW,
     ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm® AI Hub Workbench.
-        """
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
@@ -97,7 +89,9 @@ class UltralyticsSingleClassSegmentor(BaseModel):
 class UltralyticsMulticlassSegmentor(BaseModel):
     """Ultralytics segmentor that segments multiple classes."""
 
-    def __init__(self, model: SegmentationModel, precision: Precision | None = None):
+    def __init__(
+        self, model: SegmentationModel, precision: Precision | None = None
+    ) -> None:
         super().__init__(model)
         self.num_classes: int = cast(Segment, model.model[-1]).nc
         self.precision = precision
@@ -109,10 +103,6 @@ class UltralyticsMulticlassSegmentor(BaseModel):
         height: int = DEFAULT_ULTRALYTICS_IMAGE_INPUT_HW,
         width: int = DEFAULT_ULTRALYTICS_IMAGE_INPUT_HW,
     ) -> InputSpec:
-        """
-        Returns the input specification (name -> (shape, type). This can be
-        used to submit profiling job on Qualcomm AI Hub Workbench.
-        """
         return {"image": ((batch_size, 3, height, width), "float32")}
 
     @staticmethod
@@ -127,33 +117,30 @@ class UltralyticsMulticlassSegmentor(BaseModel):
     def get_channel_last_outputs() -> list[str]:
         return ["mask_protos"]
 
-    def forward(self, image: torch.Tensor):
+    def forward(
+        self, image: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Run the segmentor on `image` and produce segmentation masks.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
-        Returns:
-            Tuple of 5 tensors:
-                boxes:
-                    Shape [1, num_anchors, 4]
-                    where 4 = [x1, y1, x2, y2] (box coordinates in pixel space)
-                scores:
-                    Shape [batch_size, num_anchors, num_classes + 1]
-                    per-anchor confidence of whether the anchor box
-                    contains an object / box or does not contain an object
-                mask_coeffs:
-                    Shape [batch_size, num_anchors, num_prototype_masks]
-                    Per-anchor mask coefficients
-                class_idx:
-                    Shape [batch_size, num_anchors]
-                    Index
-                mask_protos:
-                    Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size]
-                    Mask protos.
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]. 3-channel Color Space: RGB.
+
+        Returns
+        -------
+        boxes
+            Shape [1, num_anchors, 4] where 4 = [x1, y1, x2, y2] (box coordinates in pixel space).
+        scores
+            Shape [batch_size, num_anchors, num_classes + 1] per-anchor confidence of whether the anchor box contains an object.
+        mask_coeffs
+            Shape [batch_size, num_anchors, num_prototype_masks] per-anchor mask coefficients.
+        class_idx
+            Shape [batch_size, num_anchors] class index.
+        mask_protos
+            Shape [batch_size, num_prototype_masks, mask_x_size, mask_y_size] mask protos.
         """
         boxes: torch.Tensor
         scores: torch.Tensor

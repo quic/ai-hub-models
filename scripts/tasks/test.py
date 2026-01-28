@@ -45,7 +45,7 @@ from .venv import (
 class PyTestQAIHMTask(PyTestTask):
     """Pytest utils."""
 
-    def __init__(self, venv: str):
+    def __init__(self, venv: str | None) -> None:
         all_dirs_except_models = [
             f"{PY_PACKAGE_SRC_ROOT}/{x}"
             for x in os.listdir(PY_PACKAGE_SRC_ROOT)
@@ -81,32 +81,31 @@ class GPUPyTestModelsTask(CompositeTask):
 
     def __init__(
         self,
-        venv: str,
+        venv: str | None,
         model_names: str = "all",  # Comma-separated list of model names, or "all" for all models.
         run_evaluate: bool = True,
         run_compile: bool = True,
         run_qdc: bool = True,
         run_demo: bool = True,
         raise_on_failure: bool = True,
-    ):
+        nightly_only: bool = False,  # If True, only run tests marked with @pytest.mark.nightly
+    ) -> None:
         home_dir = "/local/mnt2/workspace2/qaihm_bot"
         junit_xml_path = os.environ.get("QAIHM_JUNIT_XML_PATH")
         tmp_dir = os.path.join(home_dir, "tmp")
 
         models_to_test = []
-        model_names: set[str] = set()
         for model_name in get_all_models():
             if os.path.exists(
-                os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "info.yaml")
-            ):
-                model_names.add(model_name)
-
-        for model_name in list(model_names):
-            if is_quantized_llm_model(model_name) or model_name == "llama_v2_7b_chat":
+                os.path.join(PY_PACKAGE_MODELS_ROOT, model_name, "test.py")
+            ) and (is_quantized_llm_model(model_name)):
                 models_to_test.append(model_name)
-
+                # Only run llama_v2_7b_chat on weekly runs so nightly takes less time.
+                if not nightly_only and model_name == "llama_v2_7b_chat":
+                    models_to_test.append(model_name)
         # Run llama_v2_7b_chat last to avoid resource contention or conflicts with other models.
-        models_to_test.sort(key=lambda x: x == "llama_v2_7b_chat")
+        if "llama_v2_7b_chat" in models_to_test:
+            models_to_test.sort(key=lambda x: x == "llama_v2_7b_chat")
         tasks = []
         common_command = f"export HOME={home_dir} && mkdir -p {tmp_dir} && export TMPDIR={tmp_dir} && rm -rf {home_dir}/.cache/huggingface/hub/models--* {home_dir}/.qaihm/models/* {tmp_dir}/*"
         for model_name in models_to_test:
@@ -130,7 +129,10 @@ class GPUPyTestModelsTask(CompositeTask):
                     f"{filename_parts[0]}-{test_suite}-{model_name}{filename_parts[1]}"
                 )
                 model_junit_xml_path = os.path.join(base_dir, model_filename)
-                options = f"-m '{test_suite}' --junit-xml={model_junit_xml_path}"
+                marker_expr = (
+                    f"{test_suite} and nightly" if nightly_only else test_suite
+                )
+                options = f"-m '{marker_expr}' --junit-xml={model_junit_xml_path}"
                 if model_name == "llama_v2_7b_chat":
                     tasks.append(
                         RunCommandsWithVenvTask(
@@ -149,7 +151,7 @@ class GPUPyTestModelsTask(CompositeTask):
                         group_name=f"Run {test_suite} Tests For Model {model_name}",
                         venv=venv,
                         commands=[
-                            f"{common_command} && pytest qai_hub_models/models/{model_name}/test.py {options}",
+                            f"{common_command} && pytest -v qai_hub_models/models/{model_name}/test.py {options}",
                         ],
                         raise_on_failure=False,
                         # Ignore "no tests collected" return code
@@ -177,7 +179,7 @@ class PyTestModelTask(CompositeTask):
         venv: (
             str | None
         ) = None,  # If None, creates a fresh venv for each model instead of using 1 venv for all models.
-        use_shared_cache=False,  # If True, uses a shared cache rather than the global QAIHM cache.
+        use_shared_cache: bool = False,  # If True, uses a shared cache rather than the global QAIHM cache.
         run_mypy: bool = False,
         run_general: bool = True,
         run_quantize: bool = False,
@@ -191,7 +193,7 @@ class PyTestModelTask(CompositeTask):
         raise_on_failure: bool = False,
         qaihm_wheel_dir: str | os.PathLike | None = None,
         junit_xml_path: str | None = None,
-    ):
+    ) -> None:
         tasks = []
 
         model_version_reqs = get_model_python_version_requirements(model_name)
@@ -369,11 +371,11 @@ class PyTestModelsTask(CompositeTask):
         run_compute_device_accuracy: bool = False,
         run_full_export: bool = False,
         verify_compile_jobs_success: bool = True,
-        exit_after_single_model_failure=False,
-        raise_on_failure=True,
+        exit_after_single_model_failure: bool = False,
+        raise_on_failure: bool = True,
         qaihm_wheel_dir: str | os.PathLike | None = None,
         junit_xml_path: str | None = None,
-    ):
+    ) -> None:
         self.exit_after_single_model_failure = exit_after_single_model_failure
 
         # Get base JUnit XML path from environment variable if not provided
@@ -558,7 +560,7 @@ class GenerateTestSummaryTask(RunCommandsTask):
         self,
         results_dir: str,
         output_path: str | None = None,
-    ):
+    ) -> None:
         """
         Initialize the task.
 

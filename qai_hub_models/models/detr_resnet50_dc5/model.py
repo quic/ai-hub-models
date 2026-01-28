@@ -17,9 +17,4 @@ class DETRResNet50DC5(DETR):
 
     @classmethod
     def from_pretrained(cls, ckpt_name: str = DEFAULT_WEIGHTS):
-        return super().from_pretrained(ckpt_name)
-
-    @staticmethod
-    def get_hub_litemp_percentage(_) -> float:
-        """Returns the Lite-MP percentage value for the specified mixed precision quantization."""
-        return 10
+        return DETR.from_pretrained(ckpt_name)

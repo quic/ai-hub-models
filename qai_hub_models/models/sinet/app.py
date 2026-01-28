@@ -36,19 +36,28 @@ class SINetApp:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format of size 224x224.
-            raw_output: if True, output returned is the raw class predictions per pixel
-            show_face: if True, image output returned is the background
+        image
+            A PIL Image in RGB format of size 224x224.
+        raw_output
+            if True, output returned is the raw class predictions per pixel
+        show_face
+            if True, image output returned is the background
 
         Returns
         -------
-            If raw_output is true, returns:
-                masks: np.ndarray
-                    a tuple of arrays 1x2xHxW of mask predictions per pixel as 0 or 1
+        If raw_output is true, returns a tuple of 2 arrays:
 
-            Otherwise, returns:
-                segmented_images: list[PIL.Image]
-                    Image of face segmented out or background segmented out
+        face_map
+            Array of face mask predictions per pixel as 0 or 1.
+            Shape: (H, W)
+        bg_map
+            Array of background mask predictions per pixel as 0 or 1.
+            Shape: (H, W)
+
+        Otherwise, returns:
+
+        segmented_image
+            Image of face segmented out or background segmented out.
         """
         input_tensor = transforms.ToTensor()(image).unsqueeze(0)
         output = self.model(input_tensor)

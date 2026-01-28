@@ -6,6 +6,14 @@ scorecard_path_to_website_runtime:
   precompiled_qnn_onnx: onnx
   genie: qnn
   onnxruntime_genai: onnx
+scorecard_path_assets_require_chipset:
+  tflite: false
+  qnn_dlc: false
+  qnn_context_binary: true
+  onnx: false
+  precompiled_qnn_onnx: true
+  genie: true
+  onnxruntime_genai: true
 scorecard_path_extensions:
   tflite: .tflite
   qnn_dlc: .dlc
@@ -154,39 +162,6 @@ devices:
     form_factor: Phone
     vendor: samsung
     icon: Phone_S21
-  RB3 Gen 2 (Proxy):
-    chipset: qualcomm-qcs6490-proxy
-    os:
-      ostype: Android
-      version: '12'
-    form_factor: IoT
-    vendor: qualcomm
-    icon: IoT_Drone
-  QCS6490 (Proxy):
-    chipset: qualcomm-qcs6490-proxy
-    os:
-      ostype: Android
-      version: '12'
-    form_factor: IoT
-    vendor: qualcomm
-    icon: IoT_Chip
-  RB5 (Proxy):
-    chipset: qualcomm-qcs8250-proxy
-    os:
-      ostype: Android
-      version: '12'
-    form_factor: IoT
-    vendor: qualcomm
-    icon: IoT_Drone
-    enabled_in_scorecard: true
-  QCS8250 (Proxy):
-    chipset: qualcomm-qcs8250-proxy
-    os:
-      ostype: Android
-      version: '12'
-    form_factor: IoT
-    vendor: qualcomm
-    icon: IoT_Chip
   QCS8550 (Proxy):
     chipset: qualcomm-qcs8550-proxy
     os:
@@ -261,32 +236,6 @@ devices:
     form_factor: XR
     vendor: qualcomm
     icon: XR_Headset
-  SA8650 (Proxy):
-    chipset: qualcomm-sa8650p-proxy
-    os:
-      ostype: Android
-      version: '13'
-    form_factor: Auto
-    vendor: qualcomm
-    icon: Car
-    enabled_in_scorecard: true
-  SA8775 (Proxy):
-    chipset: qualcomm-sa8775p-proxy
-    os:
-      ostype: Android
-      version: '13'
-    form_factor: Auto
-    vendor: qualcomm
-    icon: Car
-  SA8255 (Proxy):
-    chipset: qualcomm-sa8255p-proxy
-    os:
-      ostype: Android
-      version: '13'
-    form_factor: Auto
-    vendor: qualcomm
-    icon: Car
-    enabled_in_scorecard: true
   Samsung Galaxy S23:
     chipset: qualcomm-snapdragon-8gen2
     os:
@@ -538,16 +487,6 @@ chipsets:
     - sm7325
     marketing_name: Snapdragon® 778g Mobile
     world: Mobile
-  qualcomm-qcs6490-proxy:
-    aliases:
-    - qualcomm-qcs6490-proxy
-    marketing_name: Qualcomm® QCS6490 (Proxy)
-    world: IoT
-  qualcomm-qcs8250-proxy:
-    aliases:
-    - qualcomm-qcs8250-proxy
-    marketing_name: Qualcomm® QCS8250 (Proxy)
-    world: IoT
   qualcomm-qcs8550-proxy:
     aliases:
     - qualcomm-qcs8550-proxy
@@ -564,21 +503,6 @@ chipsets:
     - qualcomm-qcs8450-proxy
     marketing_name: Qualcomm® QCS8450 (Proxy)
     world: XR
-  qualcomm-sa8650p-proxy:
-    aliases:
-    - qualcomm-sa8650p-proxy
-    marketing_name: Qualcomm® SA8650P (Proxy)
-    world: Automotive
-  qualcomm-sa8775p-proxy:
-    aliases:
-    - qualcomm-sa8775p-proxy
-    marketing_name: Qualcomm® SA8775P (Proxy)
-    world: Automotive
-  qualcomm-sa8255p-proxy:
-    aliases:
-    - qualcomm-sa8255p-proxy
-    marketing_name: Qualcomm® SA8255P (Proxy)
-    world: Automotive
   qualcomm-snapdragon-8gen2:
     aliases:
     - qualcomm-snapdragon-8gen2
@@ -619,7 +543,7 @@ chipsets:
     aliases:
     - qualcomm-snapdragon-8-elite-gen5
     - sm8850
-    marketing_name: Snapdragon® 8 Elite Gen5 Mobile
+    marketing_name: Snapdragon® 8 Elite Gen 5 Mobile
     world: Mobile
   qualcomm-snapdragon-7gen4:
     aliases:
@@ -646,7 +570,7 @@ chipsets:
     aliases:
     - qualcomm-qcm6690
     - qcm6690
-    marketing_name: Qualcomm® Qcm6690
+    marketing_name: Qualcomm® QCM6690
     world: IoT
   qualcomm-qcs9075-proxy:
     aliases:

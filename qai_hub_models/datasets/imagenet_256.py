@@ -23,7 +23,7 @@ IMAGENET_256TRANSFORM = transforms.Compose(
 class Imagenet_256Dataset(ImagenetDataset):
     """Wrapper class for using the Imagenet validation dataset with 256x256 transform:"""
 
-    def __init__(self, split: DatasetSplit = DatasetSplit.VAL):
+    def __init__(self, split: DatasetSplit = DatasetSplit.VAL) -> None:
         super().__init__(split=split, transform=IMAGENET_256TRANSFORM)
 
     @staticmethod

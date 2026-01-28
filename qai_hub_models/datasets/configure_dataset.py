@@ -104,7 +104,7 @@ def configure_dataset(dataset: str, files: list[str]) -> None:
         raise ValueError(f"Invalid dataset {dataset}")
 
 
-def main():
+def main() -> None:
     args = get_parser().parse_args()
     configure_dataset(args.dataset, args.files)
 

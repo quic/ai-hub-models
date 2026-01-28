@@ -37,7 +37,7 @@ _AIHUB_NAME = "Qualcomm® AI Hub"
 _CAN_ACCESS_HUB: bool | None = None
 
 
-def can_access_qualcomm_ai_hub():
+def can_access_qualcomm_ai_hub() -> bool:
     global _CAN_ACCESS_HUB  # noqa: PLW0603
     if _CAN_ACCESS_HUB is not None:
         return _CAN_ACCESS_HUB
@@ -54,7 +54,7 @@ def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
     return tensor.cpu().detach().numpy()
 
 
-def get_hub_endpoint():
+def get_hub_endpoint() -> str:
     # The deployment endpoint is the subdomain of AIHub that is used by the config.
     # e.g. for blah endpoint, returns https://blah.aihub.qualcomm.com
     return hub.hub._global_client.config.api_url
@@ -216,6 +216,7 @@ def export_torch_to_onnx_zip(
         # Package the files into a zip.
         zip_start_time = time.time()
         zip_path = f.with_name(f.name + ".zip")
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for file_path in tmpdir2_path.iterdir():
                 # In the zip, files are placed under a folder named after the base name.
@@ -304,9 +305,14 @@ def make_hub_dataset_entries(
     return dataset
 
 
-def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None | str:
+def ensure_hexagon_version(
+    min_version: int, target_runtime: TargetRuntime, device: Device, model_name: str
+) -> None | str:
     if not target_runtime.is_aot_compiled:
-        return "AIMET model currently runs on precompiled targets"
+        return (
+            f"Unsupported {target_runtime=}. {model_name} "
+            "requires precompiled target runtime."
+        )
     hex_attrs = [attr for attr in device.attributes if attr.startswith("hexagon:")]
     if len(hex_attrs) != 1:
         return f"Unable to determine hexagon version for {device.name}"
@@ -318,10 +324,8 @@ def ensure_v73_or_later(target_runtime: TargetRuntime, device: Device) -> None |
         hex_version = int(match.group())
     else:
         return f"Unable to determine hexagon version for {device.name}"
-    if hex_version < 73:
-        return (
-            "AIMET-ONNX requires hexagon v73 or above for Stable Diffusion VaeDecoder. "
-        )
+    if hex_version < min_version:
+        return f"{model_name} requires hexagon v{min_version} or above."
     return None
 
 

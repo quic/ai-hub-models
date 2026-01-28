@@ -68,13 +68,15 @@ class CenterNet3DApp:
         """
         Initialize CenterNet3DApp
 
-        Inputs:
-            model:
-                CenterNet3D Model.
-            decode:
-                Function to decode the raw model outputs
-                into detected objects/detections.
-
+        Parameters
+        ----------
+        model
+            CenterNet3D Model.
+        decode
+            Function to decode the raw model outputs
+            into detected objects/detections.
+        max_dets
+            Maximum number of detections per image.
         """
         self.model = model
         self.decode = decode
@@ -105,16 +107,18 @@ class CenterNet3DApp:
 
         Parameters
         ----------
-            image: PIL images in RGB format.
+        image
+            PIL images in RGB format.
+        raw_output
+            If True, returns raw detection output.
 
         Returns
         -------
-            if raw_output is true, returns
-                dets : np.ndarray
-                    dets with shape (1, max_dets, 3)
-            otherwise, returns
-                output_images: tuple of pil images
-                    image with 3d bounding boxes and bev image.
+        detections_or_images
+            If raw_output is True:
+                dets with shape (1, max_dets, 3)
+            Otherwise:
+                Tuple containing image with 3d bounding boxes and bev image.
         """
         image_array = np.array(image)
         h, w = CenterNet3D.get_input_spec()["image"][0][2:]

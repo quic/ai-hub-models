@@ -14,11 +14,11 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class ClassificationEvaluator(BaseEvaluator):
     """Evaluator for tracking accuracy of a Classifier Model."""
 
-    def __init__(self, num_classes: int = 1000):
+    def __init__(self, num_classes: int = 1000) -> None:
         self.num_classes = num_classes
         self.reset()
 
-    def add_batch(self, output: torch.Tensor, gt: int | torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: int | torch.Tensor) -> None:
         # This evaluator supports only 1 output tensor at a time.
         assert len(output.shape) == 2 and output.shape[-1] == self.num_classes
         gt_tensor = torch.Tensor(gt).unsqueeze(1)
@@ -30,7 +30,7 @@ class ClassificationEvaluator(BaseEvaluator):
         self.top5_count += torch.sum(top5 == gt_tensor).item()
         self.top1_count += torch.sum(top5[:, :1] == gt_tensor).item()
 
-    def reset(self):
+    def reset(self) -> None:
         self.top1_count: Number = 0
         self.top5_count: Number = 0
         self.total_samples: Number = 0

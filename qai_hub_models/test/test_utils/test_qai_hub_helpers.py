@@ -13,11 +13,11 @@ from qai_hub_models.utils.qai_hub_helpers import (
 )
 
 
-def assert_options_eq(options: str, options_dict: dict[str, str | bool]):
+def assert_options_eq(options: str, options_dict: dict[str, str | bool]) -> None:
     assert extract_job_options(MagicMock(spec=hub.Job, options=options)) == options_dict
 
 
-def test_extract_job_options():
+def test_extract_job_options() -> None:
     assert_options_eq("", {})
     assert_options_eq("--boolean_flag", {"boolean_flag": True})
     assert_options_eq(

@@ -19,6 +19,7 @@ from qai_hub_models.models._shared.llama3.model import (
 )
 from qai_hub_models.models._shared.llm.common import LLMIOType
 from qai_hub_models.models._shared.llm.model import (
+    LLMBase,
     determine_precision_from_checkpoint,
 )
 from qai_hub_models.models.common import Precision
@@ -42,8 +43,6 @@ HF_REPO_URL = f"https://huggingface.co/{HF_REPO_NAME}"
 # Minimum memory (RAM+swap) recommended for export.
 MIN_MEMORY_RECOMMENDED = 150
 
-DEFAULT_PROMPT_CONTEXT = "你是一個來自台灣的 AI 助理，你的名字是 TAIDE，樂於以台灣人的立場幫助使用者，會用繁體中文回答問題"  # noqa: RUF001
-DEFAULT_USER_PROMPT = "介紹台灣特色"
 DEFAULT_PRECISION = Precision.w4a16
 SUPPORTED_PRECISIONS = [Precision.w4a16]
 DEFAULT_CHECKPOINT = {Precision.w4a16: "llama_v3_taide_8b_chat_ckpt_w4a16"}
@@ -51,6 +50,10 @@ DEFAULT_CHECKPOINT = {Precision.w4a16: "llama_v3_taide_8b_chat_ckpt_w4a16"}
 
 class Llama3_TAIDE(Llama3Base):
     min_memory_recommended = MIN_MEMORY_RECOMMENDED
+
+    # Default prompts for demos (Traditional Chinese)
+    default_user_prompt = "介紹台灣特色"
+    default_system_prompt = "你是一個來自台灣的 AI 助理，你的名字是 TAIDE，樂於以台灣人的立場幫助使用者，會用繁體中文回答問題"  # noqa: RUF001
 
     def __init__(
         self,
@@ -73,17 +76,6 @@ class Llama3_TAIDE(Llama3Base):
             and self.llm_config.num_key_value_heads == NUM_KEY_VALUE_HEADS
         ):
             raise ValueError("Model config is not compatible with our implementation.")
-
-    # Only changes the defaults
-    @staticmethod
-    def get_input_prompt_with_tags(
-        user_input_prompt: str = DEFAULT_USER_PROMPT,
-        system_context_prompt: str = DEFAULT_PROMPT_CONTEXT,
-    ) -> str:
-        return Llama3Base.get_input_prompt_with_tags(
-            user_input_prompt=user_input_prompt,
-            system_context_prompt=system_context_prompt,
-        )
 
     @classmethod
     def from_pretrained(
@@ -161,7 +153,7 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
         sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         context_length: int = DEFAULT_CONTEXT_LENGTH,
         precision: Precision = DEFAULT_PRECISION,
-        fp_model: torch.nn.Module | None = None,
+        fp_model: LLMBase | None = None,
         _skip_quantsim_creation: bool = False,
     ) -> Llama3_TAIDE_AIMETOnnx:
         """
@@ -170,10 +162,30 @@ class Llama3_TAIDE_AIMETOnnx(Llama3Base_AIMETOnnx):
 
         Parameters
         ----------
-        - checkpoint: Path to previously calibrated AIMET encodings and ONNX
-          models. Note that encodings are sensitive to AIMET ONNX versions.
-          If passing None, initializes without encodings.
+        checkpoint
+            Path to previously calibrated AIMET encodings and ONNX
+            models. Note that encodings are sensitive to AIMET ONNX versions.
+            If passing None, initializes without encodings.
+        host_device
+            Device on which to load the model.
+        sequence_length
+            Sequence length for the model.
+        context_length
+            Context length for the model.
+        precision
+            Precision for quantization.
+        fp_model
+            Optional floating point model.
+        _skip_quantsim_creation
+            Internal parameter to skip quantsim creation. This helps export on platforms where aimet onnx is not available.
+
+        Returns
+        -------
+        model
+            Instance of the quantized model.
         """
+        if host_device is None:
+            host_device = torch.device("cpu")
         if isinstance(checkpoint, str) and checkpoint.startswith("DEFAULT"):
             precision = determine_precision_from_checkpoint(checkpoint) or precision
             if precision not in SUPPORTED_PRECISIONS:
@@ -245,6 +257,6 @@ class Llama3_TAIDE_QNN(Llama3Base_QNN):
 
     @staticmethod
     def get_output_names():
-        return Llama3_TAIDE_QNN._get_output_names(NUM_LAYERS)
+        return Llama3Base._get_output_names(NUM_LAYERS)
 
     get_input_spec = staticmethod(Llama3_TAIDE.get_input_spec)

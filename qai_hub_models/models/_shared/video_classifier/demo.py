@@ -20,7 +20,7 @@ def kinetics_classifier_demo(
     default_video: str | CachedWebAsset,
     is_test: bool = False,
     app_cls: type[KineticsClassifierApp] = KineticsClassifierApp,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
 

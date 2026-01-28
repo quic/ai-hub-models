@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import torch
 from transformers import SegformerForSemanticSegmentation
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
@@ -35,18 +36,20 @@ class SegformerBase(BaseModel):
         net = SegformerForSemanticSegmentation.from_pretrained(ckpt)
         return cls(net)
 
-    def forward(self, image_tensor):
+    def forward(self, image_tensor: torch.Tensor):
         """
         Predict semantic segmentation an input `image`.
 
         Parameters
         ----------
-            image: A [1, 3, height, width] image.
-                Range: float[0, 1]
-                3-channel Color Space: RGB
+        image_tensor
+            A [1, 3, height, width] image.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
+        class_logits
             Raw logit probabilities as a tensor of shape
             [1, num_classes, modified_height, modified_width],
             where the modified height and width will be some factor smaller

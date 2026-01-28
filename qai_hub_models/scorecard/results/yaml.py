@@ -15,7 +15,7 @@ import ruamel.yaml
 from pydantic import Field
 from typing_extensions import Self
 
-from qai_hub_models.configs._internal.release_assets_yaml import (
+from qai_hub_models.configs.release_assets_yaml import (
     QAIHMModelReleaseAssets,
 )
 from qai_hub_models.configs.tool_versions import ToolVersions
@@ -83,16 +83,18 @@ class ToolVersionsByPathYaml(BaseQAIHMConfig):
 
     @staticmethod
     def from_dir(
-        dirpath: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
-    ):
+        dirpath: str | os.PathLike, filename: str = DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
+    ) -> ToolVersionsByPathYaml:
         return ToolVersionsByPathYaml.from_yaml(
             Path(dirpath) / filename,
             create_empty_if_no_file=True,
         )
 
     def to_dir(
-        self, dirpath: str | os.PathLike, filename=DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME
-    ):
+        self,
+        dirpath: str | os.PathLike,
+        filename: str = DEFAULT_TOOL_VERSIONS_YAML_FILE_NAME,
+    ) -> bool:
         return self.to_yaml(Path(dirpath) / filename, write_if_empty=False)
 
 
@@ -103,7 +105,7 @@ class ScorecardJobYaml(
     scorecard_path_type: type[ScorecardPathOrNoneTypeVar]
     scorecard_model_summary_type: type[ModelSummaryTypeVar]
 
-    def __init__(self, job_id_mapping: dict[str, str] | None = None):
+    def __init__(self, job_id_mapping: dict[str, str] | None = None) -> None:
         self.job_id_mapping = job_id_mapping or {}
 
     @classmethod
@@ -124,7 +126,7 @@ class ScorecardJobYaml(
             # If the dict is empty, ruamel dumps "{}" (which is not YAML) and breaks the file
             Path(path).touch()
 
-    def clear_jobs(self, model_id: str | None = None):
+    def clear_jobs(self, model_id: str | None = None) -> None:
         if not model_id:
             self.job_id_mapping.clear()
         else:
@@ -214,7 +216,7 @@ class ScorecardJobYaml(
             get_async_job_cache_name(path, model_id, device, precision, component)
         ] = job_id
 
-    def update(self, other: ScorecardJobYaml):
+    def update(self, other: ScorecardJobYaml) -> None:
         """Merge the other YAML into this YAML, overwriting any existing jobs with the same job name"""
         if type(other) is not type(self):
             raise ValueError(
@@ -292,7 +294,7 @@ class ScorecardJobYaml(
                 precision: Precision,
                 path: ScorecardPathOrNoneTypeVar,
                 device: ScorecardDevice,
-            ):
+            ) -> None:
                 model_runs.append(
                     self.get_job(path, model_id, device, precision, component or None)  # noqa: B023
                 )
@@ -318,7 +320,7 @@ class ScorecardJobYaml(
         if precisions is None:
             precisions = [Precision.float]
         runs = self.get_all_jobs(model_id, precisions, devices, components)
-        return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore[arg-type]
+        return self.scorecard_model_summary_type.from_runs(model_id, runs, components)  # type: ignore[arg-type,return-value]
 
 
 class QuantizeScorecardJobYaml(
@@ -342,7 +344,7 @@ class QuantizeScorecardJobYaml(
 
     def set_job_id(
         self,
-        job_id,
+        job_id: str,
         path: ScorecardPathOrNoneTypeVar,
         model_id: str,
         device: ScorecardDevice,
@@ -566,7 +568,7 @@ class ScorecardAssetYaml(BaseQAIHMConfig):
         precision: Precision,
         device: ScorecardDevice,
         path: ScorecardProfilePath,
-    ):
+    ) -> None:
         if model_id not in self.models:
             self.models[model_id] = QAIHMModelReleaseAssets()
         self.models[model_id].add_asset(details, precision, device, path)

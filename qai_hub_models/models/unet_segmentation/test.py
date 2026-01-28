@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
 
+from typing import cast
+
 import numpy as np
 from PIL.Image import fromarray
 
@@ -25,7 +27,7 @@ def test_task() -> None:
     net = UNet.from_pretrained()
 
     img = load_image(IMAGE_ADDRESS)
-    mask = UNetSegmentationApp(net).predict(img, raw_output=True)
+    mask = cast(np.ndarray, UNetSegmentationApp(net).predict(img, raw_output=True))
 
     # Convert raw mask of 0s and 1s into a PIL Image
     img = fromarray(mask[0].argmax(0) == 1)

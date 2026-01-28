@@ -36,7 +36,7 @@ class FootTrackDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_data_zip: str | None = None,
         max_boxes: int = 100,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             FOOTTRACK_DATASET_ID, FOOTTRACK_DATASET_VERSION, "data"
         )
@@ -52,7 +52,11 @@ class FootTrackDataset(BaseDataset):
         self.scale_height = 1.0 / self.img_height
         BaseDataset.__init__(self, self.data_path, split=split)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[
+        torch.Tensor, tuple[int, int, int, torch.Tensor, torch.Tensor, torch.Tensor]
+    ]:
         image_path = self.image_list[index]
         gt_path = self.gt_list[index]
         image = Image.open(image_path)
@@ -92,7 +96,7 @@ class FootTrackDataset(BaseDataset):
             torch.tensor([num_boxes]),
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_list)
 
     def _validate_data(self) -> bool:

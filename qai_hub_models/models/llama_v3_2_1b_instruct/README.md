@@ -1,6 +1,6 @@
 # [Llama-v3.2-1B-Instruct: State-of-the-art large language model useful on a variety of language understanding and generation tasks](https://aihub.qualcomm.com/models/llama_v3_2_1b_instruct)
 
-Llama 3 is a family of LLMs. The model is quantized to w4 (4-bit weights) and part of the model is quantized to w8 (8-bit weights) making it suitable for on-device deployment. For Prompt and output length specified below, the time to first token is Llama-PromptProcessor-Quantized's latency and average time per addition token is Llama-TokenGenerator-Quantized's latency.
+Llama 3 is a family of LLMs. The model is quantized to w4 (4-bit weights) and part of the model is quantized to w8 (8-bit weights) making it suitable for on-device deployment.
 
 This is based on the implementation of Llama-v3.2-1B-Instruct found [here](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct/). This repository contains scripts for optimized on-device
 export suitable to run on Qualcomm® devices. More details on model performance

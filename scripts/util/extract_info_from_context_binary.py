@@ -15,7 +15,7 @@ QNN_TYPE_TO_STR = {
 }
 
 
-def run_utility(qnn_sdk, model_path):
+def run_utility(qnn_sdk: str, model_path: str) -> str:
     json_path = f"{os.path.splitext(os.path.basename(model_path))[0]}.json"
     subprocess.run(
         [
@@ -30,7 +30,7 @@ def run_utility(qnn_sdk, model_path):
     return json_path
 
 
-def print_details_from_json(json_path):
+def print_details_from_json(json_path: str) -> None:
     with open(json_path) as f:
         data = json.load(f)
 
@@ -50,7 +50,7 @@ def print_details_from_json(json_path):
         print()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--model",

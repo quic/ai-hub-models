@@ -29,7 +29,7 @@ class LibriSpeechDataset(BaseDataset):
         target_sample_rate: int = 16000,
         max_sequence_length: int = DEFAULT_SEQUENCE_LENGTH,
         max_text_length: int = 200,
-    ):
+    ) -> None:
         self.base_path = LIBRISPEECH_CLEAN_ASSET.path(extracted=True).parent
         BaseDataset.__init__(self, self.base_path, split)
         self.target_sample_rate = target_sample_rate
@@ -137,7 +137,7 @@ class LibriSpeechDataset(BaseDataset):
 
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.audio_files)
 
     def _download_data(self) -> None:

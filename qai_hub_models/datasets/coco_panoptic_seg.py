@@ -41,7 +41,7 @@ class CocoPanopticSegmentationDataset(BaseDataset):
         input_height: int = 384,
         input_width: int = 384,
         num_samples: int = 100,
-    ):
+    ) -> None:
         self.input_height = input_height
         self.input_width = input_width
         self.num_samples = num_samples
@@ -78,7 +78,7 @@ class CocoPanopticSegmentationDataset(BaseDataset):
         if self.num_samples > 0:
             self.img_ids = self.img_ids[: self.num_samples]
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, tuple[torch.Tensor, int]]:
         """Return image tensor and panoptic target for given index."""
         img_id = self.img_ids[idx]
 
@@ -104,7 +104,7 @@ class CocoPanopticSegmentationDataset(BaseDataset):
         target = torch.from_numpy(np.array(panoptic, dtype=np.int32)).squeeze(0)
         return image_tensor, (target, img_id)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.img_ids)
 
     def _validate_data(self) -> bool:

@@ -28,7 +28,7 @@ class ADESegmentationDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.VAL,
         input_height: int = 512,
         input_width: int = 512,
-    ):
+    ) -> None:
         BaseDataset.__init__(
             self, ADE_ASSET.path(extracted=True) / "ADEChallengeData2016", split
         )
@@ -59,7 +59,7 @@ class ADESegmentationDataset(BaseDataset):
         self.input_height = input_height
         self.input_width = input_width
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         orig_image = Image.open(self.images[index]).convert("RGB")
         orig_gt = Image.open(self.categories[index])
 
@@ -73,7 +73,7 @@ class ADESegmentationDataset(BaseDataset):
         )  # swifting class from 1-150 to 0-149
         return img_tensor, target
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _download_data(self) -> None:

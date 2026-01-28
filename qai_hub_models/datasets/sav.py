@@ -37,7 +37,7 @@ class SaVDataset(BaseDataset):
         input_tar: str | None = None,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         self.input_tar = input_tar
         input_spec = input_spec or {"image": ((1, 3, 1024, 1024), "")}
         self.input_height = input_spec["image"][0][2]
@@ -94,7 +94,7 @@ class SaVDataset(BaseDataset):
         point_labels = torch.ones(2)
         return (image_tensor, point_coords, point_labels), []
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.sample)
 
     def _download_data(self) -> None:

@@ -21,7 +21,7 @@ class ValentiniEvaluator(BaseEvaluator):
     def __init__(
         self,
         target_sample_rate: int = 16000,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -35,7 +35,7 @@ class ValentiniEvaluator(BaseEvaluator):
         self,
         output: Collection[torch.Tensor],
         target: Collection[torch.Tensor],
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -51,10 +51,10 @@ class ValentiniEvaluator(BaseEvaluator):
             self.enhanced.append(enhanced.cpu().numpy())
             self.clean.append(clean.cpu().numpy())
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset stored predictions and targets"""
-        self.enhanced = []
-        self.clean = []
+        self.enhanced: list[np.ndarray] = []
+        self.clean: list[np.ndarray] = []
 
     def _compute_metrics(self) -> tuple[float, float]:
         """Compute PESQ and STOI metrics."""

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -43,35 +44,35 @@ class YoloObjectDetectionApp:
         nms_score_threshold: float = 0.45,
         nms_iou_threshold: float = 0.7,
         model_includes_postprocessing: bool = True,
-    ):
+    ) -> None:
         """
         Initialize a YoloObjectDetectionApp application.
 
         Parameters
         ----------
-            model:
-                Yolo object detection model.
+        model
+            Yolo object detection model.
 
-                Inputs:
-                    Tensor of shape (N H W C x float32) with range [0, 1] and RGB channel layout.
+            Inputs:
+                Tensor of shape (N H W C x float32) with range [0, 1] and RGB channel layout.
 
-                Outputs:
-                    boxes: Tensor of shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
-                                The output are in the range of the input image's dimensions (NOT [0-1])
+            Outputs:
+                boxes: Tensor of shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+                            The output are in the range of the input image's dimensions (NOT [0-1])
 
-                    scores: Tensor of shape [batch, num_preds, # of classes (typically 80)]
+                scores: Tensor of shape [batch, num_preds, # of classes (typically 80)]
 
-                    class_idx: Tensor of shape [num_preds] where the values are the indices
-                                of the most probable class of the prediction.
+                class_idx: Tensor of shape [num_preds] where the values are the indices
+                            of the most probable class of the prediction.
 
-            nms_score_threshold
-                Score threshold for non maximum suppression.
+        nms_score_threshold
+            Score threshold for non maximum suppression.
 
-            nms_iou_threshold
-                Intersection over Union threshold for non maximum suppression.
+        nms_iou_threshold
+            Intersection over Union threshold for non maximum suppression.
 
-            model_includes_postprocessing
-                Whether the model includes postprocessing steps beyond the detector.
+        model_includes_postprocessing
+            Whether the model includes postprocessing steps beyond the detector.
         """
         self.model = model
         self.nms_score_threshold = nms_score_threshold
@@ -82,7 +83,12 @@ class YoloObjectDetectionApp:
         """Verify image size is valid model input."""
         raise NotImplementedError
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> (
+        tuple[list[torch.Tensor], list[torch.Tensor], list[torch.Tensor]]
+        | list[np.ndarray]
+    ):
         # See predict_boxes_from_image.
         return self.predict_boxes_from_image(*args, **kwargs)
 
@@ -101,29 +107,32 @@ class YoloObjectDetectionApp:
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        pixel_values_or_image
+            PIL image
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-            raw_output: bool
-                See "returns" doc section for details.
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is false or pixel_values_or_image is not a PIL image, returns:
-                images: list[np.ndarray]
-                    A list of predicted RGB, [H, W, C] images (one list element per batch). Each image will have bounding boxes drawn.
+        If raw_output is False, returns:
+        images
+            A list of predicted RGB, [H, W, C] images (one list element per batch).
+            Each image will have bounding boxes drawn.
 
-            Otherwise, returns:
-                boxes: list[torch.Tensor]
-                    Bounding box locations per batch. List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2)
-                scores: list[torch.Tensor]
-                    class scores per batch multiplied by confidence: List element shape is [num_preds, # of classes (typically 80)]
-                class_idx: list[torch.tensor]
-                    Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
+        If raw_output is True, returns:
+        boxes
+            Bounding box locations per batch.
+            List element shape is [num preds, 4] where 4 == (x1, y1, x2, y2).
+        scores
+            Class scores per batch multiplied by confidence.
+            List element shape is [num_preds, # of classes (typically 80)].
+        class_idx
+            Shape is [num_preds] where the values are the indices of the most probable class of the prediction.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -180,18 +189,18 @@ class YoloObjectDetectionApp:
 
         Parameters
         ----------
-            predictions: torch.Tensor
-                A tuple of tensor outputs from the Yolo detection model.
-                Tensor shapes vary by model implementation.
+        *predictions
+            Variable number of tensor outputs from the Yolo detection model.
+            Tensor shapes vary by model implementation.
 
         Returns
         -------
-            boxes: torch.Tensor
-                Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-            scores: torch.Tensor
-                class scores multiplied by confidence: Shape is [batch, num_preds]
-            class_idx: torch.Tensor
-                Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        boxes
+            Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+        scores
+            Class scores multiplied by confidence. Shape is [batch, num_preds].
+        class_idx
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
         """
         return detect_postprocess(predictions[0])
 
@@ -229,36 +238,42 @@ class YoloSegmentationApp:
         nms_iou_threshold: float = 0.7,
         input_height: int = 640,
         input_width: int = 640,
-    ):
+    ) -> None:
         """
         Initialize a YoloSegmentationApp application.
 
         Parameters
         ----------
-            model:
-                Yolo Segmentation model
+        model
+            Yolo Segmentation model
 
-                Inputs:
-                    Tensor of shape (N H W C x float32) with range [0, 1] and RGB channel layout.
+            Inputs:
+                Tensor of shape (N H W C x float32) with range [0, 1] and RGB channel layout.
 
-                Outputs:
-                    boxes: torch.Tensor
-                        Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-                    scores: torch.Tensor
-                        Class scores multiplied by confidence: Shape is [batch, num_preds]
-                    masks: torch.Tensor
-                        Predicted masks: Shape is [batch, num_preds, 32]
-                    classes: torch.Tensor
-                        Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
-                    protos: torch.Tensor
-                        Tensor of shape[batch, 32, mask_h, mask_w]
-                        Multiply masks and protos to generate output masks.
+            Outputs:
+                boxes: torch.Tensor
+                    Bounding box locations. Shape is [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
+                scores: torch.Tensor
+                    Class scores multiplied by confidence: Shape is [batch, num_preds]
+                masks: torch.Tensor
+                    Predicted masks: Shape is [batch, num_preds, 32]
+                classes: torch.Tensor
+                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+                protos: torch.Tensor
+                    Tensor of shape[batch, 32, mask_h, mask_w]
+                    Multiply masks and protos to generate output masks.
 
-            nms_score_threshold
-                Score threshold for non maximum suppression.
+        nms_score_threshold
+            Score threshold for non maximum suppression.
 
-            nms_iou_threshold
-                Intersection over Union threshold for non maximum suppression.
+        nms_iou_threshold
+            Intersection over Union threshold for non maximum suppression.
+
+        input_height
+            Input height for the model.
+
+        input_width
+            Input width for the model.
         """
         self.model = model
         self.nms_score_threshold = nms_score_threshold
@@ -274,7 +289,17 @@ class YoloSegmentationApp:
         img_size = (self.input_height, self.input_width)
         return Resize(img_size)(pixel_values)
 
-    def predict(self, *args, **kwargs):
+    def predict(
+        self, *args: Any, **kwargs: Any
+    ) -> (
+        tuple[
+            list[torch.Tensor],
+            list[torch.Tensor],
+            list[torch.Tensor],
+            list[torch.Tensor],
+        ]
+        | list[Image.Image]
+    ):
         # See predict_boxes_from_image.
         return self.predict_segmentation_from_image(*args, **kwargs)
 
@@ -298,35 +323,32 @@ class YoloSegmentationApp:
 
         Parameters
         ----------
-            pixel_values_or_image: torch.Tensor
-                PIL image
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        pixel_values_or_image
+            PIL image
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
-            raw_output: bool
-                See "returns" doc section for details.
+        raw_output
+            See "returns" doc section for details.
 
         Returns
         -------
-            If raw_output is false or pixel_values_or_image is not a PIL image, returns:
-                pred_boxes: list[torch.Tensor]
-                    List of predicted boxes for all the batches.
-                    Each pred_box is of shape [num_boxes, 4]
-                pred_scores: list[torch.Tensor]
-                    List of scores for each predicted box for all the batches.
-                    Each pred_score is of shape [num_boxes]
-                pred_masks: list[torch.Tensor]
-                    List of predicted masks for all the batches.
-                    Each pred_mask is of shape [num_boxes, 32]
-                pred_classes: list[torch.Tensor]
-                    List of predicted class for all the batches.
-                    Each pred_class is of shape [num_boxes]
-
-            Otherwise, returns:
-                image_with_masks: list[PIL.Image]
-                    Input image with predicted masks applied
+        pred_boxes
+            If raw_output is true, list of predicted boxes for all the batches.
+            Each pred_box is of shape [num_boxes, 4].
+        pred_scores
+            If raw_output is true, list of scores for each predicted box for all the batches.
+            Each pred_score is of shape [num_boxes].
+        pred_masks
+            If raw_output is true, list of predicted masks for all the batches.
+            Each pred_mask is of shape [num_boxes, 32].
+        pred_classes
+            If raw_output is true, list of predicted class for all the batches.
+            Each pred_class is of shape [num_boxes].
+        image_with_masks
+            If raw_output is false, input image with predicted masks applied.
         """
         # Input Prep
         NHWC_int_numpy_frames, NCHW_fp32_torch_frames = app_to_net_image_inputs(
@@ -392,7 +414,7 @@ class YoloSegmentationApp:
         pred_mask_img = torch.argmax(pred_post_nms_resized_masks, 1)
 
         # Overlay the segmentation masks on the image.
-        color_map = create_color_map(pred_mask_img.max().item() + 1)
+        color_map = create_color_map(int(pred_mask_img.max().item()) + 1)
         out = []
         for i, img_tensor in enumerate(NHWC_int_numpy_frames):
             out.append(

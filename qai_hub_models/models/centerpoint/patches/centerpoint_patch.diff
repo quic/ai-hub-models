@@ -1,0 +1,162 @@
+diff --git a/det3d/datasets/__init__.py b/det3d/datasets/__init__.py
+index 1c0f34a..0e187a4 100644
+--- a/det3d/datasets/__init__.py
++++ b/det3d/datasets/__init__.py
+@@ -1,8 +1,8 @@
+ from .builder import build_dataset
+ 
+ # from .cityscapes import CityscapesDataset
+-from .nuscenes import NuScenesDataset
+-from .waymo import WaymoDataset
++# from .nuscenes import NuScenesDataset
++# from .waymo import WaymoDataset
+ 
+ # from .custom import CustomDataset
+ from .dataset_wrappers import ConcatDataset, RepeatDataset
+diff --git a/det3d/datasets/pipelines/loading.py b/det3d/datasets/pipelines/loading.py
+index 5baa3dc..c92f010 100644
+--- a/det3d/datasets/pipelines/loading.py
++++ b/det3d/datasets/pipelines/loading.py
+@@ -3,7 +3,7 @@ import warnings
+ import numpy as np
+ from functools import reduce
+ 
+-import pycocotools.mask as maskUtils
++# import pycocotools.mask as maskUtils
+ 
+ from pathlib import Path
+ from copy import deepcopy
+diff --git a/det3d/models/bbox_heads/center_head.py b/det3d/models/bbox_heads/center_head.py
+index 87e8541..d9ad708 100644
+--- a/det3d/models/bbox_heads/center_head.py
++++ b/det3d/models/bbox_heads/center_head.py
+@@ -297,6 +297,7 @@ class CenterHead(nn.Module):
+         # get loss info
+         rets = []
+         metas = []
++        raw_output = []
+ 
+         double_flip = test_cfg.get('double_flip', False)
+ 
+@@ -421,10 +422,15 @@ class CenterHead(nn.Module):
+             metas.append(meta_list)
+ 
+             if test_cfg.get('per_class_nms', False):
+-                pass 
++                raw_output.append({
++                    'batch_box_preds':batch_box_preds,
++                    'batch_hm': batch_hm,
++                }) 
+             else:
+                 rets.append(self.post_processing(batch_box_preds, batch_hm, test_cfg, post_center_range, task_id)) 
+ 
++        if test_cfg.get('per_class_nms', False):
++            return raw_output
+         # Merge branches results
+         ret_list = []
+         num_samples = len(rets[0])
+diff --git a/det3d/models/detectors/base.py b/det3d/models/detectors/base.py
+index 0ad93f6..ba3109a 100644
+--- a/det3d/models/detectors/base.py
++++ b/det3d/models/detectors/base.py
+@@ -2,7 +2,7 @@ import logging
+ from abc import ABCMeta, abstractmethod
+ 
+ import numpy as np
+-import pycocotools.mask as maskUtils
++# import pycocotools.mask as maskUtils
+ import torch.nn as nn
+ from det3d import torchie
+ 
+diff --git a/det3d/ops/iou3d_nms/iou3d_nms_utils.py b/det3d/ops/iou3d_nms/iou3d_nms_utils.py
+index 4d71e33..5f761e2 100644
+--- a/det3d/ops/iou3d_nms/iou3d_nms_utils.py
++++ b/det3d/ops/iou3d_nms/iou3d_nms_utils.py
+@@ -5,7 +5,7 @@ All Rights Reserved 2019-2020.
+ """
+ import torch
+ 
+-from . import iou3d_nms_cuda
++# from . import iou3d_nms_cuda
+ import numpy as np 
+ 
+ 
+diff --git a/det3d/solver/fastai_optim.py b/det3d/solver/fastai_optim.py
+index a543447..efcd0ae 100644
+--- a/det3d/solver/fastai_optim.py
++++ b/det3d/solver/fastai_optim.py
+@@ -1,4 +1,5 @@
+-from collections import Iterable, defaultdict
++from collections import defaultdict
++from collections.abc import Iterable
+ from copy import deepcopy
+ from itertools import chain
+ 
+diff --git a/det3d/solver/optim.py b/det3d/solver/optim.py
+index 224ada0..cf06943 100644
+--- a/det3d/solver/optim.py
++++ b/det3d/solver/optim.py
+@@ -1,4 +1,5 @@
+-from collections import Iterable, defaultdict
++from collections import defaultdict
++from collections.abc import Iterable
+ from copy import deepcopy
+ from itertools import chain
+ 
+diff --git a/det3d/torchie/trainer/checkpoint.py b/det3d/torchie/trainer/checkpoint.py
+index 61c1f67..82f3b3e 100644
+--- a/det3d/torchie/trainer/checkpoint.py
++++ b/det3d/torchie/trainer/checkpoint.py
+@@ -9,7 +9,7 @@ from importlib import import_module
+ import torch
+ import torchvision
+ from det3d import torchie
+-from terminaltables import AsciiTable
++# from terminaltables import AsciiTable
+ from torch.utils import model_zoo
+ 
+ from .utils import get_dist_info
+diff --git a/tools/demo_utils.py b/tools/demo_utils.py
+index 65c9e80..1021a27 100644
+--- a/tools/demo_utils.py
++++ b/tools/demo_utils.py
+@@ -281,8 +281,8 @@ class Box:
+         return copy.deepcopy(self)
+ 
+ 
+-def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
+-    _, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=200)
++def visual(points, det, i, gt_anno=None, eval_range=35, conf_th=0.5):
++    fig, ax = plt.subplots(1, 1, figsize=(9, 9), dpi=200)
+     points = remove_close(points, radius=3)
+     points = view_points(points[:3, :], np.eye(4), normalize=False)
+ 
+@@ -290,7 +290,7 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
+     colors = np.minimum(1, dists / eval_range)
+     ax.scatter(points[0, :], points[1, :], c=colors, s=0.2)
+ 
+-    boxes_gt = _second_det_to_nusc_box(gt_anno)
++    boxes_gt = _second_det_to_nusc_box(gt_anno) if gt_anno is not None else []
+     boxes_est = _second_det_to_nusc_box(det)
+ 
+     # Show GT boxes.
+@@ -307,9 +307,17 @@ def visual(points, gt_anno, det, i, eval_range=35, conf_th=0.5):
+     ax.set_xlim(-axes_limit, axes_limit)
+     ax.set_ylim(-axes_limit, axes_limit)
+     plt.axis('off')
++    import io
++    from PIL import Image
++    buf = io.BytesIO()
++    fig.savefig(buf, format="png", bbox_inches='tight', pad_inches=0)
++    # plt.savefig("demo/file%02d.png" % i)
++    plt.close(fig)
++    buf.seek(0)
++    image = Image.open(buf).convert('RGB')
++    buf.close()
++    return image
+ 
+-    plt.savefig("demo/file%02d.png" % i)
+-    plt.close()
+ 
+ 
+ def remove_close(points, radius: float) -> None:

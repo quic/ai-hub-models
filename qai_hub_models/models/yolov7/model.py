@@ -80,46 +80,38 @@ class YoloV7(Yolo):
             batch_size, self.yolov7_detector.h, self.yolov7_detector.w
         )
 
-    def forward(self, image):
+    def forward(self, image: torch.Tensor):
         """
         Run YoloV7 on `image`, and produce a predicted set of bounding boxes and associated class probabilities.
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: torch.Tensor
-                    Bounding box locations.  Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y)
-                scores: torch.Tensor
-                    class scores multiplied by confidence: Shape is [batch, num_preds]
-                class_idx: torch.tensor
-                    Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
+        If self.include_postprocessing is True, returns:
+        boxes
+            Bounding box locations. Shape [batch, num preds, 4] where 4 == (left_x, top_y, right_x, bottom_y).
+        scores
+            Class scores multiplied by confidence. Shape is [batch, num_preds].
+        class_idx
+            Shape is [batch, num_preds] where the last dim is the index of the most probable class of the prediction.
 
-            else if self.split_output:
-                output_xy: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [x_center, y_center] (box_coordinates)
+        If self.include_postprocessing is False and self.split_output is True, returns:
+        boxes_xy
+            Shape is [batch, num_preds, 2] where, 2 is [x_center, y_center] (box_coordinates).
+        boxes_wh
+            Shape is [batch, num_preds, 2] where, 2 is [width, height] (box_size).
+        scores
+            Shape is [batch, num_preds, # of classes + 1]. The +1 is the confidence score.
 
-                output_wh: torch.Tensor
-                    Shape is [batch, num_preds, 2]
-                        where, 2 is [width, height] (box_size)
-
-                output_scores: torch.Tensor
-                    Shape is [batch, num_preds, j]
-                        where j is [confidence (1 element) , # of classes elements]
-
-
-            else:
-                detector_output: torch.Tensor
-                    Shape is [batch, num_preds, k]
-                        where, k = # of classes + 5
-                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
-                        and box_coordinates are [x_center, y_center, w, h]
+        If self.include_postprocessing is False and self.split_output is False, returns:
+        detector_output
+            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         feature_extraction_output = (
             *self.yolov7_feature_extractor(image),
@@ -272,13 +264,17 @@ class _YoloV7Detector(torch.nn.Module):  # YoloV7 Detection
 
         Parameters
         ----------
-            all_x: tuple[torch.Tensor]
-                Outputs of the feature extraction layers of YoloV7. Typically 3 5D tensors.
+        all_x
+            Outputs of the feature extraction layers of YoloV7. Typically 3 5D tensors.
 
         Returns
         -------
-            pred: [batch_size, # of predictions, 5 + # of classes]
-                Where the rightmost dim contains [center_x, center_y, w, h, confidence score, n per-class scores]
+        xy
+            Center coordinates. Shape [batch_size, # of predictions, 2]
+        wh
+            Width and height. Shape [batch_size, # of predictions, 2]
+        scores
+            Confidence and class scores. Shape [batch_size, # of predictions, # of classes + 1]
         """
         # inference output
         all_xy = []

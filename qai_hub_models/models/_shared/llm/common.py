@@ -8,7 +8,7 @@ from enum import Enum
 import torch
 
 
-def cleanup():
+def cleanup() -> None:
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

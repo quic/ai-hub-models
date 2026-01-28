@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import cast
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.litehrnet_evaluator import LiteHRNetPoseEvaluator
@@ -59,7 +60,7 @@ class LiteHRNet(BaseModel):
         self.B = 1
 
     @classmethod
-    def from_pretrained(cls, inferencer_arch=DEFAULT_INFERENCER_ARCH) -> LiteHRNet:
+    def from_pretrained(cls, inferencer_arch=DEFAULT_INFERENCER_ARCH) -> Self:
         """LiteHRNet comes from the MMPose library, so we load using an internal config
         rather than a public weights file
         """
@@ -75,16 +76,20 @@ class LiteHRNet(BaseModel):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            keypoints: 1x17x2 array of coordinate pairs (in x,y format) denoting joint keypoints in the original image
-            scores: 1x17 array of float[0,1] denoting the score of each corresponding keypoint
-            heatmaps: 1x17 array of 64x48 heatmaps. These hold the raw confidence values of the locations
-                      of each joint in the image. The keypoints and scores are derived from this
+        keypoints
+            1x17x2 array of coordinate pairs (in x,y format) denoting joint keypoints in the original image.
+        scores
+            1x17 array of float[0,1] denoting the score of each corresponding keypoint.
+        heatmaps
+            1x17 array of 64x48 heatmaps. These hold the raw confidence values of the locations
+            of each joint in the image. The keypoints and scores are derived from this.
         """
         # Preprocess
         x = image[:, [2, 1, 0], ...]  # RGB -> BGR

@@ -42,8 +42,10 @@ class CenterNet2D(CenterNet):
 
     Parameters
     ----------
-        model (BaseModule): Centernet 2D bbox model.
-        ctdet_decode(Callable): 2D bbbox dectection decoder function.
+    model
+        Centernet 2D bbox model.
+    ctdet_decode
+        2D bbox detection decoder function.
     """
 
     def __init__(
@@ -88,19 +90,18 @@ class CenterNet2D(CenterNet):
 
         Parameters
         ----------
-            B = batch size, C = 3, H = img height, W = img width
-            imgs: torch.Tensor of shape [B,C,H,W] as float32
-                Preprocessed image with range[0-1] in RGB format.
+        image
+            Preprocessed image with range[0-1] in RGB format.
+            Shape [B, C, H, W] where B = batch size, C = 3, H = img height, W = img width.
 
         Returns
         -------
-            hm (torch.Tensor): Heatmap with the shape of
-                [B, num_classes, H//4, W//4].
-            wh (torch.Tensor): Width/Height value with the
-                shape of [B, 2, H//4, W//4].
-            reg (torch.Tensor): 2D regression value with the
-                shape of [B, 2, H//4, W//4].
-            where num_classes = 80.
+        hm
+            Heatmap with the shape of [B, num_classes, H//4, W//4] where num_classes = 80.
+        wh
+            Width/Height value with the shape of [B, 2, H//4, W//4].
+        reg
+            2D regression value with the shape of [B, 2, H//4, W//4].
         """
         image = image[:, [2, 1, 0]]
         mean = torch.Tensor([0.408, 0.447, 0.470]).reshape(1, 3, 1, 1)

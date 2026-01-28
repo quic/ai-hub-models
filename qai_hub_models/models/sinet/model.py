@@ -48,13 +48,15 @@ class SINet(CityscapesSegmentor):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for model consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for model consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            tensor: 1x2xHxW tensor of class logits per pixel
+        class_logits
+            1x2xHxW tensor of class logits per pixel
         """
         # These mean and std values were computed using the prescribed training data
         # and process in https://github.com/clovaai/ext_portrait_segmentation/blob/9bc1bada1cb7bd17a3a80a2964980f4b4befef5b/data/loadData.py#L44

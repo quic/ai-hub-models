@@ -8,6 +8,7 @@ from __future__ import annotations
 from copy import deepcopy
 
 import torch
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.detection_evaluator import DetectionEvaluator
@@ -42,10 +43,10 @@ class GearGuardNet(BaseModel):
 
         Parameters
         ----------
-        ch
-            Input channels.
         model_cfg
             Model configuration
+        ch
+            Input channels.
         include_postprocessing
             If True, forward returns postprocessed outputs (boxes, scores, class_idx).
             If False, forward returns raw detector output.
@@ -77,8 +78,9 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        Decoded predictions for this scale with shape [batch, num_predictions, 7],
-        where 7 represents [x_center, y_center, width, height, confidence, class_0_score, class_1_score].
+        decoded_predictions
+            Decoded predictions for this scale with shape [batch, num_predictions, 7],
+            where 7 represents [x_center, y_center, width, height, confidence, class_0_score, class_1_score].
         """
         # make detector_output shape [batch, height, width, channels]
         out = out.permute(0, 2, 3, 1)  # [batch, height, width, channels]
@@ -172,12 +174,13 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        Detection results with shape (batch_size, num_detections, 7), where:
-        - Each detection contains 7 values:
-            [x_center, y_center, width, height, confidence, class_0_score, class_1_score]
-        - Coordinates (x_center, y_center, width, height) are in absolute pixel values
-        - Confidence is the objectness score (0-1)
-        - Class scores are values (0-1) for each class
+        detection_results
+            Detection results with shape (batch_size, num_detections, 7), where:
+            - Each detection contains 7 values:
+                [x_center, y_center, width, height, confidence, class_0_score, class_1_score]
+            - Coordinates (x_center, y_center, width, height) are in absolute pixel values
+            - Confidence is the objectness score (0-1)
+            - Class scores are values (0-1) for each class
         """
         anchors = torch.tensor(
             [
@@ -216,25 +219,22 @@ class GearGuardNet(BaseModel):
 
         Returns
         -------
-        If self.include_postprocessing is True:
-            tuple containing:
-            - boxes
-                Bounding box coordinates with shape [batch_size, num_detections, 4].
-                Each box is represented as (x1, y1, x2, y2) in absolute pixel coordinates.
+        If include_postprocessing is True, returns:
+        boxes
+            Bounding box coordinates with shape [batch_size, num_detections, 4].
+            Each box is represented as (x1, y1, x2, y2) in absolute pixel coordinates.
+        scores
+            Detection confidence scores with shape [batch_size, num_detections].
+            Each score is the product of objectness confidence and class score.
+        class_idx
+            Predicted class indices with shape [batch_size, num_detections].
+            Values are integer indices representing the detected class.
 
-            - scores
-                Detection confidence scores with shape [batch_size, num_detections].
-                Each score is the product of objectness confidence and class score.
-
-            - class_idx
-                Predicted class indices with shape [batch_size, num_detections].
-                Values are integer indices representing the detected class.
-
-        Otherwise:
-            - detector_output
-                Raw detection results with shape [batch_size, num_detections, 7].
-                The 7 values for each detection are:
-                [x_center, y_center, width, height, confidence, class_0_score, class_1_score]
+        If include_postprocessing is False, returns:
+        detector_output
+            Raw detection results with shape [batch_size, num_detections, 7].
+            The 7 values for each detection are: [x_center, y_center, width, height,
+            confidence, class_0_score, class_1_score].
         """
         # Run backbone model
         y: list[int | None] = []
@@ -265,7 +265,7 @@ class GearGuardNet(BaseModel):
     @classmethod
     def from_pretrained(
         cls, checkpoint_path: str | None = None, include_postprocessing: bool = True
-    ) -> GearGuardNet:
+    ) -> Self:
         """
         Load model from pretrained weights.
 
@@ -273,14 +273,14 @@ class GearGuardNet(BaseModel):
         ----------
         checkpoint_path
             Checkpoint path of pretrained weights.
-
         include_postprocessing
             If True, forward returns postprocessed outputs (boxes, scores, class_idx).
             If False, forward returns raw detector output.
 
         Returns
         -------
-            Detection model.
+        model
+            The GearGuardNet detection model.
         """
         cfg = {
             "nc": 2,
@@ -321,7 +321,7 @@ class GearGuardNet(BaseModel):
                 [[17, 20, 23], 1, "Detect", ["nc", "anchors"]],
             ],
         }
-        model = GearGuardNet(cfg, include_postprocessing=include_postprocessing)
+        model = cls(cfg, include_postprocessing=include_postprocessing)
         checkpoint_to_load = (
             DEFAULT_WEIGHTS if checkpoint_path is None else checkpoint_path
         )

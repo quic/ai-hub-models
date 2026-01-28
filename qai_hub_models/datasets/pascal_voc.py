@@ -34,7 +34,7 @@ class VOCSegmentationDataset(BaseDataset):
         self,
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_spec: InputSpec | None = None,
-    ):
+    ) -> None:
         input_spec = input_spec or {"image": ((1, 3, 520, 520), "")}
         self.input_height = input_spec["image"][0][2]
         self.input_width = input_spec["image"][0][3]
@@ -71,7 +71,7 @@ class VOCSegmentationDataset(BaseDataset):
             ]
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         img = self.image_transform(Image.open(self.images[index]).convert("RGB"))
         target_img = Image.open(self.categories[index]).resize(
             (self.input_width, self.input_height)
@@ -79,7 +79,7 @@ class VOCSegmentationDataset(BaseDataset):
         target = torch.from_numpy(np.array(target_img)).float()
         return img, target
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _download_data(self) -> None:

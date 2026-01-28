@@ -56,20 +56,27 @@ class FaceMap_3DMMApp:
 
         Parameters
         ----------
-            pixel_values_or_image:
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
-            x0: numpy int32 -- left coordinate of face bounding box
-            x1: numpy int32 -- right coordinate of face bounding box
-            y0: numpy int32 -- top coordinate of face bounding box
-            y1: numpy int32 -- bottom coordinate of face bounding box
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        x0
+            Left coordinate of face bounding box.
+        x1
+            Right coordinate of face bounding box.
+        y0
+            Top coordinate of face bounding box.
+        y1
+            Bottom coordinate of face bounding box.
 
         Returns
         -------
-            lmk_images: numpy array -- images with predicted landmarks displayed.
+        predicted_landmarks
+            Predicted landmarks.
+        annotated_image
+            Images with predicted landmarks displayed.
         """
         [image], _ = app_to_net_image_inputs(pixel_values_or_image)
 

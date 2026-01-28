@@ -58,7 +58,7 @@ class RuntimeTorchWrapper(ABC, ExecutableModelProtocol, Generic[ModelIODetailsT]
         dequantize_model_output: Sequence[str] | Literal["ALL"] | None = "ALL",
         convert_inputs_to_channel_last: Sequence[str] | None = None,
         convert_outputs_to_channel_first: Sequence[str] | None = None,
-    ):
+    ) -> None:
         """
         Parameters
         ----------

@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Qualcomm Technologies, Inc. and/or its subsidiaries.
 # SPDX-License-Identifier: BSD-3-Clause
 # ---------------------------------------------------------------------
+from __future__ import annotations
+
 import argparse
 import sys
 import types
@@ -31,12 +33,12 @@ from qai_hub_models.utils.model_cache import CacheMode
 class DynamicMockModule(types.ModuleType):
     """Create a mock module that returns a mock object for all attributes."""
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> MagicMock:
         return MagicMock()
 
 
 @pytest.fixture(autouse=True)
-def mock_imports(monkeypatch):
+def mock_imports(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock imports of custom packages needed for some models."""
     # monkeypatch.setattr("qai_hub_models.utils.quantization_aimet_onnx", "ensure_min_aimet_onnx_version", MagicMock(return_value=True))
     for module_name in [
@@ -55,7 +57,7 @@ def mock_imports(monkeypatch):
         monkeypatch.setitem(sys.modules, module_name, DynamicMockModule(module_name))
 
 
-def test_parse_resnet18_export():
+def test_parse_resnet18_export() -> None:
     parser = export_parser(
         model_cls=ResnetModel,
         export_fn=resnet_export,
@@ -105,14 +107,14 @@ def test_parse_resnet18_export():
 
 
 @pytest.fixture
-def llama_parser():
+def llama_parser() -> argparse.ArgumentParser:
     with (
         patch(
             "qai_hub_models.utils.quantization_aimet_onnx.ensure_min_aimet_onnx_version",
             return_value=True,
         ),
         patch(
-            "qai_hub_models.utils.huggingface.ensure_has_required_transformer",
+            "qai_hub_models.utils.version_helpers.ensure_supported_version",
             return_value=True,
         ),
     ):
@@ -133,7 +135,7 @@ def llama_parser():
     )
 
 
-def test_device_parsing(llama_parser):
+def test_device_parsing(llama_parser: argparse.ArgumentParser) -> None:
     device = llama_parser.parse_args(["--device", "Samsung Galaxy S25"]).device
     assert device.name == "Samsung Galaxy S25"
     assert device.attributes == []
@@ -158,7 +160,7 @@ def test_device_parsing(llama_parser):
             )
 
 
-def test_parse_llama_export(llama_parser):
+def test_parse_llama_export(llama_parser: argparse.ArgumentParser) -> None:
     args = llama_parser.parse_args([])
     assert set(vars(args).keys()) == {
         "target_runtime",
@@ -201,7 +203,7 @@ def test_parse_llama_export(llama_parser):
     assert args.skip_inferencing is False
 
 
-def test_llama_parser_help(llama_parser):
+def test_llama_parser_help(llama_parser: argparse.ArgumentParser) -> None:
     for action in llama_parser._actions:
         if action.option_strings[0] == "--do-inferencing":
             assert action.default is True
@@ -230,7 +232,7 @@ def test_llama_parser_help(llama_parser):
             )
 
 
-def test_parse_whisper_export():
+def test_parse_whisper_export() -> None:
     from qai_hub_models.models.whisper_base import Model as WhisperModel
     from qai_hub_models.models.whisper_base.export import export_model as whisper_export
 
@@ -260,7 +262,7 @@ def test_parse_whisper_export():
     assert set(vars(args).keys()) == gt_set
 
 
-def test_parse_baichuan_export():
+def test_parse_baichuan_export() -> None:
     from qai_hub_models.models.baichuan2_7b import Model as BaichuanModel
     from qai_hub_models.models.baichuan2_7b.export import (
         export_model as baichuan_export,
@@ -296,7 +298,7 @@ def test_parse_baichuan_export():
     assert set(vars(args).keys()) == gt_set
 
 
-def test_parse_resnet18_evaluate():
+def test_parse_resnet18_evaluate() -> None:
     parser = evaluate_parser(
         model_cls=ResnetModel,
         supported_datasets=["imagenet"],
@@ -330,7 +332,7 @@ def test_parse_resnet18_evaluate():
     assert args.dataset_name == "imagenet"
 
 
-def test_parse_whisper_evaluate():
+def test_parse_whisper_evaluate() -> None:
     from qai_hub_models.models.whisper_base import Model as WhisperModel
 
     parser = evaluate_parser(
@@ -353,7 +355,7 @@ def test_parse_whisper_evaluate():
     assert args.device is None
 
 
-def test_get_export_name():
+def test_get_export_name() -> None:
     from qai_hub_models.models.midas import Model as MidasModel
     from qai_hub_models.models.swin_tiny import Model as SwinModel
 
@@ -393,7 +395,7 @@ def test_get_export_name():
     )
 
 
-def test_demo_model_from_cli_args():
+def test_demo_model_from_cli_args() -> None:
     parser = get_model_cli_parser(ResnetModel)
     parser = get_on_device_demo_parser(parser, add_output_dir=False)
     args = parser.parse_args(
@@ -415,7 +417,7 @@ def test_demo_model_from_cli_args():
         validate_on_device_demo_args(args, RESNET_MODEL_ID)
 
 
-def test_compile_model_from_args():
+def test_compile_model_from_args() -> None:
     parser = evaluate_parser(
         model_cls=ResnetModel,
         supported_datasets=["imagenet"],

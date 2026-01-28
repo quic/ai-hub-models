@@ -18,6 +18,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.metadata_yaml import ModelFileMetadata, ModelMetadata
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.regnet_y_800mf import MODEL_ID, Model
@@ -40,6 +41,7 @@ from qai_hub_models.utils.path_helpers import (
 )
 from qai_hub_models.utils.printing import (
     print_inference_metrics,
+    print_on_target_demo_cmd,
     print_profile_metrics_from_job,
     print_tool_versions,
 )
@@ -172,11 +174,21 @@ def download_model(
         dst_path.mkdir()
 
         if target_model.model_type == hub.SourceModelType.ONNX:
-            download_and_unzip_workbench_onnx_model(target_model, dst_path, model_name)
+            onnx_result = download_and_unzip_workbench_onnx_model(
+                target_model, dst_path, model_name
+            )
+            model_file_name = onnx_result.onnx_graph_name
         else:
-            target_model.download(os.path.join(dst_path, model_name))
+            downloaded_path = target_model.download(os.path.join(dst_path, model_name))
+            model_file_name = os.path.basename(downloaded_path)
 
         tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+
+        # Extract and save metadata alongside downloaded model
+        metadata_path = dst_path / "metadata.yaml"
+        file_metadata = ModelFileMetadata.from_hub_model(target_model)
+        model_metadata = ModelMetadata(model_files={model_file_name: file_metadata})
+        model_metadata.to_yaml(metadata_path)
 
         if zip_assets:
             output_path = Path(
@@ -209,7 +221,7 @@ def export_model(
     profile_options: str = "",
     fetch_static_assets: str | None = None,
     zip_assets: bool = False,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> ExportResult:
     """
     This function executes the following recipe:
@@ -409,6 +421,7 @@ def export_model(
 
     if not skip_summary:
         print_tool_versions(tool_versions, tool_versions_are_from_device_job)
+        print_on_target_demo_cmd(compile_job, Path(__file__).parent, device)
 
     if downloaded_model_path:
         print(f"{model_name} was saved to {downloaded_model_path}\n")
@@ -423,10 +436,17 @@ def export_model(
     )
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
+            TargetRuntime.TFLITE,
+            TargetRuntime.QNN_DLC,
+            TargetRuntime.QNN_CONTEXT_BINARY,
+            TargetRuntime.ONNX,
+            TargetRuntime.PRECOMPILED_QNN_ONNX,
+        ],
+        Precision.w8a8: [
             TargetRuntime.TFLITE,
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,

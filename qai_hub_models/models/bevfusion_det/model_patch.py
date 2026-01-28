@@ -6,11 +6,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import cast
+from typing import Any, cast
 
 import torch
 
+from qai_hub_models.extern.mmdet import patch_mmdet_no_build_deps
 from qai_hub_models.utils.bounding_box_processing_3d import nms_cpu, xywhr2xyxyr
+
+with patch_mmdet_no_build_deps():
+    from mmdet.models.layers import PatchMerging
 
 
 def bev_pool(
@@ -18,7 +22,8 @@ def bev_pool(
     coords: torch.Tensor,
     ranks: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Pools features into BEV space using sorted ranks.
+    """
+    Pools features into BEV space using sorted ranks.
 
     Adapted from : https://github.com/mit-han-lab/bevfusion/blob/326653dc06e0938edf1aae7d01efcd158ba83de5/
     mmdet3d/ops/bev_pool/src/bev_pool_cpu.cpp#L22-47
@@ -30,16 +35,21 @@ def bev_pool(
 
     Parameters
     ----------
-        feats (torch.Tensor): Input features, shape (N, C).
-        coords (torch.Tensor): Coordinates, shape (N, 3).
-        ranks (torch.Tensor): Sorted indices, shape (N,).
+    feats
+        Input features, shape (N, C).
+    coords
+        Coordinates, shape (N, 3).
+    ranks
+        Sorted indices, shape (N,).
 
     Returns
     -------
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            - x (torch.Tensor): Pooled features, shape (N', C).
-            - lengths (torch.Tensor): Group lengths, shape (N').
-            - geom_feats (torch.Tensor): Filtered coordinates, shape (2, N').
+    x
+        Pooled features, shape (N', C).
+    lengths
+        Group lengths, shape (N').
+    geom_feats
+        Filtered coordinates, shape (2, N').
     """
     geom_feats = coords
 
@@ -63,39 +73,46 @@ def bev_pool(
 
 
 def patched_centerhead_get_task_detections(
-    self,
+    self: Any,
     num_class_with_bg: int,
     batch_cls_preds: list[torch.Tensor],
     batch_reg_preds: list[torch.Tensor],
     batch_cls_labels: list[torch.Tensor],
-    metas=None,
+    metas: dict | None = None,
     nms_scale: list[float] | None = None,
 ) -> list[dict[str, torch.Tensor]]:
-    """Rotate nms for each task.
+    """
+    Rotate nms for each task.
 
     Parameters
     ----------
-        num_class_with_bg (int): Number of classes for the current task.
-        batch_cls_preds (list[torch.Tensor]): Prediction score with the
-            shape of [N].
-        batch_reg_preds (list[torch.Tensor]): Prediction bbox with the
-            shape of [N, 9].
-        batch_cls_labels (list[torch.Tensor]): Prediction label with the
-            shape of [N].
-        metas (list[dict]): Meta information of each sample.
+    self
+        Instance reference.
+    num_class_with_bg
+        Number of classes for the current task.
+    batch_cls_preds
+        Prediction score with the shape of [N].
+    batch_reg_preds
+        Prediction bbox with the shape of [N, 9].
+    batch_cls_labels
+        Prediction label with the shape of [N].
+    metas
+        Meta information of each sample.
+    nms_scale
+        NMS scale factors.
 
     Returns
     -------
-        list[dict[str: torch.Tensor]]: contains the following keys:
-            -bboxes (torch.Tensor): Prediction bboxes after nms with the \
-                shape of [N, 9].
-            -scores (torch.Tensor): Prediction scores after nms with the \
-                shape of [N].
-            -labels (torch.Tensor): Prediction labels after nms with the \
-                shape of [N].
+    list[dict[str, torch.Tensor]]
+        Contains the following keys:
+        - bboxes: Prediction bboxes after nms with the shape of [N, 9].
+        - scores: Prediction scores after nms with the shape of [N].
+        - labels: Prediction labels after nms with the shape of [N].
+
+    Notes
+    -----
     Source : https://github.com/mit-han-lab/bevfusion/blob/326653dc06e0938edf1aae7d01efcd158ba83de5
     /mmdet3d/models/heads/bbox/centerpoint.py#L759C9-L759C28
-
     """
     if nms_scale is None:
         nms_scale = [1.0]
@@ -203,27 +220,35 @@ def patched_centerhead_get_task_detections(
 
 
 def patched_topk(
-    self, scores: torch.Tensor, K: int = 80
+    self: Any, scores: torch.Tensor, K: int = 80
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Get indexes based on scores.
+    """
+    Get indexes based on scores.
+
+    Selects the top K scores from the heatmap, computes corresponding indices, class IDs,
+    and spatial coordinates (x, y) in the feature map.
 
     Parameters
     ----------
-        scores (torch.Tensor): Scores with shape [B, N, W, H].
-        K (int): Number of top scores to keep. Defaults to 80.
+    self
+        Instance reference.
+    scores
+        Scores with shape [B, N, W, H].
+    K
+        Number of top scores to keep. Defaults to 80.
 
     Returns
     -------
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-            - topk_score: Selected scores with shape [B, K].
-            - topk_inds: Selected indices with shape [B, K].
-            - topk_clses: Selected class indices with shape [B, K].
-            - topk_ys: Selected y-coordinates with shape [B, K].
-            - topk_xs: Selected x-coordinates with shape [B, K].
-
-    Summary:
-        Selects the top K scores from the heatmap, computes corresponding indices, class IDs,
-        and spatial coordinates (x, y) in the feature map.
+    topk_score
+        Selected scores with shape [B, K].
+    topk_inds
+        Selected indices with shape [B, K].
+    topk_clses
+        Selected class indices with shape [B, K].
+    topk_ys
+        Selected y-coordinates with shape [B, K].
+    topk_xs
+        Selected x-coordinates with shape [B, K].
     """
     batch, cat, height, width = scores.size()
 
@@ -250,7 +275,7 @@ def patched_topk(
 
 
 def patched_lss_forward(
-    self,
+    self: Any,
     x: torch.Tensor,
     intrins: torch.Tensor,
     camera2lidars: torch.Tensor,
@@ -260,30 +285,40 @@ def patched_lss_forward(
     """
     Processes camera features and geometric transformations up to ranking.
 
-    Parameters
-    ----------
-        x (torch.Tensor): Feature tensor of shape (batch_size, 6, 256, 32, 88).
-        intrins (torch.Tensor): Camera intrinsics of shape (batch_size, 6, 3, 3).
-        camera2lidars (torch.Tensor): Camera-to-LiDAR transformations of shape (batch_size, 6, 4, 4).
-        inv_post_rots (torch.Tensor): Inverse rotation matrices of shape (batch_size, 6, 3, 3).
-        post_trans (torch.Tensor): Post-transformation translations of shape (batch_size, 6, 1, 3).
-
-    Returns
-    -------
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-            - x (torch.Tensor): Feature tensor of shape (-1, 80).
-            - geom_feats (torch.Tensor): Geometric features of shape (2, -1).
-            - ranks (torch.Tensor): Sorted ranks tensor of shape (-1,).
-
     Differences from source:
         - Removes multi-sensor inputs (lidar, radar, lidar augmentation matrices).
         - Simplifies geometry computations with per-camera frustum processing.
         - Removes mmdet3d.ops BEV pooling op with Custom Bevpool operation.
         - Optimizes for Qualcomm deployment with single-batch processing and reduced dependencies.
 
+    Parameters
+    ----------
+    self
+        Instance reference.
+    x
+        Feature tensor of shape (batch_size, 6, 256, 32, 88).
+    intrins
+        Camera intrinsics of shape (batch_size, 6, 3, 3).
+    camera2lidars
+        Camera-to-LiDAR transformations of shape (batch_size, 6, 4, 4).
+    inv_post_rots
+        Inverse rotation matrices of shape (batch_size, 6, 3, 3).
+    post_trans
+        Post-transformation translations of shape (batch_size, 6, 1, 3).
+
+    Returns
+    -------
+    x
+        Feature tensor of shape (-1, 80).
+    geom_feats
+        Geometric features of shape (2, -1).
+    ranks
+        Sorted ranks tensor of shape (-1,).
+
+    Notes
+    -----
     Source : https://github.com/mit-han-lab/bevfusion/blob/326653dc06e0938edf1aae7d01efcd158ba83de5/
     mmdet3d/models/vtransforms/base.py#L179
-
     """
     # Begin Qualcomm modification
     camera2lidar_rots = camera2lidars[..., :3, :3]
@@ -356,17 +391,21 @@ def patched_lss_forward(
     return cam_feats_cat, geom_feats, ranks
 
 
-def patched_get_cam_feats(self, x: torch.Tensor) -> list[torch.Tensor]:
+def patched_get_cam_feats(self: Any, x: torch.Tensor) -> list[torch.Tensor]:
     """
     Extracts camera features and depth using depthnet, combining them for BEV projection.
 
     Parameters
     ----------
-        x (torch.Tensor): Input tensor of shape (N, C, fH, fW).
+    self
+        Instance reference.
+    x
+        Input tensor of shape (N, C, fH, fW).
 
     Returns
     -------
-        list[torch.Tensor]: list of feature tensors of shape (1, D, fH*fW, C) for each camera.
+    list[torch.Tensor]
+        List of feature tensors of shape (1, D, fH*fW, C) for each camera.
     """
     N, _C, fH, fW = x.shape
 
@@ -391,21 +430,26 @@ def patched_get_cam_feats(self, x: torch.Tensor) -> list[torch.Tensor]:
 
 
 def PatchMerging_forward_optimized(
-    self, x: torch.Tensor, input_size: tuple[int, int]
+    self: PatchMerging, x: torch.Tensor, input_size: tuple[int, int]
 ) -> tuple[torch.Tensor, tuple[int, int]]:
     """
+    Merge patches for Swin Transformer architecture.
+
     Parameters
     ----------
-        x (Tensor): Has shape (B, H*W, C_in).
-        input_size (tuple[int]): The spatial shape of x, arrange as (H, W).
+    self
+        Instance reference.
+    x
+        Has shape (B, H*W, C_in).
+    input_size
+        The spatial shape of x, arrange as (H, W).
 
     Returns
     -------
-        tuple: Contains merged results and its spatial shape.
-
-            - x (Tensor): Has shape (B, Merged_H * Merged_W, C_out)
-            - out_size (tuple[int]): Spatial shape of x, arrange as
-                (Merged_H, Merged_W).
+    x
+        Has shape (B, Merged_H * Merged_W, C_out).
+    out_size
+        Spatial shape of x, arrange as (Merged_H, Merged_W).
     """
     B, L, C = x.shape
     assert isinstance(input_size, Sequence), (

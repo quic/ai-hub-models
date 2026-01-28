@@ -23,14 +23,15 @@ def preprocess_image(image: Image, normalize: bool = False) -> torch.Tensor:
 
     Parameters
     ----------
-        image: Input image to be run through the classifier model.
-
-        normalize: bool
-            Perform normalization to the standard imagenet mean and standard deviation.
+    image
+        Input image to be run through the classifier model.
+    normalize
+        Perform normalization to the standard imagenet mean and standard deviation.
 
     Returns
     -------
-        torch tensor to be directly passed to the model.
+    preprocessed_tensor
+        Torch tensor to be directly passed to the model.
     """
     out_tensor = IMAGENET_TRANSFORM(image)
     assert isinstance(out_tensor, torch.Tensor)
@@ -55,16 +56,15 @@ class ImagenetClassifierApp:
         self,
         model: ExecutableModelProtocol,
         normalization_in_network: bool = True,
-    ):
+    ) -> None:
         """
         Parameters
         ----------
-            model: ExecutableModelProtocol
-                The imagenet classifier.
-
-            normalization_in_network: bool
-                Whether the classifier normalizes the input using the standard imagenet mean and standard deviation.
-                If false, the app will preform the normalization in a preprocessing step.
+        model
+            The imagenet classifier.
+        normalization_in_network
+            Whether the classifier normalizes the input using the standard imagenet mean and standard deviation.
+            If false, the app will preform the normalization in a preprocessing step.
         """
         self.model = model
         self.normalization_in_network = normalization_in_network
@@ -76,10 +76,12 @@ class ImagenetClassifierApp:
 
         Parameters
         ----------
-            image: A PIL Image in RGB format.
+        image
+            A PIL Image in RGB format.
 
         Returns
         -------
+        class_probabilities
             A (1000,) size torch tensor of probabilities, each one corresponding
             to a different Imagenet1K class.
         """

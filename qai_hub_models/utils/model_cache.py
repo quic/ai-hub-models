@@ -116,7 +116,7 @@ class Cache(BaseQAIHMConfig):
 
     def insert(
         self, key: dict[str, str], value: dict[str, str], overwrite: bool = False
-    ):
+    ) -> None:
         key_val = KeyValue(key=key, val=value)
         for i, k_v in enumerate(self.cache):
             if k_v.key == key:
@@ -240,7 +240,7 @@ def _update_hub_model_id(
     hub_model_id: str,
     cache_mode: CacheMode = CacheMode.ENABLE,
     additional_keys: dict[str, str] | None = None,
-):
+) -> None:
     """
     Updates cache with `hub_model_id`.
 

@@ -83,7 +83,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
         run_per_path: dict[
             ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar
         ],  # Map<path, Summary>
-    ):
+    ) -> None:
         self.model_id = model_id
         self.precision = precision
         self.device = device
@@ -98,7 +98,7 @@ class ScorecardDeviceSummary(Generic[ScorecardJobTypeVar, ScorecardPathOrNoneTyp
         precision: Precision,
         device: ScorecardDevice,
         path_runs: list[ScorecardJobTypeVar],
-    ):
+    ) -> ScorecardDeviceSummary[ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar]:
         # Figure out unique devices in various baselines
         run_per_path: dict[ScorecardPathOrNoneTypeVar, ScorecardJobTypeVar] = {}
         for run in path_runs:
@@ -157,7 +157,7 @@ class ScorecardModelPrecisionSummary(
         runs_per_component_device: (
             dict[str, dict[ScorecardDevice, DeviceSummaryTypeVar]] | None
         ) = None,
-    ):
+    ) -> None:
         """
         Create a Summary for a Scorecard Model with a specific Precision.
 
@@ -199,7 +199,9 @@ class ScorecardModelPrecisionSummary(
         precision: Precision,
         path_runs: list[ScorecardJobTypeVar],
         components: list[str] | None = None,
-    ):
+    ) -> ScorecardModelPrecisionSummary[
+        DeviceSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar
+    ]:
         summaries_per_device_component: dict[
             str, dict[ScorecardDevice, DeviceSummaryTypeVar]
         ] = {}
@@ -212,7 +214,7 @@ class ScorecardModelPrecisionSummary(
                     component_dict[run._device] = job_list
                     job_list.append(run)
             summaries_per_device_component[component_id] = {
-                device: cls.device_summary_type.from_runs(
+                device: cls.device_summary_type.from_runs(  # type: ignore[misc]
                     model_id,
                     precision,
                     device,
@@ -298,7 +300,7 @@ class ScorecardModelSummary(
         model_id: str = "UNKNOWN",
         summaries_per_precision: dict[Precision, ModelPrecisionSummaryTypeVar]
         | None = None,
-    ):
+    ) -> None:
         """
         Create a Summary for a single Scorecard Model.
 
@@ -322,7 +324,9 @@ class ScorecardModelSummary(
         model_id: str,
         runs: list[ScorecardJobTypeVar],
         components: list[str] | None = None,
-    ):
+    ) -> ScorecardModelSummary[
+        ModelPrecisionSummaryTypeVar, ScorecardJobTypeVar, ScorecardPathOrNoneTypeVar
+    ]:
         summaries_per_precision: dict[Precision, list[ScorecardJobTypeVar]] = {}
         for run in runs:
             if run.precision in summaries_per_precision:
@@ -333,7 +337,7 @@ class ScorecardModelSummary(
         return cls(
             model_id,
             {
-                precision: cls.model_summary_type.from_runs(
+                precision: cls.model_summary_type.from_runs(  # type: ignore[misc]
                     model_id,
                     precision,
                     runs,  # type: ignore[arg-type]
@@ -576,7 +580,7 @@ class ModelPrecisionPerfSummary(
 
         return QAIHMModelPerf.PrecisionDetails(components=components)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return pprint.pformat(self.get_perf_card())
 
 
@@ -655,7 +659,7 @@ class ModelPerfSummary(
             precisions=precision_cards,
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return pprint.pformat(self.get_perf_card())
 
 

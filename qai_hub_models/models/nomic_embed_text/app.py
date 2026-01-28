@@ -49,13 +49,13 @@ class NomicEmbedTextApp:
 
         Parameters
         ----------
-            text: str
-                Text from which embeddings should be generated.
+        text
+            Text from which embeddings should be generated.
 
         Returns
         -------
-            token_embeddings: torch.Tensor
-                The generated transformer embeddings of shape [1, 512], dtype of fp32
+        token_embeddings
+            The generated transformer embeddings of shape [1, 512], dtype of fp32
         """
         inputs = self.tokenizer(text, padding="max_length", return_tensors="pt")
         input_ids = cast(torch.Tensor, inputs["input_ids"])

@@ -100,13 +100,26 @@ class BGNet(BaseModel):
     def eval_datasets() -> list[str]:
         return ["camouflage_dataset"]
 
+    @staticmethod
+    def calibration_dataset_name() -> str:
+        return "camouflage_dataset"
 
-def res2net50_v1b_26w_4s(pretrained=False, **kwargs):
-    """Constructs a Res2Net-50_v1b_26w_4s lib.
+
+def res2net50_v1b_26w_4s(pretrained: bool = False, **kwargs):
+    """
+    Constructs a Res2Net-50_v1b_26w_4s lib.
 
     Parameters
     ----------
-        pretrained (bool): If True, returns a lib pre-trained on ImageNet
+    pretrained
+        If True, returns a lib pre-trained on ImageNet
+    **kwargs
+        Additional keyword arguments.
+
+    Returns
+    -------
+    model
+        Res2Net model instance.
     """
     weights_path_res2net50 = CachedWebModelAsset.from_asset_store(
         MODEL_ID, MODEL_ASSET_VERSION, DEFAULT_WEIGHTS_RES2NET50

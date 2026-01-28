@@ -12,10 +12,11 @@ import shutil
 import struct
 import tempfile
 import warnings
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from functools import wraps
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import onnx
@@ -233,7 +234,7 @@ QUANTIZED_IO_TYPES = [np.uint8, np.uint16, np.int8, np.int16]
 
 
 @wraps(torch.onnx.export)
-def safe_torch_onnx_export(*args, **kwargs):
+def safe_torch_onnx_export(*args: Any, **kwargs: Any) -> None:
     """
     Calls torch.onnx.export.
 
@@ -245,7 +246,7 @@ def safe_torch_onnx_export(*args, **kwargs):
         if "dynamo" not in kwargs:
             kwargs = {**kwargs, "dynamo": False}
         verify_onnx_export_is_compatible_with_ai_hub()
-        return torch.onnx.export(*args, **kwargs)
+        torch.onnx.export(*args, **kwargs)
     except RuntimeError as e:
         if torch.__version__.startswith(
             "2.5."
@@ -464,7 +465,7 @@ ONNX_MIN_INCOMPATIBLE_VERSION = "1.19.0"
 
 def verify_onnx_export_is_compatible_with_ai_hub(
     pkg_versions: dict[str, str] | None = None,
-):
+) -> None:
     """
     Verifies the ONNX version installed on this machine can be used to export
     model files that are compatible with AI Hub Workbench.
@@ -598,15 +599,15 @@ def _add_io_helper(
 def generate_wrapper_onnx_file(
     graph_name: str,
     onnx_output_path: str | Path,
-    onnx_input_specs: dict[
+    onnx_input_specs: Mapping[
         str, tuple[tuple[int, ...], onnx.TensorProto.DataType] | ModelIODetails
     ],
-    onnx_output_specs: dict[
+    onnx_output_specs: Mapping[
         str, tuple[tuple[int, ...], onnx.TensorProto.DataType] | ModelIODetails
     ],
     qnn_context_bin_path: str | Path,
     qairt_version: str,
-):
+) -> None:
     ep_cache_context_content = str(qnn_context_bin_path)
     ctx_embed_mode = 0
 

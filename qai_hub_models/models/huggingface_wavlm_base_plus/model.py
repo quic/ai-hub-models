@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from transformers import WavLMForCTC
 from transformers.models.wavlm.modeling_wavlm import WavLMGroupNormConvLayer
+from typing_extensions import Self
 
 from qai_hub_models.evaluators.base_evaluators import BaseEvaluator
 from qai_hub_models.evaluators.libri_speech_evaluator import LibriSpeechEvaluator
@@ -43,7 +44,7 @@ class HuggingFaceWavLMBasePlus(BaseModel):
     @classmethod
     def from_pretrained(
         cls, weights_path: str | None = None, apply_npu_opt: bool = False
-    ) -> HuggingFaceWavLMBasePlus:
+    ) -> Self:
         """Load WavLM from a weightfile created by the source HUggingFaceWavLM repository."""
         if weights_path is None:
             weights_path = "patrickvonplaten/wavlm-libri-clean-100h-base-plus"
@@ -54,17 +55,18 @@ class HuggingFaceWavLMBasePlus(BaseModel):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Run WAvLM on `x`, and produce feature vector
+        Run WAvLM on `x`, and produce feature vector.
 
         Parameters
         ----------
-            x: 1x320000 tensor
-                   20 seconds of audio sampled at 16kHz
+        x
+            1x320000 tensor, 20 seconds of audio sampled at 16kHz.
 
         Returns
         -------
-            torch.Tensor: Logits tensor of shape (1, sequence_length, vocab_size)
-            Where sequence_length = 499 , vocab_size = 31 , representing the predicted token probabilities
+        logits
+            Logits tensor of shape (1, sequence_length, vocab_size).
+            Where sequence_length = 499, vocab_size = 31, representing the predicted token probabilities.
         """
         return self.model(x)
 

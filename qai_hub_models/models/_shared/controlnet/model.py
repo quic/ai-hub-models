@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Self
 
 # isort: off
 # This verifies aimet is installed, and this must be included first.
@@ -60,29 +62,29 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
         class ControlUNet2DConditionModelWrapper(torch.nn.Module):
             """Call with return_dict=false and unpack the output tuple"""
 
-            def __init__(self, model: UNet2DConditionModel):
+            def __init__(self, model: UNet2DConditionModel) -> None:
                 super().__init__()
                 self.model = model
 
             def forward(
                 self,
-                latent,
-                timestep,
-                text_emb,
-                controlnet_downblock0,
-                controlnet_downblock1,
-                controlnet_downblock2,
-                controlnet_downblock3,
-                controlnet_downblock4,
-                controlnet_downblock5,
-                controlnet_downblock6,
-                controlnet_downblock7,
-                controlnet_downblock8,
-                controlnet_downblock9,
-                controlnet_downblock10,
-                controlnet_downblock11,
-                controlnet_midblock,
-            ):
+                latent: torch.Tensor,
+                timestep: torch.Tensor,
+                text_emb: torch.Tensor,
+                controlnet_downblock0: torch.Tensor,
+                controlnet_downblock1: torch.Tensor,
+                controlnet_downblock2: torch.Tensor,
+                controlnet_downblock3: torch.Tensor,
+                controlnet_downblock4: torch.Tensor,
+                controlnet_downblock5: torch.Tensor,
+                controlnet_downblock6: torch.Tensor,
+                controlnet_downblock7: torch.Tensor,
+                controlnet_downblock8: torch.Tensor,
+                controlnet_downblock9: torch.Tensor,
+                controlnet_downblock10: torch.Tensor,
+                controlnet_downblock11: torch.Tensor,
+                controlnet_midblock: torch.Tensor,
+            ) -> torch.Tensor:
                 down_block_res_samples = (
                     controlnet_downblock0,
                     controlnet_downblock1,
@@ -111,23 +113,23 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
 
     def forward(
         self,
-        latent,
-        timestep,
-        text_emb,
-        controlnet_downblock0,
-        controlnet_downblock1,
-        controlnet_downblock2,
-        controlnet_downblock3,
-        controlnet_downblock4,
-        controlnet_downblock5,
-        controlnet_downblock6,
-        controlnet_downblock7,
-        controlnet_downblock8,
-        controlnet_downblock9,
-        controlnet_downblock10,
-        controlnet_downblock11,
-        controlnet_midblock,
-    ):
+        latent: torch.Tensor,
+        timestep: torch.Tensor,
+        text_emb: torch.Tensor,
+        controlnet_downblock0: torch.Tensor,
+        controlnet_downblock1: torch.Tensor,
+        controlnet_downblock2: torch.Tensor,
+        controlnet_downblock3: torch.Tensor,
+        controlnet_downblock4: torch.Tensor,
+        controlnet_downblock5: torch.Tensor,
+        controlnet_downblock6: torch.Tensor,
+        controlnet_downblock7: torch.Tensor,
+        controlnet_downblock8: torch.Tensor,
+        controlnet_downblock9: torch.Tensor,
+        controlnet_downblock10: torch.Tensor,
+        controlnet_downblock11: torch.Tensor,
+        controlnet_midblock: torch.Tensor,
+    ) -> torch.Tensor:
         return self.model(
             latent,
             timestep,
@@ -189,7 +191,7 @@ class ControlUnetBase(BaseModel, FromPretrainedMixin):
         )
 
 
-class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
+class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):  # type: ignore[misc]
     def __init__(
         self,
         sim_model: QuantSimOnnx,
@@ -206,7 +208,10 @@ class ControlUnetQuantizableBase(AIMETOnnxQuantizableMixin, ControlUnetBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> ControlUnetQuantizableBase:
+        torch_from_pretrained_kwargs: dict[str, Any] | None = None,
+        cls_kwargs: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Self:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT
@@ -252,12 +257,18 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
         class ControlNetWrapper(torch.nn.Module):
             """Just to unpack the output dict with key "sample"."""
 
-            def __init__(self, model: ControlNetModel):
+            def __init__(self, model: ControlNetModel) -> None:
                 super().__init__()
                 assert isinstance(model, ControlNetModel)
                 self.model = model
 
-            def forward(self, latent, timestep, text_emb, image_cond):
+            def forward(
+                self,
+                latent: torch.Tensor,
+                timestep: torch.Tensor,
+                text_emb: torch.Tensor,
+                image_cond: torch.Tensor,
+            ) -> tuple[torch.Tensor, ...]:
                 down_block_res_samples, mid_block_res_sample = self.model(  # type: ignore[operator]
                     latent,
                     # model expects timestep without batch dim
@@ -270,7 +281,13 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
 
         return ControlNetWrapper(model)
 
-    def forward(self, latent, time_emb, text_emb, image_cond):
+    def forward(
+        self,
+        latent: torch.Tensor,
+        time_emb: torch.Tensor,
+        text_emb: torch.Tensor,
+        image_cond: torch.Tensor,
+    ) -> tuple[torch.Tensor, ...]:
         return self.model(latent, time_emb, text_emb, image_cond)
 
     @staticmethod
@@ -310,7 +327,7 @@ class ControlNetBase(BaseModel, FromPretrainedMixin):
         return "stable_diffusion_calib_unet"
 
 
-class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):
+class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):  # type: ignore[misc]
     """Exportable ControlNet that can be quantized by AIMET-ONNX."""
 
     def __init__(
@@ -329,7 +346,7 @@ class ControlNetQuantizableBase(AIMETOnnxQuantizableMixin, ControlNetBase):
         checkpoint: CheckpointSpec = "DEFAULT",
         subfolder: str = "",
         host_device: torch.device | str = torch.device("cpu"),
-    ) -> ControlNetQuantizableBase:
+    ) -> Self:
         """
         Create AimetQuantSim from checkpoint. QuantSim is calibrated if the
         checkpoint is an AIMET_ONNX_EXPORT or DEFAULT

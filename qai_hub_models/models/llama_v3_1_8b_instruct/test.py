@@ -37,7 +37,6 @@ from qai_hub_models.models.llama_v3_1_8b_instruct.export import main as export_m
 from qai_hub_models.models.llama_v3_1_8b_instruct.model import (
     DEFAULT_CONTEXT_LENGTH,
     DEFAULT_PRECISION,
-    DEFAULT_SEQUENCE_LENGTH,
     HF_REPO_NAME,
     MODEL_ASSET_VERSION,
 )
@@ -232,44 +231,34 @@ def test_cli_default_device_select_component(
 
 
 # Full model tests
-@pytest.fixture(scope="session")
-def setup_quantized_checkpoints(tmpdir_factory):
-    path = tmpdir_factory.mktemp(f"{MODEL_ID}_deepseek_ckpt")
-    yield test.setup_test_quantization(
-        Model,
-        FP_Model,
-        path,
-        precision=DEFAULT_PRECISION,
-        checkpoint="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-    )
-    cleanup()
-
-
 @pytest.mark.evaluate
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
 @pytest.mark.parametrize(
-    ("task", "expected_metric", "num_samples"),
+    ("checkpoint", "task", "expected_metric", "num_samples"),
     [
-        ("wikitext", 8.02, 0),
-        ("tiny_mmlu", 0.58, 0),
+        ("DEFAULT", "wikitext", 8.02, 0),
+        ("DEFAULT", "tiny_mmlu", 0.58, 0),
+        ("DEFAULT_UNQUANTIZED", "wikitext", 6.77, 0),
+        ("DEFAULT_UNQUANTIZED", "tiny_mmlu", 0.63, 0),
     ],
 )
-def test_evaluate_default(
+def test_evaluate(
+    checkpoint: str,
     task: str,
     expected_metric: float,
     num_samples: int,
 ) -> None:
     cleanup()
-    checkpoint = "DEFAULT"
+    is_unquantized = checkpoint == "DEFAULT_UNQUANTIZED"
     actual_metric, _ = evaluate(
         quantized_model_cls=Model,
         fp_model_cls=FP_Model,
         qnn_model_cls=QNN_Model,
         num_samples=num_samples,
         task=task,
-        skip_fp_model_eval=True,
+        skip_fp_model_eval=not is_unquantized,
         kwargs=dict(
             checkpoint=checkpoint,
             sequence_length=DEFAULT_EVAL_SEQLEN,
@@ -283,74 +272,6 @@ def test_evaluate_default(
         value=actual_metric,
     )
     np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.evaluate
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-@pytest.mark.parametrize(
-    ("task", "expected_metric", "num_samples"),
-    [
-        ("wikitext", 6.77, 0),
-        ("tiny_mmlu", 0.63, 0),
-    ],
-)
-def test_evaluate_default_unquantized(
-    task: str,
-    expected_metric: float,
-    num_samples: int,
-) -> None:
-    cleanup()
-    checkpoint = "DEFAULT_UNQUANTIZED"
-    actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=FP_Model,
-        qnn_model_cls=QNN_Model,
-        num_samples=num_samples,
-        task=task,
-        kwargs=dict(
-            checkpoint=checkpoint,
-            sequence_length=DEFAULT_EVAL_SEQLEN,
-            context_length=DEFAULT_CONTEXT_LENGTH,
-        ),
-    )
-    log_evaluate_test_result(
-        model_name=MODEL_ID,
-        checkpoint=checkpoint,
-        metric=task,
-        value=actual_metric,
-    )
-    np.testing.assert_allclose(actual_metric, expected_metric, rtol=1e-02, atol=1e-02)
-
-
-@pytest.mark.evaluate
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="This test can be run on GPU only."
-)
-def test_evaluate_quantized_checkpoint(
-    setup_quantized_checkpoints: str,
-) -> None:
-    cleanup()
-    actual_metric, _ = evaluate(
-        quantized_model_cls=Model,
-        fp_model_cls=FP_Model,
-        qnn_model_cls=QNN_Model,
-        task="tiny_mmlu",
-        num_samples=0,
-        kwargs=dict(
-            checkpoint=setup_quantized_checkpoints,
-            sequence_length=DEFAULT_SEQUENCE_LENGTH,
-            context_length=DEFAULT_CONTEXT_LENGTH,
-        ),
-    )
-    log_evaluate_test_result(
-        model_name=MODEL_ID,
-        checkpoint="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-        metric="tiny_mmlu",
-        value=actual_metric,
-    )
-    np.testing.assert_allclose(actual_metric, 0.46, rtol=1e-02, atol=1e-02)
 
 
 @pytest.mark.demo
@@ -368,22 +289,57 @@ def test_demo_default(capsys) -> None:
     assert "Paris" in captured.out
 
 
+@pytest.mark.nightly
 @pytest.mark.demo
 @pytest.mark.skipif(
     not torch.cuda.is_available(), reason="This test can be run on GPU only."
 )
-def test_demo_quantized_checkpoint(setup_quantized_checkpoints, capsys) -> None:
+def test_quantize_demo_eval(tmp_path, capsys) -> None:
+    """Quantize the DeepSeek model, verify 'Paris' response, and evaluate tiny_mmlu."""
     cleanup()
+    checkpoint_path = test.setup_test_quantization(
+        Model,
+        FP_Model,
+        str(tmp_path),
+        precision=DEFAULT_PRECISION,
+        checkpoint="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        use_seq_mse=False,
+    )
+
+    # Demo test
     llama_3_1_chat_demo(
         fp_model_cls=FP_Model,
         default_prompt="<｜begin▁of▁sentence｜><|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYou are a helpful AI assistant. Be concise.\n<|start_header_id|>user<|end_header_id|>\n\nWhat is the capital of France?<|eot_id|><|start_header_id|>assistant<|end_header_id|><think>\n",  # noqa: RUF001
-        test_checkpoint=setup_quantized_checkpoints,
+        test_checkpoint=checkpoint_path,
         raw=True,
         # Note: DeepSeek sometimes uses non-ascii characters
         end_tokens={"<|eot_id|>", "<｜end▁of▁sentence｜>"},  # noqa: RUF001
     )
     captured = capsys.readouterr()
     assert "Paris" in captured.out
+
+    # Evaluate tiny_mmlu
+    cleanup()
+    actual_metric, _ = evaluate(
+        quantized_model_cls=Model,
+        fp_model_cls=FP_Model,
+        qnn_model_cls=QNN_Model,
+        task="tiny_mmlu",
+        num_samples=0,
+        kwargs=dict(
+            checkpoint=checkpoint_path,
+            sequence_length=DEFAULT_EVAL_SEQLEN,
+            context_length=DEFAULT_CONTEXT_LENGTH,
+        ),
+    )
+    log_evaluate_test_result(
+        model_name=MODEL_ID,
+        checkpoint="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+        metric="tiny_mmlu",
+        value=actual_metric,
+    )
+    np.testing.assert_allclose(actual_metric, 0.44, rtol=1e-02, atol=1e-02)
+    cleanup()
 
 
 @pytest.mark.skipif(
@@ -436,11 +392,9 @@ def test_compile(
         test.GENIE_BUNDLES_ROOT,
         MODEL_ID,
     )
-    assert os.path.exists(os.path.join(genie_bundle_path, "tokenizer.json"))
-    assert os.path.exists(os.path.join(genie_bundle_path, "genie_config.json"))
-    assert os.path.exists(
-        os.path.join(genie_bundle_path, "htp_backend_ext_config.json")
-    )
+    assert (genie_bundle_path / "tokenizer.json").exists()
+    assert (genie_bundle_path / "genie_config.json").exists()
+    assert (genie_bundle_path / "htp_backend_ext_config.json").exists()
 
 
 @pytest.mark.skipif(
@@ -470,21 +424,23 @@ def test_qdc(
     )
     if scorecard_path.runtime == TargetRuntime.ONNXRUNTIME_GENAI:
         pytest.skip("This test is only valid for Genie runtime.")
-    if not os.path.exists(os.path.join(genie_bundle_path, "genie_config.json")):
+    if not (genie_bundle_path / "genie_config.json").exists():
         pytest.fail("The genie bundle does not exist.")
-    from qai_hub_models.utils.qdc.qdc_jobs import submit_genie_bundle_to_qdc_device
+    from qai_hub_models.utils.qdc.genie_jobs import (
+        submit_genie_bundle_to_qdc_device,
+    )
 
     qdc_job_name = f"Genie {MODEL_ID} {precision}"
     tps, min_ttft = submit_genie_bundle_to_qdc_device(
         os.environ["QDC_API_TOKEN"],
         device.reference_device.name,
-        genie_bundle_path,
+        str(genie_bundle_path),
         job_name=qdc_job_name,
     )
     assert tps is not None and min_ttft is not None, "QDC execution failed."
     log_perf_on_device_result(
         model_name=MODEL_ID,
-        precision=precision,
+        precision=str(precision),
         device=device.name,
         tps=tps,
         ttft=min_ttft,

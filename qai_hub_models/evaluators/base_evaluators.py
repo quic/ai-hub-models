@@ -86,7 +86,7 @@ class BaseEvaluator(ABC):
         data: _DataLoader,
         eval_iterations: int | None = None,
         device: str = "cpu",
-    ):
+    ) -> None:
         """
         Populates this evaluator with data from the provided the data loader.
 
@@ -110,7 +110,7 @@ class BaseEvaluator(ABC):
 
         def _add_batch(
             _: torch.Tensor, outputs: torch.Tensor, ground_truth: torch.Tensor
-        ):
+        ) -> None:
             self.add_batch(outputs, ground_truth)
 
         _for_each_batch(model, data, eval_iterations, device, True, _add_batch)
@@ -123,7 +123,7 @@ def _for_each_batch(
     device: str = "cpu",
     data_has_gt: bool = False,
     callback: Callable | None = None,
-):
+) -> None:
     """
     Run the model on each batch of data.
 

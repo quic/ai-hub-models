@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import torch
 from PIL.Image import Image
@@ -32,10 +33,10 @@ class SuperResolutionApp:
         * display the input and output side-by-side
     """
 
-    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]):
+    def __init__(self, model: Callable[[torch.Tensor], torch.Tensor]) -> None:
         self.model = model
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> list[Image]:
         # See upscale_image.
         return self.upscale_image(*args, **kwargs)
 
@@ -44,21 +45,21 @@ class SuperResolutionApp:
         pixel_values_or_image: torch.Tensor | Image | list[Image],
     ) -> list[Image]:
         """
-        Upscale provided images
+        Upscale provided images.
 
         Parameters
         ----------
-            pixel_values_or_image
-                PIL image(s)
-                or
-                numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
-                or
-                pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
+        pixel_values_or_image
+            PIL image(s)
+            or
+            numpy array (N H W C x uint8) or (H W C x uint8) -- both RGB channel layout
+            or
+            pyTorch tensor (N C H W x fp32, value range is [0, 1]), RGB channel layout
 
         Returns
         -------
-                images: list[PIL.Image.Image]
-                    A list of upscaled images (one for each input image).
+        upscaled_images
+            A list of upscaled images (one for each input image).
         """
         _, NCHW_fp32_torch_frames = app_to_net_image_inputs(pixel_values_or_image)
 

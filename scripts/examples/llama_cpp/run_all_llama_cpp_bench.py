@@ -16,7 +16,7 @@ import subprocess
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run llama-cpp benchmark across multiple devices and context lengths."
     )

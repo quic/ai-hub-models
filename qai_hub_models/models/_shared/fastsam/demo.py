@@ -29,7 +29,7 @@ def fastsam_demo(
     model_id: str,
     image_path: str | CachedWebAsset,
     is_test: bool,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

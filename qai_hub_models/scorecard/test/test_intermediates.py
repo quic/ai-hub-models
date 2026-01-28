@@ -7,7 +7,7 @@ import pandas as pd
 from qai_hub_models.scorecard.results.yaml import ACCURACY_CSV_BASE
 
 
-def test_validate_accuracy_csv():
+def test_validate_accuracy_csv() -> None:
     df = pd.read_csv(ACCURACY_CSV_BASE)
     assert sorted(df.columns) == [
         "Device Accuracy",

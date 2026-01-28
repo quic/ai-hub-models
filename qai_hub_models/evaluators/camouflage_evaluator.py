@@ -16,18 +16,20 @@ from qai_hub_models.models.bgnet.app import postprocess_masks
 class CamouflageEvaluator(BaseEvaluator):
     """Evaluator for comparing segmentation output against ground truth"""
 
-    def __init__(self, metrics=("mae", "smeasure", "wfmeasure", "emeasure")):
+    def __init__(
+        self, metrics: tuple[str, ...] = ("mae", "smeasure", "wfmeasure", "emeasure")
+    ) -> None:
         self.metrics = metrics
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.sm = Smeasure()
         self.wfm = WeightedFmeasure()
         self.em = Emeasure()
         self.mae = MAE()
         self.results: dict = {m: [] for m in self.metrics}
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor) -> None:
         """
         Process a batch of segmentation predictions and ground truth masks.
 

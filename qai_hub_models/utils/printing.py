@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import os
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import IO, Any, TypeVar
 
 import numpy as np
 import qai_hub as hub
@@ -91,7 +91,7 @@ def print_inference_metrics(
         if output_idx < len(output_names):
             df_eval = df_eval.drop(output_names[output_idx])
 
-    def custom_float_format(x):
+    def custom_float_format(x: object) -> str | object:
         if isinstance(x, float):
             return f"{x:.4g}"
         return x
@@ -118,7 +118,7 @@ def print_inference_metrics(
 def print_profile_metrics_from_job(
     profile_job: hub.ProfileJob,
     profile_data: dict[str, Any],
-):
+) -> None:
     compute_unit_counts = Counter(
         [
             op.get("compute_unit", "UNK").lower()
@@ -224,7 +224,7 @@ def print_profile_metrics(
     runtime: TargetRuntime,
     perf_details: QAIHMModelPerf.PerformanceDetails,
     can_access_qualcomm_ai_hub: bool = True,
-):
+) -> None:
     print(
         get_profile_metrics(
             device_name, runtime, perf_details, can_access_qualcomm_ai_hub
@@ -356,7 +356,7 @@ def print_file_tree_changes(
 
 
 @contextmanager
-def suppress_stdout():
+def suppress_stdout() -> Generator[IO[str], None, None]:
     """A context manager that redirects stdout to devnull"""
     with open(os.devnull, "w") as fnull, redirect_stdout(fnull) as out:
         yield out

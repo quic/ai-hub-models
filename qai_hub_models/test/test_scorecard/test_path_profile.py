@@ -17,7 +17,7 @@ from qai_hub_models.test.test_models.test_common import reset_hub_frameworks_pat
 from qai_hub_models.utils.set_env import set_temp_env
 
 
-def test_profile_qnn_version():
+def test_profile_qnn_version() -> None:
     """
     This verifies behavior of ScorecardProfilePath.get_profile_options() with
     different combinations of:
@@ -211,7 +211,7 @@ def test_profile_qnn_version():
             # fmt: on
 
 
-def test_single_public_path_per_runtime():
+def test_single_public_path_per_runtime() -> None:
     public_paths_per_runtime: dict[TargetRuntime, ScorecardProfilePath] = {}
     for path in ScorecardProfilePath:
         if path.is_public:

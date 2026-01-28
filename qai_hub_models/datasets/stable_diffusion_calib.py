@@ -51,7 +51,7 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
         use_controlnet: bool = False,
         prompt_path: str | os.PathLike = "",
         image_cond_path: str | os.PathLike = "",
-    ):
+    ) -> None:
         """
         Parameters
         ----------
@@ -123,7 +123,7 @@ class StableDiffusionCalibDatasetBase(BaseDataset, ABC):
             return tensors[0], label
         return tensors, label
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(next(iter(self.ds.values())))  # type: ignore[attr-defined]
 
     @abstractmethod

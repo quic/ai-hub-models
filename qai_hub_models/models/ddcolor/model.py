@@ -108,3 +108,13 @@ class DDColor(BaseModel):
     @staticmethod
     def calibration_dataset_name() -> str:
         return "imagenette_colorization"
+
+    @staticmethod
+    def get_hub_litemp_percentage(_) -> float:
+        """
+        Returns the Lite-MP percentage value for the specified mixed precision quantization.
+
+        The returned value is a constant 10.0.
+
+        """
+        return 10

@@ -31,7 +31,9 @@ with patch_mmpose_no_build_deps():
 class WholeBodyPoseEvaluator(BaseEvaluator):
     """Evaluator for keypoint-based pose estimation using COCO-style mAP."""
 
-    def __init__(self, image_height: int, image_width: int, in_vis_thre: float = 0.2):
+    def __init__(
+        self, image_height: int, image_width: int, in_vis_thre: float = 0.2
+    ) -> None:
         """
         Parameters
         ----------
@@ -54,11 +56,11 @@ class WholeBodyPoseEvaluator(BaseEvaluator):
         )
         self.input_size = (image_width, image_height)
 
-    def reset(self):
+    def reset(self) -> None:
         """Resets the collected predictions."""
-        self.predictions = []
+        self.predictions: list[dict[str, Any]] = []
 
-    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]):
+    def add_batch(self, output: torch.Tensor, gt: list[torch.Tensor]) -> None:
         """Collects model predictions in COCO format and scales keypoints to original image space."""
         pred_x, pred_y = output
         batch_size = pred_x.shape[0]

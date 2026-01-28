@@ -15,10 +15,10 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class ColorizationEvaluator(BaseEvaluator):
     """Evaluator for Computing Colorfulness of the predicted output."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
-    def add_batch(self, output: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, output: torch.Tensor, gt: torch.Tensor) -> None:
         """
         Compute colorfulness of the predicted output.
 
@@ -57,11 +57,11 @@ class ColorizationEvaluator(BaseEvaluator):
         # derive the "colorfulness" metric
         return stdRoot + (0.3 * meanRoot)
 
-    def reset(self):
-        self.colorfulness = []
+    def reset(self) -> None:
+        self.colorfulness: list[float] = []
 
     def get_accuracy_score(self) -> float:
-        return np.mean(self.colorfulness)
+        return float(np.mean(self.colorfulness))
 
     def formatted_accuracy(self) -> str:
         return f"Colorfulness: {self.get_accuracy_score():.3f}"

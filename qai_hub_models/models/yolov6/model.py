@@ -52,23 +52,24 @@ class YoloV6(Yolo):
 
         Parameters
         ----------
-            image: Pixel values pre-processed for encoder consumption.
-                   Range: float[0, 1]
-                   3-channel Color Space: RGB
+        image
+            Pixel values pre-processed for encoder consumption.
+            Range: float[0, 1]
+            3-channel Color Space: RGB
 
         Returns
         -------
-            If self.include_postprocessing:
-                boxes: Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2)
-                scores: class scores multiplied by confidence: Shape [batch, num_preds, # of classes (typically 80)]
-                class_idx: Predicted class for each bounding box: Shape [batch, num_preds, 1]
+        If self.include_postprocessing is True, returns:
+        boxes
+            Shape [batch, num preds, 4] where 4 == (x1, y1, x2, y2).
+        scores
+            Class scores multiplied by confidence. Shape [batch, num_preds, # of classes (typically 80)].
+        class_idx
+            Predicted class for each bounding box. Shape [batch, num_preds, 1].
 
-            Otherwise:
-                detector_output: torch.Tensor
-                    Shape is [batch, num_preds, k]
-                        where, k = # of classes + 5
-                        k is structured as follows [box_coordinates (4) , conf (1) , # of classes]
-                        and box_coordinates are [x_center, y_center, w, h]
+        If self.include_postprocessing is False, returns:
+        detector_output
+            Shape is [batch, num_preds, k] where, k = # of classes + 5. k is structured as follows [box_coordinates (4), conf (1), # of classes] and box_coordinates are [x_center, y_center, w, h].
         """
         predictions = self.model(image)
         return (

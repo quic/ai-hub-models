@@ -386,7 +386,7 @@ def eval_class(
         )
         bbox_o = get_bbox_iou_matrix(d, g)
 
-        def pack(a):
+        def pack(a: list[dict]) -> np.ndarray:
             loc = np.concatenate([x["location"][:, bev_axes] for x in a])
             dim = np.concatenate([x["dimensions"][:, bev_axes] for x in a])
             rot = np.concatenate([x["rotation_y"] for x in a])[:, None]

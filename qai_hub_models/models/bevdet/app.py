@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import torch
@@ -79,17 +80,18 @@ class BEVDetApp:
         """
         Initialize BEVDetApp
 
-        Inputs:
-            model:
-                BEVDet Model.
-            bbox_coder:
-                CenterPointBBoxCoder for BEVDet Model.
-            score_threshold: float
-                Default is 0.4.
-            nms_threshold: float
-                Default is 4.0,
-            nms_post_max_size: int
-                Default is 500
+        Parameters
+        ----------
+        model
+            BEVDet Model.
+        bbox_coder
+            CenterPointBBoxCoder for BEVDet Model.
+        score_threshold
+            Default is 0.4.
+        nms_threshold
+            Default is 4.0,
+        nms_post_max_size
+            Default is 500
         """
         self.model = model
         self.bbox_coder = bbox_coder
@@ -97,7 +99,7 @@ class BEVDetApp:
         self.nms_threshold = nms_threshold
         self.nms_post_max_size = nms_post_max_size
 
-    def predict(self, *args, **kwargs):
+    def predict(self, *args: Any, **kwargs: Any) -> np.ndarray | list[Image.Image]:
         # See predict_3d_boxes_from_images.
         return self.predict_3d_boxes_from_images(*args, **kwargs)
 
@@ -114,28 +116,33 @@ class BEVDetApp:
 
         Parameters
         ----------
-            images_list: List of PIL Image
-                PIL images in RGB format from each camera.
-            intrins_list: List of np.ndarray with shape [3,3] as float32
-                Camera intrinsic matrix for each camera
-                Used to project 3D points in camera frames to 2D image coordinates.
-            sensor2egos_list: List of np.ndarray with shape [4,4] as float32
-                sensor2ego transformation matrix for each camera
-                converts from camera sensor to ego-vehicle coordinate frame.
-            ego2globals_list: List of np.ndarray with shape [4,4] as float32
-                ego2global transformation matrix for each camera
-                converts from ego-vehicle to world coordinate frame.
+        images_list
+            List of PIL Images in RGB format from each camera.
+        intrins_list
+            List of np.ndarray with shape [3,3] as float32.
+            Camera intrinsic matrix for each camera.
+            Used to project 3D points in camera frames to 2D image coordinates.
+        sensor2egos_list
+            List of np.ndarray with shape [4,4] as float32.
+            sensor2ego transformation matrix for each camera
+            converts from camera sensor to ego-vehicle coordinate frame.
+        ego2globals_list
+            List of np.ndarray with shape [4,4] as float32.
+            ego2global transformation matrix for each camera
+            converts from ego-vehicle to world coordinate frame.
+        raw_output
+            If true, returns corners. Otherwise returns output_images.
 
         Returns
         -------
-            if raw_output is true, returns
-                corners : np.ndarray
-                    corners of 3D bounding boxes with shape (N, 8, 3)
-            otherwise, returns
-                output_images: list of pil images
-                    images with 3d bounding boxes
+        If raw_output is True, returns:
+        corners
+            Corners of 3D bounding boxes with shape (N, 8, 3)
+            where N is number of bounding boxes.
 
-        where N is number of bounding boxes
+        If raw_output is False, returns:
+        output_images
+            List of PIL images with 3D bounding boxes overlaid.
         """
         sensor2egos = torch.tensor(sensor2egos_list)
         ego2globals = torch.tensor(ego2globals_list)
@@ -215,18 +222,20 @@ class BEVDetApp:
 
         Parameters
         ----------
-            images_list: List of PIL Image in RGB format
+        images_list
+            List of PIL Image in RGB format
 
         Returns
         -------
-            B=1, N=6, C=3, H=img_height, W=img_width
-            image_tensor: torch.tensor with shape [B, N*C, H, W]
-                pre-processed image with range[0-1]
-            inv_post_rots: torch.tensor with shape [B, N, 3, 3]
-                inverse post rotation matrix in camera coordinate system
-            post_trans: torch.tensor with shape [B, N, 1, 3]
-                post translation tensor in camera coordinate system
-
+        image_tensor
+            Shape [B, N*C, H, W] where B=1, N=6, C=3.
+            Pre-processed image with range[0-1].
+        inv_post_rots
+            Shape [B, N, 3, 3].
+            Inverse post rotation matrix in camera coordinate system.
+        post_trans
+            Shape [B, N, 1, 3].
+            Post translation tensor in camera coordinate system.
         """
         post_tran_list = []
         post_rot_list = []
@@ -271,26 +280,26 @@ class BEVDetApp:
 
         Parameters
         ----------
-            reg (torch.Tensor): 2D regression value with the
-               shape of [B, 2, H, W].
-            height (torch.Tensor): Height value with the
-               shape of [B, 1, H, W].
-            dim (torch.Tensor): Size value with the shape
-               of [B, 3, H, W].
-            rot (torch.Tensor): Rotation value with the
-               shape of [B, 2, H, W].
-            vel (torch.Tensor): Velocity value with the
-               shape of [B, 2, H, W].
-            heatmap (torch.Tensor): Heatmap with the shape of
-                [B, N, H, W].
+        reg
+            2D regression value with the shape of [B, 2, H, W].
+        height
+            Height value with the shape of [B, 1, H, W].
+        dim
+            Size value with the shape of [B, 3, H, W].
+        rot
+            Rotation value with the shape of [B, 2, H, W].
+        vel
+            Velocity value with the shape of [B, 2, H, W].
+        heatmap
+            Heatmap with the shape of [B, N, H, W].
 
         Returns
         -------
-            ret list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-                Decoded bbox corners with shape (Num_pred, 8, 3)
-                where 8 corners has 3 coordinates (x, y, z)
-                scores with shape (Num_pred,) and
-                labels with shape (Num_pred,) after nms.
+        detections_list
+            Decoded bbox corners with shape (Num_pred, 8, 3)
+            where 8 corners has 3 coordinates (x, y, z)
+            scores with shape (Num_pred,) and
+            labels with shape (Num_pred,) after nms.
         """
         # Decode bboxes from the given inputs
         # https://github.com/HuangJunJie2017/BEVDet/blob/26144be7c11c2972a8930d6ddd6471b8ea900d13/mmdet3d/core/bbox/coders/centerpoint_bbox_coders.py#L117

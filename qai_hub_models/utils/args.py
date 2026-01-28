@@ -42,11 +42,23 @@ from qai_hub_models.utils.qai_hub_helpers import (
 
 
 class ParseEnumAction(argparse.Action):
-    def __init__(self, option_strings, dest, enum_type, **kwargs):
+    def __init__(
+        self,
+        option_strings: list[str],
+        dest: str,
+        enum_type: type[Enum],
+        **kwargs: Any,
+    ) -> None:
         super().__init__(option_strings, dest, **kwargs)
         self.enum_type = enum_type
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | None,
+        option_string: str | None = None,
+    ) -> None:
         assert isinstance(values, str)
         setattr(namespace, self.dest, self.enum_type[values.upper().replace("-", "_")])
 
@@ -79,10 +91,16 @@ def get_quantize_action_with_default(
     """
 
     class ParsePrecisionAction(argparse.Action):
-        def __init__(self, option_strings, dest, **kwargs):
+        def __init__(self, option_strings: list[str], dest: str, **kwargs: Any) -> None:
             super().__init__(option_strings, dest, **kwargs)
 
-        def __call__(self, parser, namespace, values, option_string=None):
+        def __call__(
+            self,
+            parser: argparse.ArgumentParser,
+            namespace: argparse.Namespace,
+            values: str | Precision | None,
+            option_string: str | None = None,
+        ) -> None:
             if values:
                 if isinstance(values, Precision):
                     val = values
@@ -106,7 +124,7 @@ class QAIHMHelpFormatter(
       * including defaults in help messages (except for boolean args)
     """
 
-    def _get_help_string(self, action):
+    def _get_help_string(self, action: argparse.Action) -> str | None:
         """
         Default value for booleans in CLI help can be misleading.
         This overridden function will print just the help message for boolean args
@@ -135,9 +153,9 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
         ) = None,
         default_device: str | None = None,
         default_chipset: str | None = None,
-        *args,
-        **kwargs,
-    ):
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         self.supported_precision_runtimes = supported_precision_runtimes
         self.default_device = default_device
         self.default_chipset = default_chipset
@@ -159,7 +177,9 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
             )
         return None
 
-    def parse_args(self, args=None, namespace=None):
+    def parse_args(
+        self, args: list[str] | None = None, namespace: argparse.Namespace | None = None
+    ) -> argparse.Namespace:
         parsed = super().parse_args(args, namespace)
         parsed.device = self.get_hub_device(
             getattr(parsed, "device_str", None),
@@ -183,7 +203,7 @@ class QAIHMArgumentParser(argparse.ArgumentParser):
     def validate_precision_runtime(
         supported_precision_runtimes: dict[Precision, list[TargetRuntime]],
         parsed_args: argparse.Namespace,
-    ):
+    ) -> None:
         """
         Verifies that supported_precision_runtimes contains the precision + runtime pair chosen by the parsed argument namespace.
         If the namespace does not include both precision and runtime, then validation is skipped.
@@ -281,7 +301,9 @@ def add_output_dir_arg(parser: ParserT) -> ParserT:
     return parser
 
 
-def _get_default_runtime(available_runtimes: list[TargetRuntime] | set[TargetRuntime]):
+def _get_default_runtime(
+    available_runtimes: list[TargetRuntime] | set[TargetRuntime],
+) -> TargetRuntime:
     if len(available_runtimes) == 0:
         raise RuntimeError("available_runtimes empty, expecting at-least one runtime.")
     return (
@@ -439,7 +461,7 @@ def get_on_device_demo_parser(
     return parser
 
 
-def validate_on_device_demo_args(args: argparse.Namespace, model_name: str):
+def validate_on_device_demo_args(args: argparse.Namespace, model_name: str) -> None:
     """
     Validates the the args for the on device demo are valid.
 
@@ -775,6 +797,12 @@ def get_model_input_spec_parser(
     for name, param in get_input_spec_sig.parameters.items():
         if name == "self":
             continue
+        if param.kind in [
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ]:
+            # ignore variadic params: *args, **kwargs
+            continue
         type_: type | object
         if isinstance(param.annotation, type):
             type_ = param.annotation
@@ -788,6 +816,7 @@ def get_model_input_spec_parser(
                 # native location.
                 type_ = locate(f"{model_cls.__module__}.{param.annotation}")
             assert isinstance(type_, type)
+
         parser.add_argument(
             f"--{name.replace('_', '-')}",
             type=type_,

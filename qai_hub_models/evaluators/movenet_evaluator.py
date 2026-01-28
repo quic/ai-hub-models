@@ -4,6 +4,8 @@
 # ---------------------------------------------------------------------
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import torch
 
@@ -14,14 +16,14 @@ from qai_hub_models.utils.image_processing import denormalize_coordinates_affine
 class MovenetPoseEvaluator(CocoBodyPoseEvaluator):
     """Evaluator for MoveNet pose estimation models"""
 
-    def __init__(self, height, width, *args, **kwargs):
+    def __init__(self, height: int, width: int, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.input_height = height
         self.input_width = width
 
     def add_batch(
         self, output: torch.Tensor | tuple[torch.Tensor], gt: list[torch.Tensor]
-    ):
+    ) -> None:
         """
         Processes MoveNet outputs and converts them to COCO-format keypoint predictions.
 

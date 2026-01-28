@@ -32,7 +32,7 @@ class CenternetPoseEvaluator(CocoBodyPoseEvaluator):
         ],
         max_dets: int = 100,
         in_vis_thre: float = 0.2,
-    ):
+    ) -> None:
         """
         Parameters
         ----------

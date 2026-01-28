@@ -32,8 +32,8 @@ class QAIRTVersion:
         self,
         version_or_tag: str | QAIRTVersion.ParsedFramework,
         return_default_if_does_not_exist: bool = False,
-        validate_exists_on_ai_hub=True,
-    ):
+        validate_exists_on_ai_hub: bool = True,
+    ) -> None:
         """
         Create this QAIRT Version.
 
@@ -45,19 +45,19 @@ class QAIRTVersion:
 
         Parameters
         ----------
-            version_or_tag:
-                QAIRT version or AI Hub Workbench version tag.
+        version_or_tag
+            QAIRT version or AI Hub Workbench version tag.
 
-            return_default_if_does_not_exist:
-                If true, return the default AI Hub Workbench QAIRT version if this QAIRT version does not exist on AI Hub Workbench.
+        return_default_if_does_not_exist
+            If true, return the default AI Hub Workbench QAIRT version if this QAIRT version does not exist on AI Hub Workbench.
 
-            validate_exists_on_ai_hub:
-                If this is True and AI Hub Workbench is reachable,
-                raises an exception if this QAIRT version is not available on AI Hub Workbench.
+        validate_exists_on_ai_hub
+            If this is True and AI Hub Workbench is reachable,
+            raises an exception if this QAIRT version is not available on AI Hub Workbench.
 
-                If this is False, and this version does not exist on AI Hub Workbench,
-                acts as if AI Hub Workbench is not configured on this machine and returns a partially completed object.
-                Some fields may be set to UNKNOWN because we can't get version information from AI Hub Workbench.
+            If this is False, and this version does not exist on AI Hub Workbench,
+            acts as if AI Hub Workbench is not configured on this machine and returns a partially completed object.
+            Some fields may be set to UNKNOWN because we can't get version information from AI Hub Workbench.
         """
         user_parsed_framework = (
             version_or_tag
@@ -164,7 +164,7 @@ class QAIRTVersion:
             QAIRTVersion.LATEST_AIHUB_TAG,
         ]
 
-    def __eq__(self, other: str | QAIRTVersion):
+    def __eq__(self, other: str | QAIRTVersion) -> bool:
         other_framework = None
         if isinstance(other, str):
             if other in self.tags:
@@ -178,7 +178,7 @@ class QAIRTVersion:
             and self.framework.flavor == other_framework.flavor
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"QAIRT v{self.api_version}"
             + (
@@ -189,7 +189,7 @@ class QAIRTVersion:
             + (f" | {', '.join(self.tags)}" if self.tags else "")
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
     @staticmethod
@@ -214,10 +214,12 @@ class QAIRTVersion:
 
         Returns
         -------
-            * currently active Hub api_url
-            * all valid frameworks on this Hub version
-            * framework that corresponds with AI Hub Workbench default
-            * framework that corresponds with AI Hub Models default
+        api_url
+            Currently active Hub api_url.
+        valid_frameworks
+            All valid frameworks on this Hub version.
+        default_framework
+            Framework that corresponds with AI Hub Workbench default.
         """
         try:
             api_url = _global_client.config.api_url
@@ -291,7 +293,7 @@ class QAIRTVersion:
         def full_version_with_flavor(self) -> str:
             return self.full_version + (f"-{self.flavor}" if self.flavor else "")
 
-        def version_eq(self, other) -> bool:
+        def version_eq(self, other: QAIRTVersion.ParsedFramework) -> bool:
             """Return true if this version matches the other version."""
             return (
                 isinstance(other, QAIRTVersion.ParsedFramework)
@@ -451,7 +453,7 @@ class TargetRuntime(Enum):
     ONNXRUNTIME_GENAI = "onnxruntime_genai"
 
     @staticmethod
-    def from_hub_model_type(model_type: hub.SourceModelType):
+    def from_hub_model_type(model_type: hub.SourceModelType) -> TargetRuntime:
         for rt in TargetRuntime:
             if rt.hub_model_type == model_type:
                 return rt
@@ -654,7 +656,7 @@ class Precision:
         weights_type: QuantizeDtype | None,
         activations_type: QuantizeDtype | None,
         override_type: QuantizeDtype | _FloatDtype | None = None,
-    ):
+    ) -> None:
         """
         `override_type` is used to specify mixed-precision
         When provided, it overrides both `weights_type` and `activations_type`
@@ -782,10 +784,10 @@ class Precision:
 
         return precision_name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __eq__(self, value):
+    def __eq__(self, value: object) -> bool:
         if not isinstance(value, Precision):
             return False
         return (

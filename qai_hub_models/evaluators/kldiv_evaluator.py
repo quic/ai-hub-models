@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import torch
 from torch.nn import functional as F
 from tqdm import tqdm
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizerBase
 from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from qai_hub_models.evaluators.base_evaluators import (
@@ -38,9 +38,9 @@ class KLDivEvaluator(BaseEvaluator):
         self,
         context_length: int,
         device: torch.device,
-        tokenizer: PreTrainedTokenizer | None = None,
+        tokenizer: PreTrainedTokenizerBase | None = None,
         verbose: bool = False,
-    ):
+    ) -> None:
         self.context_length = context_length
         self.device = device
         self.tokenizer = tokenizer
@@ -55,7 +55,7 @@ class KLDivEvaluator(BaseEvaluator):
         self,
         output: CausalLMOutputWithPast,
         gt: torch.Tensor | tuple[torch.Tensor, torch.Tensor],
-    ):
+    ) -> None:
         """
         output: This is the output of an LLM_Generator, which produces a
             CausalLMOutputWithPast instance.
@@ -127,7 +127,7 @@ class KLDivEvaluator(BaseEvaluator):
                     f"Top token Q: {top_token!r:7s}  FP: {top_token_fp!r:7s}   KL: {kldiv[-1]:6.3f}  rev-KL: {rev_kldiv[-1]:6.3f}"
                 )
 
-    def reset(self):
+    def reset(self) -> None:
         # Distances
         self.kldiv = 0.0
         self.last_kldiv = 0.0
@@ -137,7 +137,7 @@ class KLDivEvaluator(BaseEvaluator):
 
         self.batch_index = 0
 
-        self.verbose_prints = []
+        self.verbose_prints: list[str] = []
 
     def get_accuracy_score(self) -> float:
         return self.get_avg_last_kldiv()
@@ -205,18 +205,22 @@ class KLDivEvaluator(BaseEvaluator):
 
     def add_from_dataset(
         self,
-        generator: LLM_Generator,
+        model: torch.nn.Module,
         data: _DataLoader,
         eval_iterations: int | None = None,
     ) -> None:
+        from qai_hub_models.models._shared.llm.generator import LLM_Generator
+
+        assert isinstance(model, LLM_Generator), "This evaluator only works on LLMs"
+
         def _add_batch(
             _: list[torch.Tensor],
             outputs: CausalLMOutputWithPast,
             ground_truth: torch.Tensor,
-        ):
+        ) -> None:
             self.add_batch(outputs, ground_truth)
 
-        self.for_each_batch(generator, data, eval_iterations, _add_batch)
+        self.for_each_batch(model, data, eval_iterations, _add_batch)
 
     def get_metric_metadata(self) -> MetricMetadata:
         return MetricMetadata(

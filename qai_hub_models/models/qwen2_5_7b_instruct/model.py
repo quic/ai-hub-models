@@ -23,6 +23,7 @@ from qai_hub_models.models._shared.llm.model import (
     DEFAULT_SEQUENCE_LENGTH,
     get_tokenizer,
 )
+from qai_hub_models.models._shared.qwen2.model import Qwen2Base
 from qai_hub_models.utils.aimet.encodings import propagate_memory_encodings
 from qai_hub_models.utils.asset_loaders import CachedWebModelAsset
 from qai_hub_models.utils.base_model import Precision, TargetRuntime
@@ -49,7 +50,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
         sequence_length: int,
         context_length: int,
     ):
-        super().__init__(None, None)
+        super().__init__(None, None)  # type: ignore[arg-type]
         self.huggingface_model_name = huggingface_model_name
         self.llm_config = self._llm_config()
         self.sequence_length = sequence_length
@@ -135,7 +136,7 @@ class Qwen2_5_7B_Instruct(LlamaMixin):
 
     @staticmethod
     def get_output_names():
-        return Llama3Base._get_output_names(NUM_LAYERS)
+        return Qwen2Base._get_output_names(NUM_LAYERS)
 
     @staticmethod
     def get_input_spec(

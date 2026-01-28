@@ -10,6 +10,7 @@ import os
 from glob import glob
 
 import numpy as np
+import torch
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 
@@ -37,7 +38,7 @@ class CelebAHQDataset(BaseDataset):
         input_width: int = 512,
         mask_type: str | None = "random_stroke",
         random_seed: int = 42,
-    ):
+    ) -> None:
         """Initialize CelebA-HQ dataset for inpainting tasks."""
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             CELEBAHQ_DATASET_ID, CELEBAHQ_VERSION, "data"
@@ -53,10 +54,12 @@ class CelebAHQDataset(BaseDataset):
         self.input_width = input_width
         self.mask_type = mask_type
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self, index: int
+    ) -> tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
         # Load image
         image = Image.open(self.image_paths[index]).convert("RGB")
         image = image.resize((self.input_height, self.input_width))

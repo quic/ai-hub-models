@@ -34,7 +34,7 @@ class CarvanaDataset(BaseDataset):
         split: DatasetSplit = DatasetSplit.TRAIN,
         input_images_zip: str | None = None,
         input_gt_zip: str | None = None,
-    ):
+    ) -> None:
         self.data_path = ASSET_CONFIG.get_local_store_dataset_path(
             CARVANA_DATASET_ID, CARVANA_VERSION, "data"
         )
@@ -77,7 +77,7 @@ class CarvanaDataset(BaseDataset):
 
         return img_tensor, mask_tensor
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.images)
 
     def _validate_data(self) -> bool:

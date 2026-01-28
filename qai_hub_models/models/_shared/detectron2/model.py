@@ -12,6 +12,7 @@ from detectron2.config import get_cfg
 from detectron2.layers import ROIAlign
 from detectron2.model_zoo import get_checkpoint_url, get_config_file
 from detectron2.modeling import build_model
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.detectron2.model_patches import ROIAlign_forward
 from qai_hub_models.utils.asset_loaders import (
@@ -29,7 +30,7 @@ IMAGE_ADDRESS = CachedWebModelAsset.from_asset_store(
 
 class Detectron2(BaseModel):
     @classmethod
-    def from_pretrained(cls, config: str):
+    def from_pretrained(cls, config: str) -> Self:
         # Make Functional in QNN
         ROIAlign.forward = ROIAlign_forward
 

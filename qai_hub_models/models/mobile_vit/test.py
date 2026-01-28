@@ -17,7 +17,7 @@ from qai_hub_models.utils.asset_loaders import (
 from qai_hub_models.utils.testing import assert_most_close
 
 GROUP_NAME = "mobile_vit"
-MODEL_ASSET_VERSION = 1
+MODEL_ASSET_VERSION = 2
 TEST_IMAGE = CachedWebModelAsset.from_asset_store(
     GROUP_NAME, MODEL_ASSET_VERSION, "dog.jpg"
 )
@@ -27,9 +27,9 @@ TEST_CLASS = 258
 
 
 def run_classifier_test(
-    model,
+    model: MobileVIT,
     model_name: str,
-    asset_version: int = 2,
+    asset_version: int = MODEL_ASSET_VERSION,
     probability_threshold: float = 0.7,
     diff_tol: float = 0.0,
     rtol: float = 0.0,
@@ -40,16 +40,23 @@ def run_classifier_test(
 
     Parameters
     ----------
-        model: The model to evaluate.
-        model_name: Identifier used to lookup the expected output file.
-        asset_version: Version of the expected output file to lookup.
-        probability_threshold: If the predicited probability for the correct class
-            is below this threshold, the method throws an error.
-        diff_tol: Float in range [0,1] representing the maximum percentage of
-            the probabilities that can differ from the ground truth while
-            still having the test pass.
-        atol: Absolute tolerance allowed for two numbers to be "close".
-        rtol: Relative tolerance allowed for two numbers to be "close".
+    model
+        The model to evaluate.
+    model_name
+        Identifier used to lookup the expected output file.
+    asset_version
+        Version of the expected output file to lookup.
+    probability_threshold
+        If the predicited probability for the correct class
+        is below this threshold, the method throws an error.
+    diff_tol
+        Float in range [0,1] representing the maximum percentage of
+        the probabilities that can differ from the ground truth while
+        still having the test pass.
+    rtol
+        Relative tolerance allowed for two numbers to be "close".
+    atol
+        Absolute tolerance allowed for two numbers to be "close".
     """
     img = load_image(TEST_IMAGE)
     app = MobileVITApp(model)

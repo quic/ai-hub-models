@@ -43,8 +43,10 @@ class CenterNet3D(CenterNet):
 
     Parameters
     ----------
-        model (BaseModule): Centernet 3D bbox model.
-        ddd_decode(Callable): 3D bbbox dectection decoder function.
+    model
+        Centernet 3D bbox model.
+    ddd_decode
+        3D bbox detection decoder function.
     """
 
     def __init__(
@@ -94,24 +96,24 @@ class CenterNet3D(CenterNet):
 
         Parameters
         ----------
-            B = batch size, C = 3, H = img height, W = img width
-            imgs: torch.Tensor of shape [B,C,H,W] as float32
-                Preprocessed image with range[0-1] in RGB format.
+        image
+            Preprocessed image with range[0-1] in RGB format.
+            Shape [B, C, H, W] where B = batch size, C = 3, H = img height, W = img width.
 
         Returns
         -------
-            hm (torch.Tensor): Heatmap with the shape of
-                [B, num_classes, H//4, W//4].
-            dep (torch.Tensor): depth value with the
-                shape of [B, 1, H//4, W//4].
-            rot (torch.Tensor): Rotation value with the
-                shape of [B, 8, H//4, W//4].
-            dim (torch.Tensor): Size value with the shape
-                of [B, 3, H//4, W//4].
-            wh (torch.Tensor): Width/Height value with the
-                shape of [B, 2, H//4, W//4].
-            reg (torch.Tensor): 2D regression value with the
-                shape of [B, 2, H//4, W//4].
+        hm
+            Heatmap with the shape of [B, num_classes, H//4, W//4].
+        dep
+            Depth value with the shape of [B, 1, H//4, W//4].
+        rot
+            Rotation value with the shape of [B, 8, H//4, W//4].
+        dim
+            Size value with the shape of [B, 3, H//4, W//4].
+        wh
+            Width/Height value with the shape of [B, 2, H//4, W//4].
+        reg
+            2D regression value with the shape of [B, 2, H//4, W//4].
         """
         image = image[:, [2, 1, 0]]
         image = normalize_image_torchvision(image)
@@ -168,7 +170,7 @@ class CenterNet3D(CenterNet):
         return "kitti"
 
 
-def load_model(model, model_path):
+def load_model(model: torch.nn.Module, model_path: str) -> torch.nn.Module:
     checkpoint = torch.load(model_path, weights_only=False)
 
     state_dict_ = checkpoint["state_dict"]

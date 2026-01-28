@@ -41,7 +41,10 @@ class DeformableDETR(DETR):
 
         The DetectionEvaluator class is used to compute the mean average precision (mAP) of the model's predictions.
 
-        :return: An instance of the DetectionEvaluator class
+        Returns
+        -------
+        BaseEvaluator
+            An instance of the DetectionEvaluator class.
         """
         image_height, image_width = self.get_input_spec()["image"][0][2:]
         return DetectionEvaluator(image_height, image_width, score_threshold=0.4)

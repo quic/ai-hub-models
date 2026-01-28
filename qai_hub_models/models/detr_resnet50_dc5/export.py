@@ -18,6 +18,7 @@ import qai_hub as hub
 import torch
 
 from qai_hub_models import Precision, TargetRuntime
+from qai_hub_models.configs.metadata_yaml import ModelFileMetadata, ModelMetadata
 from qai_hub_models.configs.tool_versions import ToolVersions
 from qai_hub_models.models.common import SampleInputsType
 from qai_hub_models.models.detr_resnet50_dc5 import MODEL_ID, Model
@@ -173,11 +174,21 @@ def download_model(
         dst_path.mkdir()
 
         if target_model.model_type == hub.SourceModelType.ONNX:
-            download_and_unzip_workbench_onnx_model(target_model, dst_path, model_name)
+            onnx_result = download_and_unzip_workbench_onnx_model(
+                target_model, dst_path, model_name
+            )
+            model_file_name = onnx_result.onnx_graph_name
         else:
-            target_model.download(os.path.join(dst_path, model_name))
+            downloaded_path = target_model.download(os.path.join(dst_path, model_name))
+            model_file_name = os.path.basename(downloaded_path)
 
         tool_versions.to_yaml(os.path.join(dst_path, "tool-versions.yaml"))
+
+        # Extract and save metadata alongside downloaded model
+        metadata_path = dst_path / "metadata.yaml"
+        file_metadata = ModelFileMetadata.from_hub_model(target_model)
+        model_metadata = ModelMetadata(model_files={model_file_name: file_metadata})
+        model_metadata.to_yaml(metadata_path)
 
         if zip_assets:
             output_path = Path(
@@ -210,7 +221,7 @@ def export_model(
     profile_options: str = "",
     fetch_static_assets: str | None = None,
     zip_assets: bool = False,
-    **additional_model_kwargs,
+    **additional_model_kwargs: Any,
 ) -> ExportResult:
     """
     This function executes the following recipe:
@@ -425,16 +436,10 @@ def export_model(
     )
 
 
-def main():
+def main() -> None:
     warnings.filterwarnings("ignore")
     supported_precision_runtimes: dict[Precision, list[TargetRuntime]] = {
         Precision.float: [
-            TargetRuntime.QNN_DLC,
-            TargetRuntime.QNN_CONTEXT_BINARY,
-            TargetRuntime.ONNX,
-            TargetRuntime.PRECOMPILED_QNN_ONNX,
-        ],
-        Precision.w8a16_mixed_int16: [
             TargetRuntime.QNN_DLC,
             TargetRuntime.QNN_CONTEXT_BINARY,
             TargetRuntime.ONNX,

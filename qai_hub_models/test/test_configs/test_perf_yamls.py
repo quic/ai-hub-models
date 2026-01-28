@@ -13,13 +13,13 @@ from qai_hub_models.configs.perf_yaml import QAIHMModelPerf
 from qai_hub_models.utils.path_helpers import MODEL_IDS
 
 
-def test_perf_yaml():
+def test_perf_yaml() -> None:
     # DevicesAndChipsetsYaml defines the devices valid for use with the AI Hub Models website.
     dc = DevicesAndChipsetsYaml.load()
     valid_devices = dc.devices
     valid_chipsets = dc.chipsets
 
-    def _validate_device(device: ScorecardDevice):
+    def _validate_device(device: ScorecardDevice) -> None:
         # Verify the given device is valid for use in the AI Hub Models website.
         if device.reference_device_name not in valid_devices:
             raise ValueError(
@@ -27,7 +27,7 @@ def test_perf_yaml():
                 "You may need to re-generate the valid device list via `python qai_hub_models/models/generate_scorecard_device_yaml.py`"
             )
 
-    def _validate_chipset(chipset_name: str):
+    def _validate_chipset(chipset_name: str) -> None:
         # Verify the given chipsets is valid for use in the AI Hub Models website.
         if chipset_name not in valid_chipsets:
             raise ValueError(

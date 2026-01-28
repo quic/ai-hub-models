@@ -20,7 +20,7 @@ def batched_nms(
     boxes: torch.Tensor,
     scores: torch.Tensor,
     class_indices: torch.Tensor | None = None,
-    *gather_additional_args,
+    *gather_additional_args: torch.Tensor,
 ) -> tuple[list[torch.Tensor], ...]:
     """
     Non maximum suppression over several batches.
@@ -338,7 +338,7 @@ def apply_directional_box_offset(
     vec_end: torch.Tensor,
     xc: torch.Tensor,
     yc: torch.Tensor,
-):
+) -> None:
     """
     Offset the bounding box defined by [xc, yc] by a pre-determined length.
     The offset will be applied in the direction of the supplied vector.

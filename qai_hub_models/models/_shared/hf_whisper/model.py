@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
+from typing import Any, cast
 
 import torch
 from qai_hub import Device
@@ -16,10 +16,10 @@ from transformers import (
     WhisperForConditionalGeneration,
     WhisperTokenizer,
 )
+from transformers.models.whisper.modeling_whisper import WhisperDecoder, WhisperEncoder
+from typing_extensions import Self
 
 from qai_hub_models.models._shared.hf_whisper.model_adaptation import (
-    QcWhisperDecoder,
-    QcWhisperEncoder,
     monkey_patch_model,
 )
 from qai_hub_models.models.common import Precision, TargetRuntime
@@ -63,11 +63,12 @@ class HfWhisperEncoder(BaseModel):
     """
 
     def __init__(
-        self, config: WhisperConfig, model: QcWhisperEncoder | None = None
+        self, config: WhisperConfig, model: WhisperEncoder | None = None
     ) -> None:
         super().__init__()
         self.encoder = model
         self.config = config
+        self.eval()
 
     def forward(self, input_features: torch.Tensor) -> tuple[torch.Tensor, ...]:
         # Return cross attention key and value cache tensors
@@ -101,9 +102,9 @@ class HfWhisperEncoder(BaseModel):
         return self.__class__.get_output_names(self.config.decoder_layers)
 
     @classmethod
-    def from_pretrained(cls):
-        hf_whisper = HfWhisper.from_pretrained()
-        return cls(hf_whisper.config, hf_whisper.encoder)
+    def from_pretrained(cls, hf_whisper_version: str = "openai/whisper-base") -> Self:
+        model = HfWhisper.load_whisper_model(hf_whisper_version)
+        return cls(cast(WhisperConfig, model.config), model.get_encoder())
 
     def get_hub_profile_options(
         self, target_runtime: TargetRuntime, other_profile_options: str = ""
@@ -146,11 +147,12 @@ class HfWhisperDecoder(BaseModel):
     """
 
     def __init__(
-        self, config: WhisperConfig, model: QcWhisperDecoder | None = None
+        self, config: WhisperConfig, model: WhisperDecoder | None = None
     ) -> None:
         super().__init__()
         self.decoder = model
         self.config = config
+        self.eval()
 
     @property
     def num_blocks(self) -> int:
@@ -163,33 +165,42 @@ class HfWhisperDecoder(BaseModel):
         """
         Parameters
         ----------
-        - input_ids: torch.tensor, shape = (batch_size, <= n_ctx)
-            the text tokens
+        *args
+            Variadic arguments containing in order:
 
-        - attention_mask: torch.tensor, shape = (1, 1, 1, 200)
-            Mask to avoid performing attention on padding token indices.
+            input_ids
+                The text tokens with shape (batch_size, <= n_ctx).
+            attention_mask
+                Mask to avoid performing attention on padding token indices
+                with shape (1, 1, 1, 200).
+            kv_caches
+                Key/value caches for self and cross attention. For each layer i:
 
-        - kv_caches
-          k_cache_self_{i}_in: key cache for self attention:
-          [num_heads, 1, attn_dim/num_heads, self.max_decode_len - 1]
-          pass zeros for first call (index 0), otherwise pass in
-          previous decoder output
-          v_cache_self_{i}_in: value cache for self attention:
-          [num_heads, 1, self.max_decode_len - 1, attn_dim/num_heads]
-          pass zeros for first call (index 0), otherwise pass in
-          previous decoder output
-          k_cache_cross_{i}: key cache for cross attention:
-          [num_heads, 1, attn_dim/num_heads, AUDIO_EMB_LEN]
-          v_cache_cross_{i}: value cache for cross attention:
-          [num_heads, 1, AUDIO_EMB_LEN, attn_dim/num_heads]
-
-        - position_ids: torch.tensor, shape = (1)
-            index to get the positional encoding for x.
+                k_cache_self_{i}_in
+                    Key cache for self attention with shape
+                    [num_heads, 1, attn_dim/num_heads, self.max_decode_len - 1].
+                    Pass zeros for first call (index 0), otherwise pass in
+                    previous decoder output.
+                v_cache_self_{i}_in
+                    Value cache for self attention with shape
+                    [num_heads, 1, self.max_decode_len - 1, attn_dim/num_heads].
+                    Pass zeros for first call (index 0), otherwise pass in
+                    previous decoder output.
+                k_cache_cross_{i}
+                    Key cache for cross attention with shape
+                    [num_heads, 1, attn_dim/num_heads, AUDIO_EMB_LEN].
+                v_cache_cross_{i}
+                    Value cache for cross attention with shape
+                    [num_heads, 1, AUDIO_EMB_LEN, attn_dim/num_heads].
+            position_ids
+                Index to get positional encoding with shape (1).
 
         Returns
         -------
-        - logits: of shape [1, 51865, 1, 1]
-        - kv_cache_self_new: updated key value cache for self attention
+        logits
+            Output logits of shape [1, 51865, 1, 1].
+        kv_cache_self_new
+            Updated key value cache for self attention.
         """
         assert self.decoder is not None, "model is None"
         input_ids = args[0]
@@ -207,6 +218,7 @@ class HfWhisperDecoder(BaseModel):
             )
         ]
         position_ids = args[-1]
+        position_ids = position_ids.to(torch.int64)
 
         logits, kv_cache_self_new = self.decoder(
             input_ids=input_ids,
@@ -278,9 +290,9 @@ class HfWhisperDecoder(BaseModel):
         return self.__class__.get_output_names(self.num_blocks)
 
     @classmethod
-    def from_pretrained(cls):
-        hf_whisper = HfWhisper.from_pretrained()
-        return cls(hf_whisper.config, hf_whisper.decoder)
+    def from_pretrained(cls, hf_whisper_version: str = "openai/whisper-base") -> Self:
+        model = HfWhisper.load_whisper_model(hf_whisper_version)
+        return cls(cast(WhisperConfig, model.config), model.get_decoder())
 
     def get_hub_compile_options(
         self,
@@ -317,34 +329,36 @@ class HfWhisper(CollectionModel):
         self.hf_source = hf_source
 
     @classmethod
+    def load_whisper_model(
+        cls, hf_whisper_version: str | None = None
+    ) -> WhisperForConditionalGeneration:
+        hf_whisper_version = (
+            cls.get_hf_whisper_version()
+            if hf_whisper_version is None
+            else hf_whisper_version
+        )
+        orig_whisper = cast(
+            WhisperForConditionalGeneration,
+            WhisperForConditionalGeneration.from_pretrained(hf_whisper_version),
+        )
+        orig_whisper.config.return_dict = False
+        orig_whisper.config.tie_word_embeddings = False
+        orig_whisper.config.mask_neg = MASK_NEG
+        monkey_patch_model(orig_whisper.model)
+        return cast(WhisperForConditionalGeneration, orig_whisper)
+
+    @classmethod
     @abstractmethod
     def get_hf_whisper_version(cls) -> str:
         pass
 
     @classmethod
-    def from_pretrained(cls):
-        hf_whisper_version = cls.get_hf_whisper_version()
-        orig_whisper = WhisperForConditionalGeneration.from_pretrained(
-            hf_whisper_version
-        )
-        orig_whisper.config.return_dict = False
-        orig_whisper.config.tie_word_embeddings = False
-        orig_whisper.config.mask_neg = MASK_NEG
-
-        whisper_model = orig_whisper.model
-        monkey_patch_model(whisper_model)
-
-        encoder = HfWhisperEncoder(orig_whisper.config, whisper_model.get_encoder())
-        decoder = HfWhisperDecoder(orig_whisper.config, whisper_model.get_decoder())
-
-        encoder.eval()
-        decoder.eval()
-        return cls(
-            encoder,
-            decoder,
-            orig_whisper.config,
-            hf_whisper_version,
-        )
+    def from_pretrained(cls) -> Self:
+        whisper = cls.load_whisper_model()
+        config = cast(WhisperConfig, whisper.config)
+        encoder = HfWhisperEncoder(config, whisper.get_encoder())
+        decoder = HfWhisperDecoder(config, whisper.get_decoder())
+        return cls(encoder, decoder, config, cls.get_hf_whisper_version())
 
 
 def get_feature_extractor(

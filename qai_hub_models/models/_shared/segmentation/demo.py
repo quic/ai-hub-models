@@ -18,13 +18,13 @@ from qai_hub_models.utils.image_processing import pil_resize_pad, pil_undo_resiz
 
 def segmentation_demo(
     model_type: type[BaseModel],
-    model_id,
+    model_id: str,
     default_image: CachedWebModelAsset,
     is_test: bool = False,
     normalize_input: bool = True,
     pad_mode: str = "constant",
     app_cls: type[SegmentationApp] = SegmentationApp,
-):
+) -> None:
     # Demo parameters
     parser = get_model_cli_parser(model_type)
     parser = get_on_device_demo_parser(parser, add_output_dir=True)

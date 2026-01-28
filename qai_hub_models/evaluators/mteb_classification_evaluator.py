@@ -23,13 +23,13 @@ from qai_hub_models.evaluators.base_evaluators import BaseEvaluator, MetricMetad
 class ClassificationEvaluator(BaseEvaluator):
     def __init__(
         self,
-        model,
+        model: torch.nn.Module,
         seq_len: int = 128,
         max_iter: int = 100,
         n_experiments: int = 10,
         samples_per_label: int = 32,
         seed: int = 42,
-    ):
+    ) -> None:
         self.max_iter = max_iter
         self.n_experiments = n_experiments
         self.samples_per_label = samples_per_label
@@ -47,11 +47,11 @@ class ClassificationEvaluator(BaseEvaluator):
         self.train_model()
         self.reset()
 
-    def reset(self):
-        self.test_text = []
-        self.y_test = []
+    def reset(self) -> None:
+        self.test_text: list[torch.Tensor] = []
+        self.y_test: list[torch.Tensor] = []
 
-    def add_batch(self, out: torch.Tensor, gt: torch.Tensor):
+    def add_batch(self, out: torch.Tensor, gt: torch.Tensor) -> None:
         """
         Parameters
         ----------
@@ -110,7 +110,7 @@ class ClassificationEvaluator(BaseEvaluator):
                 label_counter[y[i]] += 1
         return X_sampled, y_sampled, idxs
 
-    def train_model(self):
+    def train_model(self) -> None:
         idxs = None
         self.trained_model = []
         for _ in range(self.n_experiments):

@@ -19,13 +19,13 @@ class HeadBlock(nn.Module):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of channels for the convolutional layers.
 
-        group_size : int, optional
+        group_size
             Group size for grouped convolutions. Defaults to 32.
 
-        activ_type : str, optional
+        activ_type
             Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
         """
         super().__init__()
@@ -94,7 +94,7 @@ class HeadBlock(nn.Module):
 
         Parameters
         ----------
-        x : Tensor
+        x
             Input tensor of shape [N, 3, H, W].
 
         Returns
@@ -117,13 +117,13 @@ class DownsampleBlock(nn.Module):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of input channels.
 
-        group_size : int, optional
+        group_size
             Group size for grouped convolutions. Defaults to 32.
 
-        activ_type : str, optional
+        activ_type
             Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
 
         """
@@ -214,7 +214,7 @@ class DownsampleBlock(nn.Module):
 
         Parameters
         ----------
-        x : Tensor
+        x
             Input tensor of shape [N, chan, H, W].
 
         Returns
@@ -236,13 +236,13 @@ class NormalBlock(nn.Module):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of input and output channels.
 
-        group_size : int, optional
+        group_size
             Group size for grouped convolutions. Defaults to 32.
 
-        activ_type : str, optional
+        activ_type
             Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
 
         """
@@ -302,7 +302,7 @@ class NormalBlock(nn.Module):
 
         Parameters
         ----------
-        x : Tensor
+        x
             Input tensor of shape [N, chan, H, W].
 
         Returns
@@ -323,13 +323,13 @@ class EmbedBlock(nn.Module):
 
         Parameters
         ----------
-        chan : int
+        chan
             Number of input and output channels.
 
-        group_size : int, optional
+        group_size
             Group size for grouped convolutions. Defaults to 32.
 
-        activ_type : str, optional
+        activ_type
             Activation function type ('prelu' or 'relu'). Defaults to 'prelu'.
         """
         super().__init__()
@@ -355,7 +355,7 @@ class EmbedBlock(nn.Module):
 
         Parameters
         ----------
-        x : Tensor
+        x
             Input tensor of shape [N, chan, H, W] where H,W >= 8.
 
         Returns
@@ -387,28 +387,28 @@ class Conv2dBlock(nn.Module):
 
         Parameters
         ----------
-        in_chan : int
+        in_chan
             Number of input channels.
 
-        out_chan : int
+        out_chan
             Number of output channels.
 
-        kernel_size : int or tuple
+        kernel_size
             Size of the convolutional kernel.
 
-        padding : int or tuple, optional
+        padding
             Zero-padding added to both sides of the input. Defaults to 0.
 
-        stride : int or tuple, optional
+        stride
             Stride of the convolution. Defaults to 1.
 
-        group : int, optional
+        group
             Number of blocked connections from input channels to output channels. Defaults to 1.
 
-        norm : str, optional
+        norm
             Normalization type ('bn' for BatchNorm2d, 'none'). Defaults to 'none'.
 
-        activ : str, optional
+        activ
             Activation function type ('prelu', 'relu', 'sigmoid', 'none'). Defaults to 'none'.
 
         """
@@ -449,7 +449,7 @@ class Conv2dBlock(nn.Module):
 
         Parameters
         ----------
-        x : Tensor
+        x
             Input tensor of shape [N, in_chan, H, W].
 
         Returns

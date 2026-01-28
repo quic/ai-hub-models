@@ -34,14 +34,17 @@ class RF_DETR(DETR):
 
         Parameters
         ----------
-            image: Image tensor to run detection on.
+        image
+            Image tensor to run detection on.
 
         Returns
         -------
-            A tuple of three tensors:
-                - boxes: torch.Tensor of shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2)
-                - scores: torch.Tensor of shape (1, 100) representing the confidence scores
-                - labels: torch.Tensor of shape (1, 100) representing the class labels
+        boxes
+            Shape (1, 100, 4) representing the bounding box coordinates (x1, y1, x2, y2).
+        scores
+            Shape (1, 100) representing the confidence scores.
+        labels
+            Shape (1, 100) representing the class labels.
         """
         image_array = normalize_image_torchvision(image)
         # boxes: (center_x, center_y, w, h)

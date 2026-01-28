@@ -115,8 +115,10 @@ def main(is_test: bool = False) -> None:
     """
     Entry point for running the StateTransformer demo.
 
-    Args:
-        is_test: If True, runs in test mode without printing.
+    Parameters
+    ----------
+    is_test
+        If True, runs in test mode without printing.
     """
     state_transformer_demo(
         StateTransformer, MODEL_ID, MODEL_PATH, DATA_PATH, MAP_PATH, is_test

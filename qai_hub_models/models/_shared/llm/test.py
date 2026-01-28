@@ -9,7 +9,8 @@ import sys
 from collections.abc import Callable
 from inspect import signature
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from typing import Any
+from unittest.mock import MagicMock, Mock, _patch, patch
 
 import numpy as np
 import pytest
@@ -30,7 +31,9 @@ from qai_hub_models.utils.testing import patch_qai_hub
 GENIE_BUNDLES_ROOT = "genie_bundles"
 
 
-def _mock_from_pretrained(model_cls, context_length: int, sequence_length: int):
+def _mock_from_pretrained(
+    model_cls: type[LLM_AIMETOnnx], context_length: int, sequence_length: int
+) -> Mock:
     model = MagicMock()
     model.__signature__ = signature(model_cls.from_pretrained)
     mock_from_pretrained = Mock()
@@ -47,7 +50,7 @@ def from_bundle_path_patch(bundle_path: str | os.PathLike) -> ONNXBundle:
     )
 
 
-def split_onnx_patch(*args, num_splits, **kwargs):
+def split_onnx_patch(*args: Any, num_splits: int, **kwargs: Any) -> list[ONNXBundle]:
     return [from_bundle_path_patch(f"{i}") for i in range(num_splits)]
 
 
@@ -58,7 +61,16 @@ def _create_patches(
     context_length: int,
     sequence_length: int,
     tmp_path: Path,
-):
+) -> tuple[
+    Mock,
+    _patch[Mock],
+    _patch[Mock],
+    _patch[Mock],
+    _patch[Mock],
+    _patch[Mock],
+    _patch[Mock],
+    _patch[Mock],
+]:
     mock_from_pretrained = _mock_from_pretrained(
         model_cls, context_length, sequence_length
     )
@@ -115,7 +127,7 @@ def test_cli_device_with_skips_unsupported_precision_device(
     model_cls: type[LLM_AIMETOnnx],
     tmp_path: Path,
     base_name: str,
-):
+) -> None:
     (
         _,
         patch_model,
@@ -159,7 +171,7 @@ def test_cli_device_with_skips_unsupported_context_length(
     model_cls: type[LLM_AIMETOnnx],
     tmp_path: Path,
     base_name: str,
-):
+) -> None:
     (
         _,
         patch_model,
@@ -208,7 +220,7 @@ def test_cli_device_with_skips(
     skip_inferencing: bool,
     skip_profiling: bool,
     target_runtime: TargetRuntime,
-):
+) -> None:
     context_length = 4096
     sequence_length = 128
     (
@@ -294,7 +306,7 @@ def test_cli_chipset_with_options(
     sequence_length: int,
     target_runtime: TargetRuntime,
     precision: Precision = Precision.w4a16,  # noqa: PT028
-):
+) -> None:
     (
         mock_from_pretrained,
         patch_model,
@@ -441,7 +453,7 @@ def test_cli_default_device_select_component(
     skip_download: bool,
     skip_summary: bool,
     target_runtime: TargetRuntime,
-):
+) -> None:
     context_length = 4096
     sequence_length = 128
     (

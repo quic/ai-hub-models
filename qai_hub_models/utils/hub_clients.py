@@ -33,7 +33,7 @@ PRIVATE_SCORECARD_CLIENT_USER = "PRIVATE"
 HUB_GLOBAL_CLIENT_CONFIG_OVERRIDE_REENTRANT_LOCK = threading.RLock()
 
 
-def deployment_is_prod(deployment: str):
+def deployment_is_prod(deployment: str) -> bool:
     return deployment.lower() in ["workbench", "app", "prod"]
 
 
@@ -198,7 +198,7 @@ def set_default_hub_client(
     client: hub.client.Client,
     hub_attr_overrides: dict[str, Any] | None = None,
     hub_hub_attr_overrides: dict[str, Any] | None = None,
-):
+) -> None:
     """
     Sets the default hub client.
 

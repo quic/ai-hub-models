@@ -93,26 +93,29 @@ class MovenetApp:
         self,
         image: Image.Image | torch.Tensor | np.ndarray | list[Image.Image],
         raw_output: bool = False,
-        confidence_threshold=0.001,
+        confidence_threshold: float = 0.001,
     ) -> list[Image.Image] | np.ndarray:
         """
         Predicts up to 17 pose keypoints for up to 10 people in the image.
 
         Parameters
         ----------
-            image: Image on which to predict pose keypoints.
-            raw_output: bool
-
+        image
+            Image on which to predict pose keypoints.
+        raw_output
+            Whether to return raw keypoint coordinates.
+        confidence_threshold
+            Minimum confidence threshold for displaying keypoints.
 
         Returns
         -------
-            If raw_output is true, returns:
-                kpt_with_conf: np.ndarray with shape (B, 1, 17, 3)
-                    keypoint coordinates with confidence.
+        If raw_output is False, returns:
+        predicted_images
+            Image with keypoints drawn.
 
-            Otherwise, returns:
-                predicted_images: PIL.Image.Image with original image size.
-                    Image with keypoints drawn.
+        If raw_output is True, returns:
+        kpt_with_conf
+            Keypoint coordinates with confidence. Shape (B, 1, 17, 3).
         """
         NHWC_int_numpy_frames, NCHW_torch_images = app_to_net_image_inputs(image)
         NCHW_torch_images, scale, pad = resize_pad(

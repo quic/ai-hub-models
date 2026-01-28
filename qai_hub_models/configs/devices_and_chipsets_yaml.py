@@ -114,7 +114,7 @@ class FormFactorYaml(BaseQAIHMConfig):
     world: WebsiteWorld
 
     @staticmethod
-    def from_form_factor(form_factor: ScorecardDevice.FormFactor):
+    def from_form_factor(form_factor: ScorecardDevice.FormFactor) -> FormFactorYaml:
         return FormFactorYaml(
             display_name=FormFactorYaml._form_factor_to_display_name(form_factor),
             world=WebsiteWorld.from_form_factor(form_factor),
@@ -137,7 +137,7 @@ class DeviceDetailsYaml(BaseQAIHMConfig):
     enabled_in_scorecard: bool = False
 
     @staticmethod
-    def from_device(device: ScorecardDevice):
+    def from_device(device: ScorecardDevice) -> DeviceDetailsYaml:
         return DeviceDetailsYaml(
             chipset=device.chipset,
             os=device.os,
@@ -155,7 +155,7 @@ class ChipsetYaml(BaseQAIHMConfig):
     world: WebsiteWorld
 
     @staticmethod
-    def from_device(device: ScorecardDevice):
+    def from_device(device: ScorecardDevice) -> ChipsetYaml:
         world = WebsiteWorld.from_form_factor(device.form_factor)
         return ChipsetYaml(
             aliases=device.chipset_aliases,
@@ -178,7 +178,12 @@ class ChipsetYaml(BaseQAIHMConfig):
 
         # 8cxgen2 -> 8cx Gen 2
         # 8gen2 -> 8 Gen 2
-        chip = re.sub(r"(\w+)gen(\d+)", r"\g<1> Gen \g<2>", chip)
+        # Gen5 -> Gen 5
+        chip = re.sub(
+            r"(\w*)[g|G]en(\d+)",
+            lambda m: f"{m.group(1)} Gen {m.group(2)}".strip(),
+            chip,
+        )
 
         # 8 Core -> 8-Core
         chip = re.sub(r"(\d+) Core", r"\g<1>-Core", chip)
@@ -186,7 +191,7 @@ class ChipsetYaml(BaseQAIHMConfig):
         # qcs6490 -> QCS6490
         # sa8775p -> SA8775P
         chip = re.sub(
-            r"(Qcs|Sa)\s*(\w+)",
+            r"(Qcs|Qcm|Sa)\s*(\w+)",
             lambda m: f"{m.group(1).upper()}{m.group(2).upper()}",
             chip,
         )
@@ -210,6 +215,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
 
     scorecard_path_to_website_runtime: dict[ScorecardProfilePath, InferenceEngine] = (
         Field(default_factory=dict)
+    )
+    scorecard_path_assets_require_chipset: dict[ScorecardProfilePath, bool] = Field(
+        default_factory=dict
     )
     scorecard_path_extensions: dict[ScorecardProfilePath, str] = Field(
         default_factory=dict
@@ -239,6 +247,9 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
                 out.scorecard_path_extensions[profile_path] = (
                     f".{profile_path.runtime.file_extension}"
                 )
+                out.scorecard_path_assets_require_chipset[profile_path] = (
+                    profile_path.runtime.is_aot_compiled
+                )
 
         # For each hub device...
         for hub_device in hub.get_devices():
@@ -265,13 +276,13 @@ class DevicesAndChipsetsYaml(BaseQAIHMConfig):
         return out
 
     @staticmethod
-    def load():
+    def load() -> DevicesAndChipsetsYaml:
         """Load this configuration from its standard YAML location in the AI Hub Models python package."""
         return DevicesAndChipsetsYaml.from_yaml(SCORECARD_DEVICE_YAML_PATH)
 
-    def save(self):
+    def save(self) -> None:
         """Save this configuration to its standard YAML location in the AI Hub Models python package."""
-        return self.to_yaml(SCORECARD_DEVICE_YAML_PATH)
+        self.to_yaml(SCORECARD_DEVICE_YAML_PATH)
 
     def get_device_details_without_aihub(
         self, device: hub.Device
